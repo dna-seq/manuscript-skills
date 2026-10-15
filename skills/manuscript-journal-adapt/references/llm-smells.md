@@ -1,13 +1,15 @@
 # LLM smells in scientific manuscripts: a catalogue
 
-What makes text read as machine-written, with an example of each and how to fix it. Sections B, C, F, G
-and H apply to any prose (a paper, a cover letter, a grant, documentation, an email to an editor);
-sections A, D and E add what is specific to scientific manuscripts.
+What makes text read as machine-written, with an example of each and how to fix it. Sections B, C, F, G,
+H, I and K apply to any prose (a paper, a cover letter, a grant, documentation, an email to an editor);
+sections A, D and E add what is specific to scientific manuscripts. The last section settles the points on
+which humanizer guides disagree.
 
 Sources: Wikipedia's "Signs of AI writing" (WikiProject AI Cleanup); the blader/humanizer skill (MIT,
 © 2025 Siqi Chen), whose 33 general patterns are adapted here; the editing levers 3 to 8 and the
 rhetorical-scaffolding checklist of harshaneel/humanize (MIT, © 2026 Harshaneel Gokhale), whose
-detector-evasion levers are left out; corpus studies of post-2023 abstracts (Kobak et al. 2025; Juzek &
+detector-evasion levers are left out; ideas from 28 further open-source writing skills surveyed on
+2026-10-15 (listed in the plugin's NOTICE), paraphrased; corpus studies of post-2023 abstracts (Kobak et al. 2025; Juzek &
 Ward 2025; Liang et al. 2025) for the vocabulary; Reinhart et al. (PNAS 2025) for the grammatical profile;
 and, for the scientific patterns (numbers, statistics, citations, section structure), what editors and
 reviewers name when they reject "AI slop".
@@ -427,6 +429,85 @@ and what the data showed.
 
 ---
 
+### B9. Ornamental adverbs
+
+**Watch for:** markedly, remarkably, strikingly, profoundly, critically, fundamentally, uniquely, deeply,
+truly, genuinely, clearly, obviously, essentially, actually, really, very, quite.
+
+**Deletion test:** delete the adverb. If nothing about size, frequency, direction or calibration is lost,
+it was ornament. Keep the functional ones: approximately, slightly, modestly, consistently, almost, only,
+largely, relatively, statistically significantly.
+
+**Before:**
+> The effect was remarkably consistent across the four cohorts.
+
+**After:**
+> The effect was consistent across the four cohorts (hazard ratios 0.81 to 0.86).
+
+### B10. Grand nouns and metaphorical verbs
+
+**Watch for:** tapestry, journey, beacon, cornerstone, linchpin, nexus, mosaic, hallmark, symphony, fabric,
+treasure trove, double-edged sword, ecosystem or landscape used as metaphors; navigate (challenges),
+unpack, harness, unlock, bridge the gap, illuminate, ignite, unravel, elevate, empower, spearhead,
+catalyze, reimagine, embark, embrace, resonate, weave.
+
+**Fix:** the literal noun or verb. "The results shed light on X" → "The results show X".
+
+**Before:**
+> This framework bridges the gap between raw sequence data and clinical insight, empowering clinicians to
+> navigate the complexities of variant interpretation.
+
+**After:**
+> The framework turns a VCF into a report that lists each variant's classification and its evidence.
+
+**Leave it when:** the word is the technical term (an ecosystem in ecology, a fitness landscape).
+
+### B11. Mannered metaphor where a literal phrase exists
+
+**Watch for:** a figure of speech standing in for a plain technical statement ("a dial worth turning" for a
+parameter worth varying; "this check earns its keep"; "the data whisper"). Claude-family drafts are prone to
+this.
+
+**Fix:** use the literal phrase. Metaphor is for explaining a mechanism, not for decorating a claim.
+
+### B12. Moral and "real" adjectives on technical nouns
+
+**Watch for:** an honest estimate, a principled approach, genuine accuracy, true performance, real
+improvement, faithful reproduction, when no dishonest or false counterpart is in view.
+
+**Fix:** drop the adjective or say what makes it so ("an estimate on held-out data").
+
+### B13. Universal quantifiers and lazy extremes
+
+**Watch for:** every, all, always, never, nobody, universally, in every case, across all settings, where
+the evidence covers some.
+
+**Fix:** the actual scope ("in all four cohorts", "in 11 of 12 datasets"). Keep a force-bearing "never",
+"must" or "all" in rules, inclusion criteria and safety statements.
+
+### B14. Loose word choices in biomedical prose
+
+| loose | precise |
+|---|---|
+| linked to (for a statistical result) | associated with |
+| via (for a mechanism or route) | through, by |
+| yields (for an analysis output) | produces, gives (keep for chemical yields) |
+| where (as a loose connector) | with, in which, or a new sentence |
+| leads to (for an association) | is associated with (unless causal) |
+| patients (for animals or cell lines) | mice, animals, cells, samples |
+| remain speculative | are speculative |
+
+### B15. Vocabulary drifts by model era
+
+Lists decay. Words that marked GPT-4 text (delve, tapestry) fell after publicity; newer models favour other
+words. Reported in 2026: challenge, clearer, dependable, echoed, foster, leverage, matters, multifaceted,
+practical, prioritize, quietly, steady, universally (GPT-6 era); causal, empirical, correlate (Grok);
+genuinely, fascinating, nuanced, refreshingly, quietly (Claude family). Treat any list as a prompt to look,
+re-check it against your own model's drafts in your field, and date it.
+
+**Never swap one listed word for another.** Several humanizer tables replace "unprecedented" with
+"groundbreaking" or "underscore" with "highlight". Restructure the sentence instead.
+
 ## C. Sentence shapes
 
 ### C1. Negative parallelism
@@ -592,6 +673,109 @@ made.
 
 ---
 
+### C12. Content-free evaluation sentences
+
+**Watch for:** a sentence whose only content is that something matters: This is a noteworthy finding.
+These results are of clinical significance. This deserves further attention. The implications are
+significant.
+
+**Fix:** delete it, or give the reason in the same sentence ("…, which would change the dose for carriers").
+
+### C13. Cleft and wh- constructions
+
+**Watch for:** What makes this hard is X; What matters is X; It is the validation cohort that carries the
+evidence; Where the method shines is X.
+
+**Fix:** plain subject and verb: "X makes this hard", "The validation cohort carries the evidence". An
+interrogative opener that frames a real analytic question is fine.
+
+### C14. False agency
+
+**Watch for:** inanimate subjects doing what only people do: the data tells us, the analysis decided, the
+Methods section excludes participants, the decision emerged, this course cannot exclude.
+
+**Fix:** name who judged ("We excluded participants who…"). Keep display and evidence verbs for objects
+("Figure 1 shows", "These data suggest"). Name the agent when who did it is the claim ("we reproduced").
+
+### C15. Measurement words are load-bearing
+
+**Watch for, when editing:** measured, estimated, apparent, reported, observed, self-reported, predicted,
+in this cohort, at this threshold.
+
+**Rule:** never delete them in a style edit. "The apparent diffusion coefficient was lower" and "The
+diffusion coefficient was lower" are different claims.
+
+### C16. A sentence that starts with a digit
+
+**Before:** "49 samples were excluded after quality control."
+**After:** "We excluded 49 samples after quality control." (or "Forty-nine samples…")
+Never fix it by moving the number away from its denominator.
+
+### C17. Condensed expressions
+
+**Watch for:** dash compounds standing for a mechanism (the sleep–mood–cognition pathway), shorthand with no
+mechanism (mutual reinforcement, bidirectional relationship, complex interplay), arrow chains in prose
+(A → B → disease).
+
+**Fix:** write the relation out: "the pathway linking sleep, mood and cognition", and say which direction
+was measured.
+
+### C18. Over-compression and chopping
+
+The opposite failure of a de-slop pass. **Never cut** a unit, a denominator, an n, a condition, or the
+qualifier that makes a claim true. **Do not chop** sentences into fragments for rhythm, or turn reasoning
+into a run of blunt declaratives where "because", "although" or "so" carried the logic. Keep the authors'
+own short sentences. A de-slopped paragraph is plainer, not terser.
+
+### C19. Connective-preserving cuts
+
+When you delete "Additionally," or a participle tail, the logical link it carried must survive: restore it
+with a fitting connective, an echoed key noun (old information first, new last), or by merging the two
+sentences. Bare deletion leaves choppy asyndeton, itself a sign of automated cleanup. Plain "because" and
+"so" are underused by models; use them where the relation is causal.
+
+### C20. Clause-stacked sentences
+
+**Watch for:** sentences over about 30 words with three or more subordinate clauses chained by which, that,
+while, with; a subject and its verb more than about 12 words apart.
+
+**Fix:** one idea per sentence; keep subject and verb close; put the new information at the end.
+
+### C21. Abstract wrappers
+
+**Watch for:** a sense of, a mix of, the weight of, a constant reminder of, the notion of, the realm of, the
+concept of, paired abstractions ("curiosity and caution").
+
+**Fix:** name the concrete thing.
+
+### C22. Declarative chains: slogans with no transitions
+
+**Watch for:** a paragraph of short, self-contained declarative sentences, each sounding like a headline,
+with nothing linking one to the next: no "because", "so", "which means", "as a result", "but", no
+subordinate clause, no echoed noun carrying the thought forward. It reads as a list of declarations, not an
+argument in which each step follows from the one before.
+
+**Why:** Models produce this when asked to be concise or "punchy", and humanizers produce it when they
+delete connectors without restoring the logic (C18, C19). Readers cannot tell which statement is the cause,
+which the consequence and which an aside; reviewers read it as slogan-writing.
+
+**Before:**
+> Genomes are sensitive. Cloud tools require uploads. Uploads create risk. Local processing removes it. Our
+> tool runs locally. It is fast. It is extensible.
+
+**After:**
+> Genomes are sensitive personal data, and most annotation services work only after the genome is uploaded
+> to their servers. Running the annotation on the user's own machine removes that step, so we built the tool
+> to run locally; it still annotates a whole genome in under a minute, and new annotation modules are added
+> as data files rather than code.
+
+**Fix:** decide how each sentence relates to the previous one (cause, consequence, contrast, condition,
+example) and say it: a connective, a subordinate clause, or the previous sentence's key noun at the start of
+the next. Merge only where the relation is close; do not swing to C20 (clause-stacked monsters).
+
+**Leave it when:** a short sentence states a result on its own ("The largest difference was cost."), or a
+list of criteria or steps is meant to be read as a list.
+
 ## D. Paragraph and section structure
 
 ### D1. The template paragraph
@@ -655,6 +839,59 @@ narration.
 
 ---
 
+### D7. A sentence the reader already has
+
+**Test:** for each sentence, does the reader learn something they did not have from the previous text?
+Previews of what follows, recaps of what was just said and summaries at paragraph, section and paper level
+fail it. **No repetition across sections:** define a term, describe a method or state a result once, in its
+place; later mentions refer back. (Repeating the same technical *term* is required; repeating the same
+*content* is the defect.)
+
+### D8. Reshuffle and outline tests
+
+Two diagnostics for machine-shaped structure:
+- **Reshuffle:** if two body paragraphs could swap places without breaking the argument, the section is a
+  list of points, not an argument.
+- **Outline:** if the first sentences of all paragraphs, read alone, form a clean summary, and every
+  paragraph runs topic → evidence → takeaway, the shape is templated. Vary it by content: lead one paragraph
+  with the example, let another end on the evidence, add the comparison or verification step a reviewer
+  would make.
+
+### D9. A list wearing prose
+
+**Watch for:** "The first limitation is… The second limitation is… The third limitation is…"; an intro
+sentence and three parallel sentences that are bullets without the bullets.
+
+**Fix:** order by importance and say why each matters; merge minor ones. Keep real enumerations (inclusion
+criteria, materials, parameters, steps).
+
+### D10. Writing for the wrong reader
+
+**Watch for:** in cover letters, responses and emails, re-explaining what the editor or reviewer already
+knows before the point.
+
+**Fix:** lead with the decision or the answer; keep only the reasoning that would change their view.
+
+### D11. The meandering introduction
+
+**Watch for:** several paragraphs of definitions, history and "why this matters" before the first specific
+fact or gap.
+
+**Fix:** reach the gap by the second paragraph; move background the reader needs to where it is used.
+
+### D12. Headings that name nothing
+
+**Watch for:** Overview, Key points, Key takeaways, Final thoughts, Three pillars, The future of X;
+question-format headings; a top heading repeating the title; skipped levels.
+
+**Fix:** follow the venue's section names (IMRAD); a subheading names the test, result or decision
+("Recall on low-coverage genomes", not "Robustness").
+
+### D13. Where to look hardest
+
+Machine-written text is least visible in the opening and closing (they are edited most) and most visible in
+the middle of a section. Review the middle paragraphs first.
+
 ## E. Numbers, statistics and evidence
 
 ### E1. Adjectives where numbers belong (in Results)
@@ -713,6 +950,53 @@ what the sentence says.
 
 ---
 
+### E7. Citation dumping
+
+**Watch for:** "Many methods have been proposed [3, 7, 9, 12, 15]"; a citation bundle at the end of a
+paragraph.
+
+**Fix:** cite the one or two that matter, say what each did and how this work differs. A related-work
+section synthesises ("Both rely on X; neither handles Y"); it does not annotate ("Smith finds X. Jones finds
+Y.").
+
+### E8. Citations as content
+
+**Watch for:** "According to research, …", "Smith (2020) discusses X", citations hung off the end of a vague
+sentence.
+
+**Fix:** make the finding the content and engage with it ("Lambert et al. found X in 1.2 million genomes,
+but only in European-ancestry samples [3]").
+
+### E9. Secondhand statistics
+
+A number cited through a review, a textbook or another paper's introduction should be traced to the primary
+study and cited there. Copying a citation from a citation is how wrong numbers and wrong references spread.
+
+### E10. Canned attribution
+
+**Watch for:** published in a prestigious / leading journal; a landmark study by renowned investigators;
+widely cited; has garnered significant attention.
+
+**Fix:** the plain citation. The venue of a paper is not evidence of its claim.
+
+### E11. The strongest baseline
+
+Lead with the comparison to the strongest competitor, not the weakest. Attribute each number to its
+method, metric and baseline. "Better than random" or "better than the 2015 version" is not a result a
+reviewer accepts.
+
+### E12. Experiments without a claim
+
+Every experiment answers one of: does it work, why, which alternative explanation is excluded, where does
+it apply. Name the claim an experiment cannot support ("without an ablation of the filter, the gain cannot
+be attributed to it") instead of implying it.
+
+### E13. Complete reporting
+
+Keep null, negative and unfavourable results that bear on the interpretation; label exploratory and post
+hoc analyses; do not change an evaluation criterion after seeing the result; state trade-offs exactly
+("latency fell from 100 to 60 ms, accuracy from 90% to 89%"). A style edit never removes a result.
+
 ## F. Formatting and punctuation
 
 ### F1. Em dashes
@@ -723,7 +1007,8 @@ what the sentence says.
 Many house styles avoid them anyway.
 
 **Fix:** a comma, a colon, parentheses or two sentences. Keep the en dash in numeric ranges (10–20) where
-the journal style uses it.
+the journal style uses it. In LaTeX, `---` is the same dash. Do not convert every dash to a period: text whose only
+punctuation is commas and periods is becoming a sign of its own (see the last section).
 
 ### F2. Bold and italic emphasis
 
@@ -755,6 +1040,19 @@ straight quotes mixed.
 **Fix:** hyphenate compound modifiers before a noun only; one quote style (the journal's).
 
 ---
+
+### F6. Leaked machine artifacts
+
+**Watch for:** § signs and "(Methods §2.3)" self-references in a journal that does not use them; Markdown
+syntax in a Word or LaTeX manuscript; placeholders ("[Insert Table 1 here]", "2025-XX-XX", "<!-- add
+citation -->"); citation-markup tokens; `utm_source=chatgpt.com` in URLs; zero-width characters, soft
+hyphens and non-breaking-space clusters (strip and normalise them); a trailing "↩".
+
+### F7. Mechanical consistency
+
+One spelling variety (models default to American English); P or p, consistently; a space between value and
+unit ("5 mg"); digits or words for numbers per house style; abbreviations defined once, at first use, and
+never before; the same number written identically in the abstract, text, tables and figures.
 
 ## G. Communication artifacts
 
@@ -964,6 +1262,177 @@ from connective tissue rather than content.
 
 ---
 
+## I. Hedging and certainty
+
+Calibration is where an AI pass does the most damage, in both directions: models over-hedge where the
+evidence is solid, overstate where it is weak, and add new disclaimers when asked to make text "safer".
+
+### I1. Verbs matched to the design
+
+Causal verbs (show, demonstrate, establish, identify, cause) for controlled comparisons in the authors' own
+data; associative ones (is associated with, is consistent with, supports, suggests) for correlational data;
+speculative ones (may, could, one possibility is) for mechanisms and hypotheses. Never "prove" for an
+empirical result; never turn an association into a cause, or a non-significant difference into
+equivalence.
+
+### I2. One accurate hedge per claim, never zero where the evidence is uncertain
+
+Collapse a stack ("may potentially suggest") to one hedge. Keep the hedge on observational and exploratory
+findings. State a randomised primary result directly.
+
+### I3. Vagueness as hedging: quantify it
+
+**Watch for:** somewhat, relatively, fairly, to some extent, considerably, a large improvement.
+
+**Fix:** the number, the range, the test, the comparator, from the paper.
+
+### I4. Name the source of the uncertainty
+
+**Before:** "These results should be interpreted with caution."
+**After:** "The cohort was 92% European ancestry, so the effect size may not hold in other populations."
+
+### I5. A rewrite adds no new doubt
+
+Do not introduce a limitation, a softened claim or a disclaimer the authors did not write. Models add these
+("does not by itself establish…", "should be treated as…rather than…", "this is not to say…") when asked to
+make text accurate or review-proof, and in 2026 such unprompted disclaimers are themselves a tell. Do not
+weaken an expectation the authors state as theirs.
+
+### I6. A rewrite does not upgrade either
+
+No claim in the abstract or conclusion stronger than the Results paragraph that supports it. Keep each
+finding's tense, population, setting and quantification: a cohort result is not a general law.
+
+### I7. The same certainty in every section
+
+A claim carries the same strength in the abstract, introduction, results and discussion. It may soften
+towards speculation in the Discussion; it never strengthens backwards.
+
+### I8. Defensive writing
+
+**Watch for:** repeated "we do not claim"; caveats in the high-impact positions (the abstract's first
+sentence, the contribution statement, the conclusion); paragraphs that open with a limitation;
+"Unfortunately, our method only…".
+
+**Fix:** state scope positively ("The analysis covers cases from 2015 to 2023"), and give the limitations once,
+in the Limitations or Discussion.
+
+### I9. Stance where a judgement is owed
+
+A comparison without a recommendation, or a discussion that will not choose between explanations it can
+rank, under-claims. Reviewers penalise that about as much as over-claiming. Hedge once per genuinely fragile
+claim, not once per sentence.
+
+### I10. False concession and both-sidesism
+
+**Watch for:** "While X offers benefits, it also presents challenges" with both halves vague; "on the one
+hand… on the other hand" that never concludes.
+
+**Fix:** make each half specific, or cut the frame.
+
+### I11. Arguing with no one
+
+**Watch for:** "One might be tempted to…", "While some might argue…", "A naive approach would be…", "It would
+be easy to dismiss this as…", rebuttals of objections nobody raised.
+
+**Fix:** delete them. Keep an objection the text attributes (to a cited study or a reviewer) and answers.
+
+### I12. Narrated candour and self-description
+
+**Watch for:** "To be fully transparent", "We want to be upfront", "this comprehensive analysis", "a thorough
+examination of", "the table below compares", descriptions of how the text was assembled.
+
+**Fix:** delete; let the content show it. Keep conflict-of-interest wording and source credits.
+
+### I13. Leftover hedge debris
+
+A qualifier ("arguably", "to some extent", "in some ways") left beside an otherwise confident sentence after
+an edit. Either the claim is hedged, with a reason, or it is not.
+
+---
+
+## K. Voice and register
+
+### K1. The human voice of a manuscript is neutral and precise
+
+No injected personality: no humour, anecdote, first-person singular, contractions, rhetorical questions or
+self-interruptions in a research article (general humanizers add these; they are wrong here). "We" for the
+authors' work is standard.
+
+### K2. Match the venue's register from its own papers
+
+Read two or three recent papers in the target journal and article type: claim strength, hedging, person and
+voice (some journals want passive abstracts without "we"), section names, how results are reported. Run
+`profile.py --sample` on them to see where the manuscript departs from the venue's style.
+
+### K3. Match the authors' own earlier writing
+
+See the writer profile in `humanize-contract.md`. Draw replacements from the authors' repertoire; never
+upgrade their vocabulary.
+
+### K4. Terms earn their place
+
+Keep the field's exact terms without glosses (they are a correctness requirement), but strike vocabulary the
+manuscript invented for its own convenience, including invented concept labels used as if established ("the
+calibration paradox").
+
+### K5. Method names in Methods, consequences in Discussion
+
+Methods name the rule, the software version, the threshold. Results state what was measured. The Discussion
+says what it means; it does not repeat method names or "we carefully checked".
+
+### K6. Claims of competent practice
+
+**Watch for, outside Methods:** using standard methods, after careful review, we carefully tuned, following
+standard protocol, rigorous.
+
+**Fix:** cut, unless the check establishes fairness (matched budgets, the same seeds), in which case give it.
+
+### K7. Reviewer-reply register in the body
+
+**Watch for:** body text arguing with an imagined reviewer: "it is worth clarifying that…", "this should not
+be understood as…", "we emphasize that this metric reflects…".
+
+**Fix:** plain narration of what was done and found.
+
+### K8. Register shifts inside one document
+
+One section full of listed vocabulary while the rest is plain; polished opening and closing around a rough
+middle; American spelling in one section only. These show where AI text was pasted in; edit that section to
+match the rest.
+
+### K9. Over-polishing
+
+Do not sand every irregularity. Leave ordinary sentences alone. Inverting every tell produces its own
+fingerprint (the "humanizer voice" of fragments and forced variety).
+
+---
+
+## How we settled the disagreements between sources
+
+Humanizer guides contradict each other on several points. For scientific manuscripts:
+
+| question | our rule |
+|---|---|
+| Em dashes | Avoid them where the house style does (and Claude over-produces them). Wikipedia now lists dash overuse as a historical sign; text whose only punctuation is commas and periods is becoming a sign of its own, so do not replace every dash with a period. Keep en dashes in ranges. |
+| Semicolons | Fine in academic prose for closely related clauses and in lists whose items contain commas; not as a reflex replacement for removed dashes; avoid in letters and lay summaries. |
+| Passive voice | Conventional in Methods; follow the venue for abstracts; convert only passive that hides a judgement (C11). Models now under-use the Methods passive, so a Methods section in "We heated… We recorded…" throughout can itself look generated. |
+| Moreover, Furthermore, Additionally | Cut piles; one where it marks a real step is fine; when cutting, restore the link (C19). |
+| Notably, Importantly, Interestingly | Cut as emphasis; keep where it marks a genuine contrast with expectation, once. |
+| Taken together, In conclusion | Cut as a paragraph closer; one "Taken together" that joins separate results into a conclusion is fine. |
+| novel, demonstrate, first | Allowed when the evidence is there: "novel" once, backed by a comparison; "demonstrate" for controlled own data; "first" only after a search. |
+| Hedging | One accurate hedge, never zero for uncertain claims, never stacked (I2). |
+| Lists of three | Fine when the content has three items; the smell is triads by default. |
+| "in order to" | Wordy, but a single instance is not evidence of anything. |
+| Synonym cycling | Always a defect in science: one term per concept. |
+| Bullets | Not in Abstract, Introduction, Results or Discussion prose; real enumerations (criteria, parameters, steps) and venue-required contribution lists are fine. |
+| Contractions, first person singular | None in manuscripts; "we" is fine. |
+| Questions | No rhetorical questions; a question stating the study's aim is acceptable in some fields. |
+| "associated with" | The correct statistical term; the smell is using it to avoid stating a known relation, or "linked to" in its place. |
+| Replacement tables | Never replace one listed word with another; restructure. |
+
+---
+
 ## What not to flag (scientific false positives)
 
 - **Passive voice in Methods.** It is the convention in most life-science journals.
@@ -980,6 +1449,11 @@ from connective tissue rather than content.
 - **Comparison tables with check marks.**
 - **Quoted text, titles, gene and product names**, and passages where a phrase is discussed rather than
   used.
+- **Low-variance or very regular style** (common in neurodivergent and non-native writers), and any text
+  under about 40 words: too little to judge.
+- **Text written before 30 November 2022** (ChatGPT's release), with rare exceptions.
+- **Conventional templates**: IMRAD headings, reporting-guideline phrasing, "Here we show".
+- **One of anything**: one dash, one semicolon, one triad, one "delve". Act on clusters.
 
 ## Signs of human scientific writing (preserve them)
 

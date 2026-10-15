@@ -18,3 +18,12 @@ scientific manuscripts; detector-evasion techniques from these projects are deli
 skills/manuscript-integrity-check/references/kobak_2024_style_words.csv is recomputed from the yearly word
 counts published by Kobak et al. (Science Advances 11(27):eadt3813, 2025;
 https://github.com/berenslab/llm-excess-vocab) using the paper's published formula.
+
+Ideas, rules and diagnostic tests were also drawn, in paraphrase, from a survey (2026-10-15) of open-source
+writing skills, among them: AIScientists-Dev/academic-humanizer, matsuikentaro1/humanizer_academic,
+Aperivue/medsci-skills, uchicago-dsi/ai-sci-skills, stephenturner/skill-deslop, labarba/sciwrite (CC BY 4.0),
+taehyeonglim/academic-humanizer, Kiterlin/anti-defensive-writing, WantongC/journal-adapt-writing-skill,
+K-Dense-AI/scientific-agent-skills, Orchestra-Research/AI-Research-SKILLs, conorbronsdon/avoid-ai-writing,
+hardikpandya/stop-slop, Nanako0129/sepia, Aboudjem/humanizer-skill, seyedehsanhadi/sloptrim (Apache-2.0),
+mshumer/unslop and eric-tramel/slop-guard (MIT unless noted). No text was copied from sources without a
+licence; their ideas are restated in our own words.

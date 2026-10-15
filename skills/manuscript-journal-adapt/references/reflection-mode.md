@@ -48,7 +48,8 @@ Use the catalogue at {path}/llm-smells.md: for each finding give the smell id (A
 quoted phrase, and one sentence on why it reads that way here. Also list, with id "CLAIM":
 - claims with no number, citation or result behind them;
 - terms used for one thing under different names;
-- sentences whose certainty seems higher than the evidence given.
+- sentences whose certainty seems higher than the evidence given;
+- runs of short declarative sentences with no stated relation between them (C22): name the missing link.
 Respect each entry's "Leave it when". Do not flag field terms in their technical sense, passive voice in
 Methods, or a single connector.
 

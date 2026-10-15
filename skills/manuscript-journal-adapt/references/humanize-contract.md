@@ -150,6 +150,8 @@ hit. Write zeros explicitly. A gate entry without a count was not run.
 - C5 sentence-initial connectors: count consecutive runs;
 - A9 participle tails: count;
 - A8 and H1 paragraph-final restatements and aphorisms: count;
+- C22 declarative chains (runs of short sentences with nothing linking them) and, after your own cuts,
+  any link you removed without restoring (C19): count;
 - H2 announcement colons and thesis-first openers: count;
 - mixed quote styles, Markdown residue, emojis: count.
 

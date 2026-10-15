@@ -290,3 +290,16 @@ def test_readiness_verdict_names_the_worst_tier(paper: Path) -> None:
 def test_abstract_metric_dump(abstract: str, severity: scan.Severity | None) -> None:
     found = scan._abstract_metric_dump(["# Paper", "", "## Abstract", "", abstract, "", "## Introduction"])
     assert [f.severity for f in found] == ([severity] if severity else [])
+
+
+@pytest.mark.parametrize("paragraph, chained", [
+    ("Genomes are sensitive. Cloud tools require uploads. Uploads create risk. Local processing removes it. "
+     "Our tool runs locally. It is fast. It is extensible.", True),
+    ("Genomes are sensitive personal data, and most annotation services work only after the genome is uploaded "
+     "to their servers. Running the annotation locally removes that step, so we built the tool to run on the "
+     "user's machine. It still annotates a genome in under a minute, because the join is restricted to "
+     "positions that appear in some module.", False),
+    ("We sequenced 12 samples. Coverage was 31x. One sample failed QC.", False),  # three sentences: too few
+])
+def test_declarative_chain_detection(paragraph: str, chained: bool) -> None:
+    assert (profile.declarative_chain(profile.sentences(paragraph)) is not None) is chained

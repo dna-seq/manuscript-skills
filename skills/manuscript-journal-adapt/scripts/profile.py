@@ -53,6 +53,25 @@ NUMBER_ANCHOR = re.compile(r"(?<![A-Za-z])\d")
 CITATION_ANCHOR = re.compile(r"\[\d+(?:\s*[-–,]\s*\d+)*\]|\((?:[^()]*?\b(?:19|20)\d{2}[a-z]?\b[^()]*?)\)|\[c\]")
 
 
+# Words that tie a sentence to the one before it: connectives, subordinators, and anaphoric openers.
+LINK_RE = re.compile(r"\b(?:because|since|so|thus|therefore|hence|consequently|as a result|which|whereas|while|"
+                     r"although|though|but|however|yet|instead|if|when|unless|until|after|before|then|so that|"
+                     r"this means|that is|for example|for instance|in turn|in contrast|by contrast)\b", re.IGNORECASE)
+SHORT_SENTENCE_WORDS = 12
+
+
+def declarative_chain(sents: list[str]) -> Optional[list[str]]:
+    """Four or more sentences, mostly short, with almost nothing linking them (llm-smells C22)."""
+    if len(sents) < 4:
+        return None
+    lengths = [len(WORD.findall(x)) for x in sents]
+    short = sum(1 for n in lengths if n <= SHORT_SENTENCE_WORDS)
+    links = sum(len(LINK_RE.findall(x)) for x in sents)
+    if short / len(sents) >= 0.6 and links / len(sents) < 0.3:
+        return [x for x, n in zip(sents, lengths) if n <= SHORT_SENTENCE_WORDS][:3]
+    return None
+
+
 def load_smells() -> dict[str, dict[str, Any]]:
     raw = yaml.safe_load(PATTERNS_YAML.read_text(encoding="utf-8"))["smells"]
     return {sid: {"name": s["name"], "scope": s.get("scope", "any"),
@@ -159,6 +178,9 @@ def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], koba
                         if smell["scope"] == "start" and m.start() != 0:
                             continue
                         hits.setdefault(sid, []).append(m.group(0).strip())
+        chain = declarative_chain(sents)
+        if chain:
+            hits["C22"] = chain
         words = WORD.findall(para)
         n_words = len(words)
         n_hits = sum(len(v) for v in hits.values())
