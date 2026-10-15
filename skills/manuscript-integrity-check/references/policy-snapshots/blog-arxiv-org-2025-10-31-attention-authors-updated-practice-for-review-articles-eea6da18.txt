@@ -1,0 +1,23 @@
+url: https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
+---
+## Attention Authors: Updated Practice for Review Articles and Position Papers in arXiv CS Category
+
+In the past few years, arXiv has been flooded with papers. Generative AI / large language models have added to this flood by making papers - especially papers not introducing new research results - fast and easy to write. While categories across arXiv have all seen a major increase in submissions, it's particularly pronounced in arXiv's CS category.
+
+Fast forward to present day - submissions to arXiv in general have risen dramatically, and we now receive hundreds of review articles every month. The advent of large language models have made this type of content relatively easy to churn out on demand, and the majority of the review articles we receive are little more than annotated bibliographies, with no substantial discussion of open research issues.
+
+Reasonable and trusted outside refereed venues already exist (conferences and journals) which solicit position papers and review articles on subjects of concern or interest to our readers (such as concerns over privacy, ethics, safety, and security of recent CS technologies, particularly applications of artificial intelligence) and as part of that process, they conduct in-depth review to assure quality, evidential support of opinions, and scholarly value. Since arXiv does not have the resources to conduct this quality-control in-house for content types that we do not officially accept, this change of practice is allowing us to rely on these refereed venues to do so for us so that we can still share position papers and review articles of value on arXiv.
+
+Will other categories on arXiv also change their practice re: review articles and position papers? Each category of arXiv has different moderators, who are subject matter experts with a terminal degree in their particular subject, to best serve the scholarly pursuits, goals, and standards of their category. While all moderators adhere to arXiv policy, the only policy arXiv has in place with regard to review articles and position papers is that they are not a generally accepted content type. The goal of the moderators of each category is to make sure the work being submitted is actually science, and that it is of potential interest to the scientific community. If other categories see a similar rise in LLM-written review articles and position papers, they may choose to change their moderation practices in a similar manner to better serve arXiv authors and readers. We will make these updates public if and when they do occur.
+
+## More arXiv news
+
+Fair Moderation, Equitable Access, and AI: arXiv's Updated Rate Limit Policy October 1 st 2026
+
+## 9 responses to "Attention Authors: Updated Practice for Review Articles and Position Papers in arXiv CS Category"
+
+I learned about this policy the hard way, after analyzing 12,000 papers measuring bias in LLMs. Was it automated? Absolutely. Was easy to do? Absolutely not. It was a significant amount of work, a non-trivial expense, and uncovered coverage gaps. Seems short-sighted that this content shouldn't be on arxiv because others flood the site with slop.
+
+LLMs don't write about things outside of CS?
+
+Using today's technology, there's a more efficient way to do this. Establishing clear standards and using AI to filter papers on arXiv would be more effective than relying on others' opinions-especially given the long peer-review timelines in many journals.

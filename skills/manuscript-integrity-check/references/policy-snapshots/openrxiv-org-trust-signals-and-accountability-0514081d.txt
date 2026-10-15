@@ -1,0 +1,7 @@
+url: https://openrxiv.org/trust-signals-and-accountability/
+---
+## Trust Signals and Accountability
+
+Progress in science depends on the trustworthiness of research that is shared . Developing signals that indicate when the content of a manuscript has been verified or evaluated is therefore a key goal for openRxiv, and collaborating with other organizations on indicators that help establish the integrity of information authors supply will increasingly be part of our process. This is particularly important at a time when retaining public trust in science is crucial and generative AI is making it easier to produce seemingly legitimate research that includes false information.
+
+Ultimately our aspiration as a community should be to implement audit trails via which the provenance of data can be traced. Given the ease with which images can now not only be altered but faked entirely, such a goal is probably more realistic than hoping to detect data manipulation post-hoc. This will be easier to accomplish with instruments that can hash information at the point of capture, but increased use of electronic lab notebooks (ELNs) and standardized data-processing pipelines will help. This will also ensure machine readability, which is essential as the consumers of research outputs increasingly become AI agents, as well as human readers.

@@ -1,0 +1,7 @@
+url: https://www.biorxiv.org/about/FAQ
+---
+## Table of contents (50 questions)
+
+How should I acknowledge the use of generative AI for writing my preprint?
+
+Authors are responsible for the content they submit, including material produced by generative AI and related technologies. As with other computational methodologies, use of these tools should be detailed in manuscripts, and the output must not plagiarize other work or breach copyright. In any case, authors are accountable for the accuracy, integrity, and originality of their work. AI tools and large language models (LLMs) do not meet this requirement and should not be listed as authors on articles.

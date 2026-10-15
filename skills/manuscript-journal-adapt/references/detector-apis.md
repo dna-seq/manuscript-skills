@@ -34,7 +34,8 @@ Hello-SimpleAI, RADAR, MAGE), which Park et al. found to flag most human academi
 
 1. `detector_setup.py check`: which detectors are ready on this machine (token, GPU, memory, disk, cached
    models), a recommendation, and for anything missing the page to get it.
-2. If a token or access is missing and the user wants that detector, ask before opening the page;
+2. If a token or access is missing and the user wants that detector, provide the page. Open it when
+   requested; no second confirmation is needed for the same request.
    `detector_setup.py open hf-token | editlens-access | aiornot-key` opens it where a browser is available,
    and prints the link otherwise.
 3. `detect.py PAPER --detector modernbert --sample AUTHORS_EARLIER.md`: windows of 120 to 400 words,

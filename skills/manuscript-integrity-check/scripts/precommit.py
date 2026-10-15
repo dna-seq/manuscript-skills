@@ -5,8 +5,8 @@
 # ///
 """Pre-commit check for manuscript files: the offline integrity scan plus the style profile.
 
-Fails the commit on a desk-reject trigger (a chatbot leftover, a missing AI-use disclosure where AI is
-mentioned, a placeholder that will ship, a venue limit exceeded by 20%+). With --strict it also fails on
+Without --advisory, fails on mechanical blockers (chatbot leftovers or a recorded venue return limit).
+With --strict it also fails on
 major findings; with --max-smells it fails when a file's smell density passes the threshold. Offline: no
 reference resolution and no third-party detectors (run those by hand, see the skills).
 
@@ -50,6 +50,7 @@ def main(
     files: Annotated[list[Path], typer.Argument(exists=True, dir_okay=False, readable=True)],
     venue: Annotated[Optional[str], typer.Option(help="Venue key for length limits")] = None,
     strict: Annotated[bool, typer.Option(help="Also fail on major findings")] = False,
+    advisory: Annotated[bool, typer.Option(help="Report findings without blocking the commit")] = False,
     max_smells: Annotated[Optional[float], typer.Option(help="Fail when smells per 1000 words exceed this")] = None,
     show: Annotated[int, typer.Option(help="Findings to print per file")] = 8,
 ) -> None:
@@ -72,9 +73,9 @@ def main(
             typer.echo(f"  smells  L{p['line']}: " + ", ".join(f"{sid}×{len(v)}" for sid, v in p["hits"].items()))
         if blockers or (strict and majors) or (max_smells is not None and density > max_smells):
             failed = True
-    if failed:
+    if failed and not advisory:
         typer.echo("Manuscript check failed. Full reports: scan.py FILE --online, style_profile.py FILE.", err=True)
-    raise typer.Exit(code=1 if failed else 0)
+    raise typer.Exit(code=1 if failed and not advisory else 0)
 
 
 if __name__ == "__main__":

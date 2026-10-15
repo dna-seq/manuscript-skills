@@ -2,12 +2,12 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12"]
 # ///
-"""Check that an edited manuscript still says what the original said.
+"""Flag selected token-count changes for review after a manuscript edit.
 
 A copy-editing pass may change wording, never content. This compares the text before and after and reports
-every number, citation, identifier, technical term, URL or code span that appeared, disappeared or changed
-count, and every hedge, negation or causal verb that moved (the edits that turn a correct sentence into a
-false one: a dropped "may", a lost "not", "is associated with" becoming "causes").
+changes in counts of selected number, citation, identifier, term, URL and code-span patterns, plus selected
+hedges, negations and causal verbs. It cannot prove semantic equivalence: swapped values and changed
+relationships can preserve every token count. Read the diff in context.
 
     uv run --script guard.py BEFORE.md AFTER.md
     uv run --script guard.py PAPER.md --against HEAD          # compare with the committed version
@@ -34,7 +34,7 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 LATEX_COMMENT = re.compile(r"(?<!\\)%.*$", re.MULTILINE)
 
-# Protected: any change is a content change.
+# Protected patterns: a count change warrants review; it does not by itself prove semantic drift.
 PROTECTED: dict[str, re.Pattern[str]] = {
     "numbers": re.compile(
         r"(?<![\w.])[-+−]?\d[\d,]*(?:\.\d+)?(?:\s?(?:%|×|-fold|fold|bp|kb|Mb|Gb|GB|MB|TB|ms|s|min|h|°C))?(?![\w])"),
@@ -139,13 +139,13 @@ def _git_show(path: Path, ref: str) -> str:
 
 def to_markdown(report: dict[str, object]) -> str:
     rate = report["change_rate"]
-    level = ("**stop**: more than half the words changed; this is a rewrite, not a copy edit" if rate > CHANGE_STOP
+    level = ("**review**: more than half the words changed; check meaning and the requested scope" if rate > CHANGE_STOP
              else "**warning**: more than a quarter of the words changed; re-read for meaning" if rate > CHANGE_WARN
              else "ok")
     lines = [f"# Edit guard: {report['words_before']} → {report['words_after']} words", "",
              f"Change rate: {round(100 * rate)}% of the original words ({level}).", ""]
     protected = report["protected"]
-    lines.append("## Protected items (must not change)" + ("" if protected else ": none changed"))
+    lines.append("## Protected patterns (review changes)" + ("" if protected else ": none changed"))
     for name, d in protected.items():  # type: ignore[union-attr]
         for kind in ("removed", "added"):
             if d[kind]:

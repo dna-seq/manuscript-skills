@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript policy fit"
+  short_description: "Reduce avoidable ethics and submission friction"
+  default_prompt: "Use $manuscript-policy-fit to review this manuscript for avoidable clinical, ethics and privacy misclassification, including author self-published genomic data, and suggest precise wording and suitable venues."

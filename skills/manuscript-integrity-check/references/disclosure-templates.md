@@ -1,9 +1,13 @@
 # AI-use disclosure templates
 
-Researched 2026-10-15 (sources in `publisher-policies.md`). Fill every bracket with facts the authors confirm.
-Never guess what a tool did, and never reuse one venue's statement for another: the fields and places differ.
+Dated examples researched 2026-10-15 (sources in `publisher-policies.md`), not a universal disclosure
+requirement. Follow `author-priorities.md`, check the target journal's current exemptions, and use only the
+relevant example and required fields. Reuse known facts; ask only for material facts still missing.
 
-## What every statement needs
+## Fields a venue may request
+
+This table compares policies; it is not the union of fields to put in every statement. Recommended,
+encouraged and on-request information is not automatically required at submission.
 
 | field | required by |
 |---|---|
@@ -15,29 +19,32 @@ Never guess what a tool did, and never reuse one venue's statement for another: 
 | manufacturer / developer | JAMA; Elsevier and Cell for research use |
 | prompts | ICMJE "where applicable" when AI did the study; WAME; Frontiers (encouraged); Elsevier and Wiley on request |
 
-Where it goes: the **cover letter** (ICMJE, OUP, *Bioinformatics*, Science) plus the venue's place in the
-manuscript, at first submission and updated at every revision (OUP).
+Use only the places named by the applicable venue, including submission fields if relevant. Update the
+account at revision when the use changes; do not create a new record for every editing session.
 
 ## Keep it short
 
-A disclosure needs only the fields its venue lists, and none asks for a narrative. Default to two
-sentences, written once at submission from what the authors say the tools did:
+First determine whether a disclosure is needed. When it is, one or two sentences may suffice, using only
+the venue's required fields and what the authors say the tools did. The following is a starting point,
+not mandatory wording; omit model, developer or section detail when neither requested nor useful:
 
 > [Tool, model id] ([developer]) was used to [kind of help: edit the language of | revise | help draft]
 > [sections]. The authors reviewed and edited all output and take full responsibility for the content.
 
 Add a third sentence only for what the venue specifically asks (dates for JAMA; how output was validated
 for PLOS; code help in Methods for Science, Wiley, Elsevier, ACM). Short is fine; smaller than the actual use
-is not: write the kind of help that happened ("help draft" if a model drafted text), because version history,
-co-author trailers in public repositories and revision markers can contradict an understated statement, and
-ICMJE treats nondisclosure as possible misconduct.
+is not: describe the actual kind of help ("help draft" if a model drafted text). Do not infer the kind of
+use from commit trailers, revision markers or style; accept the author's account and apply the current
+venue's rule. If the author chooses a different interpretation, distinguish that decision from verified
+compliance and continue without repeating a policy objection.
 
 ## *Bioinformatics* / *Briefings in Bioinformatics* (ISCB policy, OUP)
 
-Three places: cover letter; Methods or Acknowledgements; and **documentation "with sufficient details in the
-supplementary materials"**. Drafting text, figures, tables or references from a prompt is not acceptable at
-all, so the statement can only describe acceptable uses (correction, translation, evaluation, code help,
-documentation, an LLM as a research technique).
+The dated journal notes below record cover letter, Methods/Acknowledgements and supplementary
+documentation. Verify those locations on the current journal page before requiring them. The directly
+fetched ISCB page on 2026-10-15 prohibits drafting paper sections and permits correction, translation,
+evaluation and code assistance; it does not itself specify those supplementary-documentation details.
+Source: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
 
 Acknowledgements / Methods:
 
@@ -47,15 +54,16 @@ Acknowledgements / Methods:
 > part of the method: describe it in Methods with model id, settings and prompts.] The authors reviewed every
 > change and take full responsibility for the content. Details are in Supplementary Note [N].
 
-Add "No text, figure, table or reference was generated from a prompt" **only if it is true**. Refining text
-the authors wrote is not drafting from a prompt; a new paragraph an LLM wrote in answer to a reviewer comment
-is closer to it, even inside a human-written paper. The ISCB policy names only spelling and grammar
-correction as an acceptable writing aid, so substantive rewording is a grey zone that ISCB judges case by
-case: disclose it in full, and make sure a human has edited and owns every segment the LLM wrote.
+Add a negative assertion about AI drafting only when known and needed; do not volunteer an unverifiable
+authorship-history claim. Distinguish narrow correction from substantive drafting rather than treating
+all revision as exempt. If compatibility is uncertain, explain the interpretation and options briefly
+and follow the author's decision. A human editing pass does not establish that earlier drafting did not
+occur or guarantee acceptance under the rule.
 
 Supplementary Note: one short paragraph, not a log. Which tools and versions, the kind of help (language
 editing, revision of the authors' text, code assistance), which sections, and how the authors checked it.
-If the project already marks AI-revised segments, a count per section is enough.
+Use a Supplementary Note only when the current journal actually requires one. Do not create segment
+counts or assert that counts alone satisfy the journal's requested detail.
 
 ## OUP default (NAR, GigaScience's base policy, other OUP journals)
 
@@ -128,10 +136,12 @@ permission, entering the manuscript into an LLM while revising, or the reviews w
 arXiv: report "significant use" of text-to-text generative AI; authors answer for incorrect references.
 bioRxiv/medRxiv: detail AI use in the manuscript.
 
-## Stage-wise contribution table (AI-scientist and AI-assisted research papers)
+## Optional stage-wise contribution table
 
-Agents4Science scale: **A** ≥95% human, **B** mostly human, **C** mostly AI, **D** ≥95% AI. Put it in Methods
-or the supplement.
+Use this only for a venue that requests it or a study where the division of labour is part of the
+contribution. A concise factual description is sufficient elsewhere. Agents4Science scale: **A** ≥95%
+human, **B** mostly human, **C** mostly AI, **D** ≥95% AI. These levels are author-reported, not measurable
+percentages inferable from the manuscript or commit counts.
 
 | stage | level | what the AI did | what the humans did | evidence |
 |---|---|---|---|---|

@@ -8,9 +8,10 @@ section at a time:
 - the **writer** fixes exactly those points under the contract;
 - the **guard** checks after every writer pass that no content changed.
 
-Use it for the sections reviewers read first (abstract, introduction, discussion, cover letter) or after
-a draft written with heavy AI help. A plain single pass (`humanize-contract.md`) is enough for Methods and
-routine sections.
+Use it when the author requests reflection mode or independent agents. It can help with an important
+section that still has concrete writing problems; section type or past AI use does not make it
+mandatory. A single pass is the default for any section. Follow the shared author-priority rules and
+the output defaults in `humanize-contract.md`.
 
 ## Loop
 
@@ -22,13 +23,12 @@ round 1:  writer(section, smells)        → draft-1 + change table
 round 2:  writer(draft-1, findings)      → draft-2
           guard.py section draft-2
           critic(draft-2)                → findings
-stop
+stop (a second round is optional, not a target)
 ```
 
-**Stop** after round 2, or earlier when the critic returns no finding of severity `high` and at most two
-of `medium`. Do not run a third round: by then edits remove meaning and voice faster than they remove
-smells. Hand whatever the critic still lists to the authors, with the change tables of both rounds and the
-guard reports.
+**Stop** when no material, justified issue remains, or after two rounds. Catalogue hits alone do not
+justify another round. Resolve false positives within the agent workflow; return a short summary and
+only unresolved content decisions. Full change tables and guard logs are available when requested.
 
 **The stopping rule is about content, never about a score.** A detector number may point the critic at a
 paragraph (below); it never decides whether to loop again.
@@ -42,7 +42,8 @@ only the text, so that it reads as a reviewer would.
 
 ```text
 You are a reviewer reading one section of a {field} manuscript for {venue}. You have not seen earlier
-drafts. Read the section and list every passage that reads as machine-written or unsupported.
+drafts. Read the section and identify concrete problems with clarity, support, consistency or the
+requested voice. Do not speculate about authorship or treat every catalogue hit as a defect.
 
 Use the catalogue at {path}/llm-smells.md: for each finding give the smell id (A1, B5, H3, ...), the exact
 quoted phrase, and one sentence on why it reads that way here. Also list, with id "CLAIM":
@@ -97,8 +98,8 @@ Section:
    not ask for; read every watched change yourself.
 3. Merge the round-1 and round-2 change tables, and the flagged sentences, into one report for the
    authors.
-4. Never pass the critic's findings straight to the manuscript: the writer applies them, the guard checks
-   them, the authors accept them.
+4. Review the critic's findings rather than applying them mechanically. Apply authorised copy edits and
+   show a diff; ask the author only about unresolved facts or changes in scientific meaning.
 
 ## Optional detector notes
 

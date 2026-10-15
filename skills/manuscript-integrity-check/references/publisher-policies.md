@@ -4,6 +4,10 @@
 
 Research for a manuscript-checking skill. *Bioinformatics* (OUP / ISCB) is covered in most detail, as a worked example.
 
+These are dated source notes, not a combined checklist. Operational decisions follow
+`author-priorities.md` and `requirement-checkability.md`: apply the actual target's current rule,
+distinguish observable artifacts from process claims, and respect the author's chosen policy approach.
+
 ## Method and status legend
 
 - Pages were read with WebSearch, WebFetch, and, where Cloudflare blocked WebFetch, a headless Chrome render (`google-chrome --headless --dump-dom`) converted to text. PDFs (ICMJE, STM, Science) were downloaded and read with `pdftotext`.
@@ -416,7 +420,7 @@ Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
 - A2. No AI tool cited as an author or as a primary source (ICMJE V.A; Science: cited sources may not be AI-authored; Sage). Elsevier and GigaScience differ: GigaScience *requires* in-text citations and reference-list entries for AI-writing tools. Follow the journal.
 
 ### 6.2 Disclosure (presence, placement, content)
-- D1. If AI went beyond spelling/grammar, a disclosure exists. Exempt almost everywhere: grammar/spelling. Exempt at OUP, Sage, PLOS, MDPI: clarity and structure edits. Exempt at ACM: all writing help. Exempt at Science: literature search and reference gathering. *Not* exempt at *Bioinformatics*/ISCB: any LLM help producing "part of the text, figures or other contents".
+- D1. Check whether the current target requires a disclosure for the actual use. The dated notes below describe different exemptions; they are not interchangeable. A missing statement without known author use and an applicable rule is not a violation. Distinguish language correction, substantive drafting and research use.
 - D2. Placement:
   - *Bioinformatics*/BiB: cover letter + Methods or Acknowledgements + **supplementary materials documentation**.
   - OUP default: cover letter + Acknowledgements (+ Methodology if integral), updated at each revision.
@@ -433,14 +437,14 @@ Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
 - D5. AI used for **code** that changes functionality, pipelines or models is described in Methods with model and version (Science, Wiley, Elsevier, ACM, ICMJE). Matters for a codebase built with coding agents.
 
 ### 6.3 Prohibited content
-- P1 (B). Text, figures, tables or references "drafted ... from a prompt text" are not acceptable at *Bioinformatics*/BiB. A checker cannot prove this; flag sections with strong machine-generation signals as risk, not as a violation (ISCB does not systematically detect; NeurIPS did, with contested false positives; COPE warns against accusing without proof).
+- P1 (B). The dated Bioinformatics/ISCB notes restrict AI drafting. The current ISCB page fetched on 2026-10-15 refers to drafting paper sections. Verify the target journal's wording; style signals do not establish drafting history. Explain a material conflict neutrally and follow the author's decision rather than treating the external policy as an assistant prohibition.
 - P2. Leftover LLM residue: "Here is…", "Would you like me to…", "As an AI…", "[insert]", "illustrative data, replace with real numbers", unreplaced placeholders, TODOs. arXiv one-year-ban trigger; NeurIPS calls it "AI residue".
 - P3. AI-generated or AI-altered primary research images forbidden (OUP, Elsevier, Cell, Wiley, T&F, JAMA, Springer Nature opaque visuals). Science and eLife (striking image) forbid AI illustrative images too. General-purpose gen-AI graphical abstracts forbidden at Elsevier/Cell. AI-assisted data visualizations must be reproducible from data and code and disclosed in the legend.
 - P4. AI-generated data presented as real results (all). Synthetic data replacing missing data without methodology (T&F).
 - P5. Responses to reviewers not AI-generated (JAMA; Science bars entering reviews or the manuscript into an LLM during revision).
 
 ### 6.4 References (the clearest trigger for desk rejection or retraction)
-- R1. Every reference resolves: DOI/PMID exists and title/authors/year/venue match. Fabricated references lead to rejection (Elsevier, Springer Nature/BMC citation policy, ICLR) or retraction (SN, RW cases), and an arXiv ban.
+- R1. Verify reference identity against an authoritative record, with a DOI/PMID where available. A genuine work need not have either identifier, and a failed lookup is not proof of fabrication. Treat an identity mismatch or a confirmed nonexistent work separately from missing metadata or inaccessible sources.
 - R2. Each cited source supports its sentence (ICMJE "attest that the references cited support the associated statement"; SN "Have read all cited sources"; WAME).
 - R3. No retracted works cited except about the retraction (ICMJE: check PubMed; SN "improper citations to retracted works").
 - R4. Cite original works, not derivations or reviews (SN). Include DOIs where possible (SN/BMC).
@@ -459,7 +463,7 @@ Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
 - V9. Other targets: Nature "Code availability" section after Data availability; Genome Biology/BMC "Availability and requirements" block with archived DOI and licence; GigaScience OSI licence plus WorkflowHub; PLOS ONE OSD-compliant open source.
 
 ### 6.6 Formulaic public-data papers
-- F1. A paper that is purely computational on public data needs validation at Frontiers (independent cohorts or wet-lab) and, for health databases, at PLOS (auto-reject without it). Check: is there an independent replication dataset? A stated pre-specified hypothesis? Multiple-testing control?
+- F1. Public-data validation rules depend on the journal and study type. Check current primary criteria before applying the dated PLOS/Frontiers notes. Review the specific claim and analysis; do not demand a new cohort or experiment solely because data are public. Multiple-testing control is relevant when multiple hypotheses were tested.
 - F2. MR papers need a STROBE-MR checklist (PLOS ONE); observational work needs STROBE.
 - F3. Salami-slicing and novelty-thin flags (arXiv, PLOS, *Bioinformatics* "straightforward application of established computational methods").
 

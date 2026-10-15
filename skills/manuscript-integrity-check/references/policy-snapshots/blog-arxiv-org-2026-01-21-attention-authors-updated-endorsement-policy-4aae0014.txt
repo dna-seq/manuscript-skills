@@ -1,0 +1,5 @@
+url: https://blog.arxiv.org/2026/01/21/attention-authors-updated-endorsement-policy/
+---
+## 7 responses to "Attention Authors: updated endorsement policy"
+
+In 2026, with modern AI tools available for classification, relevance checks, formatting checks, originality checks, and abuse detection, it is shameful that arXiv still depends on this outdated endorsement model.

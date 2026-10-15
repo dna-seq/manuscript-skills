@@ -2,6 +2,10 @@
 
 > Researched 2026-10-15 for the `manuscript-integrity-check` skill: candidate bioinformatics and genomics venues not covered in `publisher-policies.md`. Re-fetch a venue's page before relying on it.
 
+Use these as dated evidence notes, not a checklist to combine across journals. Follow
+`author-priorities.md` and distinguish checkable requirements from process claims with
+`requirement-checkability.md`. An unresolved policy interpretation is the author's decision.
+
 ## How this was read
 
 - Status marks:
@@ -377,7 +381,7 @@ The template asks for "no names, no affiliations, no identifying acknowledgement
   - Springer Nature forbids prompt-only content and AI-written Results/Discussion (Red), but allows "drafting sections based on author input" (Amber).
   - OUP, Elsevier/Cell Press, PLOS, T&F/F1000/PeerJ, CSHL, CSBJ/SPJ and GigaScience allow writing help with disclosure.
 - **Language-polish exemptions:** CSHL/Genome Research, OUP, Elsevier/iScience and PLOS exempt it. PeerJ requires a declaration even for copyediting (and keeping both versions). CSBJ and GigaScience have no exemption.
-- **Disclosure location:** Methods (CSHL; SN journal pages); Acknowledgements + cover letter (OUP); a declaration section after Declaration of interests (Cell Press); Methods/Acknowledgments (T&F family); Methods/Acknowledgements/legend (PLOS); cover letter + Acknowledgments + Methods with the full prompt (CSBJ); citation + end summary + deposited outputs (GigaScience). Writing one detailed statement in Methods or a dedicated section and repeating it in the cover letter satisfies every venue except GigaScience's deposit rule and CSBJ's full-prompt rule.
+- **Disclosure location:** varies by venue: Methods, Acknowledgements, a titled declaration, cover letter, submission form or supplement. Use only the actual target's required locations and exempt uses. One generic placement cannot be assumed to satisfy every journal, and repeating a statement in additional places is not a useful precaution by itself.
 - **Named AI screening at submission:**
   - Springer Nature: Geppetto across its journals and books, plus the irrelevant-reference checker at almost all.
   - PLOS says it "may use available AI detection tools".

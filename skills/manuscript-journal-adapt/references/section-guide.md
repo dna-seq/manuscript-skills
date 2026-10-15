@@ -3,6 +3,9 @@
 Use with `llm-smells.md` (pattern ids in brackets) and the venue checklist from `venues.py show`. The venue's
 author guidelines override anything here (structured abstracts, section names, word limits).
 
+These are editorial suggestions, not a mandatory template. Follow the shared author-priority rules;
+preserve the author's effective style and the quantities needed for the paper's actual claims.
+
 ## Title
 
 **Needs:** what was done or found, on what, in plain terms; the tool's name for software papers where the
@@ -15,8 +18,8 @@ venue asks for it.
 ## Abstract
 
 **Needs:** one sentence each for the problem, what was done, the main result, and what it means and for
-whom; availability for software. One or two headline numbers at most (clinical formats: the primary
-outcome with its interval). Structured headings when the journal uses them.
+whom; availability where required for software. Include the quantitative evidence the main claims need
+and the journal's format requires, including relevant uncertainty. There is no universal metric quota.
 **Reads as AI:** the field-landscape opener [A2]; "In this paper, we present a novel …" [C4, A5]; a dump of
 every metric, interval and speed-up [A12]; vague boosters instead of a result [B3]; a closing implication
 sentence [A3]; a triplet of benefits [C2].
@@ -65,7 +68,7 @@ limitations that bear on the conclusions, each with its consequence; what would 
 **Reads as AI:** restating the results [D5]; implications without content [A3]; speculative mechanism
 filler [A11]; boilerplate limitations [A7]; symmetric strengths and weaknesses [D4]; a positive send-off
 [A3].
-**Fix:** one paragraph per interpretive point; the two limitations that matter most, specifically; end on
+**Fix:** organise by interpretive point; state the material limitations specifically; end on
 the main limit or the next concrete step.
 
 ## Limitations (as its own section)

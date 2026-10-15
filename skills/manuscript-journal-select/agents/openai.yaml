@@ -1,0 +1,3 @@
+interface:
+  display_name: "Journal selection"
+  short_description: "Match journals to the paper, resources and priorities"

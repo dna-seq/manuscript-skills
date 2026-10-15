@@ -4,6 +4,11 @@
 
 Research for a manuscript-checking skill. Every item carries a status:
 
+Use only venues relevant to the task. These are dated evidence notes; `author-priorities.md` governs
+workflow and author decisions, and `requirement-checkability.md` distinguishes verifiable artifacts
+from author-reported process and uncertain enforcement. Do not turn news about enforcement into a new
+universal requirement.
+
 - **VERIFIED**: I read the primary page myself (raw HTML fetched with curl, or the PDF), and the quotes below are copied from that text.
 - **SECONDARY**: only news, aggregator or third-party text was reachable; the primary source was blocked (X/Twitter 403, paywall) or does not exist as a page.
 - **NOT FOUND**: searched for, and no primary or credible secondary source turned up.

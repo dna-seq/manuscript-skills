@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -85,16 +86,46 @@ def test_chatbot_leftover_is_a_blocker(paper: Path) -> None:
 def test_missing_declarations_are_exactly_the_absent_ones(paper: Path) -> None:
     report = scan.scan(paper, online=False, search_unidentified=False)
     missing = {f.message.split(" statement")[0]: f.severity for f in _checks(report, "declarations")}
-    # No sign of AI use in the text or history: a missing AI statement is minor, not a desk-reject trigger.
-    assert missing == {"No 'AI-use disclosure'": scan.Severity.minor, "No 'Data availability'": scan.Severity.major}
+    # No evidence of a disclosure obligation: do not ask the author for an unnecessary AI statement.
+    assert missing == {"No 'Data availability'": scan.Severity.major}
 
 
-def test_missing_ai_disclosure_is_a_blocker_when_the_text_mentions_ai(tmp_path: Path) -> None:
+@pytest.mark.parametrize("context", [
+    "A.B. wrote the paper with ChatGPT.",
+    "Earlier studies evaluated ChatGPT; this study used no AI tools.",
+    "Spelling and grammar were checked with ChatGPT.",
+    "<!-- @rev A1 rounds=1 by=claude:2026-01-01 --> A.B. wrote the paper.",
+])
+def test_ai_context_without_verified_policy_is_informational(tmp_path: Path, context: str) -> None:
     p = tmp_path / "paper.md"
-    p.write_text(PAPER.replace("A.B. wrote the paper.", "A.B. wrote the paper with ChatGPT."), encoding="utf-8")
+    p.write_text(PAPER.replace("A.B. wrote the paper.", context), encoding="utf-8")
     report = scan.scan(p, online=False, search_unidentified=False)
-    ai = [f for f in _checks(report, "declarations") if "AI-use" in f.message]
-    assert [f.severity for f in ai] == [scan.Severity.blocker]
+    assert not [f for f in _checks(report, "declarations") if "AI-use" in f.message]
+    ai = _checks(report, "ai-use")
+    assert ai and all(f.severity == scan.Severity.info for f in ai)
+
+
+def test_ai_mention_does_not_block_author_saving_a_draft(tmp_path: Path) -> None:
+    """The default hook must not turn contextual AI mentions into an inferred policy violation."""
+    from typer.testing import CliRunner
+
+    precommit = _load("precommit", SKILLS / "manuscript-integrity-check" / "scripts" / "precommit.py")
+    p = tmp_path / "draft.md"
+    p.write_text("# Background\n\nEarlier work evaluated ChatGPT.\n", encoding="utf-8")
+    result = CliRunner().invoke(precommit.app, [str(p)])
+    assert result.exit_code == 0, result.output
+
+
+def test_advisory_hook_reports_blockers_without_blocking_a_commit(paper: Path) -> None:
+    from typer.testing import CliRunner
+
+    precommit = _load("precommit", SKILLS / "manuscript-integrity-check" / "scripts" / "precommit.py")
+    runner = CliRunner()
+    gated = runner.invoke(precommit.app, [str(paper)])
+    advisory = runner.invoke(precommit.app, [str(paper), "--advisory"])
+    assert gated.exit_code == 1, gated.output
+    assert advisory.exit_code == 0, advisory.output
+    assert "chatbot-leftover" in advisory.output and "blocker" in advisory.output
 
 
 def test_latex_bibtex_references_and_cite_keys(tmp_path: Path) -> None:
@@ -150,6 +181,22 @@ def test_git_ai_trailers_are_counted(tmp_path: Path) -> None:
         git("commit", "-q", "-m", f"edit {i}{trailer}")
     found = scan._git_findings(f)
     assert len(found) == 1 and found[0].message.startswith("1 of 2 commits")
+
+
+def test_git_trailers_alone_do_not_make_a_missing_disclosure_a_blocker(tmp_path: Path, paper: Path) -> None:
+    """A trailer often marks automation (synced comments, formatting), so it prompts a question, not a blocker."""
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(paper.parent), *args], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "T")
+    git("add", paper.name)
+    git("commit", "-q", "-m", "sync comments\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>")
+    report = scan.scan(paper, online=False, search_unidentified=False, git=True)
+    assert [f.message.split(" ")[0] for f in _checks(report, "ai-use") if "commits touching" in f.message] == ["1"]
+    ai = [f for f in _checks(report, "declarations") if "AI-use" in f.message]
+    assert ai == []
 
 
 BEFORE = """Annotating a 4.5 GB VCF took 40 s on GRCh38 (Lambert et al., 2021). It is important to note that this matters.
@@ -282,7 +329,7 @@ def test_readiness_verdict_names_the_worst_tier(paper: Path) -> None:
     ("Across 12 datasets the method found more true variants than the next-best tool and ran about four "
      "times faster (recall 0.94 vs 0.88).", None),
     ("Our method achieved 94.3% recall (95% CI 92.1–96.0), 91.7% precision, an F1 of 0.930 and an AUROC of "
-     "0.971 across 12 datasets (n = 48,213), running 4.2× faster (40.1 s vs 168.4 s).", scan.Severity.major),
+     "0.971 across 12 datasets (n = 48,213), running 4.2× faster (40.1 s vs 168.4 s).", scan.Severity.minor),
     ("Recall was 94.3%, precision 91.7%, F1 0.930, AUROC 0.971 and runtime 40.1 s.", None),
     ("Recall was 94.3%, precision 91.7%, F1 0.930, AUROC 0.971, runtime 40.1 s, memory 3.1 GB and 4.2× faster.",
      scan.Severity.minor),
@@ -353,3 +400,260 @@ def test_setup_reports_missing_tokens_without_network(monkeypatch: pytest.Monkey
     assert rows["editlens"]["missing"][0] == "hf-token" and not rows["aiornot"]["ready"]
     assert not rows["binoculars"]["ready"]  # 8 GB RAM and no GPU
     assert "No Hugging Face token" in setup.recommend(list(rows.values()), env)
+
+
+watch = _load("policy_watch", SKILLS / "manuscript-journal-adapt" / "scripts" / "policy_watch.py")
+
+POLICY_PAGE = """<html><head><script>var ai = "AI tracking pixel";</script></head><body>
+<nav><a>AI hub</a> <a>Journals</a></nav>
+<h2>Editorial policies</h2>
+<p>Manuscripts must be original and not under consideration elsewhere. {filler}</p>
+<h2>Use of generative AI</h2>
+<p>Authors   must disclose the use of
+   large language models in the Methods section.</p>
+<ul><li>Spelling and grammar tools need no disclosure.</li><li>AI tools cannot be authors.</li></ul>
+<h2>Data availability</h2>
+<p>Data must be deposited in a public repository. {filler}</p>
+<footer>We use AI to personalise ads.</footer>
+</body></html>"""
+
+
+def _page(**changes: str) -> str:
+    page = POLICY_PAGE.replace("{filler}", "Reviewers assess novelty and rigour. " * 12)
+    for old, new in changes.items():
+        page = page.replace(old, new)
+    return page
+
+
+@pytest.fixture()
+def snapshots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr(watch, "SNAPSHOTS", tmp_path)
+    monkeypatch.setattr(watch, "INDEX", tmp_path / "index.yaml")
+    return tmp_path
+
+
+def test_watch_extracts_ai_passages_under_their_heading_and_skips_page_chrome() -> None:
+    body = watch.ai_extract(watch.page_blocks(_page()))
+    assert body.split("\n\n") == ["## Use of generative AI",
+                                  "Authors must disclose the use of large language models in the Methods section.",
+                                  "AI tools cannot be authors."]
+
+
+def test_watch_round_trip_unchanged_then_changed(snapshots: Path) -> None:
+    url = "https://example.org/policy"
+    index: dict = {}
+    first = watch.compare(url, watch.Fetched("httpx", html=_page()), index, ["x"])
+    assert first.result == watch.Result.new
+    watch.apply([first], index, watch.date(2026, 10, 15))
+    relaid = _page(**{"<p>Authors   must": "<p>\n\tAuthors must"})  # whitespace and layout only
+    assert watch.compare(url, watch.Fetched("chrome", html=relaid), index, ["x"]).result == watch.Result.unchanged
+    moved = _page(**{"in the Methods section": "in the Methods section and the cover letter, with prompts"})
+    changed = watch.compare(url, watch.Fetched("httpx", html=moved), index, ["x"])
+    assert changed.result == watch.Result.changed
+    assert [l for l in changed.diff if l.startswith("+") and not l.startswith("+++")] == [
+        "+Authors must disclose the use of large language models in the Methods section and the cover letter, "
+        "with prompts."]
+
+
+def test_watch_unreadable_pages_are_not_assessed_never_unchanged(snapshots: Path) -> None:
+    index: dict = {}
+    url = "https://example.org/policy"
+    watch.apply([watch.compare(url, watch.Fetched("httpx", html=_page()), index, ["x"])], index,
+                watch.date(2026, 10, 15))
+    challenge = "<html><title>Just a moment...</title><body>challenge-platform</body></html>"
+    assert watch._challenged(challenge)
+    stub = watch.compare(url, watch.Fetched("chrome", html="<html><body><p>Loading</p></body></html>"), index, ["x"])
+    blocked = watch.compare(url, watch.Fetched(None, reason="httpx: blocked (HTTP 403)"), index, ["x"])
+    gone = watch.compare(url, watch.Fetched("httpx", status=404, reason="HTTP 404"), index, ["x"])
+    assert [o.result for o in (stub, blocked, gone)] == [watch.Result.not_assessed, watch.Result.not_assessed,
+                                                         watch.Result.gone]
+    watch.apply([blocked], index, watch.date(2026, 10, 20))
+    assert index[url]["read"] == "2026-10-15" and index[url]["last_attempt"]["result"] == "not_assessed"
+
+
+def test_watch_record_reads_plain_text_like_the_page(snapshots: Path) -> None:
+    text = ("Use of generative AI\n\nAuthors must disclose the use of large language models in the Methods "
+            "section.\n\nSpelling and grammar tools need no disclosure.\n\nAI tools cannot be authors.\n\n"
+            + "Reviewers assess novelty and rigour. " * 15)
+    blocks = watch.text_blocks(text)
+    assert watch.ai_extract(blocks) == watch.ai_extract(watch.page_blocks(_page()))
+
+
+def test_every_watched_url_belongs_to_a_venue_and_snapshots_exist_for_indexed_urls() -> None:
+    urls = watch.watched_urls()
+    assert urls and all(u.startswith("https://") for u in urls), [u for u in urls if not u.startswith("https://")]
+    index = watch.load_index()
+    assert set(index) <= set(urls), set(index) - set(urls)
+    for url, entry in index.items():
+        if "file" in entry:
+            assert watch.read_snapshot(entry) is not None, url
+
+
+SYNTHETIC_VENUES = """
+checked: 2026-10-15
+venues:
+  pub:
+    kind: publisher
+    name: A Publisher (default policy)
+    url: https://pub.example/policies
+    ai_policy_url: https://pub.example/ai
+    writing_help: disclose
+    prompts: "no"
+    screening: plagiarism
+    disclosure_places: [Methods]
+    jif: 99
+  calm:
+    name: Calm Journal
+    inherits: pub
+    url: https://pub.example/calm
+    fields: [aging]
+    article_types: [research, review]
+    oa: full
+    jif: 6.1
+  strict:
+    name: Strict Journal
+    inherits: pub
+    url: https://pub.example/strict
+    fields: [bioinformatics]
+    software_article: true
+    writing_help: banned_drafting
+    prompts: required
+    screening: ai_detector_deployed
+    disclosure_places: [cover letter, Methods, supplementary materials]
+    disclosure_neutral: false
+    oa: hybrid
+    jif: 8.0
+"""
+
+
+@pytest.fixture()
+def synthetic_venues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    p = tmp_path / "venues.yaml"
+    p.write_text(SYNTHETIC_VENUES, encoding="utf-8")
+    monkeypatch.setattr(venues, "VENUES_YAML", p)
+    monkeypatch.setattr(venues, "SNAPSHOT_INDEX", tmp_path / "none.yaml")
+    return p
+
+
+def test_publisher_defaults_lend_policy_but_not_identity(synthetic_venues: Path) -> None:
+    _, resolved = venues.load_venues()
+    assert set(venues.journals(resolved)) == {"calm", "strict"}
+    calm = resolved["calm"]
+    assert calm["writing_help"] == "disclose" and calm["name"] == "Calm Journal" and "kind" not in calm
+    assert calm["jif"] == 6.1 and calm["url"] == "https://pub.example/calm"
+    assert calm["publisher_policy_url"] == "https://pub.example/ai"
+    assert venues.policy_urls(calm) == ["https://pub.example/ai", "https://pub.example/calm"]
+
+
+def test_burdens_and_tiers_follow_the_policy_fields(synthetic_venues: Path) -> None:
+    _, resolved = venues.load_venues()
+    assert venues.burdens(resolved["calm"]) == set()
+    B = venues.Burden
+    assert venues.burdens(resolved["strict"]) == {B.drafting_ban, B.prompts, B.ai_detector, B.supplement,
+                                                  B.multi_place, B.disclosure_penalty}
+    calm, strict = (venues.friction(resolved[k])[0] for k in ("calm", "strict"))
+    assert (venues.tier(calm), venues.tier(strict)) == ("light", "severe")
+    assert venues.tier(None) == "?"
+
+
+@pytest.mark.parametrize("args, shown", [
+    ([], {"calm", "strict"}),
+    (["--field", "aging"], {"calm"}),
+    (["--type", "software"], {"strict"}),
+    (["--software"], {"strict"}),
+    (["--oa", "full"], {"calm"}),
+    (["--min-jif", "7"], {"strict"}),
+    (["--refuse", "prompts"], {"calm"}),
+    (["--refuse", "disclosure-penalty"], {"calm"}),
+    (["--max-friction", "3"], {"calm"}),
+    (["--only", "strict"], {"strict"}),
+])
+def test_rank_filters(synthetic_venues: Path, args: list[str], shown: set[str]) -> None:
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["rank", *args])
+    assert result.exit_code == 0, result.output
+    assert set(re.findall(r"\(`([a-z-]+)`\)", result.output)) == shown
+
+
+VALIDATION_RULES = [
+    {"applies_to": ["public-data", "mr"], "strength": "required",
+     "accepted_any": ["independent-cohort", "wet-lab"], "description": "Independent validation required"},
+    {"applies_to": ["bibliometric"], "strength": "required",
+     "accepted_any": ["multi-database"], "description": "Multi-database alternative"},
+]
+
+
+@pytest.mark.parametrize("study,available,status", [
+    (None, {"none"}, "conditional"),
+    ("public-data", None, "conditional"),
+    ("public-data", {"none"}, "no-go"),
+    ("public-data", {"independent-cohort"}, "go"),
+    ("public-data", {"wet-lab"}, "go"),
+    ("public-data", {"multi-database"}, "no-go"),
+    ("bibliometric", {"multi-database"}, "go"),
+    ("other", {"wet-lab"}, "unknown"),
+])
+def test_validation_fit_respects_scope_alternatives_and_unknowns(
+    study: str | None, available: set[str] | None, status: str,
+) -> None:
+    assert venues.validation_fit({"validation_requirements": VALIDATION_RULES}, study, available)[0] == status
+
+
+def test_conditional_validation_and_missing_policy_are_not_automatic_rejection() -> None:
+    v = {"validation_requirements": [{**VALIDATION_RULES[0], "strength": "conditional"}]}
+    assert venues.validation_fit(v, "public-data", {"none"})[0] == "conditional"
+    assert venues.validation_fit({}, "public-data", {"none"})[0] == "unknown"
+
+
+def test_explicit_scope_exclusion_is_not_cured_by_available_validation() -> None:
+    v = {"validation_requirements": VALIDATION_RULES, "excluded_study_designs": ["bibliometric"]}
+    assert venues.validation_fit(v, "bibliometric", {"multi-database"})[0] == "no-go"
+
+
+def test_ranking_does_not_trade_impossible_validation_for_a_lighter_ai_policy(synthetic_venues: Path) -> None:
+    from typer.testing import CliRunner
+
+    data = yaml.safe_load(synthetic_venues.read_text())
+    for key, route in [("calm", "wet-lab"), ("strict", "independent-cohort")]:
+        data["venues"][key]["validation_requirements"] = [
+            {**VALIDATION_RULES[0], "accepted_any": [route]}]
+    synthetic_venues.write_text(yaml.safe_dump(data))
+    result = CliRunner().invoke(venues.app, [
+        "rank", "--study-design", "public-data", "--validation-available", "independent-cohort"])
+    assert result.exit_code == 0, result.output
+    assert re.findall(r"\(`([a-z-]+)`\)", result.output) == ["strict", "calm"]
+    assert "no-go" in result.output
+
+
+def test_journal_speed_and_editorial_profile_are_not_inherited(synthetic_venues: Path) -> None:
+    data = yaml.safe_load(synthetic_venues.read_text())
+    data["venues"]["pub"].update(
+        review_speed=[{"metric": "first decision", "days": 3}],
+        editorial_profile={"summary": "Publisher marketing claim"},
+        validation_requirements=VALIDATION_RULES,
+    )
+    synthetic_venues.write_text(yaml.safe_dump(data))
+    _, resolved = venues.load_venues()
+    assert resolved["calm"]["validation_requirements"] == VALIDATION_RULES
+    assert "review_speed" not in resolved["calm"] and "editorial_profile" not in resolved["calm"]
+
+
+def test_no_validation_cannot_be_combined_with_an_available_route(synthetic_venues: Path) -> None:
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(venues.app, [
+        "rank", "--validation-available", "none", "--validation-available", "wet-lab"])
+    assert result.exit_code != 0
+
+
+def test_recorded_validation_rules_have_supported_values_and_discoverable_sources() -> None:
+    _, resolved = venues.load_venues()
+    designs = {item.value for item in venues.StudyDesign}
+    alternatives = {item.value for item in venues.Validation} - {"none"}
+    for key, venue in resolved.items():
+        for rule in venue.get("validation_requirements") or []:
+            assert set(rule["applies_to"]) <= designs, key
+            assert set(rule.get("accepted_any") or []) <= alternatives, key
+            assert rule["strength"] in {"required", "conditional", "recommended"}, key
+            assert rule["source"] in venues.policy_urls(venue), key
+            assert rule.get("checked"), key

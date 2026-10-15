@@ -1,0 +1,15 @@
+url: https://www.preprints.org/blog/post/preprints-in-the-age-of-ai-their-role-in-the-scientific-ecosystem
+---
+## Preprints in the Age of AI: Their Role in the Scientific Ecosystem
+
+Recent discussions in Nature about a fabricated disease have raised legitimate concerns about how misinformation can propagate in an era of automated content generation using AI. The example illustrates how unverified research, including material from non-peer-reviewed sources such as preprints, can be picked up by AI systems and presented as authoritative information, potentially amplifying incorrect findings.
+
+How large language models (LLMs) operate and the new challenges that emerge deserve careful attention, especially in the field of health sciences. Many of these tools analyze and summarize documents at scale without distinguishing clearly between different types of sources. Therefore, it is also important to understand the different stages through which scientific knowledge typically develops and the distinct role that preprints play within that process.
+
+The growing use of LLMs and other AI systems introduces a new dynamic into this ecosystem. To an algorithm trained primarily on textual patterns, a preprint, a peer-reviewed article, a conference proceeding, or other forms of grey literature may appear similar. As a result, AI systems appear to treat early-stage research as if it carried the same level of validation as peer-reviewed findings. Addressing this limitation will be an important task for AI developers.
+
+As the use of AI tools has increased, additional safeguards have been introduced since 2024 to strengthen the screening process . These include more detailed author screening to identify inconsistencies, policies for the disclosure of AI use, and more involvement of the advisory board within the screening process. The goal is not to replicate a full peer review but to ensure that submissions meet the minimum standards for scholarly communication.
+
+As the research environment evolves, preprint platforms are also exploring ways to strengthen these safeguards. At the same time, the responsible use of AI tools must remain a priority for researchers themselves. For example, submitting fabricated or misleading content (whether generated manually or with the assistance of AI) to preprint servers could undermine trust in scientific communication and place unnecessary strain on systems designed to support open scientific exchange.
+
+Preprints remain a valuable mechanism for sharing early-stage research and fostering scientific dialogue. The emergence of AI-assisted research tools, as well as AI-generated content, will undoubtedly reshape many aspects of scientific communication in the coming years.

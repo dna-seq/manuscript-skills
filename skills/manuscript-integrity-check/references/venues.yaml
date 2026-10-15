@@ -19,6 +19,11 @@
 #   tracking:      required     the venue makes authors record AI use beyond one acknowledgement (prompts,
 #                               deposited outputs, kept versions); venues.py rank leaves these out by default
 #                  recommended  the policy says authors should keep records and may be asked for them
+#
+# Selection fields: validation_requirements, excluded_study_designs, open_science, editorial_profile,
+# review_speed, publication_costs. See manuscript-journal-select/references/selection-fields.md.
+# Each fact has its own source/read date. Missing fields are unknown; timing and editorial assessments
+# are journal-specific and never inherited. Validation/resource fit is separate from AI friction.
 
 checked: 2026-10-15
 
@@ -31,7 +36,8 @@ venues:
     url: https://academic.oup.com/bioinformatics/pages/author-guidelines
     ai_policy_url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
     writing_help: banned_drafting
-    exempt: [spelling and grammar checking, translation (author responsible), code-writing help, code documentation, LLM as research technique, LLM as evaluation (finding inconsistencies)]
+    exempt: null # permitted use does not by itself establish a disclosure exemption
+    permitted_uses: [spelling and grammar checking, translation (author responsible), code-writing help, code documentation, LLM as research technique, LLM as evaluation (finding inconsistencies)]
     disclosure_places: [cover letter, Methods or Acknowledgements, supplementary materials]
     disclosure_fields: [tool, version, how used, which parts, author oversight]
     prompts: "no"
@@ -148,8 +154,9 @@ venues:
     disclosure_places: [AI declaration, Methods]
     disclosure_fields: [use, author accountability, AI-assisted content labelled]
     prompts: "no"
-    screening: ai_detector_deployed
-    screening_note: publisher-wide nonsense-text detector, irrelevant-reference checker, tortured-phrase tool; editor guidance calls detectors "far from definitive"
+    screening: integrity_signals
+    screening_note: publisher reports nonsense-text, reference and phrase checks; these do not establish general AI-authorship attribution or screening of this submission
+    sources: [https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690]
     penalties: [withdrawal (reference checker), rejection or retraction for hallucinated references, institution notified]
     extra_burden: []
     limits: null
@@ -201,6 +208,59 @@ venues:
     limits: null
     software: [OSI-compliant source code, documentation, test data]
     software_article: true
+    validation_requirements:
+      - applies_to: [public-health-database]
+        strength: conditional
+        accepted_any: [wet-lab, primary-analysis]
+        description: "For the retrospective open-health-database manuscripts discussed in the editorial, additional work must validate results and establish the contribution; computational primary analyses are among its examples. Verify applicability; this is not a blanket wet-lab rule for software papers."
+        source: https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1004854
+        checked: 2026-10-15
+    sources:
+      - https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1004854
+
+  frontiers-default:
+    kind: publisher
+    name: Frontiers (publisher validation policy)
+    publisher: Frontiers
+    status: PARTIAL
+    url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    writing_help: null
+    validation_requirements:
+      - applies_to: [public-data, bioinformatics, mr, public-health-database]
+        strength: required
+        accepted_any: [independent-cohort, wet-lab]
+        description: "Predominantly bioinformatics/public-data/MR findings need cohort or biological validation. The policy does not establish that a cohort must be newly collected or private; assess actual independence and suitability."
+        source: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+        checked: 2026-10-15
+      - applies_to: [bibliometric]
+        strength: required
+        accepted_any: [independent-cohort, wet-lab, multi-database]
+        description: "The multi-database validation alternative is limited to bibliometric studies; individual journals can exclude this design."
+        source: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+        checked: 2026-10-15
+
+  frontiers-bioinformatics:
+    name: Frontiers in Bioinformatics
+    inherits: frontiers-default
+    url: https://www.frontiersin.org/journals/bioinformatics/about
+    fields: [bioinformatics, genomics, software]
+    article_types: [research, methods, software, data, review, perspective]
+    software_article: true
+    oa: full
+    excluded_study_designs: [mr, bibliometric]
+    open_science:
+      summary: "Full open access with CC-BY articles; software-licence and artifact rules need separate checking."
+      source_code: null
+      software_licence: null
+      source: https://www.frontiersin.org/journals/bioinformatics/about
+      checked: 2026-10-15
+    editorial_profile:
+      summary: "Scope welcomes interdisciplinary tools and new computational applications, but explicitly excludes MR and bibliometric papers. Publisher validation rules also apply."
+      evidence_kind: stated-scope
+      source: https://www.frontiersin.org/journals/bioinformatics/about
+      checked: 2026-10-15
+    review_speed: null
+    publication_costs: null
 
   peerj:
     name: PeerJ / PeerJ Computer Science
@@ -347,3 +407,134 @@ venues:
     extra_burden: []
     limits: null
     software_article: false
+
+  # ------------------------------------------------------------------ preprint servers (kind: preprint)
+  # Ranked apart from journals (venues.py rank --preprints). Sources and quotes: venues-and-preprints.md §1-2.
+
+  arxiv:
+    kind: preprint
+    name: arXiv
+    publisher: Cornell University
+    status: VERIFIED
+    url: https://info.arxiv.org/help/submit/index.html
+    ai_policy_url: https://info.arxiv.org/help/moderation/index.html
+    sources:
+      - https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/
+      - https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
+      - https://blog.arxiv.org/2026/01/21/attention-authors-updated-endorsement-policy/
+    fields: [general, bioinformatics, genomics, systems-biology, software]
+    article_types: [research, methods, software, review, perspective]
+    oa: full
+    writing_help: disclose
+    exempt: [use that is not "significant"]
+    disclosure_places: [in the work, as for other methodology]
+    disclosure_fields: [significant use of text-to-text generative AI]
+    prompts: "no"
+    screening: integrity_signals
+    screening_note: >-
+      volunteer moderators, not peer review; the 1 Oct 2026 post reports "a marked increase in dense, AI-written
+      papers"; a one-year ban for "incontrovertible evidence that the authors did not check the results of LLM
+      generation" (hallucinated references, chatbot meta-comments) was reported in May 2026 (404 Media,
+      TechCrunch, Nature) but is on no arXiv policy page (SECONDARY)
+    penalties: [declined for lacking originality, novelty or significance, closer scrutiny after a decline,
+                may be required to publish in conventional journals first, one-year ban for unchecked LLM output (SECONDARY)]
+    extra_burden: []
+    other_desk_rules: [at most 2 submissions per calendar month and 3 active per submitter; rejected ones count,
+                       CS review and position papers need a peer-reviewed version (journal ref and DOI),
+                       a full English version is required, new submitters need an endorsement (institutional email alone no longer suffices)]
+    fit_note: q-bio and cs categories fit methods and software papers; the CS review/position rule does not apply to research papers
+
+  biorxiv:
+    kind: preprint
+    name: bioRxiv
+    publisher: openRxiv
+    status: VERIFIED
+    url: https://www.biorxiv.org/about/FAQ
+    ai_policy_url: https://www.biorxiv.org/about/FAQ
+    sources: [https://openrxiv.org/trust-signals-and-accountability/]
+    fields: [general, bioinformatics, genomics, genetics, systems-biology, aging]
+    article_types: [research, methods, data]
+    oa: full
+    writing_help: disclose
+    exempt: []
+    disclosure_places: [in the manuscript, as for other computational methods]
+    disclosure_fields: [use of generative AI tools]
+    prompts: "no"
+    screening: plagiarism
+    screening_note: >-
+      screened "for plagiarism, non-scientific content, inappropriate article types"; "extra scrutiny" after
+      problematic prior submissions; no AI-text detection or reference check stated; AI review services (q.e.d.,
+      Reviewer3, Explore Science) are opt-in feedback, not screening. No exemption for language editing is stated.
+    penalties: [not posted (out of scope), formal withdrawal with a public statement in extreme cases]
+    extra_burden: []
+    other_desk_rules: [no narrative reviews, no announcements of tools or services without data, no hypotheses without new data,
+                       no editorials, letters, opinion pieces, white papers or policy statements]
+    software_article: false
+    fit_note: a software paper must read as a research article with results, not a tool announcement
+
+  medrxiv:
+    kind: preprint
+    name: medRxiv
+    inherits: biorxiv
+    url: https://www.medrxiv.org/about/FAQ
+    ai_policy_url: https://www.medrxiv.org/about/FAQ
+    fields: [clinical, genetics, aging]
+    other_desk_rules: [simple automated or formulaic analyses of public data are generally not sufficient,
+                       tool announcements alone are not sufficient (needs Introduction, Results, Discussion),
+                       papers with inappropriate causal language may be declined, no narrative reviews]
+
+  research-square:
+    kind: preprint
+    name: Research Square
+    publisher: Springer Nature
+    status: VERIFIED
+    url: https://www.researchsquare.com/legal/editorial
+    ai_policy_url: https://www.researchsquare.com/legal/editorial
+    fields: [general]
+    article_types: [research, methods]
+    oa: full
+    writing_help: disclose
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part)]
+    disclosure_fields: [use of an LLM]
+    prompts: "no"
+    screening: plagiarism
+    screening_note: checks ethics and consent statements, competing interests, patient identifiers and pseudoscientific claims; strong conclusions without accessible data may be screened out
+    penalties: [not posted]
+    extra_burden: []
+
+  ssrn:
+    kind: preprint
+    name: SSRN
+    publisher: Elsevier
+    status: VERIFIED
+    url: https://www.elsevier.support/ssrn/answer/AI
+    ai_policy_url: https://www.elsevier.support/ssrn/answer/AI
+    checked: 2026-10-15
+    fields: [general, clinical]
+    oa: full
+    writing_help: disclose
+    exempt: [use that is not material]
+    disclosure_places: [in the PDF]
+    disclosure_fields: [tool, purpose, extent]
+    prompts: "no"
+    screening: integrity_signals
+    screening_note: '"reserves the right to investigate concerns about undisclosed or inappropriate AI use"; page "Last updated on August 03, 2026"'
+    penalties: [action under its research-integrity and content policies]
+    extra_burden: []
+    other_desk_rules: [no fabricated or falsified data, results, citations or references]
+
+  preprints-org:
+    kind: preprint
+    name: Preprints.org
+    publisher: MDPI
+    status: PARTIAL
+    url: https://www.preprints.org/instructions-for-authors
+    sources: [https://www.preprints.org/blog/post/preprints-in-the-age-of-ai-their-role-in-the-scientific-ecosystem]
+    fields: [general]
+    oa: full
+    writing_help: null
+    screening_note: >-
+      the instructions and policy pages return HTTP 403 to scripts and headless Chrome (2026-10-15); the blog (15 Apr
+      2026) says safeguards added "since 2024" include "more detailed author screening to identify inconsistencies,
+      policies for the disclosure of AI use, and more involvement of the advisory board within the screening process"

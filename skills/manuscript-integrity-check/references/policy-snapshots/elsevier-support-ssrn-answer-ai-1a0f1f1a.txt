@@ -1,0 +1,41 @@
+url: https://www.elsevier.support/ssrn/answer/AI
+---
+## What is SSRN's Policy on the Use of Generative AI by Authors?
+
+SSRN supports the responsible use of generative AI tools in scholarly communication, while maintaining high standards of research integrity, transparency, and accountability. This policy applies to all content submitted to SSRN.
+
+What generative AI tools can authors use on SSRN?
+
+Authors may use generative AI to support manuscript preparation, including for:
+
+All use of generative AI must involve appropriate human oversight and critical review. AI tools should support, not replace, the author's intellectual contribution, expertise, judgment, and responsibility for the work.
+
+Who is responsible for AI-generated content in a submission?
+
+Carefully review and verify any AI-generated content
+
+AI outputs may be incorrect, incomplete, misleading, or biased and must not be relied upon without verification. Authors remain accountable for any errors, omissions, or inaccuracies in their final submission.
+
+Do authors need to disclose their use of generative AI?
+
+Yes, authors must disclose any material use of generative AI. The disclosure should be included in the PDF and briefly describe the tool used, how it was used, and the extent of its contribution. For example: "During the preparation of this work, the author(s) used [NAME OF TOOL] in order to [REASON]. After using this tool, the output was reviewed, edited, and verified by the author(s), who take(s) full responsibility for the content."
+
+Two exceptions apply: basic grammar, spelling, and punctuation checks do not require disclosure, nor does the use of AI features within specialist disability-related assistive technology used solely for accessibility purposes. However, when an AI tool makes substantive changes to sentence structure or the organization of a substantial portion of the text, disclosure is required opens in new tab/window .
+
+This approach is aligned with Elsevier's Generative AI Policies for Journals opens in new tab/window .
+
+Can generative AI be listed as an author?
+
+No. Generative AI tools and AI-assisted technologies must not be listed or cited as authors. Authorship carries responsibilities, including accountability for the work, that can only be fulfilled by human contributors.
+
+What uses of generative AI are not permitted?
+
+Authors may not use generative AI in ways that compromise research integrity opens in new tab/window . Prohibited uses include, but are not limited to:
+
+Misrepresenting AI-generated content as original human scholarship
+
+Using AI to conceal plagiarism or other forms of research misconduct
+
+SSRN reserves the right to investigate concerns about undisclosed or inappropriate AI use and may take action in accordance with its research integrity and content policies.
+
+As AI technologies continue to evolve, SSRN may update this policy to reflect emerging best practices, industry standards, and developments in scholarly publishing.

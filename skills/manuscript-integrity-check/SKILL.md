@@ -1,79 +1,88 @@
 ---
 name: manuscript-integrity-check
 description: >-
-  Pre-submission check of a manuscript against what journal desks, preprint servers and integrity screeners
-  reject in 2026: undisclosed or under-documented AI use, hallucinated, mismatched or retracted references,
-  chatbot leftovers and placeholders, missing declarations and availability statements, venue length limits,
-  overclaiming, and (for AI-scientist or AI-assisted research) missing denominators, contamination controls,
-  baselines and human re-analysis. Reports located findings with the rule and its source and says what to
-  change; it does not ghost-write the paper. Use when asked to check, screen, review, audit or "de-slop" a
-  manuscript or preprint before submission, to draft an AI-use disclosure, to verify references, or to judge
-  whether an AI-generated-science paper will pass an editor.
+  Review a manuscript or its references for concrete scientific and submission problems, prioritising
+  publication and low author burden. Check citation identity and support, unsupported claims, unfinished
+  content, and applicable venue requirements. Use for a requested manuscript audit, reference check or
+  submission-readiness review. Use manuscript-journal-select for journal selection and
+  manuscript-journal-adapt for editing, formatting and drafting AI-use statements.
+  Use manuscript-policy-fit for clinical-scope, ethics, privacy and
+  regulatory applicability, including authors' voluntarily public personal genomes or biomedical data.
 ---
 
 # Manuscript integrity check
 
-A desk editor in 2026 reads a manuscript with screening tools open: reference checkers, paper-mill alarms,
-AI-text detectors, and the venue's own AI policy. This skill runs the same checks first, on the authors' side,
-and tells them what to fix. It **reports and suggests; the authors write.**
+Help the authors publish a sound manuscript in a suitable journal with the least avoidable work. Read
+`references/author-priorities.md` for the shared priorities, scope and disclosure rules. This skill reports
+findings; apply fixes too when the user's request already includes them.
 
 ## Ground rules (read before anything else)
 
-1. **Fix the substance, never disguise it.** The goal is a paper that is verified, disclosed and calibrated,
-   not one that slips past a detector. Never suggest paraphrasing to lower an AI-detector score, never remove
-   an honest disclosure, never "humanize" text to hide where it came from. Wikipedia's own guide warns that
-   treating the signs as the problem "could just make detection harder"; the signs point at unverified claims.
-2. **The authors write the paper.** The strictest venues forbid drafting papers "from a prompt text" and
-   allow an LLM only for correction and "as an evaluation technique (to assist in finding inconsistencies or
-   other anomalies)" (the ISCB policy; `writing_help: banned_drafting` in `references/venues.yaml`). This
-   skill is that evaluation, so it works at every venue. So by default:
+1. **Improve publication prospects.** Concentrate on evidence, clarity, fit and actual submission barriers.
+   Style and detector signals do not establish authorship or misconduct. Do not invent compliance or
+   suggest changing prose merely to obtain a detector score.
+2. **Keep review and editing distinct.** For a review-only request:
    - findings say **where**, **what is wrong**, **which rule** (with source), and **what kind of change**
      ("cut the phrase", "give the measured number from Table 2", "add the DOI 10.xxxx after checking");
    - mechanical fixes are fine to write out in full: a corrected DOI, a deleted chatbot leftover, a missing
      identifier, a reference entry rebuilt from Crossref metadata;
-   - **no replacement paragraphs.** If the user explicitly asks for rewritten text, write it, and say in the
-     report that this use must go into the AI-use disclosure (and the supplement, where the venue asks for one).
-   - When a revision ledger records AI-revised segments, sort them into **refinement** (rewording of text the
-     authors wrote; compare with the previous round) and **generation** (new sentences or sections the AI
-     wrote). Both must be disclosed; generated segments with no later human round are the ones to hand back
-     to an author before a venue that forbids LLM drafting.
-3. **Never invent a source.** Every citation the report suggests has been resolved in this session (DOI via
-   Crossref/doi.org, PMID via E-utilities, arXiv id via the arXiv API) and its title and first author match.
-   If you could not resolve it, say "not found", do not suggest it.
+   - do not replace paragraphs unless editing is also requested. For authorised edits, use the companion
+     skill's content-preservation contract and apply the selected venue's disclosure exemptions;
+   - preserve existing revision markers, but do not audit provenance or create a ledger unless requested.
+     A later human edit does not automatically resolve a journal's restriction on earlier AI drafting.
+3. **Never invent a source.** Verify suggested citations against authoritative records, using an available
+   DOI, PMID, arXiv identifier or primary publisher/library record. Reuse a current verification of an
+   unchanged reference; do not demand an identifier that the work does not have.
+   If you could not verify it, say "unverified". A failed lookup does not establish fabrication; try an
+   alternate authoritative record when the citation matters.
 4. **A check that could not run did not pass.** Mark it `not_assessed` with the reason (offline, paywalled,
    no figures supplied). Detector-style signals (vocabulary density, em-dashes) are risk indicators, never
    evidence of AI authorship; COPE and ICLR both warn against acting on them without proof.
-5. **Policies move monthly.** The references here were researched on 2026-10-15. Before telling the user a
-   rule "requires" something, re-fetch the target venue's author-guidelines page (WebFetch; fall back to
-   `google-chrome --headless --dump-dom URL` when Cloudflare blocks it) and quote it. SECONDARY items in the
-   references are reports, not rules.
+5. **Verify applicable policies.** The reference notes are dated research, not universal rules. Before
+   treating an obligation as binding, verify the selected journal, article type and submission stage
+   against a current primary source using available tools. Reuse a current check in the same task. If
+   access fails, label the rule unconfirmed and continue other work; do not make the author retrieve every
+   blocked page. SECONDARY items and vendor claims do not establish requirements.
+6. **Separate rules from verifiability.** Use `references/requirement-checkability.md` for policy
+   decisions. Check observable submission artifacts; distinguish them from author-reported process,
+   editorial judgement and unknown enforcement. The author decides how to handle a policy conflict;
+   report their chosen disposition and continue without treating journal policy as an assistant veto.
 
-## Inputs to establish
+## Inputs to use when relevant
 
-- **The manuscript** (Markdown, LaTeX or text; convert `.docx` with `pandoc -t gfm`). Scan the source the
-  authors edit, not a rendered PDF. If the project records who revised what (HTML-comment revision markers
-  such as `<!-- @rev ID rounds=N by=name:date -->`, tracked changes, git history with AI co-author trailers),
-  pass `--git` and keep the markers in: the scanner strips comments for prose checks but counts AI revisers.
-- **Target venue(s).** Infer from the text, the folder or the conversation; ask only if nothing says. The
+Use existing context first. A focused citation or passage check does not need every input below.
+
+- **The manuscript** (Markdown, LaTeX or text; convert `.docx` or a Google Doc export with `pandoc -t gfm`).
+  Scan the source the authors edit, not a rendered PDF. If the project marks who revised what in the text
+  (HTML-comment revision markers such as `<!-- @rev ID rounds=N by=name:date -->`), keep the markers in: the
+  scanner strips comments for prose checks but counts AI revisers.
+- **What AI did**, when a disclosure or policy decision depends on it. Use the authors' account; do not reconstruct it from git. Many manuscripts are not in git,
+  and an AI co-author trailer often marks automation (syncing co-authors' comments from a drive, formatting)
+  rather than writing. `--git` exists for authors who ask for a commit inventory; its count is a question
+  to put to them, not evidence.
+- **Target venue(s).** Infer from the text, the folder or the conversation; a general review can proceed without one. The
   disclosure, length and availability rules differ by venue, and one statement does not fit all (one publisher no
   longer requires disclosure of writing help, another wants it documented in the supplement).
 - **Paper type**: (a) a system or tool, (b) a finding, (c) an evaluation; and whether AI produced any of the
-  scientific content (hypotheses, analyses, effect sizes, curated data, code that does the science) or only
-  helped with writing. This decides whether Step 4 applies.
+  scientific content or is itself the subject of evaluation. AI-assisted coding alone does not turn a
+  conventional study into an AI-scientist benchmark. This decides which parts of Step 4 apply.
 
 ## Workflow
+
+Select the checks needed for the request. A full submission audit can use all relevant steps; do not run
+this sequence for every small edit or repeat completed checks over unchanged material.
 
 ### Step 1: mechanical scan
 
 ```bash
-uv run --script .claude/skills/manuscript-integrity-check/scripts/scan.py PAPER.md --online \
+uv run --script scripts/scan.py PAPER.md --online \
     --venue <venue-key> --md /tmp/scan.md --json /tmp/scan.json
 ```
 
 `--online` resolves every DOI, PMID and arXiv id (title and first-author match, Retraction Watch retractions and
 expressions of concern via Crossref, PubMed's "Retracted Publication") and looks up references that carry no
 identifier in Crossref. `--venue KEY` checks the length limits recorded in `references/venues.yaml`. `--git`
-counts commits touching the file that carry an AI co-author trailer. Exit code 1
+(only when the authors ask) counts commits touching the file that carry an AI co-author trailer. Exit code 1
 means at least one blocker. It finds: chatbot leftovers and chat-interface markup (arXiv ban triggers),
 placeholders and TODOs (including inside HTML comments, which still ship), missing declarations, AI mentions
 without a disclosure, AI-revised ledger segments, citation/bibliography mismatches, overclaim words, stock
@@ -82,11 +91,13 @@ never reappear, no archived software DOI, leave-one-out validation.
 
 Read every blocker and major finding in context before reporting it: the scanner has false positives (a
 module named "Superhuman", "discovery" as a software term, a conference name read as an author-year
-citation). Drop what is wrong, keep what is right, and say which you dropped.
+citation). Omit false positives from the author-facing report; explain discarded hits only if useful.
+Script severities are provisional. Mentions of AI, missing model versions, style counts and absence of
+generic declarations do not by themselves establish a submission barrier.
 
 ### Step 2: references beyond identity
 
-The scanner proves a reference exists. Editors also check that it **supports the sentence** (ICMJE V,
+The scanner can resolve a reference's identity; it does not prove **support for the sentence** (ICMJE V,
 Springer Nature's irrelevant-reference checker, Signals, Paperpal). For each claim that carries the paper
 (the abstract's claims, every number taken from another paper, every "first"/"only"), open the cited abstract
 (E-utilities `efetch`, Europe PMC, Crossref, or whatever literature tools are connected, e.g. a PubMed MCP
@@ -97,65 +108,76 @@ published threshold exists).
 
 ### Step 3: venue compliance
 
+For human-data, ethics, privacy, clinical-scope or regulatory applicability questions, use the focused
+`manuscript-policy-fit` workflow. Distinguish wording ambiguity from an actual study requirement; do not
+infer a need for new approval from human-data mentions or a missing declaration alone. It explicitly
+covers authors' own deliberately public genomes and biomedical records.
+
 Look the venue up in `references/publisher-policies.md` (journals) or `references/venues-and-preprints.md`
 (arXiv, bioRxiv/medRxiv, ML conferences), then re-fetch the live page (ground rule 5). Check:
 
 - **AI disclosure**: present, in every place the venue asks (cover letter, Methods, Acknowledgements, a
   titled declaration, the supplement, figure captions), with the fields it asks for: tool **and version**,
-  dates, what it did, which sections, and how the authors verified the output. AI-written **code** that
-  changes functionality goes in Methods (Science, Wiley, Elsevier, ACM). Draft the statement from
+  dates, what it did, which sections, and how the authors verified the output, **only where required**.
+  Check whether AI-assisted **code** needs a Methods description under this venue's policy. Draft from
   `references/disclosure-templates.md`, filled with facts the user confirms; never guess what a tool did.
 - **Author list** has no AI; no AI output cited as a primary source.
-- **Availability**: code at a stable URL and an archived version with DOI, licence, test data, reproduction
-  instructions, data availability statement (most bioinformatics and genomics journals ask for all of these).
+- **Availability**: apply the venue's requirements for this article and stage. Check relevant code/data
+  links and reproduction information; do not demand a DOI, repository deposit or new test dataset when
+  neither the paper's reproducibility nor the venue requires it.
 - **Limits and structure**: abstract and body length, abstract headings, article-type rules. Some journals
   return manuscripts 20% or more over the limit without review (`over_limit_return` in `venues.yaml`).
-- **Figures**: no AI-generated or AI-altered primary images; AI-assisted plots reproducible from data and code
-  and disclosed in the caption; no general-purpose AI graphical abstracts at Elsevier/Cell.
-- **Preprint overlap**: declare the arXiv/bioRxiv version; no parallel submission. arXiv caps submissions at
-  two a month from 1 Oct 2026, and rejected ones count.
+- **Validation and affordability**: record actual independent-cohort, biological-validation or other
+  expensive study requirements, including scope and permitted computational alternatives. Surface an
+  unmet requirement early as a possible venue no-go under the author's budget, and use
+  `manuscript-journal-select` to find feasible alternatives. Do not silently turn it into a new experiment
+  for the author or confuse an independent existing dataset with new recruitment.
+- **Figures**: distinguish primary data, research image processing and illustrations; apply the selected
+  venue's actual rules and preserve accurate representation of the data.
+- **Preprint overlap**: check the relevant venue's preprint and simultaneous-submission rules. Check a
+  preprint server's current limits only if posting there is part of the task.
 
 ### Step 4: AI-generated science (only when AI produced scientific content)
 
-Run the design review in `references/ai-science-design.md`: one primary contribution; pre-registration; the
-full denominator with a flow diagram; case-selection rule; run-to-run variance; baselines including a permuted
-control; ablations; independent human re-analysis of every headline number; external validation; blinded
-rating with κ; error rates; cost and human hours; a stage-wise human/AI contribution table; artifacts; the
-reporting guideline (REFORMS, TRIPOD-LLM, STROBE, ARRIVE). Then the four contamination channels, and wording:
-"rediscovery" for known answers, "discovery" only for prospective or independent validation. For public-cohort
-papers (NHANES, UK Biobank, FinnGen, MIMIC, FAERS…) apply that file's public-cohort list too.
+Use only the claim-relevant parts of `references/ai-science-design.md`. Distinguish an evaluation of an
+AI system from a biological finding obtained with AI assistance. Do not prescribe pre-registration,
+extra cohorts, fixed run counts, ablations or human-rating studies as a package. When evidence is
+insufficient, identify the inference at risk and offer narrower wording or an appropriate venue as well
+as additional work. Ask authors for new analyses only when the missing evidence warrants them.
 
 ### Step 5: calibration and voice
 
 Check every priority or utility claim ("first", "novel", "only", "scalable", "seamless", "robust") against a
 comparison or measurement in the paper; every "we show" against a result; the limitations for specificity
 (a named risk with its consequence, not "further work is needed"). Report stock phrases and vocabulary density
-with their source and as minor. Respect the project's house style if it has one (a style guide, or writing rules in CLAUDE.md / AGENTS.md).
+only when they impair clarity or conflict with the requested house style. Do not list every vocabulary
+hit in a submission audit. Respect existing style guides and writing rules in CLAUDE.md / AGENTS.md.
 
 ### Step 6: optional independent passes
 
-For a submission-ready draft, spawn two reviewer agents that have not seen this conversation, each given
+When the user requests independent reviewer passes, optionally use reviewer agents, each given
 the manuscript and the venue page: a **desk editor** (would you send this out for review? name the reason
 you would not) and a **methods reviewer** (what would you ask for?). Merge their points into the report,
 marked with who raised them. Do not let them rewrite text either.
 
 ## The report
 
-Write it beside the manuscript (e.g. `integrity-check-YYYY-MM-DD.md`) or where the user asks. Lead with the verdict in one or two sentences, then:
+Return a concise report; save a separate file when requested or established by the project. Lead with
+the paper's readiness and the smallest next steps, then:
 
-1. **Blockers**: desk-reject triggers (fabricated/unresolvable reference, chatbot leftover, no AI disclosure
-   where AI was used, over-length by 20%+, an AI author).
-2. **Major**: what an editor or reviewer will object to.
-3. **Minor**: calibration and style.
-4. **Not assessed**: checks that could not run, and why.
+1. **Blockers**: confirmed defects or verified applicable submission barriers.
+2. **Major**: concrete threats to validity or the paper's prospects.
+3. **Optional**: useful improvements, with their likely benefit and effort.
+4. **Uncertain / not assessed**: material checks that could not run, and their consequence.
 
 Each finding: location (`file:line` or section), what is wrong, the rule with its source and date, and the
-suggested change. Group repeated findings (one line for "14 references lack DOIs", with the list). End with
-the cover-letter points the venue needs (AI use, how the work differs from formulaic papers, validation).
+suggested change. Distinguish journal rules from methodological advice and preferences. Group repeated
+findings and omit irrelevant checks. Add cover-letter points only when needed for this submission.
 
-Applying fixes is a separate step, done only when the user asks: use the `manuscript-journal-adapt` skill
-(its contract and `guard.py` keep content intact), follow the project's own revision-marking rules if it
-has them, and log the pass, because rewritten prose counts toward the AI-use disclosure.
+When fixes are authorised, use the `manuscript-journal-adapt` skill
+(its contract and `guard.py` help check content preservation), follow the project's own revision-marking rules if it
+has them. Add no per-pass log; update a disclosure only when the venue requires it and its factual
+account needs to change.
 
 ## Files
 

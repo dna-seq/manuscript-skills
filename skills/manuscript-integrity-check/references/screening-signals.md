@@ -6,6 +6,11 @@ Research date: 2026-10-15. Purpose: give a pre-submission skill the same checks 
 integrity screening runs, so we can find and fix real problems (verify, disclose, calibrate)
 before submission. The goal is not to evade detectors.
 
+These are dated observations about tools and claims, not additional author obligations. Use
+`author-priorities.md` and `requirement-checkability.md`. A vendor feature, publisher-wide integrity tool
+or possible screening power does not establish reliable AI attribution or routine use on a given paper.
+The operational report should contain material, contextual findings rather than this entire catalogue.
+
 Status legend:
 
 - **VERIFIED**: I fetched and read the primary source (or a full-text copy of it), or reproduced the
@@ -489,8 +494,8 @@ report its density, never a verdict. The fix column is always substantive.
 | D5 | Statistical boilerplate: `p ?< ?0\.05 was considered (statistically )?significant` with no test named; many associations with no multiple-testing correction; unexplained data-year or cohort subsets | Suchak 2025 (SECONDARY); Spick 2025 | Name the test, the correction and the subset rationale, or remove the inference. |
 | D6 | Template public-dataset pattern: title or abstract tokens from Spick Table 3 (`NHANES`, `cross-sectional`, `association`, `Mendelian randomization`, `causal`, `bidirectional`, `FinnGen`, `UK Biobank`, `real world`, `pharmacovigilance`, `FAERS`, `burden`, `global`, `GBD`, `CHARLS`, `MIMIC`, `TriNetX`) together with a single-exposure single-outcome design | Spick 2025; Frontiers policy | If it applies, add external or own validation. For our software paper this is probably N/A; report it only. |
 | D7 | Availability: abstract has an "Availability and implementation" statement with a stable source URL, an archived version DOI (Zenodo or Software Heritage) for the *submitted* version, test data archived, an OSI licence named, and a data availability statement present | Bioinformatics author guidelines | Add the missing parts and mint a Zenodo DOI for the submission tag. |
-| D8 | AI-use disclosure: present in the manuscript (Methods or Acknowledgements), the cover letter, and as a detailed Supplementary note (tool, version, which STM categories 1–8, where, how output was verified) | Bioinformatics; ISCB; OUP; ICMJE; STM classification | Write it, factually. Category 2 (drafting) is not allowed at Bioinformatics, so if it happened the text must be rewritten by the authors, not merely disclosed. |
-| D9 | Authorship and identity: every author has an ORCID; corresponding email is institutional; affiliations are consistent across the manuscript, cover letter and ORCID; no AI tool in the author list or acknowledgements-as-author | Signals "Risky email addresses"; Wiley identity verification; OUP author-list screening | Fix the metadata. |
+| D8 | AI-use statement fields and locations required by the current target, after exemptions | Applicable journal rule; cached Bioinformatics example above | Check presence and consistency separately from truth of process claims. Do not demand STM categories or a supplement unless required, or prescribe an author rewrite as a guaranteed cure for a drafting-policy conflict. Follow the author's decision. |
+| D9 | Consistent author metadata; ORCID and contact details where actually required; no AI tool as an author | Journal author instructions; vendor identity checks | Correct actual inconsistencies. A vendor risk signal does not justify requiring every author to obtain ORCID or an institutional email. |
 | D10 | Scope and length: article type and word count fit the journal (Bioinformatics Original Paper ~5,000 words or 7 pages; Application Note ~2,600 words or 4 pages) | Wiley "Journal scope checker"; Bioinformatics guidelines | Cut or move material to the supplement. |
 | D11 | Overlap and duplicate submission: text overlap with the authors' own preprint, docs and earlier papers is declared; there is no parallel submission | STM duplicate submission; Elsevier simultaneous submissions; iThenticate | Declare the preprint (arXiv) in the cover letter. Cite our own earlier text. |
 | D12 | Images: any AI-generated illustration is disclosed (STM category 5). No generated image stands in for data (category 9). Screenshots are real. | STM; Proofig; Imagetwin | Disclose, or replace with a real figure. |

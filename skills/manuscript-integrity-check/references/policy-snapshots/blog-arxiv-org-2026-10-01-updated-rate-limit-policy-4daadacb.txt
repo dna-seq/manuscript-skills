@@ -1,0 +1,43 @@
+url: https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/
+---
+## Fair Moderation, Equitable Access, and AI: arXiv's Updated Rate Limit Policy
+
+Before the advent of AI, there was an easily discernible, practical limit to the rate at which independent submissions could be produced, and arXiv's volunteer moderators would limit submitters who were well above that threshold. With AI tools becoming more advanced and accessible to authors, the "practical limit" of how many papers can be submitted is now up for debate. As of October 1st, 2026, arXiv is instituting an updated rate limiting policy across all submitters and categories as a stopgap while we determine what may be the new best practice for authors employing more and more advanced AI tools, and to give us time to improve our moderation tools and procedures accordingly.
+
+Advanced AI tools are helping drive these increases by making certain aspects of research faster and easier. arXiv policy permits authors to employ AI as a tool in support of their research as long as it is disclosed and the research meets arXiv's standards of scholarly interest and advances the field of research. However, many of the submissions that arXiv is now receiving do not satisfy these requirements. Our moderators are observing an increase in thin papers of narrow scope, as well as 'salami' papers, where a single work is broken up and submitted as a set of smaller papers. There is also a marked increase in dense, AI-written papers. AI tools are making it easy for authors to flood arXiv and other repositories with these low-value papers.
+
+## 27 responses to "Fair Moderation, Equitable Access, and AI: arXiv's Updated Rate Limit Policy"
+
+Well there is Zenodo. The Leiden Declaration on Artificial Intelligence and Mathematics used it. A positive side effect is you also get a download counter. (Of course this is probably only a positive thing for popular papers/monographs).
+
+The new policy addresses one visible consequence of AI, the rapid growth in submissions. But it would be equally important to address the other side of the issue, how arXiv content is used to train AI systems. arXiv is built on researchers voluntarily making their work openly available to the scientific community, yet open access should not automatically be treated as blanket permission for unrestricted commercial AI training. Clearer protections for authors, including transparent licensing and meaningful opt-out mechanisms for AI training, would make the policy more balanced and could also reduce some of the incentives behind large-scale AI-generated paper production, ultimately helping reduce submission volume.
+
+Capping the submission rate amid the current overload-clearly facilitated by GenAI-is not only understandable but necessary. However, this should be regarded as a temporary solution. As researchers, this phenomenon should prompt us to ask deeper questions about how our scientific knowledge-production system is evolving.
+
+First, we must ask why our academic system incentivises authors to prioritise quantity over quality. As one of the comments above aptly notes, the traditional "publish or perish" logic of academia is becoming increasingly problematic, and GenAI may simply be dramatically amplifying a pre-existing problem.
+
+Second, just as authors can leverage AI to accelerate the production of papers, we should equip moderators and reviewers with AI tools capable of reducing their epistemic load by handling lower-level epistemic tasks-for example, identifying similar publications, detecting substantial overlaps, and assessing the incremental contribution of a submission relative to the existing literature.
+
+The goal should not be to replace human scholarly expertise with AI, but to augment it-allowing humans to focus their attention where it is actually needed.
+
+[...] arXiv now limits each submitter to 2 new papers a month, including rejected submissions. A surge in low-quality, AI-assisted papers is overwhelming [...]
+
+I appreciate arXiv's effort to address the rapidly increasing volume of submissions and the resulting pressure on its volunteer moderation system. The growth in research output, particularly in AI-related fields, is a genuine challenge for scholarly infrastructure, and I agree that moderation capacity cannot grow indefinitely without appropriate organisational and technological support.
+
+AI is also changing the economics of research production. A researcher or research group with a genuinely novel idea can now use AI-assisted tools to accelerate literature organisation, coding, analysis, writing, editing and other stages of research without necessarily reducing the intellectual quality of the resulting work. Conversely, AI can also facilitate the production of low-quality material.
+
+### 2. AI-assisted productivity should also motivate investment in AI-assisted moderation
+
+If AI is contributing substantially to the growth in submission volume, it is worth considering whether the same technological development can increase moderation capacity.
+
+The policy refers to increases in low-value, thin, salami-sliced and AI-written papers. These are legitimate concerns, but determining whether a research contribution is sufficiently original or substantive can itself require scholarly judgement.
+
+AI may increase this mismatch further.
+
+Possible approaches include increasing the number of qualified moderators, improving workflow and triage, using AI-assisted moderation under human supervision, and developing reciprocal scholarly-service models in which qualified researchers contribute limited moderation or triage capacity.
+
+Just like Pavlov's dog experiment, severe punishment should be imposed on unwanted behavior. Authors who submit AI slot or 'salami' papers should be banned for life, as their integrity and academic standards cannot be trusted. If arXiv were to ever consider accepting papers written by these authors, it would instead cause people to lose faith in the credibility of all other papers on arXiv.
+
+[...] open-access repository where researchers publish preprint academic research, has announced it will rate limit submissions because it has been inundated with AI-written papers. A researcher can now only send in two pieces [...]
+
+[...] [4] Kat Boboris, Fair Moderation, Equitable Access, and AI: arXiv's Updated Rate Limit Policy, arXiv Blog, 1 October 2026, article. [...]

@@ -10,10 +10,10 @@
     {
       "name": "manuscript-skills",
       "source": "./",
-      "description": "Pre-submission integrity checks, journal ranking by AI policy, venue adaptation and content-preserving copy editing for AI-assisted manuscripts.",
+      "description": "Manuscript integrity checks, practical journal selection, clinical/ethics/privacy scope review including voluntarily self-published genomes, venue adaptation and content-preserving editing.",
       "license": "MIT",
       "category": "research",
-      "tags": ["manuscript", "publishing", "ai-disclosure", "references", "journals"]
+      "tags": ["manuscript", "publishing", "ai-disclosure", "references", "journals", "preprints", "ethics", "privacy"]
     }
   ]
 }

@@ -3,7 +3,7 @@
   "name": "manuscript-skills",
   "displayName": "Manuscript Skills",
   "version": "0.1.0",
-  "description": "Prepare AI-assisted manuscripts for 2026 journal desks: check them against what editors and integrity screeners reject (unresolvable or retracted references, chatbot leftovers, missing AI disclosures, venue limits, AI-science design gaps), rank journals by how hard their AI policy falls on the paper, adapt the manuscript to the chosen venue, and copy-edit AI-sounding prose under a contract that a guard script checks for changed numbers, citations, hedges and negations.",
+  "description": "Help authors publish sound manuscripts with less avoidable work: review references and claims, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, assess applicable requirements, handle policy tradeoffs under the author's decisions, and edit while preserving scientific meaning.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -11,6 +11,6 @@
   "homepage": "https://github.com/dna-seq/manuscript-skills",
   "repository": "https://github.com/dna-seq/manuscript-skills",
   "license": "MIT",
-  "keywords": ["manuscript", "peer-review", "publishing", "ai-disclosure", "references", "journals", "writing", "research-integrity"],
+  "keywords": ["manuscript", "peer-review", "publishing", "ai-disclosure", "references", "journals", "writing", "research-integrity", "preprints", "ethics", "privacy"],
   "skills": "./skills"
 }

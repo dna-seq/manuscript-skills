@@ -6,9 +6,10 @@ Checked 2026-10-15. Distilled from an AI-generated research brief ("Publishing A
 15 Oct 2026) after a claim-by-claim fact-check against primary sources (`notes-factcheck.md`). Corrections
 are applied below and listed at the end; cite the primary sources, never the brief.
 
-Use this file when the manuscript reports results an AI system produced (hypotheses, analyses, effect sizes,
-modules, code that does the science), or when the paper's contribution *is* an AI system. A paper that only
-used AI for language editing needs the disclosure in `publisher-policies.md`, not this review.
+Use the relevant parts when the contribution is an AI system or its scientific outputs. Ordinary coding
+or writing assistance does not make a paper an AI-scientist evaluation. Follow `author-priorities.md`:
+this is a menu of claim-dependent checks, not fifteen conditions every paper must satisfy. Scientific
+advice is distinct from verified journal requirements. Do not send the author this whole checklist.
 
 ## Step 1: one primary contribution
 
@@ -24,26 +25,28 @@ A paper that claims all three with evidence for none is the commonest failure. F
 
 ## Step 2: the checklist
 
-Each item: what to look for in the text, and the fix to suggest when it is missing. Mark an item
-`not_assessed` when the manuscript gives no way to tell, never "pass".
+For each relevant claim, identify what evidence it actually needs and whether existing materials supply
+it. Omit inapplicable items. Mark a material unknown `not_assessed`; do not treat it as a failure. Prefer
+a clarification, narrower claim or suitable venue when that solves the problem. New experiments need a
+specific scientific justification, not just a missing checklist item.
 
 | # | item | look for | suggest when missing |
 |---|---|---|---|
-| D1 | Pre-registered protocol | OSF/AsPredicted link with a date before the first agent run: tasks, data, model versions, run count, metrics, case-selection rule, contamination controls, human-intervention policy | If runs already happened, say so plainly and label the analysis exploratory; pre-register the *next* evaluation |
-| D2 | Full denominator | Every run, task and hypothesis with success / failure / abandoned counts; a CONSORT-style flow ("N generated → N triaged → N tested → N confirmed"), in the abstract too | Add the flow diagram and the run table; put failures in the main text |
-| D3 | Case-selection rule | "the first k in the pre-registered list" or "k sampled with seed s" | State the rule actually used; if cases were hand-picked, say so and add at least one failure |
-| D4 | Run-to-run variance | ≥3 (better ≥5) runs per task, CI or spread | Rerun, or downgrade single-run claims to anecdote |
+| D1 | Prospective claims | A dated protocol where the study claims pre-specification or the applicable study rules require registration | Describe the actual timing; distinguish exploratory analysis. Do not demand retrospective registration or a new study just to obtain it |
+| D2 | Selection and denominator | For success-rate or autonomous-productivity claims, the attempted tasks/runs and relevant failures | Report the denominator supporting the claim. A table, sentence or flow diagram may work; no universal abstract diagram or all-runs deposit requirement |
+| D3 | Case-selection rule | How examples and evaluation cases were selected | State the actual selection and its limitation. Do not require an invented selection rule or an arbitrary extra failure case |
+| D4 | Variability | Uncertainty appropriate to stochastic-performance claims and available repeated observations | Explain the uncertainty; propose more runs only when needed for the inference. Three or five runs is not a universal adequacy threshold |
 | D5 | Forking paths | Re-runs, restarts and human interventions counted | Report how many there were; count restarts as analyses |
-| D6 | Baselines | human expert with the same time budget; scripted pipeline; single non-agentic LLM call; permuted/shuffled-label control the agent must fail; previous system version | Add at least the scripted pipeline and the permuted control |
-| D7 | Ablations | remove literature search, tools, memory, reviewer loop one at a time | Add, or drop claims that a component helps |
-| D8 | Independent re-analysis | a human re-derived every headline number; a discrepancy table | Re-derive; report agent vs human values side by side |
-| D9 | External validation | second cohort, second lab, wet lab, or prospective target | Add, or narrow the claim to "rediscovery on known data" |
-| D10 | Blinded expert rating | AI and human outputs mixed, raters blinded, ≥2 raters, Cohen's/Fleiss' κ or ICC | Add, or remove quality claims that rest on author judgement |
-| D11 | Error quantification | statement-level accuracy by category, hallucinated-reference rate, code-failure rate | Sample statements by a stated rule and score them |
-| D12 | Cost and effort | API cost, wall-clock time, human hours | Report them; reviewers now expect it (Beel et al. 2025) |
-| D13 | Division of labour | stage-wise table (hypothesis, design, analysis, writing) on the Agents4Science scale: A ≥95% human … D ≥95% AI | Add the table |
-| D14 | Artifacts (only where the AI system is the research method, not for writing help) | model ids with dates, system prompts, seeds/temperatures, tool lists, full traces, code with DOI, complete run table | Deposit them (Zenodo); Nature encourages transcripts of prompts and responses |
-| D15 | Reporting guideline | REFORMS for any ML-based claim; TRIPOD-LLM for biomedical LLM studies; TRIPOD+AI for prediction models; CHART for chatbot health advice; STROBE for observational analyses; ARRIVE 2.0 for animal work | Attach the checklist as a supplement |
+| D6 | Comparisons and controls | Baselines matched to the claimed advantage; permutation controls only where scientifically meaningful | Identify the missing comparison. A human expert, simple script, single LLM and permuted control are alternatives to justify, not a compulsory bundle |
+| D7 | Component claims | Evidence that a named component improves the result | Use an appropriate ablation if necessary, or narrow the component claim; no ablation requirement for every system component |
+| D8 | Headline-number verification | Reproducible derivations and independent checks appropriate to the risk | Recompute from data/code where possible. Do not require manual human derivation of every result or a discrepancy table when there is no discrepancy |
+| D9 | Generalisation and novelty | Validation appropriate to claims about new populations, prospective performance or a novel finding | Narrow unsupported generalisation or propose a justified validation. Existing-data findings are not automatically rediscoveries |
+| D10 | Subjective quality claims | A suitable blinded assessment where conclusions depend on expert ratings | Assess the design and agreement metric appropriate to the ratings; do not add raters or κ when there is no subjective evaluation |
+| D11 | Reliability claims | Error measurement relevant to the claimed reliability | Quantify the relevant failure mode, not every possible system error |
+| D12 | Cost and effort claims | Compute/time/human effort where efficiency or autonomy is a contribution | Use available measurements; state gaps. Do not demand reconstructed timesheets for an unrelated biological finding |
+| D13 | Division of labour | A clear description when the paper claims autonomy or the venue requests contributions | A short account may suffice; the Agents4Science A–D table is optional elsewhere |
+| D14 | Reproducibility artifacts | Essential model/settings, method prompts, code and run information for the claim | Share the materials needed for reproduction and the venue's actual requirements; recommendations to share transcripts do not mandate every conversation or a new DOI |
+| D15 | Reporting guideline | The guideline that actually covers this study type, e.g. REFORMS, TRIPOD-LLM, TRIPOD+AI, CHART, STROBE or ARRIVE | Apply the relevant guidance; attach a checklist only if the target venue requires it or it helps the requested review |
 
 ## Step 3: contamination (four channels)
 
@@ -61,20 +64,24 @@ the developers themselves.
 
 ## Step 4: public-cohort papers (NHANES, UK Biobank, FinnGen, MIMIC, FAERS, GBD, CHARLS, TriNetX, CDC WONDER)
 
-These datasets are named as paper-mill "templates"; PLOS auto-rejects such papers without extra validation and
-Frontiers requires independent validation for any paper that is "solely" computational on public data. Check:
+Public data use is not itself a defect. The research notes describe concerns about formulaic analyses
+and venue-specific validation rules; verify their current scope before applying them. Check the issues
+relevant to this study:
 
-1. a pre-specified, theory-grounded question with a time-stamped plan made before any agent saw outcomes;
+1. a motivated question and an accurate account of whether it was specified before examining outcomes;
 2. justified cycles, subsets and exclusions; overlapping NHANES cycles handled (a *Sci Rep* paper was retracted
    for combining 2017–2018 with 2017–March 2020);
-3. survey weights and design variables used;
-4. many exposures or outcomes with FDR control, not a single association;
-5. replication in an independent cohort, ideally non-public; a second public "template" dataset is weak, since
-   the same spurious signal can appear in two datasets from one source;
-6. STROBE (STROBE-MR for Mendelian randomization);
+3. survey weights and design variables where the dataset and estimand require them;
+4. multiple-testing control when multiple hypotheses were tested; a justified single association is not
+   a reason to add exposures or outcomes;
+5. replication when needed for the inference or required by the actual venue; independence and design
+   determine its value, not whether a dataset is public or private;
+6. applicable reporting guidance, e.g. STROBE or STROBE-MR;
 7. an explicit statement of how the paper differs from existing papers on the same pairing.
 
 ## Anticipated objections and the pre-emptive answer
+
+These are examples for the corresponding claims, not mandatory additions to every manuscript.
 
 | objection | what the manuscript should already contain |
 |---|---|
@@ -82,9 +89,9 @@ Frontiers requires independent validation for any paper that is "solely" computa
 | "You cherry-picked successes." | pre-registered selection rule, full denominator, flow diagram, all runs in the supplement |
 | "Is the AI better than a simple pipeline?" | baselines (human, script, single LLM call, permuted) and ablations |
 | "Effect sizes are agent-reported." | independent human re-analysis and a discrepancy table |
-| "Human role understated." | stage-wise A–D table |
-| "Another public-dataset association paper." | pre-specified multi-exposure design, FDR, external cohort, mechanistic link |
-| "Not reproducible." | model versions, prompts, seeds, logs, code DOI, variance over ≥3–5 runs |
+| "Human role understated." | concise, accurate account of contributions; a table only if useful or required |
+| "Another public-dataset association paper." | a specific contribution, justified analysis and evidence appropriate to the claims |
+| "Not reproducible." | essential settings, materials and uncertainty for the reported method; identify what is actually missing |
 
 ## Evidence base (verified 2026-10-15; cite these, with the corrections)
 

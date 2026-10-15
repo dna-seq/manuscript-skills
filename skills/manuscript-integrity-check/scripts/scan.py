@@ -220,7 +220,6 @@ AI_DISCLOSURE = [
     r"(?:we|the authors) used [^.]{0,80}\b(?:claude|chatgpt|gpt-?\d|gemini|copilot|llama|deepseek|qwen|mistral)\b",
 ]
 DECLARATIONS = [
-    ("AI-use disclosure", AI_DISCLOSURE, Severity.blocker),
     ("Data availability", [r"data availability", r"availability of data"], Severity.major),
     ("Code / software availability", [r"code availability", r"software availability", r"code and data availability",
                                       r"availability and implementation", r"availability and requirements"],
@@ -232,7 +231,7 @@ DECLARATIONS = [
      Severity.major),
 ]
 
-# Mentions that mean AI was used to do or write the work, so a disclosure must exist.
+# Context to inspect: mentions alone do not establish author use or a disclosure obligation.
 AI_TOOL_MENTIONS = [
     r"\bclaude\b", r"\bgpt-?\d", r"\bchatgpt\b", r"\bgemini\b", r"\bllama\b", r"\bmistral\b",
     r"\bcopilot\b", r"\bcursor\b", r"\bdeepseek\b", r"\bqwen\b", r"\bopus\b", r"\bsonnet\b",
@@ -387,28 +386,32 @@ def _declaration_findings(text_lower: str) -> list[Finding]:
     return out
 
 
-def _ai_use_findings(lines: list[str], text_lower: str, ref_start: Optional[int]) -> list[Finding]:
+def _ai_use_findings(lines: list[str], text_lower: str, ref_start: Optional[int],
+                     revision_markers: bool = False) -> list[Finding]:
     body = lines[: (ref_start or len(lines) + 1) - 1]
     mentions = _scan_patterns(body, AI_TOOL_MENTIONS, "ai-use", Severity.info,
                               "AI tool or LLM mentioned ('{match}').",
-                              "If this describes the authors' own use, the disclosure must cover it.")
+                              "If this describes the authors' own use, check the selected venue's disclosure "
+                              "rule and exemptions.")
     out: list[Finding] = []
     has_disclosure = any(re.search(p, text_lower) for p in AI_DISCLOSURE)
-    if mentions and not has_disclosure:
-        out.append(Finding(check="ai-use", severity=Severity.major, line=mentions[0].line,
-                           excerpt=mentions[0].excerpt,
-                           message=f"The text mentions AI {len(mentions)} times and has no AI-use disclosure.",
-                           suggestion="Where a mention is the authors' own use (writing, code, analysis, review), "
-                                      "state tool, version, dates and what it did, in Methods and in the cover "
-                                      "letter (ICMJE). A mention that is a product feature needs no disclosure, "
-                                      "but the paper still needs its own statement."))
+    if (mentions or revision_markers) and not has_disclosure:
+        out.append(Finding(check="ai-use", severity=Severity.info,
+                           line=mentions[0].line if mentions else None,
+                           excerpt=mentions[0].excerpt if mentions else "",
+                           message="AI-related text or revision markers found; no AI-use statement recognised.",
+                           suggestion="Determine whether this concerns the authors' own use and whether the "
+                                      "selected venue requires a statement for it. Apply exemptions; add only "
+                                      "required fields and placements. This automated check cannot establish "
+                                      "a disclosure violation."))
     named = [f for f in mentions if re.search(r"claude|gpt|gemini|llama|mistral|copilot|cursor|deepseek|qwen|opus|sonnet",
                                               f.message, re.IGNORECASE)]
     if named and not MODEL_VERSION.search("\n".join(body)):
-        out.append(Finding(check="ai-use", severity=Severity.major,
+        out.append(Finding(check="ai-use", severity=Severity.info,
                            message="AI tools are named but no model version appears anywhere.",
-                           suggestion="Give the exact model identifier and the date range of use; publishers ask "
-                                      "for the version, and the ICMJE asks for prompts where AI did the study."))
+                           suggestion="If these are tools the authors used, supply a model identifier only "
+                                      "where the venue or reproducibility requires it. Do not invent an "
+                                      "unavailable version or require dates and prompts by default."))
     out.extend(mentions)
     return out
 
@@ -452,7 +455,7 @@ def _percentages(lines: list[str]) -> list[Finding]:
 METRIC_RE = re.compile(
     r"(?<![\w.\[])(?:\d+(?:[.,]\d+)?\s?(?:%|×|-fold|fold\b|x\b|s\b|ms\b|min\b|h\b|GB\b|MB\b|TB\b|bp\b|kb\b|Mb\b)"
     r"|\d+\.\d+|\bn\s?=\s?\d[\d,]*|\b(?:CI|AUROC|AUC|F1|r|R2|R²|OR|HR|RR|β)\s?[=:]\s?-?\d)", re.IGNORECASE)
-ABSTRACT_METRICS_MINOR, ABSTRACT_METRICS_MAJOR = 6, 10
+ABSTRACT_METRICS_MINOR = 6
 
 
 def _abstract_metric_dump(lines: list[str]) -> list[Finding]:
@@ -464,11 +467,11 @@ def _abstract_metric_dump(lines: list[str]) -> list[Finding]:
     metrics = METRIC_RE.findall(text)
     if len(metrics) <= ABSTRACT_METRICS_MINOR:
         return []
-    return [Finding(check="abstract", severity=Severity.major if len(metrics) > ABSTRACT_METRICS_MAJOR else Severity.minor,
+    return [Finding(check="abstract", severity=Severity.minor,
                     line=span[0], excerpt=", ".join(m.strip() for m in metrics[:8]),
-                    message=f"The abstract reports {len(metrics)} metrics; most belong in Results and its tables.",
-                    suggestion="Keep the one or two numbers that carry the main claim (clinical formats: the primary "
-                               "outcome with its interval) and say the rest in words backed by Results.")]
+                    message=f"The abstract reports {len(metrics)} metrics; check readability in context.",
+                    suggestion="Keep the quantitative evidence needed for its claims and the venue's format. "
+                               "A metric count alone is not a submission defect or a reason to remove results.")]
 
 
 def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Finding]:
@@ -575,13 +578,19 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
                                       "independent test set."))
     limits = load_venue_limits().get(venue or "")
     if limits:
-        abstract_max, body_max = limits["abstract_words"], limits["body_words"]
+        abstract_max, body_max = limits.get("abstract_words"), limits.get("body_words")
         returned_at = limits.get("over_limit_return")
-        if abstract_words is not None and abstract_words > abstract_max:
+        if body_max is None:
+            out.append(Finding(check="venue", severity=Severity.info,
+                               message=f"No body length limit recorded for {venue}; body length was not checked.",
+                               suggestion="Check the journal template or page limit."))
+        if abstract_max is not None and abstract_words is not None and abstract_words > abstract_max:
             out.append(Finding(check="venue", severity=Severity.major,
                                message=f"Abstract is {abstract_words} words; {venue} recommends at most "
                                        f"{abstract_max}.", suggestion="Cut to the limit."))
-        if returned_at and body_words > returned_at * body_max:
+        if body_max is None:
+            pass
+        elif returned_at and body_words > returned_at * body_max:
             out.append(Finding(check="venue", severity=Severity.blocker,
                                message=f"Body is ~{body_words} words, over {venue}'s ~{body_max} by more than "
                                        f"{round(100 * (returned_at - 1))}% (returned without review).",
@@ -780,9 +789,9 @@ def _git_findings(path: Path) -> list[Finding]:
     if not ai:
         return []
     return [Finding(check="ai-use", severity=Severity.info,
-                    message=f"{len(ai)} of {len(commits)} commits touching this file have an AI co-author trailer.",
-                    suggestion="The disclosure must cover AI writing and revision; sort the AI-revised passages "
-                               "into refinement and generation before a venue that forbids LLM drafting.")]
+                    message=f"{len(ai)} of {len(commits)} commits touching this file have an AI co-author trailer. "
+                            "A trailer can mark automation (syncing comments, formatting), not writing.",
+                    suggestion="Ask the authors what those commits changed; the disclosure follows their account.")]
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
@@ -803,7 +812,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += _scan_patterns(_lines(raw), PLACEHOLDERS, "placeholder", Severity.major, "Placeholder '{match}'.",
                                "Resolve or remove before submission.", flags=0)
     findings += _declaration_findings(text_lower)
-    findings += _ai_use_findings(lines, text_lower, ref_start)
+    findings += _ai_use_findings(lines, text_lower, ref_start, bool(LEDGER_AI.search(raw)))
     findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor, "Stock phrase '{match}'.",
                                "Say the specific thing instead, or cut the phrase.")
     findings += _scan_patterns(lines, MARKUP_ARTIFACTS, "chatbot-leftover", Severity.blocker,
@@ -846,14 +855,9 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
         findings.append(Finding(check="ai-use", severity=Severity.info,
                                 message=f"{len(ledger_ai)} revision-ledger segments name an AI as reviser "
                                         f"({', '.join(sorted(set(n.lower() for n in ledger_ai)))}).",
-                                suggestion="The disclosure must cover AI writing and revision, not only AI in "
-                                           "the methods; say which sections and what kind of help."))
-    ai_evidence = bool(ledger_ai) or any(f.check == "ai-use" and "commits touching" in f.message for f in findings) \
-        or any(f.check == "ai-use" and f.severity == Severity.info and "mentioned" in f.message for f in findings)
-    for f in findings:
-        if f.check == "declarations" and "AI-use disclosure" in f.message and not ai_evidence:
-            f.severity = Severity.minor
-            f.message += " Nothing in the text or history shows AI use; most venues need a statement only if AI was used."
+                                suggestion="Markers do not establish the kind of help. Use existing author "
+                                           "context and the selected venue's rule and exemptions to determine "
+                                           "whether a disclosure needs updating."))
     if ref_start is None:
         findings.append(Finding(check="references", severity=Severity.major,
                                 message="No references/bibliography heading found; references were not checked.",
@@ -937,7 +941,8 @@ def main(
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
     venue: Annotated[Optional[str], typer.Option(help="Venue key from references/venues.yaml")] = None,
-    git: Annotated[bool, typer.Option(help="Count commits touching the file that carry an AI co-author trailer")] = False,
+    git: Annotated[bool, typer.Option(help="Only when the authors ask: count commits touching the file that carry an AI "
+                                            "co-author trailer (informational; trailers often mark automation)")] = False,
 ) -> None:
     known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
     if venue and venue not in known:

@@ -1,0 +1,68 @@
+# Written by manuscript-journal-adapt/scripts/policy_watch.py. One entry per watched URL: the snapshot
+# file, when it was last read and how, and the last attempt when that attempt could not read the page.
+? https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
+: file: blog-arxiv-org-2025-10-31-attention-authors-updated-practice-for-review-articles-eea6da18.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 11
+  sha256: 739908f1dfa15b13090842ffecfb33051f9b1d0ad5388e965822a4c27dd614a9
+https://blog.arxiv.org/2026/01/21/attention-authors-updated-endorsement-policy/:
+  file: blog-arxiv-org-2026-01-21-attention-authors-updated-endorsement-policy-4aae0014.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 32f89315db665d0da9b40b39baa60c5b781d448c8cdd04b04c9551cdaba248c4
+https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/:
+  file: blog-arxiv-org-2026-10-01-updated-rate-limit-policy-4daadacb.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 21
+  sha256: 9d4e9e8a0b0ebb5388aaae2d3d770706edb9b7468fd7d870df38b0b1e0cf8bbe
+https://info.arxiv.org/help/moderation/index.html:
+  file: info-arxiv-org-help-moderation-index-html-eb2dae41.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 5
+  sha256: 97eed3813fcd4bc97ca908b36bdf1f81a86363eaf4a545141f815aca5ab5fb00
+https://info.arxiv.org/help/submit/index.html:
+  file: info-arxiv-org-help-submit-index-html-78ccd5a0.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://openrxiv.org/trust-signals-and-accountability/:
+  file: openrxiv-org-trust-signals-and-accountability-0514081d.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: a627d0eaaad0da09514d1b0f8b83281d209976bf4529e24acbacad91ff8b5bef
+https://www.biorxiv.org/about/FAQ:
+  file: biorxiv-org-about-faq-74e7e5d0.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: 9e3de87833341566bad1d4a16e47df19cd6dda5259975790dc31268a2205155b
+https://www.elsevier.support/ssrn/answer/AI:
+  file: elsevier-support-ssrn-answer-ai-1a0f1f1a.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 20
+  sha256: 6d930c5907f1b2af13d46693ebbaf557766feab37207e603abc457571215acb9
+https://www.medrxiv.org/about/FAQ:
+  file: medrxiv-org-about-faq-e1599ec8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: f62e856a7cbf3d0a9b14f41f6565e510c47695a094b64aa04365ccc42a479c0e
+https://www.preprints.org/blog/post/preprints-in-the-age-of-ai-their-role-in-the-scientific-ecosystem:
+  file: preprints-org-blog-post-preprints-in-the-age-of-ai-their-role-in-the-scientific--55715d3a.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 7
+  sha256: d7a35c5dbe66f16a2d54284368bcf8edd47a2834d0f8f78871d50e82f607914c
+https://www.researchsquare.com/legal/editorial:
+  file: researchsquare-com-legal-editorial-c6d9c9d7.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 289d49377d2523faac1c27be0f20ab71652075cf0e82885292cac6f5f9ed227e
