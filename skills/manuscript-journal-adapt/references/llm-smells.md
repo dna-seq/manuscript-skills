@@ -1363,7 +1363,7 @@ authors' work is standard.
 
 Read two or three recent papers in the target journal and article type: claim strength, hedging, person and
 voice (some journals want passive abstracts without "we"), section names, how results are reported. Run
-`profile.py --sample` on them to see where the manuscript departs from the venue's style.
+`style_profile.py --sample` on them to see where the manuscript departs from the venue's style.
 
 ### K3. Match the authors' own earlier writing
 

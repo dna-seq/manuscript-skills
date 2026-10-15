@@ -102,6 +102,18 @@ def _rewritten_paragraphs(before: str, after: str, threshold: float) -> list[dic
     return out
 
 
+def change_rate(before: str, after: str) -> float:
+    """Share of the original's words that did not survive in place (a word-level diff)."""
+    a, b = before.split(), after.split()
+    if not a:
+        return 0.0
+    kept = sum(block.size for block in SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks())
+    return round(1 - kept / len(a), 3)
+
+
+CHANGE_WARN, CHANGE_STOP = 0.25, 0.50
+
+
 def compare(before_text: str, after_text: str, threshold: float = 0.5) -> dict[str, object]:
     before, after = _prose(before_text), _prose(after_text)
     protected = {name: _diff(_items(before, rx), _items(after, rx)) for name, rx in PROTECTED.items()}
@@ -112,6 +124,7 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5) -> dict[s
         "rewritten_paragraphs": _rewritten_paragraphs(before, after, threshold),
         "words_before": len(before.split()),
         "words_after": len(after.split()),
+        "change_rate": change_rate(before, after),
     }
 
 
@@ -125,7 +138,12 @@ def _git_show(path: Path, ref: str) -> str:
 
 
 def to_markdown(report: dict[str, object]) -> str:
-    lines = [f"# Edit guard: {report['words_before']} → {report['words_after']} words", ""]
+    rate = report["change_rate"]
+    level = ("**stop**: more than half the words changed; this is a rewrite, not a copy edit" if rate > CHANGE_STOP
+             else "**warning**: more than a quarter of the words changed; re-read for meaning" if rate > CHANGE_WARN
+             else "ok")
+    lines = [f"# Edit guard: {report['words_before']} → {report['words_after']} words", "",
+             f"Change rate: {round(100 * rate)}% of the original words ({level}).", ""]
     protected = report["protected"]
     lines.append("## Protected items (must not change)" + ("" if protected else ": none changed"))
     for name, d in protected.items():  # type: ignore[union-attr]

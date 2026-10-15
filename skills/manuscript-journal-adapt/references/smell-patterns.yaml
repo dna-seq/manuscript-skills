@@ -1,4 +1,4 @@
-# Machine-detectable smells, keyed to the entries of llm-smells.md. Read by scripts/profile.py.
+# Machine-detectable smells, keyed to the entries of llm-smells.md. Read by scripts/style_profile.py.
 # Each pattern is a case-insensitive regex matched within one sentence. `scope: start` matches only at the
 # start of a sentence; `scope: end` only in a paragraph's last sentence. A hit is a place to look, never a
 # verdict: read the entry in llm-smells.md, including its "Leave it when".
@@ -233,5 +233,5 @@ smells:
       - 'thank the reviewers? for (?:this|their|the|his|her) (?:excellent|insightful|valuable|thoughtful|helpful|great|constructive)'
   C22:
     name: declarative chain (slogans with no transitions)
-    structural: true   # computed by profile.py from sentence lengths and links, not by a regex
+    structural: true   # computed by style_profile.py from sentence lengths and links, not by a regex
     patterns: []

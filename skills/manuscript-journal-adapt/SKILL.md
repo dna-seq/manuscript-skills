@@ -77,7 +77,7 @@ Read `references/humanize-contract.md` (the contract and the full procedure) and
 `references/llm-smells.md` (about 70 patterns, general and manuscript-specific, each with a bad example, a
 fix and when to leave it). In short:
 
-1. **Targets.** `uv run --script scripts/profile.py PAPER.md [--sample AUTHORS.md]` ranks paragraphs by
+1. **Targets.** `uv run --script scripts/style_profile.py PAPER.md [--sample AUTHORS.md]` ranks paragraphs by
    density of named smells and, given the authors' own writing, shows where the style departs from it.
    The integrity scan adds the mechanical findings.
 2. **Voice.** Get two to five paragraphs the authors wrote themselves, ideally from before any AI help, and
@@ -98,6 +98,14 @@ fix and when to leave it). In short:
 subagent (reads cold, names what still reads as machine-written or unsupported) and a writer subagent
 (fixes exactly that under the contract) for at most two rounds, with the guard after every pass. The
 stopping rule is about content, never about a detector score.
+
+**Detector check** (only when the user asks for one): run `scripts/detector_setup.py check` first. It reports
+whether a Hugging Face token is configured, the GPU, memory and disk, which free detectors are ready or
+already downloaded, and recommends one (local `modernbert` by default; the text stays on the machine). If
+the user wants a detector that needs a token or access, give the page from the report and **ask before**
+running `detector_setup.py open <name>` to open it in a browser. Then `scripts/detect.py PAPER --detector
+<key> --sample <the authors' earlier writing>`; a hosted detector needs `--allow-remote` and the authors'
+consent for this text. Feed flagged windows to the critic as places to look (`references/detector-apis.md`).
 
 Never: run a detector to decide what to rewrite, insert errors or typos, cycle synonyms or vary sentence
 length for "burstiness", paraphrase through another tool or a round-trip translation, or remove hedges and
@@ -121,14 +129,18 @@ supplement as well, and make sure every AI-drafted passage has been rewritten by
   `../manuscript-integrity-check/references/venues.yaml`, so keep the two skills together.
 - `scripts/guard.py`: before/after drift check of numbers, citations, identifiers, terms, URLs, code
   (protected) and hedges, negations, causal verbs, comparatives (watched).
-- `scripts/profile.py`: smell density per paragraph and style measures, optionally against the authors' own
+- `scripts/style_profile.py`: smell density per paragraph and style measures, optionally against the authors' own
   writing; not a detector and not a probability.
 - `references/humanize-contract.md`: the contract, invocation modes, writer profile, inventory, rewriting,
   the literal gate, the scaffolding audit, output format, register by text type.
 - `references/llm-smells.md`: the catalogue of smells with examples, false positives, signs of human writing.
-- `references/smell-patterns.yaml`: the machine-detectable part of the catalogue, read by `profile.py`.
+- `references/smell-patterns.yaml`: the machine-detectable part of the catalogue, read by `style_profile.py`.
 - `references/reflection-mode.md`: the critic and writer agents, their prompts, the stopping rule.
 - `references/section-guide.md`: what each part of a paper needs, from title to response letter.
+- `scripts/detector_setup.py`: environment check, detector recommendation, token pages (opens one only when asked).
+- `scripts/detect.py`: window-by-window scores from a free detector, three states, calibrated on the authors'
+  own writing; heavy (torch, transformers), so it is not part of the pre-commit hook.
+- `references/detector-apis.md`: the free detectors, what each needs, their evidence, how the skill uses them.
 - `references/detector-evidence.md`: what 2026 evidence says about AI-text detectors, disclosure rates and
   humanizer tools
   (which open-source humanizers are fit for manuscripts, and which are detector-evasion tools).

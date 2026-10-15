@@ -15,7 +15,7 @@ routine sections.
 ## Loop
 
 ```
-profile.py SECTION                       → ranked smells (and optional detector notes, below)
+style_profile.py SECTION                       → ranked smells (and optional detector notes, below)
 round 1:  writer(section, smells)        → draft-1 + change table
           guard.py section draft-1       → protected changes? revert them
           critic(draft-1)                → findings
@@ -102,8 +102,9 @@ Section:
 
 ## Optional detector notes
 
-If the authors have set up an AI-text detector (see `detector-apis.md`, when present, for which ones are
-free and what they do with the text), its per-paragraph scores can go to the critic as a hint. Three rules:
+If the authors want a detector's view, run `detector_setup.py check` and `detect.py` (see `detector-apis.md`
+for which free detectors exist and what they do with the text); its flagged windows can go to the critic as
+a hint. Three rules:
 
 - **Opt-in and confidentiality.** Sending an unpublished manuscript to a third party may breach the
   authors' and their co-authors' confidentiality, and some detectors keep or train on what they receive.

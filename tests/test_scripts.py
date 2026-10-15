@@ -203,7 +203,7 @@ def test_venues_yaml_parses_and_is_dated() -> None:
     assert raw["checked"] is not None and raw["venues"]
 
 
-profile = _load("profile", SKILLS / "manuscript-journal-adapt" / "scripts" / "profile.py")
+profile = _load("style_profile", SKILLS / "manuscript-journal-adapt" / "scripts" / "style_profile.py")
 
 SLOPPY = """# Intro
 
@@ -303,3 +303,53 @@ def test_abstract_metric_dump(abstract: str, severity: scan.Severity | None) -> 
 ])
 def test_declarative_chain_detection(paragraph: str, chained: bool) -> None:
     assert (profile.declarative_chain(profile.sentences(paragraph)) is not None) is chained
+
+
+def test_guard_change_rate() -> None:
+    text = " ".join(f"word{i}" for i in range(100))
+    assert guard.change_rate(text, text) == 0.0
+    edited = text.replace("word1 ", "changed ", 1).replace("word50 ", "changed ", 1)
+    assert 0 < guard.change_rate(text, edited) <= 0.03
+    assert guard.change_rate(text, "entirely new text") > 0.9
+
+
+detect = _load("detect", SKILLS / "manuscript-journal-adapt" / "scripts" / "detect.py")
+setup = _load("detector_setup", SKILLS / "manuscript-journal-adapt" / "scripts" / "detector_setup.py")
+
+
+def test_detect_windows_merge_short_paragraphs_and_skip_references() -> None:
+    para = " ".join(["word"] * 45) + "."
+    text = "\n\n".join([para] * 6) + "\n\n## References\n\n" + para
+    wins = detect.windows(text, False, detect._load_profile())
+    assert [w["words"] for w in wins] == [135, 135]  # three 45-word paragraphs per window; references excluded
+
+
+def test_detect_three_states_and_threshold() -> None:
+    wins = [{"line": 1, "end_line": 1, "words": 200, "text": "a"}, {"line": 5, "end_line": 5, "words": 30, "text": "b"},
+            {"line": 9, "end_line": 9, "words": 200, "text": "c"}, {"line": 12, "end_line": 12, "words": 200, "text": "d"}]
+
+    def scorer(t: str) -> float:
+        if t == "d":
+            raise RuntimeError("model failed")
+        return {"a": 0.9, "c": 0.2}[t]
+
+    states = [r["state"] for r in detect.score_windows(wins, scorer, 0.5, False)]
+    assert states == ["flagged", "not assessed", "not flagged", "not assessed"]
+
+
+def test_remote_detector_needs_explicit_consent(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+    p = tmp_path / "paper.md"
+    p.write_text(PAPER, encoding="utf-8")
+    result = CliRunner().invoke(detect.app, [str(p), "--detector", "aiornot"])
+    assert result.exit_code != 0 and "allow-remote" in result.output
+
+
+def test_setup_reports_missing_tokens_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    env = {"hf_token": False, "aiornot_key": False, "gpu": None, "ram_gb": 8.0, "hf_cache": "/x",
+           "disk_free_gb": 50.0, "can_open_browser": False, "cached": {k: False for k in setup.DETECTORS}}
+    rows = {r["key"]: r for r in setup.assess(env)}
+    assert rows["modernbert"]["ready"] and rows["tropa"]["ready"]
+    assert rows["editlens"]["missing"][0] == "hf-token" and not rows["aiornot"]["ready"]
+    assert not rows["binoculars"]["ready"]  # 8 GB RAM and no GPU
+    assert "No Hugging Face token" in setup.recommend(list(rows.values()), env)

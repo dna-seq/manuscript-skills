@@ -21,7 +21,7 @@ Two skills, for Claude Code and Codex:
   - It copy-edits prose so it stops reading as AI slop, following a catalogue of about 70 general and
     manuscript-specific patterns, each with a bad example, a fix and when to leave it. Every number,
     citation, identifier, term, hedge and negation must survive, and `guard.py` checks that they did.
-  - `profile.py` ranks paragraphs by density of named smells and compares the style with a sample of the
+  - `style_profile.py` ranks paragraphs by density of named smells and compares the style with a sample of the
     authors' own writing. It is not a detector and reports no probabilities.
   - Reflection mode alternates a critic agent (reads cold, names what still reads as machine-written) and a
     writer agent (fixes exactly that) for at most two rounds, with the guard after each pass.
@@ -70,11 +70,28 @@ uv run --script skills/manuscript-integrity-check/scripts/scan.py paper.md --onl
 uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --ai-use revision --min-jif 5   # also lists the venue keys
 uv run --script skills/manuscript-journal-adapt/scripts/venues.py show <venue-key>
 uv run --script skills/manuscript-journal-adapt/scripts/guard.py paper.md --against HEAD
-uv run --script skills/manuscript-journal-adapt/scripts/profile.py paper.md --sample my_earlier_paper.md
+uv run --script skills/manuscript-journal-adapt/scripts/style_profile.py paper.md --sample my_earlier_paper.md
 ```
 
 LaTeX manuscripts work too: the scan reads the `.bib` named in `\bibliography{…}`, resolves its DOIs,
 PMIDs and arXiv ids, and checks every `\cite` key.
+
+## Optional: free AI-text detectors
+
+Only when you want a detector's view, and only free ones. A score is a hint about where to reread, never
+evidence and never a target.
+
+```bash
+uv run --script skills/manuscript-journal-adapt/scripts/detector_setup.py check        # what can run here
+uv run --script skills/manuscript-journal-adapt/scripts/detect.py paper.md --sample my_2021_paper.md
+```
+
+`check` reports a Hugging Face token, GPU, memory, disk and cached models, recommends a detector (local
+ModernBERT by default, so the manuscript stays on your machine) and lists the page for any missing token;
+`detector_setup.py open hf-token` opens it, and the skill asks before doing so. `detect.py` scores windows of
+120 to 400 words, marks each flagged, not flagged or not assessed, and calibrates its threshold on your own
+earlier writing. The hosted free tier (AI or Not) runs only with `--allow-remote`. `detect.py` needs torch and
+transformers (a few GB on first run), so it is not part of the pre-commit hook.
 
 ## Pre-commit hook
 

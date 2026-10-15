@@ -54,7 +54,7 @@ def main(
     show: Annotated[int, typer.Option(help="Findings to print per file")] = 8,
 ) -> None:
     scan = _load("scan", HERE / "scan.py")
-    profile = _load("profile", HERE.parents[1] / "manuscript-journal-adapt" / "scripts" / "profile.py")
+    profile = _load("style_profile", HERE.parents[1] / "manuscript-journal-adapt" / "scripts" / "style_profile.py")
     smells, kobak = profile.load_smells(), profile.load_kobak()
     failed = False
     for path in files:
@@ -73,7 +73,7 @@ def main(
         if blockers or (strict and majors) or (max_smells is not None and density > max_smells):
             failed = True
     if failed:
-        typer.echo("Manuscript check failed. Full reports: scan.py FILE --online, profile.py FILE.", err=True)
+        typer.echo("Manuscript check failed. Full reports: scan.py FILE --online, style_profile.py FILE.", err=True)
     raise typer.Exit(code=1 if failed else 0)
 
 

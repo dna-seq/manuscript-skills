@@ -10,9 +10,9 @@ starts where it matters, and profiles style: sentence-length spread, connective 
 diversity, LLM-vocabulary and em-dash rates, anchors (numbers and citations) per paragraph. Given a sample
 of the authors' own writing, it reports which measures depart from that baseline.
 
-    uv run --script profile.py PAPER.md
-    uv run --script profile.py PAPER.tex --sample earlier_paper.md --sample thesis_ch2.md --top 15
-    uv run --script profile.py PAPER.md --json profile.json
+    uv run --script style_profile.py PAPER.md
+    uv run --script style_profile.py PAPER.tex --sample earlier_paper.md --sample thesis_ch2.md --top 15
+    uv run --script style_profile.py PAPER.md --json profile.json
 """
 
 from __future__ import annotations
