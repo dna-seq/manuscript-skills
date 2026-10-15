@@ -14,8 +14,10 @@ so `git log -p` on a snapshot is the history of that policy.
     uv run --script policy_watch.py check --stale-days 30 --update      # only URLs not read for 30 days
     uv run --script policy_watch.py record URL saved.html        # a page saved from your browser (challenge pages)
 
-A page that could not be read is `not_assessed`, never `unchanged`. Exit code 1 when a page changed or is gone,
-3 when nothing changed but at least one page could not be read (not a clean result).
+A page that could not be read is `not_assessed` in the JSON ("Could not be read" in the printed report), never
+`unchanged`. The printed report quotes each changed passage before and after, with the heading it sits under.
+Exit code 1 when a page changed or is gone, 3 when nothing changed but at least one page could not be read (not a
+clean result).
 """
 
 from __future__ import annotations
@@ -63,6 +65,23 @@ BLOCK_TAGS = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "dd", "dt", "td", "
 HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6", "summary", "dt"}
 DROP_TAGS = ["script", "style", "noscript", "nav", "footer", "header", "form", "svg", "iframe", "button"]
 
+# What the printed report calls each fetch route (the JSON and index.yaml keep the route codes).
+ROUTE_LABEL = {"httpx": "plain download", "chrome": "headless browser", "wayback": "Internet Archive lookup"}
+ROUTE_WORDS = {"httpx": "a plain download", "chrome": "a headless browser", "browser": "a copy saved from a browser",
+               "webfetch": "a web-fetch tool"}
+LEGACY_ROUTE_PREFIX = re.compile(r"\b(httpx|chrome|wayback): ")
+EXCERPT_CHARS = 160  # a quoted passage is cut to about this many characters around what changed
+CHANGES_SHOWN = 10
+GROUPS = {
+    "changed": ("Changed since the last read", "The passages about AI on these pages differ from the stored copy. "
+                "Read each change and decide whether the rule itself moved."),
+    "gone": ("No longer at this address", "These addresses answered that the page does not exist. Find where the "
+             "journal moved its policy."),
+    "not_assessed": ("Could not be read", "These pages were not checked at all, which is not the same as unchanged."),
+    "new": ("Read for the first time", "No earlier copy of these pages was stored, so there is nothing to compare."),
+    "unchanged": ("Unchanged", "The passages about AI are the same as in the stored copy."),
+}
+
 
 class Result(str, Enum):
     unchanged = "unchanged"
@@ -91,6 +110,7 @@ class Outcome:
     venues: list[str] = field(default_factory=list)
     diff: list[str] = field(default_factory=list)
     body: Optional[str] = None
+    changes: list[str] = field(default_factory=list)  # each change as a sentence quoting the passage before and after
 
 
 # ------------------------------------------------------------------------------------------------ text
@@ -160,6 +180,139 @@ def digest(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
+# ------------------------------------------------------------------------------------------------ report
+
+def route_words(route: Optional[str]) -> str:
+    """How a page was read, in words: an archived copy is named with its capture date."""
+    if not route:
+        return "an unrecorded method"
+    m = re.match(r"wayback:(\d{4})(\d{2})(\d{2})", route)
+    if m:
+        return f"the Internet Archive's copy of {m.group(1)}-{m.group(2)}-{m.group(3)}"
+    return ROUTE_WORDS.get(route, route)
+
+
+def plain_reason(reason: str) -> str:
+    """A stored failure reason; older index entries name the fetch routes by their codes."""
+    return LEGACY_ROUTE_PREFIX.sub(lambda m: f"{ROUTE_LABEL[m.group(1)]}: ", reason)
+
+
+def _cut_left(text: str, room: int) -> str:
+    if len(text) <= room:
+        return text
+    tail = text[len(text) - room:]
+    return "[...] " + (tail.split(" ", 1)[1] if " " in tail else "")
+
+
+def _cut_right(text: str, room: int) -> str:
+    if len(text) <= room:
+        return text
+    head = text[:room]
+    return (head.rsplit(" ", 1)[0] if " " in head else "") + " [...]"
+
+
+def excerpt(text: str, start: int, end: int, width: int = EXCERPT_CHARS) -> str:
+    """`text` with text[start:end] in bold, cut to about `width` characters around it. An empty span (text was only
+    added on the other side) shows the context where the addition sits."""
+    middle = _cut_right(text[start:end].strip(), width)
+    room = max(0, width - len(middle)) // 2
+    left = _cut_left(text[:start].rstrip(), room)
+    right = _cut_right(text[end:].lstrip(), room)
+    glue_left = " " if text[:start].endswith(" ") else ""
+    glue_right = " " if text[end:].startswith(" ") else ""
+    if not middle:
+        return f"{left}{glue_left or glue_right}{right}".strip()
+    return f"{left}{glue_left}**{middle}**{glue_right}{right}".strip()
+
+
+TOKEN = re.compile(r"[\w'-]+|[^\w\s]")
+
+
+def _changed_span(before: str, after: str) -> Optional[tuple[int, int, int, int]]:
+    """Character spans, in `before` and in `after`, from the first to the last word or mark that differs."""
+    ta, tb = list(TOKEN.finditer(before)), list(TOKEN.finditer(after))
+    ops = [op for op in difflib.SequenceMatcher(a=[m.group() for m in ta], b=[m.group() for m in tb],
+                                                autojunk=False).get_opcodes() if op[0] != "equal"]
+    if not ops:
+        return None
+
+    def span(tokens: list[re.Match[str]], i: int, j: int, text: str) -> tuple[int, int]:
+        if i == j:  # nothing on this side: an empty span where the other side's words go
+            pos = tokens[i].start() if i < len(tokens) else len(text)
+            return pos, pos
+        return tokens[i].start(), tokens[j - 1].end()
+
+    return (*span(ta, ops[0][1], ops[-1][2], before), *span(tb, ops[0][3], ops[-1][4], after))
+
+
+def _heading_before(paras: list[str], idx: int) -> Optional[str]:
+    return next((p[3:] for p in reversed(paras[:idx]) if p.startswith("## ")), None)
+
+
+def _kind(para: str) -> tuple[str, str]:
+    return ("heading", para[3:]) if para.startswith("## ") else ("passage", para)
+
+
+def _under(heading: Optional[str]) -> str:
+    return f'Under the heading "{heading}", the' if heading else "The"
+
+
+def describe_changes(old: str, new: str) -> list[str]:
+    """Each changed, removed or added passage as a sentence that quotes it, with the heading it sits under and the
+    changed words in bold. Passages are paired in order within a changed stretch."""
+    a, b = (old.split("\n\n") if old else []), (new.split("\n\n") if new else [])
+    out: list[str] = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        pairs = list(zip(a[i1:i2], b[j1:j2]))
+        for k, (x, y) in enumerate(pairs):
+            kind, before = _kind(x)
+            _, after = _kind(y)
+            spans = _changed_span(before, after)
+            if spans is None:
+                continue
+            head = _heading_before(b, j1 + k) if kind == "passage" else None
+            out.append(f'{_under(head)} {kind} that read "{excerpt(before, spans[0], spans[1])}" now reads '
+                       f'"{excerpt(after, spans[2], spans[3])}".')
+        for k, x in enumerate(a[i1 + len(pairs):i2]):
+            kind, text = _kind(x)
+            head = _heading_before(a, i1 + len(pairs) + k) if kind == "passage" else None
+            out.append(f'{_under(head)} {kind} "{_cut_right(text, EXCERPT_CHARS)}" was removed.')
+        for k, y in enumerate(b[j1 + len(pairs):j2]):
+            kind, text = _kind(y)
+            head = _heading_before(b, j1 + len(pairs) + k) if kind == "passage" else None
+            out.append(f'{_under(head)} new {kind} "{_cut_right(text, EXCERPT_CHARS)}" was added.')
+    return out
+
+
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def venue_names() -> dict[str, str]:
+    raw = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+    return {k: v.get("name", k) for k, v in raw.items()}
+
+
+def render(o: "Outcome", names: dict[str, str]) -> list[str]:
+    """One page in the printed report: its URL, the venues that cite it, how it was read and what changed."""
+    cited = _and([f"{names.get(k, k)} (`{k}`)" for k in o.venues]) if o.venues else "no venue"
+    lines = [f"- {o.url}", f"  Cited for {cited}."]
+    if o.result == Result.gone:
+        lines.append(f"  The address answered that the page does not exist ({o.reason}).")
+    elif o.result == Result.not_assessed:
+        lines.append(f"  It could not be read: {plain_reason(o.reason) or 'no reason was recorded'}.")
+    else:
+        lines.append(f"  Read with {route_words(o.route)}; {o.blocks} of its passages mention AI."
+                     + (f" {o.reason}" if o.reason else ""))
+    lines += [f"  - {change}" for change in o.changes[:CHANGES_SHOWN]]
+    if len(o.changes) > CHANGES_SHOWN:
+        lines.append(f"  - {len(o.changes) - CHANGES_SHOWN} more changes are not shown; `--json FILE` writes "
+                     "the full comparison.")
+    return lines
+
+
 # ------------------------------------------------------------------------------------------------ fetch
 
 def _challenged(html: str) -> bool:
@@ -181,16 +334,17 @@ def fetch_httpx(url: str) -> Fetched:
         r = httpx.get(url, headers={"User-Agent": USER_AGENT, "Accept-Language": "en"}, follow_redirects=True,
                       timeout=30)
     except httpx.HTTPError as e:
-        return Fetched("httpx", reason=f"{type(e).__name__}: {e}")
+        return Fetched("httpx", reason=f"failed ({type(e).__name__}: {e})")
     if r.status_code in (404, 410):
         return Fetched("httpx", status=r.status_code, reason=f"HTTP {r.status_code}")
     if r.content[:5] == b"%PDF-" or "pdf" in r.headers.get("content-type", ""):
         text = _pdf_text(r.content)
         if text is None:
-            return Fetched("httpx", status=r.status_code, reason="a PDF, and pdftotext (poppler) is not installed")
+            return Fetched("httpx", status=r.status_code,
+                           reason="got a PDF, and pdftotext (poppler) is not installed to read it")
         return Fetched("httpx", html=text, status=r.status_code, plain=True)
     if r.status_code >= 400 or _challenged(r.text):
-        return Fetched("httpx", status=r.status_code, reason=f"blocked (HTTP {r.status_code})")
+        return Fetched("httpx", status=r.status_code, reason=f"was blocked (HTTP {r.status_code})")
     return Fetched("httpx", html=r.text, status=r.status_code)
 
 
@@ -202,15 +356,15 @@ def _chrome() -> Optional[str]:
 def fetch_chrome(url: str) -> Fetched:
     binary = _chrome()
     if binary is None:
-        return Fetched("chrome", reason="no Chrome or Chromium on PATH")
+        return Fetched("chrome", reason="could not run, because no Chrome or Chromium is installed")
     with tempfile.TemporaryDirectory(prefix="policy-watch-") as profile:
         run = subprocess.run([binary, "--headless=new", "--disable-gpu", f"--user-data-dir={profile}",
                               "--virtual-time-budget=15000", "--dump-dom", url],
                              capture_output=True, text=True, timeout=120)
     if run.returncode != 0 or not run.stdout.strip():
-        return Fetched("chrome", reason=f"chrome exit {run.returncode}")
+        return Fetched("chrome", reason=f"failed (exit code {run.returncode})")
     if _challenged(run.stdout):
-        return Fetched("chrome", reason="blocked (challenge page)")
+        return Fetched("chrome", reason="was stopped by a challenge page")
     return Fetched("chrome", html=run.stdout)
 
 
@@ -228,8 +382,8 @@ def _wayback_latest(url: str) -> tuple[Optional[str], str]:
         r = httpx.get("https://archive.org/wayback/available", params={"url": url}, timeout=30)
         closest = r.json().get("archived_snapshots", {}).get("closest") or {}
     except (httpx.HTTPError, ValueError) as e:
-        return None, f"wayback unreachable ({type(e).__name__})"
-    return (closest["timestamp"], "") if closest.get("available") else (None, "no archived copy")
+        return None, f"failed ({type(e).__name__})"
+    return (closest["timestamp"], "") if closest.get("available") else (None, "found no archived copy")
 
 
 def fetch_wayback(url: str, newer_than: Optional[date]) -> Fetched:
@@ -238,7 +392,7 @@ def fetch_wayback(url: str, newer_than: Optional[date]) -> Fetched:
         return Fetched("wayback", reason=why)
     taken = datetime.strptime(stamp[:8], "%Y%m%d").date()
     if newer_than is not None and taken <= newer_than:
-        return Fetched("wayback", reason=f"newest archived copy ({taken}) is not newer than the snapshot")
+        return Fetched("wayback", reason=f"found only a copy from {taken}, which is not newer than the stored one")
     got = fetch_httpx(f"https://web.archive.org/web/{stamp}id_/{url}")
     return Fetched(f"wayback:{stamp}", html=got.html, status=got.status, reason=got.reason)
 
@@ -260,11 +414,12 @@ def fetch(url: str, routes: list[str], last: Optional[date]) -> Fetched:
         if got.html is not None:
             if readable(blocks_of(got)):
                 return got
-            reasons.append(f"{route}: page too short (a stub, login wall or script shell)")
+            reasons.append(f"the {ROUTE_LABEL.get(route, route)} got a page too short to be the policy (a stub, "
+                           "login wall or script shell)")
             continue
         if got.status in (404, 410) and route == "httpx":
             return got
-        reasons.append(f"{route}: {got.reason}")
+        reasons.append(f"the {ROUTE_LABEL.get(route, route)} {got.reason}")
     return Fetched(None, reason="; ".join(reasons))
 
 
@@ -329,21 +484,23 @@ def compare(url: str, got: Fetched, index: dict[str, dict[str, Any]], venues: li
         return Outcome(url, result, got.route, got.reason or "", venues=venues)
     blocks = blocks_of(got)
     if not readable(blocks):
-        return Outcome(url, Result.not_assessed, got.route, "page too short: a stub, login wall or script shell",
-                       venues=venues)
+        return Outcome(url, Result.not_assessed, got.route, "the page was too short to be the policy (a stub, "
+                       "login wall or script shell)", venues=venues)
     body = ai_extract(blocks)
     n = body.count("\n\n") + 1 if body else 0
     entry = index.get(url)
     old = read_snapshot(entry) if entry and "file" in entry else None  # an entry may hold only failed attempts
     if old is None:
-        return Outcome(url, Result.new, got.route, "no AI text on this page" if not body else "", n, venues, body=body)
+        return Outcome(url, Result.new, got.route, "The page has no passages about AI." if not body else "", n, venues,
+                       body=body)
     if digest(old) == digest(body):
         return Outcome(url, Result.unchanged, got.route, "", n, venues, body=body)
     note = ""
     if _route_kind(entry.get("route")) != _route_kind(got.route):
-        note = f"read by {got.route}, the snapshot by {entry.get('route')}: some differences may be the route"
+        note = (f"This read used {route_words(got.route)} and the stored copy {route_words(entry.get('route'))}, so "
+                "some differences may come from how the page was read.")
     diff = list(difflib.unified_diff(old.split("\n\n"), body.split("\n\n"), "snapshot", "live", lineterm="", n=0))
-    return Outcome(url, Result.changed, got.route, note, n, venues, diff, body)
+    return Outcome(url, Result.changed, got.route, note, n, venues, diff, body, changes=describe_changes(old, body))
 
 
 def route_date(route: Optional[str]) -> Optional[date]:
@@ -370,14 +527,15 @@ def apply(outcomes: list[Outcome], index: dict[str, dict[str, Any]], today: date
 def list_cmd(venue: Annotated[Optional[list[str]], typer.Option(help="Only these venue keys")] = None) -> None:
     """Every watched URL with the venues that cite it and when it was last read."""
     index = load_index()
-    typer.echo("| URL | venues | last read | route | passages | last failed attempt |")
+    typer.echo("| Policy page | Cited for (catalogue keys) | Last read | Read with | Passages about AI "
+               "| Last failed attempt |")
     typer.echo("|---|---|---|---|---:|---|")
     for url, keys in sorted(watched_urls(venue).items()):
         e = index.get(url, {})
         att = e.get("last_attempt")
-        failed = f"{att['date']}: {att['reason']}" if att else ""
-        typer.echo(f"| {url} | {', '.join(keys)} | {e.get('read', 'never')} | {e.get('route', '')} "
-                   f"| {e.get('passages', '')} | {failed} |")
+        failed = f"On {att['date']}, {plain_reason(att['reason'])}." if att else ""
+        typer.echo(f"| {url} | {', '.join(keys)} | {e.get('read', 'never')} "
+                   f"| {route_words(e['route']) if e.get('route') else ''} | {e.get('passages', '')} | {failed} |")
 
 
 @app.command()
@@ -406,19 +564,17 @@ def check(
     with ThreadPoolExecutor(max_workers=workers) as pool:
         outcomes = sorted(pool.map(one, urls.items()), key=lambda o: (o.result.value, o.url))
     order = [Result.changed, Result.gone, Result.not_assessed, Result.new, Result.unchanged]
-    typer.echo(f"Policy pages checked {today} ({len(outcomes)} URLs)\n")
+    names = venue_names()
+    typer.echo(f"Policy pages checked on {today}: {len(outcomes)} pages, compared with the passages about AI "
+               "stored when each was last read.\n")
     for res in order:
         group = [o for o in outcomes if o.result == res]
         if not group:
             continue
-        typer.echo(f"## {res.value} ({len(group)})\n")
+        title, meaning = GROUPS[res.value]
+        typer.echo(f"## {title} ({len(group)})\n\n{meaning}\n")
         for o in group:
-            extra = f" {o.reason}" if o.reason else ""
-            typer.echo(f"- {o.url} [{', '.join(o.venues)}] via {o.route or 'none'}, {o.blocks} AI passages.{extra}")
-            for line in o.diff[:60]:
-                typer.echo(f"    {line}")
-            if len(o.diff) > 60:
-                typer.echo(f"    ... {len(o.diff) - 60} more diff lines")
+            typer.echo("\n".join(render(o, names)))
         typer.echo("")
     if update:
         apply(outcomes, index, today)
@@ -449,9 +605,8 @@ def record(
     content = page_file.read_text(encoding="utf-8", errors="replace")
     is_html = bool(re.search(r"<(html|body|p|div)\b", content[:5000], re.IGNORECASE))
     outcome = compare(url, Fetched(route, html=content, plain=not is_html), index, venues)
-    typer.echo(f"{outcome.result.value}: {url} via {route}, {outcome.blocks} AI passages. {outcome.reason}")
-    for line in outcome.diff:
-        typer.echo(f"    {line}")
+    typer.echo(f"## {GROUPS[outcome.result.value][0]}\n")
+    typer.echo("\n".join(render(outcome, venue_names())))
     if update:
         apply([outcome], index, date.today())
 

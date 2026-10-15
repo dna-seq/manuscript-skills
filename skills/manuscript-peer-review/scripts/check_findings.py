@@ -13,6 +13,11 @@ that point at the same text, carry the same group label or raise a near-identica
 with the number of distinct seats in each group. That count says how many seats raised a concern, not
 whether it is right. The script gives no scores. Schema: ../references/finding-schema.md.
 
+The Markdown report is written for people who did not write these skills: each group quotes the passage it
+concerns with its section (the line number only in parentheses), statuses are plain words, prior-work
+identifiers are full URLs, and after adjudication the groups are sorted by when the authors can act on
+them. The JSON keeps every field, code and line number for other tools.
+
     uv run --script check_findings.py findings.json PAPER.md
     uv run --script check_findings.py findings.json PAPER.tex --supplement supp.md --md check.md --json check.json
     uv run --script check_findings.py findings.json PAPER.md --adjudicated      # also require verdict fields
@@ -46,6 +51,7 @@ TRIAGE = ("substance", "misread-risk", "polish")
 VERDICTS = ("confirmed", "refuted", "downgraded")
 KINDS = ("present", "absence")
 COSTS = ("text", "reanalysis", "new-data", "unknown")
+STAGE_KEYS = ("now", "writing", "journal", "final")  # the optional `stage` an adjudicator may set
 HAND_TO = ("manuscript-prose-edit", "manuscript-reference-check", "manuscript-reporting-check",
            "manuscript-integrity-check", "manuscript-policy-fit", "manuscript-journal-adapt",
            "manuscript-journal-select")
@@ -55,6 +61,28 @@ REQUIRED = ("id", "seat", "location", "concern", "claim", "consequence", "severi
 MIN_QUOTE_WORDS = 3  # shorter quotes must reach MIN_QUOTE_CHARS to anchor a finding
 MIN_QUOTE_CHARS = 12
 MAX_ELISION_GAP = 200  # tokens allowed between the fragments of an elided quote
+EXCERPT_WIDTH = 160  # characters of manuscript text shown around a quoted passage in the Markdown report
+
+# Plain words for the Markdown report; the JSON keeps the field names and tokens.
+FIELD_WORDS = {
+    "id": "an id", "seat": "the simulated referee who raised it", "location": "the section it concerns",
+    "concern": "the concern itself", "claim": "the claim at stake",
+    "consequence": "what resolving it could change about that claim", "severity": "a severity",
+    "change_my_mind": "what would change a referee's mind", "route": "how it would be handled",
+}
+CONTRACT_WORDS = {"pass": "ready", "fail": "failed", "not_assessed": "could not be checked"}
+# Where a confirmed concern sits in the order the authors work (author-priorities.md, "Order the work by
+# when it can be done"). Groups after adjudication are listed in this order.
+STAGES = (
+    ("now", "Fix now: the science and the evidence"),
+    ("writing", "Then the writing"),
+    ("journal", "Once you have chosen the journal"),
+    ("final", "Before submission, once the code is final"),
+    ("other-checks", "Also found, belongs to other checks"),
+    ("answered", "Answered by the paper (refuted by the defence pass)"),
+    ("dropped", "Dropped"),
+)
+OTHER_CHECKS = ("manuscript-integrity-check", "manuscript-reference-check", "manuscript-reporting-check")
 
 # --- normalisation ------------------------------------------------------------------------------------
 # Every mask keeps the text's length, so a token's offsets point into the original file and give its line.
@@ -84,6 +112,10 @@ _LINE_MARKUP = re.compile(r"(?m)^[ \t]*(?:#{1,6}|>)")
 _EMPHASIS = re.compile(r"\*+|(?<!\w)_+|_+(?!\w)|`+|[|{}$~]")
 
 _TOKEN = re.compile(r"\w+|[^\w\s]")
+# The end of a sentence: . ? or ! (with any closing quote or bracket) before whitespace. Decimals do not match.
+# A line that is not prose: a Markdown heading, or a LaTeX command line such as \section{...} or \begin{...}.
+_STRUCTURAL_LINE = re.compile(r"(?m)^[ \t]*(?:#{1,6}[ \t].*|\\[a-zA-Z]+\*?(?:\[[^\]\n]*\])?(?:\{[^}\n]*\})*[ \t]*)$\n?")
+_SENTENCE_END = re.compile(r"[.?!][\"'\u201d\u2019)\]]*(?=\s)\s*")
 _DROP_TOKENS = {'"', "'", "`"}
 
 
@@ -150,12 +182,16 @@ class Document:
     words: dict[str, list[str]] = field(default_factory=dict)
     index: dict[str, dict[str, list[int]]] = field(default_factory=dict)
     line_starts: list[int] = field(default_factory=list)
+    visible: str = ""  # the text with comments blanked out (same length), for excerpts
 
     @classmethod
     def load(cls, path: Path) -> "Document":
         text = path.read_text(encoding="utf-8-sig", errors="replace")
         mode = "latex" if path.suffix.lower() == ".tex" else "markdown"
         doc = cls(path=path, text=text, mode=mode)
+        doc.visible = _HTML_COMMENT.sub(_blank, text)
+        if mode == "latex":
+            doc.visible = _LATEX_COMMENT.sub(_blank, doc.visible)
         light = _light(text, comments=mode)
         doc.views = {"light": _tokens(light), "stripped": _tokens(_stripped(light))}
         for name, toks in doc.views.items():
@@ -169,6 +205,42 @@ class Document:
 
     def line(self, offset: int) -> int:
         return bisect.bisect_right(self.line_starts, offset)
+
+    def excerpt(self, start: int, end: int, width: int = EXCERPT_WIDTH) -> str:
+        """The sentence (or table row) holding text[start:end] as a reader sees it, cut to about `width`
+        characters around that span; the span is in bold when the excerpt shows more than the span.
+
+        Comments are left out, as in the quote check. In prose the excerpt runs from the start of the
+        sentence to its end within the paragraph; in a table it is the row.
+        """
+        text = self.visible
+        first = text.rfind("\n", 0, start) + 1
+        last = text.find("\n", end)
+        last = len(text) if last < 0 else last
+        row = text[first:last].lstrip()
+        tidy = _readable_tex if self.mode == "latex" else (lambda part: part)
+        if row.startswith("|") or (self.mode == "latex" and "&" in row):
+            return cut_around(*(tidy(x) for x in (text[first:start], text[start:end], text[end:last])), width)
+        breaks = [m.end() for m in re.finditer(r"\n[ \t]*\n", text[:start])]
+        para_start = breaks[-1] if breaks else 0
+        para_end = re.search(r"\n[ \t]*\n", text[end:])
+        before = text[para_start:start]
+        after = text[end:end + para_end.start()] if para_end else text[end:]
+        headings = list(_STRUCTURAL_LINE.finditer(before))
+        if headings:
+            before = before[headings[-1].end():]
+        stop_line = _STRUCTURAL_LINE.search(after)
+        if stop_line:
+            after = after[:stop_line.start()]
+        sentence_ends = list(_SENTENCE_END.finditer(before))
+        if sentence_ends:
+            before = before[sentence_ends[-1].end():]
+        stop = _SENTENCE_END.search(after)
+        if re.search(r"[.?!][\"'\u201d\u2019)\]]*\s*$", text[start:end]):
+            after = ""  # the quote ends its sentence
+        elif stop:
+            after = after[:stop.start() + len(stop.group(0).rstrip())]
+        return cut_around(tidy(before), tidy(text[start:end]), tidy(after), width)
 
     def _occurrences(self, view: str, needle: list[str]) -> list[int]:
         hay = self.words[view]
@@ -202,8 +274,8 @@ class Document:
                 return Match(start=toks[s][1], end=toks[e - 1][2], view=view, occurrences=len(spans))
         return None
 
-    def longest_opening(self, quote: str) -> Optional[tuple[int, int, int]]:
-        """(matched words, total words, line) for the longest opening run of the quote found anywhere."""
+    def longest_opening(self, quote: str) -> Optional[tuple[int, int, int, int]]:
+        """(matched words, total words, start, end offsets) of the longest opening run of the quote found."""
         first = _ELISION.split(quote)[0]
         for view, prep in (("light", _light), ("stripped", lambda q: _stripped(_light(q)))):
             toks = [t for t, _, _ in _tokens(prep(first))]
@@ -213,8 +285,50 @@ class Document:
                     break
                 occ = self._occurrences(view, toks[:k])
                 if occ:
-                    return (sum(_is_word(t) for t in toks[:k]), words, self.line(self.views[view][occ[0]][1]))
+                    spans = self.views[view]
+                    return (sum(_is_word(t) for t in toks[:k]), words, spans[occ[0]][1], spans[occ[0] + k - 1][2])
         return None
+
+
+_STARS = re.compile(r"\*+")
+_TEX_UNWRAP = re.compile(r"\\(?:emph|textbf|textit|texttt|textsc|textsf|underline|url|mbox|text)\{([^{}]*)\}")
+
+
+def _readable_tex(text: str) -> str:
+    """LaTeX source as a reader of the PDF would recognise it: formatting commands unwrapped, `~` as a
+    space, list markers and escapes removed. References and citations stay, so the passage can be found."""
+    for _ in range(2):
+        text = _TEX_UNWRAP.sub(r"\1", text)
+    text = re.sub(r"(?<!\\)~", " ", text)
+    text = re.sub(r"\\item\b\s*", "", text)
+    return re.sub(r"\\([%&#$_{}])", r"\1", text)
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"\s+", " ", text)
+
+
+def cut_around(before: str, span: str, after: str, width: int = EXCERPT_WIDTH, mark: bool = True) -> str:
+    """Show `span` with as much of its surroundings as fits in about `width` characters.
+
+    Whitespace is collapsed, cuts fall between words and are marked [...], and the span is set in bold when
+    some context is shown, so a reader sees which part of the line the finding is about.
+    """
+    before, span, after = (_squash(_STARS.sub("", x)) for x in (before, span, after))
+    before, span, after = before.lstrip(), span.strip(), after.rstrip()
+    if len(span) > width:
+        half = width // 2
+        return f"{span[:half].rsplit(' ', 1)[0]} [...] {span[-half:].split(' ', 1)[-1]}"
+    room = max(0, width - len(span))
+    left = min(len(before), room // 2)
+    right = min(len(after), room - left)
+    left = min(len(before), room - right)
+    if len(before) > left:
+        before = "[...] " + before[len(before) - left:].split(" ", 1)[-1] if left else ""
+    if len(after) > right:
+        after = after[:right].rsplit(" ", 1)[0] + " [...]" if right else ""
+    shown = f"**{span}**" if mark and span and (before.strip() or after.strip()) else span
+    return f"{before}{shown}{after}".strip()
 
 
 def _quote_size(quote: str) -> tuple[int, int]:
@@ -238,12 +352,23 @@ _IDENTIFIER = re.compile(
     r"(?:arXiv:\s*)?\d{4}\.\d{4,5}(?:v\d+)?|https?://\S+|(?:ISBN:?\s*)?[\d-]{10,17}[\dX])$", re.IGNORECASE)
 _LINTS = {
     "state-of-the-art": (re.compile(r"\bstate[- ]of[- ]the[- ]art\b|\bSOTA\b", re.IGNORECASE),
-                         "rests on state-of-the-art standing: keep it only if the paper claims superiority"),
+                         "The concern rests on the paper not being state of the art, which matters only if the "
+                         "paper claims to be better than other methods."),
     "new-work": (re.compile(r"\b(?:should|must|need(?:s)? to|ought to)\s+(?:also\s+)?"
                             r"(?:run|perform|add|include|conduct|test|repeat|collect|validate)\b", re.IGNORECASE),
-                 "asks for new work: confirm the claim needs it, and offer narrowing the claim as the alternative"),
-    "simplicity": (re.compile(r"\b(?:too simple|trivial|straightforward extension)\b", re.IGNORECASE),
-                   "objects to simplicity: simplicity is not a defect unless a claim depends on it"),
+                 "The concern asks for new work. Confirm that the claim needs it, and offer narrowing the claim "
+                 "as the cheaper alternative."),
+    # An objection to the work being simple: "too simple", "simplistic", "a trivial extension", "the method
+    # is trivial". Not "near-trivial scores" or "non-trivial", which describe results, not the contribution
+    # (smoke run on Paper 2, 2026-10-15).
+    "simplicity": (re.compile(
+        r"\btoo simple\b|\b(?:overly|rather|fairly|quite) simple\b|\bsimplistic\b"
+        r"|(?<![-\w])trivial\s+(?:extension|contribution|method|approach|tool|idea|change|modification|"
+        r"application|combination|adaptation|step|task|problem|engineering)\b"
+        r"|\b(?:is|are|seems|seem|appears|appear|looks|look|remains|remain)\s+(?:rather\s+|fairly\s+|quite\s+|"
+        r"somewhat\s+)?trivial\b"
+        r"|\bstraightforward\s+(?:extension|application|combination|adaptation)\b", re.IGNORECASE),
+        "The concern objects to the work being simple, which is not a defect unless a claim depends on more."),
 }
 
 _STOP = set("""about above after again against also among another because been before being between both
@@ -296,46 +421,53 @@ class Sources:
                 return [doc], None
         for name, reason in self.unreadable.items():
             if Path(name).name == Path(wanted).name:
-                return [], f"source {wanted} could not be read ({reason})"
-        return [], f"source {wanted} was not supplied (pass it with --supplement)"
+                return [], f"the file {wanted} could not be read ({reason})"
+        return [], f"the file {wanted} was not supplied (pass it with --supplement)"
+
+
+def _words_list(items: list[str] | tuple[str, ...], last: str = "or") -> str:
+    items = list(items)
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} {last} {items[-1]}"
 
 
 def _check_quote(quote: str, source: Optional[str], sources: Sources, what: str) -> dict[str, Any]:
     """Locate one quote. status: verified | not_found | not_assessed."""
     words, chars = _quote_size(quote)
     if words < MIN_QUOTE_WORDS and chars < MIN_QUOTE_CHARS:
-        return {"status": "not_found", "problem": f"{what} is too short to locate a finding "
-                f"({words} words); quote at least {MIN_QUOTE_WORDS} words or {MIN_QUOTE_CHARS} characters"}
+        return {"status": "not_found", "problem": f"The {what} has {words} word{'s' * (words != 1)}, too short to "
+                f"show which passage is meant; quote at least {MIN_QUOTE_WORDS} words or {MIN_QUOTE_CHARS} "
+                f"characters."}
     docs, reason = sources.candidates(source)
     if reason:
-        return {"status": "not_assessed", "problem": f"{what} not checked: {reason}"}
+        return {"status": "not_assessed", "problem": f"The {what} could not be checked, because {reason}."}
     for doc in docs:
         m = doc.locate(quote)
         if m:
             out = {"status": "verified", "file": doc.path.name, "line": doc.line(m.start),
                    "end_line": doc.line(max(m.start, m.end - 1)), "start": m.start, "end": m.end,
-                   "view": m.view, "occurrences": m.occurrences}
+                   "view": m.view, "occurrences": m.occurrences, "excerpt": doc.excerpt(m.start, m.end)}
             return out
     near = [(doc, doc.longest_opening(quote)) for doc in docs]
     near = [(doc, n) for doc, n in near if n]
     hint = ""
     if near:
-        doc, (k, total, line) = max(near, key=lambda x: x[1][0])
-        hint = f"; its first {k} of {total} words occur at {doc.path.name}:{line}, then the text differs"
-    return {"status": "not_found", "problem": f"{what} not found verbatim in "
-            f"{', '.join(d.path.name for d in docs)}{hint}"}
+        doc, (k, total, start, end) = max(near, key=lambda x: x[1][0])
+        hint = (f" Its first {k} of {total} words occur in {doc.path.name}, where the text reads "
+                f"\"{doc.excerpt(start, end)}\" (line {doc.line(start)}); after that the wording differs.")
+    return {"status": "not_found", "problem": f"The {what} does not occur word for word in "
+            f"{_words_list([d.path.name for d in docs])}.{hint}"}
 
 
 def _enum(finding: dict[str, Any], key: str, allowed: tuple[str, ...], problems: list[str]) -> None:
     value = finding.get(key)
     if value is not None and value not in allowed:
-        problems.append(f"{key} '{value}' is not one of: {', '.join(allowed)}")
+        problems.append(f"The value '{value}' of {key} is not one of {_words_list(allowed)}.")
 
 
 def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return {"id": f"#{position + 1}", "seat": None, "contract": "fail",
-                "problems": ["not a JSON object"], "warnings": []}
+                "problems": ["This entry is not a JSON object, so it cannot be read as a finding."], "warnings": []}
     f = raw
     problems: list[str] = []
     warnings: list[str] = []
@@ -343,13 +475,13 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
 
     for key in REQUIRED:
         if not _nonempty_str(f.get(key)):
-            problems.append(f"missing or empty field: {key}")
+            problems.append(f"It does not give {FIELD_WORDS[key]} ({key} is missing or empty).")
     seat = f.get("seat")
     if _nonempty_str(seat) and seat not in SEATS and not re.fullmatch(r"custom:[\w-]+", seat):
-        problems.append(f"seat '{seat}' is not one of: {', '.join(SEATS)}, or custom:<name>")
+        problems.append(f"The referee '{seat}' (seat) is not one of {_words_list(SEATS)}, or custom:<name>.")
     for key, allowed in (("severity", SEVERITIES), ("consequence", CONSEQUENCES), ("route", ROUTES),
                          ("triage", TRIAGE), ("verdict", VERDICTS), ("kind", KINDS), ("cost", COSTS),
-                         ("hand_to", HAND_TO)):
+                         ("hand_to", HAND_TO), ("stage", STAGE_KEYS)):
         _enum(f, key, allowed, problems)
 
     kind = f.get("kind", "present")
@@ -357,20 +489,24 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
     if kind == "absence":
         looked = f.get("looked_in")
         if not (isinstance(looked, list) and looked and all(_nonempty_str(x) for x in looked)):
-            problems.append("absence finding without looked_in: list where the seat looked for the missing item")
+            problems.append("It reports something missing but does not say where the referee looked for it "
+                            "(looked_in).")
     elif not _nonempty_str(f.get("quote")):
-        problems.append("no verbatim quote: quote the manuscript, or make it an absence finding with looked_in")
+        problems.append("It has no verbatim quote from the manuscript. Quote the passage, or, if the problem is "
+                        "something missing, make it an absence finding that lists where the referee looked.")
     if _nonempty_str(f.get("quote")):
         quote_result = _check_quote(f["quote"], f.get("source"), sources, "quote")
         if quote_result["status"] == "not_found":
             problems.append(quote_result["problem"])
         elif quote_result["status"] == "verified" and quote_result["occurrences"] > 1:
-            warnings.append(f"quote occurs {quote_result['occurrences']} times; the location field decides which "
-                            f"(first at line {quote_result['line']})")
+            warnings.append(f"The quote occurs {quote_result['occurrences']} times in {quote_result['file']}, so "
+                            f"the section named in the finding decides which passage is meant (the first is at "
+                            f"line {quote_result['line']}).")
 
     defence_result: Optional[dict[str, Any]] = None
     if _nonempty_str(f.get("defence_quote")):
-        defence_result = _check_quote(f["defence_quote"], f.get("defence_source"), sources, "defence_quote")
+        defence_result = _check_quote(f["defence_quote"], f.get("defence_source"), sources,
+                                      "defence quote (defence_quote)")
         if defence_result["status"] == "not_found":
             problems.append(defence_result["problem"])
 
@@ -379,44 +515,47 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
     needs_prior = bool(_PRIOR_WORK_CUE.search(concern)) or f.get("external_claim") is True
     if prior is not None:
         if not isinstance(prior, list):
-            problems.append("prior_work must be a list")
+            problems.append("The prior work (prior_work) must be a list.")
             prior = []
         for i, entry in enumerate(prior, 1):
             if not isinstance(entry, dict) or not _nonempty_str(entry.get("citation")):
-                problems.append(f"prior_work[{i}] needs a citation")
+                problems.append(f"Prior work {i} has no citation.")
                 continue
             status, ident = entry.get("status"), entry.get("identifier")
             if status not in PRIOR_STATUS:
-                problems.append(f"prior_work[{i}] status must be verified or unverified")
+                problems.append(f"Prior work {i} needs the status verified or unverified.")
             if ident is not None and not (_nonempty_str(ident) and _IDENTIFIER.match(ident.strip())):
-                problems.append(f"prior_work[{i}] identifier '{ident}' is not a DOI, PMID, arXiv id, ISBN or URL")
+                problems.append(f"Prior work {i} has the identifier '{ident}', which is not a DOI, PubMed ID, "
+                                f"arXiv id, ISBN or URL.")
             if status == "verified" and not _nonempty_str(ident):
-                problems.append(f"prior_work[{i}] is marked verified without an identifier")
+                problems.append(f"Prior work {i} is marked verified but has no identifier.")
     if needs_prior:
         usable = [e for e in (prior or []) if isinstance(e, dict) and _nonempty_str(e.get("citation")) and
                   (e.get("status") == "unverified" or (e.get("status") == "verified" and _nonempty_str(e.get("identifier"))))]
         if f.get("external_claim") is False:
-            warnings.append("the concern reads like a prior-work claim but is marked external_claim: false")
+            warnings.append("The concern reads like a claim about prior work, but it is marked as not being one "
+                            "(external_claim is false); check that it names no existing work.")
         elif not usable:
-            problems.append("asserts external prior work without a named work carrying an identifier "
-                            "or the status unverified (prior_work)")
+            problems.append("The concern says the work is not new or that other work exists, but it names no "
+                            "prior work with an identifier or the status unverified (prior_work).")
 
     for name, (rx, message) in _LINTS.items():
         if rx.search(concern):
-            warnings.append(f"fairness filter ({name}): {message}")
+            warnings.append(f"{message} (fairness check: {name})")
 
     if f.get("route") == "dropped" and not _nonempty_str(f.get("drop_reason")):
-        problems.append("route dropped without drop_reason")
+        problems.append("It is dropped without a reason (drop_reason).")
     verdict = f.get("verdict")
     if adjudicated and verdict is None:
-        problems.append("adjudicated findings need a verdict: confirmed, refuted or downgraded")
+        problems.append("After the defence pass every finding needs a verdict: confirmed, refuted or "
+                        "downgraded.")
     if verdict in ("confirmed", "downgraded") and f.get("triage") is None:
-        problems.append(f"a {verdict} finding needs triage: substance, misread-risk or polish")
+        problems.append(f"A {verdict} finding needs a triage class: substance, misread-risk or polish.")
     if verdict in VERDICTS and not _nonempty_str(f.get("verdict_evidence")):
-        problems.append(f"a {verdict} finding needs verdict_evidence: the text, recomputation or record that "
-                        f"settles it")
+        problems.append(f"A {verdict} finding needs the evidence that settled it (verdict_evidence): the text, "
+                        f"the recomputation or the record.")
     if verdict == "refuted" and not _nonempty_str(f.get("defence_quote")):
-        problems.append("a refuted finding needs defence_quote: the text that answers it")
+        problems.append("A refuted finding needs the manuscript text that answers it (defence_quote).")
 
     if problems:
         contract = "fail"
@@ -431,14 +570,18 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
             "severity": f.get("severity"), "route": f.get("route"), "verdict": verdict,
             "triage": f.get("triage"), "concern": concern, "group_label": f.get("group"),
             "prior_work": prior or [], "contract": contract, "problems": problems,
-            "warnings": warnings, "quote": quote_result, "defence": defence_result}
+            "warnings": warnings, "quote": quote_result, "defence": defence_result,
+            "quote_text": f.get("quote"), "looked_in": f.get("looked_in"), "hand_to": f.get("hand_to"),
+            "cost": f.get("cost"), "stage": f.get("stage")}
 
 
 def _check_strength(raw: Any, position: int, sources: Sources) -> dict[str, Any]:
     if not isinstance(raw, dict):
-        return {"index": position + 1, "contract": "fail", "problems": ["not a JSON object"]}
-    problems = [f"missing or empty field: {k}" for k in ("seat", "location", "quote", "note")
-                if not _nonempty_str(raw.get(k))]
+        return {"index": position + 1, "contract": "fail",
+                "problems": ["This entry is not a JSON object, so it cannot be read as a strength."]}
+    problems = [f"It does not give {word} ({k} is missing or empty)." for k, word in (
+        ("seat", "the simulated referee who noted it"), ("location", "the section"), ("quote", "a quote"),
+        ("note", "what is strong about it")) if not _nonempty_str(raw.get(k))]
     result = None
     if _nonempty_str(raw.get("quote")):
         result = _check_quote(raw["quote"], raw.get("source"), sources, "quote")
@@ -447,11 +590,35 @@ def _check_strength(raw: Any, position: int, sources: Sources) -> dict[str, Any]
     contract = "pass" if not problems else ("not_assessed" if result and result["status"] == "not_assessed"
                                             and len(problems) == 1 else "fail")
     return {"index": position + 1, "seat": raw.get("seat"), "location": raw.get("location"),
-            "note": raw.get("note"), "contract": contract, "problems": problems, "quote": result}
+            "note": raw.get("note"), "contract": contract, "problems": problems, "quote": result,
+            "quote_text": raw.get("quote")}
 
 
-def _group(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Union findings that share text, a group label, a near-identical concern, or (absence) a location."""
+def finding_stage(f: dict[str, Any]) -> str:
+    """When the authors can act on an adjudicated finding (a key of STAGES)."""
+    if f.get("verdict") == "refuted":
+        return "answered"
+    if f.get("route") == "dropped":
+        return "dropped"
+    if f.get("stage") == "final":  # archive records, declarations, version numbers: never a current concern
+        return "final"
+    if f.get("hand_to") in OTHER_CHECKS:
+        return "other-checks"
+    if f.get("stage") in STAGE_KEYS:
+        return f["stage"]
+    if f.get("route") == "venue":
+        return "journal"
+    if f.get("triage") in ("misread-risk", "polish"):
+        return "writing"
+    return "now"
+
+
+def _group(findings: list[dict[str, Any]], adjudicated: bool = False) -> list[dict[str, Any]]:
+    """Union findings that share text, a group label, a near-identical concern, or (absence) a location.
+
+    After adjudication each group carries the stage at which the authors can act on it, and groups are
+    ordered by stage, then severity, then position in the manuscript.
+    """
     members = [f for f in findings if f["contract"] == "pass"]
     parent = list(range(len(members)))
 
@@ -480,6 +647,7 @@ def _group(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for i, f in enumerate(members):
         clusters.setdefault(root(i), []).append(f)
     rank = {s: i for i, s in enumerate(SEVERITIES)}
+    stage_rank = {key: i for i, (key, _) in enumerate(STAGES)}
 
     def first_offset(fs: list[dict[str, Any]]) -> int:
         offsets = [f["quote"]["start"] for f in fs if f["quote"] and f["quote"]["status"] == "verified"]
@@ -488,16 +656,32 @@ def _group(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     groups = []
     for fs in clusters.values():
         fs.sort(key=lambda f: rank.get(f["severity"], 99))
+        stage = min((finding_stage(f) for f in fs), key=stage_rank.__getitem__) if adjudicated else None
+        lead = [f for f in fs if not adjudicated or finding_stage(f) == stage] or fs
         seats = sorted({f["seat"] for f in fs})
         where = sorted({f"{f['quote']['file']}:{f['quote']['line']}" for f in fs
                         if f["quote"] and f["quote"]["status"] == "verified"})
+        passages, seen = [], set()
+        for f in sorted(fs, key=lambda f: first_offset([f])):
+            q = f["quote"]
+            if q and q["status"] == "verified" and (q["file"], q["line"]) not in seen:
+                seen.add((q["file"], q["line"]))
+                passages.append({"finding": f["id"], "location": f["location"], "file": q["file"],
+                                 "line": q["line"], "excerpt": q["excerpt"]})
+        absences = [{"finding": f["id"], "location": f["location"], "looked_in": f["looked_in"]}
+                    for f in fs if f["kind"] == "absence"]
         groups.append({
             "findings": [f["id"] for f in fs], "seats": seats, "n_seats": len(seats),
-            "severity": fs[0]["severity"], "where": where,
+            "severity": lead[0]["severity"], "where": where,
             "locations": sorted({f["location"] for f in fs if f["location"]}),
             "verdicts": sorted({f["verdict"] for f in fs if f["verdict"]}),
             "routes": sorted({f["route"] for f in fs if f["route"]}),
-            "concern": fs[0]["concern"], "_order": (rank.get(fs[0]["severity"], 99), first_offset(fs)),
+            "concern": lead[0]["concern"], "concern_from": lead[0]["id"], "stage": stage,
+            "passages": passages, "absences": absences,
+            "verdict_by_finding": {f["id"]: f["verdict"] for f in fs if f["verdict"]},
+            "costs": sorted({f["cost"] for f in lead if f.get("cost")}),
+            "hand_to": sorted({f["hand_to"] for f in lead if f.get("hand_to")}),
+            "_order": (stage_rank[stage] if stage else 0, rank.get(lead[0]["severity"], 99), first_offset(fs)),
         })
     groups.sort(key=lambda g: g["_order"])
     for n, g in enumerate(groups, 1):
@@ -538,64 +722,205 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
         seen[f["id"]] = seen.get(f["id"], 0) + 1
     for f in findings:
         if seen[f["id"]] > 1:
-            f["problems"].append(f"duplicate id {f['id']}")
+            f["problems"].append(f"Another finding has the same id, {f['id']}.")
             f["contract"] = "fail"
     strengths = [_check_strength(s, i, sources) for i, s in enumerate(raw_strengths)]
-    groups = _group(findings)
+    groups = _group(findings, adjudicated)
     counts = {k: sum(f["contract"] == k for f in findings) for k in ("pass", "fail", "not_assessed")}
+    panel = sorted({f["seat"] for f in findings if _nonempty_str(f.get("seat"))})
     return {
         "manuscript": manuscript.name,
         "supplements": [d.path.name for d in sources.supplements] + sorted(sources.unreadable),
         "stage": "adjudicated" if adjudicated else "seat findings",
-        "summary": {"findings": len(findings), **counts, "groups": len(groups),
+        "summary": {"findings": len(findings), **counts, "groups": len(groups), "seats": len(panel),
                     "strengths": len(strengths),
                     "strengths_not_anchored": sum(s["contract"] != "pass" for s in strengths)},
-        "findings": findings, "groups": groups, "strengths": strengths,
+        "panel": panel, "findings": findings, "groups": groups, "strengths": strengths,
     }
+
+
+def identifier_url(identifier: Any) -> Optional[str]:
+    """A link a reader can open for a DOI, PubMed ID, arXiv id or URL; None for an ISBN or anything else."""
+    if not _nonempty_str(identifier):
+        return None
+    ident = identifier.strip()
+    m = re.fullmatch(r"(?:doi:\s*|https?://(?:dx\.)?doi\.org/)?(10\.\d{4,9}/\S+)", ident, re.IGNORECASE)
+    if m:
+        return f"https://doi.org/{m.group(1)}"
+    m = re.fullmatch(r"(?:arXiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?)", ident, re.IGNORECASE)
+    if m:
+        return f"https://arxiv.org/abs/{m.group(1)}"
+    m = re.fullmatch(r"PMID:?\s*(\d{1,9})|(\d{6,9})", ident, re.IGNORECASE)
+    if m:
+        return f"https://pubmed.ncbi.nlm.nih.gov/{m.group(1) or m.group(2)}/"
+    if re.match(r"https?://\S+$", ident):
+        return ident
+    return None
+
+
+def _plural(n: int, word: str, many: Optional[str] = None) -> str:
+    return f"{n} {word if n == 1 else (many or word + 's')}"
+
+
+def _trim(text: Any, width: int = EXCERPT_WIDTH) -> str:
+    text = _squash(str(text or "")).strip()
+    return text if len(text) <= width else text[:width].rsplit(" ", 1)[0] + " [...]"
+
+
+def _sentence(text: Any) -> str:
+    text = _squash(str(text or "")).strip()
+    return text if not text or text[-1] in ".?!\"'" else text + "."
+
+
+SEVERITY_WORDS = {"blocker": "A blocking concern", "major": "A major concern", "optional": "An optional concern",
+                  "uncertain": "An uncertain concern"}
+ROUTE_WORDS = {"fixable-in-text": "can be fixed in the text", "author-required": "needs new work from the authors",
+               "venue": "is a question for the chosen journal",
+               "policy": "is an ethics, consent or privacy question for manuscript-policy-fit",
+               "dropped": "was dropped"}
+COST_WORDS = {"text": "a change of wording", "reanalysis": "a reanalysis of existing data",
+              "new-data": "new data or experiments"}
+
+
+def _passage_sentences(group: dict[str, Any], manuscript: str) -> list[str]:
+    out = []
+    for p in group["passages"]:
+        where = f"line {p['line']}" if p["file"] == manuscript else f"{p['file']}, line {p['line']}"
+        place = f"In {p['location']}, the" if _nonempty_str(p["location"]) else "The"
+        text = "manuscript" if p["file"] == manuscript else f"file {p['file']}"
+        out.append(f"{place} {text} reads \"{p['excerpt']}\" ({where}).")
+    for a in group["absences"]:
+        looked = a["looked_in"] if isinstance(a["looked_in"], list) else []
+        out.append(f"Finding {a['finding']} reports something missing from {a['location'] or 'the paper'}; the "
+                   f"referee looked in {_words_list(looked, 'and') if looked else 'places it did not list'}.")
+    return out
+
+
+def _verdict_sentence(group: dict[str, Any]) -> str:
+    by_verdict: dict[str, list[str]] = {}
+    for fid, verdict in group["verdict_by_finding"].items():
+        by_verdict.setdefault(verdict, []).append(fid)
+    if not by_verdict:
+        return ""
+    parts = [f"{v} for {_words_list(ids, 'and')}" for v, ids in by_verdict.items()]
+    return f"The defence pass verdict is {_words_list(parts, 'and')}."
+
+
+def _group_markdown(n: int, g: dict[str, Any], report: dict[str, Any]) -> list[str]:
+    total = report["summary"]["seats"]
+    head = (f"### {n}. {SEVERITY_WORDS.get(g['severity'], 'A concern')} raised by {g['n_seats']} of "
+            f"{_plural(total, 'simulated referee')}")
+    ids = "finding" if len(g["findings"]) == 1 else "findings"
+    referees = "simulated referee" if g["n_seats"] == 1 else "simulated referees"
+    body = [f"It comes from {ids} {_words_list(g['findings'], 'and')}, written by the {referees} "
+            f"{_words_list(g['seats'], 'and')} (group {g['group']})."]
+    body += _passage_sentences(g, report["manuscript"])
+    body.append(f"Finding {g['concern_from']} states the concern as follows. {_sentence(g['concern'])}")
+    verdict = _verdict_sentence(g)
+    if verdict:
+        body.append(verdict)
+    if report["stage"] == "adjudicated" and g["stage"] not in ("answered", "dropped"):
+        routes = [ROUTE_WORDS[r] for r in g["routes"] if r in ROUTE_WORDS and r != "dropped"]
+        costs = [COST_WORDS[c] for c in g["costs"] if c in COST_WORDS]
+        if routes:
+            body.append(f"As proposed, it {_words_list(routes)}" + (f", at the cost of {_words_list(costs)}"
+                                                                     if costs else "") + ".")
+        if g["stage"] == "other-checks":
+            body.append(f"It belongs to {_words_list(g['hand_to'])}; mention it there rather than as a referee "
+                        f"concern.")
+    return [head, "", *[f"{line}" for line in body], ""]
 
 
 def to_markdown(report: dict[str, Any]) -> str:
     s = report["summary"]
+    adjudicated = report["stage"] == "adjudicated"
     lines = [f"# Finding check: {report['manuscript']}", ""]
+    intro = (f"This check read {_plural(s['findings'], 'finding')} from {_plural(s['seats'], 'simulated referee')}, "
+             f"{'after' if adjudicated else 'before'} the defence pass. ")
+    if s["findings"]:
+        go_on = "the report" if adjudicated else "the defence pass"
+        intro += (f"{s['pass']} of them quote the manuscript word for word and give every required field, so "
+                  f"they go on to {go_on}. ")
+    not_yet = s["fail"] + s["not_assessed"]
+    if not_yet:
+        intro += (f"{not_yet} {'is' if not_yet == 1 else 'are'} not yet {'a finding' if not_yet == 1 else 'findings'}, "
+                  f"because {s['fail']} failed the check and {s['not_assessed']} could not be checked. ")
+    if s["pass"]:
+        intro += (f"The {_plural(s['pass'], 'finding')} that passed fall into {_plural(s['groups'], 'group')} that "
+                  f"share text, a group label or a near-identical concern. ")
+    if s["strengths"]:
+        intro += (f"Of {_plural(s['strengths'], 'strength')}, {s['strengths_not_anchored']} "
+                  f"{'lacks' if s['strengths_not_anchored'] == 1 else 'lack'} a verified quote. ")
     if report["supplements"]:
-        lines.append(f"Supplementary sources: {', '.join(report['supplements'])}.")
-    lines += [f"Stage: {report['stage']}. Findings: {s['findings']}. Meeting the contract: {s['pass']}. "
-              f"Not yet findings: {s['fail'] + s['not_assessed']} ({s['fail']} failed, {s['not_assessed']} not "
-              f"assessed). Groups: {s['groups']}.",
-              "Seat counts say how many seats raised a concern; agreement between seats is not confirmation.", ""]
-    if report["groups"]:
-        lines += ["## Groups", "", "| Group | Seats | Findings | Where | Severity | Verdicts | Concern |",
-                  "|---|---|---|---|---|---|---|"]
-        for g in report["groups"]:
-            where = ", ".join(g["where"]) or "; ".join(g["locations"]) or "-"
-            concern = " ".join(g["concern"].split()).replace("|", "\\|")
-            lines.append(f"| {g['group']} | {g['n_seats']}: {', '.join(g['seats'])} | {', '.join(g['findings'])} "
-                         f"| {where} | {g['severity']} | {', '.join(g['verdicts']) or '-'} | {concern} |")
-        lines.append("")
+        intro += f"Besides the manuscript, the check searched {_words_list(report['supplements'], 'and')}."
+    lines += [intro.strip(), "",
+              "A group's count says how many simulated referees raised the concern. Agreement between referees "
+              "is not evidence that the concern is right.", ""]
+    if adjudicated and report["groups"]:
+        lines += ["The groups are sorted by when the authors can act on them, then by severity. When writing the "
+                  "report, put work that another fix depends on first, and merge groups that share a root cause "
+                  "by giving their findings the same group label and running the check again.", ""]
+        n = 0
+        for key, title in STAGES:
+            members = [g for g in report["groups"] if g["stage"] == key]
+            if not members:
+                continue
+            lines += [f"## {title}", ""]
+            for g in members:
+                n += 1
+                lines += _group_markdown(n, g, report)
+    elif report["groups"]:
+        lines += ["## Groups", ""]
+        for n, g in enumerate(report["groups"], 1):
+            lines += _group_markdown(n, g, report)
     bad = [f for f in report["findings"] if f["contract"] != "pass"]
     if bad:
         lines += ["## Not yet findings", "",
-                  "Each needs a verbatim quote, the missing fields or a checked identifier before adjudication; "
-                  "none has been dropped.", ""]
+                  "Each of these needs a verbatim quote, the missing fields or a checked identifier before it can "
+                  "go further. None has been dropped.", ""]
         for f in bad:
-            lines.append(f"- **{f['id']}** ({f['seat'] or 'no seat'}, {f['contract']}): " + "; ".join(f["problems"]))
+            quoted = (f" It quotes \"{_trim(f.get('quote_text'))}\""
+                      + (f" from {f['location']}." if _nonempty_str(f.get("location")) else ".")
+                      if _nonempty_str(f.get("quote_text")) else "")
+            who = f"raised by {f['seat']}" if _nonempty_str(f.get("seat")) else "with no referee named"
+            lines.append(f"- **{f['id']}**, {who}, {CONTRACT_WORDS[f['contract']]}.{quoted} "
+                         + " ".join(_sentence(p) for p in f["problems"]))
         lines.append("")
-    loose = [s for s in report["strengths"] if s["contract"] != "pass"]
+    loose = [st for st in report["strengths"] if st["contract"] != "pass"]
     if loose:
         lines += ["## Strengths without a verified quote", ""]
-        lines += [f"- strength {s['index']} ({s.get('seat') or 'no seat'}): " + "; ".join(s["problems"]) for s in loose]
+        for st in loose:
+            where = f" in {st['location']}" if _nonempty_str(st.get("location")) else ""
+            who = f", noted by {st['seat']}{where}," if _nonempty_str(st.get("seat")) else where
+            quoted = f" quotes \"{_trim(st.get('quote_text'))}\"." if _nonempty_str(st.get("quote_text")) else \
+                " has no quote."
+            lines.append(f"- Strength {st['index']}{who}{quoted} " + " ".join(_sentence(p) for p in st["problems"]))
         lines.append("")
     warned = [f for f in report["findings"] if f["warnings"]]
     if warned:
-        lines += ["## Warnings", ""]
-        lines += [f"- {f['id']}: " + "; ".join(f["warnings"]) for f in warned]
+        lines += ["## Warnings for the adjudicator", "",
+                  "These do not stop a finding; the adjudicator decides whether the concern is fair as written.", ""]
+        for f in warned:
+            lines.append(f"- The concern of **{f['id']}** ({f['seat'] or 'no referee named'}) reads "
+                         f"\"{_trim(f['concern'])}\" " + " ".join(_sentence(w) for w in f["warnings"]))
         lines.append("")
     cited = [(f["id"], e) for f in report["findings"] for e in f["prior_work"] if isinstance(e, dict)]
     if cited:
         lines += ["## Prior work named in findings", ""]
         for fid, e in cited:
-            ident = e.get("identifier") or "no identifier"
-            lines.append(f"- {fid}: {e.get('citation')} ({ident}): {e.get('status')}")
+            ident = e.get("identifier")
+            url = identifier_url(ident)
+            named = f"{e.get('citation') or 'a work with no citation'}"
+            named += f", {url}" if url else (f" ({ident})" if _nonempty_str(ident) else ", with no identifier")
+            if e.get("status") == "verified":
+                state = "Its identifier resolved to this work" + (
+                    f" (checked by {e['checked_by']})." if _nonempty_str(e.get("checked_by")) else ".")
+            elif e.get("status") == "unverified":
+                state = ("Its identity is not confirmed, because the identifier could not be resolved."
+                         if _nonempty_str(ident) else "Its identity is not confirmed, because it has no identifier.")
+            else:
+                state = "It has no status yet; resolve the identifier and mark it verified or unverified."
+            lines.append(f"- **{fid}** names {named}. {state}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 

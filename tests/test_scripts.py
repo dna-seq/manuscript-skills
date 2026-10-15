@@ -345,7 +345,7 @@ def test_friction_orders_the_policy_extremes() -> None:
     _, resolved = venues.load_venues()
     score = {k: venues.friction(v)[0] for k, v in resolved.items()}
     assert score["genome-research"] < score["bioinformatics"] < score["gigascience"]
-    assert venues.verdict(resolved["bioinformatics"], venues.AiUse.drafting).startswith("incompatible")
+    assert venues.verdict(resolved["bioinformatics"], venues.AiUse.drafting).startswith("A conflict for you to weigh")
 
 
 def test_venues_yaml_parses_and_is_dated() -> None:
@@ -733,7 +733,7 @@ def test_ranking_does_not_trade_impossible_validation_for_a_lighter_ai_policy(sy
         "rank", "--study-design", "public-data", "--validation-available", "independent-cohort"])
     assert result.exit_code == 0, result.output
     assert re.findall(r"\(`([a-z-]+)`\)", result.output) == ["strict", "calm"]
-    assert "no-go" in result.output
+    assert "Does not fit. It requires wet-lab experiments, and you have none of these." in result.output
 
 
 def test_journal_speed_and_editorial_profile_are_not_inherited(synthetic_venues: Path) -> None:
@@ -806,7 +806,7 @@ def test_watch_a_stub_page_falls_through_to_the_next_route(monkeypatch: pytest.M
     assert got.route == "chrome" and watch.readable(watch.blocks_of(got))
     monkeypatch.setattr(watch, "fetch_chrome", lambda url: watch.Fetched("chrome", reason="blocked (challenge page)"))
     failed = watch.fetch("https://example.org/policy", ["httpx", "chrome"], None)
-    assert failed.html is None and failed.reason.startswith("httpx: page too short")
+    assert failed.html is None and failed.reason.startswith("the plain download got a page too short")
 
 
 def _minimal_pdf(lines: list[str]) -> bytes:
@@ -871,3 +871,92 @@ def test_watch_check_exit_code_separates_unread_pages_from_unchanged(
     monkeypatch.setattr(watch, "fetch", lambda url, routes, last: fetched())
     result = CliRunner().invoke(watch.app, ["check"])
     assert result.exit_code == code, result.output
+
+
+# Readable output: what the authors see from venues.py and policy_watch.py quotes, links and uses plain words.
+INTERNAL_TOKENS = ("banned_drafting", "red_line", "disclose_all", "integrity_signals", "ai_detector_deployed",
+                   "not_assessed", "no-go", "validation_requirements", "on_request", "JIF", "| OA |")
+
+
+def test_rank_explains_its_columns_and_links_each_policy_page(synthetic_venues: Path) -> None:
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["rank", "--ai-use", "drafting"])
+    assert result.exit_code == 0, result.output
+    assert "journal impact factor" in result.output and "article processing charge" in result.output
+    assert "full open access" in result.output
+    rows = [line for line in result.output.splitlines() if line.startswith("| ") and "(`" in line]
+    assert {re.search(r"\(`([a-z-]+)`\)", r).group(1) for r in rows} == {"calm", "strict"}
+    for row, page in [(r, "https://pub.example/ai") for r in rows]:
+        assert f"{page} (read " in row, row
+    strict = next(r for r in rows if "(`strict`)" in r)
+    assert "A conflict for you to weigh" in strict and "6 or more severe" in result.output
+    assert not [t for t in INTERNAL_TOKENS if t in result.output]
+    assert not re.search(r"\bL\d+\b", result.output)
+
+
+def test_show_orders_the_checklist_by_when_the_work_can_be_done(synthetic_venues: Path) -> None:
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["show", "strict"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "- **AI policy page:** https://pub.example/ai" in out
+    assert out.index("## Now that the journal is chosen") < out.index("## At the end, once the code, data and results")
+    assert out.index("## At the end") < out.index("The AI-use statement goes in:")
+    assert all(f'(AI use "{use.value}")' in out for use in venues.AiUse)  # every kind of use, when none is given
+    assert not [t for t in INTERNAL_TOKENS if t in out]
+
+
+def test_show_takes_the_ai_use_like_rank(synthetic_venues: Path) -> None:
+    # Smoke run 2026-10-15: `show KEY --ai-use drafting` failed with "No such option".
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["show", "strict", "--ai-use", "drafting"])
+    assert result.exit_code == 0, result.output
+    assert '(AI use "drafting")' in result.output and '(AI use "polish")' not in result.output
+
+
+def test_show_reads_old_failure_reasons_in_words() -> None:
+    assert venues.plain_reason("httpx: blocked (HTTP 403); chrome: blocked (challenge page)") == (
+        "plain download: blocked (HTTP 403); headless browser: blocked (challenge page)")
+    assert venues.route_words("wayback:20240617115300") == "the Internet Archive's copy of 2024-06-17"
+
+
+def test_abbreviations_spell_out_only_what_the_text_uses() -> None:
+    line = venues.abbreviations("OUP / ISCB journal; LLM help; see https://www.plos.org/APC-page")
+    assert line == ("Abbreviations: ISCB, International Society for Computational Biology; LLM, large language "
+                    "model; OUP, Oxford University Press.")
+    assert venues.abbreviations("If the journal allows it") == ""
+
+
+def test_watch_report_quotes_the_changed_passage_with_its_page_url(
+        snapshots: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+    url, blocked = "https://example.org/policy", "https://example.org/blocked"
+    index: dict = {}
+    watch.apply([watch.compare(url, watch.Fetched("httpx", html=_page()), index, ["x"])], index,
+                watch.date(2026, 10, 15))
+    watch.INDEX.write_text(yaml.safe_dump(index), encoding="utf-8")
+    moved = _page(**{"in the Methods section": "in the Methods section and the cover letter, with prompts"})
+    monkeypatch.setattr(watch, "watched_urls", lambda venue=None: {url: ["x"], blocked: ["y"]})
+    monkeypatch.setattr(watch, "fetch", lambda u, routes, last: watch.Fetched("httpx", html=moved) if u == url
+                        else watch.Fetched(None, reason="the plain download was blocked (HTTP 403)"))
+    result = CliRunner().invoke(watch.app, ["check"])
+    assert result.exit_code == 1, result.output
+    out = result.output
+    assert f"- {url}\n" in out and f"- {blocked}\n" in out
+    assert ('Under the heading "Use of generative AI", the passage that read "Authors must disclose the use of large '
+            'language models in the Methods section." now reads "') in out
+    assert "**and the cover letter, with prompts**" in out
+    assert "## Could not be read (1)" in out and "It could not be read: the plain download was blocked (HTTP 403)." in out
+    assert not re.search(r"^\s*(@@|\+\+\+|---) ", out, re.MULTILINE)  # no raw diff
+    assert "not_assessed" not in out and not re.search(r"\bL\d+\b", out)
+
+
+def test_watch_excerpt_keeps_the_change_visible_in_a_long_passage() -> None:
+    before = "Authors " + "must follow the editorial rules of the journal " * 8 + "and disclose AI use in Methods."
+    after = before.replace("in Methods.", "in Methods and the cover letter.")
+    sentence = watch.describe_changes(before, after)[0]
+    quoted_after = sentence.split('now reads "', 1)[1]
+    assert "**and the cover letter**" in quoted_after and quoted_after.startswith("[...] ")
+    assert len(quoted_after) < watch.EXCERPT_CHARS + 30
+    removed = watch.describe_changes("## AI\n\nAI tools cannot be authors.", "## AI")
+    assert removed == ['Under the heading "AI", the passage "AI tools cannot be authors." was removed.']

@@ -66,6 +66,29 @@ class State(str, Enum):
     not_assessed = "not_assessed"
 
 
+class Stage(str, Enum):
+    """When the authors can act on a finding (author-priorities.md, "Order the work by when it can be done")."""
+    now = "now"
+    writing = "writing"
+    journal = "journal"
+    final = "final"
+
+
+STAGE_HEADING = {Stage.now: "Fix now", Stage.writing: "Then the writing",
+                 Stage.journal: "Once you have chosen the journal",
+                 Stage.final: "Before submission, once the code is final"}
+
+
+class Mention(BaseModel):
+    """A version of the authors' own software cited by name in the text ("Just-DNA-Lite 0.3.25"), not in a link."""
+    version: str
+    line: int
+    section: str = ""
+    quote: str = ""
+    span: str = ""
+    exists: Optional[bool] = None  # None: not looked up
+
+
 class Identifier(BaseModel):
     kind: str
     family: str
@@ -76,6 +99,9 @@ class Identifier(BaseModel):
     lines: list[int] = Field(default_factory=list)
     excerpt: str = ""
     section: str = ""
+    quote: str = ""  # the sentence (or table row) of the first occurrence, trimmed around it
+    span: str = ""  # the identifier as written there
+    mentions: list[Mention] = Field(default_factory=list)
     in_statement: bool = False
     in_table: bool = False  # every occurrence sits in a table row (a comparison of other tools, a list)
     own: bool = False  # the authors' own: named in a statement, or code under an owner a statement names
@@ -112,6 +138,11 @@ class Finding(BaseModel):
     message: str
     suggestion: str = ""
     rule: str = ""
+    title: str = ""  # the finding in plain words, for the report heading
+    stage: Optional[Stage] = None  # None: a note on what the run could not check
+    section: str = ""
+    quote: str = ""  # the manuscript's sentence or row, trimmed to about 160 characters around the problem
+    span: str = ""  # the part of `quote` the finding is about
 
 
 class VenueRules(BaseModel):
@@ -305,7 +336,7 @@ FAMILY = {
     "container-other": ("container registry", "container"),
     "hf-dataset": ("Hugging Face dataset", "data"), "hf-model": ("Hugging Face model", "model"),
     "hf-space": ("Hugging Face Space", "code"), "hf-repo": ("Hugging Face repository", "data"),
-    "rrid": ("RRID", "resource"),
+    "rrid": ("RRID", "resource"), "web": ("web address", "resource"),
 }
 
 Hit = tuple[str, str, str, Optional[str], bool, str, str, int]  # kind, value, url, version, ok, problem, suggested, col
@@ -326,10 +357,10 @@ def _geo(line: str) -> list[Hit]:
             continue  # GPL-3.0, GPL 2, GPL3: licences, not GEO platforms
         elif re.fullmatch(r"G(?:SE|SM|DS)[\s:_#-]{1,2}\d{1,7}", token):
             fixed = prefix + re.sub(r"\D", "", token)
-            out.append(_hit("geo", token, m.start(), ok=False, problem="written with a separator", suggested=fixed))
+            out.append(_hit("geo", token, m.start(), ok=False, problem="it is written with a separator", suggested=fixed))
         else:
             out.append(_hit("geo", token, m.start(), ok=False,
-                            problem=f"not a GEO accession: {prefix} must be followed by digits only"))
+                            problem=f"{prefix} must be followed by digits only"))
     return out
 
 
@@ -343,7 +374,7 @@ def _insdc(line: str) -> list[Hit]:
     # A separator inside an otherwise complete accession. Short forms are never read: SRP54, ERP29 and DRP1
     # are gene symbols, not accessions.
     for m in re.finditer(rf"\b({INSDC_PREFIX})[\s:_-]+(\d{{6,10}})\b", line):
-        out.append(_hit("insdc", m.group(0), m.start(), ok=False, problem="written with a separator",
+        out.append(_hit("insdc", m.group(0), m.start(), ok=False, problem="it is written with a separator",
                         suggested=m.group(1) + m.group(2)))
     return out
 
@@ -355,7 +386,7 @@ def _arrayexpress(line: str) -> list[Hit]:
                         f"https://www.ebi.ac.uk/biostudies/arrayexpress/studies/{m.group(0)}"))
     for m in re.finditer(r"\bE(-?)(MTAB|GEOD|MEXP|TABM|ATMX|MARS)([\s_-]*)(\d+)\b", line):
         if not (m.group(1) == "-" and m.group(3) == "-"):
-            out.append(_hit("arrayexpress", m.group(0), m.start(), ok=False, problem="hyphens missing or misplaced",
+            out.append(_hit("arrayexpress", m.group(0), m.start(), ok=False, problem="its hyphens are missing or misplaced",
                             suggested=f"E-{m.group(2)}-{m.group(4)}"))
     for m in re.finditer(r"\bS-(?:BSST|BIAD|EPMC|SCDT|BSMS|JCB)\d+\b", line):
         out.append(_hit("biostudies", m.group(0), m.start(), f"https://www.ebi.ac.uk/biostudies/studies/{m.group(0)}"))
@@ -369,11 +400,11 @@ def _dbgap(line: str) -> list[Hit]:
                         f"https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id={m.group(0)}"))
     for m in re.finditer(r"\bphs(?:[\s:_-]+(\d{6})\b|(\d{1,5}|\d{7,})\b)", line):
         if m.group(1):
-            out.append(_hit("dbgap", m.group(0), m.start(), ok=False, problem="written with a separator",
+            out.append(_hit("dbgap", m.group(0), m.start(), ok=False, problem="it is written with a separator",
                             suggested="phs" + m.group(1)))
         else:
             out.append(_hit("dbgap", m.group(0), m.start(), ok=False,
-                            problem="a dbGaP study accession is 'phs' and six digits"))
+                            problem="a dbGaP study accession is \"phs\" followed by six digits"))
     return out
 
 
@@ -384,11 +415,11 @@ def _ega(line: str) -> list[Hit]:
         if not sep and len(digits) == 11:
             out.append(_hit("ega", m.group(0), m.start(), f"https://ega-archive.org/search/{m.group(0)}"))
         elif sep and len(digits) == 11:
-            out.append(_hit("ega", m.group(0), m.start(), ok=False, problem="written with a separator",
+            out.append(_hit("ega", m.group(0), m.start(), ok=False, problem="it is written with a separator",
                             suggested=f"EGA{m.group(1)}{digits}"))
         else:
             out.append(_hit("ega", m.group(0), m.start(), ok=False,
-                            problem=f"EGA accessions have 11 digits after the prefix; this has {len(digits)}"))
+                            problem=f"an EGA accession has 11 digits after its prefix and this one has {len(digits)}"))
     return out
 
 
@@ -713,7 +744,95 @@ def _near_text(lines: list[str], i: int, col: int, before: int = 100, after: int
     return text[start:min(ends)]
 
 
+# ------------------------------------------------------------------------------------------- quoting
+# Findings quote the manuscript's own sentence (or table row) so the authors need not open the file and count
+# lines; the line number is only a parenthetical aid (author-priorities.md, "Writing for the authors").
+
+QUOTE_WIDTH = 160
+BLOCK_START = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s|\\item\b|\\(?:begin|end)\{)")
+LATEX_ARG = re.compile(r"\\(?:textbf|textit|emph|texttt|textsc|underline)\{([^{}]*)\}")
+
+
+def _breaks(line: str, table: bool) -> bool:
+    """A line that cannot continue the paragraph above it."""
+    return not line.strip() or table or bool(_heading(line)) or bool(re.match(r"^\s*\\(?:begin|end)\{", line))
+
+
+def _sentence_at(lines: list[str], i: int, col: int, tables: list[bool]) -> tuple[str, int]:
+    """The sentence containing column `col` of line `i` (read across the line breaks of its paragraph or list
+    item; a table row on its own), and the column's offset in it."""
+    if tables[i] or _heading(lines[i]):
+        line = lines[i]
+        return line.strip(), max(0, col - (len(line) - len(line.lstrip())))
+    start = i
+    while start > 0 and not BLOCK_START.match(lines[start]) and not _breaks(lines[start - 1], tables[start - 1]):
+        start -= 1
+    end = i
+    while end + 1 < len(lines) and not _breaks(lines[end + 1], tables[end + 1]) and not BLOCK_START.match(lines[end + 1]):
+        end += 1
+    text, pos = "", 0
+    for k in range(start, end + 1):
+        stripped = lines[k].strip()
+        if k == i:
+            pos = len(text) + max(0, col - (len(lines[k]) - len(lines[k].lstrip())))
+        text += stripped + " "
+    text = text.rstrip()
+    bounds = [0] + [m.end() for m in SENTENCE.finditer(text)]
+    s = max(b for b in bounds if b <= pos)
+    e = next((b for b in bounds if b > pos), len(text))
+    return text[s:e].strip(), pos - s
+
+
+def _trim(sentence: str, pos: int, length: int, width: int = QUOTE_WIDTH) -> str:
+    """The sentence, shortened with [...] to about `width` characters around [pos, pos + length)."""
+    if len(sentence) <= width + 20:
+        return sentence
+    left = max(0, pos - max(30, (width - length) // 2))
+    right = min(len(sentence), max(left + width, pos + length + 10))
+    if left > 0:
+        space = sentence.find(" ", left)
+        left = space + 1 if 0 <= space < pos else left
+    if right < len(sentence):
+        space = sentence.rfind(" ", pos + length, right)
+        right = space if space != -1 else right
+    return ("[...] " if left else "") + sentence[left:right].strip() + (" [...]" if right < len(sentence) else "")
+
+
+def _plain(text: str) -> str:
+    """Markup that only gets in the way of reading a quote: Markdown bold, LaTeX \\url, \\href and font commands."""
+    text = re.sub(r"\\href\{([^{}]*)\}\{([^{}]*)\}", r"\2 (\1)", text)
+    text = re.sub(r"\\url\{([^{}]*)\}", r"\1", text)
+    for _ in range(3):
+        text = LATEX_ARG.sub(r"\1", text)
+    text = re.sub(r"\\item\s*", "", text).replace("\\%", "%").replace("\\_", "_").replace("\\&", "&")
+    text = re.sub(r"(?<!\\)~", " ", text).replace("\\\\", " ")
+    return re.sub(r"\s{2,}", " ", text.replace("**", "")).strip()
+
+
+def _quote(lines: list[str], i: int, col: int, span: str, tables: list[bool]) -> tuple[str, str]:
+    """(quote, span): the sentence around `span` at column `col` of line `i`, trimmed, with markup removed."""
+    sentence, pos = _sentence_at(lines, i, col, tables)
+    return _plain(_trim(sentence, pos, len(span))), _plain(span)
+
+
+def _span_at(line: str, col: int, value: str) -> tuple[int, str]:
+    """Where the identifier is written on the line, and how: the value itself, the link or token it sits in,
+    or (for a number named after its archive, "Zenodo records 18370498 and 19487816") its last part."""
+    if line.startswith(value, col):
+        return col, value
+    token = re.match(r"[^\s]+", line[col:])
+    word = re.sub(r"[.,;:)\]}>\"'`*]+$", "", token.group(0)) if token else value
+    tail = re.split(r"[/.:]", value)[-1]
+    if len(tail) >= 4 and tail.lower() not in word.lower():
+        at = line.find(tail, col)
+        if 0 <= at - col < 160:
+            return at, tail
+    return col, word or value
+
+
 ANONYMISED = "anonymised for review: never looked up, because the link hides the real repository on purpose"
+OFFLINE = "not looked up in this offline run"
+MALFORMED = "not looked up, because the identifier is malformed"
 EXCLUDED_BEFORE = re.compile(r"\b(?:exclud(?:e|es|ed|ing)|except(?:ing)?|other than|apart from|omitt(?:ed|ing)|"
                              r"but not)\b[^.;:()]{0,30}$", re.IGNORECASE)
 
@@ -732,6 +851,11 @@ def extract(lines: list[str], skip: list[bool], sections: list[str], statements:
             claimed = {h[1].lower() for h in hits} | {h[1].lower().removeprefix("10.5281/") for h in hits}
             hits += [h for h in _generic_dois(line) if h[1].lower() not in claimed
                      and not re.match(r"10\.(5281|6084|5061|17605)/", h[1], re.IGNORECASE)]
+            # Any other link in a statement (a web service, a registry, an FTP folder) is checked for existence.
+            for m in URL.finditer(line):
+                if not any(m.start() <= h[7] < m.end() for h in hits):
+                    address = re.sub(r"^https?://", "", m.group(0)).rstrip(".,;:/*")
+                    hits.append(_hit("web", address, m.start(), "https://" + address))
         for kind, value, url, version, ok, problem, suggested, col in hits:
             key = (kind, value, version)
             excluded = bool(EXCLUDED_BEFORE.search(line[max(0, col - 60):col]))
@@ -746,13 +870,15 @@ def extract(lines: list[str], skip: list[bool], sections: list[str], statements:
                 found[key].excluded &= excluded
                 continue
             family, role = FAMILY[kind]
+            at, written = _span_at(line, col, value)
+            quote, span = _quote(lines, i, at, written, tables)
             found[key] = Identifier(kind=kind, family=family, role=role, value=value, url=url, line=i + 1,
                                     lines=[i + 1], excerpt=_excerpt(line, col), section=sections[i],
+                                    quote=quote, span=span,
                                     in_statement=i + 1 in in_statement, in_table=tables[i], excluded=excluded,
                                     archives_code=archives_code,
                                     version=version, well_formed=ok, problem=problem, suggested=suggested,
-                                    detail="malformed: not resolved" if not ok else ANONYMISED if kind == "anon-review"
-                                    else "offline: not resolved")
+                                    detail=MALFORMED if not ok else ANONYMISED if kind == "anon-review" else OFFLINE)
     return sorted(found.values(), key=lambda x: (x.line, x.kind, x.value))
 
 
@@ -779,6 +905,41 @@ def mark_own(identifiers: list[Identifier], statements: list[Statement]) -> None
     for x in identifiers:
         if x.role in ("package", "container") and x.value.split("/")[-1].lower() in repo_names:
             x.own = True
+
+
+GENERIC_REPO_NAMES = {"tool", "tools", "code", "data", "scripts", "analysis", "analyses", "pipeline", "paper",
+                      "manuscript", "software", "package", "app", "web", "docs", "src", "main", "model", "models"}
+
+
+def find_version_mentions(lines: list[str], skip: list[bool], sections: list[str], identifiers: list[Identifier],
+                          tables: Optional[list[bool]] = None) -> None:
+    """Versions of the authors' own repositories cited by name rather than in a link ("Just-DNA-Lite 0.3.25" in
+    a benchmark table), attached to the repository so that --online can ask whether the tag exists."""
+    tables = tables if tables is not None else table_mask(lines)
+    repos: dict[str, Identifier] = {}
+    for x in identifiers:
+        if x.own and x.kind in ("github", "gitlab") and x.well_formed:
+            key = x.value.lower()
+            if key not in repos or (repos[key].version and not x.version):
+                repos[key] = x
+    for key, x in repos.items():
+        name = x.value.split("/")[-1]
+        if len(name) < 4 or name.lower() in GENERIC_REPO_NAMES:
+            continue
+        words = [w for w in re.split(r"[-_. ]+", name) if w]
+        pattern = re.compile(rf"(?<![\w/.-]){'[-_ ]?'.join(re.escape(w) for w in words)}(?![\w-])\s*[,(]?\s*"
+                             r"(?:version\s+|release\s+)?v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)?)\b", re.IGNORECASE)
+        known = {y.version for y in identifiers if y.value.lower() == key and y.version}
+        for i, line in enumerate(lines):
+            if skip[i]:
+                continue
+            for m in pattern.finditer(line):
+                version = m.group(1)
+                if version in known or version.lstrip("v") in {k.lstrip("v") for k in known}:
+                    continue
+                known.add(version)
+                quote, span = _quote(lines, i, m.start(), m.group(0).rstrip(" ,("), tables)
+                x.mentions.append(Mention(version=version, line=i + 1, section=sections[i], quote=quote, span=span))
 
 
 # ------------------------------------------------------------------------------------------- statements
@@ -824,14 +985,15 @@ def analyse_statements(statements: list[Statement], lines: list[str], identifier
 
 def request_sentences(lines: list[str], skip: list[bool], sections: Optional[list[str]] = None,
                       statements: Optional[list[Statement]] = None,
-                      tables: Optional[list[bool]] = None) -> list[tuple[int, str]]:
+                      tables: Optional[list[bool]] = None) -> list[tuple[int, str, str]]:
     """Sentences offering material on request, read across line breaks within a paragraph, each with the line
-    of the request phrase. Only availability claims count: a sentence inside an availability statement, or one
-    in a Methods-like section that names what is shared. Table rows are never read."""
+    of the request phrase and the phrase itself. Only availability claims count: a sentence inside an
+    availability statement, or one in a Methods-like section that names what is shared. Table rows are never
+    read."""
     sections = sections if sections is not None else [""] * len(lines)
     tables = tables if tables is not None else table_mask(lines)
     in_statement = {n for s in statements or [] for n in range(s.start, s.end + 1)}
-    out: list[tuple[int, str]] = []
+    out: list[tuple[int, str, str]] = []
     paragraph: list[int] = []
     for i in range(len(lines) + 1):
         if i < len(lines) and not skip[i] and not tables[i] and lines[i].strip() and not _heading(lines[i]):
@@ -852,7 +1014,8 @@ def request_sentences(lines: list[str], skip: list[bool], sections: Optional[lis
                 j = max(j for offset, j in starts if offset <= at + m.start())
                 if j + 1 in in_statement or (SHARES_MATERIAL.search(sentence)
                                               and (not sections[j] or METHODS_TITLE.search(sections[j]))):
-                    out.append((j + 1, sentence.strip()))
+                    out.append((j + 1, _plain(_trim(sentence.strip(), m.start(), len(m.group(0)))),
+                                _plain(m.group(0))))
             paragraph = []
     return out
 
@@ -937,7 +1100,7 @@ class Http:
             headers: Optional[dict[str, str]] = None) -> httpx.Response | str:
         """The response, or the reason no usable answer came."""
         host = httpx.URL(url).host
-        reason = "no answer"
+        reason = "the server gave no answer"
         for attempt in range(3):
             wait = MIN_INTERVAL.get(host, 0.2) - (time.monotonic() - self.last.get(host, 0.0))
             if wait > 0:
@@ -946,7 +1109,7 @@ class Http:
             try:
                 r = self.client.get(url, params=params, headers=headers)
             except httpx.HTTPError as exc:  # timeouts and refused connections are expected on the open web
-                reason = f"network error ({type(exc).__name__})"
+                reason = f"the server could not be reached ({type(exc).__name__})"
                 time.sleep(2 ** attempt)
                 continue
             if r.headers.get("x-ratelimit-remaining") == "0":
@@ -954,7 +1117,7 @@ class Http:
             if r.status_code == 429 or r.status_code >= 500:
                 retry = r.headers.get("retry-after", "")
                 time.sleep(min(float(retry), 30.0) if retry.isdigit() else 2 ** attempt)
-                reason = f"HTTP {r.status_code} after {attempt + 1} attempts"
+                reason = f"the server answered with an error (HTTP {r.status_code}) on {attempt + 1} attempts"
                 continue
             return r
         return reason
@@ -1252,22 +1415,32 @@ def _resolve_github(http: Http, ident: Identifier) -> None:
                             f"{api}/releases?per_page=1", f"{api}/tags?per_page=1")
 
 
+def _ref_exists(get: Callable[[str], httpx.Response | str], commit_url: str, tag_url: str,
+                version: str) -> Optional[bool]:
+    """Whether the repository has this commit or tag (also tried with and without a leading v); None when the
+    host gave no usable answer."""
+    if re.fullmatch(r"[0-9a-f]{7,40}", version):
+        r = get(commit_url.format(version))
+        return None if isinstance(r, str) else r.status_code == 200
+    candidates = [version] + ([f"v{version}"] if not version.startswith("v") else [version[1:]])
+    for tag in candidates:
+        r = get(tag_url.format(quote(tag, safe="")))
+        if isinstance(r, str):
+            return None
+        if r.status_code == 200:
+            return True
+    return False
+
+
 def _check_code_version(ident: Identifier, get: Callable[[str], httpx.Response | str], commit_url: str,
                         tag_url: str, releases_url: str, tags_url: str) -> None:
+    for mention in ident.mentions:
+        mention.exists = _ref_exists(get, commit_url, tag_url, mention.version)
+        if mention.exists is None and "version-not-assessed" not in ident.flags:
+            ident.flags.append("version-not-assessed")
     if ident.version:
-        if re.fullmatch(r"[0-9a-f]{7,40}", ident.version):
-            r = get(commit_url.format(ident.version))
-            found = isinstance(r, httpx.Response) and r.status_code == 200
-        else:
-            candidates = [ident.version] + ([f"v{ident.version}"] if not ident.version.startswith("v") else
-                                            [ident.version[1:]])
-            found = False
-            for tag in candidates:
-                r = get(tag_url.format(quote(tag, safe="")))
-                if isinstance(r, httpx.Response) and r.status_code == 200:
-                    found = True
-                    break
-        if isinstance(r, str):
+        found = _ref_exists(get, commit_url, tag_url, ident.version)
+        if found is None:
             ident.flags.append("version-not-assessed")
         elif not found:
             ident.flags.append("version-missing")
@@ -1473,6 +1646,24 @@ def _resolve_hf_repo(http: Http, ident: Identifier) -> None:
         ident.state, ident.detail = State.not_found, "Hugging Face has no dataset, model or Space here"
 
 
+def _resolve_web(http: Http, ident: Identifier) -> None:
+    """Any other link in an availability statement: does the address answer?"""
+    r = http.get(ident.url)
+    if isinstance(r, str):
+        return _na(ident, r)
+    if r.status_code in (404, 410):
+        ident.state, ident.detail = State.not_found, f"the server says the page does not exist (HTTP {r.status_code})"
+    elif 200 <= r.status_code < 300:
+        ident.state, ident.detail = State.resolves, "the page answers"
+    elif 300 <= r.status_code < 400:
+        where = r.headers.get("location", "")
+        ident.state, ident.detail = State.resolves, "the address redirects" + (f" to {where}" if where else "")
+    elif r.status_code in (401, 403, 405, 429):
+        _na(ident, f"the server refused an automated request (HTTP {r.status_code}); open the link in a browser")
+    else:
+        _na(ident, f"the server answered HTTP {r.status_code}")
+
+
 def _resolve_anonymised(http: Http, ident: Identifier) -> None:
     _na(ident, ANONYMISED)
 
@@ -1502,7 +1693,7 @@ RESOLVERS: dict[str, Callable[[Http, Identifier], None]] = {
     "conda": _resolve_anaconda, "docker": _resolve_container, "quay": _resolve_container, "ghcr": _resolve_container,
     "container-other": _resolve_container, "hf-dataset": _resolve_huggingface, "hf-model": _resolve_huggingface,
     "hf-space": _resolve_huggingface, "hf-repo": _resolve_hf_repo, "anon-review": _resolve_anonymised,
-    "rrid": _resolve_rrid,
+    "rrid": _resolve_rrid, "web": _resolve_web,
 }
 
 
@@ -1773,6 +1964,7 @@ def check(path: Path, online: bool = False, venue: Optional[str] = None,
     identifiers = extract(lines, skip, sections, statements, tables)
     analyse_statements(statements, lines, identifiers)
     mark_own(identifiers, statements)
+    find_version_mentions(lines, skip, sections, identifiers, tables)
     rules = venue_rules(venue) if venue else None
     if online:
         resolve_all(identifiers, github_token)

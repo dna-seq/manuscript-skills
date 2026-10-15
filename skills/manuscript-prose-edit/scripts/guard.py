@@ -802,8 +802,8 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
             strong = max(level for level, _, _ in markers) >= 1
             change = "removed" if not g.after else "added"
             severity = "protected" if change == "added" and strong else "warning"
-            note = ("a sentence with this claim was deleted" if change == "removed"
-                    else "a new sentence makes this claim")
+            note = ("Deleting a claim changes the science, so the authors must see it." if change == "removed"
+                    else "A new claim needs the authors' approval and its evidence.")
             found.append(_finding(kind, change, severity, g, bs, as_, removed=removed, added=added,
                                   strength_before=_rung_names(mb) if mb else None,
                                   strength_after=_rung_names(ma) if ma else None, note=note))
@@ -812,8 +812,8 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         if direction is None:
             continue
         severity = "warning" if direction == "lowered" and not negated else "protected"
-        note = ("the sentence is negated, so a weaker verb can make the claim stronger; read both" if negated
-                else "narrowing a claim is a claim correction the authors must see" if direction == "lowered" else "")
+        note = ("The sentence is negated, so a weaker verb can make the claim stronger; read both versions." if negated
+                else "Narrowing a claim is a correction the authors must approve." if direction == "lowered" else "")
         found.append(_finding(kind, direction, severity, g, bs, as_, removed=removed, added=added,
                               strength_before=_rung_names(mb), strength_after=_rung_names(ma), note=note))
 
@@ -822,10 +822,10 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         [(k, " ".join(m.group(0).lower().split())) for k, rx in GENERALITY for m in rx.finditer(ta)])
     if gen_added:
         found.append(_finding("generality", "raised", "protected", g, bs, as_, removed=gen_removed, added=gen_added,
-                              note="novelty or generality wording appeared"))
+                              note="The claim now reaches further than the authors wrote."))
     elif gen_removed:
         found.append(_finding("generality", "lowered", "warning", g, bs, as_, removed=gen_removed,
-                              note="novelty or generality wording went"))
+                              note="The claim now reaches less far, which the authors must approve."))
 
     sb, sa = _scope_keys(tb), _scope_keys(ta)
     if g.after and FIRST_PERSON.search(ta):  # "In this study, we show" → "We show" keeps the study as the scope
@@ -835,11 +835,11 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
     s_removed, s_added = _keyed_diff(sb, sa)
     if s_removed:
         found.append(_finding("scope", "replaced" if s_added else "removed", "protected", g, bs, as_,
-                              removed=s_removed, added=s_added, note="a scope qualifier disappeared: the claim may now "
-                              "read as more general than the data"))
+                              removed=s_removed, added=s_added, note="The claim may now read as more general than the "
+                              "data."))
     elif s_added and whole is None:
         found.append(_finding("scope", "added", "warning", g, bs, as_, added=s_added,
-                              note="a scope qualifier appeared: a narrowing the authors must see"))
+                              note="This narrows the claim, so the authors must see it."))
 
     (lb, ob), (la, oa) = _limitation_marks(tb), _limitation_marks(ta)
     l_removed = sorted((Counter(lb) - Counter(la)).elements())
@@ -849,16 +849,16 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         # the same edit (a lowered rung, an added qualifier) are warnings the authors must still see.
         narrowed = any(c["change"] == "lowered" and c["kind"] in ("causal", "evidential")
                        or (c["kind"] == "scope" and c["change"] == "added") for c in found)
-        note = ("a sentence with a limiting or concessive word was deleted: list it for the authors" if whole else
-                "a limiting or concessive word went, but the claim was also narrowed: check the limit survives"
-                if narrowed else "a limiting or concessive word went: the claim may now read as resting on more "
-                "evidence, or holding more widely, than the authors wrote")
+        note = ("The sentence that held it was deleted, so list it for the authors." if whole else
+                "The claim was also narrowed in the same edit, so check that the limit survives."
+                if narrowed else "The claim may now read as resting on more evidence, or holding more widely, than "
+                "the authors wrote.")
         severity = "warning" if whole or narrowed else "protected"
         found.append(_finding("limitation", "removed", severity, g, bs, as_, removed=l_removed, added=l_added,
                               note=note))
     elif len(la) > len(lb) and len(la) + oa > len(lb) + ob and whole is None:
         found.append(_finding("limitation", "added", "warning", g, bs, as_, removed=l_removed, added=l_added,
-                              note="a limiting or concessive word appeared: a narrowing the authors must see"))
+                              note="This narrows the claim, so the authors must see it."))
 
     nb, na = [m.group(0).lower() for m in NULL_RESULT.finditer(tb)], [m.group(0).lower() for m in NULL_RESULT.finditer(ta)]
     null_change = None
@@ -867,21 +867,25 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         found.append(_finding("null_result", "removed", "protected", g, bs, as_,
                               removed=sorted((Counter(nb) - Counter(na)).elements()) or sorted(set(nb)),
                               added=sorted((Counter(na) - Counter(nb)).elements()),
-                              note="a null or negative result marker disappeared"))
+                              note="A null or negative result must stay stated as one: a rewording can turn "
+                                   "absence of evidence into evidence of absence."))
     elif len(na) > len(nb):
         null_change = "added"
         found.append(_finding("null_result", "added", "warning", g, bs, as_,
                               added=sorted((Counter(na) - Counter(nb)).elements()) or sorted(set(na)),
-                              note="a null-result marker appeared"))
+                              note="A new null result changes what the sentence reports, so the authors must see "
+                                   "it."))
 
     e_removed, e_added = _keyed_diff(_status_keys(tb), _status_keys(ta))
     if e_removed and whole != "inserted":
         found.append(_finding("evidence_status", "replaced" if e_added else "removed", "protected", g, bs, as_,
                               removed=e_removed, added=e_added,
-                              note="how the finding was obtained (reported, predicted, observed) changed or went"))
+                              note="The sentence now says the finding was obtained another way." if e_added else
+                              "Readers can no longer tell how the finding was obtained."))
     elif e_added and whole is None:
         found.append(_finding("evidence_status", "added", "warning", g, bs, as_, added=e_added,
-                              note="an evidence-status word appeared"))
+                              note="This changes how the finding is said to have been obtained, so the authors "
+                                   "must see it."))
 
     gb, ga = [m.group(0).lower() for m in NEGATION.finditer(tb)], [m.group(0).lower() for m in NEGATION.finditer(ta)]
     if len(gb) != len(ga) and whole is None:  # a whole new or deleted sentence is reported by its claims and tokens
@@ -890,7 +894,7 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
             found.append(_finding("negation", change, "warning", g, bs, as_,
                                   removed=sorted((Counter(gb) - Counter(ga)).elements()),
                                   added=sorted((Counter(ga) - Counter(gb)).elements()),
-                                  note="a negation changed: check the claim did not flip"))
+                                  note="Check that the claim did not flip."))
     return found
 
 
@@ -910,18 +914,19 @@ def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: li
                       "from_elsewhere" if token in ctx["doc_b"][kind] else "new")  # type: ignore[index]
             found.append(_finding(kind, "added", "warning" if in_paragraph else "protected", g, bs, as_,
                                   added=[token], token=token, token_status=status,
-                                  note={"new": "absent from the original", "from_elsewhere": "present elsewhere in "
-                                        "the original, not in this sentence or paragraph", "moved_within_paragraph":
-                                        "moved here from elsewhere in the same paragraph"}[status]))
+                                  note={"new": "It is not in the original.", "from_elsewhere": "It appears "
+                                        "elsewhere in the original, but not in this sentence or its paragraph.",
+                                        "moved_within_paragraph": "It moved here from another sentence of the same "
+                                        "paragraph."}[status]))
         for token in sorted(cb - ca):
             in_paragraph = any(token in ctx["block_a"][a][kind] for a in near_a)  # type: ignore[index]
             status = ("moved_within_paragraph" if in_paragraph else
                       "moved_elsewhere" if token in ctx["doc_a"][kind] else "removed")  # type: ignore[index]
             found.append(_finding(kind, "removed", "warning" if in_paragraph else "protected", g, bs, as_,
                                   removed=[token], token=token, token_status=status,
-                                  note={"removed": "absent from the edited text", "moved_elsewhere": "now only in "
-                                        "another paragraph", "moved_within_paragraph":
-                                        "moved to another sentence of the same paragraph"}[status]))
+                                  note={"removed": "It is not in the edited text.", "moved_elsewhere": "It is now "
+                                        "only in another paragraph.", "moved_within_paragraph": "It moved to another "
+                                        "sentence of the same paragraph."}[status]))
     return found
 
 
@@ -969,6 +974,15 @@ def sentence_changes(before_text: str, after_text: str) -> tuple[list[dict[str, 
     return changes, alignment
 
 
+def document_title(text: str) -> Optional[str]:
+    """The paper's title when it is the one level-1 Markdown heading above the sections, else None."""
+    masked = _mask(text, _is_latex(text))
+    headings = [(len(m.group(1)), _clean_title(m.group(2))) for m in map(MD_HEADING.match, masked.split("\n")) if m]
+    if len(headings) > 1 and headings[0][0] == 1 and sum(level == 1 for level, _ in headings) == 1:
+        return headings[0][1]
+    return None
+
+
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
             allow_strengthening: bool = False) -> dict[str, object]:
     latex = _is_latex(before_text) or _is_latex(after_text)
@@ -983,6 +997,7 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
     summary = Counter(f"{c['severity']}" for c in changes)
     return {
         "mode": "revision" if revision else "edit",
+        "title": document_title(after_text) or document_title(before_text),
         "allow_strengthening": allow_strengthening,
         "protected": {k: v for k, v in protected.items() if v["removed"] or v["added"]},
         "watched": {k: v for k, v in watched.items() if v["removed"] or v["added"]},
@@ -1017,103 +1032,292 @@ def _git_show(path: Path, ref: str) -> str:
                           capture_output=True, text=True, check=True).stdout
 
 
-def _quote(text: object, limit: int = 240) -> str:
-    s = str(text)
-    return "“" + (s if len(s) <= limit else s[:limit] + "…") + "”"
+# ---------------------------------------------------------------------------------------------------------------
+# The Markdown report: every change in plain words, with its section and the sentence quoted
+# ---------------------------------------------------------------------------------------------------------------
+
+CAUSAL_WORDS = {"compatibility": "compatibility with a finding", "association": "an association",
+                "prediction": "a prediction", "contribution": "a contribution", "effect": "an effect",
+                "causation": "a cause", "plain statement": "a plain statement of effect"}
+EVIDENTIAL_WORDS = {"possibility": "a possibility", "suggestion": "a suggestion", "indication": "an indication",
+                    "demonstration": "a demonstration", "proof": "proof", "plain statement": "a plain assertion"}
+TOKEN_NOUNS = {"number": ("number", "numbers"), "citation": ("citation", "citations"),
+               "identifier": ("identifier", "identifiers")}
+COUNT_NOUNS = {"numbers": ("number", "numbers"), "citations": ("citation", "citations"),
+               "identifiers": ("identifier", "identifiers"), "urls": ("link", "links"),
+               "code": ("code span", "code spans"), "terms": ("technical term", "technical terms"),
+               "hedges": ("hedge", "hedges"), "negations": ("negation", "negations"),
+               "causal": ("causal or proof word", "causal or proof words"),
+               "comparatives": ("comparative or quantifier", "comparatives and quantifiers")}
+EXCERPT = 160
 
 
-def _change_line(c: dict[str, object]) -> list[str]:
-    where = c["section"] or "(no heading)"
-    lines = f"before line {c['before_line']}" if c["before_line"] else "new sentence"
-    lines += f", after line {c['after_line']}" if c["after_line"] else ", deleted"
-    tag = "authorised" if c["authorised"] else c["severity"]
-    if c["token"] is not None:
-        head = f"- **[{tag}] {c['kind']} `{c['token']}` {c['token_status']}** ({where}; {lines})"
-    else:
-        moved = ""
-        if c["strength_before"] or c["strength_after"]:
-            moved = f": {c['strength_before'] or '(none)'} → {c['strength_after'] or '(none)'}"
-        words = []
-        if c["removed"]:
-            words.append("lost " + ", ".join(f"“{w}”" for w in c["removed"]))  # type: ignore[union-attr]
-        if c["added"]:
-            words.append("gained " + ", ".join(f"“{w}”" for w in c["added"]))  # type: ignore[union-attr]
-        head = f"- **[{tag}] {c['kind']} {c['change']}**{moved} ({where}; {lines})" + (
-            f"; {'; '.join(words)}" if words else "")
-    out = [head]
-    if c["note"]:
-        out.append(f"  - {c['note']}")
+def _q(text: object) -> str:
+    return "“" + str(text) + "”"
+
+
+def _listed(items: list[str]) -> str:
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _quoted_list(words: object) -> str:
+    return _listed([_q(w) for w in words])  # type: ignore[union-attr]
+
+
+def _lower_first(sentence: str) -> str:
+    return sentence[:1].lower() + sentence[1:] if sentence[:2] != sentence[:2].upper() else sentence
+
+
+def excerpt(text: object, marks: object = (), width: int = EXCERPT) -> str:
+    """The sentence quoted, cut to about `width` characters around the first changed word, which is in bold."""
+    body = " ".join(str(text).split())
+    spans: list[tuple[int, int]] = []
+    for mark in marks or ():  # type: ignore[union-attr]
+        if mark:
+            spans += [m.span() for m in re.finditer(rf"(?<!\w){re.escape(str(mark))}(?!\w)", body, re.IGNORECASE)]
+    lo, hi = 0, len(body)
+    if len(body) > width + 40:
+        first = min(spans)[0] if spans else 0
+        lo = max(0, first - width // 3)
+        hi = min(len(body), lo + width)
+        lo = max(0, hi - width)
+        if lo > 0:
+            lo = body.find(" ", lo) + 1 or lo
+        if hi < len(body):
+            cut = body.rfind(" ", lo, hi)
+            hi = cut if cut > lo else hi
+    merged: list[list[int]] = []
+    for a, b in sorted(spans):
+        if a < lo or b > hi:
+            continue
+        if merged and a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    piece = body[lo:hi]
+    for a, b in reversed(merged):
+        piece = piece[:a - lo] + "**" + piece[a - lo:b - lo] + "**" + piece[b - lo:]
+    return _q(("…" if lo else "") + piece + ("…" if hi < len(body) else ""))
+
+
+def _section(c: dict[str, object], title: Optional[str]) -> str:
+    """'the Results, Performance': the heading path without the paper's title, ready to follow 'In'."""
+    section = str(c["section"] or "")
+    if title and section.startswith(title + " > "):
+        section = section[len(title) + 3:]
+    elif title and section == title:
+        return "the text under the title"
+    return "the " + section.replace(" > ", ", ") if section else "the text before the first heading"
+
+
+def _where(c: dict[str, object], title: Optional[str]) -> str:
+    b, a = c["before_line"], c["after_line"]
+    lines = (f"line {a}" if b == a else f"line {b} before the edit, line {a} after") if a and b else (
+        f"a new sentence, line {a}" if a else f"a deleted sentence, line {b} before the edit")
+    return f"{_section(c, title)} ({lines})"
+
+
+def _became(removed: object, added: object) -> str:
+    r, a = list(removed or []), list(added or [])  # type: ignore[call-overload]
+    if r and a:
+        return f"{_quoted_list(r)} became {_quoted_list(a)}"
+    if r:
+        return f"{_quoted_list(r)} {'was' if len(r) == 1 else 'were'} removed"
+    return f"{_quoted_list(a)} {'was' if len(a) == 1 else 'were'} added"
+
+
+def _strength_words(value: object, words: dict[str, str]) -> str:
+    return _listed([words.get(n, n) for n in str(value or "plain statement").split("+")])
+
+
+def describe(c: dict[str, object]) -> str:
+    """What changed in one sentence, in plain words."""
+    kind, change, removed, added = c["kind"], c["change"], c["removed"], c["added"]
+    if kind in ("causal", "evidential"):
+        words = CAUSAL_WORDS if kind == "causal" else EVIDENTIAL_WORDS
+        measure = "the relation it states" if kind == "causal" else "its certainty"
+        if change == "removed":
+            return f"A sentence that claimed {_strength_words(c['strength_before'], words)} was deleted."
+        if change == "added":
+            return f"A new sentence claims {_strength_words(c['strength_after'], words)}."
+        verdict = {"raised": "The claim became stronger", "lowered": "The claim became weaker",
+                   "mixed": "The claim's strength changed in both directions"}[str(change)]
+        moved = (f"{measure} went from {_strength_words(c['strength_before'], words)} to "
+                 f"{_strength_words(c['strength_after'], words)}")
+        return (f"{verdict}: {_became(removed, added)}, so {moved}." if removed or added else f"{verdict}: {moved}.")
+    if kind == "generality":
+        return (f"Wording that claims novelty or generality was added: {_quoted_list(added)}." if change == "raised"
+                else f"Wording that claimed novelty or generality was removed: {_quoted_list(removed)}.")
+    if kind == "scope":
+        if change == "added":
+            return f"The scope qualifier {_quoted_list(added)} was added."
+        if change == "replaced":
+            return f"The scope qualifier {_quoted_list(removed)} was replaced by {_quoted_list(added)}."
+        return f"The scope qualifier {_quoted_list(removed)} was dropped."
+    if kind == "limitation":
+        if change == "added":
+            return f"The limiting word {_quoted_list(added)} was added."
+        return f"The limiting word {_quoted_list(removed)} was dropped."
+    if kind == "null_result":
+        return (f"The null result {_quoted_list(removed)} is no longer stated." if change == "removed"
+                else f"A null result was added: {_quoted_list(added)}.")
+    if kind == "evidence_status":
+        if change == "added":
+            return f"The word {_quoted_list(added)}, which says how the finding was obtained, was added."
+        if change == "replaced":
+            return f"{_became(removed, added)[:1].upper()}{_became(removed, added)[1:]}, which says how the finding was obtained."
+        return f"The word {_quoted_list(removed)}, which said how the finding was obtained, was dropped."
+    if kind == "negation":
+        return f"A negation changed: {_became(removed, added)}."
+    return f"The {kind} changed: {_became(removed, added)}."
+
+
+def _action(c: dict[str, object], revision: bool) -> str:
+    if revision:
+        return ""
+    if c["authorised"]:
+        return "The authors authorised this claim change; it is listed so they see it."
+    if c["severity"] == "protected":
+        return "Revert this unless the authors asked for it."
+    return "Show this to the authors if it stays."
+
+
+def _claim_lines(c: dict[str, object], title: Optional[str], revision: bool) -> list[str]:
+    head = " ".join(x for x in (f"In {_where(c, title)}, {_lower_first(describe(c))}", str(c["note"] or ""),
+                                _action(c, revision)) if x)
+    out = [f"- {head}"]
     if c["before"]:
-        out.append(f"  - before: {_quote(c['before'])}")
+        out.append(f"  - Before the edit: {excerpt(c['before'], c['removed'])}")
     if c["after"]:
-        out.append(f"  - after: {_quote(c['after'])}")
+        out.append(f"  - After the edit: {excerpt(c['after'], c['added'])}")
     return out
 
 
-def _token_lines(tokens: list[dict[str, object]]) -> list[str]:
-    """One bullet per sentence pair, its tokens grouped by what happened to them."""
-    groups: dict[tuple[object, ...], list[dict[str, object]]] = {}
+TOKEN_SENTENCES = {
+    "new": ("{items} {is} new: {they} {is} not in the original.", "Remove {them} unless the authors supplied {them}."),
+    "from_elsewhere": ("{items} {is} new to this sentence and its paragraph; {they} {appear} elsewhere in the "
+                       "original.", "Check that {they} {belong} here."),
+    "moved_within_paragraph": ("{items} moved between sentences of the same paragraph.",
+                               "Check that {they} still {belong} to the right claim."),
+    "removed": ("{items} {was} removed and {is} not in the edited text.",
+                "Restore {them} unless the authors asked for the change."),
+    "moved_elsewhere": ("{items} {was} removed from this sentence and {is} now only in another paragraph.",
+                        "Check that {they} still {belong} to the right claim."),
+}
+
+
+def _token_sentence(kind: str, status: str, tokens: list[str], revision: bool) -> str:
+    one = len(tokens) == 1
+    noun = TOKEN_NOUNS.get(kind, (kind, kind + "s"))[0 if one else 1]
+    fill = {"items": f"The {noun} {_quoted_list(tokens)}", "is": "is" if one else "are", "was": "was" if one else "were",
+            "they": "it" if one else "they", "them": "it" if one else "them", "appear": "appears" if one else "appear",
+            "belong": "belongs" if one else "belong"}
+    what, action = TOKEN_SENTENCES[status]
+    return what.format(**fill) + ("" if revision else " " + action.format(**fill))
+
+
+def _token_lines(tokens: list[dict[str, object]], title: Optional[str], revision: bool) -> list[str]:
+    """One bullet per sentence pair; within it, one sentence per kind of token and what happened to it."""
+    pairs: dict[tuple[object, ...], list[dict[str, object]]] = {}
     for c in tokens:
-        groups.setdefault((c["before_line"], c["after_line"], c["before"], c["after"]), []).append(c)
+        pairs.setdefault((c["before_line"], c["after_line"], c["before"], c["after"]), []).append(c)
     out = []
-    for (bl, al, before, after), items in groups.items():
-        where = items[0]["section"] or "(no heading)"
-        lines = f"before line {bl}" if bl else "new sentence"
-        lines += f", after line {al}" if al else ", deleted"
-        tag = "protected" if any(c["severity"] == "protected" for c in items) else "warning"
-        parts: dict[str, list[str]] = {}
+    for (_, _, before, after), items in pairs.items():
+        groups: dict[tuple[str, str], list[str]] = {}
         for c in items:
-            parts.setdefault(f"{c['kind']} {c['token_status']}", []).append(f"`{c['token']}`")
-        out.append(f"- **[{tag}]** ({where}; {lines}): " + "; ".join(f"{k}: {', '.join(v)}" for k, v in parts.items()))
+            groups.setdefault((str(c["kind"]), str(c["token_status"])), []).append(str(c["token"]))
+        sentences = [_token_sentence(kind, status, toks, revision) for (kind, status), toks in groups.items()]
+        sentences[0] = f"In {_where(items[0], title)}, {_lower_first(sentences[0])}"
+        out.append("- " + " ".join(sentences))
+        marks = [str(c["token"]) for c in items]
         if before:
-            out.append(f"  - before: {_quote(before)}")
+            out.append(f"  - Before the edit: {excerpt(before, marks)}")
         if after:
-            out.append(f"  - after: {_quote(after)}")
+            out.append(f"  - After the edit: {excerpt(after, marks)}")
+    return out
+
+
+def _count_items(counts: dict[str, int]) -> str:
+    return _listed([_q(k) + (f" ({n} times)" if n > 1 else "") for k, n in counts.items()])
+
+
+def _count_lines(groups: dict[str, dict[str, dict[str, int]]]) -> list[str]:
+    out = []
+    for name, d in groups.items():
+        for direction in ("removed", "added"):
+            items = d.get(direction) or {}
+            if not items:
+                continue
+            noun = COUNT_NOUNS.get(name, (name, name))[0 if len(items) == 1 else 1]
+            out.append(f"- The {noun} {_count_items(items)} {'was' if len(items) == 1 else 'were'} "
+                       f"{'removed' if direction == 'removed' else 'added'}.")
     return out
 
 
 def to_markdown(report: dict[str, object]) -> str:
-    rate = report["change_rate"]
-    level = ("**review**: more than half the words changed; check meaning and the requested scope" if rate > CHANGE_STOP
-             else "**warning**: more than a quarter of the words changed; re-read for meaning" if rate > CHANGE_WARN
-             else "ok")
     revision = report.get("mode") == "revision"
-    title = "Revision inventory" if revision else "Edit guard"
-    lines = [f"# {title}: {report['words_before']} → {report['words_after']} words", "",
-             f"Change rate: {round(100 * rate)}% of the original words ({level}).", ""]
-    if revision:
-        lines += ["Content changes are expected in a revision: check each one below against the response letter "
-                  "or the authors' instructions. Nothing here fails the run.", ""]
-    protected = report["protected"]
-    lines.append("## Protected patterns (review changes)" + ("" if protected else ": none changed"))
-    for name, d in protected.items():  # type: ignore[union-attr]
-        for kind in ("removed", "added"):
-            if d[kind]:
-                lines.append(f"- **{name} {kind}**: " + ", ".join(f"`{k}`×{n}" for k, n in d[kind].items()))
-    watched = report["watched"]
-    lines += ["", "## Watched (read each one: did the claim change?)" + ("" if watched else ": no change")]
-    for name, d in watched.items():  # type: ignore[union-attr]
-        for kind in ("removed", "added"):
-            if d[kind]:
-                lines.append(f"- {name} {kind}: " + ", ".join(f"{k}×{n}" for k, n in d[kind].items()))
+    title = report.get("title")  # type: ignore[assignment]
     changes = report.get("sentence_changes", [])
     claims = [c for c in changes if c["token"] is None]  # type: ignore[union-attr]
     tokens = [c for c in changes if c["token"] is not None]  # type: ignore[union-attr]
+    open_changes = [c for c in changes if c["severity"] == "protected" and not c["authorised"]]  # type: ignore[union-attr]
+    shown = [c for c in changes if c["severity"] != "protected" or c["authorised"]]  # type: ignore[union-attr]
+    rate = float(report["change_rate"])  # type: ignore[arg-type]
+    lines = ["# Revision inventory: what changed between the two versions" if revision else "# What the edit changed",
+             ""]
+    if revision:
+        lines.append(f"This is a revision, so content changes are expected. The comparison lists {len(changes)} "
+                     "changes, sentence by sentence; check each against the response letter or the authors' "
+                     "instructions. Nothing here fails the run.")
+    elif open_changes or report["protected"]:
+        lines.append(f"The edit changed content in {len(open_changes) or 'the whole-text counts, not in any one'} "
+                     f"{'place' if len(open_changes) == 1 else 'places'}, listed below; revert each unless the authors "
+                     "asked for it." + (f" {len(shown)} other {'change needs' if len(shown) == 1 else 'changes need'} "
+                                        "only to be shown to the authors." if shown else ""))
+    elif shown:
+        lines.append(f"The edit changed no content that must be reverted. {len(shown)} "
+                     f"{'change' if len(shown) == 1 else 'changes'} should be shown to the authors.")
+    else:
+        lines.append("The guard found no change of content. It cannot prove that the meaning is unchanged, so read "
+                     "the edited passages in context.")
+    level = (" More than half the words changed, so check the meaning and that the edit stayed within the request."
+             if rate > CHANGE_STOP else " More than a quarter of the words changed, so reread the text for meaning."
+             if rate > CHANGE_WARN else "")
+    lines += ["", f"About {round(100 * rate)}% of the original words changed ({report['words_before']} words before, "
+                  f"{report['words_after']} after).{level}", ""]
+    lines.append("## Changes to what the claims say, sentence by sentence")
+    lines += [""] + ([x for c in claims for x in _claim_lines(c, title, revision)] or  # type: ignore[arg-type]
+                     ["No sentence changed how strong, how general or how qualified its claim is."])
+    lines += ["", "## Numbers, citations and identifiers, sentence by sentence", ""]
+    lines += _token_lines(tokens, title, revision) or [  # type: ignore[arg-type]
+        "No sentence gained or lost a number, citation or identifier."]
     summary = report.get("summary", {})
-    lines += ["", f"## Claim strength, scope and evidence by sentence ({len(claims)}; "
-                  f"protected {sum(1 for c in claims if c['severity'] == 'protected')})" + ("" if claims else ": none")]
-    for c in claims:
-        lines += _change_line(c)
-    lines += ["", f"## Numbers, citations and identifiers by sentence ({len(tokens)}; "
-                  f"protected {sum(1 for c in tokens if c['severity'] == 'protected')})" + ("" if tokens else ": none")]
-    lines += _token_lines(tokens)
     if summary.get("authorised"):  # type: ignore[union-attr]
-        lines += ["", f"{summary['authorised']} claim change(s) marked authorised by --allow-strengthening; "  # type: ignore[index]
-                      "the authors still need to see them."]
+        n = summary["authorised"]  # type: ignore[index]
+        lines += ["", f"The authors authorised {n} claim {'change' if n == 1 else 'changes'} (--allow-strengthening); "
+                      f"{'it is' if n == 1 else 'they are'} listed so the authors see {'it' if n == 1 else 'them'}."]
+    lines += ["", "## Counts over the whole text", ""]
+    lines += _count_lines(report["protected"]) or [  # type: ignore[arg-type]
+        "No number, citation, identifier, link, code span or technical term was added or removed."]
+    watched = _count_lines(report["watched"])  # type: ignore[arg-type]
+    lines += ["", "Hedges, negations and claim words change with ordinary editing; read each change below to see "
+                  "whether a claim changed." if watched else "No hedge, negation or claim word was added or removed."]
+    if watched:
+        lines += [""] + watched
     rewritten = report["rewritten_paragraphs"]
-    lines += ["", f"## Heavily rewritten paragraphs ({len(rewritten)})"]  # type: ignore[arg-type]
+    lines += ["", "## Paragraphs that were largely rewritten", ""]
     for p in rewritten:  # type: ignore[union-attr]
-        lines.append(f"- similarity {p['similarity']}: “{p['before']}…” → “{p['after']}…”")
+        kept = round(100 * float(p["similarity"]))
+        if p["before"] and p["after"]:
+            lines.append(f"- A paragraph kept about {kept}% of its wording. It began {_q(str(p['before']) + '…')} "
+                         f"and now begins {_q(str(p['after']) + '…')}.")
+        elif p["after"]:
+            lines.append(f"- A new paragraph begins {_q(str(p['after']) + '…')}.")
+        else:
+            lines.append(f"- A paragraph that began {_q(str(p['before']) + '…')} was removed.")
+    if not rewritten:
+        lines.append("No paragraph was largely rewritten.")
     return "\n".join(lines) + "\n"
 
 

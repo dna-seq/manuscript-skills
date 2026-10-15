@@ -374,17 +374,17 @@ def polarity_mismatch(claim: str, quote: str) -> list[str]:
     reasons: list[str] = []
     directional = {"up", "down", "assoc"}
     if "null" in c and "null" not in q and q & directional:
-        reasons.append(f"the claim states no difference or association; the quote states {_describe(q)}")
+        reasons.append(f"The claim states no difference or association, but the passage states {_describe(q)}.")
     if "null" in q and "null" not in c and c & directional:
-        reasons.append(f"the quote states no difference or association; the claim states {_describe(c)}")
+        reasons.append(f"The passage states no difference or association, but the claim states {_describe(c)}.")
     for a, b in (("up", "down"), ("down", "up")):
         if a in c and b not in c and b in q and a not in q:
-            reasons.append(f"the claim states {_word(a)}; the quote states {_word(b)}")
+            reasons.append(f"The claim states {_word(a)}, but the passage states {_word(b)}.")
     for label in ("up", "down", "assoc"):
         if f"not_{label}" in c and label in q and f"not_{label}" not in q:
-            reasons.append(f"'{_word(label)}' is negated in the claim only")
+            reasons.append(f"The claim negates {_word(label)}, but the passage does not.")
         if f"not_{label}" in q and label in c and f"not_{label}" not in c:
-            reasons.append(f"'{_word(label)}' is negated in the quote only")
+            reasons.append(f"The passage negates {_word(label)}, but the claim does not.")
     return list(dict.fromkeys(reasons))
 
 
@@ -409,6 +409,7 @@ class SourceInfo(BaseModel):
     reason: Optional[str] = None
     free_urls: list[str] = []
     characters: int = 0
+    url: Optional[str] = None  # the identifier as a link the authors can open (https://doi.org/..., PubMed, arXiv)
 
 
 IDENTIFIER_PATTERNS = [
@@ -432,6 +433,12 @@ def parse_identifier(value: str) -> Optional[tuple[str, str]]:
             arxiv = ARXIV_DOI_RE.match(ident) if kind == "doi" else None
             return ("arxiv", arxiv.group(1)) if arxiv else (kind, ident.rstrip(".,;"))
     return None
+
+
+def identifier_url(kind: str, value: str) -> Optional[str]:
+    """The page a reader opens for an identifier: doi.org, PubMed, Europe PMC or arXiv."""
+    return {"doi": f"https://doi.org/{value}", "pmid": f"https://pubmed.ncbi.nlm.nih.gov/{value}/",
+            "pmcid": f"https://europepmc.org/article/PMC/{value}", "arxiv": f"https://arxiv.org/abs/{value}"}.get(kind)
 
 
 def default_cache_dir() -> Path:
@@ -499,19 +506,19 @@ def _europepmc(fetch: Fetcher, kind: str, value: str) -> tuple[Optional[str], So
         if text:
             info.scope, info.via = "full_text", "europepmc:fullTextXML"
             return text, info
-        info.reason = "Europe PMC serves no full text for this PMCID through its API"
+        info.reason = "Europe PMC serves no full text for this article through its API."
         info.free_urls = [f"https://europepmc.org/article/PMC/{value}"]
         return None, info
     query = f'DOI:"{value}"' if kind == "doi" else f"EXT_ID:{value} AND SRC:MED"
     data = _json(fetch.get(f"{EUROPEPMC}/search", query=query, format="json", resultType="core", pageSize="1"))
     if data is None:
-        info.reason = "Europe PMC did not answer"
+        info.reason = "Europe PMC did not answer, so no open-access text was found."
         return None, info
     hits = [h for h in data.get("resultList", {}).get("result", [])
             if (kind == "doi" and (h.get("doi") or "").lower() == value.lower())
             or (kind == "pmid" and str(h.get("pmid") or "") == value)]
     if not hits:
-        info.reason = "not indexed by Europe PMC, so no legal open-access copy was found"
+        info.reason = "Europe PMC does not index this work, so no legal open-access copy was found."
         return None, info
     hit = hits[0]
     info.free_urls = [u.get("url") for u in (hit.get("fullTextUrlList") or {}).get("fullTextUrl", [])
@@ -525,11 +532,11 @@ def _europepmc(fetch: Fetcher, kind: str, value: str) -> tuple[Optional[str], So
     title = hit.get("title") or ""
     if abstract:
         info.scope, info.via = "abstract", "europepmc:abstract"
-        info.reason = "only the abstract is openly available (full text paywalled or not deposited)"
+        info.reason = "Only the abstract is openly available; the full text is paywalled or not deposited."
         return f"{title}\n{abstract}", info
-    info.reason = ("the index lists a free full text (often an author manuscript) that its API does not serve: "
-                   "read it at the link" if info.free_urls else
-                   "no open-access full text and no abstract (paywalled or not deposited)")
+    info.reason = ("Europe PMC lists a free full text (often an author manuscript) that its API does not serve; "
+                   "read it at the link below." if info.free_urls else
+                   "There is no open-access full text and no abstract; the work is paywalled or not deposited.")
     return None, info
 
 
@@ -550,7 +557,7 @@ def _rxiv(fetch: Fetcher, doi: str) -> tuple[Optional[str], SourceInfo]:
                     return text, info
         if latest.get("abstract"):
             info.scope, info.via = "abstract", f"{server}:abstract"
-            info.reason = "the full-text XML could not be fetched; only the abstract was read"
+            info.reason = "The full-text XML could not be fetched, so only the abstract was read."
             return f"{latest.get('title', '')}\n{latest['abstract']}", info
     return None, info
 
@@ -568,10 +575,10 @@ def _arxiv(fetch: Fetcher, arxiv_id: str) -> tuple[Optional[str], SourceInfo]:
         m = re.search(r"<entry>.*?<title>(.*?)</title>.*?<summary>(.*?)</summary>", r.text, re.DOTALL)
         if m:
             info.scope, info.via = "abstract", "arxiv:abstract"
-            info.reason = "arXiv has no HTML full text for this paper; only the abstract was read"
+            info.reason = "arXiv has no HTML full text for this paper, so only the abstract was read."
             info.free_urls = [f"https://arxiv.org/pdf/{arxiv_id}"]
             return html.unescape(f"{m.group(1)}\n{m.group(2)}"), info
-    info.reason = "arXiv did not answer"
+    info.reason = "arXiv did not answer, so no text was read."
     return None, info
 
 
@@ -583,7 +590,8 @@ def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir:
         return text_path.read_text(encoding="utf-8"), info
     if fetch is None:
         return None, SourceInfo(given=f"{kind}:{value}", kind=kind,
-                                reason="an identifier needs --online (or save the source's text and give its path)")
+                                reason="The source is given as an identifier, and reading it needs --online (or save "
+                                       "the source's text and give its path).")
     if kind == "arxiv":
         text, info = _arxiv(fetch, value)
     elif kind == "doi" and RXIV_DOI_RE.match(value):
@@ -603,19 +611,22 @@ def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir:
 def load_source(given: Optional[str], base: Path, fetch: Optional[Fetcher],
                 cache_dir: Path) -> tuple[Optional[str], SourceInfo]:
     if not given:
-        return None, SourceInfo(reason="no source given for this claim")
+        return None, SourceInfo(reason="No source was given for this claim.")
     path = Path(given).expanduser()
     path = path if path.is_absolute() else base / path
     if path.is_file():
         if path.suffix.lower() == ".pdf":
             return None, SourceInfo(given=given, kind="file",
-                                    reason="PDF: convert it to text first (pdftotext -layout FILE.pdf) and give the .txt")
+                                    reason="The source is a PDF; convert it to text first (pdftotext -layout "
+                                           "FILE.pdf) and give the .txt file.")
         text = read_text_file(path)
         return text, SourceInfo(given=given, kind="file", scope="supplied", via="file")
     ident = parse_identifier(given)
     if ident is None:
-        return None, SourceInfo(given=given, kind="file", reason=f"file not found: {path}")
-    return fetch_identifier(ident[0], ident[1], fetch, cache_dir)
+        return None, SourceInfo(given=given, kind="file", reason=f"The source file {path} was not found.")
+    text, info = fetch_identifier(ident[0], ident[1], fetch, cache_dir)
+    info.url = info.url or identifier_url(*ident)
+    return text, info
 
 
 # --------------------------------------------------------------------------------------------------
@@ -741,7 +752,7 @@ def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> Clai
             result.notes.append("Only the abstract was available and no quote was given; read the full text.")
         else:
             result.status, result.flags = "quote_not_found", ["quote_not_found"]
-            result.notes.append("No quote was given: locate the passage that carries the claim and add it.")
+            result.notes.append("No quote was given. Locate the passage that carries the claim and add it.")
         return result
     found = locate(claim.quote, norm_source)
     if found is None:
@@ -777,9 +788,8 @@ class SupportReport(BaseModel):
     cache_dir: str
     summary: dict[str, int]
     results: list[ClaimResult]
-    note: str = ("Mechanical checks only. A located quote does not establish support and no status here means "
-                 "'confirmed': the reading in references/claim-support.md decides confirmed, partial, rejected or "
-                 "blocked.")
+    note: str = ("Mechanical checks only. A located quote does not show that the source supports the claim, and no "
+                 "status here means 'confirmed': a reader decides that from the passage (references/claim-support.md).")
 
 
 def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
@@ -812,42 +822,132 @@ def exit_code(report: SupportReport) -> int:
     return 0
 
 
+# Each status in words, as a heading and as the summary's phrase for "For N claims, ...".
+STATUS_HEADING = {
+    "quote_not_found": "The quoted passage was not found in the source",
+    "polarity_mismatch": "The passage points in a different direction from the claim",
+    "numbers_missing": "A number in the claim is not in the passage",
+    "source_unavailable": "This claim could not be checked: no source text was available",
+    "quote_located": "The quoted passage was found in the source",
+}
+STATUS_SUMMARY = {
+    "quote_located": "the quoted passage was found in the source and nothing was flagged",
+    "numbers_missing": "the passage was found, but a number in the claim is not in it",
+    "polarity_mismatch": "the passage was found, but it points in a different direction from the claim",
+    "quote_not_found": "the quoted passage was not found in the source text",
+    "source_unavailable": "no source text was available, so the check could not run",
+}
+REPORT_ORDER = ("quote_not_found", "polarity_mismatch", "numbers_missing", "source_unavailable", "quote_located")
+SERVICE_NAMES = {"europepmc": "Europe PMC", "biorxiv": "bioRxiv", "medrxiv": "medRxiv", "arxiv": "arXiv"}
+FILE_LINE = re.compile(r"^(?P<file>[^:()]+?):(?P<line>\d+)(?:\s*\((?P<section>[^)]*)\))?$")
+LINE_ONLY = re.compile(r"^(?:L|line\s*)?(?P<line>\d+)$", re.IGNORECASE)
+
+
+def where_in_manuscript(location: str) -> str:
+    """'seeded.md:14 (Introduction)' as 'under Introduction (seeded.md, line 14)'; never a bare 'L14'."""
+    location = " ".join(location.split())
+    m = FILE_LINE.match(location)
+    if m and m.group("section"):
+        return f"under {m.group('section')} ({m.group('file')}, line {m.group('line')})"
+    if m:
+        return f"({m.group('file')}, line {m.group('line')})"
+    m = LINE_ONLY.match(location)
+    if m:
+        return f"(line {m.group('line')})"
+    return f"under {location}"
+
+
+def _quoted(text: str) -> str:
+    return "“" + " ".join(text.split()) + "”"
+
+
+def _quoted_end(text: str) -> str:
+    """A quotation that ends a sentence: the full stop is added only when the quote does not end one itself."""
+    return _quoted(text) + ("" if text.rstrip()[-1:] in ".!?" else ".")
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def _listed(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _source_sentence(r: ClaimResult) -> str:
+    cited = f"It cites reference {r.reference}" + (f" ({r.source.url})" if r.source.url else "") + "."
+    if r.source.scope == "supplied":
+        return f"{cited} The source text was read from the supplied file {r.source.given}."
+    if r.source.scope in ("full_text", "abstract"):
+        via = r.source.via or ""
+        service = SERVICE_NAMES.get(via.split(":", 1)[0], "")
+        version = re.search(r"\(version [^)]+\)", via)
+        what = "The full text" if r.source.scope == "full_text" else "Only the abstract"
+        return (f"{cited} {what} was read" + (f" from {service}" if service else "")
+                + (f" {version.group(0)}" if version else "") + ".")
+    return cited
+
+
+def _claim_block(r: ClaimResult) -> list[str]:
+    lines = [f"## {STATUS_HEADING[r.status]} (claim {r.id})", "",
+             f"The manuscript says, {where_in_manuscript(r.location)}: {_quoted_end(r.claim)}", "",
+             _source_sentence(r), ""]
+    found = r.status in ("quote_located", "numbers_missing", "polarity_mismatch")
+    if r.status == "source_unavailable":
+        lines.append(f"This claim could not be checked. {r.source.reason or 'No source text was available.'}")
+        if r.source.free_urls:
+            lines.append("A free full text is listed at " + _listed(r.source.free_urls) + "; read it there.")
+        if r.quote:
+            lines.append(f"The passage to look for is {_quoted_end(r.quote)}")
+    elif r.status == "quote_not_found" and r.quote:
+        lines.append(f"The quoted passage, {_quoted(r.quote)}, was not found in the source text.")
+        if r.closest_passage:
+            lines.append(f"The closest passage in the source (similarity {r.closest_ratio}) reads "
+                         f"{_quoted(r.closest_passage)}. The quote may be misquoted, or it may sit in a figure, a "
+                         "table or a supplement that the text lacks.")
+    elif found:
+        how = " Its parts were found in order, with the omissions marked." if r.match == "ellipsis" else ""
+        lines.append(f"The quoted passage was found in the source: {_quoted_end(r.quote or '')}{how}")
+    extra: list[str] = []
+    if r.numbers and r.numbers.missing:
+        extra.append(f"The claim gives {_listed(r.numbers.missing)}, which the passage does not contain. The number "
+                     "may be wrong, or it may sit in a nearby sentence, a table or a conversion, so read the source "
+                     "around the passage before deciding.")
+    if r.numbers and r.numbers.year_like_missing:
+        extra.append(f"The claim also gives the year {_listed(r.numbers.year_like_missing)}, which is not in the "
+                     "passage; a year rarely needs to be, so it is not flagged.")
+    for reason in r.polarity:
+        extra.append(f"{reason} A word list cannot read every sentence, so read both and decide.")
+    if r.secondary_markers:
+        extra.append("The passage around the quote cites or reports other work ("
+                     + _listed([_quoted(m) for m in r.secondary_markers]) + "), so the number may come from a primary "
+                     "study. Cite that study after checking its own text, or write “as summarised by”.")
+    extra += r.notes
+    if found and not extra:
+        extra.append("Nothing was flagged. Read the passage to decide whether it carries the claim as written.")
+    if extra:
+        lines += [""] + extra
+    return lines + [""]
+
+
 def to_markdown(report: SupportReport) -> str:
     s = report.summary
-    out = [f"# Claim-support mechanical check: {report.claims_file}", "",
-           f"{s['claims']} claims: " + ", ".join(f"{s[k]} {k}" for k in STATUSES) + ".",
-           report.note, ""]
+    out = ["# Do the cited sources contain the quoted passages?", "",
+           f"This report covers the {_plural(s['claims'], 'claim', 'claims')} in {Path(report.claims_file).name}. "
+           "For each claim it looks for the quoted passage in the source's text, then compares the claim's numbers "
+           "and direction of effect with the passage. It is a mechanical check: a passage that was found still has "
+           "to be read to decide whether it supports the claim.", ""]
+    counts = [f"For {_plural(s[k], 'claim', 'claims')}, {STATUS_SUMMARY[k]}." for k in
+              ("quote_located", "numbers_missing", "polarity_mismatch", "quote_not_found", "source_unavailable") if s[k]]
+    out += [" ".join(counts), ""]
     if not report.online:
-        out.append("Offline: identifiers were read from the cache only; run with --online to fetch open-access text.")
-        out.append("")
-    out += ["| id | location | reference | status | source |", "|---|---|---|---|---|"]
-    for r in report.results:
-        src = f"{r.source.scope}" + (f" via {r.source.via}" if r.source.via else "")
-        out.append(f"| {r.id} | {_cell(r.location)} | {_cell(r.reference)} | {r.status} | {_cell(src)} |")
-    for r in report.results:
-        lines: list[str] = []
-        if r.source.reason:
-            lines.append(f"source: {r.source.reason}")
-        if r.source.free_urls:
-            lines.append("free full text to read yourself: " + ", ".join(r.source.free_urls))
-        if r.numbers and r.numbers.missing:
-            lines.append(f"numbers in the claim not in the quote: {', '.join(r.numbers.missing)}")
-        if r.numbers and r.numbers.year_like_missing:
-            lines.append(f"year-like numbers not in the quote (not flagged): {', '.join(r.numbers.year_like_missing)}")
-        lines += [f"polarity: {reason}" for reason in r.polarity]
-        if r.secondary_markers:
-            lines.append("the passage cites or reports other work (" + "; ".join(r.secondary_markers)
-                         + "): check whether the number belongs to a primary study")
-        if r.closest_passage:
-            lines.append(f"closest passage (similarity {r.closest_ratio}): \"{r.closest_passage}\"")
-        lines += r.notes
-        if lines:
-            out += ["", f"## {r.id} ({r.status})", ""] + [f"- {line}" for line in lines]
-    return "\n".join(out) + "\n"
-
-
-def _cell(text: str) -> str:
-    return text.replace("|", "\\|").replace("\n", " ")
+        out += ["The check ran offline, so sources given only as an identifier were read from the local cache. Run "
+                "it again with --online to fetch their open-access text.", ""]
+    for status in REPORT_ORDER:
+        for r in report.results:
+            if r.status == status:
+                out += _claim_block(r)
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 @app.command()

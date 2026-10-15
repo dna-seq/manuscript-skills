@@ -213,10 +213,13 @@ def test_a_quote_must_be_long_enough_to_anchor_a_finding(quote: str, ok: bool) -
 
 
 def test_a_misquote_reports_where_the_quote_stops_matching() -> None:
+    """The hint quotes the manuscript text that matched, with the line number only in parentheses."""
     f = _only(cf.check([_finding(quote="We assigned ClinVar variants at random to three folds")], SEEDED))
     assert f["contract"] == "fail"
     line = _line_of(SEEDED, "We assigned ClinVar variants")
-    assert any(f"seeded.md:{line}" in p and "then the text differs" in p for p in f["problems"])
+    hint = next(p for p in f["problems"] if "wording differs" in p)
+    assert '"**We assigned ClinVar variants at random to** training (80%) and test (20%) sets."' in hint
+    assert f"(line {line})" in hint and f"seeded.md:{line}" not in hint
 
 
 # --- the contract ----------------------------------------------------------------------------------------------
@@ -242,6 +245,8 @@ def test_each_required_field_is_enforced(field: str) -> None:
     ({"hand_to": "manuscript-prose-edit"}, True),
     ({"route": "dropped"}, False),
     ({"route": "dropped", "drop_reason": "No claim depends on it."}, True),
+    ({"stage": "final"}, True),
+    ({"stage": "later"}, False),
 ])
 def test_allowed_values(override: dict[str, Any], ok: bool) -> None:
     f = _only(cf.check([_finding(**override)], SEEDED))
@@ -307,11 +312,26 @@ def test_a_concern_without_a_prior_work_cue_needs_no_identifier() -> None:
     ("VarRank is not state of the art on this task.", "state-of-the-art"),
     ("The authors should also run a replication cohort.", "new-work"),
     ("The model is too simple for the task.", "simplicity"),
+    ("The score is a trivial extension of CADD to a smaller feature set.", "simplicity"),
+    ("The method is trivial and offers little beyond a logistic regression.", "simplicity"),
+    ("A simplistic linear model cannot capture epistasis.", "simplicity"),
 ])
 def test_fairness_lints_warn_without_failing(concern: str, lint: str) -> None:
     f = _only(cf.check([_finding(concern=concern)], SEEDED))
     assert f["contract"] == "pass"
     assert any(lint in w for w in f["warnings"])
+
+
+@pytest.mark.parametrize("concern", [
+    # Smoke run on Paper 2 (2026-10-15): a concern about the size of the evidence was flagged as objecting to
+    # simplicity because it called perfect scores on one example "near-trivial".
+    "With one paper and one reference module, scores of 1.00 are near-trivial and carry no variance.",
+    "Reproducing the benchmark is non-trivial without the feature tables.",
+    "The effect is trivially small once gene identity is removed.",
+])
+def test_the_simplicity_lint_ignores_trivial_used_about_results(concern: str) -> None:
+    f = _only(cf.check([_finding(concern=concern)], SEEDED))
+    assert not any("simplicity" in w for w in f["warnings"]), f["warnings"]
 
 
 # --- adjudicated stage -----------------------------------------------------------------------------------------
@@ -504,6 +524,134 @@ def test_cli_rejects_an_unsupported_manuscript_type(tmp_path: Path) -> None:
     pdf = tmp_path / "paper.pdf"
     pdf.write_bytes(b"%PDF-1.7")
     assert runner.invoke(cf.app, [str(_write_json(tmp_path, [_finding()])), str(pdf)]).exit_code == 2
+
+
+# --- the Markdown report: quoted passages, URLs and plain words, never bare line references -----------------
+
+def _no_bare_locations(md: str) -> None:
+    """No "L169", no "file.md:12", and every "line N" sits inside parentheses after a quoted passage."""
+    assert not re.search(r"\bL\d+\b", md), md
+    assert not re.search(r"\b[\w-]+\.(?:md|tex|txt):\d+", md), md
+    for m in re.finditer(r"\blines? \d+", md):
+        opening = md.rfind("(", 0, m.start())
+        assert opening > md.rfind(")", 0, m.start()) and md[:opening].rstrip().endswith('"'), md[m.start() - 80:m.end()]
+
+
+def test_the_markdown_quotes_each_passage_with_its_section() -> None:
+    findings = [_finding(id=key, quote=quote, location=f"Section of {key}", concern=CONCERNS[key][0])
+                for key, quote, _, _ in PLANTED]
+    report = cf.check(findings, SEEDED)
+    md = cf.to_markdown(report)
+    _no_bare_locations(md)
+    for f in report["findings"]:
+        excerpt = f["quote"]["excerpt"]
+        assert f'In {f["location"]}, the manuscript reads "{excerpt}" (line {f["quote"]["line"]}).' in md
+        # the excerpt shows the quoted words, in bold whenever it also shows some of the sentence around them
+        words = cf._squash(f["quote_text"]).strip()
+        assert words in excerpt.replace("**", "") or words.split()[0] in excerpt
+        assert ("**" in excerpt) is (excerpt.replace("**", "") != words)
+    leak = next(f for f in report["findings"] if f["id"] == "leakage")
+    assert leak["quote"]["excerpt"] == "We assigned ClinVar variants at random to training (80%) and test (20%) sets."
+    count = next(f for f in report["findings"] if f["id"] == "n-mismatch")
+    assert count["quote"]["excerpt"].startswith("**On 4,812 held-out ClinVar missense variants**, VarRank reached")
+    build = next(f for f in report["findings"] if f["id"] == "genome-build")
+    assert build["quote"]["excerpt"].startswith("|") and "**rs429358 | chr19:45411941**" in build["quote"]["excerpt"]
+
+
+def test_a_long_passage_is_cut_between_words_around_the_quote() -> None:
+    before, span, after = "word " * 60, "the quoted part", " more" * 60
+    text = cf.cut_around(before, span, after, width=80)
+    assert text.startswith("[...] word") and text.endswith("more [...]") and "**the quoted part**" in text
+    assert len(text) <= 80 + len("[...] ") + len(" [...]") + 4
+    assert cf.cut_around("", "x " * 200, "", width=40).count("[...]") == 1
+
+
+@pytest.mark.parametrize("identifier,url", [
+    ("10.1038/ng.2892", "https://doi.org/10.1038/ng.2892"),
+    ("doi:10.1038/ng.2892", "https://doi.org/10.1038/ng.2892"),
+    ("https://doi.org/10.1038/ng.2892", "https://doi.org/10.1038/ng.2892"),
+    ("PMID: 24487276", "https://pubmed.ncbi.nlm.nih.gov/24487276/"),
+    ("24487276", "https://pubmed.ncbi.nlm.nih.gov/24487276/"),
+    ("arXiv:2403.19087", "https://arxiv.org/abs/2403.19087"),
+    ("2403.19087v2", "https://arxiv.org/abs/2403.19087v2"),
+    ("https://github.com/example/varrank", "https://github.com/example/varrank"),
+])
+def test_prior_work_identifiers_are_rendered_as_urls(identifier: str, url: str) -> None:
+    prior = [{"citation": "Kircher M et al. Nature Genetics 2014", "identifier": identifier, "status": "verified"}]
+    report = cf.check([_finding(concern=NOVELTY, prior_work=prior)], SEEDED)
+    md = cf.to_markdown(report)
+    assert f"Kircher M et al. Nature Genetics 2014, {url}. Its identifier resolved to this work" in md
+    assert report["findings"][0]["prior_work"][0]["identifier"] == identifier  # the JSON keeps what was given
+
+
+def test_an_isbn_or_a_missing_identifier_is_named_in_words() -> None:
+    prior = [{"citation": "A textbook", "identifier": "978-0-12-345678-9", "status": "unverified"},
+             {"citation": "An unpublished tool", "status": "unverified"}]
+    md = cf.to_markdown(cf.check([_finding(concern=NOVELTY, prior_work=prior)], SEEDED))
+    assert "A textbook (978-0-12-345678-9). Its identity is not confirmed, because the identifier could not" in md
+    assert "An unpublished tool, with no identifier. Its identity is not confirmed, because it has no identifier." in md
+
+
+def test_statuses_are_plain_words_in_the_markdown(tmp_path: Path) -> None:
+    findings = [_finding(id="F2", quote="Table S1 lists 4,182 test variants", source="S1.md"),
+                _finding(id="F3", quote="VarRank was validated in three cohorts")]
+    report = cf.check(findings, SEEDED)
+    md = cf.to_markdown(report)
+    assert [f["contract"] for f in report["findings"]] == ["not_assessed", "fail"]  # the JSON keeps its tokens
+    assert "not_assessed" not in md and "**F2**, raised by evidence-statistics, could not be checked." in md
+    assert "the file S1.md was not supplied" in md
+    assert '**F3**, raised by evidence-statistics, failed. It quotes "VarRank was validated in three cohorts"' in md
+    _no_bare_locations(md)
+
+
+def _adjudicated(id: str, quote: str, **fields: Any) -> dict[str, Any]:
+    base = {"verdict": "confirmed", "triage": "substance", "verdict_evidence": "The quoted text shows it."}
+    return _finding(id=id, quote=quote, concern=f"Concern {id} about a separate point entirely.", **{**base, **fields})
+
+
+def test_after_adjudication_groups_follow_the_order_the_authors_work_in() -> None:
+    findings = [
+        _adjudicated("venue", "the ClinVar release of 6 January 2025", route="venue", triage="substance",
+                     severity="optional"),
+        _adjudicated("wording", CAUSAL, triage="misread-risk", route="fixable-in-text"),
+        _adjudicated("science", LEAK, route="author-required", cost="reanalysis"),
+        _adjudicated("count", "On 4,812 held-out ClinVar missense variants", hand_to="manuscript-integrity-check",
+                     route="fixable-in-text"),
+        _adjudicated("answered", "Features were standardised on the training set.", verdict="refuted",
+                     defence_quote=DEFENCE, triage=None),
+    ]
+    report = cf.check(findings, SEEDED, adjudicated=True)
+    assert report["summary"]["fail"] == 0
+    assert [g["stage"] for g in report["groups"]] == ["now", "writing", "journal", "other-checks", "answered"]
+    md = cf.to_markdown(report)
+    headings = [line for line in md.splitlines() if line.startswith("## ")]
+    assert headings == ["## Fix now: the science and the evidence", "## Then the writing",
+                        "## Once you have chosen the journal", "## Also found, belongs to other checks",
+                        "## Answered by the paper (refuted by the defence pass)"]
+    assert "As proposed, it needs new work from the authors, at the cost of a reanalysis of existing data." in md
+    assert "It belongs to manuscript-integrity-check; mention it there rather than as a referee concern." in md
+    _no_bare_locations(md)
+
+
+def test_end_stage_packaging_is_never_a_current_concern() -> None:
+    """An archive record or declaration is listed for the end, even when it belongs to another check."""
+    findings = [
+        _adjudicated("archive", "VarRank 1.2.0 is available at", stage="final", hand_to="manuscript-reporting-check",
+                     route="fixable-in-text"),
+        _adjudicated("science", LEAK, route="author-required"),
+    ]
+    report = cf.check(findings, SEEDED, adjudicated=True)
+    assert [(g["findings"], g["stage"]) for g in report["groups"]] == [(["science"], "now"), (["archive"], "final")]
+    md = cf.to_markdown(report)
+    assert md.index("## Fix now") < md.index("## Before submission, once the code is final")
+    assert "## Also found, belongs to other checks" not in md
+
+
+def test_a_latex_excerpt_reads_as_the_sentence_a_reader_sees(tmp_path: Path) -> None:
+    quote = "VarRank is the first tool to combine conservation and frequency in 12% of cases"
+    f = _only(cf.check([_finding(quote=quote)], _doc(tmp_path, LATEX, "paper.tex")))
+    assert f["quote"]["excerpt"] == ("**VarRank is the first tool to combine conservation \\cite{kircher2014} and "
+                                     "frequency in 12% of cases**.")
 
 
 def test_the_schema_example_passes_against_the_seeded_fixture() -> None:

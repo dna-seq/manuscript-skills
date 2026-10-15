@@ -44,8 +44,19 @@ Earlier fields keep their names and meaning; these were added.
 | `resolved_authors`, `author_check`, `author_notes`, `author_severity` | the record's list; `consistent`, `differs` or `not_compared`; what differs; `minor` or `info` |
 | `lookup_notes` | which registry did not answer, and what was therefore not checked |
 
-The Markdown report adds a line with the counts per retraction state. Report `not_checked` entries as
-`not_assessed` for retraction, with the reason, and check by hand any that carry the argument.
+The Markdown report adds a line with the counts per retraction state. Report a `not_checked` entry to the
+authors as "the retraction status could not be checked", with the reason (arXiv keeps no retraction record;
+no registry answered), and check by hand any that carry the argument.
+
+## Reporting an identity finding to the authors
+
+Quote the reference-list entry as it stands, give the record it should match as a link
+(`https://doi.org/...`, `https://pubmed.ncbi.nlm.nih.gov/<PMID>/`, `https://arxiv.org/abs/<id>`), and say in
+a sentence or two what differs and what to change, as [Writing for the authors](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+asks. For example: "The entry for Tandy-Connor et al. 2018 gives the DOI 10.1038/gim201838, which does not
+resolve. The article is at https://doi.org/10.1038/gim.2018.38, with the same title, journal, volume and
+pages, so the DOI is missing a dot." The scanner's status names and paper-preflight's rule codes may follow
+in parentheses; they never stand alone.
 
 ## Reading findings without false accusations
 
@@ -103,7 +114,8 @@ and near-duplicate entries (CIT002, CIT004); and `bib fix`, which proposes `.bib
 - Key both reports by reference (line or cite key, then DOI). One root cause gives one finding.
 - Positive evidence outranks an abstention: a retraction notice from either tool stands; an entry one tool
   resolved and the other could not find is resolved, with a note.
-- REF090 ("cannot determine") and an incomplete run (RUN001, exit 2) are `not_assessed`, never passed.
+- REF090 ("cannot determine") and an incomplete run (RUN001, exit 2) mean the entry could not be checked;
+  never count them as passed.
 - REF015 (preprint published) is our `published_version`; REF018 (arXiv withdrawn) is our `withdrawn`;
   REF004 and REF005 our retraction states; REF010 and REF011 our author differences: a question to check,
   not fabrication.

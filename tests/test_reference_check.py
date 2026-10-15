@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -269,7 +270,7 @@ def test_cli_writes_reports_and_exit_codes(tmp_path: Path) -> None:
     assert seeded.exit_code == 1, seeded.output
     data = json.loads(out_json.read_text())
     assert {r["id"]: r["status"] for r in data["results"]} == SEEDED_STATUS
-    assert "numbers in the claim not in the quote: 29" in out_md.read_text()
+    assert "The claim gives 29, which the passage does not contain." in out_md.read_text()
     clean = runner.invoke(support.app, [str(FIX / "claims-clean.yaml"), "--cache-dir", str(tmp_path / "c")])
     assert clean.exit_code == 3, clean.output
     one = tmp_path / "one.yaml"
@@ -278,6 +279,51 @@ def test_cli_writes_reports_and_exit_codes(tmp_path: Path) -> None:
                    "    quote: 67% of studies included exclusively European ancestry participants\n"
                    f"    source: {FIX / 'sources' / 'duncan2019.txt'}\n", encoding="utf-8")
     assert runner.invoke(support.app, [str(one), "--cache-dir", str(tmp_path / "c")]).exit_code == 0
+
+
+def test_markdown_quotes_the_claim_and_passage_links_identifiers_and_says_the_status_in_words(
+        tmp_path: Path) -> None:
+    """The report a person reads: each claim quoted with its section, the passage quoted, the cited work as a
+    link, and what was found in words; never a bare line reference or a status token."""
+    report = support.run(FIX / "claims-seeded.yaml", online=False, cache_dir=tmp_path)
+    md = support.to_markdown(report)
+    by_id = {r.id: r for r in report.results}
+    for r in report.results:
+        assert f"\u201c{' '.join(r.claim.split())}\u201d" in md, r.id
+        if r.status != "source_unavailable":
+            assert f"\u201c{' '.join(r.quote.split())}\u201d" in md, r.id
+    assert "under Introduction (seeded.md, line 14)" in md
+    assert "(https://doi.org/10.1126/science.1190532)" in md and "(https://doi.org/10.1038/s41576-018-0018-x)" in md
+    assert "A number in the claim is not in the passage (claim C2)" in md
+    assert "This claim could not be checked" in md and "different direction from the claim" in md
+    assert by_id["C3"].polarity[0] in md
+    for token in support.STATUSES:
+        assert token not in md, token
+    assert not re.search(r"\bL\d+\b", md)
+    assert "\u2192" not in md and "->" not in md
+    # Flagged claims come before the ones whose passage was found clean.
+    assert md.index("(claim C3)") < md.index("(claim C2)") < md.index("(claim C5)") < md.index("(claim C1)")
+
+
+@pytest.mark.parametrize("location, where", [
+    ("seeded.md:14 (Introduction)", "under Introduction (seeded.md, line 14)"),
+    ("paper.md:42", "(paper.md, line 42)"),
+    ("L6", "(line 6)"),
+    ("42", "(line 42)"),
+    ("Results, Performance (paper.md, line 42)", "under Results, Performance (paper.md, line 42)"),
+])
+def test_claim_locations_are_rendered_as_sections_with_lines_in_parentheses(location: str, where: str) -> None:
+    assert support.where_in_manuscript(location) == where
+
+
+@pytest.mark.parametrize("kind, value, url", [
+    ("doi", "10.1038/s41467-019-11112-0", "https://doi.org/10.1038/s41467-019-11112-0"),
+    ("pmid", "31346163", "https://pubmed.ncbi.nlm.nih.gov/31346163/"),
+    ("pmcid", "PMC6658471", "https://europepmc.org/article/PMC/PMC6658471"),
+    ("arxiv", "1203.6364", "https://arxiv.org/abs/1203.6364"),
+])
+def test_identifiers_become_links(kind: str, value: str, url: str) -> None:
+    assert support.identifier_url(kind, value) == url
 
 
 @pytest.mark.parametrize("name, content, problems", [
@@ -314,9 +360,9 @@ def test_integer_ids_and_locations_are_accepted(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("source, reason", [
-    ("missing.txt", "file not found"),
+    ("missing.txt", "was not found"),
     ("paper.pdf", "convert it to text"),
-    (None, "no source given"),
+    (None, "No source was given"),
     ("doi:10.1038/s41467-019-11112-0", "needs --online"),
 ])
 def test_sources_that_cannot_be_read_are_unavailable(tmp_path: Path, source: Optional[str], reason: str) -> None:

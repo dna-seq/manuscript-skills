@@ -48,6 +48,103 @@ MAX_BURDEN_POINTS = 2  # listed burdens differ in granularity between sources; m
 TIERS = [(1, "light"), (3, "moderate"), (5, "heavy")]
 SEVERE = "severe"
 
+# The catalogue's vocabulary in the words the authors read (README: no internal tokens in printed output).
+WRITING_WORDS = {
+    "free": "AI writing help needs no declaration",
+    "disclose": "AI help is allowed if declared, and language polish needs no declaration",
+    "disclose_all": "AI help is allowed, but every use must be declared, even language polish",
+    "red_line": "AI help is allowed if declared, except that the results and discussion are reserved for the authors",
+    "banned_drafting": "the journal asks authors not to have AI draft text; correction aids are allowed",
+}
+PROMPT_ASKS = {"on_request": "the prompts on request", "encouraged": "the prompts in the paper (encouraged)",
+               "required": "the prompts in the paper (required)"}
+PROMPT_WORDS = {"no": "not asked for", "on_request": "given on request", "encouraged": "encouraged in the paper",
+                "required": "required in the paper"}
+TRACKING_ASKS = {"recommended": "records of AI use kept in case the journal asks for them",
+                 "required": "records of AI use beyond one acknowledgement, such as deposited outputs or kept versions"}
+SCREENING_WORDS = {"plagiarism": "plagiarism checks only",
+                   "integrity_signals": "plagiarism and paper-mill checks, with no AI-text detector named",
+                   "may_detect_ai": "says it may use AI-text detection",
+                   "ai_detector_deployed": "runs an AI-text detector on submissions"}
+ACCESS_WORDS = {"full": "full open access", "hybrid": "hybrid (subscription, with an open-access option)",
+                "subscription": "subscription only"}
+STATUS_WORDS = {"VERIFIED": "checked against the journal's own pages",
+                "PARTIAL": "partly checked; some fields were not researched",
+                "SECONDARY": "taken from secondary reports, not from the journal's own pages",
+                "NOT FOUND": "no AI policy could be found for this journal"}
+REVIEWER_AI_WORDS = {"banned": "reviewers may not use AI tools",
+                     "restricted": "reviewers may use only the publisher's approved AI tools",
+                     "allowed": "reviewers may use AI tools"}
+AI_USE_WORDS = {"polish": "AI corrected the spelling, grammar or clarity of text the authors wrote",
+                "revision": "AI substantially reworded or restructured text the authors wrote",
+                "drafting": "AI wrote new sentences or sections"}
+VALIDATION_WORDS = {"none": "none of these", "independent-cohort": "an independent cohort",
+                    "wet-lab": "wet-lab experiments", "multi-database": "results from more than one database",
+                    "primary-analysis": "a primary analysis"}
+DESIGN_WORDS = {"software": "software or resource", "public-data": "public-data reanalysis",
+                "bioinformatics": "bioinformatics-finding", "mr": "Mendelian randomisation",
+                "bibliometric": "bibliometric", "public-health-database": "public health-database", "other": "other"}
+FIT_WORDS = {"go": "Fits", "conditional": "Depends", "unknown": "Not known", "no-go": "Does not fit"}
+ROUTE_WORDS = {"httpx": "a plain download", "chrome": "a headless browser", "browser": "a copy saved from a browser",
+               "webfetch": "a web-fetch tool"}
+LEGACY_ROUTE_PREFIX = re.compile(r"\b(httpx|chrome|wayback): ")
+LEGACY_ROUTE_LABEL = {"httpx": "plain download: ", "chrome": "headless browser: ", "wayback": "Internet Archive: "}
+
+
+# Abbreviations that reach the printed output through the catalogue's own text (publisher names, notes).
+GLOSSARY = {"AAAS": "American Association for the Advancement of Science", "ACM": "Association for Computing Machinery",
+            "APC": "article processing charge", "BMC": "BioMed Central",
+            "CC-BY": "Creative Commons Attribution licence",
+            "COPE": "Committee on Publication Ethics", "CSHL": "Cold Spring Harbor Laboratory",
+            "DOI": "digital object identifier", "EMBO": "European Molecular Biology Organization",
+            "ICMJE": "International Committee of Medical Journal Editors",
+            "IEEE": "Institute of Electrical and Electronics Engineers", "IF": "impact factor",
+            "ISCB": "International Society for Computational Biology", "JCR": "Journal Citation Reports",
+            "JIF": "journal impact factor", "LLM": "large language model",
+            "MDPI": "Multidisciplinary Digital Publishing Institute", "ML": "machine learning",
+            "MR": "Mendelian randomisation", "OA": "open access", "OSI": "Open Source Initiative",
+            "OUP": "Oxford University Press", "PLOS": "Public Library of Science", "RCT": "randomised controlled trial",
+            "SN": "Springer Nature", "T&F": "Taylor & Francis", "URI": "uniform resource identifier"}
+
+
+def abbreviations(text: str) -> str:
+    """One closing line that spells out the abbreviations used in `text` (URLs ignored), or ''."""
+    prose = re.sub(r"https?://\S+", " ", text)
+    found = sorted(k for k in GLOSSARY if re.search(rf"(?<![\w&-]){re.escape(k)}s?(?![\w&])", prose))
+    return "Abbreviations: " + "; ".join(f"{k}, {GLOSSARY[k]}" for k in found) + "." if found else ""
+
+
+def _points(n: int) -> str:
+    return f"{n} point" + ("" if n == 1 else "s")
+
+
+def _sentence(text: str) -> str:
+    text = str(text).strip()
+    return text[:1].upper() + text[1:] + ("" if text.endswith((".", "!", "?")) else ".")
+
+
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _or(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " or " + items[-1]
+
+
+def route_words(route: Optional[str]) -> str:
+    """How policy_watch.py read a page, in words: an archived copy is named with its capture date."""
+    if not route:
+        return "an unrecorded method"
+    m = re.match(r"wayback:(\d{4})(\d{2})(\d{2})", route)
+    if m:
+        return f"the Internet Archive's copy of {m.group(1)}-{m.group(2)}-{m.group(3)}"
+    return ROUTE_WORDS.get(route, route)
+
+
+def plain_reason(reason: str) -> str:
+    """A stored failure reason; older index entries name the fetch routes by their code names."""
+    return LEGACY_ROUTE_PREFIX.sub(lambda m: LEGACY_ROUTE_LABEL[m.group(1)], reason)
+
 
 class AiUse(str, Enum):
     polish = "polish"  # spelling, grammar, clarity edits of author-written text
@@ -170,28 +267,33 @@ def friction(v: dict[str, Any]) -> tuple[Optional[int], list[str]]:
     against the paper, - 1 if it says it will not. Disclosure places are a filter (`--refuse multi-place`),
     not points: repeating one statement costs little."""
     if v.get("writing_help") is None:
-        return None, ["policy not researched"]
-    reasons: list[str] = [f"writing help: {v['writing_help']}"]
-    score = WRITING_COST[v["writing_help"]]
+        return None, ["The AI policy has not been researched, so read the live page."]
+    rule = v["writing_help"]
+    score = WRITING_COST[rule]
+    reasons: list[str] = [_sentence(f"{WRITING_WORDS[rule]} ({_points(score)})")]
     prompts, tracking = v.get("prompts") or "no", v.get("tracking") or "no"
     records = max(RECORDS_COST.get(prompts, 0), RECORDS_COST.get(tracking, 0))
     if records:
         score += records
-        reasons.append("records: " + ", ".join(x for x in (f"prompts {prompts}" if prompts != "no" else "",
-                                                           f"tracking {tracking}" if tracking != "no" else "") if x))
+        asks = [x for x in (PROMPT_ASKS.get(prompts), TRACKING_ASKS.get(tracking)) if x]
+        reasons.append(f"It asks for {_and(asks)} ({_points(records)}).")
     s = SCREENING_COST.get(v.get("screening") or "plagiarism", 0)
     if s:
         score += s
-        reasons.append(f"screening: {v['screening']}")
+        reasons.append(f"It {SCREENING_WORDS[v['screening']]} ({_points(s)}).")
     burden = v.get("extra_burden") or []
-    score += min(len(burden), MAX_BURDEN_POINTS)
-    reasons += burden
+    counted = min(len(burden), MAX_BURDEN_POINTS)
+    score += counted
+    if burden:
+        listed = _and([f'"{b}"' for b in burden])
+        cap = f", at most {MAX_BURDEN_POINTS} counted" if len(burden) > MAX_BURDEN_POINTS else ""
+        reasons.append(f"It also lists extra work ({_points(counted)}{cap}): {listed}.")
     if v.get("disclosure_neutral") is False:
         score += 1
-        reasons.append("disclosed AI use may count against the paper")
+        reasons.append("It says declared AI use may count against the paper (1 point).")
     elif v.get("disclosure_neutral") is True:
         score = max(0, score - 1)
-        reasons.append("declared use does not count against the paper (-1)")
+        reasons.append("It says declared AI use does not count against the paper (minus 1 point).")
     return score, reasons
 
 
@@ -205,22 +307,26 @@ def verdict(v: dict[str, Any], ai_use: AiUse) -> str:
     """What the venue's writing rule means for this kind of AI use."""
     rule = v.get("writing_help")
     if rule is None:
-        return "unknown: read the live page"
+        return "Not known, because the AI policy has not been researched; read the live page."
     if rule == "banned_drafting":
-        return {AiUse.polish: "correction allowed in cached policy; verify applicable disclosure requirements",
-                AiUse.revision: "uncertain: verify whether the current rule permits this revision",
-                AiUse.drafting: "incompatible with cached drafting ban; consider another venue or verify "
-                                "compatibility (an author rewrite alone does not establish it)"}[ai_use]
+        return {AiUse.polish: "Language correction is allowed under the recorded policy; check whether it must be "
+                              "declared.",
+                AiUse.revision: "Possibly a conflict for you to weigh: the journal bans AI drafting and does not "
+                                "say whether substantial rewording counts as drafting.",
+                AiUse.drafting: "A conflict for you to weigh: the journal asks authors not to have AI draft text, "
+                                "and the AI-use statement has to say that it did."}[ai_use]
     if rule == "red_line":
-        return {AiUse.polish: "fine, declare",
-                AiUse.revision: "fine, declare (Amber)",
-                AiUse.drafting: "Results and Discussion must be author-written (Red)"}[ai_use]
+        return {AiUse.polish: "Allowed; declare it.",
+                AiUse.revision: "Allowed; declare it.",
+                AiUse.drafting: "A conflict for you to weigh if AI drafted the results or discussion, which "
+                                "the journal reserves for the authors; other AI-drafted text is allowed if "
+                                "declared."}[ai_use]
     if rule == "disclose_all":
-        return "fine, but every use is declared" + (" and full prompts are required"
-                                                    if v.get("prompts") == "required" else "")
+        return "Allowed, but every use must be declared" + (", with the full prompts."
+                                                             if v.get("prompts") == "required" else ".")
     if rule == "disclose":
-        return "fine, polish exempt" if ai_use == AiUse.polish else "fine, declare"
-    return "fine"
+        return "Allowed; language polish needs no declaration." if ai_use == AiUse.polish else "Allowed; declare it."
+    return "Allowed; no declaration needed."
 
 
 def _has_type(v: dict[str, Any], wanted: list[str]) -> bool:
@@ -232,33 +338,51 @@ def _has_type(v: dict[str, Any], wanted: list[str]) -> bool:
 
 def validation_fit(v: dict[str, Any], study: Optional[str] = None,
                    available: Optional[set[str]] = None) -> tuple[str, str]:
-    """Resource fit under recorded rules only; unknown is not permission or an author veto."""
+    """Resource fit under recorded rules only; unknown is not permission or an author veto.
+
+    Returns a status code (go, conditional, unknown, no-go) and the reason in sentences for the authors."""
     if study and study in (v.get("excluded_study_designs") or []):
-        return "no-go", f"recorded scope excludes {study}"
+        return "no-go", f"Its recorded scope excludes {DESIGN_WORDS.get(study, study)} studies."
     rules = v.get("validation_requirements")
     if rules is None:
-        return "unknown", "validation requirements not researched"
+        return "unknown", "Its validation requirements have not been researched."
     applicable = [r for r in rules if study is None or study in r.get("applies_to", [])]
     if not applicable:
-        return "unknown", "no applicable validation rule recorded for this design"
+        return "unknown", "No validation rule is recorded for this study design."
     outcomes: list[tuple[str, str]] = []
     for rule in applicable:
         options = set(rule.get("accepted_any") or [])
-        description = rule.get("description") or "check the recorded validation requirement"
+        description = _sentence(rule.get("description") or "check the recorded validation requirement")
         if study is None or available is None or rule.get("strength") != "required" or not options:
             outcomes.append(("conditional", description))
         elif options & available:
-            outcomes.append(("go", "recorded validation route available: " + ", ".join(sorted(options & available))))
+            have = _and([VALIDATION_WORDS.get(o, o) for o in sorted(options & available)])
+            outcomes.append(("go", f"It accepts {have}, which you have."))
         else:
-            outcomes.append(("no-go", "none of the recorded alternatives available: " + ", ".join(sorted(options))))
+            needs = _or([VALIDATION_WORDS.get(o, o) for o in sorted(options)])
+            outcomes.append(("no-go", f"It requires {needs}, and you have none of these."))
     severity = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
     worst = max(outcomes, key=lambda item: severity[item[0]])[0]
-    return worst, "; ".join(dict.fromkeys(reason for _, reason in outcomes))
+    return worst, " ".join(dict.fromkeys(reason for _, reason in outcomes))
+
+
+def fit_text(status: str, reason: str) -> str:
+    """A validation-fit cell: the status in a word, then why."""
+    return f"{FIT_WORDS[status]}. {reason}"
+
+
+def policy_page(v: dict[str, Any]) -> Optional[str]:
+    """The page that states this venue's AI policy: its own, else its publisher's, else its guidelines."""
+    return v.get("ai_policy_url") or v.get("publisher_policy_url") or v.get("url")
+
+
+def _access(v: dict[str, Any]) -> str:
+    return ACCESS_WORDS.get(v.get("oa") or "", "not recorded")
 
 
 def _jif(v: dict[str, Any]) -> str:
     if v.get("jif") is None:
-        return "n/a"
+        return "not recorded"
     return f"{v['jif']}" + (f" ({v['jif_year']})" if v.get("jif_year") else "")
 
 
@@ -285,7 +409,10 @@ def rank(
     include_tracking: Annotated[bool, typer.Option(
         help="Also list venues that require recording AI use beyond one acknowledgement")] = False,
     study_design: Annotated[Optional[StudyDesign], typer.Option(
-        help="Study design for validation/scope feasibility")] = None,
+        help="What the paper contributes, for the validation rules: software (a tool, method or resource paper, "
+             "even one with benchmarks on human data), public-data (reanalysis of public data for a finding), "
+             "bioinformatics (a biological finding from computation), mr (Mendelian randomisation), bibliometric, "
+             "public-health-database, other")] = None,
     validation_available: Annotated[Optional[list[Validation]], typer.Option(
         help="Validation already available or affordable; repeatable; use 'none' explicitly when unavailable")] = None,
 ) -> None:
@@ -327,127 +454,253 @@ def rank(
         order = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
         rows.sort(key=lambda r: order[validation_fit(
             r[2], study_design.value if study_design else None, available)[0]])
-    typer.echo(f"Venue AI-policy friction for AI use '{ai_use.value}' ({len(rows)} "
-               f"{'preprint servers' if preprints else 'journals'}; re-read the live page of any venue you shortlist "
-               "before submitting)\n")
-    typer.echo("Friction measures administrative burden, not enforcement probability or an assistant veto.\n")
-    typer.echo("| friction | venue | validation/resource fit | JIF | OA | screening | for this AI use | why | policy read |")
-    typer.echo("|---:|---|---|---:|---|---|---|---|---|")
+    kind = "preprint servers" if preprints else "journals"
+    typer.echo(f"These {len(rows)} {kind} are ranked by how much work their AI policy asks of the authors, least "
+               f"first, for a manuscript where {AI_USE_WORDS[ai_use.value]} (AI use \"{ai_use.value}\"). Policies "
+               "change, so read the live policy page (last column) of any you shortlist before submitting.\n")
+    typer.echo("How to read the table:")
+    typer.echo("- AI-policy work counts the paperwork the policy asks for, in points: 0 to 1 is light, 2 to 3 "
+               "moderate, 4 to 5 heavy and 6 or more severe. It is not the chance of rejection, and a high count "
+               "does not stop you submitting.")
+    typer.echo("- The validation column compares the validation rules recorded for the journal with the resources "
+               "you stated. \"Not known\" means the rules have not been researched, which is not the same as "
+               "having none.")
+    typer.echo("- Impact factor is the journal impact factor from Clarivate's Journal Citation Reports, with its "
+               "year where the journal states one.")
+    typer.echo("- Access is full open access (free to read, usually paid for by an article processing charge), "
+               "hybrid (a subscription journal with an optional open-access fee) or subscription only.")
+    typer.echo("- The short name in backticks after each title is its key: `venues.py show KEY` prints that "
+               "journal's checklist.\n")
+    typer.echo("| AI-policy work | Journal | Validation rules and your resources | Impact factor | Access "
+               "| Screening for AI text | What this means for your AI use | Why it scores this "
+               "| AI policy page (date read) |")
+    typer.echo("|---|---|---|---:|---|---|---|---|---|")
     stale = 0
+    printed: list[str] = []
     for score, key, v, reasons in rows:
         read = policy_read(v, checked, index)
         stale += (date.today() - read).days > STALE_AFTER_DAYS
         fit, fit_reason = validation_fit(v, study_design.value if study_design else None, available)
-        typer.echo(f"| {'?' if score is None else score} {tier(score)} | {v.get('name', key)} (`{key}`) "
-                   f"| {fit}: {fit_reason} | {_jif(v)} "
-                   f"| {v.get('oa') or '?'} | {v.get('screening') or '?'} | {verdict(v, ai_use)} "
-                   f"| {'; '.join(reasons)} | {read} |")
-    typer.echo("\nResource fit covers recorded validation/scope rules only; unknown is not approval. "
-               "Open science, editorial openness, costs and comparable review times need a full selection review.")
+        screening = SCREENING_WORDS.get(v.get("screening") or "", "not recorded")
+        page = policy_page(v)
+        printed.append(f"| {'not known' if score is None else _points(score)} ({tier(score)}) "
+                       f"| {v.get('name', key)} (`{key}`) | {fit_text(fit, fit_reason)} | {_jif(v)} | {_access(v)} "
+                       f"| {_sentence(screening)} | {verdict(v, ai_use)} | {' '.join(reasons)} "
+                       f"| {page + f' (read {read})' if page else f'No page recorded (read {read}).'} |")
+        typer.echo(printed[-1])
+    typer.echo("\nThe validation column covers only the rules recorded in the catalogue. Open science, how "
+               "receptive the editors are, costs and comparable review times need the full comparison.")
     if left_out:
-        typer.echo("\nLeft out because they require recording AI use beyond one acknowledgement "
-                   "(--include-tracking lists them): " + "; ".join(left_out))
+        typer.echo("\nThese were left out because they require records of AI use beyond one acknowledgement "
+                   "(add --include-tracking to list them): " + "; ".join(left_out) + ".")
+    glossary = abbreviations("\n".join(printed + left_out))
+    if glossary:
+        typer.echo("\n" + glossary)
     if stale:
         typer.echo(f"\nWARNING: {stale} of these policies were read more than {STALE_AFTER_DAYS} days ago; run "
                    "policy_watch.py check --stale-days 60 --update and review what moved.", err=True)
 
 
+PROFILE_LABELS = {"validation_requirements": "Validation requirements",
+                  "excluded_study_designs": "Study designs it excludes",
+                  "open_science": "Open science and open source", "editorial_profile": "Editorial profile",
+                  "review_speed": "Review times", "publication_costs": "Publication costs"}
+PROFILE_ITEM = {"validation_requirements": "Rule", "review_speed": "Measure", "publication_costs": "Fee"}
+KEY_WORDS = {"applies_to": "applies to", "accepted_any": "accepted alternatives (any one is enough)",
+             "description": "condition", "checked": "read on", "evidence_kind": "kind of evidence",
+             "fee_year": "fee year", "source_code": "source code", "software_licence": "software licence",
+             "data_and_artifacts": "data and artifacts", "open_peer_review": "open peer review"}
+
+
+def _token(value: Any, key: str) -> str:
+    text = str(value)
+    if key in ("applies_to", "excluded_study_designs"):
+        return DESIGN_WORDS.get(text, text)
+    if key == "accepted_any":
+        return VALIDATION_WORDS.get(text, text)
+    return text
+
+
+def _flat(value: Any) -> bool:
+    return isinstance(value, list) and all(not isinstance(x, (dict, list)) for x in value)
+
+
+def _scalar(value: Any, key: str) -> str:
+    if value is None:
+        return "not researched"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, list):
+        return ", ".join(_token(x, key) for x in value) or "none"
+    return _token(value, key)
+
+
+def _profile_lines(value: Any, key: str, depth: int) -> list[str]:
+    """A selection-profile value as nested bullets with the catalogue's field names in words."""
+    pad = "  " * depth
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for k, sub in value.items():
+            label = KEY_WORDS.get(k, k.replace("_", " "))
+            if isinstance(sub, dict) or (isinstance(sub, list) and not _flat(sub)):
+                lines += [f"{pad}- {label}:", *_profile_lines(sub, k, depth + 1)]
+            else:
+                lines.append(f"{pad}- {label}: {_scalar(sub, k)}")
+        return lines
+    if isinstance(value, list) and not _flat(value):
+        lines = []
+        for n, item in enumerate(value, 1):
+            lines += [f"{pad}- {PROFILE_ITEM.get(key, 'Entry')} {n}:", *_profile_lines(item, key, depth + 1)]
+        return lines
+    return [f"{pad}- {_scalar(value, key)}"]
+
+
 @app.command()
-def show(venue: Annotated[str, typer.Argument(help="Venue key, as listed by `rank`")]) -> None:
-    """One venue's requirements, as the checklist for adapting a manuscript to it."""
+def show(
+    venue: Annotated[str, typer.Argument(help="Venue key, as listed by `rank`")],
+    ai_use: Annotated[Optional[AiUse], typer.Option(
+        help="What AI did to the text; without it, the checklist covers each kind of use")] = None,
+) -> None:
+    """One venue's requirements as a checklist for adapting a manuscript, ordered by when each item can be done."""
     checked, venues = load_venues()
     if venue not in venues:
         raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(venues))}")
     v = venues[venue]
     index = load_snapshot_index()
     score, reasons = friction(v)
+    read = policy_read(v, checked, index)
 
-    def items(field: str) -> str:
+    def items(field: str) -> list[str]:
         values = v.get(field)
         if values is None:
-            return "  - not researched: read the live page\n"
+            return ["  - Not researched; read the live page."]
         if not values:
-            return "  - none\n"
-        return "".join(f"  - [ ] {x}\n" for x in values)
+            return ["  - None listed."]
+        return [f"  - [ ] {x}" for x in values]
 
-    def tri(value: Optional[bool], yes: str, no: str) -> str:
-        return "not stated" if value is None else (yes if value else no)
+    def listed(field: str) -> str:
+        return ", ".join(v.get(field) or []) or "not recorded"
 
     limits = v.get("limits") or {}
-    parts = [f"abstract ≤ {limits['abstract_words']} words" if limits.get("abstract_words") else None,
-             f"body ≈ {limits['body_words']} words" if limits.get("body_words") else None,
-             f"returned without review at {round(100 * (limits['over_limit_return'] - 1))}% over"
-             if limits.get("over_limit_return") else None]
-    limit_text = "; ".join(x for x in parts if x) or "not researched: read the live page"
-    exemptions = ("not researched" if v.get("exempt") is None
-                  else ", ".join(v["exempt"]) or "none listed in the cached policy")
+    parts = [f"the abstract at most {limits['abstract_words']} words" if limits.get("abstract_words") else None,
+             f"the body about {limits['body_words']} words" if limits.get("body_words") else None,
+             f"papers more than {round(100 * (limits['over_limit_return'] - 1))}% over the limit are returned "
+             "without review" if limits.get("over_limit_return") else None]
+    parts = [x for x in parts if x]
+    limit_text = f"{_and(parts)}." if parts else "not researched; read the live page."
+    exemptions = ("not researched, so read the live page" if v.get("exempt") is None
+                  else ", ".join(v["exempt"]) or "none listed in the recorded policy")
+    neutral = v.get("disclosure_neutral")
+    counts = ("the page does not say" if neutral is None
+              else "the page says it does not" if neutral else "the page says it may")
+    screening = SCREENING_WORDS.get(v.get("screening") or "", "not recorded")
+    if v.get("screening_note"):
+        screening += f" ({v['screening_note']})"
+    if score is None:
+        work = f"**AI-policy work:** not known. {reasons[0]}"
+    else:
+        work = f"**AI-policy work:** {_points(score)} ({tier(score)}). " + " ".join(reasons)
+    uses = [ai_use] if ai_use else list(AiUse)
     sources = []
     for u in policy_urls(v):
         e = index.get(u, {})
         att = e.get("last_attempt")
-        sources.append(f"  - {u}: " + (f"read {e['read']} via {e['route']}, {e.get('passages', 0)} AI passages"
-                                       if e.get("read") else "not yet read by policy_watch.py")
-                       + (f"; last attempt {att['date']} failed: {att['reason']}" if att else ""))
+        line = (f"- {u} was read on {e['read']} with {route_words(e.get('route'))}; "
+                f"{e.get('passages', 0)} of its passages mention AI." if e.get("read")
+                else f"- {u} has not yet been read by the policy watcher.")
+        if att:
+            line += f" The last attempt, on {att['date']}, could not read it: {plain_reason(att['reason'])}."
+        sources.append(line)
     out = [
-        f"# {v.get('name', venue)}: adaptation checklist",
+        f"# {v.get('name', venue)}: checklist for adapting a manuscript",
         "",
-        f"Publisher: {v.get('publisher', '?')}. JIF: {_jif(v)}. Access: {v.get('oa') or '?'}. Fields: "
-        f"{', '.join(v.get('fields') or []) or '?'}. Article types: {', '.join(v.get('article_types') or []) or '?'}.",
-        f"Status of this entry: {v.get('status', '?')}; policy read {policy_read(v, checked, index)}. "
-        f"Author guidelines: {v.get('url', '?')}",
-        f"AI policy: {v.get('ai_policy_url') or v.get('publisher_policy_url') or v.get('url', '?')}",
+        f"- **Publisher:** {v.get('publisher') or 'not recorded'}",
+        f"- **Journal impact factor:** {_jif(v)}",
+        f"- **Access:** {_access(v)}",
+        f"- **Fields:** {listed('fields')}",
+        f"- **Article types:** {listed('article_types')}",
+        f"- **How this entry was checked:** {STATUS_WORDS.get(v.get('status') or '', 'not recorded')}. "
+        f"The AI policy was last read on {read}.",
+        f"- **Author guidelines:** {v.get('url') or 'not recorded'}",
+        f"- **AI policy page:** {policy_page(v) or 'not recorded'}",
         "",
-        f"AI-policy friction: {'?' if score is None else score}, {tier(score)} ({'; '.join(reasons)}).",
-        f"Writing help: **{v.get('writing_help') or 'not researched'}**. Exempt from disclosure: "
-        f"{exemptions}. Prompts: {v.get('prompts') or '?'}.",
-        f"Screening: {v.get('screening') or '?'}" + (f" ({v['screening_note']})" if v.get("screening_note") else "") + ".",
-        "Declared AI use counting against the paper: "
-        + tri(None if v.get("disclosure_neutral") is None else not v["disclosure_neutral"],
-              "the page says it may", "the page says it does not") + ".",
-        f"Reviewers and AI tools: {v.get('reviewer_ai') or 'not researched'}.",
+        "## AI policy",
         "",
-        "- AI disclosure goes in:",
-        items("disclosure_places").rstrip("\n"),
-        "- and states:",
-        items("disclosure_fields").rstrip("\n"),
-        "- Extra work this venue asks for:",
-        items("extra_burden").rstrip("\n"),
-        "- AI in images and figures (not scored as friction):",
-        items("image_rules").rstrip("\n"),
-        f"- Length: {limit_text}",
+        work,
+        "",
+        *[f"- **If {AI_USE_WORDS[u.value]}** (AI use \"{u.value}\"): {verdict(v, u)}" for u in uses],
+        "- **What AI may do in the writing:** " + (_sentence(WRITING_WORDS[v["writing_help"]]) if v.get("writing_help")
+                                                    else "Not researched; read the live page."),
+        f"- **Uses that need no declaration:** {exemptions}.",
+        f"- **Prompts:** {PROMPT_WORDS.get(v.get('prompts') or '', 'not recorded')}.",
+        f"- **Screening for AI text:** {screening}.",
+        f"- **Whether declared AI use counts against the paper:** {counts}.",
+        f"- **Reviewers and AI tools:** {REVIEWER_AI_WORDS.get(v.get('reviewer_ai') or '', 'not researched')}.",
+        "- **AI in images and figures** (not counted in the points):",
+        *items("image_rules"),
+        "",
+        "## Now that the journal is chosen",
+        "",
+        "These can be done on the current draft.",
+        "",
+        f"- [ ] Length: {limit_text}",
         "- Abstract headings:",
-        items("abstract_headings").rstrip("\n"),
-        "- Required sections:",
-        items("required_sections").rstrip("\n"),
-        "- Software and availability:",
-        items("software").rstrip("\n"),
-        "- Other desk rules:",
-        items("other_desk_rules").rstrip("\n"),
-        "- Penalties stated: " + (", ".join(v.get("penalties") or []) or "none found"),
+        *items("abstract_headings"),
+        "- Required sections (add the headings now; their final contents may wait for the last stage):",
+        *items("required_sections"),
+        "- Other rules the editors check on arrival:",
+        *items("other_desk_rules"),
         "",
-        "Verification limits (apply the current article-type rules and exemptions):",
-        "- Observable in supplied materials: counts, headings, required statement fields and locations, links.",
-        "- Testable with materials: reference support, deposited artifacts and code/data reproducibility.",
-        "- Author-reported process: actual tool use, drafting history, complete logs and human oversight.",
-        "- Editorial judgement / unknown enforcement: policy interpretation, AI attribution and screening outcomes.",
-        "A policy conflict is the author's decision; these checks are advice, not an assistant veto.",
+        "## At the end, once the code, data and results are final",
         "",
-        "Policy pages (re-check: policy_watch.py check --venue " + venue + "):",
+        "These wait until the software version, data and results will not change again; done earlier, they "
+        "have to be done twice.",
+        "",
+        "- Software and availability (archived release, its DOI and the versions quoted in the paper):",
+        *items("software"),
+        "- The AI-use statement goes in:",
+        *items("disclosure_places"),
+        "- and states:",
+        *items("disclosure_fields"),
+        "- Extra work this journal asks for about AI:",
+        *items("extra_burden"),
+        "- Penalties the journal states: " + (", ".join(v.get("penalties") or []) or "none found") + ".",
+        "",
+        "## What can and cannot be verified",
+        "",
+        "Apply the current rules for the article type, including its exemptions.",
+        "",
+        "- Visible in the files you supply: counts, headings, the required statements and where they sit, links.",
+        "- Testable with the materials: whether references support the claims, and whether deposited code and "
+        "data exist and run.",
+        "- Known only to the authors: which tools were actually used, the drafting history, complete logs and "
+        "human oversight.",
+        "- Up to the editors: how the policy is interpreted, whether text is attributed to AI, and what "
+        "screening finds.",
+        "",
+        "A conflict with the policy is the authors' decision; these checks are advice.",
+        "",
+        f"## Policy pages (to re-read them: `policy_watch.py check --venue {venue}`)",
+        "",
         *sources,
     ]
-    if v.get("fit_note"):
-        out += ["", f"Fit note: {v['fit_note']}"]
-    if v.get("permitted_uses"):
-        out += ["", "Permitted uses (not necessarily exempt from disclosure): "
-                + "; ".join(v["permitted_uses"])]
-    out += ["", "Selection profile (missing data means not researched):"]
-    for profile_field in ("validation_requirements", "excluded_study_designs", "open_science",
-                          "editorial_profile", "review_speed", "publication_costs"):
-        value = v.get(profile_field)
-        rendered = ("not researched" if value is None else
-                    yaml.safe_dump(value, sort_keys=False, allow_unicode=True).rstrip())
-        out += [f"- {profile_field}:", "\n".join("  " + line for line in rendered.splitlines())]
-    typer.echo("\n".join(out))
+    if v.get("fit_note") or v.get("permitted_uses"):
+        out += ["", "## Notes from the catalogue", ""]
+        if v.get("fit_note"):
+            out.append(_sentence(v["fit_note"]))
+        if v.get("permitted_uses"):
+            out.append("Uses the policy permits (permitted is not the same as exempt from declaration): "
+                       + "; ".join(v["permitted_uses"]) + ".")
+    out += ["", "## Selection profile", "",
+            "A missing field has not been researched; it does not mean the journal has no rule.", ""]
+    for field, label in PROFILE_LABELS.items():
+        value = v.get(field)
+        if value is None or _flat(value):
+            out.append(f"- **{label}:** {_scalar(value, field)}.")
+        else:
+            out += [f"- **{label}:**", *_profile_lines(value, field, 1)]
+    glossary = abbreviations("\n".join(out))
+    typer.echo("\n".join(out + (["", glossary] if glossary else [])))
 
 
 def _fold(name: str) -> str:
@@ -514,8 +767,10 @@ def peers(
                 counts[key] += 1
                 who.setdefault(key, set()).add(label)
             cursor = page["meta"].get("next_cursor") if page["results"] else None
-    typer.echo(f"\nJournals since {since} ({sum(counts.values())} papers):\n")
-    typer.echo("| papers | journal | who | venue key | friction | writing help |")
+    typer.echo(f"\nJournals these researchers published in since {since} ({sum(counts.values())} papers, from "
+               "OpenAlex). AI-policy work is explained in `venues.py rank`; a journal not in the catalogue has an "
+               "AI policy nobody has read for it yet.\n")
+    typer.echo("| Papers | Journal | Published by | Catalogue key | AI-policy work | What AI may do in the writing |")
     typer.echo("|---:|---|---|---|---|---|")
     missing: list[str] = []
     matched: list[str] = []
@@ -525,14 +780,17 @@ def peers(
             score, _ = friction(venues[key])
             matched.append(key)
             typer.echo(f"| {n} | {name} | {', '.join(sorted(who[(sid, name)]))} | `{key}` "
-                       f"| {'?' if score is None else score} {tier(score)} | {venues[key].get('writing_help') or '?'} |")
+                       f"| {'not known' if score is None else _points(score)} ({tier(score)}) "
+                       f"| {_sentence(WRITING_WORDS.get(venues[key].get('writing_help') or '', 'not researched'))} |")
         else:
             missing.append(name)
-            typer.echo(f"| {n} | {name} | {', '.join(sorted(who[(sid, name)]))} | not in venues.yaml | | |")
+            typer.echo(f"| {n} | {name} | {', '.join(sorted(who[(sid, name)]))} | not in the catalogue "
+                       "| not known | Not researched. |")
     if matched:
         typer.echo("\nRank just these: venues.py rank " + " ".join(f"--only {k}" for k in dict.fromkeys(matched)))
     if missing:
-        typer.echo(f"\n{len(missing)} journals are not in venues.yaml; read their AI policy before recommending one.")
+        typer.echo(f"\n{len(missing)} journals are not in the catalogue; read their AI policy before recommending "
+                   "one.")
 
 
 if __name__ == "__main__":

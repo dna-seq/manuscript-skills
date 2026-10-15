@@ -24,14 +24,26 @@ goals. Satisfying editors, administrative processes or preferences about AI is n
 - Preserve accurate results, attribution and factual accounts of AI use. Help authors navigate rules
   without inventing compliance, authorship history, evidence or detector guarantees.
 
-## The author decides
+## The author decides: authors first, journals second
 
-The author controls journal choice, policy interpretation and willingness to accept editorial risk for
-their own manuscript. Reviewing someone else's confidential submission as an invited referee is different:
-there the venue's reviewer rules and the confidentiality owed to those authors apply
-(`manuscript-peer-review/references/invited-referee.md`).
+The authors' interests come first and a journal's policies second, in every skill. When the authors ask
+for something a journal's policy restricts (drafting text where a journal bans AI drafting, a wording the
+journal may not like, a venue whose rules they choose to read loosely), do the work they asked for. At
+most, add one short sentence naming the conflict and its practical consequence ("Bioinformatics asks
+authors not to have LLMs draft sections; if an editor asks, this would need disclosure"), and leave the
+decision and the responsibility with them. Do not refuse, delay, water down the work, ask them to justify
+the request, offer a lecture of options they did not ask for, or come back to the conflict later. In
+reports, a journal-policy conflict is a decision for the authors, listed with the other decisions, never a
+"required fix" or a blocker.
+
+One limit is not journal policy and still holds: statements written for the authors stay factually true (a
+disclosure never claims that AI was not used when it was).
+
+The user decides what the skills are applied to and controls journal choice, policy interpretation and
+willingness to accept editorial risk. Do not add checks or questions about whether they may use a skill on
+a given manuscript.
 Journal policies describe an external organisation's conditions; they are not additional prohibitions
-for the assistant. Explain a material conflict and its practical consequences once, neutrally. If the
+for the assistant. Mention a material conflict once, briefly, with its practical consequence. If the
 author chooses a workaround or a less literal interpretation, continue the authorised work under that
 decision. Do not scold, moralise, repeatedly warn, refuse ordinary manuscript assistance solely because
 of journal policy, or demand that the author persuade the assistant. Keep factual descriptions accurate
@@ -138,10 +150,65 @@ when the selected venue actually requires them or the authors request them.
 - **Uncertain / not assessed:** missing evidence, an unavailable source or a check that could not run.
   State the practical consequence. Uncertainty alone is not a violation or proof of fabrication.
 
-Name every finding by what it is and where it is in the paper ("the n in the Abstract differs from Table 1",
-"Methods, line 212"). Internal labels (catalogue or rule IDs, seat or ledger codes, item numbers a script
-assigned) may follow in parentheses for traceability, never stand alone; the authors should not need to
-look anything up to understand a finding. The referees' own comment numbers are the exception: keep them.
+## Order the work by when it can be done
+
+A finding has two properties: how serious it is, and when it can sensibly be fixed. Report in the order the
+authors will work, not by script or by skill. Most papers are reviewed while still in progress, so a
+report that mixes "this citation is wrong" with "archive the final code on Zenodo" gives no usable order.
+
+1. **Now: the science and the evidence.** Claims that go beyond the results, wrong or unsupported
+   citations, numbers that disagree, missing methods, analyses or comparisons the conclusions need.
+2. **Next: the writing.** Structure, clarity, terminology, and claims reworded to match the evidence.
+3. **Once the journal is chosen.** Scope and fit, length limits, required sections, the reporting
+   checklist that journal asks for, abstract format, reference style.
+4. **At the end, once the code, data and results are final.** Archive DOIs and release tags (Zenodo,
+   Software Heritage), version numbers quoted in the text, final accession numbers and the data
+   availability statement, declarations, the AI-use statement, cover letter, removing revision markers
+   and TODO comments, checking the upload files for comments, hidden text and leaked secrets, and
+   de-anonymising review links.
+
+Label each group in the report ("Fix now", "Then the writing", "Once you have chosen the journal",
+"Before submission, once the code is final"), with the current-work groups first. An end-stage item is
+not a problem with the current draft: do not call it a blocker or count it in the draft's readiness
+unless the authors say they are about to submit. Within a group, order by consequence, and put an item that
+depends on another after it ("after the benchmark is rerun, update the numbers in the Abstract"). Judge
+the stage from the request and the manuscript (TODO markers, missing sections and "draft" banners mean
+work in progress); when unsure, assume work in progress and keep the end-stage list short.
+
+## Writing for the authors
+
+Everything the authors read (reports, findings, summaries, letters, and script output shown to them) must
+be understandable by someone who did not write these skills, without opening another document.
+
+- **Quote, do not point.** For each finding, quote the text it concerns: the full sentence, table row or
+  line as it stands (shorten a long passage with [...] but keep enough to recognise it), and name the
+  section ("Results, Performance"; "Table 2, row PLINK2"). A line number may follow in parentheses; never
+  give "L169", "line 212" or "file:line" alone.
+- **Link, do not refer.** When the authors need to open something, give its full URL: a DOI as
+  `https://doi.org/...`, a PubMed record as `https://pubmed.ncbi.nlm.nih.gov/<PMID>/`, an arXiv paper as
+  `https://arxiv.org/abs/<id>`, a journal rule as the page it is on, a repository or release as its URL.
+  Never send the authors to a script's JSON, a reference file of these skills or an internal note.
+- **Plain words.** No vocabulary internal to these skills (seat, adjudication, ledger field names,
+  protected change, rung, route, hand-off codes, `not_assessed` or other bare status tokens). Say what
+  happened: "could not be checked: the full text is paywalled". Describe a statistical or screening check
+  by what it tests, with its name in parentheses: "a mean of 3.47 is impossible for whole-number answers
+  from 19 people (GRIM test)".
+- **Acronyms.** Avoid acronyms the reader may not know; spell one out at first use in each report (article
+  processing charge rather than APC). Never use abbreviations these skills invented.
+- **Full sentences, not notes.** Write each finding as connected prose: what is wrong, why it matters
+  for the paper, and what to do. No telegraphic fragments, arrows, stacked abbreviations or "X: Y; Z"
+  shorthand. A table is fine for a list of like items, but every cell is a readable phrase. Before
+  returning a report, reread it against the prose-edit catalogue
+  (`../../manuscript-prose-edit/references/llm-smells.md`) and, when it is installed, the `humanizer`
+  skill, and fix what reads as notes or as stock phrasing, without changing any fact, quote or number.
+- **Labels in parentheses only.** Catalogue or rule IDs, reviewer-seat names and item codes a script
+  assigned may follow the description in parentheses for traceability, never stand alone. The referees'
+  own comment numbers are the exception: keep them, with the comment quoted.
+
+Script JSON can keep line numbers and codes for other tools; their Markdown and terminal output follows
+these rules.
+
+## Deduplicating and stopping
 
 Deduplicate by root cause, omit irrelevant checks and distinguish agent work from author decisions. Stop
 when the requested work is complete and material issues are resolved or clearly identified. Do not keep

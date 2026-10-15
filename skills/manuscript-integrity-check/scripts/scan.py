@@ -46,6 +46,14 @@ class Severity(str, Enum):
     info = "info"  # needs a human look, may be fine
 
 
+class Stage(str, Enum):
+    """When the authors can act on a finding (references/author-priorities.md, "Order the work")."""
+    now = "now"  # the science and the evidence
+    writing = "writing"
+    journal = "journal"  # once the journal is chosen
+    final = "final"  # before submission, once the code, data and results are final
+
+
 class Finding(BaseModel):
     check: str
     severity: Severity
@@ -53,6 +61,10 @@ class Finding(BaseModel):
     excerpt: str = ""
     message: str
     suggestion: str = ""
+    section: Optional[str] = None  # the heading the line falls under, or the bibliography file and entry
+    quote: str = ""  # the line or entry as written, shortened with [...] around the problem
+    quote_span: Optional[tuple[int, int]] = None  # where the problem sits inside `quote`
+    stage: str = ""  # a Stage value; filled from the check when not set where the finding is made
 
 
 class PublishedVersion(BaseModel):
@@ -100,6 +112,9 @@ class Reference(BaseModel):
     lookup_notes: list[str] = []
     # For an identifier that does not resolve: the record a Crossref title search found (also in lookup_notes).
     _title_match: Optional[dict] = PrivateAttr(default=None)
+    # For an entry read from a BibTeX file: the file's name and the entry's key (`line` is then the file's line).
+    _bib_file: Optional[str] = PrivateAttr(default=None)
+    _bib_key: Optional[str] = PrivateAttr(default=None)
 
 
 class ReferenceReport(BaseModel):
@@ -118,6 +133,7 @@ class Report(BaseModel):
     vocabulary_per_1000_words: dict[str, float]
     top_vocabulary: list[tuple[str, int]]
     ing_tails: int = 0
+    final: bool = False  # the authors are about to submit: final-stage findings count in the verdict
 
 
 # --------------------------------------------------------------------------------------------------
@@ -265,7 +281,7 @@ DECLARATIONS = [
     ("Data availability", [r"data availability", r"availability of data",
                            r"\bdata(?:,? (?:and |& )?(?:code|software|materials?|protocols?))+ availability"],
      Severity.major),
-    ("Code / software availability", [r"code availability", r"software availability", r"code and data availability",
+    ("Code or software availability", [r"code availability", r"software availability", r"code and data availability",
                                       r"availability and implementation", r"availability and requirements"],
      Severity.major),
     ("Competing interests", [r"competing interests?", r"conflicts? of interest", r"declaration of interests?"],
@@ -331,6 +347,41 @@ def _excerpt(line: str, start: int, end: int, width: int = 60) -> str:
     return ("…" if lo else "") + line[lo:hi].strip() + ("…" if hi < len(line) else "")
 
 
+QUOTE_WIDTH = 160
+
+
+def _quote(text: str, start: int = 0, end: int = 0, width: int = QUOTE_WIDTH) -> tuple[str, Optional[tuple[int, int]]]:
+    """The text as written, cut to about `width` characters around [start, end) at word boundaries and marked
+    [...] where shortened, with the span's place in the result (None when no span was given)."""
+    text = re.sub(r"[\r\n\t]", " ", text)  # same length, so the offsets still apply
+    lead = len(text) - len(text.lstrip())
+    body = text.strip()
+    start, end = min(max(0, start - lead), len(body)), min(max(0, end - lead), len(body))
+    end = max(end, start)
+    if end - start > width:
+        end = start + width
+    if len(body) <= width:
+        return body, (start, end) if end > start else None
+    lo = max(0, start - (width - (end - start)) // 2)
+    hi = min(len(body), max(lo + width, end))
+    if hi == len(body):
+        lo = max(0, min(lo, hi - width))
+    if lo > 0:
+        space = body.find(" ", lo, start + 1)
+        lo = space + 1 if space >= 0 else lo
+    if hi < len(body):
+        space = body.rfind(" ", end, hi)
+        hi = space if space > end else hi
+    prefix, suffix = ("[...] " if lo > 0 else ""), (" [...]" if hi < len(body) else "")
+    shift = len(prefix) - lo
+    return prefix + body[lo:hi].strip() + suffix, ((start + shift, end + shift) if end > start else None)
+
+
+def _with_quote(finding: Finding, text: str, start: int = 0, end: int = 0) -> Finding:
+    finding.quote, finding.quote_span = _quote(text, start, end)
+    return finding
+
+
 def _scan_patterns(lines: list[str], patterns: list[str], check: str, severity: Severity, message: str,
                    suggestion: str, flags: int = re.IGNORECASE, stop_line: Optional[int] = None) -> list[Finding]:
     compiled = [re.compile(p, flags) for p in patterns]
@@ -340,8 +391,10 @@ def _scan_patterns(lines: list[str], patterns: list[str], check: str, severity: 
             break
         for rx in compiled:
             for m in rx.finditer(line):
-                out.append(Finding(check=check, severity=severity, line=i, excerpt=_excerpt(line, m.start(), m.end()),
-                                   message=message.format(match=m.group(0)), suggestion=suggestion))
+                out.append(_with_quote(Finding(check=check, severity=severity, line=i,
+                                               excerpt=_excerpt(line, m.start(), m.end()),
+                                               message=message.format(match=m.group(0).strip()),
+                                               suggestion=suggestion), line, m.start(), m.end()))
     return out
 
 
@@ -563,9 +616,12 @@ def _cite_key_findings(tex_lines: list[str], keys: set[str]) -> list[Finding]:
         for m in LATEX_CITE_KEYS.finditer(line):
             for key in (k.strip() for k in m.group(1).split(",")):
                 if key and key not in keys:
-                    out.append(Finding(check="citations", severity=Severity.major, line=i, excerpt=key,
-                                       message=f"\\cite key '{key}' is not in the bibliography file.",
-                                       suggestion="Add the entry (with DOI) or fix the key."))
+                    at = line.find(key, m.start())
+                    out.append(_with_quote(Finding(
+                        check="citations", severity=Severity.major, line=i, excerpt=key,
+                        message=f"The citation key '{key}' is cited here but has no entry in the bibliography file, "
+                                f"so the reference will be missing from the PDF.",
+                        suggestion="Add the entry, with its DOI, or correct the key."), line, at, at + len(key)))
     return out
 
 
@@ -573,8 +629,10 @@ def _declaration_findings(text_lower: str) -> list[Finding]:
     out: list[Finding] = []
     for label, patterns, severity in DECLARATIONS:
         if not any(re.search(p, text_lower) for p in patterns):
-            out.append(Finding(check="declarations", severity=severity, message=f"No '{label}' statement found.",
-                               suggestion=f"Add a '{label}' section in the venue's required form."))
+            out.append(Finding(check="declarations", severity=severity,
+                               message=f"No '{label}' statement was found in the manuscript.",
+                               suggestion=f"Add a '{label}' section in the form the chosen journal asks for, once "
+                                          f"the code, data and results are final."))
     return out
 
 
@@ -582,28 +640,30 @@ def _ai_use_findings(lines: list[str], text_lower: str, ref_start: Optional[int]
                      revision_markers: bool = False) -> list[Finding]:
     body = lines[: (ref_start or len(lines) + 1) - 1]
     mentions = _scan_patterns(body, AI_TOOL_MENTIONS, "ai-use", Severity.info,
-                              "AI tool or LLM mentioned ('{match}').",
-                              "If this describes the authors' own use, check the selected venue's disclosure "
-                              "rule and exemptions.")
+                              "The text names an AI tool or a large language model ('{match}').",
+                              "If the sentence describes the authors' own use of the tool, check whether the "
+                              "chosen journal asks for a statement about that use.")
     out: list[Finding] = []
     has_disclosure = any(re.search(p, text_lower) for p in AI_DISCLOSURE)
     if (mentions or revision_markers) and not has_disclosure:
+        first = mentions[0] if mentions else None
         out.append(Finding(check="ai-use", severity=Severity.info,
-                           line=mentions[0].line if mentions else None,
-                           excerpt=mentions[0].excerpt if mentions else "",
-                           message="AI-related text or revision markers found; no AI-use statement recognised.",
-                           suggestion="Determine whether this concerns the authors' own use and whether the "
-                                      "selected venue requires a statement for it. Apply exemptions; add only "
-                                      "required fields and placements. This automated check cannot establish "
-                                      "a disclosure violation."))
+                           line=first.line if first else None, excerpt=first.excerpt if first else "",
+                           quote=first.quote if first else "", quote_span=first.quote_span if first else None,
+                           message="The manuscript mentions AI tools or carries revision markers that name an AI, "
+                                   "but no statement about the authors' own use of AI was recognised.",
+                           suggestion="Whether a statement is needed depends on what the tools did and on the chosen "
+                                      "journal's rule and its exemptions; if one is needed, give only the fields and "
+                                      "places the journal asks for. This automated check cannot show that a "
+                                      "statement is missing."))
     named = [f for f in mentions if re.search(r"claude|gpt|gemini|llama|mistral|copilot|cursor|deepseek|qwen|opus|sonnet",
                                               f.message, re.IGNORECASE)]
     if named and not MODEL_VERSION.search("\n".join(body)):
         out.append(Finding(check="ai-use", severity=Severity.info,
-                           message="AI tools are named but no model version appears anywhere.",
-                           suggestion="If these are tools the authors used, supply a model identifier only "
-                                      "where the venue or reproducibility requires it. Do not invent an "
-                                      "unavailable version or require dates and prompts by default."))
+                           message="AI tools are named, but no model version appears anywhere in the manuscript.",
+                           suggestion="If these are tools the authors used, give a model identifier only where the "
+                                      "journal or reproducibility needs it. Do not invent a version that is not "
+                                      "known, and do not add dates or prompts unless they are asked for."))
     out.extend(mentions)
     return out
 
@@ -636,10 +696,11 @@ def _percentages(lines: list[str]) -> list[Finding]:
             decimals = len(stated.split(".")[1]) if "." in stated else 0
             actual = 100 * num / den
             if abs(actual - float(stated)) > 0.5 * 10 ** -decimals + 1e-9:
-                out.append(Finding(check="numbers", severity=Severity.major, line=i,
-                                   excerpt=_excerpt(line, m.start(), m.end()),
-                                   message=f"{num}/{den} is {actual:.{max(decimals, 1)}f}%, not {stated}%.",
-                                   suggestion="Recompute from the counts (and check the counts against the data)."))
+                out.append(_with_quote(Finding(
+                    check="numbers", severity=Severity.major, line=i, excerpt=_excerpt(line, m.start(), m.end()),
+                    message=f"{num} of {den} is {actual:.{max(decimals, 1)}f}%, not the {stated}% stated beside it.",
+                    suggestion="Recompute the percentage from the counts, and check the counts against the data."),
+                    line, m.start(), m.end()))
     return out
 
 
@@ -659,11 +720,13 @@ def _abstract_metric_dump(lines: list[str]) -> list[Finding]:
     metrics = METRIC_RE.findall(text)
     if len(metrics) <= ABSTRACT_METRICS_MINOR:
         return []
-    return [Finding(check="abstract", severity=Severity.minor,
+    shown = ", ".join(m.strip() for m in metrics[:5])
+    return [Finding(check="abstract", severity=Severity.minor, section="Abstract",
                     line=span[0], excerpt=", ".join(m.strip() for m in metrics[:8]),
-                    message=f"The abstract reports {len(metrics)} metrics; check readability in context.",
-                    suggestion="Keep the quantitative evidence needed for its claims and the venue's format. "
-                               "A metric count alone is not a submission defect or a reason to remove results.")]
+                    message=f"The Abstract reports {len(metrics)} numerical results (among them {shown}), which "
+                            f"can make it hard to read.",
+                    suggestion="Keep the numbers its claims need and the journal's format asks for. A count of "
+                               "numbers is not a defect by itself, and not a reason to remove results.")]
 
 
 def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Finding]:
@@ -672,14 +735,17 @@ def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Findin
     if start is None:
         return []
     end = next((i for i in range(start + 1, len(lines)) if HEADING.match(lines[i].strip())), len(lines))
-    abstract = "\n".join(lines[start + 1:end])
     body = "\n".join(lines[end:(ref_start or len(lines) + 1) - 1])
     out: list[Finding] = []
-    for m in NUMBER_RE.finditer(abstract):
-        if m.group(1) not in body:
-            out.append(Finding(check="numbers", severity=Severity.info, excerpt=m.group(0),
-                               message=f"Abstract figure '{m.group(0)}' does not reappear in the body.",
-                               suggestion="Confirm it is derived from a reported result (table, figure or text)."))
+    for i in range(start + 1, end):
+        for m in NUMBER_RE.finditer(lines[i]):
+            if m.group(1) not in body:
+                out.append(_with_quote(Finding(
+                    check="numbers", severity=Severity.info, line=i + 1, excerpt=m.group(0), section="Abstract",
+                    message=f"The Abstract states '{m.group(0)}', and this number does not appear again in the "
+                            f"body.",
+                    suggestion="Confirm that it comes from a result reported in a table, a figure or the text, or "
+                               "report that result."), lines[i], m.start(), m.end()))
     return out
 
 
@@ -745,22 +811,24 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
                 for r in found:
                     cited_surnames.update(_name_words(r.text[:120])[:1])
                 if not found:
-                    out.append(Finding(check="citations", severity=Severity.major, line=i,
-                                       excerpt=_excerpt(line, start, end),
-                                       message=f"In-text citation '{name} {year}' has no bibliography entry "
-                                               f"with that surname and year.",
-                                       suggestion="Add the entry (with DOI) or fix the citation."))
+                    out.append(_with_quote(Finding(
+                        check="citations", severity=Severity.major, line=i, excerpt=_excerpt(line, start, end),
+                        message=f"The in-text citation '{name} {year}' has no bibliography entry with that surname "
+                                f"and year.",
+                        suggestion="Add the entry, with its DOI, or correct the citation."), line, start, end))
     if numeric_max > len(refs):
         out.append(Finding(check="citations", severity=Severity.major,
-                           message=f"Text cites [{numeric_max}] but the bibliography has {len(refs)} entries.",
-                           suggestion="Renumber, or restore the missing entries."))
+                           message=f"The text cites reference [{numeric_max}], but the bibliography has only "
+                                   f"{len(refs)} entries.",
+                           suggestion="Renumber the citations, or restore the missing entries."))
     if cited_surnames:
         for ref in refs:
             first_author = _name_words(ref.text[:120])[:1]
             if first_author and first_author[0] not in cited_surnames:
-                out.append(Finding(check="citations", severity=Severity.minor, line=ref.line, excerpt=ref.text[:100],
-                                   message="Bibliography entry is never cited in the text.",
-                                   suggestion="Cite it where it supports a claim, or remove it."))
+                out.append(_ref_finding(ref, Finding(
+                    check="citations", severity=Severity.minor, line=ref.line, excerpt=ref.text[:100],
+                    stage=Stage.writing.value, message="This bibliography entry is never cited in the text.",
+                    suggestion="Cite it where it supports a claim, or remove it.")))
     return out
 
 
@@ -780,6 +848,24 @@ def load_venue_limits() -> dict[str, dict[str, float]]:
     return {key: resolve(key)["limits"] for key in venues if resolve(key).get("limits")}
 
 
+def venue_name_and_url(venue: str) -> tuple[str, Optional[str]]:
+    """The venue's name and its author-guidelines page as venues.yaml records them; the key itself if unknown."""
+    try:
+        venues: dict[str, dict] = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+    except (OSError, KeyError, TypeError, yaml.YAMLError):
+        return venue, None
+    entry, url = venues.get(venue) or {}, None
+    seen: set[str] = set()
+    while entry and url is None:
+        url = entry.get("url")
+        parent = entry.get("inherits")
+        if not parent or parent in seen:
+            break
+        seen.add(parent)
+        entry = venues.get(parent) or {}
+    return (venues.get(venue) or {}).get("name") or venue, url
+
+
 ARCHIVE_RE = re.compile(r"zenodo|10\.5281/|softwareheritage|swh:1:|figshare|10\.6084/|bioconductor|cran\.r-project",
                         re.IGNORECASE)
 
@@ -792,49 +878,86 @@ def _abstract_span(lines: list[str]) -> Optional[tuple[int, int]]:
     return start + 1, end
 
 
+ABSTRACT_PART = re.compile(r"^\s*(?:\*\*|__|\\textbf\s*\{)?\s*(?P<label>[A-Z][A-Za-z ,&/-]{2,40}?)\s*"
+                           r"(?::\s*(?:\*\*|__|\})|(?:\*\*|__|\})\s*:|:)\s*")
+WORD_RE = re.compile(r"[A-Za-z0-9][\w'-]*")
+
+
+def _abstract_parts(lines: list[str]) -> list[tuple[str, int]]:
+    """(label, words after the label) for each labelled part of a structured abstract ("Motivation:", "Results:");
+    empty unless at least two parts are labelled."""
+    parts: list[tuple[str, int]] = []
+    for line in lines:
+        m = ABSTRACT_PART.match(line)
+        if m:
+            parts.append((m.group("label").strip(), len(WORD_RE.findall(line[m.end():]))))
+        elif parts:
+            parts[-1] = (parts[-1][0], parts[-1][1] + len(WORD_RE.findall(line)))
+    return parts if len(parts) >= 2 else []
+
+
+def _counted_parts(parts: list[tuple[str, int]]) -> str:
+    named = [f"{label} {count}" for label, count in parts]
+    listing = ", ".join(named[:-1]) + f" and {named[-1]}" if len(named) > 1 else named[0]
+    return f" By part, the words after each label are: {listing}."
+
+
 def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[int], venue: Optional[str],
-                    text_lower: str) -> list[Finding]:
+                    text_lower: str, abstract_parts: Optional[list[tuple[str, int]]] = None) -> list[Finding]:
     out: list[Finding] = []
     if not ARCHIVE_RE.search(text_lower):
         # A cheap offline hint only: manuscript-reporting-check owns availability (what the venue requires,
         # whether accessions, DOIs and releases resolve), so the defect is graded there, once.
-        out.append(Finding(check="availability", severity=Severity.info,
-                           message="No archived software or data record (Zenodo, Software Heritage, figshare, "
-                                   "Bioconductor, CRAN) is cited.",
-                           suggestion="Run manuscript-reporting-check (scripts/check_availability.py) to see whether "
-                                      "the venue or the paper's reproducibility needs one."))
+        out.append(Finding(check="availability", severity=Severity.info, stage=Stage.final.value,
+                           message="No archived copy of the software or data is cited (for example on Zenodo, "
+                                   "Software Heritage, figshare, Bioconductor or CRAN).",
+                           suggestion="An archive and its DOI come once the code is final. Whether the journal or the "
+                                      "paper's reproducibility needs one is checked separately "
+                                      "(manuscript-reporting-check)."))
     if re.search(r"leave[- ]one[- ]out", text_lower):
         out.append(Finding(check="validation", severity=Severity.info,
-                           message="Leave-one-out validation is mentioned.",
-                           suggestion="Some journals reject ML papers validated by leave-one-out alone; report an "
-                                      "independent test set."))
+                           message="The manuscript mentions leave-one-out validation.",
+                           suggestion="Some journals reject machine-learning papers validated by leave-one-out alone, "
+                                      "so report the performance on an independent test set as well."))
     limits = load_venue_limits().get(venue or "")
+    name, url = venue_name_and_url(venue) if venue else ("", None)
+    guidelines = f" ({url})" if url else ""
     if limits:
         abstract_max, body_max = limits.get("abstract_words"), limits.get("body_words")
         returned_at = limits.get("over_limit_return")
+        body_rule = (" The count runs from the start of the file to the reference list and includes the title, "
+                     "headings, tables and back matter, so it is approximate.")
         if body_max is None:
             out.append(Finding(check="venue", severity=Severity.info,
-                               message=f"No body length limit recorded for {venue}; body length was not checked.",
-                               suggestion="Check the journal template or page limit."))
+                               message=f"No body length limit is recorded for {name}, so the body length was not "
+                                       f"checked.",
+                               suggestion=f"Check the length or page limit in the journal's author "
+                                          f"guidelines{guidelines}."))
         if abstract_max is not None and abstract_words is not None and abstract_words > abstract_max:
-            out.append(Finding(check="venue", severity=Severity.major,
-                               message=f"Abstract is {abstract_words} words; {venue} recommends at most "
-                                       f"{abstract_max}.", suggestion="Cut to the limit."))
+            out.append(Finding(check="venue", severity=Severity.major, section="Abstract",
+                               message=f"The Abstract has {abstract_words} words, and {name} asks for at most "
+                                       f"{abstract_max}. The count includes everything between the Abstract heading "
+                                       f"and the next heading, labels included."
+                                       + (_counted_parts(abstract_parts) if abstract_parts else ""),
+                               suggestion=f"Cut it to the limit, after checking in the author guidelines{guidelines} "
+                                          f"which parts of a structured abstract count."))
         if body_max is None:
             pass
         elif returned_at and body_words > returned_at * body_max:
             out.append(Finding(check="venue", severity=Severity.blocker,
-                               message=f"Body is ~{body_words} words, over {venue}'s ~{body_max} by more than "
-                                       f"{round(100 * (returned_at - 1))}% (returned without review).",
+                               message=f"The body has about {body_words} words, more than "
+                                       f"{round(100 * (returned_at - 1))}% over the limit of about {body_max} for "
+                                       f"{name}, and the journal returns such manuscripts without review." + body_rule,
                                suggestion="Move material to the supplement."))
         elif body_words > body_max:
             out.append(Finding(check="venue", severity=Severity.major,
-                               message=f"Body is ~{body_words} words, over {venue}'s ~{body_max}.",
-                               suggestion="Trim, or check the page count in the journal template."))
+                               message=f"The body has about {body_words} words, over the limit of about {body_max} "
+                                       f"for {name}." + body_rule,
+                               suggestion=f"Trim it, or check the page count in the journal's template{guidelines}."))
     elif venue:
         out.append(Finding(check="venue", severity=Severity.info,
-                           message=f"No length limits recorded for {venue}; length was not checked.",
-                           suggestion="Read the venue's author guidelines and add the limits to venues.yaml."))
+                           message=f"No length limits are recorded for {name}, so the length was not checked.",
+                           suggestion=f"Check the limits in the journal's author guidelines{guidelines}."))
     return out
 
 

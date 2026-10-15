@@ -8,18 +8,20 @@ supports the sentence, and records how much of the paper was checked.
 
 Every checked claim gets exactly one outcome.
 
-| Outcome | When | What the authors do |
-|---|---|---|
-| `confirmed` | A passage located verbatim in the source carries the claim as written: same quantity, direction, population, conditions and strength. | Nothing. Record the passage and where it sits (section, table, page). |
-| `partial` | The source supports a weaker, narrower or differently scoped claim, or supports the claim only at second hand. | Narrow the sentence to what the source says (give the narrowed wording), or replace the source with one that carries the claim. |
-| `rejected` | The source does not say it, or says something else or the opposite, and a second independent re-check found no support (below). | Correct the sentence to what the source says, find a source that carries it, or cut it. |
-| `blocked` | The source could not be read: paywalled, not deposited, only an abstract that does not settle the claim, or a decision only the authors can make. | Supply the text (the authors usually have access), or keep the claim marked unverified. |
+| Outcome | When | Words in the report | What the authors do |
+|---|---|---|---|
+| `confirmed` | A passage located verbatim in the source carries the claim as written: same quantity, direction, population, conditions and strength. | "supported" | Nothing. Record the passage and where it sits (section, table, page). |
+| `partial` | The source supports a weaker, narrower or differently scoped claim, or supports the claim only at second hand. | "only partly supported: the source says ..." | Narrow the sentence to what the source says (give the narrowed wording), or replace the source with one that carries the claim. |
+| `rejected` | The source does not say it, or says something else or the opposite, and a second independent re-check found no support (below). | "not supported: the source says ..." or "the source does not say this" | Correct the sentence to what the source says, find a source that carries it, or cut it. |
+| `blocked` | The source could not be read: paywalled, not deposited, only an abstract that does not settle the claim, or a decision only the authors can make. | "could not be checked: ..." with the reason | Supply the text (the authors usually have access), or keep the claim marked unverified. |
 
 - `blocked` never counts as support. In the shared outcome words it is `unverified`, with what was tried.
 - No verbatim supporting passage, no `confirmed`. "It clearly implies", "it follows from Figure 3" and a
   matching abstract topic are not passages. A number computed from values in the source is `partial` until
   the computation is written down beside the claim.
 - `support.py` never outputs an outcome. Its statuses are mechanical signals for the reading below.
+- The outcome names and support.py's status names are for this protocol; the report to the authors uses the
+  words in the table.
 
 ## Choose the claims and record coverage
 
@@ -33,14 +35,17 @@ Check every cited claim when the paper is short or the authors ask for it. Other
    [Priority and absence claims](#priority-and-absence-claims));
 5. claims flagged by another skill (a referee's "missing prior work", a citation added in a revision).
 
-Record coverage in the report as "checked N of M cited claims" and say how the N were chosen. A citation
-that supports several sentences is checked for each sentence. Never describe a sample as a full check.
+Record coverage in the report as "checked N of M cited sentences" and say how the N were chosen. M counts
+the sentences that carry at least one citation, whatever the citation style: a numbered "[12]", an author-year
+"(Duncan et al., 2019)" or a `\cite{}` key. A citation that supports several sentences is checked for each
+sentence. Never describe a sample as a full check.
 
 ## Run the mechanical gate
 
 Write the claims file after reading each source and locating the passage, never before. The quote is copied
 from the source text, never from memory, an abstract snippet in a search result, a fetch tool's summary of a
-page, or the manuscript. Run support.py on every claim whose report quotes a passage: for up to ten claims it
+page, or the manuscript. When the source is open access, the text need not be saved first: give its
+identifier as `source` and run with `--online`. Run support.py on every claim whose report quotes a passage: for up to ten claims it
 takes minutes. Skip it only when the report quotes nothing. A quote support.py cannot locate is not yet
 verbatim: find it in the source text, or say where it sits (a figure, a supplement the text lacks), before
 rating the claim `confirmed`.
@@ -50,7 +55,7 @@ manuscript: paper.md            # optional, for the record
 sources_dir: sources            # optional; relative `source` paths resolve against it
 claims:
   - id: C1                      # unique
-    location: "paper.md:42 (Results)"
+    location: "Results, Performance (paper.md, line 42)"   # the section, then the line in parentheses
     claim: "The exact sentence from the manuscript, with its citation marker [12]."
     reference: "12"             # the citation key or reference-list number
     quote: "The passage from the source, copied verbatim."   # optional; '...' marks an omission
@@ -64,6 +69,8 @@ uv run --script scripts/support.py claims.yaml --json support.json --md support.
 uv run --script scripts/support.py claims.yaml --online   # fetch legal open-access text for identifiers
 ```
 
+The Markdown report quotes each claim and its passage, gives identifiers as links and says each status in
+words; a `location` written as `paper.md:42 (Results)` is shown as "under Results (paper.md, line 42)".
 A PDF must be converted first (`pdftotext -layout paper.pdf paper.txt`, or the document tool's text export).
 `--online` reads Europe PMC full text for PMC articles, bioRxiv and medRxiv full-text XML, and arXiv HTML,
 and caches what it reads (`~/.cache/manuscript-reference-check/sources` by default). It never scrapes a
@@ -96,8 +103,9 @@ two outcomes, so the extra reading is proportionate to them:
 - **`partial` and `blocked`** need neither: a `partial` already tells the authors to narrow the claim, and a
   `blocked` never counts as support.
 
-Without subagents (some hosts cannot start them), do the skeptic read in-context, starting from the claim,
-the reference and the source only, and say in the report that it was done in-context. The skeptic's
+Start the skeptic yourself; it is part of this check, so the user does not need to ask for subagents. Only
+where the host cannot start subagents, do the skeptic read in-context, starting from the claim, the reference
+and the source only, and say in the report that the second reading was done in the same session. The skeptic's
 instructions:
 
 - Default to `rejected`. Confirm only by quoting the passage that carries the claim, verbatim.
@@ -171,15 +179,29 @@ claims-novelty seat and adjudication) point here.
 
 ## Report
 
-One row per checked claim: id, location, reference, outcome, the supporting passage (verbatim, with where
-it sits in the source), and the smallest change (corrected number, narrowed wording, replacement source to
-verify, or what would unblock it). Then:
+Follow [Writing for the authors](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors).
+Each checked claim that needs a change gets a short paragraph in full sentences: the manuscript sentence
+quoted with its section, the cited work as a link (`https://doi.org/...`,
+`https://pubmed.ncbi.nlm.nih.gov/<PMID>/`, `https://arxiv.org/abs/<id>`), the source's passage quoted with
+where it sits, the outcome in the words of the table above, and the smallest change (a corrected number,
+narrowed wording, a replacement source to verify, or what would unblock it). For example:
 
-- coverage: "checked N of M cited claims", and how they were chosen;
-- counts by outcome, including rejections and both passes for each `rejected`;
-- which `confirmed` claims the skeptic read, and whether in a subagent or in-context;
+> **The Introduction says more than the cited study shows.** The manuscript says "European ancestry-derived
+> polygenic scores performed comparably in African ancestry samples [1]." Duncan et al. 2019
+> (https://doi.org/10.1038/s41467-019-11112-0) report the opposite in their abstract: "predictive performance
+> of European ancestry-derived polygenic scores is lower in non-European ancestry samples". The sentence is
+> not supported. Rewrite it to say that performance was lower, or cut it.
+
+Supported claims can be listed briefly, one sentence each with the passage quoted. Then, in sentences:
+
+- coverage: "We checked 8 of the 30 sentences that cite a source", and how they were chosen;
+- how many claims had each outcome, and for each one found not supported, that a second reading of the
+  whole source found no support;
+- which supported claims an independent second reader checked, and whether that reader was a separate agent
+  or the same session;
 - second-hand citations, differing numbers and retracted sources as their own short list;
-- blocked claims with what would unblock each (which document, which section, what access).
+- the claims that could not be checked, with what would unblock each (which document, which section, what
+  access).
 
 When the shared record exists (`manuscript-record.yaml`), add rejected, partial and blocked claims to
 `open_issues` (`from: manuscript-reference-check`, `route: fixable-in-text` or `author-required`) and the
