@@ -43,10 +43,9 @@ uv run --script scripts/venues.py rank --ai-use drafting --min-jif 5 --software
 uv run --script scripts/venues.py rank --strictest-first
 ```
 
-The table scores **AI-policy friction** only: the writing-help rule (ISCB journals forbid drafting from a
-prompt; Springer Nature forbids AI-written Results and Discussion), prompt requirements (CSBJ wants full
-prompts), the number of places a disclosure must appear, AI-detector screening (Springer Nature runs one
-publisher-wide), and extra burdens (GigaScience wants AI outputs deposited). Venues that make authors record AI use beyond one acknowledgement (full prompts, deposited
+The table scores **AI-policy friction** only: the writing-help rule (from no disclosure needed, through
+disclosure, to an outright ban on drafting from a prompt), prompt requirements, the number of places a
+disclosure must appear, AI-detector screening at submission, and extra burdens such as deposited AI outputs. Venues that make authors record AI use beyond one acknowledgement (full prompts, deposited
 outputs, kept versions: `tracking: required`) are left out unless `--include-tracking` is given. It does
 **not** score scientific fit, scope, selectivity or speed. Combine the two yourself, then re-read the live AI-policy page of the two
 or three venues you would recommend (WebFetch; `google-chrome --headless --dump-dom URL` when Cloudflare
@@ -59,8 +58,8 @@ of this manuscript given its AI use, and the date the policies were read.
 ## Mode B: adapt to a venue
 
 ```bash
-uv run --script scripts/venues.py show bioinformatics              # the checklist
-uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --venue bioinformatics
+uv run --script scripts/venues.py show <venue-key>                 # the checklist
+uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --venue <venue-key>
 ```
 
 Work through the checklist and produce a change list: abstract restructured to the venue's headings and
@@ -105,9 +104,8 @@ that is **true** ("suggested sentence-level revisions to text written by the aut
 change"). That statement costs little at almost every venue; some publishers say outright that a proper
 declaration does not count against a paper, while ICMJE says nondisclosure may be treated as misconduct.
 Understating the use is the one choice that turns a non-issue into an investigation, so the statement
-should match what actually happened, at the level of kind of help and sections, not sessions. At ISCB venues (*Bioinformatics*, *Briefings in Bioinformatics*)
-document the use in the supplement as well, and make sure every AI-drafted passage has been rewritten by an
-author.
+should match what actually happened, at the level of kind of help and sections, not sessions. Where the venue forbids LLM drafting (`writing_help: banned_drafting`), document the use in the
+supplement as well, and make sure every AI-drafted passage has been rewritten by an author.
 
 ## Files
 

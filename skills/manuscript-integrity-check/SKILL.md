@@ -23,19 +23,20 @@ and tells them what to fix. It **reports and suggests; the authors write.**
    not one that slips past a detector. Never suggest paraphrasing to lower an AI-detector score, never remove
    an honest disclosure, never "humanize" text to hide where it came from. Wikipedia's own guide warns that
    treating the signs as the problem "could just make detection harder"; the signs point at unverified claims.
-2. **The authors write the paper.** *Bioinformatics* and *Briefings in Bioinformatics* (ISCB policy) forbid
-   drafting papers "from a prompt text" and allow an LLM "as an evaluation technique (to assist in finding
-   inconsistencies or other anomalies)". This skill is that evaluation. So by default:
+2. **The authors write the paper.** The strictest venues forbid drafting papers "from a prompt text" and
+   allow an LLM only for correction and "as an evaluation technique (to assist in finding inconsistencies or
+   other anomalies)" (the ISCB policy; `writing_help: banned_drafting` in `references/venues.yaml`). This
+   skill is that evaluation, so it works at every venue. So by default:
    - findings say **where**, **what is wrong**, **which rule** (with source), and **what kind of change**
      ("cut the phrase", "give the measured number from Table 2", "add the DOI 10.xxxx after checking");
    - mechanical fixes are fine to write out in full: a corrected DOI, a deleted chatbot leftover, a missing
      identifier, a reference entry rebuilt from Crossref metadata;
    - **no replacement paragraphs.** If the user explicitly asks for rewritten text, write it, and say in the
-     report that this use must go into the AI-use disclosure (and the supplement, for ISCB venues).
+     report that this use must go into the AI-use disclosure (and the supplement, where the venue asks for one).
    - When a revision ledger records AI-revised segments, sort them into **refinement** (rewording of text the
      authors wrote; compare with the previous round) and **generation** (new sentences or sections the AI
      wrote). Both must be disclosed; generated segments with no later human round are the ones to hand back
-     to an author before an ISCB venue.
+     to an author before a venue that forbids LLM drafting.
 3. **Never invent a source.** Every citation the report suggests has been resolved in this session (DOI via
    Crossref/doi.org, PMID via E-utilities, arXiv id via the arXiv API) and its title and first author match.
    If you could not resolve it, say "not found", do not suggest it.
@@ -54,8 +55,8 @@ and tells them what to fix. It **reports and suggests; the authors write.**
   such as `<!-- @rev ID rounds=N by=name:date -->`, tracked changes, git history with AI co-author trailers),
   pass `--git` and keep the markers in: the scanner strips comments for prose checks but counts AI revisers.
 - **Target venue(s).** Infer from the text, the folder or the conversation; ask only if nothing says. The
-  disclosure, length and availability rules differ by venue, and one statement does not fit all (ACM no longer
-  requires disclosure of writing help; ISCB requires supplementary documentation of it).
+  disclosure, length and availability rules differ by venue, and one statement does not fit all (one publisher no
+  longer requires disclosure of writing help, another wants it documented in the supplement).
 - **Paper type**: (a) a system or tool, (b) a finding, (c) an evaluation; and whether AI produced any of the
   scientific content (hypotheses, analyses, effect sizes, curated data, code that does the science) or only
   helped with writing. This decides whether Step 4 applies.
@@ -66,7 +67,7 @@ and tells them what to fix. It **reports and suggests; the authors write.**
 
 ```bash
 uv run --script .claude/skills/manuscript-integrity-check/scripts/scan.py PAPER.md --online \
-    --venue bioinformatics --md /tmp/scan.md --json /tmp/scan.json
+    --venue <venue-key> --md /tmp/scan.md --json /tmp/scan.json
 ```
 
 `--online` resolves every DOI, PMID and arXiv id (title and first-author match, Retraction Watch retractions and
@@ -106,9 +107,9 @@ Look the venue up in `references/publisher-policies.md` (journals) or `reference
   `references/disclosure-templates.md`, filled with facts the user confirms; never guess what a tool did.
 - **Author list** has no AI; no AI output cited as a primary source.
 - **Availability**: code at a stable URL and an archived version with DOI, licence, test data, reproduction
-  instructions, data availability statement (Bioinformatics, NAR, GigaScience, Genome Biology, PLOS).
-- **Limits and structure**: abstract and body length, abstract headings, article-type rules. *Bioinformatics*
-  returns manuscripts 20% or more over the limit without review.
+  instructions, data availability statement (most bioinformatics and genomics journals ask for all of these).
+- **Limits and structure**: abstract and body length, abstract headings, article-type rules. Some journals
+  return manuscripts 20% or more over the limit without review (`over_limit_return` in `venues.yaml`).
 - **Figures**: no AI-generated or AI-altered primary images; AI-assisted plots reproducible from data and code
   and disclosed in the caption; no general-purpose AI graphical abstracts at Elsevier/Cell.
 - **Preprint overlap**: declare the arXiv/bioRxiv version; no parallel submission. arXiv caps submissions at

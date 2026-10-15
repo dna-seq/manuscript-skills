@@ -9,7 +9,7 @@ The data is manuscript-integrity-check/references/venues.yaml (keep the two skil
 
     uv run --script venues.py rank                        # all venues, least friction first
     uv run --script venues.py rank --ai-use revision --min-jif 5 --software
-    uv run --script venues.py show bioinformatics
+    uv run --script venues.py show <venue-key>                        # keys are listed by `rank`
 """
 
 from __future__ import annotations
@@ -142,7 +142,7 @@ def rank(
 
 
 @app.command()
-def show(venue: Annotated[str, typer.Argument(help="Venue key, e.g. bioinformatics")]) -> None:
+def show(venue: Annotated[str, typer.Argument(help="Venue key, as listed by `rank`")]) -> None:
     """One venue's requirements, as the checklist for adapting a manuscript to it."""
     checked, venues = load_venues()
     if venue not in venues:

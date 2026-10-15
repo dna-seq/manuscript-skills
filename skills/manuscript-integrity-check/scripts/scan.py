@@ -472,13 +472,13 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
         out.append(Finding(check="availability", severity=Severity.major,
                            message="No archived software or data record (Zenodo, Software Heritage, figshare, "
                                    "Bioconductor, CRAN) is cited.",
-                           suggestion="Archive the submitted version and give its DOI; Bioinformatics wants it in "
-                                      "the abstract's Availability and Implementation section."))
+                           suggestion="Archive the submitted version (Zenodo, Software Heritage) and give its DOI; several "
+                                      "journals want it in the abstract or the availability statement."))
     if re.search(r"leave[- ]one[- ]out", text_lower):
         out.append(Finding(check="validation", severity=Severity.info,
                            message="Leave-one-out validation is mentioned.",
-                           suggestion="Bioinformatics editorially rejects ML papers validated by leave-one-out; "
-                                      "report an independent test set."))
+                           suggestion="Some journals reject ML papers validated by leave-one-out alone; report an "
+                                      "independent test set."))
     limits = load_venue_limits().get(venue or "")
     if limits:
         abstract_max, body_max = limits["abstract_words"], limits["body_words"]
@@ -688,7 +688,7 @@ def _git_findings(path: Path) -> list[Finding]:
     return [Finding(check="ai-use", severity=Severity.info,
                     message=f"{len(ai)} of {len(commits)} commits touching this file have an AI co-author trailer.",
                     suggestion="The disclosure must cover AI writing and revision; sort the AI-revised passages "
-                               "into refinement and generation before an ISCB venue.")]
+                               "into refinement and generation before a venue that forbids LLM drafting.")]
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,

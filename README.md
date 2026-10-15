@@ -50,20 +50,20 @@ other check runs offline. The installed [humanizer](https://github.com/blader/hu
 ## Try it
 
 ```text
-Check this manuscript before I submit it to Bioinformatics.
-Verify every reference in paper.md and tell me which ones don't exist.
-Which journals are least strict about AI for a software paper whose text Claude helped revise?
-Adapt this manuscript to PLOS Computational Biology's requirements.
-Copy-edit the Discussion so it doesn't read as AI-written, without changing any claim.
-Write the shortest AI-use statement Genome Biology will accept for this paper.
+Check this manuscript before I submit it to my target journal.
+Verify every reference in this manuscript and tell me which ones don't exist or don't match.
+Rank life-science and bioinformatics journals by how strict their AI policy is for this manuscript.
+Adapt this manuscript to the requirements of the journal I choose.
+Copy-edit this section so it doesn't read as AI-generated, without changing any claim.
+Write the shortest AI-use statement my target journal accepts.
 ```
 
 The scripts also run on their own:
 
 ```bash
-uv run --script skills/manuscript-integrity-check/scripts/scan.py paper.md --online --venue bioinformatics --git
-uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --ai-use revision --min-jif 5
-uv run --script skills/manuscript-journal-adapt/scripts/venues.py show plos-comp-biol
+uv run --script skills/manuscript-integrity-check/scripts/scan.py paper.md --online --venue <venue-key> --git
+uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --ai-use revision --min-jif 5   # also lists the venue keys
+uv run --script skills/manuscript-journal-adapt/scripts/venues.py show <venue-key>
 uv run --script skills/manuscript-journal-adapt/scripts/guard.py paper.md --against HEAD
 ```
 
@@ -77,8 +77,8 @@ contradict an understated statement.
 
 ## Limits
 
-- The venue data covers about twenty bioinformatics and genomics journals plus the main preprint servers and
-  ML conferences. A venue marked `null` for a field was not researched there; read its page.
+- The venue data covers about twenty life-science, bioinformatics and genomics journals plus the main
+  preprint servers and ML conferences; add others to `venues.yaml` from their author guidelines. A venue marked `null` for a field was not researched there; read its page.
 - Vocabulary and style signals are risk indicators, not proof of anything. Corpus studies of LLM vocabulary
   cannot identify an individual paper, and word lists also flag non-native writers.
 - Checking that a reference *supports* its sentence still needs a reader. The scanner proves the reference
