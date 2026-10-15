@@ -138,6 +138,11 @@ when the selected venue actually requires them or the authors request them.
 - **Uncertain / not assessed:** missing evidence, an unavailable source or a check that could not run.
   State the practical consequence. Uncertainty alone is not a violation or proof of fabrication.
 
+Name every finding by what it is and where it is in the paper ("the n in the Abstract differs from Table 1",
+"Methods, line 212"). Internal labels (catalogue or rule IDs, seat or ledger codes, item numbers a script
+assigned) may follow in parentheses for traceability, never stand alone; the authors should not need to
+look anything up to understand a finding. The referees' own comment numbers are the exception: keep them.
+
 Deduplicate by root cause, omit irrelevant checks and distinguish agent work from author decisions. Stop
 when the requested work is complete and material issues are resolved or clearly identified. Do not keep
 polishing to reach zero style hits, a detector score, or an arbitrary word-change percentage.

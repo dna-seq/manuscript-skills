@@ -57,8 +57,9 @@ It does not need the critic's identity or rejected findings.
 ## Traceability without a log file
 
 Every critic finding carries an ID from the catalogue (`llm-smells.md`: A1, B5, C16, H3, I1, ...) or
-`CLAIM`. The writer's change table cites the ID for every change, and the summary to the authors groups the
-changes by ID ("4× A9 participle tails cut; 2× B7 one name per object; 1× I1 'drives' kept and flagged").
+`CLAIM`. The writer's change table cites the ID for every change. The summary to the authors groups the
+changes by what they are, with the ID only in parentheses ("participle tails cut in 4 places (A9); one
+name kept per object in 2 places (B7); 'drives' kept and flagged (I1)").
 That ID is the provenance of each fix. Do not write a ledger, transcript or per-round log file: the
 author priorities rule them out, and the diff plus the grouped summary are the record.
 
