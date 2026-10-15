@@ -81,8 +81,9 @@ Read `references/humanize-contract.md` and keep to it. In short:
 2. **Voice.** Get two to five paragraphs the authors wrote themselves, ideally from before any AI help, and
    match them.
 3. **Edit under the contract.** Wording only: no new facts, numbers, citations, implications or limitations;
-   no stronger certainty; no changed negations; no paragraph merges. If the `humanizer` skill is installed,
-   use its pattern catalogue for spotting, with this contract overriding it.
+   no stronger certainty; no changed negations; no paragraph merges. If the `humanizer` skill (blader/humanizer) is
+   installed, use its pattern catalogue for spotting, with this contract overriding it. Do not use
+   detector-evasion humanizers (see `references/detector-evidence.md`).
 4. **Show** `original → revision → reason` for each nontrivial change, and list the sentences that need the
    authors (a vague claim that needs a real number). Apply what the authors accept.
 5. **Guard.** `uv run --script scripts/guard.py BEFORE AFTER` (or `FILE --against <git ref>`). Exit 1 means a
@@ -116,4 +117,5 @@ author.
   (protected) and hedges, negations, causal verbs, comparatives (watched).
 - `references/humanize-contract.md`: the contract, the pattern table, voice calibration, the after-pass steps.
 - `references/detector-evidence.md`: what 2026 evidence says about AI-text detectors, disclosure rates and
-  humanizer tools.
+  humanizer tools
+  (which open-source humanizers are fit for manuscripts, and which are detector-evasion tools).

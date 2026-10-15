@@ -312,3 +312,38 @@ venues:
     extra_burden: [no AI-generated striking images]
     limits: null
     software_article: false
+
+  acm:
+    name: ACM journals and conferences (baseline policy)
+    publisher: ACM
+    jif: null
+    status: VERIFIED
+    url: https://www.acm.org/publications/policies/new-acm-policy-on-authorship
+    writing_help: free
+    exempt: [all help with writing the submission]
+    disclosure_places: [Methods (only for AI used in the research)]
+    disclosure_fields: [AI used in the research, described in detail]
+    prompts: "no"
+    screening: null
+    penalties: [rejection, retraction for content-integrity problems from AI use]
+    extra_burden: []
+    limits: null
+    software_article: false
+    fit_note: "policy updated 14 May 2026; a work must not be primarily the result of generative AI (FAQ); individual ACM venues may be stricter"
+
+  ieee-access:
+    name: IEEE Access
+    publisher: IEEE
+    jif: null
+    status: VERIFIED
+    url: https://ieeeaccess.ieee.org/authors/submission-guidelines/
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Acknowledgments, the sections that use AI-generated text cite the AI system]
+    disclosure_fields: [AI system, sections, level of use]
+    prompts: "no"
+    screening: null
+    penalties: [articles with poor grammar are immediately rejected]
+    extra_burden: []
+    limits: null
+    software_article: false
