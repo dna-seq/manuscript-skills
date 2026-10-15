@@ -1,11 +1,12 @@
 ---
 name: manuscript-integrity-check
 description: >-
-  Review a manuscript or its references for concrete scientific and submission problems, prioritising
+  Review a manuscript for concrete scientific and submission problems, prioritising
   publication and low author burden. Check citation identity and support, unsupported claims, unfinished
-  content, and applicable venue requirements. Use for a requested manuscript audit, reference check or
-  submission-readiness review. Use manuscript-journal-select for journal selection and
-  manuscript-journal-adapt for editing, formatting and drafting AI-use statements.
+  content, and applicable venue requirements. Use for a requested manuscript audit or submission-readiness review.
+  Use manuscript-reference-check for focused citation and bibliography checks and manuscript-prose-edit
+  for language editing. Use manuscript-journal-select for journal selection and
+  manuscript-journal-adapt for venue formatting and drafting AI-use statements.
   Use manuscript-policy-fit for clinical-scope, ethics, privacy and
   regulatory applicability, including authors' voluntarily public personal genomes or biomedical data.
 ---
@@ -26,7 +27,7 @@ findings; apply fixes too when the user's request already includes them.
      ("cut the phrase", "give the measured number from Table 2", "add the DOI 10.xxxx after checking");
    - mechanical fixes are fine to write out in full: a corrected DOI, a deleted chatbot leftover, a missing
      identifier, a reference entry rebuilt from Crossref metadata;
-   - do not replace paragraphs unless editing is also requested. For authorised edits, use the companion
+   - do not replace paragraphs unless editing is also requested. For authorised edits, use the prose-edit
      skill's content-preservation contract and apply the selected venue's disclosure exemptions;
    - preserve existing revision markers, but do not audit provenance or create a ledger unless requested.
      A later human edit does not automatically resolve a journal's restriction on earlier AI drafting.
@@ -97,14 +98,12 @@ generic declarations do not by themselves establish a submission barrier.
 
 ### Step 2: references beyond identity
 
-The scanner can resolve a reference's identity; it does not prove **support for the sentence** (ICMJE V,
-Springer Nature's irrelevant-reference checker, Signals, Paperpal). For each claim that carries the paper
-(the abstract's claims, every number taken from another paper, every "first"/"only"), open the cited abstract
-(E-utilities `efetch`, Europe PMC, Crossref, or whatever literature tools are connected, e.g. a PubMed MCP
-server) and confirm it says what the sentence says. Also flag: citations
-of reviews where the original is meant, retracted works cited as support, missing DOIs (SN/BMC ask for them),
-data and software cited without a persistent identifier, and heavy self-citation (report the share; no
-published threshold exists).
+Use `manuscript-reference-check` for the reference-verification workflow. The full scanner includes
+its mechanical identity and citation-consistency checks through the same implementation. For a full
+audit, also check whether sources support the claims carrying the paper, borrowed numbers and
+"first"/"only" claims; identifier resolution alone does not establish support. Apply that skill's
+primary-record verification, retraction checks and handling of unresolved lookups. For a focused
+reference request, run its `--references-only` mode without the remaining audit steps.
 
 ### Step 3: venue compliance
 
@@ -174,10 +173,11 @@ Each finding: location (`file:line` or section), what is wrong, the rule with it
 suggested change. Distinguish journal rules from methodological advice and preferences. Group repeated
 findings and omit irrelevant checks. Add cover-letter points only when needed for this submission.
 
-When fixes are authorised, use the `manuscript-journal-adapt` skill
-(its contract and `guard.py` help check content preservation), follow the project's own revision-marking rules if it
-has them. Add no per-pass log; update a disclosure only when the venue requires it and its factual
-account needs to change.
+When fixes are authorised, use `manuscript-prose-edit` for language changes and its preservation
+contract and `guard.py`; use `manuscript-journal-adapt` for venue formatting or AI-use statements, and
+`manuscript-reference-check` for reference repairs. Follow the project's revision-marking rules if it has
+them. Add no per-pass log; update a disclosure only when the venue requires it and its factual account
+needs to change.
 
 ## Files
 

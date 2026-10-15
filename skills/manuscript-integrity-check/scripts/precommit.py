@@ -55,7 +55,7 @@ def main(
     show: Annotated[int, typer.Option(help="Findings to print per file")] = 8,
 ) -> None:
     scan = _load("scan", HERE / "scan.py")
-    profile = _load("style_profile", HERE.parents[1] / "manuscript-journal-adapt" / "scripts" / "style_profile.py")
+    profile = _load("style_profile", HERE.parents[1] / "manuscript-prose-edit" / "scripts" / "style_profile.py")
     smells, kobak = profile.load_smells(), profile.load_kobak()
     failed = False
     for path in files:

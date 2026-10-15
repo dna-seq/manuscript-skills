@@ -1,4 +1,4 @@
-# Humanizing manuscript prose: the contract and the process
+# Editing manuscript prose: the contract and the process
 
 Improve readability and publication prospects while preserving the authors' scientific meaning and
 voice. Follow `../../manuscript-integrity-check/references/author-priorities.md` for scope, author effort

@@ -12,6 +12,7 @@ reported?) are the skill's job, not this script's.
     uv run --script scan.py PAPER.md                      # offline checks only
     uv run --script scan.py PAPER.md --online             # also resolve DOIs / PMIDs / arXiv ids
     uv run --script scan.py PAPER.md --online --json out.json --md out.md
+    uv run --script scan.py PAPER.md --references-only --online  # focused citation check
 """
 
 from __future__ import annotations
@@ -66,6 +67,13 @@ class Reference(BaseModel):
     title_similarity: Optional[float] = None
     # not_checked | resolved | mismatch | unresolved | retracted | concern | no_identifier
     status: str = "not_checked"
+
+
+class ReferenceReport(BaseModel):
+    path: str
+    online: bool
+    findings: list[Finding]
+    references: list[Reference]
 
 
 class Report(BaseModel):
@@ -794,6 +802,47 @@ def _git_findings(path: Path) -> list[Finding]:
                     suggestion="Ask the authors what those commits changed; the disclosure follows their account.")]
 
 
+def check_references(path: Path, online: bool, search_unidentified: bool) -> ReferenceReport:
+    """Identity and citation consistency only, shared by focused checks and full audits."""
+    raw = path.read_text(encoding="utf-8")
+    text = _strip_comments(raw)
+    lines = _lines(text)
+    ref_start = _reference_start(lines)
+    body_lines = lines[: (ref_start or len(lines) + 1) - 1]
+    findings: list[Finding] = []
+    refs: list[Reference] = []
+    bibliography_only = path.suffix.lower() == ".bib"
+    bibs = [path] if bibliography_only else _bib_files(text, path.parent) if path.suffix.lower() == ".tex" else []
+    if bibs:
+        keyed = [kr for bib in bibs for kr in _bib_references(bib)]
+        refs = [r for _, r in keyed]
+        if not bibliography_only:
+            findings += _cite_key_findings(lines, {k for k, _ in keyed})
+    if not bibliography_only:
+        for line_no, entry in _split_entries(_reference_entries(lines, ref_start)):
+            doi = DOI_RE.search(entry)
+            pmid = PMID_RE.search(entry)
+            arxiv = ARXIV_RE.search(entry)
+            refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
+                                  pmid=pmid.group(1) if pmid else None,
+                                  arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
+        findings += _citation_consistency(body_lines, refs)
+    if ref_start is None and not bibs:
+        findings.append(Finding(check="references", severity=Severity.major,
+                                message="No references/bibliography heading found; references were not checked.",
+                                suggestion="Name the section 'References' or pass a .bib file separately."))
+    elif not refs:
+        findings.append(Finding(check="references", severity=Severity.major,
+                                message="No bibliography entries could be parsed; references were not checked.",
+                                suggestion="Check the bibliography format and inspect the entries manually."))
+    if online and refs:
+        resolve_references(refs, search_unidentified)
+    findings += _reference_findings(refs)
+    order = {s: i for i, s in enumerate(Severity)}
+    findings.sort(key=lambda f: (order[f.severity], f.line or 0))
+    return ReferenceReport(path=str(path), online=online, findings=findings, references=refs)
+
+
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
          git: bool = False) -> Report:
     VOCAB_SOURCES.update({"kobak2025_r>=2": _kobak_words(), "juzek_ward2025": JUZEK_WARD,
@@ -833,21 +882,9 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += _abstract_metric_dump(lines)
     findings += _percentages(body_lines)
 
-    refs: list[Reference] = []
-    bibs = _bib_files(raw, path.parent) if path.suffix == ".tex" else []
-    if bibs:
-        keyed = [kr for bib in bibs for kr in _bib_references(bib)]
-        refs = [r for _, r in keyed]
-        findings += _cite_key_findings(_lines(raw), {k for k, _ in keyed})
-        ref_start = ref_start or len(lines)  # the bibliography is a separate file, not a missing section
-    for line_no, entry in _split_entries(_reference_entries(lines, ref_start)):
-        doi = DOI_RE.search(entry)
-        pmid = PMID_RE.search(entry)
-        arxiv = ARXIV_RE.search(entry)
-        refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                              pmid=pmid.group(1) if pmid else None,
-                              arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
-    findings += _citation_consistency(body_lines, refs)
+    reference_report = check_references(path, online, search_unidentified)
+    refs = reference_report.references
+    findings += reference_report.findings
     if git:
         findings += _git_findings(path.resolve())
     ledger_ai = LEDGER_AI.findall(raw)
@@ -858,14 +895,6 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                 suggestion="Markers do not establish the kind of help. Use existing author "
                                            "context and the selected venue's rule and exemptions to determine "
                                            "whether a disclosure needs updating."))
-    if ref_start is None:
-        findings.append(Finding(check="references", severity=Severity.major,
-                                message="No references/bibliography heading found; references were not checked.",
-                                suggestion="Name the section 'References' or pass the bibliography separately."))
-    if online:
-        resolve_references(refs, search_unidentified)
-    findings += _reference_findings(refs)
-
     densities, top, n_words = _vocabulary("\n".join(body_lines))
     ing_tails = len(ING_TAIL_RE.findall("\n".join(body_lines)))
     if n_words and 1000 * ing_tails / n_words > 1.0:
@@ -903,6 +932,27 @@ def _verdict(counts: Counter[str]) -> str:
     return "no blocker or major finding from the mechanical checks; the judgement checks in the skill still apply"
 
 
+def references_to_markdown(report: ReferenceReport) -> str:
+    out = [f"# Reference check: {report.path}", "",
+           f"{len(report.references)} bibliography entries; {len(report.findings)} mechanical findings.", "",
+           "Source support requires reading the cited work; identifier resolution alone does not establish it."]
+    if not report.online:
+        out += ["Online source identity and retraction checks: not assessed (offline mode)."]
+    for finding in report.findings:
+        location = f"L{finding.line}" if finding.line else "—"
+        out += ["", f"- **{finding.severity.value} / {finding.check}** {location}: {finding.message}"
+                + (f" `{finding.excerpt}`" if finding.excerpt else "")
+                + (f"\n  → {finding.suggestion}" if finding.suggestion else "")]
+    if report.references:
+        out += ["", "## References", "", "| line | status | id | resolved title |",
+                "|---|---|---|---|"]
+        for ref in report.references:
+            ident = ref.doi or (f"PMID {ref.pmid}" if ref.pmid else "") or (f"arXiv {ref.arxiv}" if ref.arxiv else "")
+            title = (ref.resolved_title or "").replace("|", "\\|").replace("\n", " ")
+            out.append(f"| {ref.line} | {ref.status} | {ident} | {title} |")
+    return "\n".join(out) + "\n"
+
+
 def to_markdown(report: Report) -> str:
     counts = Counter(f.severity.value for f in report.findings)
     out = [f"# Mechanical scan: {report.path}", "",
@@ -936,6 +986,7 @@ def to_markdown(report: Report) -> str:
 def main(
     path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, readable=True)],
     online: Annotated[bool, typer.Option(help="Resolve DOIs, PMIDs and arXiv ids over the network")] = False,
+    references_only: Annotated[bool, typer.Option(help="Check references and citation consistency without other audit checks")] = False,
     search_unidentified: Annotated[bool, typer.Option(help="With --online, search Crossref for references that "
                                                            "carry no identifier")] = True,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
@@ -944,13 +995,19 @@ def main(
     git: Annotated[bool, typer.Option(help="Only when the authors ask: count commits touching the file that carry an AI "
                                             "co-author trailer (informational; trailers often mark automation)")] = False,
 ) -> None:
-    known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
-    if venue and venue not in known:
-        raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(known))}")
-    report = scan(path, online, search_unidentified, venue, git)
+    if references_only:
+        if venue or git:
+            raise typer.BadParameter("--references-only cannot be combined with --venue or --git")
+        report = check_references(path, online, search_unidentified)
+        md = references_to_markdown(report)
+    else:
+        known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+        if venue and venue not in known:
+            raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(known))}")
+        report = scan(path, online, search_unidentified, venue, git)
+        md = to_markdown(report)
     if json_out:
         json_out.write_text(report.model_dump_json(indent=2), encoding="utf-8")
-    md = to_markdown(report)
     if md_out:
         md_out.write_text(md, encoding="utf-8")
         typer.echo(f"wrote {md_out}")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+import httpx
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +28,7 @@ def _load(name: str, path: Path) -> ModuleType:
 
 
 scan = _load("scan", SKILLS / "manuscript-integrity-check" / "scripts" / "scan.py")
-guard = _load("guard", SKILLS / "manuscript-journal-adapt" / "scripts" / "guard.py")
+guard = _load("guard", SKILLS / "manuscript-prose-edit" / "scripts" / "guard.py")
 venues = _load("venues", SKILLS / "manuscript-journal-adapt" / "scripts" / "venues.py")
 
 PAPER = """# A Tool
@@ -151,6 +153,93 @@ def test_citation_consistency_handles_hyphens_and_curly_apostrophes(paper: Path)
     assert never_cited == {"Never"}
 
 
+def test_focused_reference_check_shares_audit_findings_without_other_checks(paper: Path) -> None:
+    focused = scan.check_references(paper, online=False, search_unidentified=False)
+    audit = scan.scan(paper, online=False, search_unidentified=False)
+    assert focused.references == audit.references
+    assert focused.findings == [f for f in audit.findings if f.check in {"references", "citations"}]
+    assert focused.findings and all(f.check in {"references", "citations"} for f in focused.findings)
+    assert any(f.check == "chatbot-leftover" for f in audit.findings)
+
+
+def test_references_only_cli_skips_audit_resources_and_exports_focused_report(
+    paper: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from typer.testing import CliRunner
+
+    # A bibliography check must remain usable without venue records or style vocabulary.
+    monkeypatch.setattr(scan, "VENUES_YAML", tmp_path / "no-venue-catalogue.yaml")
+    monkeypatch.setattr(scan, "KOBAK_CSV", tmp_path / "no-style-vocabulary.csv")
+    json_path, md_path = tmp_path / "references.json", tmp_path / "references.md"
+    result = CliRunner().invoke(scan.app, [str(paper), "--references-only", "--json", str(json_path),
+                                         "--md", str(md_path)])
+    assert result.exit_code == 0, result.output
+    report = json.loads(json_path.read_text())
+    assert len(report["references"]) == 3
+    assert report["online"] is False
+    assert {f["check"] for f in report["findings"]} <= {"references", "citations"}
+    assert "not assessed (offline mode)" in md_path.read_text()
+    assert "Readiness" not in md_path.read_text()
+
+
+def test_focused_check_accepts_a_standalone_bibliography(tmp_path: Path) -> None:
+    bibliography = tmp_path / "refs.bib"
+    bibliography.write_text(
+        "@article{lambert2021,\n  author = {Lambert, Samuel A.},\n  title = {The Polygenic Score Catalog},\n"
+        "  year = {2021},\n  doi = {10.1038/s41588-021-00783-5}\n}\n", encoding="utf-8")
+    report = scan.check_references(bibliography, online=False, search_unidentified=False)
+    assert [r.doi for r in report.references] == ["10.1038/s41588-021-00783-5"]
+    assert report.findings == []
+
+
+def test_focused_latex_check_ignores_commented_citations(tmp_path: Path) -> None:
+    (tmp_path / "refs.bib").write_text(
+        "@article{known,\n  author = {Doe, Jane},\n  title = {An existing article},\n  year = {2020}\n}\n",
+        encoding="utf-8")
+    manuscript = tmp_path / "paper.tex"
+    manuscript.write_text("\\cite{known,missing}\n<!-- \\cite{author-note} -->\n\\bibliography{refs}\n",
+                          encoding="utf-8")
+    report = scan.check_references(manuscript, online=False, search_unidentified=False)
+    assert [f.excerpt for f in report.findings if f.check == "citations"] == ["missing"]
+
+
+def test_focused_check_reports_an_unreadable_bibliography_format(tmp_path: Path) -> None:
+    bibliography = tmp_path / "empty.bib"
+    bibliography.write_text("% No entries supplied\n", encoding="utf-8")
+    report = scan.check_references(bibliography, online=False, search_unidentified=False)
+    assert not report.references
+    assert len(report.findings) == 1 and "were not checked" in report.findings[0].message
+
+
+@pytest.mark.parametrize("focused", [True, False])
+def test_online_reference_resolution_is_shared_by_focused_checks_and_audits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, focused: bool,
+) -> None:
+    manuscript = tmp_path / "paper.md"
+    manuscript.write_text(
+        "# Results\n\nEarlier work supports the method (Doe et al., 2020).\n\n## References\n\n"
+        "Doe, J. (2020). A reproducible annotation method. doi:10.1234/example\n", encoding="utf-8")
+    calls = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, json={"message": {
+            "title": ["A reproducible annotation method"], "author": [{"family": "Doe"}],
+            "issued": {"date-parts": [[2020]]}, "updated-by": [{"type": "retraction"}],
+        }})
+
+    original_client = httpx.Client
+    monkeypatch.setattr(scan.httpx, "Client", lambda **kwargs: original_client(
+        transport=httpx.MockTransport(respond), **kwargs))
+    monkeypatch.setattr(scan.time, "sleep", lambda _: None)
+    checker = scan.check_references if focused else scan.scan
+    report = checker(manuscript, online=True, search_unidentified=True)
+    assert calls == ["https://api.crossref.org/works/10.1234/example"]
+    assert report.references[0].status == "retracted"
+    assert report.references[0].resolved_first_author == "Doe"
+    assert any(f.check == "references" and "retracted" in f.message for f in report.findings)
+
+
 @pytest.mark.parametrize("venue, words, expected", [
     ("bioinformatics", 6100, scan.Severity.blocker),  # > 1.2 × 5000
     ("bioinformatics", 5500, scan.Severity.major),
@@ -250,7 +339,7 @@ def test_venues_yaml_parses_and_is_dated() -> None:
     assert raw["checked"] is not None and raw["venues"]
 
 
-profile = _load("style_profile", SKILLS / "manuscript-journal-adapt" / "scripts" / "style_profile.py")
+profile = _load("style_profile", SKILLS / "manuscript-prose-edit" / "scripts" / "style_profile.py")
 
 SLOPPY = """# Intro
 
@@ -301,7 +390,7 @@ def test_profile_baseline_flags_departures_from_the_authors_own_writing() -> Non
 
 def test_smell_patterns_compile_and_match_the_catalogue_ids() -> None:
     smells = profile.load_smells()
-    catalogue = (SKILLS / "manuscript-journal-adapt" / "references" / "llm-smells.md").read_text()
+    catalogue = (SKILLS / "manuscript-prose-edit" / "references" / "llm-smells.md").read_text()
     for sid in smells:
         assert f"### {sid}." in catalogue, sid
 
@@ -360,8 +449,8 @@ def test_guard_change_rate() -> None:
     assert guard.change_rate(text, "entirely new text") > 0.9
 
 
-detect = _load("detect", SKILLS / "manuscript-journal-adapt" / "scripts" / "detect.py")
-setup = _load("detector_setup", SKILLS / "manuscript-journal-adapt" / "scripts" / "detector_setup.py")
+detect = _load("detect", SKILLS / "manuscript-prose-edit" / "scripts" / "detect.py")
+setup = _load("detector_setup", SKILLS / "manuscript-prose-edit" / "scripts" / "detector_setup.py")
 
 
 def test_detect_windows_merge_short_paragraphs_and_skip_references() -> None:

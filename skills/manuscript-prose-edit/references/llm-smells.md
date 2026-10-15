@@ -24,7 +24,7 @@ How to read it:
 - **Entries** give what to watch for and the fix; the longer ones add why it reads as AI, a before/after
   example and when to leave it.
 - **Examples are invented**, and citations appear as `[n]`. Where an After holds a fact its Before lacks, it
-  shows what the authors would write; in a copy edit, ask them for it (`humanize-contract.md` §1).
+  shows what the authors would write; in a copy edit, ask them for it (`prose-edit-contract.md` §1).
 
 ---
 
@@ -736,7 +736,7 @@ short sentence carries emphasis, or a list of criteria or steps is meant to be r
 ## D. Paragraph and section structure
 
 Most fixes here move content between paragraphs or sections. In a copy edit that is restructuring: propose
-it to the authors rather than applying it (`humanize-contract.md` §1).
+it to the authors rather than applying it (`prose-edit-contract.md` §1).
 
 ### D1. The template paragraph
 
@@ -1259,7 +1259,7 @@ voice (some journals want passive abstracts without "we"), section names, how re
 
 ### J3. Match the authors' own earlier writing
 
-See the writer profile in `humanize-contract.md`. Draw replacements from the authors' repertoire; never
+See the writer profile in `prose-edit-contract.md`. Draw replacements from the authors' repertoire; never
 upgrade their vocabulary.
 
 ### J4. Terms earn their place

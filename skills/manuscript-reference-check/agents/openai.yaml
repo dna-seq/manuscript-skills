@@ -1,0 +1,3 @@
+interface:
+  display_name: "Manuscript reference checking"
+  short_description: "Verify citation identity, consistency and claim support"

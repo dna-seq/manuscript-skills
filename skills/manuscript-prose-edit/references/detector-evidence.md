@@ -67,7 +67,7 @@ scientists' critical thinking?" *PLoS Biol* 24(6):e3003801 (3 Jun 2026), doi:10.
 
 | repository | stars | last push | fit for manuscripts |
 |---|---:|---|---|
-| blader/humanizer | 57,136 | 2026-09-28 | **Use for spotting patterns.** 26 patterns from Wikipedia's "Signs of AI writing", voice matching from a sample; aims at less generic writing, not detector bypass. Its permission to merge paragraphs and add personality is overridden by `humanize-contract.md`. MIT. |
+| blader/humanizer | 57,136 | 2026-09-28 | **Use for spotting patterns.** 26 patterns from Wikipedia's "Signs of AI writing", voice matching from a sample; aims at less generic writing, not detector bypass. Its permission to merge paragraphs and add personality is overridden by `prose-edit-contract.md`. MIT. |
 | harshaneel/humanize | 539 | 2026-09-22 | **Do not use.** Of its nine "levers", perplexity injection and burstiness enforcement (with numeric targets) and "strip RLHF voice" ("targets what detectors actually detect") are detector evasion; it recommends detector-scored best-of-N selection and calls itself an open-source alternative to Undetectable.ai and StealthGPT. Levers 3 to 8 (hedge surgery, structural flattening, specificity, voice, transitions, punctuation) are ordinary editing already covered by the contract. MIT. |
 | lynote-ai/humanize-text | 3,436 | 2026-10-13 | **Do not use.** LLM rewriting plus machine-translation stages; the README warns against misrepresenting authorship but advertises a paid API that "raises the detector-bypass rate by ~30%". Multi-stage rewriting risks semantic drift (a lost negation or qualifier). MIT. |
 | epoko77-ai/im-not-ai | 5,996 | 2026-10-12 | Korean only. |

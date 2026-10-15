@@ -1,176 +1,163 @@
 # Manuscript Skills
 
-**The primary objective is to help authors get a scientifically sound manuscript published in a suitable
-journal, with the least avoidable delay, expense and work.** Making editors or administrators happy is
-not an independent goal. These skills improve the paper, identify real submission barriers, help choose
-a journal with manageable policies, and handle required paperwork pragmatically.
+Six skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Use them
+to check references, improve prose, choose a suitable journal and prepare a submission. They work with
+manuscripts written with or without AI assistance.
 
-The author decides how to handle ambiguous or burdensome journal rules. Explain a material risk once,
-then continue under that decision without scolding or acting as a policy gatekeeper. Use supported
-exemptions, concise disclosures and suitable alternatives; distinguish the chosen approach from verified
-compliance. See [author priorities](skills/manuscript-integrity-check/references/author-priorities.md) and
-[what requirements can actually be checked](skills/manuscript-integrity-check/references/requirement-checkability.md).
+The aim is to help you publish sound research with less avoidable delay, expense and paperwork. Journal
+recommendations take account of the research you have done, the validation you can afford and your
+publication priorities. You decide which journal to pursue and how to handle uncertain or burdensome
+requirements.
 
-Skills for Claude Code and Codex:
+## Choose the task you need
 
-- **`manuscript-journal-select`** builds a requirements-based shortlist from the shared venue database.
-  - It checks whether required cohorts, experiments or other validation are available or affordable before
-    ranking preferences. In-silico-only work is a legitimate resource constraint.
-  - It compares scientific fit, open-source/open-science policies, editorial receptiveness, review speed,
-    APCs and AI burden, with sources and explicit unknowns.
-  - It separates desk decisions from external peer review and records validation alternatives and design
-    exclusions; an attractive AI policy cannot compensate for infeasible validation.
-- **`manuscript-integrity-check`** reports problems and the rule behind each; it does not rewrite the paper.
-  - It resolves every DOI, PMID and arXiv id (title and first author must match; retractions and expressions
-    of concern are flagged) and finds the DOI for references that have none.
-  - It finds chatbot leftovers, placeholders, missing declarations, AI use with no disclosure, citation and
-    bibliography mismatches, venue length limits, overclaiming and overused vocabulary.
-  - For papers where an AI system produced results, it reviews the study design: the full count of attempts,
-    baselines, contamination controls, human re-analysis.
-- **`manuscript-policy-fit`** reduces avoidable clinical, ethics, privacy and regulatory misclassification.
-  - It distinguishes wording ambiguity and venue scope from requirements the actual study triggers,
-    checks current primary policies, and uses applicable exceptions and concise statements.
-  - It explicitly covers authors voluntarily publishing their own genomes or biomedical records,
-    distinguishing personal self-release from recruited patient data and new self-experimentation.
-  - It compares preprint/journal requirements, handles bioRxiv/medRxiv referral loops, and drafts precise
-    scope clarifications and reviewer replies. Accurate wording preserves the study's real facts.
-- **`manuscript-journal-adapt`** changes text under a content-preservation contract, with a guard script
-  that helps catch selected changes. A passing guard does not prove semantic equivalence.
-  - It turns the chosen venue's actual rules into an adaptation checklist.
-  - It copy-edits prose so it stops reading as AI slop, following a catalogue of general and
-    manuscript-specific patterns, each with a bad example, a fix and when to leave it. Every number,
-    citation, identifier, term, hedge and negation must retain its meaning. `guard.py` flags selected
-    token-count changes; the agent also reviews the diff in context.
-  - `style_profile.py` ranks paragraphs by density of named smells and compares the style with a sample of the
-    authors' own writing. It is not a detector and reports no probabilities.
-  - Optional, requested reflection mode alternates a critic agent (reads cold, identifies concrete writing problems) and a
-    writer agent (fixes exactly that) for at most two rounds, with the guard after each pass.
+| Your task | Skill | What you receive |
+|---|---|---|
+| Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with checks for unintended changes to claims, numbers, citations and scientific terms. |
+| Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of citation details, recorded retractions and whether sources support the claims, with unresolved checks identified. |
+| Choose where to submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | A shortlist based on scientific fit, validation requirements, publication costs, open-science preferences, review timing and AI policies. |
+| Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, plus submission materials and a concise AI-use disclosure where needed. |
+| Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A prioritised report of unsupported claims, reference problems, unfinished content and applicable submission barriers, with suggested fixes. |
+| Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, precise wording and drafts of scope clarifications or reviewer replies. |
 
-The policy catalogue contains dated research notes, inherited publisher defaults and partially researched
-entries. Verify the actual shortlisted or target journal's current requirements before relying on them.
-A focused edit does not require a policy interview, full audit, writing samples or a new log.
+You can request any of these independently. Editing a paragraph does not require a full manuscript
+review. A full submission review includes reference checks where relevant.
 
-## Install
+## Start with your manuscript
 
-Claude Code, from the dna-seq marketplace:
+Once the plugin is installed, share your manuscript with the assistant and describe what you want done.
+You can use ordinary language or name a skill from the table above.
+
+Markdown, plain text and LaTeX manuscripts can be checked directly. Include the bibliography files with
+a LaTeX manuscript. For Word or Google Docs, use a document connection available to your assistant or
+provide an export. For a passage edit, pasting the text is enough.
+
+Add the context that matters to your request: a target journal, article type, publication budget or
+deadline, for example. For journal selection, explain which additional analyses or experiments are
+feasible. If you have already received an editorial decision, include the relevant comments. The
+assistant uses what you provide and asks about missing facts that would change its answer.
+
+## Improve a manuscript from draft to submission
+
+To ask the assistant to combine the six skills, use a request such as:
+
+> Help me improve this manuscript for submission. Use the six Manuscript Skills where relevant: review
+> the scientific claims and references, clarify applicable policies, recommend suitable journals, edit
+> the prose and adapt the paper to the chosen journal. Start from the manuscript and our existing
+> context. Explain decisions that need my input, make the agreed edits and finish by checking the
+> changes. Reuse completed checks rather than repeating them.
+
+A useful sequence is:
+
+1. **Review the draft and references.** Identify unsupported claims, citation problems and missing
+   material through the integrity and reference checks.
+2. **Resolve scope and choose a journal.** Use policy-fit assessment where the study raises clinical,
+   ethics or privacy questions, then shortlist journals within your research and publication budget.
+   Use your existing target if you have already chosen one.
+3. **Edit and prepare the submission.** Improve the prose and apply the chosen journal's requirements,
+   preserving the results and their qualifications.
+4. **Check the changes.** Verify affected citations, claims and submission requirements, and report any
+   unresolved issues.
+
+The skills contribute to the same manuscript and share findings across these steps. Some tasks may
+already be complete or unnecessary for your study. You can also ask to stop after the review or journal
+shortlist; preparing a manuscript does not itself submit it to a journal.
+
+## Requests you can reuse
+
+For a prose edit:
+
+> Edit the Discussion for clarity and readability. Preserve the claims, numbers, citations and
+> uncertainty, and keep our voice. Show me what changed.
+
+For references:
+
+> Verify the references in this manuscript. Check whether the sources support the main claims in the
+> Abstract and Discussion, and distinguish incorrect citations from sources you could not verify.
+
+For journal selection:
+
+> Suggest journals for this computational aging paper. We can reanalyse public datasets but have no
+> wet-lab budget. Compare scientific fit, publication costs and review speed. We used AI to revise the
+> text, so explain the relevant writing policies too.
+
+You can also ask for an interview to establish your journal preferences, compare AI-policy burdens,
+find journals where named colleagues publish, or check whether a target journal's AI policy has changed.
+
+For adaptation to a journal:
+
+> Prepare this manuscript for initial submission to [journal]. Apply its abstract and length rules,
+> check the required statements and draft the cover letter. Use free-format submission if it is allowed.
+
+For a submission review:
+
+> Review this manuscript before submission to [journal]. Prioritise problems that could affect the
+> scientific conclusions or prevent review. Separate required fixes from optional improvements.
+
+For a scope or ethics question:
+
+> This paper evaluates an annotation tool using my own publicly released genome. Check which
+> requirements apply and clarify the wording so it accurately describes the study and data.
+
+The policy-fit skill also helps with preprint screening decisions, including papers referred between
+bioRxiv and medRxiv, and drafts factual clarifications based on the notices you received.
+
+## How to interpret the results
+
+Prose editing aims to preserve your scientific meaning, including uncertainty and limitations. The
+assistant reviews the changes and uses checks that can flag altered numbers, citations and terminology.
+These checks help catch mistakes; you should still review the edited text before using it.
+
+Reference checking distinguishes a source's identity from its support for a particular sentence. A DOI
+that resolves to the right paper does not establish that the paper supports your claim. The assistant
+reads the relevant source material and identifies what it could not verify; a failed lookup alone is
+not evidence that a reference was invented.
+
+Journal coverage is strongest in bioinformatics, genomics, genetics and aging research. The catalogue
+also includes preprint servers and policy notes for machine-learning conferences. Entries have sources
+and dates, but some are incomplete and policies change. The assistant checks current requirements that
+affect its recommendations and reports material uncertainties. Review-time comparisons distinguish
+initial editorial decisions from decisions after external peer review.
+
+For ethics and privacy questions, the assessment depends on what the study actually did, the data used
+and the chosen journal. Public reanalysis, an author's voluntary release of their own data and research
+involving recruited participants can raise different requirements. Applicable exceptions are considered;
+a missing declaration alone does not establish that an approval was required.
+
+AI-use statements draw on your account of what the tools did and the journal's required fields and
+exemptions. Optional AI-text detector checks run only when requested. Their scores are fallible style
+signals, not evidence of authorship or a guarantee of acceptance. A hosted detector requires your
+agreement before the manuscript is sent to that service.
+
+## Installation
+
+Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all six skills.
+
+In **Codex**, install it from the **DNA Seq Genomics** marketplace.
+
+<details>
+<summary>Installation commands for Claude Code</summary>
+
+From the DNA Seq marketplace:
 
 ```bash
 claude plugin marketplace add dna-seq/dna-seq-claude-marketplace
 claude plugin install manuscript-skills@dna-seq
 ```
 
-or straight from this repository:
+Or directly from this repository:
 
 ```bash
 claude plugin marketplace add dna-seq/manuscript-skills
 claude plugin install manuscript-skills@manuscript-skills
 ```
 
-Codex: install `manuscript-skills` from the **DNA Seq Genomics** marketplace (see the marketplace README).
+</details>
 
-The scripts need [`uv`](https://docs.astral.sh/uv/) on PATH and run as `uv run --script …`; their dependencies
-install on first use. Reference checking needs network access (Crossref, PubMed E-utilities, arXiv);
-mechanical manuscript checks run offline. Live policy checks, peer-publication lookups and hosted detectors
-also need network access. The installed [humanizer](https://github.com/blader/humanizer) skill is optional:
-`manuscript-journal-adapt` uses its pattern catalogue for spotting when it is present.
-
-## Try it
-
-```text
-Check this manuscript before I submit it to my target journal.
-Verify every reference in this manuscript and tell me which ones don't exist or don't match.
-Rank life-science and bioinformatics journals by how strict their AI policy is for this manuscript.
-Choose journals for this in-silico-only paper: no wet-lab budget, open-source support and review speed matter.
-Adapt this manuscript to the requirements of the journal I choose.
-Copy-edit this section so it doesn't read as AI-generated, without changing any claim.
-Write the shortest AI-use statement my target journal accepts.
-Check whether this software paper's wording could be mistaken for clinical research.
-I publicly released my own genome. Clarify its use without implying a recruited patient cohort.
-Compare the ethics and privacy requirements of suitable preprint servers for this manuscript.
-Draft a scope clarification after bioRxiv and medRxiv referred this paper to each other.
-```
-
-The scripts also run on their own:
-
-```bash
-uv run --script skills/manuscript-integrity-check/scripts/scan.py paper.md --online --venue <venue-key>
-uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --ai-use revision --min-jif 5   # also lists the venue keys
-uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --study-design public-data --validation-available none
-uv run --script skills/manuscript-journal-adapt/scripts/venues.py show <venue-key>
-uv run --script skills/manuscript-journal-adapt/scripts/guard.py paper.md --against HEAD
-uv run --script skills/manuscript-journal-adapt/scripts/style_profile.py paper.md --sample my_earlier_paper.md
-```
-
-LaTeX manuscripts work too: the scan reads the `.bib` named in `\bibliography{…}`, resolves its DOIs,
-PMIDs and arXiv ids, and checks every `\cite` key.
-
-## Optional: free AI-text detectors
-
-Only when you want a detector's view, and only free ones. A score is a hint about where to reread, never
-evidence and never a target.
-
-```bash
-uv run --script skills/manuscript-journal-adapt/scripts/detector_setup.py check        # what can run here
-uv run --script skills/manuscript-journal-adapt/scripts/detect.py paper.md --sample my_2021_paper.md
-```
-
-`check` reports a Hugging Face token, GPU, memory, disk and cached models, recommends a detector (local
-ModernBERT by default, so the manuscript stays on your machine) and lists the page for any missing token;
-`detector_setup.py open hf-token` opens it when requested. `detect.py` scores windows of
-120 to 400 words, marks each flagged, not flagged or not assessed, and calibrates its threshold on your own
-earlier writing. The hosted free tier (AI or Not) runs only with `--allow-remote`. `detect.py` needs torch and
-transformers (a few GB on first run), so it is not part of the pre-commit hook.
-
-## Pre-commit hook
-
-An optional hook reports mechanical findings and paragraphs with dense style patterns. Use `--advisory`
-to keep drafting and committing without a submission-readiness gate. Without it, chatbot leftovers and
-recorded venue return limits fail a commit; `--strict` also gates major findings. AI mentions and metric
-counts cannot establish a policy violation. Offline: no reference resolution or third-party detectors.
-
-```yaml
-# .pre-commit-config.yaml in the manuscript repository
-repos:
-  - repo: https://github.com/dna-seq/manuscript-skills
-    rev: main
-    hooks:
-      - id: manuscript-check
-        files: ^paper/.*\.(md|tex)$
-        args: [--advisory, --venue, <venue-key>] # omit --advisory only if you want a commit gate
-```
-
-## What these skills will not do
-
-They do not edit text to lower an AI-detector score, insert errors to look human, or paraphrase through
-other tools: detectors are unreliable evidence either way, and those tricks make the paper worse. They do
-not invent references; suggested citations are verified first. Disclosures use accurate known facts and
-only the fields and placements actually needed. The skills distinguish checkable artifacts from
-author-reported process and editorial judgement, and do not demand private histories or fabricate them.
-
-## Limits
-
-- The [ethics/scope policy notes](skills/manuscript-policy-fit/references/venue-policies.md) distinguish
-  retrieved policy text, indexed excerpts and research entry points. They require live target checks;
-  the AI-policy ranking does not measure ethics/privacy burden. Personal self-release can support a
-  different analysis from recruited research, but is not a universal legal or venue exemption.
-- The venue data covers life-science, bioinformatics and genomics journals plus the main
-  preprint servers and ML conferences; add others to `venues.yaml` from their author guidelines. A venue marked `null` for a field was not researched there; read its page.
-- Vocabulary and style signals are risk indicators, not proof of anything. Corpus studies of LLM vocabulary
-  cannot identify an individual paper, and word lists also flag non-native writers.
-- Checking that a reference *supports* its sentence still needs a reader. The scanner proves the reference
-  exists and matches; the skill tells you which claims to check by hand.
-
-## Development
-
-```bash
-uv run pytest            # offline tests for scan.py, guard.py and venues.py
-claude plugin validate .
-```
-
-To update a venue, edit `skills/manuscript-integrity-check/references/venues.yaml` and its sources in the
-reference files beside it, change `checked`, and run the tests.
+The automated checks require [uv](https://docs.astral.sh/uv/) on the computer running the assistant;
+their dependencies install on first use. Ask the assistant to check the setup if needed. Looking up
+references and current journal policies requires internet access.
 
 ## Licence
 
-MIT. Research and writing aid; not legal or editorial advice. Journal policies are quoted from their own
-pages, and those pages govern.
+[MIT](LICENSE). Journal policies remain governed by the journals' own published guidance.

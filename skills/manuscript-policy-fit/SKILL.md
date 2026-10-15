@@ -6,8 +6,8 @@ description: >-
   exemptions, clarify voluntarily self-published author genomes or biomedical data, compare preprint
   servers and journals, and draft scope clarifications or reviewer replies. Use for policy-friction
   reviews, bioRxiv/medRxiv referral loops, human-data wording and proportionate ethics statements.
-  Use manuscript-journal-select for a full journal shortlist and manuscript-journal-adapt for AI-use
-  statements, general copy editing and venue formatting.
+  Use manuscript-journal-select for a full journal shortlist, manuscript-journal-adapt for AI-use
+  statements and venue formatting, and manuscript-prose-edit for general language editing.
 ---
 
 # Manuscript policy fit
@@ -97,7 +97,7 @@ keywords or automated thresholds.
 
 When editing is authorised, make the focused changes and review the diff. Preserve results, sample sizes,
 identifiers, citations and scientific meaning. Mark any proposed narrowing of a substantive claim as a
-claim correction, not cosmetic rephrasing. The companion `manuscript-journal-adapt/scripts/guard.py` can
+claim correction, not cosmetic rephrasing. The companion `manuscript-prose-edit/scripts/guard.py` can
 help with selected mechanical changes, but cannot establish policy fit or semantic equivalence.
 
 ## Compare venues or resolve a referral loop

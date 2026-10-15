@@ -11,7 +11,7 @@ section at a time:
 Use it when the author requests reflection mode or independent agents. It can help with an important
 section that still has concrete writing problems; section type or past AI use does not make it
 mandatory. A single pass is the default for any section. Follow the shared author-priority rules and
-the output defaults in `humanize-contract.md`.
+the output defaults in `prose-edit-contract.md`.
 
 ## Loop
 
@@ -69,7 +69,7 @@ Section:
 
 ```text
 You are a scientific copy editor, not an author. Edit the section below to fix exactly the findings
-listed, under the contract in {path}/humanize-contract.md (section 1). In short: keep every claim,
+listed, under the contract in {path}/prose-edit-contract.md (section 1). In short: keep every claim,
 number, citation, hedge, negation, limitation and technical term; add nothing; do not merge or split
 paragraphs; match the authors' voice from the sample if one is given.
 

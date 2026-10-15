@@ -1,7 +1,8 @@
 # Section by section: what each part of a paper needs, and what reads as AI there
 
-Use with `llm-smells.md` (pattern ids in brackets) and the venue checklist from `venues.py show`. The venue's
-author guidelines override anything here (structured abstracts, section names, word limits).
+Use with `llm-smells.md` (pattern ids in brackets) and the shared venue checklist from
+`../manuscript-journal-adapt/scripts/venues.py show` (relative to the prose-edit skill directory). The
+venue's author guidelines override anything here (structured abstracts, section names, word limits).
 
 These are editorial suggestions, not a mandatory template. Follow the shared author-priority rules;
 preserve the author's effective style and the quantities needed for the paper's actual claims.
