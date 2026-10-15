@@ -222,8 +222,9 @@ AI_DISCLOSURE = [
 DECLARATIONS = [
     ("AI-use disclosure", AI_DISCLOSURE, Severity.blocker),
     ("Data availability", [r"data availability", r"availability of data"], Severity.major),
-    ("Code / software availability", [r"code availability", r"software availability",
-                                      r"availability and implementation"], Severity.major),
+    ("Code / software availability", [r"code availability", r"software availability", r"code and data availability",
+                                      r"availability and implementation", r"availability and requirements"],
+     Severity.major),
     ("Competing interests", [r"competing interests?", r"conflicts? of interest", r"declaration of interests?"],
      Severity.major),
     ("Funding", [r"\bfunding\b"], Severity.major),
@@ -331,6 +332,52 @@ def _split_entries(entries: list[tuple[int, str]]) -> list[tuple[int, str]]:
     return out
 
 
+LATEX_BIB = re.compile(r"\\(?:bibliography|addbibresource)\{([^}]+)\}")
+LATEX_CITE_KEYS = re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
+BIB_ENTRY = re.compile(r"@(\w+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\}", re.DOTALL)
+BIB_FIELD = re.compile(r"(\w+)\s*=\s*(\{(?:[^{}]|\{[^{}]*\})*\}|\"[^\"]*\"|\d+)", re.DOTALL)
+
+
+def _bib_files(tex: str, base: Path) -> list[Path]:
+    out: list[Path] = []
+    for m in LATEX_BIB.finditer(tex):
+        for name in m.group(1).split(","):
+            f = base / name.strip()
+            f = f if f.suffix == ".bib" else f.with_suffix(".bib")
+            if f.exists():
+                out.append(f)
+    return out
+
+
+def _bib_references(bib: Path) -> list[tuple[str, "Reference"]]:
+    """(cite key, Reference) for each BibTeX entry; text is "author (year). title. venue" for matching."""
+    text = bib.read_text(encoding="utf-8")
+    out: list[tuple[str, Reference]] = []
+    for m in BIB_ENTRY.finditer(text):
+        fields = {k.lower(): re.sub(r"[{}\s]+", " ", v.strip('{}"')).strip() for k, v in BIB_FIELD.findall(m.group(3))}
+        line = text[: m.start()].count("\n") + 1
+        venue = fields.get("journal") or fields.get("booktitle") or fields.get("publisher") or ""
+        entry = f"{fields.get('author', '')} ({fields.get('year', '')}). {fields.get('title', '')}. {venue}"
+        arxiv = ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note", "url")))
+        eprint = fields.get("eprint") if fields.get("archiveprefix", "").lower() == "arxiv" else None
+        out.append((m.group(2), Reference(line=line, text=entry, doi=fields.get("doi") or None,
+                                          pmid=fields.get("pmid") or None,
+                                          arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))))
+    return out
+
+
+def _cite_key_findings(tex_lines: list[str], keys: set[str]) -> list[Finding]:
+    out: list[Finding] = []
+    for i, line in enumerate(tex_lines, start=1):
+        for m in LATEX_CITE_KEYS.finditer(line):
+            for key in (k.strip() for k in m.group(1).split(",")):
+                if key and key not in keys:
+                    out.append(Finding(check="citations", severity=Severity.major, line=i, excerpt=key,
+                                       message=f"\\cite key '{key}' is not in the bibliography file.",
+                                       suggestion="Add the entry (with DOI) or fix the key."))
+    return out
+
+
 def _declaration_findings(text_lower: str) -> list[Finding]:
     out: list[Finding] = []
     for label, patterns, severity in DECLARATIONS:
@@ -375,6 +422,30 @@ def _vocabulary(body_text: str) -> tuple[dict[str, float], list[tuple[str, int]]
     union = set().union(*VOCAB_SOURCES.values())
     hits = Counter({w: lower[w] for w in union if lower[w]})
     return densities, hits.most_common(15), len(words)
+
+
+# "12 of 40 (30%)", "12/40 (30.0%)", "12 out of 40 samples (30 %)": a percentage stated beside its counts.
+PERCENT_OF_RE = re.compile(
+    r"(?<![\w.])(\d[\d,]*)\s*(?:/|of|out of)\s*(\d[\d,]*)(?:\s+[A-Za-z][\w-]*){0,3}\s*[(\[,]\s*(\d+(?:\.\d+)?)\s?%")
+
+
+def _percentages(lines: list[str]) -> list[Finding]:
+    """Recompute every percentage stated beside its counts; a mismatch beyond rounding is flagged."""
+    out: list[Finding] = []
+    for i, line in enumerate(lines, start=1):
+        for m in PERCENT_OF_RE.finditer(line):
+            num, den = int(m.group(1).replace(",", "")), int(m.group(2).replace(",", ""))
+            stated = m.group(3)
+            if den == 0 or num > den:
+                continue
+            decimals = len(stated.split(".")[1]) if "." in stated else 0
+            actual = 100 * num / den
+            if abs(actual - float(stated)) > 0.5 * 10 ** -decimals + 1e-9:
+                out.append(Finding(check="numbers", severity=Severity.major, line=i,
+                                   excerpt=_excerpt(line, m.start(), m.end()),
+                                   message=f"{num}/{den} is {actual:.{max(decimals, 1)}f}%, not {stated}%.",
+                                   suggestion="Recompute from the counts (and check the counts against the data)."))
+    return out
 
 
 def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Finding]:
@@ -727,8 +798,15 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                "known answers and drop 'first/novel' unless a search shows it.")
     findings += _dashes(lines, ref_start)
     findings += _abstract_numbers(lines, ref_start)
+    findings += _percentages(body_lines)
 
     refs: list[Reference] = []
+    bibs = _bib_files(raw, path.parent) if path.suffix == ".tex" else []
+    if bibs:
+        keyed = [kr for bib in bibs for kr in _bib_references(bib)]
+        refs = [r for _, r in keyed]
+        findings += _cite_key_findings(_lines(raw), {k for k, _ in keyed})
+        ref_start = ref_start or len(lines)  # the bibliography is a separate file, not a missing section
     for line_no, entry in _split_entries(_reference_entries(lines, ref_start)):
         doi = DOI_RE.search(entry)
         pmid = PMID_RE.search(entry)
@@ -746,6 +824,12 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                         f"({', '.join(sorted(set(n.lower() for n in ledger_ai)))}).",
                                 suggestion="The disclosure must cover AI writing and revision, not only AI in "
                                            "the methods; say which sections and what kind of help."))
+    ai_evidence = bool(ledger_ai) or any(f.check == "ai-use" and "commits touching" in f.message for f in findings) \
+        or any(f.check == "ai-use" and f.severity == Severity.info and "mentioned" in f.message for f in findings)
+    for f in findings:
+        if f.check == "declarations" and "AI-use disclosure" in f.message and not ai_evidence:
+            f.severity = Severity.minor
+            f.message += " Nothing in the text or history shows AI use; most venues need a statement only if AI was used."
     if ref_start is None:
         findings.append(Finding(check="references", severity=Severity.major,
                                 message="No references/bibliography heading found; references were not checked.",
@@ -783,9 +867,18 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                   vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails)
 
 
+def _verdict(counts: Counter[str]) -> str:
+    if counts.get("blocker"):
+        return f"not ready: {counts['blocker']} desk-reject trigger(s) to fix first"
+    if counts.get("major"):
+        return f"fix before submitting: {counts['major']} major finding(s), no desk-reject trigger"
+    return "no blocker or major finding from the mechanical checks; the judgement checks in the skill still apply"
+
+
 def to_markdown(report: Report) -> str:
     counts = Counter(f.severity.value for f in report.findings)
     out = [f"# Mechanical scan: {report.path}", "",
+           f"**Readiness:** {_verdict(counts)}", "",
            f"{report.words} words in the body, {report.abstract_words or '?'} in the abstract; findings: "
            + ", ".join(f"{counts.get(s.value, 0)} {s.value}" for s in Severity), "",
            "Listed vocabulary per 1000 words (density, not a verdict): "

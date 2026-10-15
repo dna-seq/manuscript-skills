@@ -84,8 +84,32 @@ def test_chatbot_leftover_is_a_blocker(paper: Path) -> None:
 
 def test_missing_declarations_are_exactly_the_absent_ones(paper: Path) -> None:
     report = scan.scan(paper, online=False, search_unidentified=False)
-    missing = {f.message for f in _checks(report, "declarations")}
-    assert missing == {"No 'AI-use disclosure' statement found.", "No 'Data availability' statement found."}
+    missing = {f.message.split(" statement")[0]: f.severity for f in _checks(report, "declarations")}
+    # No sign of AI use in the text or history: a missing AI statement is minor, not a desk-reject trigger.
+    assert missing == {"No 'AI-use disclosure'": scan.Severity.minor, "No 'Data availability'": scan.Severity.major}
+
+
+def test_missing_ai_disclosure_is_a_blocker_when_the_text_mentions_ai(tmp_path: Path) -> None:
+    p = tmp_path / "paper.md"
+    p.write_text(PAPER.replace("A.B. wrote the paper.", "A.B. wrote the paper with ChatGPT."), encoding="utf-8")
+    report = scan.scan(p, online=False, search_unidentified=False)
+    ai = [f for f in _checks(report, "declarations") if "AI-use" in f.message]
+    assert [f.severity for f in ai] == [scan.Severity.blocker]
+
+
+def test_latex_bibtex_references_and_cite_keys(tmp_path: Path) -> None:
+    (tmp_path / "refs.bib").write_text(
+        "@article{lambert2021,\n  author = {Lambert, Samuel A.},\n  title = {The {Polygenic} Score Catalog},\n"
+        "  journal = {Nature Genetics},\n  year = {2021},\n  doi = {10.1038/s41588-021-00783-5}\n}\n"
+        "@misc{tool2026,\n  author = {Doe, Jane},\n  title = {A tool},\n  year = {2026},\n"
+        "  eprint = {2403.19087},\n  archivePrefix = {arXiv}\n}\n", encoding="utf-8")
+    tex = tmp_path / "paper.tex"
+    tex.write_text("\\section{Intro}\nScores \\citep{lambert2021,missing2020} and a tool \\cite{tool2026}.\n"
+                   "\\bibliography{refs}\n", encoding="utf-8")
+    report = scan.scan(tex, online=False, search_unidentified=False)
+    assert [(r.doi, r.arxiv) for r in report.references] == [("10.1038/s41588-021-00783-5", None), (None, "2403.19087")]
+    assert [f.excerpt for f in _checks(report, "citations") if "not in the bibliography" in f.message] == ["missing2020"]
+    assert not [f for f in _checks(report, "references") if "No references" in f.message]
 
 
 def test_citation_consistency_handles_hyphens_and_curly_apostrophes(paper: Path) -> None:
@@ -177,3 +201,78 @@ def test_friction_orders_the_policy_extremes() -> None:
 def test_venues_yaml_parses_and_is_dated() -> None:
     raw = yaml.safe_load((SKILLS / "manuscript-integrity-check" / "references" / "venues.yaml").read_text())
     assert raw["checked"] is not None and raw["venues"]
+
+
+profile = _load("profile", SKILLS / "manuscript-journal-adapt" / "scripts" / "profile.py")
+
+SLOPPY = """# Intro
+
+In recent years, polygenic scores have garnered significant attention. It is important to note that they play a pivotal role in the evolving landscape of precision medicine, highlighting the importance of genetics. Furthermore, they hold great promise. Overall, these findings underscore the importance of further research.
+
+The pipeline annotated 4 genomes in 40 s each (Table 2), using 3.1 GB of memory, and agreed with the reference implementation on 1,204 of 1,206 scores [3].
+
+## References
+
+Smith, J. (2020). It is important to note that this line is a reference and must not be profiled.
+"""
+
+AUTHOR_SAMPLE = """We sequenced 12 samples on two flow cells. Coverage was 31x on average (range 24-38x) and we dropped one
+sample with a contamination estimate above 3%. The variant caller was run with default settings except for the
+minimum base quality, which we raised to 20 because the first run produced 40% more false positives in the
+truth-set regions than the vendor reported.
+
+We then compared our calls with the GIAB truth set. Recall was 0.97 for SNVs and 0.91 for indels; most missed
+indels were in homopolymers longer than 8 bp, which the short reads could not span."""
+
+
+def test_profile_ranks_the_sloppy_paragraph_and_skips_references() -> None:
+    doc = profile.profile_text(SLOPPY, False, profile.load_smells(), profile.load_kobak())
+    paras = doc["paragraphs"]
+    assert len(paras) == 2  # the references section is not profiled
+    sloppy, clean = paras
+    assert sloppy["smells_per_100_words"] > clean["smells_per_100_words"] == 0
+    assert {"A1", "A2", "A3", "A8", "A9", "B5", "C5"} <= set(sloppy["hits"])
+    assert sloppy["anchors"] == 0 and clean["anchors"] >= 5
+
+
+def test_profile_counts_latex_citations_as_anchors_and_skips_tables() -> None:
+    tex = ("Our method was faster than the baseline \\citep{smith2020} on all genomes.\n\n"
+           "\\begin{table}\nIt is important to note that this is inside a table.\n\\end{table}\n")
+    doc = profile.profile_text(tex, True, profile.load_smells(), profile.load_kobak())
+    assert [p["anchors"] for p in doc["paragraphs"]] == [1]
+    assert doc["smell_totals"] == {}
+
+
+def test_profile_baseline_flags_departures_from_the_authors_own_writing() -> None:
+    smells, kobak = profile.load_smells(), profile.load_kobak()
+    doc = profile.profile_text(SLOPPY, False, smells, kobak)
+    base = profile.profile_text(AUTHOR_SAMPLE, False, smells, kobak)
+    departed = {r["measure"] for r in profile.compare(doc, base) if r["departs"]}
+    assert {"smells_per_1000_words", "llm_vocabulary_per_1000_words",
+            "connector_starts_per_100_sentences"} <= departed
+
+
+def test_smell_patterns_compile_and_match_the_catalogue_ids() -> None:
+    smells = profile.load_smells()
+    catalogue = (SKILLS / "manuscript-journal-adapt" / "references" / "llm-smells.md").read_text()
+    for sid in smells:
+        assert f"### {sid}." in catalogue, sid
+
+
+@pytest.mark.parametrize("text, flagged", [
+    ("Recall was high: 12 of 40 (30%) variants.", False),
+    ("Recall was high: 12 of 40 (35%) variants.", True),
+    ("We found 1,204/1,206 (99.8%) concordant scores.", False),
+    ("We found 1,204/1,206 (99.9%) concordant scores.", True),
+    ("Of these, 7 out of 9 samples (77.8 %) passed.", False),
+    ("Of these, 7 out of 9 samples (78 %) passed.", False),  # rounds correctly at 0 decimals
+    ("Of these, 7 out of 9 samples (77.7 %) passed.", True),
+])
+def test_percentages_are_recomputed_from_their_counts(text: str, flagged: bool) -> None:
+    assert bool(scan._percentages([text])) is flagged
+
+
+def test_readiness_verdict_names_the_worst_tier(paper: Path) -> None:
+    report = scan.scan(paper, online=False, search_unidentified=False)
+    blockers = sum(f.severity == scan.Severity.blocker for f in report.findings)
+    assert blockers > 0 and f"**Readiness:** not ready: {blockers} desk-reject trigger" in scan.to_markdown(report)

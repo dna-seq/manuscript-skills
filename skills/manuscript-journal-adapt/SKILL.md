@@ -73,10 +73,13 @@ Restructuring changes content placement, so present it as a list and apply it on
 
 ## Mode C: copy-edit ("humanize")
 
-Read `references/humanize-contract.md` and keep to it. In short:
+Read `references/humanize-contract.md` (the contract and the full procedure) and
+`references/llm-smells.md` (about 70 patterns, general and manuscript-specific, each with a bad example, a
+fix and when to leave it). In short:
 
-1. **Targets.** Run the integrity scan; its stock-phrase, vocabulary, participle-tail, em-dash and overclaim
-   findings, plus a read for empty implications, synonym drift and boilerplate limitations, are the list.
+1. **Targets.** `uv run --script scripts/profile.py PAPER.md [--sample AUTHORS.md]` ranks paragraphs by
+   density of named smells and, given the authors' own writing, shows where the style departs from it.
+   The integrity scan adds the mechanical findings.
 2. **Voice.** Get two to five paragraphs the authors wrote themselves, ideally from before any AI help, and
    match them.
 3. **Edit under the contract.** Wording only: no new facts, numbers, citations, implications or limitations;
@@ -88,8 +91,13 @@ Read `references/humanize-contract.md` and keep to it. In short:
 5. **Guard.** `uv run --script scripts/guard.py BEFORE AFTER` (or `FILE --against <git ref>`). Exit 1 means a
    protected item changed: revert it or have the authors confirm it. Read every watched change (hedges,
    negations, causal verbs, comparatives).
-6. **Re-run** the integrity scan. If the project marks revised segments (its own revision markers), mark the
+6. **Re-run** the integrity scan and the profile. If the project marks revised segments (its own revision markers), mark the
    edited ones the way it already does; this skill adds no logging of its own.
+
+**Reflection mode** (`references/reflection-mode.md`): for the sections reviewers read first, run a critic
+subagent (reads cold, names what still reads as machine-written or unsupported) and a writer subagent
+(fixes exactly that under the contract) for at most two rounds, with the guard after every pass. The
+stopping rule is about content, never about a detector score.
 
 Never: run a detector to decide what to rewrite, insert errors or typos, cycle synonyms or vary sentence
 length for "burstiness", paraphrase through another tool or a round-trip translation, or remove hedges and
@@ -113,7 +121,14 @@ supplement as well, and make sure every AI-drafted passage has been rewritten by
   `../manuscript-integrity-check/references/venues.yaml`, so keep the two skills together.
 - `scripts/guard.py`: before/after drift check of numbers, citations, identifiers, terms, URLs, code
   (protected) and hedges, negations, causal verbs, comparatives (watched).
-- `references/humanize-contract.md`: the contract, the pattern table, voice calibration, the after-pass steps.
+- `scripts/profile.py`: smell density per paragraph and style measures, optionally against the authors' own
+  writing; not a detector and not a probability.
+- `references/humanize-contract.md`: the contract, invocation modes, writer profile, inventory, rewriting,
+  the literal gate, the scaffolding audit, output format, register by text type.
+- `references/llm-smells.md`: the catalogue of smells with examples, false positives, signs of human writing.
+- `references/smell-patterns.yaml`: the machine-detectable part of the catalogue, read by `profile.py`.
+- `references/reflection-mode.md`: the critic and writer agents, their prompts, the stopping rule.
+- `references/section-guide.md`: what each part of a paper needs, from title to response letter.
 - `references/detector-evidence.md`: what 2026 evidence says about AI-text detectors, disclosure rates and
   humanizer tools
   (which open-source humanizers are fit for manuscripts, and which are detector-evasion tools).

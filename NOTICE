@@ -1,0 +1,20 @@
+manuscript-skills
+Copyright (c) 2026 DNA Seq. Licensed under the MIT License (see LICENSE).
+
+skills/manuscript-journal-adapt/references/llm-smells.md and humanize-contract.md adapt patterns, rules and
+process steps from the following MIT-licensed projects. The text and examples here are rewritten for
+scientific manuscripts; detector-evasion techniques from these projects are deliberately not included.
+
+- humanizer, https://github.com/blader/humanizer
+  Copyright (c) 2025 Siqi Chen. MIT License.
+  Its pattern catalogue is based on Wikipedia's "Signs of AI writing" (WikiProject AI Cleanup).
+
+- humanize, https://github.com/harshaneel/humanize
+  Copyright (c) 2026 Harshaneel Gokhale. MIT License.
+  Adapted: editing levers 3 to 8, the rhetorical-scaffolding checklist, the literal pre-output gate and the
+  writer-profile step. Not adapted: perplexity injection, burstiness targets, RLHF-voice stripping,
+  detector-scored selection and paraphrase passes.
+
+skills/manuscript-integrity-check/references/kobak_2024_style_words.csv is recomputed from the yearly word
+counts published by Kobak et al. (Science Advances 11(27):eadt3813, 2025;
+https://github.com/berenslab/llm-excess-vocab) using the paper's published formula.

@@ -18,8 +18,13 @@ Two skills, for Claude Code and Codex:
 - **`manuscript-journal-adapt`** changes text, under a contract that a guard script enforces.
   - It ranks venues by how hard their AI policy falls on the paper and turns a chosen venue's rules into a
     checklist.
-  - It copy-edits prose so it stops reading as AI slop. Every number, citation, identifier, term, hedge and
-    negation must survive, and `guard.py` checks that they did.
+  - It copy-edits prose so it stops reading as AI slop, following a catalogue of about 70 general and
+    manuscript-specific patterns, each with a bad example, a fix and when to leave it. Every number,
+    citation, identifier, term, hedge and negation must survive, and `guard.py` checks that they did.
+  - `profile.py` ranks paragraphs by density of named smells and compares the style with a sample of the
+    authors' own writing. It is not a detector and reports no probabilities.
+  - Reflection mode alternates a critic agent (reads cold, names what still reads as machine-written) and a
+    writer agent (fixes exactly that) for at most two rounds, with the guard after each pass.
 
 The policy data was read from each venue's own pages on 15 October 2026. Policies changed several times in
 2026, so re-read the target journal's page before you submit.
@@ -65,6 +70,27 @@ uv run --script skills/manuscript-integrity-check/scripts/scan.py paper.md --onl
 uv run --script skills/manuscript-journal-adapt/scripts/venues.py rank --ai-use revision --min-jif 5   # also lists the venue keys
 uv run --script skills/manuscript-journal-adapt/scripts/venues.py show <venue-key>
 uv run --script skills/manuscript-journal-adapt/scripts/guard.py paper.md --against HEAD
+uv run --script skills/manuscript-journal-adapt/scripts/profile.py paper.md --sample my_earlier_paper.md
+```
+
+LaTeX manuscripts work too: the scan reads the `.bib` named in `\bibliography{…}`, resolves its DOIs,
+PMIDs and arXiv ids, and checks every `\cite` key.
+
+## Pre-commit hook
+
+Fail a commit on desk-reject triggers (chatbot leftovers, placeholders, a missing AI disclosure where AI
+is mentioned, a venue length limit exceeded by 20%+), and see the paragraphs with the densest smells.
+Offline: no reference resolution and no third-party detectors.
+
+```yaml
+# .pre-commit-config.yaml in the manuscript repository
+repos:
+  - repo: https://github.com/dna-seq/manuscript-skills
+    rev: main
+    hooks:
+      - id: manuscript-check
+        files: ^paper/.*\.(md|tex)$
+        args: [--venue, <venue-key>]      # optional; add --strict or --max-smells 8 to be stricter
 ```
 
 ## What these skills will not do

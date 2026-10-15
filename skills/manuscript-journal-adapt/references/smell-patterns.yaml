@@ -1,0 +1,233 @@
+# Machine-detectable smells, keyed to the entries of llm-smells.md. Read by scripts/profile.py.
+# Each pattern is a case-insensitive regex matched within one sentence. `scope: start` matches only at the
+# start of a sentence; `scope: end` only in a paragraph's last sentence. A hit is a place to look, never a
+# verdict: read the entry in llm-smells.md, including its "Leave it when".
+
+smells:
+  A1:
+    name: significance inflation
+    patterns:
+      - 'plays? an? (?:pivotal|crucial|vital|key|critical|significant|important|central|essential) role'
+      - 'paradigm shift'
+      - '\btransformative\b'
+      - '\brevolution(?:i[sz]es?|i[sz]ing|ary)\b'
+      - 'game[- ]chang'
+      - '\bgroundbreaking\b'
+      - '\bcornerstone of\b'
+      - 'of paramount importance'
+      - 'unlock(?:s|ing)? the (?:full )?potential'
+      - 'shed(?:s|ding)? (?:new )?light on'
+  A2:
+    name: field-landscape opener
+    patterns:
+      - '^in recent years\b'
+      - '^with the advent of\b'
+      - '\bin the era of\b'
+      - 'rapidly (?:evolving|growing|changing)'
+      - 'has (?:garnered|attracted|gained|received) (?:significant|considerable|growing|increasing|much|substantial) attention'
+      - 'has emerged as an? (?:powerful|promising|valuable|important|essential)'
+      - 'a growing body of (?:evidence|literature|research|work)'
+      - '\bevolving landscape\b'
+  A3:
+    name: empty implication
+    patterns:
+      - '(?:important|significant|profound|broad|far-reaching) implications for'
+      - 'pave[sd]? the way'
+      - 'opens? (?:up )?new avenues'
+      - 'holds? (?:great|immense|significant|considerable|much) promise'
+      - 'lays? the (?:ground ?work|foundation)'
+      - 'deeper understanding of'
+      - 'valuable insights?'
+      - 'promising avenue'
+  A4:
+    name: promotional tool language
+    patterns:
+      - '\bseamless(?:ly)?\b'
+      - '\buser[- ]friendly\b'
+      - '\bcutting[- ]edge\b'
+      - '\bstate[- ]of[- ]the[- ]art\b'
+      - '\bpowerful (?:tool|framework|approach|platform|method|pipeline)\b'
+      - '\bversatile\b'
+      - '\bstreamlined?\b'
+      - '\bone[- ]stop\b'
+      - '\beasy[- ]to[- ]use\b'
+  A5:
+    name: unchecked priority claim
+    patterns:
+      - 'to the best of our knowledge'
+      - 'for the first time'
+      - '\bunprecedented\b'
+      - '\b(?:first|novel) (?:tool|framework|approach|method|platform|study|pipeline|system)\b'
+  A6:
+    name: vague authority
+    patterns:
+      - 'studies have (?:shown|demonstrated|suggested)'
+      - 'it is (?:well[- ])?(?:established|known|documented|recognized) that'
+      - 'research (?:suggests|has shown|indicates)'
+      - 'experts (?:agree|believe|argue)'
+      - 'researchers (?:have )?increasingly'
+      - 'it has been (?:widely )?reported'
+  A7:
+    name: boilerplate limitations
+    patterns:
+      - 'further (?:research|studies|work|investigation)s? (?:is|are) (?:needed|warranted|required)'
+      - 'future (?:studies|research|work) should'
+      - 'larger (?:and more diverse )?(?:cohorts|samples|datasets)'
+      - 'despite these (?:challenges|limitations)'
+      - 'despite (?:its|their) (?:promising|encouraging)'
+  A8:
+    name: mini-conclusion
+    scope: end
+    patterns:
+      - '^(?:overall|taken together|in summary|collectively|in conclusion|to summari[sz]e|in short),'
+      - 'these (?:findings|results|data|observations) (?:underscore|highlight|demonstrate|emphasi[sz]e|illustrate) the (?:importance|need|potential|value|utility)'
+  A9:
+    name: participle tail
+    patterns:
+      - ',\s+(?:highlighting|underscoring|emphasi[sz]ing|demonstrating|reflecting|showcasing|ensuring|contributing|paving|fostering|offering|providing|enabling|suggesting|indicating|making it)\b[^.]{5,}[.!?]?$'
+  A11:
+    name: speculative mechanism filler
+    patterns:
+      - 'complex interplay'
+      - 'intricate (?:interplay|network|relationship|mechanisms?)'
+      - 'various (?:underlying )?(?:mechanisms|factors)'
+      - 'multifaceted (?:nature|process|interplay)'
+  B3:
+    name: booster
+    patterns:
+      - '\b(?:remarkabl[ey]|dramatic(?:ally)?|tremendous(?:ly)?|vastly|extremely|exceptionally|strikingly)\b'
+  B4:
+    name: hedge stack
+    patterns:
+      - '\b(?:may|might|could) (?:potentially|possibly|perhaps)\b'
+      - '\b(?:possibly|potentially|perhaps) (?:may|might|could)\b'
+  B5:
+    name: filler phrase
+    patterns:
+      - 'it is (?:important|worth|interesting|crucial|critical|essential) to (?:note|mention|highlight|emphasi[sz]e|remember|consider)'
+      - 'it should be (?:noted|mentioned|emphasi[sz]ed)'
+      - 'as (?:mentioned|noted|discussed|described) (?:above|earlier|previously)'
+      - '^in this (?:context|regard),'
+      - 'it goes without saying'
+      - 'needless to say'
+      - 'first and foremost'
+      - 'last but not least'
+      - 'at the end of the day'
+      - '\bin order to\b'
+      - 'due to the fact that'
+      - 'in the event that'
+      - 'has the ability to'
+      - 'generally speaking'
+      - 'it can be argued'
+      - 'it is clear that'
+      - 'for the purpose of'
+  B6:
+    name: copula avoidance
+    patterns:
+      - '\b(?:serves|stands|functions) as (?:a|an|the)\b'
+      - '\bboasts\b'
+  C1:
+    name: negation pivot
+    patterns:
+      - 'not only\b.{1,80}?\bbut(?: also)?\b'
+      - '\bnot (?:just|merely|simply)\b.{1,60}?\b(?:but|it is|it''s)\b'
+      - '\bit is not\b.{1,40}?,\s*(?:it is|but)\b'
+      - 'rather than (?:simply|merely|just)'
+  C4:
+    name: signposting
+    patterns:
+      - 'in this (?:section|paper|study|work|article),? we (?:will )?(?:explore|discuss|delve|present|provide|examine|investigate|describe)'
+      - 'let us (?:now )?(?:turn|consider|explore|examine)'
+      - 'the following section'
+      - '^we begin by\b'
+      - 'this (?:paper|study|work|article) aims to'
+  C5:
+    name: sentence-initial connector
+    scope: start
+    patterns:
+      - '^(?:furthermore|moreover|additionally|in addition|notably|importantly|interestingly|crucially|consequently|indeed),'
+  C6:
+    name: authority trope
+    patterns:
+      - '\bat its core\b'
+      - '^fundamentally,'
+      - '\bin essence\b'
+      - 'the key insight'
+      - 'what (?:truly|really) matters'
+      - 'the real question'
+      - '\bundoubtedly\b'
+  C7:
+    name: rhetorical question
+    patterns:
+      - '\?$'
+  C10:
+    name: aphorism or slogan
+    patterns:
+      - '\bis the (?:new|language|currency|backbone|lifeblood|heart) of\b'
+      - '\bdemocrati[sz](?:e|es|ing)\b'
+  H2:
+    name: announcement colon
+    scope: start
+    patterns:
+      - '^(?:the )?(?:key|main|core|real|bottom|short|simple) (?:insight|point|idea|takeaway|line|answer|rule|problem|challenge|question|lesson)(?: is)?:'
+  H3:
+    name: setup-and-reveal
+    patterns:
+      - '\bit turns out\b'
+      - '\bas it (?:turns|turned) out\b'
+      - 'what we did not expect'
+      - '^surprisingly, it\b'
+  H4:
+    name: comparative framing
+    patterns:
+      - '\bless (?:a|an) [a-z -]{1,30} than\b'
+      - '\bmore (?:a|an) [a-z -]{1,30} than\b'
+      - 'less about\b.{1,40}\bmore about\b'
+  H11:
+    name: fake candour
+    patterns:
+      - "here(?:'s| is) the thing"
+      - '^the thing is\b'
+      - "let(?:'s| us) be honest"
+      - 'make no mistake'
+  H12:
+    name: reframe or landing phrase
+    patterns:
+      - '^seen this way,'
+      - '^put differently,'
+      - 'is where the real'
+      - 'is what (?:truly|really) matters'
+  H14:
+    name: generic positive ending
+    patterns:
+      - 'future (?:looks|is) bright'
+      - 'exciting (?:step|times|avenue|direction)'
+      - 'we hope (?:that )?(?:this|our) (?:tool|work|framework|study)'
+  H15:
+    name: quantifier inflation
+    patterns:
+      - '\ba (?:myriad|plethora|wide array|broad spectrum) of\b'
+      - '\bcountless\b'
+      - '\bin the realm of\b'
+      - 'across (?:diverse|various) domains'
+  F1:
+    name: em dash
+    patterns:
+      - '—'
+      - '\s--\s'
+  G1:
+    name: chat leftover
+    patterns:
+      - 'certainly[,!] here'
+      - 'i hope this helps'
+      - 'as an ai\b'
+      - 'let me know if'
+      - 'would you like me to'
+  G2:
+    name: reader address
+    patterns:
+      - '\byou(?:r|rs)?\b'
+  G3:
+    name: response-letter sycophancy
+    patterns:
+      - 'thank the reviewers? for (?:this|their|the|his|her) (?:excellent|insightful|valuable|thoughtful|helpful|great|constructive)'

@@ -1,0 +1,7 @@
+- id: manuscript-check
+  name: manuscript integrity and style check (offline)
+  description: Fails on desk-reject triggers (chatbot leftovers, placeholders, missing AI disclosure, venue limits); reports smell density.
+  entry: skills/manuscript-integrity-check/scripts/precommit.py
+  language: script
+  files: \.(md|tex)$
+  pass_filenames: true
