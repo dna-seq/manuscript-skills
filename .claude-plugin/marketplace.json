@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "manuscript-skills",
+  "owner": {
+    "name": "DNA Seq",
+    "url": "https://github.com/dna-seq"
+  },
+  "description": "Single-plugin marketplace for local installs; the org catalog is dna-seq/dna-seq-claude-marketplace.",
+  "plugins": [
+    {
+      "name": "manuscript-skills",
+      "source": "./",
+      "description": "Pre-submission integrity checks, journal ranking by AI policy, venue adaptation and content-preserving copy editing for AI-assisted manuscripts.",
+      "license": "MIT",
+      "category": "research",
+      "tags": ["manuscript", "publishing", "ai-disclosure", "references", "journals"]
+    }
+  ]
+}

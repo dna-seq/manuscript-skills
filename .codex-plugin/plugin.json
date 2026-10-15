@@ -1,0 +1,29 @@
+{
+  "name": "manuscript-skills",
+  "version": "0.1.0",
+  "description": "Check AI-assisted manuscripts against 2026 journal desk screens, rank and adapt to journals by AI policy, and copy-edit prose without changing its content.",
+  "author": {
+    "name": "DNA Seq",
+    "url": "https://github.com/dna-seq"
+  },
+  "homepage": "https://github.com/dna-seq/manuscript-skills",
+  "repository": "https://github.com/dna-seq/manuscript-skills",
+  "license": "MIT",
+  "keywords": ["manuscript", "peer-review", "publishing", "ai-disclosure", "references", "journals"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Manuscript Skills",
+    "shortDescription": "Pass the journal desk with an AI-assisted manuscript",
+    "longDescription": "Pre-submission integrity checks, journal ranking by AI policy, venue adaptation and content-preserving copy editing for research manuscripts.",
+    "developerName": "DNA Seq",
+    "category": "Research",
+    "capabilities": ["Research", "Write"],
+    "websiteURL": "https://github.com/dna-seq/manuscript-skills",
+    "brandColor": "#6435C9",
+    "defaultPrompt": [
+      "Check this manuscript before submission.",
+      "Which journals are least strict about AI for this paper?",
+      "Copy-edit this section without changing what it says."
+    ]
+  }
+}

@@ -1,0 +1,314 @@
+# Venue requirements that matter for AI policy, desk screening and manuscript structure.
+# Read by manuscript-integrity-check/scripts/scan.py (--venue length limits) and by
+# manuscript-journal-adapt/scripts/venues.py (rank, show).
+#
+# Every value comes from the venue's own pages as read on `checked` (sources and verbatim quotes:
+# publisher-policies.md, target-journals.md). `null` means not researched, never "no rule".
+# JIFs are the values circulating in mid-2026, not re-checked: confirm in Journal Citation Reports.
+#
+# Vocabularies
+#   writing_help:  free             AI writing help needs no disclosure
+#                  disclose         allowed; substantive help disclosed, language polish exempt
+#                  disclose_all     allowed; even language editing must be disclosed
+#                  red_line         allowed with disclosure, but AI-written results/discussion or
+#                                   prompt-only content is forbidden (Springer Nature Red tier)
+#                  banned_drafting  drafting from a prompt forbidden; only correction aids named (ISCB)
+#   prompts:       no | on_request | encouraged | required
+#   screening:     plagiarism | integrity_signals | may_detect_ai | ai_detector_deployed
+#   extra_burden:  free-text items that cost the authors work beyond a disclosure paragraph
+#   tracking:      required     the venue makes authors record AI use beyond one acknowledgement (prompts,
+#                               deposited outputs, kept versions); venues.py rank leaves these out by default
+#                  recommended  the policy says authors should keep records and may be asked for them
+
+checked: 2026-10-15
+
+venues:
+  bioinformatics:
+    name: Bioinformatics (Original Paper)
+    publisher: OUP / ISCB
+    jif: 5.4
+    status: VERIFIED
+    url: https://academic.oup.com/bioinformatics/pages/author-guidelines
+    ai_policy_url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    writing_help: banned_drafting
+    exempt: [spelling and grammar checking, translation (author responsible), code-writing help, code documentation, LLM as research technique, LLM as evaluation (finding inconsistencies)]
+    disclosure_places: [cover letter, Methods or Acknowledgements, supplementary materials]
+    disclosure_fields: [tool, version, how used, which parts, author oversight]
+    prompts: "no"
+    screening: plagiarism
+    screening_note: ISCB "does not intend to systematically detect usage"; investigates reported cases
+    penalties: [rejection for non-disclosure (OUP), correction or retraction]
+    extra_burden: [supplementary documentation of any LLM help that produced part of the content]
+    limits: {abstract_words: 150, body_words: 5000, over_limit_return: 1.2}
+    abstract_headings: [Motivation, Results, Availability and Implementation, Contact, Supplementary Information]
+    required_sections: [Data availability, Availability and Implementation (in the abstract)]
+    software: [source at a stable URL at submission, "archived version (Zenodo, Software Heritage or Figshare) URL in the abstract", test data, install and run documentation, instructions to reproduce each figure]
+    other_desk_rules: [ML papers validated by leave-one-out are editorially rejected, new methods compared with state of the art, pre-screen returns papers of less significance]
+    software_article: true
+
+  bioinformatics-note:
+    name: Bioinformatics (Application Note)
+    inherits: bioinformatics
+    limits: {abstract_words: 150, body_words: 2600, over_limit_return: 1.2}
+    abstract_headings: [Summary, Availability and Implementation, Contact, Supplementary Information]
+    other_desk_rules: [application name in the title, software available for 2 years, web services without mandatory registration, ML papers validated by leave-one-out are editorially rejected, pre-screen returns papers of less significance]
+
+  briefings-bioinformatics:
+    name: Briefings in Bioinformatics
+    publisher: OUP / ISCB
+    jif: 7.7
+    status: VERIFIED
+    url: https://academic.oup.com/bib/pages/general_instructions
+    inherits: bioinformatics
+    limits: null
+    abstract_headings: null
+    software_article: false
+
+  nar:
+    name: Nucleic Acids Research
+    publisher: OUP
+    jif: 13.1
+    status: VERIFIED
+    url: https://academic.oup.com/nar/pages/author-guidelines
+    ai_policy_url: https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    writing_help: disclose
+    exempt: [spelling and grammar, formatting references]
+    disclosure_places: [cover letter, Acknowledgements, Methods if integral]
+    disclosure_fields: [tool, version, how used, author oversight, dates (recommended), sections (recommended)]
+    prompts: "no"
+    screening: plagiarism
+    penalties: [rejection for non-disclosure, correction or retraction]
+    extra_burden: [update the disclosure at every revision]
+    limits: null
+    required_sections: [Data availability (Zenodo or FigShare DOI at revision)]
+    software: [all code public as a condition of publication, available 5 years]
+    software_article: false
+    fit_note: Web Server or Database issue only
+
+  database:
+    name: "Database: The Journal of Biological Databases and Curation"
+    publisher: OUP (International Society for Biocuration)
+    jif: 3.6
+    status: PARTIAL
+    url: https://academic.oup.com/database/pages/instructions_for_authors
+    inherits: nar
+    limits: null
+    required_sections: null
+    software: null
+    software_article: false
+    fit_note: live 2026 page read only in part; no ISCB adoption found
+
+  gigascience:
+    name: GigaScience
+    publisher: OUP / BGI
+    jif: 3.9
+    status: VERIFIED
+    url: https://academic.oup.com/gigascience/pages/editorial_policies_and_reporting_standards
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [in-text citation, reference list entry, usage summary at the end, cover letter]
+    disclosure_fields: [tool, version, model, date, user name]
+    prompts: encouraged
+    screening: may_detect_ai
+    penalties: [rejection or retraction (COPE route)]
+    extra_burden: [AI outputs deposited in GigaDB or another open repository, AI tool cited as a reference]
+    tracking: required
+    limits: null
+    software: [OSI licence, archived version with DOI, WorkflowHub for workflows]
+    software_article: true
+    fit_note: BGI dismissed the editorial team in Sept 2025; 30 of 49 board members resigned (secondary report)
+
+  csbj:
+    name: Computational and Structural Biotechnology Journal
+    publisher: AAAS Science Partner Journal (left Elsevier 2026-01-31)
+    jif: 4.1
+    status: VERIFIED
+    url: https://spj.science.org/page/csbj/publication-ethics
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [cover letter, Acknowledgments, Methods]
+    disclosure_fields: [tool, version, full prompt]
+    prompts: required
+    screening: plagiarism
+    penalties: [editors may decline, rejection for plagiarism]
+    extra_burden: [the full prompts in Methods]
+    tracking: required
+    limits: null
+    software_article: true
+
+  genome-biology:
+    name: Genome Biology
+    publisher: BMC / Springer Nature
+    jif: 9.4
+    status: VERIFIED
+    url: https://link.springer.com/journal/13059/submission-guidelines/software
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    writing_help: red_line
+    exempt: []
+    disclosure_places: [AI declaration, Methods]
+    disclosure_fields: [use, author accountability, AI-assisted content labelled]
+    prompts: "no"
+    screening: ai_detector_deployed
+    screening_note: publisher-wide nonsense-text detector, irrelevant-reference checker, tortured-phrase tool; editor guidance calls detectors "far from definitive"
+    penalties: [withdrawal (reference checker), rejection or retraction for hallucinated references, institution notified]
+    extra_burden: []
+    limits: null
+    software: [public repository with OSI licence, Availability and requirements block with archived DOI]
+    software_article: true
+
+  genome-medicine:
+    name: Genome Medicine
+    publisher: BMC / Springer Nature
+    jif: 11.2
+    status: VERIFIED
+    inherits: genome-biology
+    url: https://link.springer.com/journal/13073/submission-guidelines/software
+    fit_note: clinical genomics venue; expects clinical relevance and safeguards
+
+  bmc-bioinformatics:
+    name: BMC Bioinformatics
+    publisher: BMC / Springer Nature
+    jif: 3.3
+    status: VERIFIED
+    inherits: genome-biology
+    url: https://link.springer.com/journal/12859/submission-guidelines
+
+  scientific-data:
+    name: Scientific Data
+    publisher: Springer Nature
+    jif: 6.9
+    status: VERIFIED
+    inherits: genome-biology
+    url: https://www.nature.com/sdata/policies/ai
+    software: [Code availability statement]
+    software_article: false
+    fit_note: Data Descriptors (datasets), not software papers
+
+  plos-comp-biol:
+    name: PLOS Computational Biology (Software)
+    publisher: PLOS
+    jif: 3.6
+    status: VERIFIED
+    url: https://journals.plos.org/ploscompbiol/s/ethical-publishing-practice
+    writing_help: disclose
+    exempt: [spelling and grammar, rephrasing for clarity or conciseness]
+    disclosure_places: [Methods, Acknowledgements or figure legend]
+    disclosure_fields: [tools, how used, what it affected, how outputs were validated]
+    prompts: "no"
+    screening: may_detect_ai
+    penalties: [investigation, rejection, retraction, expression of concern, institution notified]
+    extra_burden: [AI-written code must be disclosed]
+    limits: null
+    software: [OSI-compliant source code, documentation, test data]
+    software_article: true
+
+  peerj:
+    name: PeerJ / PeerJ Computer Science
+    publisher: Taylor & Francis
+    jif: 3.8
+    status: VERIFIED
+    url: https://peerj.com/about/policies-and-procedures/
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Methods or Acknowledgments]
+    disclosure_fields: [tool, version, how, why]
+    prompts: on_request
+    screening: plagiarism
+    penalties: [undisclosed use listed as misconduct, decline, institution notified, retraction]
+    extra_burden: [keep both the original and the AI-edited version]
+    tracking: required
+    limits: null
+    software_article: true
+
+  patterns:
+    name: Patterns
+    publisher: Cell Press / Elsevier
+    jif: 7.4
+    status: VERIFIED
+    url: https://www.cell.com/cell/information-for-authors/journal-policies
+    writing_help: disclose
+    exempt: [grammar, spelling, reference tools]
+    disclosure_places: [titled declaration after Declaration of interests, STAR Methods if AI is part of the method]
+    disclosure_fields: [tool, version, developer, purpose, oversight]
+    prompts: on_request
+    screening: integrity_signals
+    penalties: [fabricated references may lead to rejection]
+    extra_burden: [no AI-generated cover art or graphical abstracts, no AI change to data images]
+    tracking: recommended
+    limits: null
+    software_article: false
+
+  cell-genomics:
+    name: Cell Genomics
+    inherits: patterns
+    jif: 9.0
+
+  iscience:
+    name: iScience
+    inherits: patterns
+    jif: 4.1
+    url: https://www.cell.com/iscience/information-for-authors/journal-policies
+
+  genome-research:
+    name: Genome Research
+    publisher: Cold Spring Harbor Laboratory Press
+    jif: 5.5
+    status: VERIFIED
+    url: https://genome.cshlp.org/ifora_Artificial
+    writing_help: disclose
+    exempt: [refining, editing, grammar tools]
+    disclosure_places: [Methods]
+    disclosure_fields: [tool, version, full description]
+    prompts: "no"
+    screening: plagiarism
+    penalties: [non-disclosure may be construed as misconduct (ICMJE)]
+    extra_burden: []
+    limits: null
+    software_article: false
+    fit_note: expects new genome biology or methods with biological insight
+
+  f1000research:
+    name: F1000Research
+    publisher: Taylor & Francis (F1000)
+    jif: null
+    status: VERIFIED
+    url: https://f1000research.com/about/policies
+    writing_help: disclose
+    exempt: []
+    disclosure_places: [Methods or Acknowledgments]
+    disclosure_fields: [tool, version, how, why]
+    prompts: "no"
+    screening: plagiarism
+    penalties: [editorial investigation]
+    extra_burden: [one clause lists computer code among things AI may not create; ask before relying on coding help]
+    limits: null
+    software_article: true
+
+  wellcome-open-research:
+    name: Wellcome Open Research
+    inherits: f1000research
+    url: https://wellcomeopenresearch.org/about/policies
+    fit_note: Wellcome-funded authors only
+
+  open-research-europe:
+    name: Open Research Europe
+    inherits: f1000research
+    url: https://open-research-europe.ec.europa.eu/about/policies
+    fit_note: EU-funded outputs only
+
+  elife:
+    name: eLife
+    publisher: eLife
+    jif: null
+    status: VERIFIED
+    url: https://reviewer.elifesciences.org/author-guide/journal-policies
+    writing_help: disclose
+    exempt: []
+    disclosure_places: [Materials and Methods]
+    disclosure_fields: [use]
+    prompts: "no"
+    screening: plagiarism
+    penalties: []
+    extra_burden: [no AI-generated striking images]
+    limits: null
+    software_article: false
