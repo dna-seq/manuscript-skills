@@ -1,0 +1,207 @@
+# SEEDED COPY for evals and tests: R2.P1's first commitment never landed.
+# Review ledger for the VarLens manuscript: the authors' working map of the referees' comments.
+# It is never sent to the journal. Item order is the referees' order; ids keep the referees' own labels,
+# and labels the authors added (unnumbered comments, split parts) are marked with label: null.
+manuscript: paper-v2.md
+mode: journal
+rounds:
+  - round: 1
+    decision: major revision
+    reviews: reviews-r1.txt
+    original: paper-v1.md
+    revised: paper-v2.md
+    line_numbers: file lines of paper-v2.md (the clean revised manuscript)
+    plan: revise
+    items:
+      - id: Ed.P1
+        referee: Editor
+        label: null
+        comment: Please also add a Code availability statement that cites an archived release of the software.
+        concern: Readers need a citable, archived copy of the code that was evaluated.
+        asks: A Code availability statement naming an archived release.
+        evidence: [statement]
+        must_fix: true
+        decision: address
+        commitments:
+          - change: Code availability statement citing the archived release v1.0.0
+            target: Code availability
+            landed: Code availability, lines 95-96
+
+      - id: R1.1
+        referee: Reviewer 1
+        label: "1"
+        comment: >-
+          The benchmark compares VarLens only with its own previous release. The authors should compare runtime
+          and concordance with at least one widely used annotator, such as VEP, on the same genomes.
+        concern: Without an external baseline the speed and accuracy claims cannot be judged.
+        asks: Run VEP on the same genomes and report runtime and agreement.
+        evidence: [new-analysis, table]
+        must_fix: true
+        decision: address
+        commitments:
+          - change: VEP release 111 on HG002 and HG005, runtime and most-severe-consequence agreement
+            target: Methods, Benchmark; Results, new subsection; new Table 2
+            landed: 'Methods, "Benchmark", lines 30-31; Results, "Comparison with VEP", lines 60-62; Table 2'
+
+      - id: R1.2
+        referee: Reviewer 1
+        label: "2"
+        comment: Table 1 reports medians of 3 runs. Please report the spread across runs as well.
+        concern: A median of three runs hides how stable the runtime is.
+        asks: The spread across runs for each genome.
+        evidence: [table, results-text]
+        must_fix: false
+        decision: address
+        commitments:
+          - change: Range across the 3 runs in Table 1 and the Performance paragraph
+            target: Results, Performance; Table 1
+            landed: 'Results, "Performance", lines 46-48; Table 1'
+
+      - id: R1.3a
+        referee: Reviewer 1
+        label: "3"
+        comment: >-
+          The Discussion states that the rewrite "did not change results", but 0.8% of annotations were
+          discordant. Please characterise the discordant annotations by variant class.
+        concern: The claim that results did not change is stronger than 99.2% concordance supports.
+        asks: A breakdown of the discordant annotations by variant class, and a claim that matches it.
+        evidence: [table, results-text, wording]
+        must_fix: true
+        decision: address
+        commitments:
+          - change: Discordant annotations by variant class
+            target: Results, Concordance; new Table 3
+            landed: 'Results, "Concordance", lines 73-74; Table 3'
+          - change: Replace "did not change results" with the measured agreement
+            target: Discussion
+            landed: Discussion, lines 88-89
+
+      - id: R1.3b
+        referee: Reviewer 1
+        label: null
+        comment: Do any of them affect variants classified as pathogenic or likely pathogenic in ClinVar?
+        concern: Discordance at clinically labelled variants would matter more than elsewhere.
+        asks: Whether any discordant annotation falls on a ClinVar pathogenic or likely pathogenic variant.
+        evidence: [answer, results-text]
+        must_fix: false
+        decision: address
+        commitments:
+          - change: Number of discordant ClinVar pathogenic or likely pathogenic variants and what changed
+            target: Results, Concordance
+            landed: 'Results, "Concordance", lines 74-76'
+
+      - id: R1.4a
+        referee: Reviewer 1
+        label: 4a
+        comment: The Abstract gives the memory of the laptop but not the number of cores.
+        concern: The hardware is underspecified in the Abstract.
+        asks: The number of cores in the Abstract.
+        evidence: [wording]
+        must_fix: false
+        decision: address
+        commitments:
+          - change: Add 8 cores to the Abstract
+            target: Abstract
+            landed: Abstract, line 5
+
+      - id: R1.4b
+        referee: Reviewer 1
+        label: 4b
+        comment: Please state the version of the module tables used in the benchmark.
+        concern: The benchmark cannot be reproduced without the data version.
+        asks: The module table release.
+        evidence: [methods-text]
+        must_fix: false
+        decision: address
+        commitments:
+          - change: Module tables release 2026.03 in Methods
+            target: Methods, Implementation
+            landed: 'Methods, "Implementation", line 21'
+
+      - id: R2.P1
+        referee: Reviewer 2
+        label: null
+        comment: >-
+          My main concern is generalisability. Only two genomes were tested, both sequenced on the same
+          short-read platform. I would like to see results on a genome from a different platform, for example
+          a long-read genome.
+        concern: Performance on one short-read platform may not transfer to other data.
+        asks: Results on a genome from another platform, such as a long-read genome.
+        evidence: [new-analysis, table]
+        must_fix: true
+        decision: address
+        commitments:
+          - change: Public PacBio HiFi callset of HG002 in the benchmark
+            target: Methods, Benchmark; Results, Performance; Table 1
+            landed: promised
+          - change: State that the long-read callset is from the same individual as a short-read genome
+            target: Discussion
+            landed: Discussion, lines 89-90
+
+      - id: R2.P2a
+        referee: Reviewer 2
+        label: null
+        comment: >-
+          The authors also annotate the genome of one of the authors. Was ethics approval obtained for this?
+        concern: Use of an identifiable person's genome may need ethics oversight.
+        asks: Whether approval was obtained, or why none was needed.
+        evidence: [answer, methods-text]
+        must_fix: true
+        decision: address
+        hand_to: manuscript-policy-fit
+        commitments:
+          - change: Provenance of the demonstration genome (author's own, publicly released under CC0)
+            target: Methods, Demonstration genome
+            landed: 'Methods, "Demonstration genome", lines 38-40'
+
+      - id: R2.P2b
+        referee: Reviewer 2
+        label: null
+        comment: Did the author consent to the publication of their genome?
+        concern: Publishing a genome needs the person's agreement.
+        asks: Whether the author agreed to publication.
+        evidence: [answer, methods-text]
+        must_fix: true
+        decision: address
+        hand_to: manuscript-policy-fit
+        commitments:
+          - change: State that the author released the genome and agreed to its use
+            target: Methods, Demonstration genome
+            landed: 'Methods, "Demonstration genome", lines 38-39'
+
+      - id: R2.P3
+        referee: Reviewer 2
+        label: null
+        comment: >-
+          The concordance analysis would be more convincing with an experimental validation of a sample of the
+          discordant variants, for example by Sanger sequencing.
+        concern: Concordance between two software versions does not show which version is right.
+        asks: Experimental validation of a sample of discordant variants.
+        evidence: [new-data]
+        must_fix: false
+        decision: decline
+        reason: >-
+          The study is computational and has no laboratory component. The discordant indels were compared with
+          the Genome in a Bottle benchmark calls instead, and the Discussion states the limit.
+        commitments:
+          - change: Comparison of discordant indels with Genome in a Bottle v4.2.1 benchmark calls
+            target: Methods, Benchmark; Results, Concordance
+            landed: 'Methods, "Benchmark", lines 33-34; Results, "Concordance", lines 76-77'
+          - change: Limitation sentence on benchmark comparison rather than experimental validation
+            target: Discussion
+            landed: Discussion, lines 90-91
+
+      - id: R2.P4
+        referee: Reviewer 2
+        label: null
+        comment: >-
+          I also wonder whether the peak memory of 6.1 GB includes the module tables loaded into memory.
+        concern: The memory figure may understate what a user needs.
+        asks: Whether the module tables are included in the peak memory.
+        evidence: [answer, methods-text]
+        must_fix: false
+        decision: address
+        commitments:
+          - change: Define peak memory and state that it includes the module tables
+            target: Methods, Benchmark; Results, Performance
+            landed: 'Methods, "Benchmark", lines 27-28; Results, "Performance", lines 47-48'

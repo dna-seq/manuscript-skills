@@ -1,0 +1,77 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1038/s41467-019-11112-0",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1038/s41467-019-11112-0",
+  "type": "journal-article",
+  "title": [
+   "Analysis of polygenic risk score usage and performance in diverse human populations"
+  ],
+  "author": [
+   {
+    "given": "L.",
+    "family": "Duncan",
+    "sequence": "first"
+   },
+   {
+    "given": "H.",
+    "family": "Shen",
+    "sequence": "additional"
+   },
+   {
+    "given": "B.",
+    "family": "Gelaye",
+    "sequence": "additional"
+   },
+   {
+    "given": "J.",
+    "family": "Meijsen",
+    "sequence": "additional"
+   },
+   {
+    "given": "K.",
+    "family": "Ressler",
+    "sequence": "additional"
+   },
+   {
+    "given": "M.",
+    "family": "Feldman",
+    "sequence": "additional"
+   },
+   {
+    "given": "R.",
+    "family": "Peterson",
+    "sequence": "additional"
+   },
+   {
+    "given": "B.",
+    "family": "Domingue",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2019,
+     7,
+     25
+    ]
+   ]
+  },
+  "container-title": [
+   "Nature Communications"
+  ],
+  "volume": "10",
+  "issue": "1",
+  "article-number": "3328",
+  "relation": {
+   "has-preprint": [
+    {
+     "id-type": "doi",
+     "id": "10.1101/398396",
+     "asserted-by": "object"
+    }
+   ]
+  }
+ }
+}

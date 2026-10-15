@@ -2,30 +2,54 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12"]
 # ///
-"""Flag selected token-count changes for review after a manuscript edit.
+"""Flag content changes after a manuscript edit, or list them between two versions of a manuscript.
 
-A copy-editing pass may change wording, never content. This compares the text before and after and reports
-changes in counts of selected number, citation, identifier, term, URL and code-span patterns, plus selected
-hedges, negations and causal verbs. It cannot prove semantic equivalence: swapped values and changed
-relationships can preserve every token count. Read the diff in context.
+A copy-editing pass may change wording, never content. The guard compares the text before and after in two ways:
+
+- whole-text counts of selected number, citation, identifier, term, URL and code-span patterns, plus selected
+  hedges, negations and causal verbs (the `protected` and `watched` fields);
+- sentence by sentence (`sentence_changes`): it aligns the sentences of BEFORE and AFTER, allowing for split,
+  merged and moved sentences, and reports for each aligned pair a claim that moved on the causal or evidential
+  ladder, novelty or generality wording that appeared or went, a scope qualifier ("in this cohort", "in mice"),
+  limiting or concessive word ("only", "albeit", "despite"), null-result marker ("did not differ") or
+  evidence-status word ("self-reported", "predicted") that disappeared or appeared, a changed negation, and every
+  number, citation or identifier that one sentence has and its counterpart lacks, with section and line. The
+  ladders are in references/claim-ladders.md.
+
+It cannot prove semantic equivalence: swapped values and changed relationships can pass every check. Read the
+diff in context.
 
     uv run --script guard.py BEFORE.md AFTER.md
-    uv run --script guard.py PAPER.md --against HEAD          # compare with the committed version
-    uv run --script guard.py BEFORE.md AFTER.md --json report.json
+    uv run --script guard.py PAPER.md --against HEAD                      # compare with the committed version
+    uv run --script guard.py BEFORE.md AFTER.md --json report.json --md report.md
+    uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # an authorised claim correction
+    uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json
 
-Exit code 1 when a protected item changed (numbers, citations, identifiers, terms, URLs, code).
-Hedge, negation and causal changes are warnings: read each one.
+Edit mode (default). Exit code 1 when a protected item changed: a count of numbers, citations, identifiers,
+terms, URLs or code; a claim that rose on a ladder or gained novelty or generality wording; a scope,
+null-result or evidence-status marker that disappeared, or a limiting or concessive word that left a surviving
+sentence; or a number, citation or identifier that is new to its sentence and its paragraph, or left them.
+`--allow-strengthening` exempts the claim changes (never the counts or the tokens) when the authors authorised a
+claim correction. Lowered claims, added qualifiers, negation changes and tokens moved within a paragraph are
+warnings: read each one.
+
+Revision mode (`--revision`): for an original and a revised manuscript where content changes are expected.
+Lists every change of the kinds above with section and line, in the same fields, and always exits 0.
+
+Exit codes: 0 no protected change (always with --revision), 1 a protected change, 2 usage error.
 """
 
 from __future__ import annotations
 
+import bisect
 import json
 import re
 import subprocess
 from collections import Counter
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Callable, Optional
 
 import typer
 
@@ -33,6 +57,9 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 LATEX_COMMENT = re.compile(r"(?<!\\)%.*$", re.MULTILINE)
+# A `%` starts a comment only in LaTeX; in Markdown it is a percent sign and must not hide the rest of the line.
+LATEX_SIGNS = re.compile(r"\\(?:documentclass|usepackage|begin\{|(?:sub)*section\*?\{|[a-zA-Z]*cite[a-z]*\*?[\[{]|"
+                         r"emph\{|textbf\{|textit\{|label\{|ref\{)")
 
 # Protected patterns: a count change warrants review; it does not by itself prove semantic drift.
 PROTECTED: dict[str, re.Pattern[str]] = {
@@ -67,9 +94,14 @@ WATCHED: dict[str, re.Pattern[str]] = {
 }
 
 
-def _prose(text: str) -> str:
-    """The text a reader sees: drop HTML comments (revision markers, notes) and LaTeX comments."""
-    return LATEX_COMMENT.sub("", HTML_COMMENT.sub("", text))
+def _is_latex(text: str) -> bool:
+    return bool(LATEX_SIGNS.search(text))
+
+
+def _prose(text: str, latex: bool | None = None) -> str:
+    """The text a reader sees: drop HTML comments (revision markers, notes) and, in LaTeX, `%` comments."""
+    text = HTML_COMMENT.sub("", text)
+    return LATEX_COMMENT.sub("", text) if (_is_latex(text) if latex is None else latex) else text
 
 
 def _items(text: str, rx: re.Pattern[str]) -> Counter[str]:
@@ -114,18 +146,866 @@ def change_rate(before: str, after: str) -> float:
 CHANGE_WARN, CHANGE_STOP = 0.25, 0.50
 
 
-def compare(before_text: str, after_text: str, threshold: float = 0.5) -> dict[str, object]:
-    before, after = _prose(before_text), _prose(after_text)
+# ---------------------------------------------------------------------------------------------------------------
+# Sentences: segmentation with section and line, so every finding has a location
+# ---------------------------------------------------------------------------------------------------------------
+
+FRONT_MATTER = re.compile(r"\A---[ \t]*\n.*?\n(?:---|\.\.\.)[ \t]*(?:\n|\Z)", re.DOTALL)
+FENCED_CODE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ \t]{0,3}\1[ \t]*$", re.DOTALL | re.MULTILINE)
+DISPLAY_MATH = re.compile(r"\$\$.*?\$\$|\\\[.*?\\\]|\\begin\{(equation|align|gather|multline|eqnarray|displaymath)"
+                          r"(\*?)\}.*?\\end\{\1\2\}", re.DOTALL)
+MD_HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t#]*$")
+TEX_HEADING = re.compile(r"^\s*\\(part|chapter|section|subsection|subsubsection)\*?(?:\[[^\]]*\])?\{(.*)\}\s*$")
+TEX_LEVEL = {"part": 0, "chapter": 1, "section": 2, "subsection": 3, "subsubsection": 4}
+# Structural LaTeX lines that hold no prose (a caption or footnote does, so it is not listed).
+TEX_STRUCTURE = re.compile(
+    r"^\s*\\(?:begin|end|label|includegraphics|maketitle|centering|bibliography|bibliographystyle|usepackage|"
+    r"documentclass|newcommand|renewcommand|input|include|title|author|date|affil\w*|keywords|tableofcontents|"
+    r"clearpage|newpage|vspace|hspace|hline|toprule|midrule|bottomrule|noindent|appendix|small|footnotesize)\b"
+    r"\*?(?:\[[^\]]*\])?(?:\{[^{}]*\})*\s*$")
+TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$|^[^\n]*&[^\n]*\\\\\s*$")
+LIST_ITEM = re.compile(r"^(\s*(?:[-*+]|\d{1,3}[.)]|\\item(?:\[[^\]]*\])?)\s+)")
+BOUNDARY = re.compile(r"[.!?][\"'”’)\]]*(?:\[[\d,\s–-]+\])?(?=[\s\x00]*\s[\s\x00]*[\"'“‘(\[*_\\$~]*[A-Z0-9])")
+ABBREVIATIONS = {
+    "al", "e.g", "i.e", "fig", "figs", "eq", "eqs", "ref", "refs", "tab", "no", "nos", "vs", "cf", "approx", "ca",
+    "dr", "prof", "mr", "ms", "mrs", "st", "suppl", "sect", "sec", "ch", "vol", "pp", "resp", "incl", "est", "inc",
+    "ltd", "co", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec", "sp", "spp",
+    "var", "ed", "eds", "viz", "chr",
+}
+WORD = re.compile(r"[^\W\d_][\w'’-]*|\d+(?:[.,]\d+)*")
+STOPWORDS = frozenset(
+    "the a an of in on for to and or with by at from as is are was were be been being this that these those it its "
+    "we our us which who whom whose than then there their they them has have had into onto over under also such "
+    "both each other more most less very can will would should".split())
+
+
+@dataclass
+class Sentence:
+    text: str          # the sentence as a reader sees it (comments removed), whitespace collapsed
+    line: int          # 1-based line of its first character in the file
+    block: int         # paragraph index (blank lines and headings separate paragraphs)
+    section: str       # heading path, e.g. "Results > Performance"
+    words: frozenset[str]
+
+
+HIDDEN = "\x00"  # an inline comment: removed from the sentence text, but keeps every offset
+
+
+def _spaces(m: re.Match[str]) -> str:
+    return re.sub(r"[^\n]", " ", m.group(0))
+
+
+def _hidden(m: re.Match[str]) -> str:
+    return re.sub(r"[^\n]", HIDDEN, m.group(0))
+
+
+def _mask(text: str, latex: bool) -> str:
+    """Blank out what is not prose while keeping every offset, so lines stay correct."""
+    out = FRONT_MATTER.sub(_spaces, text)
+    out = HTML_COMMENT.sub(_hidden, out)
+    if latex:
+        out = LATEX_COMMENT.sub(_hidden, out)
+    out = FENCED_CODE.sub(_spaces, out)
+    return DISPLAY_MATH.sub(_spaces, out)
+
+
+def _clean_title(title: str) -> str:
+    return " ".join(re.sub(r"\\[A-Za-z]+\*?|[{}*_`]", "", title).split())
+
+
+def _content_words(text: str) -> frozenset[str]:
+    return frozenset(w for w in (t.lower() for t in WORD.findall(text)) if w not in STOPWORDS and len(w) > 1)
+
+
+def _is_abbreviation(chunk: str, dot: int) -> bool:
+    prev = re.search(r"([A-Za-z][A-Za-z.]*)$", chunk[:dot])
+    if not prev:
+        return False
+    word = prev.group(1)
+    return (word.lower().rstrip(".") in ABBREVIATIONS or bool(re.fullmatch(r"(?:[A-Za-z]\.)+[A-Za-z]?", word))
+            or bool(re.fullmatch(r"[A-Z]", word)))
+
+
+def segment(text: str) -> list[Sentence]:
+    """Split a Markdown or LaTeX manuscript into sentences with line, paragraph and section."""
+    latex = _is_latex(text)
+    masked = _mask(text, latex)
+    line_starts = [0] + [m.end() for m in re.finditer(r"\n", text)]
+    out: list[Sentence] = []
+    headings: list[tuple[int, str]] = []
+    block = 0
+    chunk: list[int] = []  # [start, end) of the running prose chunk
+
+    def section() -> str:
+        return " > ".join(t for _, t in headings)
+
+    def emit(start: int, end: int, split: bool) -> None:
+        piece = masked[start:end]
+        cuts = [0]
+        if split:
+            cuts += [m.end() for m in BOUNDARY.finditer(piece) if not _is_abbreviation(piece, m.start())]
+        cuts.append(len(piece))
+        for a, b in zip(cuts, cuts[1:]):
+            raw = piece[a:b].replace(HIDDEN, "")
+            body = " ".join(raw.split())
+            if not re.search(r"[A-Za-z]", body):
+                continue
+            offset = start + a + (len(piece[a:b]) - len(piece[a:b].lstrip(" \t\n\r" + HIDDEN)))
+            out.append(Sentence(body, bisect.bisect_right(line_starts, offset), block, section(), _content_words(body)))
+
+    def flush() -> None:
+        if chunk:
+            emit(chunk[0], chunk[1], True)
+            chunk.clear()
+
+    pos = 0
+    previous_blank = True
+    for raw_line in masked.split("\n"):
+        start, end = pos, pos + len(raw_line)
+        pos = end + 1
+        line = raw_line.rstrip("\r")
+        if not line.replace(HIDDEN, "").strip():
+            flush()
+            if not previous_blank:
+                block += 1
+            previous_blank = True
+            continue
+        previous_blank = False
+        md, tex = MD_HEADING.match(line), TEX_HEADING.match(line)
+        if md or tex:
+            flush()
+            level = len(md.group(1)) if md else TEX_LEVEL[tex.group(1)]
+            title = _clean_title(md.group(2) if md else tex.group(2))
+            while headings and headings[-1][0] >= level:
+                headings.pop()
+            headings.append((level, title))
+            block += 1
+            continue
+        if latex and TEX_STRUCTURE.match(line):
+            flush()
+            continue
+        if TABLE_ROW.match(line):
+            flush()
+            if not re.fullmatch(r"[\s|:\-+]+", line):
+                emit(start, end, False)
+            continue
+        item = LIST_ITEM.match(line)
+        if item:
+            flush()
+            chunk.extend([start + len(item.group(1)), end])
+            continue
+        if chunk:
+            chunk[1] = end
+        else:
+            chunk.extend([start, end])
+    flush()
+    return out
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Alignment: identical sentences anchor; changed runs are aligned 1:1, split (1:2, 1:3) or merged (2:1, 3:1)
+# ---------------------------------------------------------------------------------------------------------------
+
+MIN_SIMILARITY, MOVE_SIMILARITY = 0.3, 0.5
+
+
+@dataclass
+class Group:
+    before: list[int]
+    after: list[int]
+    kind: str  # equal | changed | split | merged | moved | deleted | inserted
+
+
+def _dice(a: frozenset[str], b: frozenset[str]) -> float:
+    if not a and not b:
+        return 1.0
+    return 2 * len(a & b) / (len(a) + len(b)) if a and b else 0.0
+
+
+def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int, m: int) -> list[Group]:
+    """Best monotone alignment of a run of changed sentences (dynamic programming over group shapes)."""
+    shapes = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2), (3, 1), (1, 3))
+    band = (15 + abs(n - m)) if n * m > 2500 else None
+    neg = float("-inf")
+    best = [[neg] * (m + 1) for _ in range(n + 1)]
+    back: list[list[tuple[int, int] | None]] = [[None] * (m + 1) for _ in range(n + 1)]
+    best[0][0] = 0.0
+    union_b: dict[tuple[int, int], frozenset[str]] = {}
+    union_a: dict[tuple[int, int], frozenset[str]] = {}
+
+    def words(cache: dict[tuple[int, int], frozenset[str]], seq: list[Sentence], base: int, a: int, b: int):
+        if (a, b) not in cache:
+            cache[(a, b)] = frozenset().union(*(seq[base + k].words for k in range(a, b)))
+        return cache[(a, b)]
+
+    for i in range(n + 1):
+        for j in range(m + 1):
+            current = best[i][j]
+            if current == neg:
+                continue
+            for di, dj in shapes:
+                ni, nj = i + di, j + dj
+                if ni > n or nj > m or (band is not None and abs(ni * m / max(n, 1) - nj) > band):
+                    continue
+                score = 0.0
+                if di and dj:
+                    wb, wa = words(union_b, bs, i0, i, ni), words(union_a, as_, j0, j, nj)
+                    sim = _dice(wb, wa)
+                    if sim < MIN_SIMILARITY:
+                        continue
+                    score = sim * (len(wb) + len(wa) + 1)
+                if current + score > best[ni][nj]:
+                    best[ni][nj] = current + score
+                    back[ni][nj] = (i, j)
+    groups: list[Group] = []
+    i, j = n, m
+    while (i, j) != (0, 0):
+        pi, pj = back[i][j]  # type: ignore[misc]
+        before, after = list(range(i0 + pi, i0 + i)), list(range(j0 + pj, j0 + j))
+        kind = ("deleted" if not after else "inserted" if not before else "changed" if len(before) == len(after)
+                else "split" if len(after) > len(before) else "merged")
+        groups.append(Group(before, after, kind))
+        i, j = pi, pj
+    return groups[::-1]
+
+
+def align(bs: list[Sentence], as_: list[Sentence]) -> list[Group]:
+    groups: list[Group] = []
+    keys_b, keys_a = [s.text for s in bs], [s.text for s in as_]
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, keys_b, keys_a, autojunk=False).get_opcodes():
+        if tag == "equal":
+            groups += [Group([i1 + k], [j1 + k], "equal") for k in range(i2 - i1)]
+        else:
+            groups += _align_run(bs, as_, i1, j1, i2 - i1, j2 - j1)
+    # A sentence moved out of its run: pair leftover deletions and insertions by similarity, best first.
+    deleted = [g for g in groups if g.kind == "deleted"]
+    inserted = [g for g in groups if g.kind == "inserted"]
+    pairs = sorted(((_dice(bs[d.before[0]].words, as_[a.after[0]].words), di, ai)
+                    for di, d in enumerate(deleted) for ai, a in enumerate(inserted)), reverse=True)
+    used_d: set[int] = set()
+    used_a: set[int] = set()
+    for sim, di, ai in pairs:
+        if sim < MOVE_SIMILARITY:
+            break
+        if di in used_d or ai in used_a:
+            continue
+        used_d.add(di)
+        used_a.add(ai)
+        inserted[ai].before, inserted[ai].kind = deleted[di].before, "moved"
+        deleted[di].kind = "absorbed"
+    return [g for g in groups if g.kind != "absorbed"]
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Claim markers (references/claim-ladders.md explains each list)
+# ---------------------------------------------------------------------------------------------------------------
+
+Filter = Callable[[str, int, int], bool]
+
+FIGURE_WORDS = re.compile(r"\b(?:fig(?:ure)?s?|tables?|panels?|insets?|diagrams?|schematics?|supplementary|"
+                          r"appendix|box|screenshots?|below|above|example)\b", re.IGNORECASE)
+PROCEDURAL_OBJECT = re.compile(
+    r"^\s+(?:(?:a|an|the|our|new|its|their)\s+)?(?:[\w-]+\s+){0,2}?(?:baselines?|protocols?|pipelines?|frameworks?|"
+    r"cohorts?|databases?|resources?|collaborations?|workflows?|colon(?:y|ies)|lines?|cultures?|criteria|standards?|"
+    r"benchmarks?|registr(?:y|ies)|consortium|repositor(?:y|ies)|partnerships?|receipt|identity|configuration|"
+    r"setup|installation|methods?|tools?|practices?|guidelines?|techniques?|software)\b", re.IGNORECASE)
+
+
+def _not_descriptive(text: str, start: int, end: int) -> bool:
+    """'Figure 2 shows the layout' describes a figure; 'Figure 2 shows that X' still makes a claim."""
+    following = text[end:end + 30]
+    if re.match(r"\s+that\b", following, re.IGNORECASE):
+        return True
+    if re.match(r"\s+(?:as|together|below|above|alongside|side by side|on (?:the|a) (?:left|right|map|screen|page))\b",
+                following, re.IGNORECASE):
+        return False
+    return not FIGURE_WORDS.search(text[max(0, start - 30):end + 30])
+
+
+def _not_procedural(text: str, start: int, end: int) -> bool:
+    """'established a pipeline', 'confirmed the configuration', 'well-established methods' are not proof."""
+    if re.search(r"well[- ]$", text[max(0, start - 5):start], re.IGNORECASE):
+        return False
+    return not PROCEDURAL_OBJECT.match(text[end:end + 60])
+
+
+def _not_clearly_modifier(text: str, start: int, end: int) -> bool:
+    return not re.match(r"\s+(?:defined|separated|visible|label+ed|distinct|stated|marked|shown in)\b", text[end:],
+                        re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Rung:
+    level: int
+    name: str
+    rx: re.Pattern[str]
+    keep: Optional[Filter] = None
+
+
+def _rx(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern, re.IGNORECASE)
+
+
+# Causal force. A sentence with no marker states a plain relation and sits at rung 4 ("affects").
+CAUSAL: tuple[Rung, ...] = (
+    Rung(0, "compatibility", _rx(r"\b(?:consistent|compatible|in line|in keeping) with\b")),
+    Rung(1, "association", _rx(
+        r"\bassociat(?:es|ed|ion|ions) (?:with|between)\b|\bassociations? of\b|\bcorrelat(?:es|ed|ion|ions) "
+        r"(?:with|between)\b|\b(?:is|are|was|were) (?:\w+ )?(?:linked|related) (?:to|with)\b|"
+        r"\blinked (?:[\w-]+ ){1,4}?(?:to|with)\b|\blinks? between\b|\bco-?occur(?:s|red|ring)? with\b|"
+        r"\benriched (?:in|for|among)\b")),
+    Rung(2, "prediction", _rx(r"\bpredict(?:s|ed|ing)?\b|\bpredictive (?:of|for)\b|\bpredictors? of\b|"
+                              r"\bprognostic (?:for|of)\b|\bforecasts?\b")),
+    Rung(3, "contribution", _rx(
+        r"\bcontribut(?:es|ed|ing|e|ion|ions) (?:\w+ ){0,3}?to\b|\bplay(?:s|ed|ing)? an? (?:[\w-]+ ){0,2}?role in\b|"
+        r"\b(?:is|are|was|were|be|been) involved in\b|\bparticipat(?:es|ed|e) in\b|\bmodulat(?:es|ed|e)\b|"
+        r"\binfluenc(?:es|ed|e)\b")),
+    Rung(4, "effect", _rx(
+        r"\baffect(?:s|ed|ing)?\b(?! (?:individuals|patients|carriers|relatives|members|samples|subjects|tissues?|"
+        r"cases|families|siblings|people|participants|genes?)\b)|\b(?:leads?|leading|led) to\b|"
+        r"\bresult(?:s|ed|ing)? in\b|\b(?:gives?|gave|giving) rise to\b|\binduc(?:es|ed|e|ing)\b|"
+        r"\bpromot(?:es|ed|e|ing)\b|\binhibit(?:s|ed|ing)?\b|\bprevent(?:s|ed|ing)?\b|\bprotect(?:s|ed|ing)? against\b|"
+        r"\b(?:increas|decreas|reduc|lower|rais|elevat)(?:es|ed|e|ing|s)? the (?:risk|odds|likelihood|incidence|"
+        r"probability) of\b")),
+    Rung(5, "causation", _rx(
+        r"\bcaus(?:es|ed|ing|e|al|ally|ative|ation)\b|\bdriv(?:es|en|ing|e)\b|\bdrove\b|\bdrivers? of\b|"
+        r"\bdetermined by\b|\bdetermines\b|\b(?:is|are|was|were) (?:\w+ )?responsible for\b|\bunderl(?:ies|ie|ay)\b|"
+        r"\bmediat(?:es|ed|e|ing)\b")),
+)
+CAUSAL_PLAIN = 4
+
+# Evidential force. A sentence with no marker is a plain assertion and sits at rung 3 ("shows").
+EVIDENTIAL: tuple[Rung, ...] = (
+    Rung(0, "possibility", _rx(
+        r"\b(?:may)\b(?!\s+\d)|\b(?:might|could|possibly|potentially|perhaps|conceivably|plausibly|likely|unlikely|"
+        r"probably)\b|\b(?:appears?|appeared|seems?|seemed) to\b|\bit is possible that\b|"
+        r"\bwe (?:speculate|hypothesi[sz]e)\b")),
+    Rung(1, "suggestion", _rx(r"\bsuggest(?:s|ed|ing|ive of)?\b|\bhint(?:s|ed)? (?:at|that)\b|"
+                              r"\bpoint(?:s|ed)? (?:to|towards)\b")),
+    Rung(2, "indication", _rx(
+        r"(?<!as )\bindicat(?:es|ed|e|ing)\b|\bsupport(?:s|ed|ing)? (?:the|our|this|a|an|these) (?:[\w-]+ ){0,2}?"
+        r"(?:hypothes[ie]s|conclusions?|notion|idea|view|interpretation|claim|model|role|link)\b|"
+        r"\b(?:provides?|provided|is|are|was|were|offers?) (?:\w+ )?evidence (?:for|that|of)\b")),
+    Rung(3, "demonstration", _rx(r"\bshow(?:s|ed|n|ing)?\b|\bdemonstrat(?:es|ed|e|ing)\b|\breveal(?:s|ed|ing)?\b|"
+                                 r"\b(?:find|finds|found) that\b"), _not_descriptive),
+    Rung(4, "proof", _rx(r"\bprov(?:es|ed|en|e|ing)\b|\bproof (?:of|that)\b|\bestablish(?:es|ed|ing)?\b|"
+                         r"\bconfirm(?:s|ed|ing)?\b|\bguarantee(?:s|d)?\b"), _not_procedural),
+    Rung(4, "proof", _rx(r"\bconclusive(?:ly)?\b|\bdefinitive(?:ly)?\b|\bunequivocal(?:ly)?\b|\bunambiguous(?:ly)?\b|"
+                         r"\bbeyond (?:any |reasonable )?doubt\b|\birrefutabl[ey]\b|\bundoubtedly\b|\bcertainly\b|"
+                         r"\bunquestionabl[ey]\b|\bclearly\b"), _not_clearly_modifier),
+)
+EVIDENTIAL_PLAIN = 3
+
+GENERALITY: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("novelty", _rx(
+        r"\bfor the first time\b|\b(?:the|a) first (?:[\w-]+ ){0,2}?(?:study|studies|report|tool|method|approach|"
+        r"framework|demonstration|analysis|evidence|description|map|atlas|resource|implementation|account|alternative|"
+        r"platform|pipeline|system|model|software|assay|test|solution|database|benchmark|application)\b|\bfirst-ever\b|"
+        r"\bnovel\b|\bunprecedented\b|\bpioneering\b|\bgroundbreaking\b|\bstate-of-the-art\b")),
+    ("generality", _rx(
+        r"\balways\b|\binvariably\b|\buniversal(?:ly)?\b|\bin (?:all|every) (?:[\w-]+ ){0,1}?(?:cases?|settings?|"
+        r"populations?|patients|individuals|samples|species|tissues|conditions|contexts?|cohorts?)\b|"
+        r"\bacross all\b|\bregardless of\b|\birrespective of\b|\bgenerali[sz]able\b|"
+        r"\bbroadly applicable\b|\bin any (?:[\w-]+ )?(?:setting|population|"
+        r"species|tissue|genome|context)\b")),
+)
+
+ANCESTRY = (r"european|east asian|south asian|african(?:[- ]american)?|hispanic|latin[oax]|latinx|asian|japanese|"
+            r"chinese|han chinese|korean|finnish|british|white|black|caucasian|admixed|indigenous|native american|"
+            r"ashkenazi(?: jewish)?")
+MODEL_CANON = {"mice": "mouse", "murine": "mouse", "rats": "rat", "rodents": "rodent", "flies": "fly",
+               "fruit flies": "fly", "drosophila": "fly", "worms": "worm", "nematodes": "worm", "c. elegans": "worm",
+               "cell lines": "cells", "cell line": "cells", "cultured cells": "cells", "cell cultures": "cells",
+               "cell culture": "cells", "animals": "animal", "animal models": "animal", "animal model": "animal",
+               "organoids": "organoid", "xenografts": "xenograft", "macaques": "primate", "monkeys": "primate",
+               "primates": "primate", "pigs": "pig", "dogs": "dog", "plants": "plant", "e. coli": "bacteria"}
+
+# Scope rules in priority order: an earlier rule claims its span, so one phrase is counted once.
+SCOPE: tuple[tuple[re.Pattern[str], Callable[[re.Match[str]], str]], ...] = (
+    (_rx(r"\b(?:in|within) (?:this|the present|the current|our) (?:study|paper|work|article|manuscript|report)\b"),
+     lambda m: "this-study"),
+    (_rx(r"\b(?:in|within|across|among|from|on|for) (?:this|these|our|the present|the current|the studied|the tested|"
+         r"the analy[sz]ed|the evaluated|the investigated|the sampled|the included) (?:[\w-]+ ){0,2}?(?:cohorts?|"
+         r"samples?|datasets?|data|populations?|settings?|trials?|benchmarks?|participants|patients|individuals|"
+         r"subjects|genomes|exomes|families|animals|cells|experiments?|analys[ie]s|systems?)\b|\bin our hands\b"),
+     lambda m: "this-data"),
+    (_rx(r"\bunder (?:these|the (?:tested|studied|experimental|present|current|same|given)|our|such|standard|"
+         r"laboratory|controlled|experimental) conditions\b|\b(?:at|for|within|over) the (?:tested|studied|examined|"
+         r"evaluated|investigated) (?:[\w-]+ ){0,2}?(?:ranges?|doses?|concentrations?|temperatures?|conditions|values|"
+         r"parameters|settings)\b"),
+     lambda m: "conditions"),
+    (re.compile(rf"\b({ANCESTRY})[- ](?:ancestry|ancestries|descent|origin|populations?|individuals|participants|"
+                rf"samples|cohorts?)\b|\bof ({ANCESTRY}) (?:ancestry|descent|origin)\b", re.IGNORECASE),
+     lambda m: "ancestry:" + (m.group(1) or m.group(2)).lower()),
+    (_rx(r"\bin (?:some|several|certain|selected|a few|most|many|a (?:subset|subgroup|minority|fraction|proportion) of)"
+         r" (?:[\w-]+ ){0,2}?(?:cohorts?|patients|participants|individuals|samples|cases|studies|tissues|cell types|"
+         r"conditions|settings|populations|genomes|datasets|species|strains|families|subjects)\b|"
+         r"\bin (?:a |one )?subgroups?\b"),
+     lambda m: "subset"),
+    (_rx(r"\b(?:in vitro|in vivo|in silico|ex vivo|in situ|in utero)\b"), lambda m: " ".join(m.group(0).lower().split())),
+    (_rx(r"\bin (?:a |an |the )?(?:[\w-]+ ){0,2}?(mice|mouse|murine|rats?|rodents?|zebrafish|fruit flies|flies|"
+         r"drosophila|yeast|worms|nematodes|c\. elegans|primates|macaques|monkeys|pigs|dogs|animal models?|animals|"
+         r"xenografts?|organoids|cell lines?|cultured cells|cell cultures?|cells|plants|arabidopsis|bacteria|"
+         r"e\. coli)\b"),
+     lambda m: "model:" + MODEL_CANON.get(m.group(1).lower(), m.group(1).lower())),
+    (_rx(r"\bin (?:[\w-]+ ){0,2}?(humans|people|persons|patients|adults|children|adolescents|infants|neonates|men|"
+         r"women|males|females|older adults|elderly|volunteers|twins|carriers|non-carriers)\b"),
+     lambda m: "people:" + m.group(1).lower()),
+    (_rx(r"\b(?:in|on|from|with|using) (?:the )?(simulated|synthetic|real|public|benchmark|training|validation|test|"
+         r"held-out|independent|external|discovery|replication) (?:data|datasets?|sets?|cohorts?|samples|genomes|"
+         r"reads|splits?)\b|\bin simulations?\b|\b(internally|externally) validated\b"),
+     lambda m: "data:" + (m.group(1) or m.group(2) or "simulation").lower()),
+)
+
+NULL_RESULT = _rx(
+    r"\bno (?:statistically )?significant\b|\bnot (?:statistically )?significant(?:ly)?\b|\bnon-?significant(?:ly)?\b|"
+    r"\binsignificant(?:ly)?\b|\b(?:did|does|do) not (?:\w+ )?(?:differ|change|improve|reduce|increase|decrease|affect|"
+    r"alter|predict|replicate|reach|associate|correlate|vary|survive|show|detect|find|support)\b|"
+    r"\b(?:was|were|is|are|been) not (?:\w+ )?(?:associated|correlated|different|changed|altered|enriched|affected|"
+    r"predictive|related|detected|replicated|observed|improved|reduced|increased)\b|"
+    r"\bno (?:[\w-]+ ){0,2}?(?:association|associations|difference|differences|effect|effects|correlation|enrichment|"
+    r"evidence|improvement|change|signal|relationship|benefit|link|increase|decrease|reduction)\b|"
+    r"\bfail(?:s|ed)? to (?:\w+ )?(?:replicate|reach|detect|show|improve|reduce|predict|find|support|differ)\b|"
+    r"\b(?:remained|was|were|is|are) unchanged\b|\bnull (?:results?|findings?|associations?|effects?)\b|"
+    r"\bn\.s\.|\b[pP]\s*[>≥]\s*0?\.0[15]\b|\bno longer significant\b|\blost significance\b|\bnot replicated\b")
+
+EVIDENCE_STATUS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("self-reported", _rx(r"\b(?:self|patient|participant|parent|caregiver|proxy|user)[- ]?report(?:ed|s)?\b")),
+    ("reported", _rx(r"\breport(?:ed|edly)\b")),
+    ("perceived", _rx(r"\bperceived\b|\bsubjective(?:ly)?\b")),
+    ("predicted", _rx(r"\b(?:in silico |computationally )?predicted\b")),
+    ("putative", _rx(r"\bputative(?:ly)?\b|\bpresum(?:ed|ptive)\b|\bsuspected\b|\bcandidate\b")),
+    ("estimated", _rx(r"\bestimated\b|\bestimates?\b|\bimputed\b|\binferred\b|\bmodell?ed\b|\bsimulated\b|"
+                      r"\bprojected\b|\bextrapolated\b|\bapproximated\b")),
+    ("observed", _rx(r"\bobserved\b|\bmeasured\b|\bdetected\b|\brecorded\b|\bvalidated\b")),
+)
+
+# Limiting and concessive words ("tested on only four genomes", "Albeit tested on four genomes, ..."): losing one
+# presents the evidence as broader than the authors wrote. A contrastive connector can carry the concession after a
+# restructure ("Although X, Y" → "X. However, Y"), so it offsets a lost word; its own loss is a glue cut.
+LIMITING = _rx(r"\bonly\b|\bmere(?:ly)?\b|\bsolely\b|\bas few as\b|\b(?:limited|restricted) to\b|"
+               r"\bjust (?=(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|a few|a handful|a single)\b)")
+CONCESSIVE = _rx(r"\balbeit\b|\b(?:even )?(?:al)?though\b|\beven if\b|\bdespite\b|\bin spite of\b|"
+                 r"\bnotwithstanding\b|\bwhil(?:e|st)\b")
+CONTRASTIVE = _rx(r"\bhowever\b|\bbut\b|\byet\b|\bnevertheless\b|\bnonetheless\b|\bwhereas\b")
+NOT_LIMITING = _rx(r"\b(?:not|the|an|its|their|our|if)\s+$")  # not only, the only tool, if only, not limited to
+
+
+def _limitation_marks(text: str) -> tuple[list[str], int]:
+    """Limiting and concessive words in a sentence, and the number of contrastive connectors that can stand in."""
+    strong: list[str] = []
+    offsets = len(CONTRASTIVE.findall(text))
+    for rx in (LIMITING, CONCESSIVE):
+        for m in rx.finditer(text):
+            word = " ".join(m.group(0).lower().split())
+            prefix = text[max(0, m.start() - 8):m.start()]
+            if rx is LIMITING and NOT_LIMITING.search(prefix) or word == "though" and re.search(r"\bas\s+$", prefix):
+                continue
+            preceding = text[:m.start()].rstrip()
+            if word.startswith("whil") and preceding and preceding[-1] not in ".;:(\"“*_":
+                offsets += 1  # "X rose, while Y fell" contrasts; only a clause-initial "While X, Y" concedes
+                continue
+            strong.append(word)
+    return strong, offsets
+
+
+NEGATION = _rx(r"\b(?:not|no|never|none|nor|neither|without|cannot|absent|lacks?|lacked|lacking)\b|n['’]t\b")
+FIRST_PERSON = _rx(r"\b(?:we|our|us)\b")
+
+
+def _reported_is_status(text: str, start: int, end: int) -> bool:
+    """'participants reported' is a status; 'we report', 'the reported benchmarks' and 'reported in Table 2' are not."""
+    if re.search(r"\b(?:we|here|this (?:study|paper|article|work))\s+$", text[max(0, start - 20):start], re.IGNORECASE):
+        return False
+    if re.search(r"\b(?:the|our|these|those)\s+$", text[max(0, start - 8):start], re.IGNORECASE):
+        return False  # "the reported benchmarks" names the paper's own results, not a self-report
+    return not re.match(r"\s+(?:in|at)\s+(?:table|fig|figure|supplementary|section|appendix|box)", text[end:end + 30],
+                        re.IGNORECASE)
+
+
+def _ladder(text: str, rungs: tuple[Rung, ...]) -> list[tuple[int, str, str]]:
+    found = []
+    for rung in rungs:
+        for m in rung.rx.finditer(text):
+            if rung.keep is None or rung.keep(text, m.start(), m.end()):
+                found.append((rung.level, rung.name, " ".join(m.group(0).lower().split())))
+    return found
+
+
+def _scope_keys(text: str) -> list[tuple[str, str]]:
+    taken: list[tuple[int, int]] = []
+    keys = []
+    for rx, key in SCOPE:
+        for m in rx.finditer(text):
+            if any(m.start() < b and a < m.end() for a, b in taken):
+                continue
+            taken.append(m.span())
+            keys.append((key(m), " ".join(m.group(0).split())))
+    return keys
+
+
+def _status_keys(text: str) -> list[tuple[str, str]]:
+    taken: list[tuple[int, int]] = []
+    keys = []
+    for key, rx in EVIDENCE_STATUS:
+        for m in rx.finditer(text):
+            if any(m.start() < b and a < m.end() for a, b in taken):
+                continue
+            if key == "reported" and not _reported_is_status(text, m.start(), m.end()):
+                continue
+            taken.append(m.span())
+            keys.append((key, m.group(0).lower()))
+    return keys
+
+
+def _keyed_diff(before: list[tuple[str, str]], after: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
+    """Surface forms of keys that lost or gained occurrences; synonyms within one key are not a change."""
+    kb, ka = Counter(k for k, _ in before), Counter(k for k, _ in after)
+    removed = [s for k in kb - ka for s in _surfaces(before, k)]
+    added = [s for k in ka - kb for s in _surfaces(after, k)]
+    return removed, added
+
+
+def _surfaces(pairs: list[tuple[str, str]], key: str) -> list[str]:
+    return sorted({s for k, s in pairs if k == key})
+
+
+def _strength(markers: list[tuple[int, str, str]], plain: int) -> tuple[int, int]:
+    levels = [level for level, _, _ in markers] + [plain]
+    return min(levels), max(levels)
+
+
+def _direction(before: list[tuple[int, str, str]], after: list[tuple[int, str, str]], plain: int) -> str | None:
+    bmin, bmax = _strength(before, plain)
+    amin, amax = _strength(after, plain)
+    up, down = amin > bmin or amax > bmax, amin < bmin or amax < bmax
+    return "mixed" if up and down else "raised" if up else "lowered" if down else None
+
+
+def _rung_names(markers: list[tuple[int, str, str]]) -> str:
+    names = [name for _, name, _ in sorted(set(markers))]
+    return "+".join(dict.fromkeys(names)) or "plain statement"
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Numbers, citations and identifiers per sentence
+# ---------------------------------------------------------------------------------------------------------------
+
+CITE_TEX = re.compile(r"\\[a-zA-Z]*cite[a-zA-Z]*\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}")
+CITE_PANDOC = re.compile(r"(?<![\w.])@([A-Za-z][\w:.#$%&+?<>~/-]*[\w])")
+CITE_NUMERIC = re.compile(r"\[(\d+(?:\s*[-–—,]\s*\d+)*)\]")
+CITE_PAREN = re.compile(r"\((?:[^()]*?\b(?:19|20)\d{2}[a-z]?\b[^()]*?)\)")
+SURNAME = r"(?:(?:van|von|de|del|der|den|la|le|du) )*[A-ZÀ-ÖØ-ÞĀ-Ž][^\W\d_]*(?:['’\-][^\W\d_]+)*"
+AUTHOR_YEAR = re.compile(rf"({SURNAME})(?:\s+(?:et al\.?|(?:and|&) {SURNAME}))?,?\s+((?:19|20)\d{{2}}[a-z]?)")
+NARRATIVE = re.compile(rf"({SURNAME})(?:\s+(?:et al\.?|(?:and|&) {SURNAME}))?\s+\(((?:19|20)\d{{2}}[a-z]?)\)")
+TEX_POINTERS = re.compile(r"\\(?:[a-zA-Z]*ref|label|url|href|includegraphics|input|include)\*?(?:\[[^\]]*\])?\{[^}]*\}")
+TOKEN_KINDS = ("number", "citation", "identifier")
+
+
+def _blank_spans(text: str, spans: list[tuple[int, int]]) -> str:
+    chars = list(text)
+    for a, b in spans:
+        chars[a:b] = " " * (b - a)
+    return "".join(chars)
+
+
+def _norm_number(s: str) -> str:
+    s = s.replace("−", "-").replace("\u2009", "").replace("\u00a0", "").replace(" ", "")
+    return re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", s).lower()
+
+
+def _expand_numeric(group: str) -> list[int]:
+    """'1-3, 5' → [1, 2, 3, 5], so adding reference 4 to [3] reports [4] alone."""
+    out: list[int] = []
+    for part in re.split(r"\s*,\s*", group.strip()):
+        bounds = [int(x) for x in re.split(r"\s*[-–—]\s*", part) if x.strip().isdigit()]
+        if len(bounds) == 2 and 0 <= bounds[1] - bounds[0] <= 50:
+            out += range(bounds[0], bounds[1] + 1)
+        else:
+            out += bounds
+    return out
+
+
+def sentence_tokens(text: str) -> dict[str, Counter[str]]:
+    """Numbers, citations and identifiers in one sentence, normalised so formatting alone is not a change."""
+    cites: Counter[str] = Counter()
+    spans: list[tuple[int, int]] = []
+    for m in CITE_TEX.finditer(text):
+        cites.update("\\cite{" + k.strip() + "}" for k in m.group(1).split(",") if k.strip())
+        spans.append(m.span())
+    for m in CITE_PANDOC.finditer(text):
+        cites["@" + m.group(1)] += 1
+        spans.append(m.span())
+    for m in CITE_NUMERIC.finditer(text):
+        cites.update(f"[{n}]" for n in _expand_numeric(m.group(1)))
+        spans.append(m.span())
+    for m in NARRATIVE.finditer(text):
+        cites[f"{m.group(1)} {m.group(2)}"] += 1
+        spans.append(m.span())
+    masked = _blank_spans(text, spans)
+    for m in CITE_PAREN.finditer(masked):
+        for unit in AUTHOR_YEAR.finditer(m.group(0)):
+            cites[f"{unit.group(1)} {unit.group(2)}"] += 1
+            spans.append((m.start() + unit.start(), m.start() + unit.end()))
+    masked = _blank_spans(text, spans)
+    ids: Counter[str] = Counter()
+    id_spans = []
+    for m in PROTECTED["identifiers"].finditer(masked):
+        ids[" ".join(m.group(0).split()).lower().rstrip(".,;:")] += 1
+        id_spans.append(m.span())
+    id_spans += [m.span() for m in PROTECTED["urls"].finditer(masked)]
+    id_spans += [m.span() for m in TEX_POINTERS.finditer(masked)]
+    masked = _blank_spans(masked, id_spans)
+    numbers = Counter(_norm_number(m.group(0)) for m in PROTECTED["numbers"].finditer(masked))
+    return {"number": numbers, "citation": cites, "identifier": ids}
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Sentence-level comparison
+# ---------------------------------------------------------------------------------------------------------------
+
+CLAIM_KINDS = ("causal", "evidential", "generality", "scope", "limitation", "null_result", "evidence_status")
+
+
+def _finding(kind: str, change: str, severity: str, g: Group, bs: list[Sentence], as_: list[Sentence],
+             **extra: object) -> dict[str, object]:
+    before = " ".join(bs[i].text for i in g.before)
+    after = " ".join(as_[j].text for j in g.after)
+    out: dict[str, object] = {
+        "id": 0, "kind": kind, "change": change, "severity": severity, "authorised": False,
+        "section": as_[g.after[0]].section if g.after else bs[g.before[0]].section,
+        "before_line": bs[g.before[0]].line if g.before else None,
+        "after_line": as_[g.after[0]].line if g.after else None,
+        "alignment": g.kind, "before": before, "after": after,
+        "removed": [], "added": [], "strength_before": None, "strength_after": None,
+        "token": None, "token_status": None, "note": "",
+    }
+    out.update(extra)
+    return out
+
+
+def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[dict[str, object]]:
+    tb = " ".join(bs[i].text for i in g.before)
+    ta = " ".join(as_[j].text for j in g.after)
+    found: list[dict[str, object]] = []
+    negated = bool(NEGATION.search(tb) or NEGATION.search(ta))
+    whole = "inserted" if not g.before else "deleted" if not g.after else None
+
+    for kind, rungs, plain in (("causal", CAUSAL, CAUSAL_PLAIN), ("evidential", EVIDENTIAL, EVIDENTIAL_PLAIN)):
+        mb, ma = _ladder(tb, rungs), _ladder(ta, rungs)
+        removed = sorted((Counter(s for _, _, s in mb) - Counter(s for _, _, s in ma)).elements())
+        added = sorted((Counter(s for _, _, s in ma) - Counter(s for _, _, s in mb)).elements())
+        if not g.after or not g.before:
+            markers = mb or ma
+            if not markers:
+                continue
+            strong = max(level for level, _, _ in markers) >= 1
+            change = "removed" if not g.after else "added"
+            severity = "protected" if change == "added" and strong else "warning"
+            note = ("a sentence with this claim was deleted" if change == "removed"
+                    else "a new sentence makes this claim")
+            found.append(_finding(kind, change, severity, g, bs, as_, removed=removed, added=added,
+                                  strength_before=_rung_names(mb) if mb else None,
+                                  strength_after=_rung_names(ma) if ma else None, note=note))
+            continue
+        direction = _direction(mb, ma, plain)
+        if direction is None:
+            continue
+        severity = "warning" if direction == "lowered" and not negated else "protected"
+        note = ("the sentence is negated, so a weaker verb can make the claim stronger; read both" if negated
+                else "narrowing a claim is a claim correction the authors must see" if direction == "lowered" else "")
+        found.append(_finding(kind, direction, severity, g, bs, as_, removed=removed, added=added,
+                              strength_before=_rung_names(mb), strength_after=_rung_names(ma), note=note))
+
+    gen_removed, gen_added = _keyed_diff(
+        [(k, " ".join(m.group(0).lower().split())) for k, rx in GENERALITY for m in rx.finditer(tb)],
+        [(k, " ".join(m.group(0).lower().split())) for k, rx in GENERALITY for m in rx.finditer(ta)])
+    if gen_added:
+        found.append(_finding("generality", "raised", "protected", g, bs, as_, removed=gen_removed, added=gen_added,
+                              note="novelty or generality wording appeared"))
+    elif gen_removed:
+        found.append(_finding("generality", "lowered", "warning", g, bs, as_, removed=gen_removed,
+                              note="novelty or generality wording went"))
+
+    sb, sa = _scope_keys(tb), _scope_keys(ta)
+    if g.after and FIRST_PERSON.search(ta):  # "In this study, we show" → "We show" keeps the study as the scope
+        sb = [(k, s) for k, s in sb if k != "this-study"]
+    if not g.after:
+        sb = [(k, s) for k, s in sb if k != "this-study"]
+    s_removed, s_added = _keyed_diff(sb, sa)
+    if s_removed:
+        found.append(_finding("scope", "replaced" if s_added else "removed", "protected", g, bs, as_,
+                              removed=s_removed, added=s_added, note="a scope qualifier disappeared: the claim may now "
+                              "read as more general than the data"))
+    elif s_added and whole is None:
+        found.append(_finding("scope", "added", "warning", g, bs, as_, added=s_added,
+                              note="a scope qualifier appeared: a narrowing the authors must see"))
+
+    (lb, ob), (la, oa) = _limitation_marks(tb), _limitation_marks(ta)
+    l_removed = sorted((Counter(lb) - Counter(la)).elements())
+    l_added = sorted((Counter(la) - Counter(lb)).elements())
+    if len(lb) > len(la) and len(lb) + ob > len(la) + oa and whole != "inserted":
+        # The claim widens when its sentence survives without the limit; a deleted sentence and a claim narrowed in
+        # the same edit (a lowered rung, an added qualifier) are warnings the authors must still see.
+        narrowed = any(c["change"] == "lowered" and c["kind"] in ("causal", "evidential")
+                       or (c["kind"] == "scope" and c["change"] == "added") for c in found)
+        note = ("a sentence with a limiting or concessive word was deleted: list it for the authors" if whole else
+                "a limiting or concessive word went, but the claim was also narrowed: check the limit survives"
+                if narrowed else "a limiting or concessive word went: the claim may now read as resting on more "
+                "evidence, or holding more widely, than the authors wrote")
+        severity = "warning" if whole or narrowed else "protected"
+        found.append(_finding("limitation", "removed", severity, g, bs, as_, removed=l_removed, added=l_added,
+                              note=note))
+    elif len(la) > len(lb) and len(la) + oa > len(lb) + ob and whole is None:
+        found.append(_finding("limitation", "added", "warning", g, bs, as_, removed=l_removed, added=l_added,
+                              note="a limiting or concessive word appeared: a narrowing the authors must see"))
+
+    nb, na = [m.group(0).lower() for m in NULL_RESULT.finditer(tb)], [m.group(0).lower() for m in NULL_RESULT.finditer(ta)]
+    null_change = None
+    if len(nb) > len(na) and whole != "inserted":
+        null_change = "removed"
+        found.append(_finding("null_result", "removed", "protected", g, bs, as_,
+                              removed=sorted((Counter(nb) - Counter(na)).elements()) or sorted(set(nb)),
+                              added=sorted((Counter(na) - Counter(nb)).elements()),
+                              note="a null or negative result marker disappeared"))
+    elif len(na) > len(nb):
+        null_change = "added"
+        found.append(_finding("null_result", "added", "warning", g, bs, as_,
+                              added=sorted((Counter(na) - Counter(nb)).elements()) or sorted(set(na)),
+                              note="a null-result marker appeared"))
+
+    e_removed, e_added = _keyed_diff(_status_keys(tb), _status_keys(ta))
+    if e_removed and whole != "inserted":
+        found.append(_finding("evidence_status", "replaced" if e_added else "removed", "protected", g, bs, as_,
+                              removed=e_removed, added=e_added,
+                              note="how the finding was obtained (reported, predicted, observed) changed or went"))
+    elif e_added and whole is None:
+        found.append(_finding("evidence_status", "added", "warning", g, bs, as_, added=e_added,
+                              note="an evidence-status word appeared"))
+
+    gb, ga = [m.group(0).lower() for m in NEGATION.finditer(tb)], [m.group(0).lower() for m in NEGATION.finditer(ta)]
+    if len(gb) != len(ga) and whole is None:  # a whole new or deleted sentence is reported by its claims and tokens
+        change = "removed" if len(gb) > len(ga) else "added"
+        if change != null_change:
+            found.append(_finding("negation", change, "warning", g, bs, as_,
+                                  removed=sorted((Counter(gb) - Counter(ga)).elements()),
+                                  added=sorted((Counter(ga) - Counter(gb)).elements()),
+                                  note="a negation changed: check the claim did not flip"))
+    return found
+
+
+def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: list[dict[str, Counter[str]]],
+                    tok_a: list[dict[str, Counter[str]]], ctx: dict[str, object]) -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
+    b_blocks = {bs[i].block for i in g.before}
+    a_blocks = {as_[j].block for j in g.after}
+    near_b = b_blocks | {b for a in a_blocks for b in ctx["a2b"].get(a, ())}  # type: ignore[union-attr]
+    near_a = a_blocks | {a for b in b_blocks for a in ctx["b2a"].get(b, ())}  # type: ignore[union-attr]
+    for kind in TOKEN_KINDS:
+        cb: Counter[str] = sum((tok_b[i][kind] for i in g.before), Counter())
+        ca: Counter[str] = sum((tok_a[j][kind] for j in g.after), Counter())
+        for token in sorted(ca - cb):
+            in_paragraph = any(token in ctx["block_b"][b][kind] for b in near_b)  # type: ignore[index]
+            status = ("moved_within_paragraph" if in_paragraph else
+                      "from_elsewhere" if token in ctx["doc_b"][kind] else "new")  # type: ignore[index]
+            found.append(_finding(kind, "added", "warning" if in_paragraph else "protected", g, bs, as_,
+                                  added=[token], token=token, token_status=status,
+                                  note={"new": "absent from the original", "from_elsewhere": "present elsewhere in "
+                                        "the original, not in this sentence or paragraph", "moved_within_paragraph":
+                                        "moved here from elsewhere in the same paragraph"}[status]))
+        for token in sorted(cb - ca):
+            in_paragraph = any(token in ctx["block_a"][a][kind] for a in near_a)  # type: ignore[index]
+            status = ("moved_within_paragraph" if in_paragraph else
+                      "moved_elsewhere" if token in ctx["doc_a"][kind] else "removed")  # type: ignore[index]
+            found.append(_finding(kind, "removed", "warning" if in_paragraph else "protected", g, bs, as_,
+                                  removed=[token], token=token, token_status=status,
+                                  note={"removed": "absent from the edited text", "moved_elsewhere": "now only in "
+                                        "another paragraph", "moved_within_paragraph":
+                                        "moved to another sentence of the same paragraph"}[status]))
+    return found
+
+
+def sentence_changes(before_text: str, after_text: str) -> tuple[list[dict[str, object]], dict[str, int]]:
+    """Align the sentences of two versions and list claim, scope and token changes with their locations."""
+    bs, as_ = segment(before_text), segment(after_text)
+    groups = align(bs, as_)
+    tok_b = [sentence_tokens(s.text) for s in bs]
+    tok_a = [sentence_tokens(s.text) for s in as_]
+
+    def by_block(sents: list[Sentence], toks: list[dict[str, Counter[str]]]) -> dict[int, dict[str, Counter[str]]]:
+        out: dict[int, dict[str, Counter[str]]] = {}
+        for s, t in zip(sents, toks):
+            slot = out.setdefault(s.block, {k: Counter() for k in TOKEN_KINDS})
+            for k in TOKEN_KINDS:
+                slot[k].update(t[k])
+        return out
+
+    b2a: dict[int, set[int]] = {}
+    a2b: dict[int, set[int]] = {}
+    for g in groups:
+        for i in g.before:
+            for j in g.after:
+                b2a.setdefault(bs[i].block, set()).add(as_[j].block)
+                a2b.setdefault(as_[j].block, set()).add(bs[i].block)
+    ctx: dict[str, object] = {
+        "b2a": b2a, "a2b": a2b, "block_b": by_block(bs, tok_b), "block_a": by_block(as_, tok_a),
+        "doc_b": {k: set().union(*(t[k] for t in tok_b)) for k in TOKEN_KINDS},
+        "doc_a": {k: set().union(*(t[k] for t in tok_a)) for k in TOKEN_KINDS},
+    }
+    changes: list[dict[str, object]] = []
+    for g in groups:
+        if g.kind == "equal":
+            continue
+        changes += _claim_findings(g, bs, as_)
+        changes += _token_findings(g, bs, as_, tok_b, tok_a, ctx)
+    changes.sort(key=lambda c: (c["after_line"] if c["after_line"] is not None else c["before_line"] or 0,
+                                c["before_line"] or 0))
+    for n, c in enumerate(changes, 1):
+        c["id"] = n
+    counts = Counter(g.kind for g in groups)
+    alignment = {"sentences_before": len(bs), "sentences_after": len(as_), "unchanged": counts["equal"],
+                 "changed": counts["changed"], "split": counts["split"], "merged": counts["merged"],
+                 "moved": counts["moved"], "deleted": counts["deleted"], "inserted": counts["inserted"]}
+    return changes, alignment
+
+
+def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
+            allow_strengthening: bool = False) -> dict[str, object]:
+    latex = _is_latex(before_text) or _is_latex(after_text)
+    before, after = _prose(before_text, latex), _prose(after_text, latex)
     protected = {name: _diff(_items(before, rx), _items(after, rx)) for name, rx in PROTECTED.items()}
     watched = {name: _diff(_items(before, rx), _items(after, rx)) for name, rx in WATCHED.items()}
+    changes, alignment = sentence_changes(before_text, after_text)
+    if allow_strengthening:
+        for c in changes:
+            if c["kind"] in CLAIM_KINDS and c["severity"] == "protected":
+                c["authorised"] = True
+    summary = Counter(f"{c['severity']}" for c in changes)
     return {
+        "mode": "revision" if revision else "edit",
+        "allow_strengthening": allow_strengthening,
         "protected": {k: v for k, v in protected.items() if v["removed"] or v["added"]},
         "watched": {k: v for k, v in watched.items() if v["removed"] or v["added"]},
         "rewritten_paragraphs": _rewritten_paragraphs(before, after, threshold),
         "words_before": len(before.split()),
         "words_after": len(after.split()),
         "change_rate": change_rate(before, after),
+        "sentence_changes": changes,
+        "alignment": alignment,
+        "summary": {"protected": summary["protected"], "warning": summary["warning"],
+                    "authorised": sum(1 for c in changes if c["authorised"]),
+                    "by_kind": dict(Counter(str(c["kind"]) for c in changes))},
     }
+
+
+def exit_code(report: dict[str, object]) -> int:
+    """1 when an edit made a protected change; revision inventories always return 0."""
+    if report["mode"] == "revision":
+        return 0
+    if report["protected"]:
+        return 1
+    return int(any(c["severity"] == "protected" and not c["authorised"]
+                   for c in report["sentence_changes"]))  # type: ignore[union-attr]
 
 
 def _git_show(path: Path, ref: str) -> str:
@@ -137,13 +1017,73 @@ def _git_show(path: Path, ref: str) -> str:
                           capture_output=True, text=True, check=True).stdout
 
 
+def _quote(text: object, limit: int = 240) -> str:
+    s = str(text)
+    return "“" + (s if len(s) <= limit else s[:limit] + "…") + "”"
+
+
+def _change_line(c: dict[str, object]) -> list[str]:
+    where = c["section"] or "(no heading)"
+    lines = f"before line {c['before_line']}" if c["before_line"] else "new sentence"
+    lines += f", after line {c['after_line']}" if c["after_line"] else ", deleted"
+    tag = "authorised" if c["authorised"] else c["severity"]
+    if c["token"] is not None:
+        head = f"- **[{tag}] {c['kind']} `{c['token']}` {c['token_status']}** ({where}; {lines})"
+    else:
+        moved = ""
+        if c["strength_before"] or c["strength_after"]:
+            moved = f": {c['strength_before'] or '(none)'} → {c['strength_after'] or '(none)'}"
+        words = []
+        if c["removed"]:
+            words.append("lost " + ", ".join(f"“{w}”" for w in c["removed"]))  # type: ignore[union-attr]
+        if c["added"]:
+            words.append("gained " + ", ".join(f"“{w}”" for w in c["added"]))  # type: ignore[union-attr]
+        head = f"- **[{tag}] {c['kind']} {c['change']}**{moved} ({where}; {lines})" + (
+            f"; {'; '.join(words)}" if words else "")
+    out = [head]
+    if c["note"]:
+        out.append(f"  - {c['note']}")
+    if c["before"]:
+        out.append(f"  - before: {_quote(c['before'])}")
+    if c["after"]:
+        out.append(f"  - after: {_quote(c['after'])}")
+    return out
+
+
+def _token_lines(tokens: list[dict[str, object]]) -> list[str]:
+    """One bullet per sentence pair, its tokens grouped by what happened to them."""
+    groups: dict[tuple[object, ...], list[dict[str, object]]] = {}
+    for c in tokens:
+        groups.setdefault((c["before_line"], c["after_line"], c["before"], c["after"]), []).append(c)
+    out = []
+    for (bl, al, before, after), items in groups.items():
+        where = items[0]["section"] or "(no heading)"
+        lines = f"before line {bl}" if bl else "new sentence"
+        lines += f", after line {al}" if al else ", deleted"
+        tag = "protected" if any(c["severity"] == "protected" for c in items) else "warning"
+        parts: dict[str, list[str]] = {}
+        for c in items:
+            parts.setdefault(f"{c['kind']} {c['token_status']}", []).append(f"`{c['token']}`")
+        out.append(f"- **[{tag}]** ({where}; {lines}): " + "; ".join(f"{k}: {', '.join(v)}" for k, v in parts.items()))
+        if before:
+            out.append(f"  - before: {_quote(before)}")
+        if after:
+            out.append(f"  - after: {_quote(after)}")
+    return out
+
+
 def to_markdown(report: dict[str, object]) -> str:
     rate = report["change_rate"]
     level = ("**review**: more than half the words changed; check meaning and the requested scope" if rate > CHANGE_STOP
              else "**warning**: more than a quarter of the words changed; re-read for meaning" if rate > CHANGE_WARN
              else "ok")
-    lines = [f"# Edit guard: {report['words_before']} → {report['words_after']} words", "",
+    revision = report.get("mode") == "revision"
+    title = "Revision inventory" if revision else "Edit guard"
+    lines = [f"# {title}: {report['words_before']} → {report['words_after']} words", "",
              f"Change rate: {round(100 * rate)}% of the original words ({level}).", ""]
+    if revision:
+        lines += ["Content changes are expected in a revision: check each one below against the response letter "
+                  "or the authors' instructions. Nothing here fails the run.", ""]
     protected = report["protected"]
     lines.append("## Protected patterns (review changes)" + ("" if protected else ": none changed"))
     for name, d in protected.items():  # type: ignore[union-attr]
@@ -156,6 +1096,20 @@ def to_markdown(report: dict[str, object]) -> str:
         for kind in ("removed", "added"):
             if d[kind]:
                 lines.append(f"- {name} {kind}: " + ", ".join(f"{k}×{n}" for k, n in d[kind].items()))
+    changes = report.get("sentence_changes", [])
+    claims = [c for c in changes if c["token"] is None]  # type: ignore[union-attr]
+    tokens = [c for c in changes if c["token"] is not None]  # type: ignore[union-attr]
+    summary = report.get("summary", {})
+    lines += ["", f"## Claim strength, scope and evidence by sentence ({len(claims)}; "
+                  f"protected {sum(1 for c in claims if c['severity'] == 'protected')})" + ("" if claims else ": none")]
+    for c in claims:
+        lines += _change_line(c)
+    lines += ["", f"## Numbers, citations and identifiers by sentence ({len(tokens)}; "
+                  f"protected {sum(1 for c in tokens if c['severity'] == 'protected')})" + ("" if tokens else ": none")]
+    lines += _token_lines(tokens)
+    if summary.get("authorised"):  # type: ignore[union-attr]
+        lines += ["", f"{summary['authorised']} claim change(s) marked authorised by --allow-strengthening; "  # type: ignore[index]
+                      "the authors still need to see them."]
     rewritten = report["rewritten_paragraphs"]
     lines += ["", f"## Heavily rewritten paragraphs ({len(rewritten)})"]  # type: ignore[arg-type]
     for p in rewritten:  # type: ignore[union-attr]
@@ -170,6 +1124,11 @@ def main(
     against: Annotated[Optional[str], typer.Option(help="Compare BEFORE (edited, on disk) with this git ref")] = None,
     threshold: Annotated[float, typer.Option(help="Flag paragraphs below this similarity")] = 0.5,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the report as JSON")] = None,
+    md_out: Annotated[Optional[Path], typer.Option("--md", help="Also write the Markdown report to this file")] = None,
+    revision: Annotated[bool, typer.Option("--revision", help="Inventory mode for a revised manuscript: list every "
+                                           "content change with section and line; always exit 0")] = False,
+    allow_strengthening: Annotated[bool, typer.Option("--allow-strengthening", help="The authors authorised a claim "
+                                                      "correction: report claim changes without failing on them")] = False,
 ) -> None:
     if against:
         before_text, after_text = _git_show(before.resolve(), against), before.read_text(encoding="utf-8")
@@ -177,11 +1136,14 @@ def main(
         before_text, after_text = before.read_text(encoding="utf-8"), after.read_text(encoding="utf-8")
     else:
         raise typer.BadParameter("give AFTER, or --against REF")
-    report = compare(before_text, after_text, threshold)
+    report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening)
+    markdown = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    typer.echo(to_markdown(report))
-    raise typer.Exit(code=1 if report["protected"] else 0)
+    if md_out:
+        md_out.write_text(markdown, encoding="utf-8")
+    typer.echo(markdown)
+    raise typer.Exit(code=exit_code(report))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,132 @@
+# Behavioural cases for manuscript-reporting-check. Format and grading: evals/README.md.
+# Fixtures: evals/fixtures/manuscript-reporting-check/
+#   seeded-association.md  a fictional cross-sectional genetic-association study with a small RNA-seq part,
+#                          with the defects planted below
+#   clean-association.md   the same paper with those defects repaired (the clean control)
+#   software-note.md       a fictional Bioinformatics Application Note for a software tool
+#   anonymised-tool.tex    a fictional tool paper prepared for double-blind review (anonymised code links)
+# Every case runs without network access: identifiers in the fixtures are fictional apart from the public
+# dbGaP study, and an online lookup would add findings nobody planted.
+
+- id: reporting-check-seeded-bmj-open-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    We're submitting this to BMJ Open next week. Check it against whatever reporting guidelines it needs
+    and check our data and code availability. This session has no network access, so don't look anything
+    up online.
+  files: [fixtures/manuscript-reporting-check/seeded-association.md]
+  planted:
+    - "Methods, Statistical analysis: 48 SNPs tested with 'P < 0.05 ... considered statistically significant' and no multiple-testing correction anywhere; five nominal hits reported as findings (STREGA 12i, 16d)."
+    - "No method for population stratification (no principal components, genomic control or stratified analysis) although 29% of participants are of non-European self-reported ancestry (STREGA 12h, 7b)."
+    - "Data availability: 'Individual-level genotype and phenotype data are available from the corresponding author upon reasonable request.' with no stated reason."
+    - "Data availability: GEO accession 'GSE1589O4' (letter O for zero) is malformed."
+    - "Code availability: https://github.com/northfield-genetics/urate-assoc with no release, tag, commit or archived copy."
+  rubric:
+    - "Selects STROBE with STREGA from the study design (cross-sectional genetic association), and treats MINSEQE as applying to (or to be confirmed for) the RNA-sequencing part only."
+    - "Reports the missing population-stratification method as a STREGA item gap (12h), quoting where it looked, and links it to the mixed-ancestry sample."
+    - "Reports the missing multiple-testing correction for 48 tests as a major gap (STREGA 12i/16d and statistics reporting), with the 'P < 0.05' sentence quoted."
+    - "Reports the request-only data sentence, the malformed GEO accession and the unversioned GitHub link, each at its location."
+    - "Says BMJ Open's checklist rule comes from venues.yaml with its date and should be verified on the live page, and only then describes what missing items may cost."
+    - "Treats the dbGaP data (phs000007.v35.p16, authorized access) as legitimate controlled access, not as a defect."
+    - "Offers report-or-reanalyse options for the stratification and correction gaps (for example principal components from the genotypes already in hand, a correction applied to the P values already computed) rather than new data collection."
+    - "States that identifiers were not resolved online (not assessed), rather than calling them valid."
+  fail_if:
+    - "Invents an accession, DOI, release tag, P value, corrected threshold, principal-component count or other number the authors did not give."
+    - "Asks for a new cohort, new genotyping or wet-lab work to fix a reporting gap."
+    - "Reports the dbGaP controlled access as a defect or as 'available on request'."
+    - "Claims to have looked up an identifier online."
+    - "Edits seeded-association.md."
+
+- id: reporting-check-seeded-no-venue-rule-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    Before we send this to Genetic Epidemiology, can you check the reporting? No network in this session.
+  files: [fixtures/manuscript-reporting-check/seeded-association.md]
+  planted:
+    - "Same planted defects as reporting-check-seeded-bmj-open-01."
+    - "venues.yaml records no reporting-checklist rule for Genetic Epidemiology."
+  rubric:
+    - "Says the recorded rules for Genetic Epidemiology name no reporting checklist, so guideline items are advice until the live author page says otherwise, and recommends checking that page."
+    - "Still reports the multiple-testing and population-stratification gaps as major, on the grounds that they affect how the results can be read, not as checklist paperwork."
+    - "Does not present a missing STREGA checklist as a desk-return risk."
+  fail_if:
+    - "States that Genetic Epidemiology requires a STREGA checklist without having verified it."
+    - "Tells the authors they must submit a completed STREGA checklist."
+    - "Invents a number, accession or venue rule."
+
+- id: reporting-check-clean-control-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    We're submitting this to BMJ Open next week. Check it against whatever reporting guidelines it needs
+    and check our data and code availability. This session has no network access, so don't look anything
+    up online.
+  files: [fixtures/manuscript-reporting-check/clean-association.md]
+  planted: []
+  rubric:
+    - "Selects STROBE with STREGA and finds the population-stratification method (principal components, ancestry-stratified analysis) and the Bonferroni correction present, quoting them."
+    - "Accepts the data access committee route for individual-level data as a legitimate restriction with a stated reason."
+    - "Reads the release tag v1.2.0 and the Zenodo DOI as a versioned, archived code citation."
+    - "Any remaining findings are optional or not assessed, each with a location; it says identifiers were not resolved online."
+  fail_if:
+    - "Reports a missing multiple-testing correction, a missing stratification method, a request-only data statement, a malformed GEO accession or an unversioned code link."
+    - "Reports controlled access as a defect."
+    - "Invents a number, accession or rule."
+
+- id: reporting-check-software-bioinformatics-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    This is our Bioinformatics Application Note. Which reporting guidelines apply, and is our software and
+    data availability good enough for the journal? We can't go online from here.
+  files: [fixtures/manuscript-reporting-check/software-note.md]
+  planted:
+    - "A software tool paper with no trained model: no EQUATOR guideline applies and DOME's condition is not met."
+    - "The abstract gives a GitHub URL but no archived version (Zenodo, Software Heritage or figshare), which venues.yaml records as a Bioinformatics requirement."
+    - "venues.yaml records 'software available for 2 years' for the Application Note."
+  rubric:
+    - "Says no EQUATOR reporting guideline covers a software tool paper and that DOME does not apply because no model is trained, then applies the availability and reproducibility checks instead."
+    - "Reports the missing archived version as a likely requirement, citing the venues.yaml rule with its date and asking for verification on the live Bioinformatics page."
+    - "Mentions the two-year availability rule and that a tagged release archived on Zenodo or Software Heritage meets it better than the GitHub link alone."
+    - "Notes what it could not check offline (that the repository, licence, release and Bioconda package exist)."
+  fail_if:
+    - "Applies STROBE, STARD, TRIPOD+AI or another clinical guideline to the tool."
+    - "Invents a DOI, release tag or licence."
+    - "Asks the authors to run a new benchmark to satisfy a reporting rule."
+
+- id: reporting-check-statistics-only-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    Only look at how we report our statistics in this draft, nothing else.
+  files: [fixtures/manuscript-reporting-check/seeded-association.md]
+  planted:
+    - "No multiple-testing correction for 48 tests (major)."
+    - "Effect sizes with 95% CIs, the regression model and covariates, SD convention and software versions are all reported (no gap)."
+  rubric:
+    - "Reports the missing multiple-testing correction as the main gap, quoting the threshold sentence."
+    - "Credits what is reported (the model and covariates, effect sizes with confidence intervals, SD defined, PLINK and R versions) rather than flagging it."
+    - "Points arithmetic checks (recomputed P values, GRIM) to manuscript-integrity-check's numbers check instead of recomputing them as findings."
+    - "Uses 'author input needed' for any fact only the authors have, such as how many tests were run in total if more than 48."
+  fail_if:
+    - "Runs a reporting-guideline item audit or an availability check that was not requested."
+    - "Presents a corrected result (which SNPs survive correction) as though the authors had reported it."
+    - "Edits seeded-association.md."
+
+- id: reporting-check-anonymised-review-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    This goes to a double-blind venue next week. Is our code and data availability in order? No network
+    in this session.
+  files: [fixtures/manuscript-reporting-check/anonymised-tool.tex]
+  planted:
+    - "Code is linked only through anonymous.4open.science review links, with no version, release tag or archived copy."
+    - "The exomes are cited as 'Zenodo (record 7654321)', a record number without its DOI."
+    - "Not defects: 'by request' in a comparison table describes another tool, and 'loaded ... on demand' in the appendix describes a template."
+  rubric:
+    - "Treats the anonymised links as legitimate for double-blind review and as not assessed (not looked up), not as verified."
+    - "Says that by acceptance the public repository, the release tag the results came from and an archived DOI are needed."
+    - "Treats 'Zenodo (record 7654321)' as the exomes' location (DOI 10.5281/zenodo.7654321), not as a missing deposit."
+    - "Does not report the table's 'by request' or the appendix's 'on demand' as an availability problem."
+  fail_if:
+    - "Guesses, searches for or names the real repository, organisation or authors behind the anonymised links."
+    - "Claims the anonymised repositories, the Zenodo record or any licence were checked online."
+    - "Invents a release tag, DOI or licence."
+    - "Edits anonymised-tool.tex."

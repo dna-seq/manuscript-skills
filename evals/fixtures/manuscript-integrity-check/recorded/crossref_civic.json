@@ -1,0 +1,205 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.1038/ng.3774",
+  "type": "journal-article",
+  "title": [
+   "CIViC is a community knowledgebase for expert crowdsourcing the clinical interpretation of variants in cancer"
+  ],
+  "container-title": [
+   "Nature Genetics"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2017,
+     1,
+     31
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Malachi",
+    "family": "Griffith"
+   },
+   {
+    "given": "Nicholas C",
+    "family": "Spies"
+   },
+   {
+    "given": "Kilannin",
+    "family": "Krysiak"
+   },
+   {
+    "given": "Joshua F",
+    "family": "McMichael"
+   },
+   {
+    "given": "Adam C",
+    "family": "Coffman"
+   },
+   {
+    "given": "Arpad M",
+    "family": "Danos"
+   },
+   {
+    "given": "Benjamin J",
+    "family": "Ainscough"
+   },
+   {
+    "given": "Cody A",
+    "family": "Ramirez"
+   },
+   {
+    "given": "Damian T",
+    "family": "Rieke"
+   },
+   {
+    "given": "Lynzey",
+    "family": "Kujan"
+   },
+   {
+    "given": "Erica K",
+    "family": "Barnell"
+   },
+   {
+    "given": "Alex H",
+    "family": "Wagner"
+   },
+   {
+    "given": "Zachary L",
+    "family": "Skidmore"
+   },
+   {
+    "given": "Amber",
+    "family": "Wollam"
+   },
+   {
+    "given": "Connor J",
+    "family": "Liu"
+   },
+   {
+    "given": "Martin R",
+    "family": "Jones"
+   },
+   {
+    "given": "Rachel L",
+    "family": "Bilski"
+   },
+   {
+    "given": "Robert",
+    "family": "Lesurf"
+   },
+   {
+    "given": "Yan-Yang",
+    "family": "Feng"
+   },
+   {
+    "given": "Nakul M",
+    "family": "Shah"
+   },
+   {
+    "given": "Melika",
+    "family": "Bonakdar"
+   },
+   {
+    "given": "Lee",
+    "family": "Trani"
+   },
+   {
+    "given": "Matthew",
+    "family": "Matlock"
+   },
+   {
+    "given": "Avinash",
+    "family": "Ramu"
+   },
+   {
+    "given": "Katie M",
+    "family": "Campbell"
+   },
+   {
+    "given": "Gregory C",
+    "family": "Spies"
+   },
+   {
+    "given": "Aaron P",
+    "family": "Graubert"
+   },
+   {
+    "given": "Karthik",
+    "family": "Gangavarapu"
+   },
+   {
+    "given": "James M",
+    "family": "Eldred"
+   },
+   {
+    "given": "David E",
+    "family": "Larson"
+   },
+   {
+    "given": "Jason R",
+    "family": "Walker"
+   },
+   {
+    "given": "Benjamin M",
+    "family": "Good"
+   },
+   {
+    "given": "Chunlei",
+    "family": "Wu"
+   },
+   {
+    "given": "Andrew I",
+    "family": "Su"
+   },
+   {
+    "given": "Rodrigo",
+    "family": "Dienstmann"
+   },
+   {
+    "given": "Adam A",
+    "family": "Margolin"
+   },
+   {
+    "given": "David",
+    "family": "Tamborero"
+   },
+   {
+    "given": "Nuria",
+    "family": "Lopez-Bigas"
+   },
+   {
+    "given": "Steven J M",
+    "family": "Jones"
+   },
+   {
+    "given": "Ron",
+    "family": "Bose"
+   },
+   {
+    "given": "David H",
+    "family": "Spencer"
+   },
+   {
+    "given": "Lukas D",
+    "family": "Wartman"
+   },
+   {
+    "given": "Richard K",
+    "family": "Wilson"
+   },
+   {
+    "given": "Elaine R",
+    "family": "Mardis"
+   },
+   {
+    "given": "Obi L",
+    "family": "Griffith"
+   }
+  ]
+ }
+}

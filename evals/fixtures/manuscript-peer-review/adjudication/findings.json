@@ -1,0 +1,96 @@
+{
+  "findings": [
+    {
+      "id": "F01",
+      "seat": "champion",
+      "location": "Introduction, last sentence",
+      "quote": "It needs no GPU and scores an exome in under three minutes on a laptop.",
+      "concern": "The Abstract repeats the under-three-minutes runtime without saying on what hardware or for how many variants. Methods gives both, but the qualifier does not reach the Abstract, where readers will take the figure as general.",
+      "claim": "Abstract: VarRank scores an exome in under three minutes.",
+      "consequence": "interpretation",
+      "severity": "optional",
+      "change_my_mind": "The hardware and the number of variants beside the runtime in the Abstract.",
+      "route": "fixable-in-text",
+      "cost": "text"
+    },
+    {
+      "id": "F02",
+      "seat": "evidence-statistics",
+      "location": "Methods, Benchmark",
+      "quote": "We assigned ClinVar variants at random to training (80%) and test (20%) sets.",
+      "concern": "Test information can reach the model in two ways: the features may have been standardised on all 20,910 variants before the split, and a random split by variant puts variants of the same gene on both sides while three features are gene-level constraint metrics.",
+      "claim": "Abstract: AUROC 0.91 on held-out variants, and VarRank 'outperformed existing pathogenicity predictors'.",
+      "consequence": "validity",
+      "severity": "major",
+      "change_my_mind": "Standardisation fitted on the training set only, and results on a gene-disjoint split.",
+      "route": "author-required",
+      "cost": "reanalysis"
+    },
+    {
+      "id": "F03",
+      "seat": "evidence-statistics",
+      "location": "Methods, Benchmark",
+      "quote": "We compared VarRank with SIFT and PolyPhen-2 (HumVar model) on the test set",
+      "concern": "Table 1 cannot be reproduced: the comparators' versions and models are not given, and the paper does not say how the confidence intervals were obtained.",
+      "claim": "Results, Table 1: VarRank outperformed SIFT and PolyPhen-2.",
+      "consequence": "reproducibility",
+      "severity": "major",
+      "change_my_mind": "The SIFT and PolyPhen-2 versions and models, and the method behind the intervals.",
+      "route": "fixable-in-text",
+      "cost": "text"
+    },
+    {
+      "id": "F04",
+      "seat": "skeptic",
+      "location": "Results, Benchmark",
+      "quote": "VarRank outperformed both SIFT and PolyPhen-2 on both metrics.",
+      "concern": "AUPRC depends on the share of pathogenic variants in the test set, which the paper does not report, so the AUPRC comparison cannot be interpreted.",
+      "claim": "Results, Benchmark: VarRank outperformed both predictors on both metrics.",
+      "consequence": "interpretation",
+      "severity": "major",
+      "change_my_mind": "The class balance of the test set.",
+      "route": "fixable-in-text",
+      "cost": "text"
+    },
+    {
+      "id": "F05",
+      "seat": "skeptic",
+      "location": "Results, Application",
+      "quote": "This shows that the variants VarRank prioritises cause elevated LDL cholesterol.",
+      "concern": "A cross-sectional comparison of 41 carriers with non-carriers in one cohort cannot show that these variants cause higher LDL cholesterol.",
+      "claim": "Results, Application: VarRank's top-ranked LDLR variants cause elevated LDL cholesterol.",
+      "consequence": "interpretation",
+      "severity": "major",
+      "change_my_mind": "Association wording ('carriers had higher LDL cholesterol'), or evidence beyond an association.",
+      "route": "fixable-in-text",
+      "cost": "text"
+    },
+    {
+      "id": "F06",
+      "seat": "evidence-statistics",
+      "location": "Abstract, Results",
+      "quote": "On 4,812 held-out ClinVar missense variants",
+      "concern": "The Abstract's held-out count (4,812) disagrees with Methods and Table 1 (4,182).",
+      "claim": "Abstract: performance on held-out ClinVar variants.",
+      "consequence": "support",
+      "severity": "major",
+      "change_my_mind": "One test-set size throughout.",
+      "route": "fixable-in-text",
+      "cost": "text"
+    }
+  ],
+  "strengths": [
+    {
+      "seat": "champion",
+      "location": "Methods, Model",
+      "quote": "Features were standardised on the training set.",
+      "note": "Standardising on the training set only avoids one common form of leakage."
+    },
+    {
+      "seat": "champion",
+      "location": "Methods, Benchmark",
+      "quote": "with 95% confidence intervals from 2,000 bootstrap resamples",
+      "note": "Every benchmark figure carries an interval."
+    }
+  ]
+}

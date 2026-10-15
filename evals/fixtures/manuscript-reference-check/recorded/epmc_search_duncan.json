@@ -1,0 +1,64 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. Europe PMC REST search, resultType=core, by DOI.",
+ "hitCount": 1,
+ "resultList": {
+  "result": [
+   {
+    "id": "31346163",
+    "source": "MED",
+    "doi": "10.1038/s41467-019-11112-0",
+    "pmid": "31346163",
+    "pmcid": "PMC6658471",
+    "title": "Analysis of polygenic risk score usage and performance in diverse human populations.",
+    "authorString": "Duncan L, Shen H, Gelaye B, Meijsen J, Ressler K, Feldman M, Peterson R, Domingue B.",
+    "pubYear": "2019",
+    "isOpenAccess": "Y",
+    "inEPMC": "Y",
+    "pubTypeList": {
+     "pubType": [
+      "research-article",
+      "Journal Article",
+      "Research Support, N.I.H., Extramural"
+     ]
+    },
+    "commentCorrectionList": {
+     "commentCorrection": [
+      {
+       "source": "PPR",
+       "id": "PPR47870",
+       "type": "Preprint in",
+       "note": "CrossRef Pre-print loader",
+       "orderIn": 10002
+      }
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1038/s41467-019-11112-0"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "html",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC6658471"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "pdf",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC6658471?pdf=render"
+      }
+     ]
+    },
+    "abstractText": "A historical tendency to use European ancestry samples hinders medical genetics research, including the use of polygenic scores, which are individual-level metrics of genetic risk. We analyze the first decade of polygenic scoring studies (2008-2017, inclusive), and find that 67% of studies included exclusively European ancestry participants and another 19% included only East Asian ancestry participants. Only 3.8% of studies were among cohorts of African, Hispanic, or Indigenous peoples. We find that predictive performance of European ancestry-derived polygenic scores is lower in non-European ancestry samples (e.g. African ancestry samples: t = -5.97, df = 24, p = 3.7 × 10<sup>-6</sup>), and we demonstrate the effects of methodological choices in polygenic score distributions for worldwide populations. These findings highlight the need for improved treatment of linkage disequilibrium and variant frequencies when applying polygenic scoring to cohorts of non-European ancestry, and bolster the rationale for large-scale GWAS in diverse human populations."
+   }
+  ]
+ }
+}

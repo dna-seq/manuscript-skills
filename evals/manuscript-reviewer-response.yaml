@@ -1,0 +1,178 @@
+# Behavioural cases for manuscript-reviewer-response. Format: evals/README.md.
+# Fixtures: evals/fixtures/manuscript-reviewer-response/. The VarLens set is a two-referee decision letter
+# (reviews-r1.txt), the original and revised manuscripts (paper-v1.md, paper-v2.md), the review ledger
+# (review-ledger.yaml) and a response letter (response-clean.md). Seeded copies: response-seeded.md with
+# review-ledger-seeded.yaml (six letter defects) and paper-v2-seeded.md (a revision that misses one change,
+# strengthens a challenged claim and adds an overclaim). The clean files are the controls.
+
+- id: reviewer-response-plan-01
+  skill: manuscript-reviewer-response
+  prompt: >-
+    We got this decision letter back for our VarLens paper. Help us plan the revision before we touch the
+    manuscript. Don't decide anything for us; tell us what we need to decide.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r1.txt
+    - fixtures/manuscript-reviewer-response/paper-v1.md
+  planted:
+    - "Reviewer 1 point 3 holds two separately satisfiable asks: a breakdown by variant class, and whether any discordant variant is ClinVar pathogenic or likely pathogenic."
+    - "Reviewer 1 point 4 has sub-points a) and b)."
+    - "Reviewer 2 numbered nothing; the paragraph on the author's genome asks two things (ethics approval; consent to publication)."
+    - "Reviewer 2 asks for Sanger validation; the manuscript is purely computational."
+    - "The editor's 'in particular' sentence points at R1.1 and Reviewer 2's generalisability concern; the editor's own request is the Code availability statement."
+  rubric:
+    - "Produces items in the referees' order with their own labels (1, 2, 3, 4a, 4b); Reviewer 2's items carry labels marked as the authors' own."
+    - "Splits Reviewer 1 point 3 and the ethics/consent paragraph into separate items, and does not split a request from the sentence that justifies it."
+    - "Treats the editor's Code availability request as an item and the editor's 'in particular' sentence as marking R1.1 and Reviewer 2's first paragraph as must-fix, not as new items."
+    - "Every item's comment text is copied verbatim from the decision letter."
+    - "Each item records the underlying concern, the commitment asked for and an evidence type; the Sanger request is recorded as new data."
+    - "Leaves every decision to the authors (undecided or explicitly a proposal) and lists the decisions needed."
+    - "Routes the ethics and consent items to manuscript-policy-fit."
+    - "For the Sanger request, names alternatives that fit an in-silico study (for example a comparison with Genome in a Bottle benchmark calls, a narrower claim) without presenting any as done."
+    - "If it runs scripts/check_response.py, it runs it on the ledger alone (no letter) and presents undecided items as decisions to ask for, not as failures."
+    - "Keeps check output out of the manuscript folder, and puts the ledger beside the manuscript only if the authors want it there (otherwise a scratch location, or it asks)."
+  fail_if:
+    - "Renumbers, reorders or regroups the referees' comments by theme."
+    - "Paraphrases a comment where the ledger or table claims to quote it."
+    - "Records a decision (address, decline) as made without the authors' input."
+    - "Invents a result, a number or an ethics approval."
+    - "Gives an acceptance probability."
+
+- id: reviewer-response-wetlab-02
+  skill: manuscript-reviewer-response
+  prompt: >-
+    The editor says experimental validation is essential. We are a computational group with no wet lab and
+    no collaborator who could run a luciferase assay. We could reanalyse public MPRA data, but we have not
+    done it. What are our options, and can you draft the reply to point 1?
+  files:
+    - fixtures/manuscript-reviewer-response/decision-letter-wetlab.txt
+    - fixtures/manuscript-reviewer-response/wetlab-paper.md
+  planted:
+    - "The editor makes experimental validation a condition ('essential for publication in this journal')."
+    - "The manuscript claims the variants 'disrupt enhancer activity' (Abstract, Discussion) from prediction alone."
+    - "Methods give 1,204 scored variants; Results give 1,240 (Reviewer 1, point 3)."
+  rubric:
+    - "Identifies that the editor made experimental validation a condition and that the authors cannot meet it as written."
+    - "Sets out the options: narrow the claim to a prediction, a public-data (MPRA) reanalysis if the authors run it, an enquiry to the editor about whether that would satisfy the condition, or submitting elsewhere via manuscript-journal-select with the in-silico constraint."
+    - "The drafted reply opens with what was not done and gives the reason in one sentence (the study's computational design, or a capacity limit the authors state); a cost or capacity reason never stands alone and is paired with what was done instead."
+    - "The draft does not report MPRA results: any result of the proposed reanalysis is a [TBD] placeholder or explicitly a proposal."
+    - "Proposes the matching manuscript change: 'disrupt' narrowed to 'are predicted to disrupt' (or equivalent) in the Abstract and Discussion."
+    - "Leaves the choice between revising and moving to the authors."
+  fail_if:
+    - "Claims or implies the luciferase assay or the MPRA reanalysis was performed."
+    - "Gives an acceptance probability or rates the chances of either path."
+    - "Advises the authors to obtain a wet lab or a new collaborator as the default answer."
+    - "Edits the manuscript file without being asked."
+
+- id: reviewer-response-check-seeded-03
+  skill: manuscript-reviewer-response
+  prompt: >-
+    Here is our response letter, the ledger, the decision letter and both versions of the paper. Check the
+    letter before we send it. Report problems; don't rewrite the letter.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r1.txt
+    - fixtures/manuscript-reviewer-response/review-ledger-seeded.yaml
+    - fixtures/manuscript-reviewer-response/response-seeded.md
+    - fixtures/manuscript-reviewer-response/paper-v1.md
+    - fixtures/manuscript-reviewer-response/paper-v2.md
+  planted:
+    - "R1.2: the quoted comment is a paraphrase."
+    - "R1.4b is answered before R1.4a."
+    - "R2.P4 (peak memory) has no reply."
+    - "R2.P1: the ledger says the long-read commitment is promised; the reply says 'we will add'."
+    - "R1.1: the reply says 98.6% agreement; the manuscript says 97.9%."
+    - "R1.4b: the whole reply is 'We have revised the manuscript accordingly.'"
+  rubric:
+    - "Runs scripts/check_response.py (or reports equivalent findings) and reports each of the six planted defects at its item."
+    - "Gives, for the 98.6% figure, the manuscript's value and location (97.9%, Results 'Comparison with VEP' or Table 2)."
+    - "Says the R2.P1 long-read change has to land in the manuscript (or the reply must say it has not) before the letter is sent."
+    - "States that the check covers structure only and that a clean run would not show the replies answer the referees."
+  fail_if:
+    - "Edits the letter, the ledger or the manuscript."
+    - "Reports a defect that is not there, such as a non-verbatim quote in a block whose quote is verbatim."
+    - "Invents a replacement number for R1.1 other than the manuscript's."
+
+- id: reviewer-response-clean-control-04
+  skill: manuscript-reviewer-response
+  prompt: >-
+    Check this response letter against the revised manuscript and tell us whether the revision addresses
+    each comment.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r1.txt
+    - fixtures/manuscript-reviewer-response/review-ledger.yaml
+    - fixtures/manuscript-reviewer-response/response-clean.md
+    - fixtures/manuscript-reviewer-response/paper-v1.md
+    - fixtures/manuscript-reviewer-response/paper-v2.md
+  planted:
+    - "Clean control: no letter defect; every item is addressed in paper-v2.md at the cited lines."
+    - "R2.P3 declines Sanger sequencing with a design reason and an alternative (Genome in a Bottle comparison) that landed."
+    - "Previously missed, unchanged from paper-v1.md: the Introduction cites Jones et al., 2019, which is not in the References; Smith and Lee (2020) is listed but never cited."
+  rubric:
+    - "Reports no structural defect in the letter."
+    - "Judges every item fully addressed, except that R2.P3 may be judged fully or partially addressed provided the reason is given."
+    - "Reports the Jones/Smith citation mismatch as previously missed (present in the original), not as a failure of the revision."
+    - "Says what it could not check (for example that a clean structural check is not a judgement of responsiveness)."
+  fail_if:
+    - "Reports a planted-style defect (non-verbatim quote, missing reply, unlanded promise, wrong number) that is not there."
+    - "Escalates the previously missed citation problem as a regression or a reason the revision fails."
+    - "Gives an acceptance probability or an overall score."
+
+- id: reviewer-response-verify-05
+  skill: manuscript-reviewer-response
+  prompt: >-
+    Before we send the revision, verify that it actually addresses each referee comment. Use a fresh
+    subagent if you can. Files are the decision letter, the original and the revised manuscript, our
+    response letter and the ledger.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r1.txt
+    - fixtures/manuscript-reviewer-response/review-ledger.yaml
+    - fixtures/manuscript-reviewer-response/response-clean.md
+    - fixtures/manuscript-reviewer-response/paper-v1.md
+    - fixtures/manuscript-reviewer-response/paper-v2-seeded.md
+  planted:
+    - "R1.2: paper-v2-seeded.md reports no spread across runs, although the letter says Table 1 gives the range."
+    - "R1.3a: the Discussion now says the concordance 'shows that the rewrite did not change results' (was 'suggests'): the challenged claim got stronger."
+    - "Regression: the Abstract now says VarLens 'matched VEP on every variant class tested', against 97.9% agreement in Results."
+    - "Previously missed: Jones et al., 2019 is cited but not in the References (unchanged since paper-v1.md)."
+  rubric:
+    - "Writes the per-item criteria before judging the revision, and judges the revision before reading the response letter (visible in the order of work or the report)."
+    - "Runs guard.py's revision mode on paper-v1.md and paper-v2-seeded.md, or reports the same claim and number changes."
+    - "R1.2 is not addressed, and the report notes that the letter claims a range the manuscript does not contain."
+    - "R1.3a is made worse (the breakdown landed, but the challenged claim was strengthened)."
+    - "Reports the Abstract's 'every variant class' sentence as a regression introduced by the revision."
+    - "Reports the Jones et al. citation as previously missed and does not escalate it."
+    - "Uses the five states (fully addressed, partially addressed, not addressed, made worse, not_assessed) and anchors each verdict with a quote and location from the revised manuscript."
+    - "Checks each verdict's evidence in both versions before reporting: no item is 'not addressed' when the revision contains a matching change, and nothing is filed as previously missed unless it is in paper-v1.md."
+    - "Does not add requirements the comment did not state to a criterion (for example a reason the referee did not ask for)."
+  fail_if:
+    - "Accepts the letter's claim for R1.2 without finding the range in the manuscript."
+    - "Lets the response letter raise a verdict without pointing to text in the manuscript."
+    - "Gives an acceptance probability or an overall score."
+    - "Edits any file."
+
+- id: reviewer-response-round2-06
+  skill: manuscript-reviewer-response
+  prompt: >-
+    Second round. Reviewer 1 is happy; Reviewer 2 wants a third individual or narrower claims, and the VEP
+    options. We ran VarLens on the public short-read genome of HG004: 10.1 minutes, peak memory 5.8 GB. We
+    ran VEP with --cache --offline --everything. We have not updated the manuscript yet. Update the plan and
+    draft the round-2 replies.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r2.txt
+    - fixtures/manuscript-reviewer-response/review-ledger.yaml
+    - fixtures/manuscript-reviewer-response/paper-v2.md
+    - fixtures/manuscript-reviewer-response/response-clean.md
+  planted:
+    - "Reviewer 2's first round-2 paragraph follows up round-1 item R2.P1 (the long-read genome)."
+    - "The VEP-options request follows up the comparison added for round-1 item R1.1."
+    - "The manuscript has not been updated, so nothing for round 2 has landed."
+  rubric:
+    - "Appends a round 2 to the ledger without changing round 1's items, with the new items linked to 1:R2.P1 and 1:R1.1 through 'previous'."
+    - "Treats 'add a third genome or limit the claims' as one item with two acceptable actions and records the authors' choice (adding HG004) as theirs."
+    - "Each round-2 reply quotes the new comment verbatim and refers back to what round 1 did, without pasting the round-1 reply."
+    - "Uses only the numbers the authors gave (10.1 minutes, 5.8 GB) and the VEP options as stated."
+    - "Marks the manuscript locations as [TBD] or not landed, and says the manuscript must be updated (and the check rerun) before the letter is sent."
+    - "Gives Reviewer 1 at most a one-line acknowledgement."
+  fail_if:
+    - "Cites line numbers or tables in the revised manuscript as if the HG004 results were already there."
+    - "Invents numbers beyond those given (for example a range or a concordance for HG004)."
+    - "Renumbers or rewrites round-1 items."

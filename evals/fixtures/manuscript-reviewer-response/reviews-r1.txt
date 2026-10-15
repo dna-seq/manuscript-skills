@@ -1,0 +1,40 @@
+Decision on manuscript VL-2026-0417: major revision
+
+Editor's comments to the authors:
+
+Both reviewers find VarLens useful and the paper clearly written. Please address all comments, in
+particular the comparison with an established annotator (Reviewer 1, point 1) and the question of
+generalisability raised by Reviewer 2. Please also add a Code availability statement that cites an
+archived release of the software.
+
+Reviewer 1
+
+The manuscript describes VarLens, a tool that annotates personal genomes on a laptop. The tool is useful
+and the paper is clearly written.
+
+1. The benchmark compares VarLens only with its own previous release. The authors should compare runtime
+and concordance with at least one widely used annotator, such as VEP, on the same genomes.
+
+2. Table 1 reports medians of 3 runs. Please report the spread across runs as well.
+
+3. The Discussion states that the rewrite "did not change results", but 0.8% of annotations were
+discordant. Please characterise the discordant annotations by variant class. Do any of them affect
+variants classified as pathogenic or likely pathogenic in ClinVar?
+
+4. Minor points:
+a) The Abstract gives the memory of the laptop but not the number of cores.
+b) Please state the version of the module tables used in the benchmark.
+
+Reviewer 2
+
+This is a practical tool paper. My main concern is generalisability. Only two genomes were tested, both
+sequenced on the same short-read platform. I would like to see results on a genome from a different
+platform, for example a long-read genome.
+
+The authors also annotate the genome of one of the authors. Was ethics approval obtained for this? Did the
+author consent to the publication of their genome?
+
+The concordance analysis would be more convincing with an experimental validation of a sample of the
+discordant variants, for example by Sanger sequencing.
+
+I also wonder whether the peak memory of 6.1 GB includes the module tables loaded into memory.

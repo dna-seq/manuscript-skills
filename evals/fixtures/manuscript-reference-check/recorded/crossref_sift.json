@@ -1,0 +1,34 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1093/nar/gkg509",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1093/nar/gkg509",
+  "type": "journal-article",
+  "title": [
+   "SIFT: predicting amino acid changes that affect protein function"
+  ],
+  "author": [
+   {
+    "given": "P. C.",
+    "family": "Ng",
+    "sequence": "first"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2003,
+     7,
+     1
+    ]
+   ]
+  },
+  "container-title": [
+   "Nucleic Acids Research"
+  ],
+  "volume": "31",
+  "issue": "13",
+  "page": "3812-3814",
+  "relation": {}
+ }
+}

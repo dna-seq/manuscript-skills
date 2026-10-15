@@ -1,0 +1,56 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.datacite.org/dois/10.5281/zenodo.21457492",
+ "data": {
+  "id": "10.5281/zenodo.21457492",
+  "type": "dois",
+  "attributes": {
+   "doi": "10.5281/zenodo.21457492",
+   "titles": [
+    {
+     "title": "Manual Reference Verification Dataset for Hallucinated and Suspicious Citation Detection Tools"
+    }
+   ],
+   "creators": [
+    {
+     "name": "Badalova, Fidan",
+     "nameType": "Personal",
+     "givenName": "Fidan",
+     "familyName": "Badalova",
+     "affiliation": [
+      "GESIS - Leibniz Institute for the Social Sciences"
+     ],
+     "nameIdentifiers": [
+      {
+       "nameIdentifier": "0009-0005-3525-0717",
+       "nameIdentifierScheme": "ORCID"
+      }
+     ]
+    },
+    {
+     "name": "Mayr, Philipp",
+     "nameType": "Personal",
+     "givenName": "Philipp",
+     "familyName": "Mayr",
+     "affiliation": [
+      "GESIS Leibniz-Institut fur Sozialwissenschaften in Koln"
+     ],
+     "nameIdentifiers": [
+      {
+       "nameIdentifier": "0000-0002-6656-1658",
+       "nameIdentifierScheme": "ORCID"
+      }
+     ]
+    }
+   ],
+   "publicationYear": 2026,
+   "types": {
+    "ris": "DATA",
+    "bibtex": "misc",
+    "citeproc": "dataset",
+    "schemaOrg": "Dataset",
+    "resourceType": "",
+    "resourceTypeGeneral": "Dataset"
+   }
+  }
+ }
+}

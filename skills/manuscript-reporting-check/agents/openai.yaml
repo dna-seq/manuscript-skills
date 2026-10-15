@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript reporting check"
+  short_description: "Reporting guidelines by study design, data and code availability, statistics reporting"
+  default_prompt: "Use $manuscript-reporting-check to choose the reporting guidelines that fit this manuscript's study design, audit their items, check that its data, code and software are available, and review how it reports its statistics."

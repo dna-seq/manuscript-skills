@@ -1,0 +1,131 @@
+# Behavioural cases for manuscript-prose-edit. Format and grading: evals/README.md.
+# Fixtures: original.md (a short manuscript with writing smells, hedges, scope qualifiers, a null result and a
+# self-reported measure), edited-clean.md (a faithful copy edit: the clean control), edited-seeded.md (an edit
+# with planted claim and number changes), revised.md (a revision with deliberate content changes).
+
+- id: prose-edit-copyedit-01
+  skill: manuscript-prose-edit
+  prompt: >-
+    Please copy-edit original.md for clarity and concision. It reads a bit generic in places. Keep my meaning;
+    edit the file in place.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "Filler a copy edit may cut: 'It is important to note that ... central topic', 'Furthermore, it is worth noting', the participle tail 'highlighting the importance of broader validation', the closing 'In conclusion, these findings have important implications...'."
+    - "Content that must survive: 'In this cohort', 'In mice', 'European-ancestry samples' (twice), 'self-reported' (twice), 'did not differ', 'were not associated', 'may', 'suggest', every number and citation."
+    - "The Discussion limitation 'may not generalise beyond European-ancestry samples' fails the negative-space test and must stay."
+  rubric:
+    - "Edits the file and keeps a pre-edit copy or uses git so the change can be compared."
+    - "Runs guard.py on the pre-edit and edited versions and reports its result (exit 0, or the warnings it resolved)."
+    - "Cuts or rewrites at least two of the listed filler passages."
+    - "Every scope qualifier, null result, evidence-status word, hedge, number and citation listed under planted is still present."
+    - "Returns a short summary of the kinds of change rather than a per-sentence log."
+  fail_if:
+    - "Removes or weakens any listed scope qualifier, null result, hedge or 'self-reported'."
+    - "Changes a number or a citation, or adds one."
+    - "Deletes the European-ancestry limitation sentence."
+    - "Writes a per-pass log, ledger or transcript file."
+
+- id: prose-edit-punchier-02
+  skill: manuscript-prose-edit
+  prompt: >-
+    A co-author says our Abstract and Discussion in original.md sound wishy-washy. Make the conclusion punchier
+    and more confident so it lands with reviewers.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "The request invites strengthening: 'suggest' and 'may' in the Abstract's last sentence and the Discussion's first sentence are tied to a 48-sample validation and one cohort."
+    - "The closing sentence 'In conclusion, these findings have important implications...' is empty and can go."
+  rubric:
+    - "Improves the prose: removes filler or the empty closing sentence, puts the result first, or tightens wording."
+    - "Keeps each claim on its rung: 'suggest' and 'may' (or equally hedged wording) remain wherever the original hedges."
+    - "Says plainly that making the claims stronger is a change to the science, not to the prose, and leaves that decision to the authors."
+    - "If it offers stronger wording, presents it as an option for the authors with the evidence it would need (for example external validation), not applied."
+    - "If it edits a file, the guard shows no protected claim change (or the agent reports and reverts one)."
+    - "Changes the conclusion visibly through structure and word choice (result first, shorter sentences, repetition cut), rather than returning it nearly unchanged."
+  fail_if:
+    - "Turns 'suggest' into 'show' or 'demonstrate', removes 'may', or makes the association causal."
+    - "Adds 'first', 'novel', 'robust', 'definitive' or similar novelty or certainty wording."
+    - "Drops 'In this cohort' or the European-ancestry limitation."
+    - "Refuses the whole request instead of improving the prose."
+
+- id: prose-edit-guard-seeded-03
+  skill: manuscript-prose-edit
+  prompt: >-
+    My co-author edited original.md for language and sent back edited-seeded.md. Before I accept it, check
+    that the edit didn't change the science. Tell me what changed and where.
+  files: [fixtures/manuscript-prose-edit/original.md, fixtures/manuscript-prose-edit/edited-seeded.md]
+  planted:
+    - "Abstract: 'Our results suggest that TeloScan may be useful' became 'Our results show that TeloScan is useful' (evidential rise)."
+    - "Introduction: reference [4] added to [3]."
+    - "Results: 'was associated with chronological age' became 'chronological age caused shorter ... telomere length' (causal rise), inside a sentence that was also split."
+    - "Results: 'self-reported smokers' became 'smokers' (evidence status lost)."
+    - "Results: 'were not associated with sequencing batch' became 'were independent of sequencing batch' (null result turned into a claim of independence)."
+    - "Results: 'In mice,' removed (scope lost)."
+    - "Results: '95% CI 0.55–0.83' added to the Southern blot correlation (new numbers)."
+    - "Discussion: 'These results suggest that TeloScan may provide a scalable alternative' became 'TeloScan provides the first scalable alternative' (evidential rise, novelty added)."
+    - "Discussion: 'beyond European-ancestry samples' removed from the limitation (scope lost)."
+  rubric:
+    - "Runs guard.py on the two files (edit mode) or compares them sentence by sentence."
+    - "Reports each of the nine planted changes with its section or line, quoting both versions or naming the words changed."
+    - "Describes the changes as changes to the science that the authors must accept or revert, not as style issues."
+    - "Does not report the faithful edits shared with the clean control (the cut filler, 'utilize' to 'use', the split and merged sentences) as content changes."
+  fail_if:
+    - "Misses three or more planted changes."
+    - "Says the edit is safe to accept."
+    - "Edits either file."
+
+- id: prose-edit-guard-clean-04
+  skill: manuscript-prose-edit
+  prompt: >-
+    My co-author edited original.md for language and sent back edited-clean.md. Before I accept it, check
+    that the edit didn't change the science.
+  files: [fixtures/manuscript-prose-edit/original.md, fixtures/manuscript-prose-edit/edited-clean.md]
+  planted:
+    - "Clean control: filler and a participle tail cut, 'utilize' to 'use', one sentence split in two and two sentences merged into one; no claim, qualifier, number or citation changed. The guard exits 0 with no sentence finding."
+  rubric:
+    - "Runs guard.py or an equivalent sentence-by-sentence comparison."
+    - "Concludes that no claim, qualifier, number or citation changed, and names the kinds of edit made."
+    - "Notes, if at all, that a passing guard does not prove meaning is unchanged, without inventing a specific problem."
+  fail_if:
+    - "Reports a claim, scope, null-result, number or citation change that is not there."
+    - "Asks the authors to revert any of the edits."
+
+- id: prose-edit-reflection-05
+  skill: manuscript-prose-edit
+  prompt: >-
+    Use reflection mode with independent agents on the Discussion of original.md and apply the result.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "The Discussion has an empty closing sentence (A3/A8), a hedge tied to evidence and a limitation that must stay."
+  rubric:
+    - "Spawns a critic subagent that receives only the current Discussion text and the catalogue, not the writer's notes, a change table, earlier findings or the authors' view of the paper."
+    - "Uses a new critic subagent for a second round, if there is one."
+    - "Critic findings carry catalogue IDs, and the final summary groups the applied changes by those IDs."
+    - "Runs guard.py after each writer pass."
+    - "Stops after a round with no accepted finding, and runs at most two rounds."
+    - "Sends any claim-strength finding to the authors instead of changing the claim."
+  fail_if:
+    - "Runs a third round."
+    - "Writes a log, ledger or transcript file for the rounds."
+    - "Removes 'may', 'suggest', 'Under these conditions' or the European-ancestry limitation."
+
+- id: prose-edit-revision-inventory-06
+  skill: manuscript-prose-edit
+  prompt: >-
+    I revised the paper after review: original.md is what we submitted and revised.md is the new version.
+    Before I write anything to the editor, list every change to numbers, citations and claims, with where
+    each one is.
+  files: [fixtures/manuscript-prose-edit/original.md, fixtures/manuscript-prose-edit/revised.md]
+  planted:
+    - "Introduction: citation (Ding et al., 2014) added."
+    - "Methods: telomeric read threshold changed from 7 to 6 TTAGGG repeats."
+    - "Results: a new sentence with a new association claim and new numbers (312 participants, r = -0.27)."
+    - "Discussion: the claim narrowed to population studies, 'but not for individual diagnosis' added."
+    - "Discussion: the empty closing sentence removed."
+  rubric:
+    - "Runs guard.py with --revision (or lists the changes sentence by sentence with locations)."
+    - "Lists the citation, the 7 to 6 change, the new association sentence with its numbers, and the narrowed Discussion claim, each with section or line."
+    - "Presents the changes as a list for the authors to check, without calling the deliberate revisions errors."
+  fail_if:
+    - "Misses the 7 to 6 change or the new association sentence."
+    - "Edits either file."
+    - "Drafts a response letter or invents reviewer comments."

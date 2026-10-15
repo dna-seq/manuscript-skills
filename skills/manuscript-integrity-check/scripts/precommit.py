@@ -10,7 +10,11 @@ With --strict it also fails on
 major findings; with --max-smells it fails when a file's smell density passes the threshold. Offline: no
 reference resolution and no third-party detectors (run those by hand, see the skills).
 
-    uv run --script precommit.py paper.md [more files] [--venue KEY] [--strict] [--max-smells 8]
+--hygiene also lists what the submission-package check (hygiene.py) finds in the file itself: LaTeX
+comments with content, hidden text and prompts aimed at AI reviewers, secrets. These lines are advisory:
+they never change the exit code, because a draft legitimately carries comments until it is submitted.
+
+    uv run --script precommit.py paper.md [more files] [--venue KEY] [--strict] [--max-smells 8] [--hygiene]
 
 As a pre-commit hook (in the manuscript repository's .pre-commit-config.yaml):
 
@@ -53,8 +57,11 @@ def main(
     advisory: Annotated[bool, typer.Option(help="Report findings without blocking the commit")] = False,
     max_smells: Annotated[Optional[float], typer.Option(help="Fail when smells per 1000 words exceed this")] = None,
     show: Annotated[int, typer.Option(help="Findings to print per file")] = 8,
+    hygiene: Annotated[bool, typer.Option(help="Also list comments, hidden text and secrets in the file "
+                                               "(advisory: never fails the commit)")] = False,
 ) -> None:
     scan = _load("scan", HERE / "scan.py")
+    package = _load("hygiene", HERE / "hygiene.py") if hygiene else None
     profile = _load("style_profile", HERE.parents[1] / "manuscript-prose-edit" / "scripts" / "style_profile.py")
     smells, kobak = profile.load_smells(), profile.load_kobak()
     failed = False
@@ -71,6 +78,13 @@ def main(
         ranked = sorted((p for p in prof["paragraphs"] if p["hits"]), key=lambda p: -p["smells_per_100_words"])[:3]
         for p in ranked:
             typer.echo(f"  smells  L{p['line']}: " + ", ".join(f"{sid}×{len(v)}" for sid, v in p["hits"].items()))
+        if package is not None:
+            leaks = [f for f in package.offline_text_checks(path) if f.check in ("comments", "hidden-text", "injection",
+                                                                                 "invisible-characters", "secrets")]
+            typer.echo(f"  hygiene (advisory): {len(leaks)} finding(s)")
+            for f in leaks[:show]:
+                typer.echo(f"  {f.severity.value:7} L{f.line or '-'} {f.check}: {f.message}"
+                           + (f" `{f.excerpt}`" if f.check == "secrets" else ""))
         if blockers or (strict and majors) or (max_smells is not None and density > max_smells):
             failed = True
     if failed and not advisory:

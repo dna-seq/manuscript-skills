@@ -1,0 +1,42 @@
+# Shared manuscript record for seeded.md (format: skills/manuscript-integrity-check/references/manuscript-record.md).
+manuscript: seeded.md
+updated: 2026-10-15
+
+venue:
+  key: bioinformatics
+  article_type: original-paper
+  stage: initial-submission
+  checked: 2026-10-15
+  sources: [https://academic.oup.com/bioinformatics/pages/author-guidelines]
+
+study:
+  designs: [software-tool, method-benchmark, genetic-association]
+  domains: [genomics]
+
+claims:
+  - id: C1
+    text: "VarRank scores an exome in under three minutes on a laptop without a GPU."
+    location: "Abstract; Introduction"
+    evidence: "Introduction (no table)"
+  - id: C2
+    text: "VarRank is more accurate than existing pathogenicity predictors on held-out ClinVar missense variants."
+    location: "Abstract; Results, Benchmark"
+    evidence: "Table 1"
+  - id: C3
+    text: "High-scoring LDLR variants are associated with higher LDL cholesterol in the Northfield Lipid Cohort."
+    location: "Results, Application"
+    evidence: "Application cohort regression"
+non_claims:
+  - "No clinical or diagnostic use of VarRank is claimed."
+
+checks:
+  - skill: manuscript-reference-check
+    scope: all references (scan.py --references-only --online)
+    manuscript_sha256: 5ef2879da0dc5a7c808a200a8578726ed6d3fb553272770a0df6c33a4ad30851
+    date: 2026-10-15
+    summary: "4 references resolve to the cited titles; no retractions or expressions of concern recorded. The scanner's first-author flag on [1] (Ng) was a false positive on a two-letter surname."
+  - skill: manuscript-integrity-check
+    scope: mechanical scan (scan.py, offline)
+    manuscript_sha256: 5ef2879da0dc5a7c808a200a8578726ed6d3fb553272770a0df6c33a4ad30851
+    date: 2026-10-15
+    summary: "No chatbot leftovers or placeholders. Missing statements: competing interests, funding, author contributions. No archived software record (Zenodo or Software Heritage) is cited. The 'Data and code availability' section is present; the scanner did not recognise its heading."

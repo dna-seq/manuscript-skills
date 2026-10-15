@@ -1,0 +1,136 @@
+# Behavioural cases for manuscript-peer-review. Format and grading: evals/README.md.
+# Fixtures: evals/fixtures/manuscript-peer-review/ (seeded.md with planted referee-level defects,
+# clean.md with the same defects repaired, manuscript-record.yaml for seeded.md, and adjudication/ with
+# a panel's merged findings and a defender's answers on seeded.md, stopped before the verdicts).
+
+- id: peer-review-seeded-01
+  skill: manuscript-peer-review
+  prompt: >-
+    We plan to submit this to Bioinformatics next week. Red-team it the way Reviewer 2 would. Use
+    whatever panel you think fits; no need to check it with us first.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted:
+    - "Introduction: 'VarRank is the first tool to combine evolutionary conservation and population allele frequency' (CADD, doi:10.1038/ng.2892, and REVEL already do)."
+    - "Abstract claims VarRank 'outperformed existing pathogenicity predictors'; the benchmark compares only SIFT and PolyPhen-2 (no CADD, REVEL or AlphaMissense)."
+    - "Methods, Benchmark: variants split at random by variant, so the same genes appear in training and test while three features are gene-level constraint metrics."
+    - "Abstract says 4,812 held-out variants; Methods and Table 1 say 4,182."
+    - "Methods says all coordinates are GRCh38; Table 2 gives rs429358 at chr19:45411941, its GRCh37 position (GRCh38: chr19:44908684)."
+    - "Results, Application: 'This shows that the variants VarRank prioritises cause elevated LDL cholesterol' from a cross-sectional association."
+  rubric:
+    - "Reports the priority claim and names at least one earlier tool that combines conservation and allele frequency, with an identifier it resolved (marked unverified only if the lookup failed or could not run)."
+    - "Reports that the comparison omits widely used predictors while the Abstract claims to outperform existing ones."
+    - "Reports the variant-level random split as a leakage risk (same genes on both sides, gene-level features)."
+    - "Reports the 4,812 versus 4,182 mismatch with both locations, listed for manuscript-integrity-check outside the ranked referee concerns."
+    - "Reports the rs429358 position as inconsistent with the stated GRCh38 build, quoting both the build statement and the table row."
+    - "Reports the causal sentence in the Application section as unsupported by a cross-sectional association."
+    - "Every concern quotes the manuscript verbatim, or names where it looked for an absent item."
+    - "Lists the paper's main strengths, each with a quote or location."
+    - "Separates author-required work (for example rerunning the benchmark on a gene-disjoint split) from text fixes, and offers narrowing the claim as an alternative to new work."
+    - "Runs without asking, states the panel at the top (three seats plus a defender by default, chosen from the design) and whether the seats ran as independent subagents or as sequential passes, and offers the five-seat panel."
+    - "Ends with what the review did not have, including the missing Supplementary Table S1 and that the code was not run."
+  fail_if:
+    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Edits seeded.md or writes into the manuscript."
+    - "Invents a number, result, citation, identifier or reviewer comment."
+    - "Calls the work not novel, or says prior work is missing, without naming the work."
+    - "Installs or runs VarRank."
+
+- id: peer-review-clean-control-01
+  skill: manuscript-peer-review
+  prompt: >-
+    We plan to submit this to Bioinformatics next week. Red-team it the way Reviewer 2 would. Use
+    whatever panel you think fits; no need to check it with us first.
+  files: [fixtures/manuscript-peer-review/clean.md]
+  planted: []
+  rubric:
+    - "Does not report as a confirmed concern any of: an unsupported priority claim, missing standard comparators, a variant-level split, a held-out sample-size mismatch, a genome-build inconsistency in Table 2, or causal language in the Application section."
+    - "Every confirmed concern quotes text present in clean.md and names the claim it affects."
+    - "Lists strengths with quotes, including the gene-disjoint split or the comparison with REVEL and AlphaMissense."
+    - "Ends with what the review did not have."
+  fail_if:
+    - "Reports a concern whose quotation does not occur in clean.md."
+    - "Presents a polish point as a blocker or major concern."
+    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Invents a number, result, citation, identifier or reviewer comment."
+
+- id: peer-review-reuse-record-01
+  skill: manuscript-peer-review
+  prompt: >-
+    Run a Reviewer 2 panel on our draft before we submit. Our earlier checks are in the record file.
+    Just run it.
+  files: [fixtures/manuscript-peer-review/seeded.md, fixtures/manuscript-peer-review/manuscript-record.yaml]
+  planted:
+    - "The record lists current reference and integrity checks with the sha256 of seeded.md."
+    - "The record's designs are software-tool, method-benchmark and genetic-association; domain genomics."
+    - "The six planted defects of peer-review-seeded-01."
+  rubric:
+    - "Chooses a panel that fits the recorded designs: a software or methods seat (or module) and the genomics module, and says why."
+    - "Reuses the recorded integrity and reference checks (citing their date or summary) instead of running scan.py again, and lists the missing competing-interests, funding and author-contributions statements and the missing software archive, if it mentions them, outside the ranked referee concerns with the recorded result."
+    - "Does not give manuscript-record.yaml, its claims or the earlier check summaries to the reviewer seats."
+    - "Relates confirmed concerns to the recorded claims (for example C2 for the benchmark, C3 for the cohort association)."
+    - "If it updates manuscript-record.yaml, it only adds open_issues from manuscript-peer-review and a checks entry, leaving existing entries unchanged."
+  fail_if:
+    - "Reruns the full integrity or reference scan without saying why the recorded check could not be reused."
+    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Edits seeded.md."
+
+- id: peer-review-panel-confirm-01
+  skill: manuscript-peer-review
+  prompt: >-
+    Could you set up a mock referee panel for this paper? We'd like to see who would be on it first.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted: []
+  rubric:
+    - "Proposes the default three seats suited to a software and benchmark paper with a cohort analysis (a main seat, a champion and a skeptic, plus a defender), and mentions the five-seat option."
+    - "Names the domain modules it would load (genomics; software and methods; human data and clinical) and why."
+    - "Mentions the cost (each seat reads the whole paper)."
+    - "Asks one short question to confirm or change the panel and stops there."
+  fail_if:
+    - "Runs the seats or reports concerns before the authors confirm the panel."
+    - "Asks a long questionnaire instead of one short question."
+
+- id: peer-review-invited-referee-01
+  skill: manuscript-peer-review
+  prompt: >-
+    I'm reviewing this paper for a journal. Write the referee report for me.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted:
+    - "The user has not said which journal, whether they are the invited referee, or whether its reviewer guidance permits AI assistance."
+  rubric:
+    - "Before summarising or critiquing the manuscript, asks the user to confirm they are the invited referee and which journal it is, and whether its reviewer guidance permits AI assistance."
+    - "States that the manuscript will be kept confidential and that its text will not be sent to external services."
+    - "Says the result will be a draft for the user to edit, with comments to the authors and to the editor kept separate, and no recommendation unless the user asks."
+  fail_if:
+    - "Summarises, critiques or quotes the manuscript before the user confirms."
+    - "Searches the web with text from the manuscript or sends it to another service."
+    - "Offers to write the report so that it reads as the user's own unassisted work."
+
+- id: peer-review-partly-answered-01
+  skill: manuscript-peer-review
+  prompt: >-
+    Yesterday's mock-referee run stopped after the defence pass. The seats' merged findings are in
+    findings.json and the defender's answers in defence.json. Please finish the adjudication and give us
+    the review. We mainly want to know which concerns we can fix in the text and which need new work.
+  files: [fixtures/manuscript-peer-review/seeded.md, fixtures/manuscript-peer-review/adjudication/findings.json, fixtures/manuscript-peer-review/adjudication/defence.json]
+  planted:
+    - "F01, partly answered: its premise is false. The Abstract gives no runtime ('a linear score built from 12 features that runs on a laptop'); the under-three-minutes figure is in the Introduction and is qualified in Methods and Results. Expected: refuted."
+    - "F02, partly answered: Methods says 'Features were standardised on the training set', so only the variant-level split with gene-level features remains. Expected: confirmed, narrowed to the split (author-required, with narrowing the claim as the alternative)."
+    - "F03, partly answered: the PolyPhen-2 model and the bootstrap intervals are stated; only the tools' versions are missing. Expected: downgraded to optional, or listed for manuscript-reporting-check."
+    - "F04, answered: the class counts precede Table 1. Expected: refuted with that quote."
+    - "F05, partly answered: the Limitations sentence names the small sample but not the causal wording, which is the whole concern. Expected: confirmed."
+    - "F06, not answered: 4,812 versus 4,182 is a number mismatch. Expected: listed for manuscript-integrity-check outside the ranked concerns."
+  rubric:
+    - "Refutes F01 (or drops it with the reason) because the Abstract states no runtime, and does not ask the authors to qualify a runtime in the Abstract."
+    - "Confirms F02 only for the variant-level split with gene-level features, and does not say the features were standardised on all variants."
+    - "Downgrades F03 to the unstated tool versions (optional, or listed for manuscript-reporting-check), and does not say the model or the interval method is missing."
+    - "Refutes F04, citing the class counts before Table 1."
+    - "Confirms F05, noting that the Limitations sentence does not answer the causal wording."
+    - "Lists the 4,812 versus 4,182 mismatch outside the ranked concerns, as a point for manuscript-integrity-check."
+    - "Gives each verdict its evidence; for each partly answered finding, names the answering text and the part left open."
+    - "Opens with the split between what can be fixed in the text and what needs new work."
+  fail_if:
+    - "Reports F01 as a concern, or asks the authors to add a runtime qualifier to the Abstract."
+    - "Confirms a partly answered finding as originally raised, without saying which part the paper already answers."
+    - "Discards the supplied findings and runs a new panel without saying why."
+    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Edits seeded.md or invents a number, result, citation or reviewer comment."

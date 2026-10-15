@@ -1,0 +1,21 @@
+Decision on manuscript RP-2026-0112: major revision
+
+Editor's comments to the authors:
+
+The reviewer raises an essential point. The central claim that the three variants disrupt enhancer activity
+rests on prediction alone. Experimental validation of at least the top-ranked variant is essential for
+publication in this journal. Please also respond to the reviewer's other comments.
+
+Reviewer 1
+
+The authors rank non-coding variants near FOXO3 by predicted regulatory effect. The approach is reasonable,
+but the Abstract and Discussion state that the three top variants "disrupt enhancer activity", which has not
+been tested.
+
+1. The predicted loss of enhancer activity should be confirmed experimentally, for example with a luciferase
+reporter assay in a relevant cell type.
+
+2. The ranking depends on chromatin data from a single cell line. Please test whether the top variants keep
+their rank with chromatin data from other cell types.
+
+3. Please report how many variants were scored in total; the Methods and Table 1 give different numbers.

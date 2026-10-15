@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -241,13 +242,26 @@ def test_online_reference_resolution_is_shared_by_focused_checks_and_audits(
 
 
 @pytest.mark.parametrize("venue, words, expected", [
-    ("bioinformatics", 6100, scan.Severity.blocker),  # > 1.2 × 5000
+    ("bioinformatics", 6100, scan.Severity.major),  # over the limit; the live page states no return rule
     ("bioinformatics", 5500, scan.Severity.major),
     ("bioinformatics", 4000, None),
-    ("bioinformatics-note", 2700, scan.Severity.major),  # inherits the rule, own limit 2600
+    ("bioinformatics-note", 2700, scan.Severity.major),  # own limit 2600
 ])
 def test_venue_body_limits(venue: str, words: int, expected: scan.Severity | None) -> None:
     found = [f for f in scan._venue_findings([], words, 100, venue, "zenodo") if f.check == "venue"]
+    assert [f.severity for f in found] == ([expected] if expected else [])
+
+
+@pytest.mark.parametrize("words, expected", [
+    (6100, scan.Severity.blocker),  # > 1.2 × 5000: a recorded return rule makes it a blocker
+    (5500, scan.Severity.major),
+    (4000, None),
+])
+def test_a_recorded_return_rule_makes_overlength_a_blocker(
+        monkeypatch: pytest.MonkeyPatch, words: int, expected: scan.Severity | None) -> None:
+    limits = {"synthetic": {"abstract_words": 150, "body_words": 5000, "over_limit_return": 1.2}}
+    monkeypatch.setattr(scan, "load_venue_limits", lambda: limits)
+    found = [f for f in scan._venue_findings([], words, 100, "synthetic", "zenodo") if f.check == "venue"]
     assert [f.severity for f in found] == ([expected] if expected else [])
 
 
@@ -558,6 +572,14 @@ def test_watch_unreadable_pages_are_not_assessed_never_unchanged(snapshots: Path
                                                          watch.Result.gone]
     watch.apply([blocked], index, watch.date(2026, 10, 20))
     assert index[url]["read"] == "2026-10-15" and index[url]["last_attempt"]["result"] == "not_assessed"
+    never_read: dict = {}
+    watch.apply([watch.compare(url, watch.Fetched(None, reason="blocked"), never_read, ["x"])], never_read,
+                watch.date(2026, 10, 15))
+    assert "file" not in never_read[url]
+    first = watch.compare(url, watch.Fetched("httpx", html=_page()), never_read, ["x"])  # read at last
+    assert first.result == watch.Result.new
+    watch.apply([first], never_read, watch.date(2026, 10, 16))
+    assert never_read[url]["read"] == "2026-10-16" and "last_attempt" not in never_read[url]
 
 
 def test_watch_record_reads_plain_text_like_the_page(snapshots: Path) -> None:
@@ -746,3 +768,106 @@ def test_recorded_validation_rules_have_supported_values_and_discoverable_source
             assert rule["strength"] in {"required", "conditional", "recommended"}, key
             assert rule["source"] in venues.policy_urls(venue), key
             assert rule.get("checked"), key
+
+
+VOCAB = {"fields": {"aging", "bioinformatics", "genomics", "genetics", "systems-biology", "clinical", "general", "data",
+                    "software"},
+         "article_types": {"research", "methods", "software", "database", "data", "review", "perspective", "letter"}}
+SCALARS = {"oa": {None, "full", "hybrid", "subscription"}, "reviewer_ai": {None, "banned", "restricted", "allowed"},
+           "disclosure_neutral": {None, True, False}, "kind": {None, "publisher", "preprint"}}
+
+
+def test_every_venue_entry_uses_the_vocabularies_and_https_sources() -> None:
+    _, resolved = venues.load_venues()
+    raw = yaml.safe_load(venues.VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+    assert {v["inherits"] for v in raw.values() if v.get("inherits")} <= set(raw)
+    for key, v in resolved.items():
+        for field, allowed in VOCAB.items():
+            assert set(v.get(field) or []) <= allowed, (key, field, set(v[field]) - allowed)
+        for field, allowed in SCALARS.items():
+            assert v.get(field) in allowed, (key, field, v.get(field))
+        assert all(u.startswith("https://") for u in venues.policy_urls(v)), key
+        if v.get("kind") is None:
+            assert v.get("fields"), f"{key} has no fields, so --field filters can never find it"
+
+
+def test_publisher_defaults_and_preprints_are_never_ranked_as_journals() -> None:
+    _, resolved = venues.load_venues()
+    ranked = venues.journals(resolved)
+    assert not any(v.get("kind") for v in ranked.values())
+    assert set(venues.journals(resolved, preprints=True)) >= {"arxiv", "biorxiv", "medrxiv"}
+
+
+def test_watch_a_stub_page_falls_through_to_the_next_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = "<html><body><p>JavaScript is disabled. Enable it to view this page.</p></body></html>"
+    monkeypatch.setattr(watch, "fetch_httpx", lambda url: watch.Fetched("httpx", html=stub, status=200))
+    monkeypatch.setattr(watch, "fetch_chrome", lambda url: watch.Fetched("chrome", html=_page()))
+    got = watch.fetch("https://example.org/policy", ["httpx", "chrome"], None)
+    assert got.route == "chrome" and watch.readable(watch.blocks_of(got))
+    monkeypatch.setattr(watch, "fetch_chrome", lambda url: watch.Fetched("chrome", reason="blocked (challenge page)"))
+    failed = watch.fetch("https://example.org/policy", ["httpx", "chrome"], None)
+    assert failed.html is None and failed.reason.startswith("httpx: page too short")
+
+
+def _minimal_pdf(lines: list[str]) -> bytes:
+    """A one-page PDF with these lines of Helvetica text; offsets in the xref table are computed, not guessed."""
+    ops = "BT /F1 10 Tf 40 760 Td 14 TL " + " ".join(f"({l}) Tj T*" for l in lines) + " ET"
+    objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+            "/Resources << /Font << /F1 5 0 R >> >> >>",
+            f"<< /Length {len(ops)} >>\nstream\n{ops}\nendstream", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = b"%PDF-1.4\n", []
+    for i, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n{body}\nendobj\n".encode()
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    out += "".join(f"{o:010d} 00000 n \n" for o in offsets).encode()
+    return out + f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+
+
+@pytest.mark.skipif(shutil.which("pdftotext") is None, reason="needs poppler's pdftotext")
+def test_watch_reads_a_pdf_as_text() -> None:
+    lines = ["Use of generative AI", "", "Authors must disclose the use of large language models in Methods.", "",
+             *(["Reviewers assess novelty and rigour of every submission they receive."] * 12)]
+    text = watch._pdf_text(_minimal_pdf(lines))
+    assert text and "large language models in Methods." in text
+    got = watch.Fetched("httpx", html=text, plain=True)
+    assert watch.readable(watch.blocks_of(got))
+    assert "Authors must disclose the use of large language models in Methods." in watch.ai_extract(watch.blocks_of(got))
+
+
+def test_watch_dates_an_archived_copy_by_its_capture(snapshots: Path) -> None:
+    index: dict = {}
+    url = "https://example.org/policy"
+    o = watch.compare(url, watch.Fetched("wayback:20240617115300", html=_page()), index, ["x"])
+    watch.apply([o], index, watch.date(2026, 10, 15))
+    assert index[url]["read"] == "2024-06-17"
+
+
+def test_a_software_paper_is_not_held_to_a_rule_about_bioinformatics_findings() -> None:
+    _, resolved = venues.load_venues()
+    frontiers = resolved["frontiers-bioinformatics"]
+    assert venues.validation_fit(frontiers, "bioinformatics", {"none"})[0] == "no-go"
+    assert venues.validation_fit(frontiers, "software", {"none"})[0] != "no-go"
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["rank", "--study-design", "software", "--validation-available", "none"])
+    assert result.exit_code == 0, result.output  # the option used to reject a software paper outright
+
+
+@pytest.mark.parametrize("fetched, code", [
+    (lambda: watch.Fetched(None, reason="httpx: blocked (HTTP 403)"), 3),  # unread is not a clean pass
+    (lambda: watch.Fetched("httpx", html=_page()), 0),
+])
+def test_watch_check_exit_code_separates_unread_pages_from_unchanged(
+        snapshots: Path, monkeypatch: pytest.MonkeyPatch, fetched, code: int) -> None:
+    from typer.testing import CliRunner
+    url = "https://example.org/policy"
+    index: dict = {}
+    watch.apply([watch.compare(url, watch.Fetched("httpx", html=_page()), index, ["x"])], index,
+                watch.date(2026, 10, 15))
+    watch.INDEX.write_text(yaml.safe_dump(index), encoding="utf-8")
+    monkeypatch.setattr(watch, "watched_urls", lambda venue=None: {url: ["x"]})
+    monkeypatch.setattr(watch, "fetch", lambda url, routes, last: fetched())
+    result = CliRunner().invoke(watch.app, ["check"])
+    assert result.exit_code == code, result.output

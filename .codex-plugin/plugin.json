@@ -1,7 +1,7 @@
 {
   "name": "manuscript-skills",
-  "version": "0.1.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence, choose suitable journals, reduce clinical/ethics/privacy misclassification, handle actual submission requirements and preserve meaning while editing.",
+  "version": "0.2.0",
+  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification and preserve meaning while editing.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -9,22 +9,49 @@
   "homepage": "https://github.com/dna-seq/manuscript-skills",
   "repository": "https://github.com/dna-seq/manuscript-skills",
   "license": "MIT",
-  "keywords": ["manuscript", "peer-review", "publishing", "ai-disclosure", "references", "journals", "preprints", "ethics", "privacy"],
+  "keywords": [
+    "manuscript",
+    "peer-review",
+    "publishing",
+    "ai-disclosure",
+    "references",
+    "journals",
+    "preprints",
+    "ethics",
+    "privacy",
+    "reviewer-simulation",
+    "rebuttal",
+    "reporting-guidelines",
+    "data-availability",
+    "statistics",
+    "referee",
+    "response-to-reviewers",
+    "code-availability",
+    "equator",
+    "claim-support",
+    "citation-verification",
+    "retractions"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Manuscript Skills",
     "shortDescription": "Help authors publish with less avoidable work",
-    "longDescription": "Author-led manuscript review, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, and content-preserving editing.",
+    "longDescription": "Author-led manuscript review, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, and content-preserving editing.",
     "developerName": "DNA Seq",
     "category": "Research",
-    "capabilities": ["Research", "Write"],
+    "capabilities": [
+      "Research",
+      "Write"
+    ],
     "websiteURL": "https://github.com/dna-seq/manuscript-skills",
     "brandColor": "#6435C9",
     "defaultPrompt": [
       "Check this manuscript before submission.",
       "Which journals are least strict about AI for this paper?",
       "Copy-edit this section without changing what it says.",
-      "Review this manuscript for avoidable ethics or clinical misclassification; the demonstration genome is my own public data."
+      "Review this manuscript for avoidable ethics or clinical misclassification; the demonstration genome is my own public data.",
+      "Red-team this draft like Reviewer 2 before we submit.",
+      "Help me answer these referee comments and check that our revision addresses each one."
     ]
   }
 }

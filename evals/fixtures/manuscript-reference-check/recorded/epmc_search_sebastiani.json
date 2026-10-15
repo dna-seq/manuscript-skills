@@ -1,0 +1,55 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. Europe PMC REST search, resultType=core, by DOI.",
+ "hitCount": 1,
+ "resultList": {
+  "result": [
+   {
+    "id": "20595579",
+    "source": "MED",
+    "doi": "10.1126/science.1190532",
+    "pmid": "20595579",
+    "title": "RETRACTED: Genetic signatures of exceptional longevity in humans.",
+    "authorString": "Sebastiani P, Solovieff N, Puca A, Hartley SW, Melista E, Andersen S, Dworkis DA, Wilk JB, Myers RH, Steinberg MH, Montano M, Baldwin CT, Perls TT.",
+    "pubYear": "2010",
+    "isOpenAccess": "N",
+    "inEPMC": "N",
+    "pubTypeList": {
+     "pubType": [
+      "Retracted Publication",
+      "Journal Article"
+     ]
+    },
+    "commentCorrectionList": {
+     "commentCorrection": [
+      {
+       "source": "MED",
+       "id": "21071647",
+       "reference": "Science. 2010 Nov 12;330(6006):912. doi: 10.1126/science.330.6006.912-b.",
+       "type": "Expression of concern in",
+       "orderIn": 1
+      },
+      {
+       "source": "MED",
+       "id": "21778381",
+       "reference": "Science. 2011 Jul 22;333(6041):404. doi: 10.1126/science.333.6041.404-a.",
+       "type": "Retraction in",
+       "orderIn": 2
+      }
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1126/science.1190532"
+      }
+     ]
+    },
+    "abstractText": "we built a genetic model that includes 150 single-nucleotide polymorphisms (SNPs) and found that it could predict EL with 77% accuracy in an independent set of centenarians and controls. [abstract trimmed for the fixture]"
+   }
+  ]
+ }
+}

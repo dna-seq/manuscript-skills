@@ -38,9 +38,12 @@ SNAPSHOT_INDEX = REFERENCES / "policy-snapshots" / "index.yaml"
 STALE_AFTER_DAYS = 60
 OPENALEX = "https://api.openalex.org"
 
-WRITING_COST = {"free": 0, "disclose": 1, "disclose_all": 2, "red_line": 2, "banned_drafting": 4}
-PROMPT_COST = {"no": 0, "on_request": 1, "encouraged": 1, "required": 3}
-SCREENING_COST = {"plagiarism": 0, "integrity_signals": 1, "may_detect_ai": 1, "ai_detector_deployed": 2}
+WRITING_COST = {"free": 0, "disclose": 1, "disclose_all": 2, "red_line": 2, "banned_drafting": 5}
+# Record-keeping is one cost however a policy words it: prompts on request, kept records, prompts in the paper.
+RECORDS_COST = {"no": 0, "on_request": 1, "encouraged": 1, "recommended": 1, "required": 3}
+# Paper-mill and plagiarism checks run at every large publisher and do not target AI-assisted writing.
+SCREENING_COST = {"plagiarism": 0, "integrity_signals": 0, "may_detect_ai": 1, "ai_detector_deployed": 2}
+MAX_BURDEN_POINTS = 2  # listed burdens differ in granularity between sources; more than two adds noise, not signal
 # Friction points -> the word the ranking prints. The points are the sum explained in `friction`.
 TIERS = [(1, "light"), (3, "moderate"), (5, "heavy")]
 SEVERE = "severe"
@@ -53,6 +56,7 @@ class AiUse(str, Enum):
 
 
 class StudyDesign(str, Enum):
+    software = "software"  # the contribution is a tool, method or resource, not a biological finding
     public_data = "public-data"
     bioinformatics = "bioinformatics"
     mr = "mr"
@@ -130,12 +134,11 @@ def load_snapshot_index() -> dict[str, dict[str, Any]]:
 
 
 def policy_read(v: dict[str, Any], checked: date, index: dict[str, dict[str, Any]]) -> date:
-    """When this venue's AI policy was last read: the oldest read date among its policy pages that the watcher has
-    read, else the venue's own `checked`, else the file's."""
+    """When this venue's AI policy was last read: the later of the research date (the venue's own `checked`, else
+    the file's) and the oldest watcher read among its policy pages. An archived copy counts at its capture date."""
+    researched = v.get("checked") or checked
     dates = [date.fromisoformat(str(index[u]["read"])) for u in policy_urls(v) if index.get(u, {}).get("read")]
-    if dates:
-        return min(dates)
-    return v.get("checked") or checked
+    return max(researched, min(dates)) if dates else researched
 
 
 def burdens(v: dict[str, Any]) -> set[Burden]:
@@ -160,33 +163,35 @@ def burdens(v: dict[str, Any]) -> set[Burden]:
 
 
 def friction(v: dict[str, Any]) -> tuple[Optional[int], list[str]]:
-    """Points, and the reasons behind them. None when the policy was not researched."""
+    """Points, and the reasons behind them. None when the policy was not researched.
+
+    Writing rule (0 free to 5 drafting ban) + record keeping (the highest of prompts and tracking, 0 to 3) +
+    AI-text screening (0 to 2) + listed extra burdens (at most 2) + 1 if the policy says disclosed use may count
+    against the paper, - 1 if it says it will not. Disclosure places are a filter (`--refuse multi-place`),
+    not points: repeating one statement costs little."""
     if v.get("writing_help") is None:
         return None, ["policy not researched"]
-    reasons: list[str] = []
+    reasons: list[str] = [f"writing help: {v['writing_help']}"]
     score = WRITING_COST[v["writing_help"]]
-    reasons.append(f"writing help: {v['writing_help']}")
-    p = PROMPT_COST.get(v.get("prompts") or "no", 0)
-    if p:
-        score += p
-        reasons.append(f"prompts {v['prompts']}")
+    prompts, tracking = v.get("prompts") or "no", v.get("tracking") or "no"
+    records = max(RECORDS_COST.get(prompts, 0), RECORDS_COST.get(tracking, 0))
+    if records:
+        score += records
+        reasons.append("records: " + ", ".join(x for x in (f"prompts {prompts}" if prompts != "no" else "",
+                                                           f"tracking {tracking}" if tracking != "no" else "") if x))
     s = SCREENING_COST.get(v.get("screening") or "plagiarism", 0)
     if s:
         score += s
         reasons.append(f"screening: {v['screening']}")
-    extra_places = max(0, len(v.get("disclosure_places") or []) - 2)
-    if extra_places:
-        score += extra_places
-        reasons.append(f"{len(v['disclosure_places'])} disclosure places")
     burden = v.get("extra_burden") or []
-    score += len(burden)
+    score += min(len(burden), MAX_BURDEN_POINTS)
     reasons += burden
-    if v.get("tracking") == "recommended":
-        score += 1
-        reasons.append("policy says to keep records of AI use")
     if v.get("disclosure_neutral") is False:
         score += 1
         reasons.append("disclosed AI use may count against the paper")
+    elif v.get("disclosure_neutral") is True:
+        score = max(0, score - 1)
+        reasons.append("declared use does not count against the paper (-1)")
     return score, reasons
 
 
@@ -399,7 +404,7 @@ def show(venue: Annotated[str, typer.Argument(help="Venue key, as listed by `ran
         "Declared AI use counting against the paper: "
         + tri(None if v.get("disclosure_neutral") is None else not v["disclosure_neutral"],
               "the page says it may", "the page says it does not") + ".",
-        f"Reviewers and AI tools: {v.get('reviewer_ai') or 'not stated'}.",
+        f"Reviewers and AI tools: {v.get('reviewer_ai') or 'not researched'}.",
         "",
         "- AI disclosure goes in:",
         items("disclosure_places").rstrip("\n"),

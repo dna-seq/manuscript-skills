@@ -4,7 +4,9 @@ description: >-
   Select journals for a manuscript using its subject, article type, available validation and budget,
   open-source and open-science preferences, editorial receptiveness, review speed and AI-policy burden.
   Use for journal shortlists, requirements-based venue comparisons or a submission sequence, especially
-  for in-silico-only work. Reuse the shared venue database; use manuscript-journal-adapt after selection.
+  for in-silico-only work, and when asked to interview the authors to pick a journal or preprint server by
+  how strict or hostile its AI policy is, or to see where named colleagues publish. Reuse the shared venue
+  database; use manuscript-journal-adapt after selection.
 ---
 
 # Select journals the authors can realistically publish in
@@ -20,12 +22,19 @@ including authors' voluntarily public personal genomes or biomedical records. In
 requirements and exceptions into the shortlist; wording ambiguity alone does not establish a need for
 new oversight, recruitment or clinical validation.
 
+Apply the requested task across the whole paper unless the author specifies a narrower scope.
+Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
+for requested section or stage review, before/after comparisons and optional interviews.
+
 ## Establish constraints without creating an interview burden
 
 Use the manuscript and existing conversation first. Ask only missing facts that change the shortlist:
 subject and contribution, article type, research/validation already done or affordable, APC budget,
 deadline, licence/funder constraints, and priorities among speed, reach and editorial fit. Offer a fuller
-interview only if requested. Do not make the author supply a complete questionnaire.
+interview only if requested. Do not make the author supply a complete questionnaire. When the authors ask
+to be interviewed, follow `references/interview.md` for questions mapped to `rank` flags. For AI-policy
+rankings, reuse that reference's field mapping and score explanations without automatically starting an
+interview; use known facts and ask only questions that materially affect the comparison.
 
 Treat an author's in-silico-only budget as a real constraint. Distinguish existing/public independent
 validation data, collecting a new cohort, and laboratory work: computational replication may be affordable
@@ -58,10 +67,11 @@ For the shortlist, read current journal-specific author instructions, scope and 
 applicable publisher requirements. Search specifically for validation, computational/public-data/MR
 restrictions, code/licence/data rules, fees and turnaround metrics; an AI-policy page alone is insufficient.
 The existing `policy_watch.py` compares AI passages and does not establish that these other policies are
-unchanged. Whenever a selection task checks a decision-changing requirement, record its scope,
-alternatives, source and date in the shared entry using `references/selection-fields.md`; do not leave
-an expensive validation condition buried in background notes. If the catalogue is unavailable or
-read-only, include the reusable record in the result. This does not require refreshing unrelated entries.
+unchanged. Whenever a selection task checks a decision-changing requirement, give its scope,
+alternatives, source and date in the result in the format of `references/selection-fields.md`; do not
+leave an expensive validation condition buried in background notes. Write it into the plugin's
+`venues.yaml` only when the task is maintaining this repository; during an author's task the catalogue is
+read-only (it sits in the plugin cache). This does not require refreshing unrelated entries.
 
 ## Feasibility before preference scoring
 
@@ -72,10 +82,13 @@ what work the author actually has; do not equate a policy mentioning cohorts wit
 
 Give each candidate a practical disposition:
 
-- **GO:** no known conflict with the author's constraints after relevant checks. This is not a guarantee
-  of acceptance; label a helper's narrower validation-only GO accordingly.
-- **CONDITIONAL:** a plausible affordable route exists, or applicability/waiver needs checking. State the
-  exact condition and who can resolve it.
+- **GO:** no known conflict with the author's constraints after relevant checks, including known costs
+  within the stated budget. This is not a guarantee of acceptance; label a helper's narrower
+  validation-only GO accordingly.
+- **CONDITIONAL:** a plausible affordable route exists, or applicability/waiver needs checking (for
+  example an APC above the budget unless a waiver or institutional agreement applies). State the exact
+  condition and who can resolve it. An AI-policy conflict with the authors' actual use is CONDITIONAL with
+  the rule and options stated: how to handle journal policy is the authors' decision.
 - **NO-GO under the stated constraints:** a confirmed scope restriction, expense or required validation
   has no available route. Say why before ranking softer preferences. The author can still choose to try.
 - **UNKNOWN:** a material requirement or cost remains unresearched/unavailable. Keep this visible rather
@@ -115,4 +128,10 @@ sequential fallback where useful, with the main uncertainty and any remaining au
 Follow the author's priorities rather than assigning universal weights or a fake precision score.
 Do the lookups yourself; do not ask the author to research policy pages. Stop once there is a usable
 shortlist. Pass the chosen venue and verified requirements to `manuscript-journal-adapt`; a selection
-request alone does not trigger manuscript rewriting, new experiments or a full integrity audit.
+request alone does not trigger manuscript rewriting, new experiments or a full integrity audit. When the
+authors keep a shared record (`../manuscript-integrity-check/references/manuscript-record.md`), store the
+chosen venue, article type and check date there.
+
+After a rejection, `manuscript-reviewer-response` helps decide between revising for the same journal and
+submitting elsewhere. When choosing the next venue, carry over the referees' concerns that still apply,
+such as a validation requirement the paper cannot meet, rather than ranking from scratch.

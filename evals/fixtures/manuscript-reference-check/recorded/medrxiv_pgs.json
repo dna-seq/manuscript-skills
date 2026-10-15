@@ -1,0 +1,26 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.biorxiv.org/details/medrxiv/10.1101/2020.05.20.20108217 (CC BY 4.0 preprint)",
+ "messages": [
+  {
+   "status": "ok",
+   "category": "all"
+  }
+ ],
+ "collection": [
+  {
+   "title": "The Polygenic Score Catalog: an open database for reproducibility and systematic evaluation",
+   "authors": "Lambert, S. A.; Gil, L.; Jupp, S.; Ritchie, S. C.; Xu, Y.; Buniello, A.; Abraham, G.; Chapman, M.; Parkinson, H.; Danesh, J.; MacArthur, J. A.; Inouye, M.",
+   "author_corresponding": "Michael Inouye",
+   "doi": "10.1101/2020.05.20.20108217",
+   "date": "2020-05-23",
+   "version": "1",
+   "type": "PUBLISHAHEADOFPRINT",
+   "license": "cc_by",
+   "category": "genetic and genomic medicine",
+   "jatsxml": "https://www.medrxiv.org/content/early/2020/05/23/2020.05.20.20108217.source.xml",
+   "abstract": "Polygenic [risk] scores (PGS) can enhance prediction and understanding of common diseases and traits. However, the reproducibility of PGS and their subsequent applications in biological and clinical research have been hindered by several factors, including: inadequate and incomplete reporting of PGS development, heterogeneity in evaluation techniques, and inconsistent access to, and distribution of, the information necessary to calculate the scores themselves. To address this we present the PGS Catalog (www.PGSCatalog.org), an open resource for polygenic scores. The PGS Catalog currently contains 192 published PGS from 78 publications for 86 diverse traits, including diabetes, cardiovascular diseases, neurological disorders, cancers, as well as traits like BMI and blood lipids. Each PGS is annotated with metadata required for reproducibility as well as accurate application in independent studies. Using the PGS Catalog, we demonstrate that multiple PGS can be systematically evaluated to generate comparable performance metrics. The PGS Catalog has capabilities for user deposition, expert curation and programmatic access, thus providing the community with an open platform for polygenic score research and translation.",
+   "published": "10.1038/s41588-021-00783-5",
+   "server": "medRxiv"
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "F01",
+    "answer": "partly answered",
+    "defence_quote": "We timed VarRank on the 11,204 missense variants of one exome on a laptop with an 8-core CPU, 16 GB of memory and no GPU",
+    "location": "Methods, Runtime",
+    "remaining": "The hardware and the variant count are given in Methods only; the Abstract carries no qualifier."
+  },
+  {
+    "id": "F02",
+    "answer": "partly answered",
+    "defence_quote": "Features were standardised on the training set.",
+    "location": "Methods, Model",
+    "remaining": "The split is by variant; nothing in the paper keeps the variants of one gene on one side."
+  },
+  {
+    "id": "F03",
+    "answer": "partly answered",
+    "defence_quote": "PolyPhen-2 (HumVar model) on the test set, using AUROC and the area under the precision-recall curve (AUPRC), with 95% confidence intervals from 2,000 bootstrap resamples.",
+    "location": "Methods, Benchmark",
+    "remaining": "No SIFT version or PolyPhen-2 release is stated."
+  },
+  {
+    "id": "F04",
+    "answer": "answered",
+    "defence_quote": "Table 1 shows the benchmark on the 4,182 test variants (1,946 pathogenic or likely pathogenic, 2,236 benign or likely benign).",
+    "location": "Results, Benchmark"
+  },
+  {
+    "id": "F05",
+    "answer": "partly answered",
+    "defence_quote": "The cohort analysis included 41 carriers in one cohort of mostly European ancestry.",
+    "location": "Discussion, Limitations",
+    "remaining": "The limitation names the small sample but does not qualify the causal wording."
+  },
+  {
+    "id": "F06",
+    "answer": "not answered",
+    "looked_in": [
+      "Abstract",
+      "Methods, Benchmark",
+      "Results, Benchmark",
+      "Table 1 caption"
+    ]
+  }
+]

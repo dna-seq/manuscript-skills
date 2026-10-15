@@ -1,0 +1,98 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1101/2020.05.20.20108217",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1101/2020.05.20.20108217",
+  "type": "posted-content",
+  "subtype": "preprint",
+  "title": [
+   "The Polygenic Score Catalog: an open database for reproducibility and systematic evaluation"
+  ],
+  "author": [
+   {
+    "given": "Samuel A",
+    "family": "Lambert",
+    "sequence": "first"
+   },
+   {
+    "given": "Laurent",
+    "family": "Gil",
+    "sequence": "additional"
+   },
+   {
+    "given": "Simon",
+    "family": "Jupp",
+    "sequence": "additional"
+   },
+   {
+    "given": "Scott C",
+    "family": "Ritchie",
+    "sequence": "additional"
+   },
+   {
+    "given": "Yu",
+    "family": "Xu",
+    "sequence": "additional"
+   },
+   {
+    "given": "Annalisa",
+    "family": "Buniello",
+    "sequence": "additional"
+   },
+   {
+    "given": "Gad",
+    "family": "Abraham",
+    "sequence": "additional"
+   },
+   {
+    "given": "Michael",
+    "family": "Chapman",
+    "sequence": "additional"
+   },
+   {
+    "given": "Helen",
+    "family": "Parkinson",
+    "sequence": "additional"
+   },
+   {
+    "given": "John",
+    "family": "Danesh",
+    "sequence": "additional"
+   },
+   {
+    "given": "Jacqueline A",
+    "family": "MacArthur",
+    "sequence": "additional"
+   },
+   {
+    "given": "Michael",
+    "family": "Inouye",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2020,
+     5,
+     23
+    ]
+   ]
+  },
+  "container-title": [],
+  "institution": [
+   {
+    "name": "medRxiv"
+   }
+  ],
+  "relation": {
+   "is-preprint-of": [
+    {
+     "id-type": "doi",
+     "id": "10.1038/s41588-021-00783-5",
+     "asserted-by": "subject"
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,52 @@
+% Evaluation fixture for manuscript-reporting-check: a fictional tool paper prepared for double-blind
+% review. The tool, the repositories, the Zenodo record and the timings are invented for testing.
+\documentclass{article}
+\usepackage{url}
+\title{varpanel: assembling gene-panel reports from annotated VCFs}
+\author{Anonymous}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Clinical research groups often re-annotate the same gene panels for every cohort. varpanel turns an
+annotated VCF and a panel definition into a per-sample report in one command. On ten public exomes it
+produced reports in a median of 38 seconds per sample on a laptop. The software is open source and
+available at \url{https://anonymous.4open.science/r/varpanel-3F1C} (anonymised for review).
+\end{abstract}
+
+\section{Introduction}
+Gene-panel reports are rebuilt by hand in many laboratories. varpanel reads a panel definition in YAML
+and an annotated VCF, and writes an HTML and a TSV report per sample.
+
+\section{Implementation}
+varpanel is written in Python. Panel definitions are validated against a JSON schema before a run, and
+the annotation fields to report are declared in the panel file.
+
+\section{Evaluation}
+We ran varpanel on ten public exomes deposited at Zenodo (record 7654321) with a 120-gene cardiomyopathy
+panel. Table~\ref{tab:tools} compares it with two other tools.
+
+\begin{table}[h]
+\caption{Tools that build panel reports.}
+\label{tab:tools}
+\begin{tabular}{lll}
+Tool & Access & Licence \\
+varpanel & local command line & MIT \\
+PanelServe & web server (by request) & proprietary \\
+\end{tabular}
+\end{table}
+
+\section{Code and data availability}
+\begin{itemize}
+    \item \textbf{varpanel}: \url{https://anonymous.4open.science/r/varpanel-3F1C} (MIT).
+    \item \textbf{Panel definitions and benchmark scripts}:
+    \url{https://anonymous.4open.science/r/varpanel-panels-9A2E}.
+    \item The ten exomes are public at Zenodo (record 7654321).
+\end{itemize}
+
+\appendix
+\section{Panel schema}
+Panel files declare genes, transcripts and report fields. Field descriptions are loaded into the
+report template on demand, so a panel can add fields without changing the code.
+
+\end{document}

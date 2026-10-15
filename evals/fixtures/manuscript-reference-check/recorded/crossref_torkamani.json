@@ -1,0 +1,44 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1038/s41576-018-0018-x",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1038/s41576-018-0018-x",
+  "type": "journal-article",
+  "title": [
+   "The personal and clinical utility of polygenic risk scores"
+  ],
+  "author": [
+   {
+    "given": "Ali",
+    "family": "Torkamani",
+    "sequence": "first"
+   },
+   {
+    "given": "Nathan E.",
+    "family": "Wineinger",
+    "sequence": "additional"
+   },
+   {
+    "given": "Eric J.",
+    "family": "Topol",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2018,
+     5,
+     22
+    ]
+   ]
+  },
+  "container-title": [
+   "Nature Reviews Genetics"
+  ],
+  "volume": "19",
+  "issue": "9",
+  "page": "581-590",
+  "relation": {}
+ }
+}

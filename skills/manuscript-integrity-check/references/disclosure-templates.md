@@ -3,6 +3,8 @@
 Dated examples researched 2026-10-15 (sources in `publisher-policies.md`), not a universal disclosure
 requirement. Follow `author-priorities.md`, check the target journal's current exemptions, and use only the
 relevant example and required fields. Reuse known facts; ask only for material facts still missing.
+`manuscript-journal-adapt` drafts and places statements from these templates; `manuscript-integrity-check`
+only checks that the venue's required statements are present and placed.
 
 ## Fields a venue may request
 
@@ -48,7 +50,8 @@ Source: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-accep
 
 Acknowledgements / Methods:
 
-> **Use of large language models.** [Tool, model id] ([developer]) was used between [dates] to [check
+> **Use of large language models.** [Tool, model id] ([developer]) was used [between dates, only if the
+> current page asks for them] to [check
 > grammar and spelling | find inconsistencies between sections | revise the authors' text in response to
 > reviewer comments | assist in writing code for X, which the authors reviewed and tested | …]. [If an LLM is
 > part of the method: describe it in Methods with model id, settings and prompts.] The authors reviewed every
@@ -69,7 +72,8 @@ counts or assert that counts alone satisfy the journal's requested detail.
 
 Cover letter **and** Acknowledgements (Methods too when integral):
 
-> During the preparation of this work the authors used [tool, version] on [dates] to [purpose], in
+> During the preparation of this work the authors used [tool, version] [on dates, only if the current page
+> asks for them] to [purpose], in
 > [sections]. [Author initials] directed its use and reviewed all output for accuracy.
 
 GigaScience additionally asks for in-text citation of the tool, a usage summary at the end of the paper, and

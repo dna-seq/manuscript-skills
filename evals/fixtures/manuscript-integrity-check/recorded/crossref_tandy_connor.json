@@ -1,0 +1,56 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.1038/gim.2018.38",
+  "type": "journal-article",
+  "title": [
+   "False-positive results released by direct-to-consumer genetic tests highlight the importance of clinical confirmation testing for appropriate patient care"
+  ],
+  "container-title": [
+   "Genetics in Medicine"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2018,
+     12
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Stephany",
+    "family": "Tandy-Connor"
+   },
+   {
+    "given": "Jenna",
+    "family": "Guiltinan"
+   },
+   {
+    "given": "Kate",
+    "family": "Krempely"
+   },
+   {
+    "given": "Holly",
+    "family": "LaDuca"
+   },
+   {
+    "given": "Patrick",
+    "family": "Reineke"
+   },
+   {
+    "given": "Stephanie",
+    "family": "Gutierrez"
+   },
+   {
+    "given": "Phillip",
+    "family": "Gray"
+   },
+   {
+    "given": "Brigette",
+    "family": "Tippin Davis"
+   }
+  ]
+ }
+}

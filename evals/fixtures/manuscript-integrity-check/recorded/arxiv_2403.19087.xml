@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+<entry>
+  <id>http://arxiv.org/abs/2403.19087v1</id>
+  <published>2024-03-28T01:50:30Z</published>
+  <title>Just-DNA-Seq, open-source personal genomics platform: longevity science for everyone</title>
+  <author> <name>Kulaga Anton</name> <arxiv:affiliation>Institute for Biostatistics and Informatics in Medicine and Ageing Research</arxiv:affiliation> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> <arxiv:affiliation>International Longevity Alliance</arxiv:affiliation> </author>
+  <author> <name>Borysova Olga</name> <arxiv:affiliation>International Longevity Alliance</arxiv:affiliation> <arxiv:affiliation>CellFabrik SRL</arxiv:affiliation> </author>
+  <author> <name>Karmazin Alexey</name> <arxiv:affiliation>International Longevity Alliance</arxiv:affiliation> <arxiv:affiliation>MitoSpace</arxiv:affiliation> </author>
+  <author> <name>Koval Maria</name> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> <arxiv:affiliation>International Longevity Alliance</arxiv:affiliation> </author>
+  <author> <name>Usanov Nikolay</name> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> <arxiv:affiliation>International Longevity Alliance</arxiv:affiliation> </author>
+  <author> <name>Fedorova Alina</name> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> </author>
+  <author> <name>Evfratov Sergey</name> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> </author>
+  <author> <name>Pushkareva Malvina</name> <arxiv:affiliation>Institute of Biochemistry of the Romanian Academy</arxiv:affiliation> </author>
+  <author> <name>Ryangguk Kim</name> <arxiv:affiliation>Oak Bioinformatics LLC</arxiv:affiliation> </author>
+  <author> <name>Tacutu Robi</name> <arxiv:affiliation>SecvADN SRL</arxiv:affiliation> </author>
+  <arxiv:comment>41 pages, 7 figures</arxiv:comment>
+</entry>
+</feed>

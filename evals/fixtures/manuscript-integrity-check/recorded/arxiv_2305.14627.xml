@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+<entry>
+  <id>http://arxiv.org/abs/2305.14627v2</id>
+  <published>2023-05-24T01:53:49Z</published>
+  <title>Enabling Large Language Models to Generate Text with Citations</title>
+  <author> <name>Tianyu Gao</name> </author>
+  <author> <name>Howard Yen</name> </author>
+  <author> <name>Jiatong Yu</name> </author>
+  <author> <name>Danqi Chen</name> </author>
+  <arxiv:comment>Accepted by EMNLP 2023. Code and data are available at https://github.com/princeton-nlp/ALCE</arxiv:comment>
+</entry>
+</feed>

@@ -26,5 +26,6 @@ the remaining obstacle to a material decision. Do not treat a paraphrased fetch 
 
 `changed` means the AI passages differ. Read the diff and determine whether the rule changed, then update
 the shared venue fields, `checked` date and relevant reference notes. Exit code 1 means something changed
-or disappeared. Use [selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)
+or disappeared; 3 means nothing changed but at least one page could not be read, which is not a clean
+result. Use [selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)
 when recording selection requirements. Preserve one authoritative venue database.

@@ -1,0 +1,45 @@
+# Claims of clean.md with the passages the authors quoted, for scripts/support.py.
+manuscript: clean.md
+sources_dir: sources
+claims:
+  - id: C1
+    location: "clean.md:6 (Abstract)"
+    claim: "In the first decade of polygenic scoring (2008–2017), 67% of studies included only participants of European ancestry [1]."
+    reference: "1"
+    quote: "We analyze the first decade of polygenic scoring studies (2008–2017, inclusive), and find that 67% of studies included exclusively European ancestry participants"
+    source: duncan2019.txt
+    priority: abstract
+  - id: C6
+    location: "clean.md:7 (Abstract)"
+    claim: "As of December 2020, the PGS Catalog contained 657 polygenic scores curated from 119 publications [2]."
+    reference: "2"
+    quote: "As of December 2020, the PGS Catalog contains 657 consistently annotated PGSs curated from 119 publications"
+    source: "doi:10.1038/s41588-021-00783-5"
+    priority: abstract
+  - id: C2
+    location: "clean.md:14 (Introduction)"
+    claim: "A further 19% of studies in that decade included only East Asian ancestry participants [1]."
+    reference: "1"
+    quote: "and another 19% included only East Asian ancestry participants"
+    source: duncan2019.txt
+    priority: borrowed-number
+  - id: C4
+    location: "clean.md:15 (Introduction)"
+    claim: "Only 3.8% of studies from the same period were among cohorts of African, Hispanic or Indigenous peoples [1]."
+    reference: "1"
+    quote: "Only 3.8% of studies were among cohorts of African, Hispanic, or Indigenous peoples."
+    source: duncan2019.txt
+    priority: borrowed-number
+  - id: C3
+    location: "clean.md:16 (Introduction)"
+    claim: "The predictive performance of European ancestry-derived polygenic scores was lower in non-European ancestry samples, including African ancestry samples [1]."
+    reference: "1"
+    quote: "We find that predictive performance of European ancestry-derived polygenic scores is lower in non-European ancestry samples"
+    source: duncan2019.txt
+    priority: load-bearing
+  - id: C7
+    location: "clean.md:21 (Discussion)"
+    claim: "Polygenic risk profiling has been proposed for stratifying screening, for example in breast cancer and coronary artery disease [3]."
+    reference: "3"
+    source: "doi:10.1038/s41576-018-0018-x"
+    priority: other

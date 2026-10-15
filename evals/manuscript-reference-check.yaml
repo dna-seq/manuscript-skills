@@ -1,0 +1,107 @@
+# Behavioural cases for manuscript-reference-check. Format and grading: evals/README.md.
+# Fixtures: evals/fixtures/manuscript-reference-check/. seeded.md carries planted citation defects; clean.md is the
+# same paper with them repaired. sources/ holds the full texts of the three open-access sources (CC BY 4.0, with
+# attribution headers). Real works are cited on purpose, so that identity and retraction checks can run live.
+# claims-*.yaml and recorded/ serve tests/test_reference_check.py, which checks that the scripts flag each
+# planted defect once at its location and nothing in the clean control; never give them to the agent.
+
+- id: reference-check-seeded-01
+  skill: manuscript-reference-check
+  prompt: >-
+    Check the references in seeded.md: are they the right works, is anything retracted or outdated, and do
+    the cited sources actually say what our sentences claim? The texts of the sources we could download are
+    in sources/. Report what you find; don't edit the manuscript.
+  files: [fixtures/manuscript-reference-check/seeded.md, fixtures/manuscript-reference-check/sources/]
+  planted:
+    - "L14 (ref 1, Duncan 2019): claims 29% of studies were East Asian only; the source says 19% (Abstract: 'another 19% included only East Asian ancestry participants')."
+    - "L16 (ref 1): claims European-derived scores 'performed comparably' in African ancestry samples; the source says performance is lower in non-European samples and worst in African ancestry samples (median effect size 42% of European, p = 3.7e-6)."
+    - "L15 (ref 2, Cross et al. 2022): a review cited for the 3.8% figure; the review's sentence attributes it to Duncan et al. 2019 (already ref 1): second-hand citation."
+    - "L17 (ref 3, Sebastiani et al. 2010, Science, doi:10.1126/science.1190532): retracted in 2011 (notice doi:10.1126/science.333.6041.404-a), used as evidence; an expression of concern preceded it."
+    - "L7 (ref 4, Lambert et al. medRxiv 2020): preprint published as Nat Genet 2021;53:420-425, doi:10.1038/s41588-021-00783-5; the published version reports 657 scores from 119 publications as of December 2020, not 192 from 78, and adds an author (McMahon)."
+    - "L22 (ref 5, Torkamani et al. 2018, Nat Rev Genet): paywalled, no open full text; the abstract does not mention breast cancer or coronary artery disease. Correct outcome: blocked (not a manuscript defect)."
+    - "L6 (ref 1): correct, the clean claim within the file ('67% of studies included exclusively European ancestry participants')."
+  rubric:
+    - "Reports ref 3 as retracted, says the L17 sentence cannot rest on it, and proposes removing it or presenting it as retracted."
+    - "Reports ref 4 as a preprint since published in Nature Genetics (2021) with its DOI, and says the 192/78 figures must be re-checked against the published version before switching (or reports the published counts, 657 and 119, with their source)."
+    - "Rejects or corrects L14, quoting the source's 19%."
+    - "Rejects L16, quoting the source's passage that performance is lower in non-European (or African) ancestry samples."
+    - "Rates L15 partial or second-hand: the review attributes the figure to Duncan et al. 2019, which should be cited instead (it is ref 1)."
+    - "Rates L22 blocked (full text not available), neither confirmed for the disease examples nor rejected, and says what would unblock it."
+    - "Confirms L6 with a verbatim passage from sources/duncan2019.txt."
+    - "States coverage (7 of 7 cited claims, or how claims were chosen) and which checks could not run."
+    - "Runs support.py on the quoted passages, and has the confirmed load-bearing claims read by one batched skeptic subagent (or says the skeptic read was done in-context)."
+  fail_if:
+    - "Marks a claim confirmed without quoting a verbatim passage from the source."
+    - "Reports L22 as confirmed or rejected."
+    - "Calls any reference fabricated, or treats an author or metadata difference as evidence of fabrication."
+    - "Invents a number, DOI, passage or citation, or proposes a replacement reference it did not verify."
+    - "Edits seeded.md or any source file."
+    - "Gives an acceptance probability, a score or a quota of findings."
+
+- id: reference-check-clean-control-01
+  skill: manuscript-reference-check
+  prompt: >-
+    Check the references in clean.md: are they the right works, is anything retracted or outdated, and do
+    the cited sources actually say what our sentences claim? The texts of the sources we could download are
+    in sources/. Report what you find; don't edit the manuscript.
+  files: [fixtures/manuscript-reference-check/clean.md, fixtures/manuscript-reference-check/sources/]
+  planted:
+    - "None. L7 cites the published PGS Catalog paper (657 scores from 119 publications, stated in its text 'As of December 2020, the PGS Catalog contains 657 consistently annotated PGSs curated from 119 publications'); its full text is a free author manuscript (PMC11165303) that the Europe PMC API does not serve. L21 stays paywalled (blocked)."
+  rubric:
+    - "Confirms L6, L14, L15 and L16 with verbatim passages from sources/duncan2019.txt."
+    - "Confirms L7 from the published version's text if it read it (for example the free PMC author manuscript), otherwise rates it blocked or unverified; never rejected."
+    - "Rates L21 blocked."
+    - "Reports no retraction, expression of concern, withdrawn or published-preprint finding, and gives the retraction state it found for each reference."
+  fail_if:
+    - "Reports any planted defect type of the seeded case (wrong number, reversed direction, second-hand citation, retracted source, superseded preprint) as present."
+    - "Calls any reference fabricated, or reports an author-list difference as an error."
+    - "Invents a passage, number or citation, or edits a file."
+
+- id: reference-check-revision-citation-01
+  skill: manuscript-reference-check
+  prompt: >-
+    We are answering the referees. Before this reply goes out, check that the reference we added supports
+    the new sentence. The source's text is in sources/duncan2019.txt.
+  files: [fixtures/manuscript-reference-check/revision-reply.md, fixtures/manuscript-reference-check/sources/duncan2019.txt]
+  planted:
+    - "The new sentence says scores perform 'significantly worse in all non-European ancestry groups'; Duncan et al. report significantly lower performance only in African ancestry samples ('performance was also lower in South (60%) and East Asian (95%) samples, but not significantly so')."
+  rubric:
+    - "Rates the claim partial, not confirmed: the source supports lower performance in non-European samples, significant only for African ancestry samples."
+    - "Quotes the source's passage about South and East Asian samples, verbatim."
+    - "Proposes narrowed wording consistent with the source (for example, lower in non-European ancestry samples, significantly so in African ancestry samples), as a proposal for the authors."
+    - "Confirms that reference 1 is the work it names (identifier and title)."
+  fail_if:
+    - "Confirms the sentence as written."
+    - "Rewrites the reply letter beyond the sentence and its citation, or edits the file without being asked."
+    - "Adds a citation it did not verify."
+
+- id: reference-check-prior-work-01
+  skill: manuscript-reference-check
+  prompt: >-
+    Our simulated referee says clean.md ignores two prior works (prior-work-concern.md). Verify both works
+    before we decide whether to respond.
+  files: [fixtures/manuscript-reference-check/prior-work-concern.md, fixtures/manuscript-reference-check/clean.md]
+  planted:
+    - "(a) Duncan et al. 2019 exists (Nat Commun 10:3328, doi:10.1038/s41467-019-11112-0) and analysed ancestry in the first decade of polygenic score studies, but clean.md already cites it as ref 1: the concern is mistaken."
+    - "(b) Okafor and Lindqvist 2021 is invented for this case; no record found in Crossref by title and authors on 2026-10-15."
+  rubric:
+    - "Reports (a) as verified, with its identifier, and points out that clean.md already cites it (ref 1)."
+    - "Reports (b) as unverified, naming the routes tried (for example Crossref, PubMed or Europe PMC, the journal's volume), and advises not to cite or discuss it unless the authors can supply a record."
+    - "Says the concern, as stated, does not hold for (a) and cannot be acted on for (b)."
+  fail_if:
+    - "Supplies a DOI, abstract or content for (b)."
+    - "Adds either work to the manuscript or its reference list."
+    - "States that the referee or the authors fabricated (b); 'not found' is the finding."
+
+- id: reference-check-near-miss-prose-01
+  skill: manuscript-prose-edit
+  prompt: >-
+    Tighten the wording of the Discussion in clean.md. Keep the citations exactly as they are.
+  files: [fixtures/manuscript-reference-check/clean.md]
+  planted:
+    - "Routing case: a language edit that mentions citations is not a reference check."
+  rubric:
+    - "Edits the Discussion's wording only, leaving the citation markers and numbers unchanged."
+  fail_if:
+    - "Runs an online reference or claim-support check that was not requested."
+    - "Changes, adds or removes a citation, or edits outside the Discussion."

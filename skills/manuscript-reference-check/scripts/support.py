@@ -1,0 +1,883 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["typer>=0.12", "httpx>=0.27", "pydantic>=2.6", "pyyaml>=6"]
+# ///
+"""Mechanical checks behind claim support: is the quoted passage in the cited source, does it carry the
+claim's numbers, and does it point the same way as the claim?
+
+It never decides that a source supports a claim, and it never reports `confirmed`. For each claim it reports
+one status, the most serious that applies:
+
+    source_unavailable  no text to check: no file, offline, paywalled, or an abstract that lacks the quote
+    quote_not_found     the quote is not in the source text after normalisation (or no quote was given)
+    polarity_mismatch   the quote was found, but one side says increase/association and the other
+                        decrease/no difference, or a negation appears on one side only
+    numbers_missing     the quote was found, but a number in the claim does not occur in it
+    quote_located       the quote occurs verbatim in the source text, with no flag above
+
+Normalisation folds whitespace, line-break hyphenation, ligatures, unicode quotes and dashes, soft hyphens and
+spacing inside brackets, so a quote copied from a PDF still matches the publisher's XML. The reading that turns
+these signals into confirmed / partial / rejected / blocked belongs to the skill (references/claim-support.md).
+
+    uv run --script support.py claims.yaml                     # offline: local source files and the cache only
+    uv run --script support.py claims.yaml --online            # also fetch legal open-access full text
+    uv run --script support.py claims.yaml --json out.json --md out.md
+    uv run --script support.py claims.yaml --online --cache-dir DIR
+
+With --online only public identifiers leave the machine: Europe PMC (PMC full text and abstracts), the bioRxiv
+and medRxiv API (full-text JATS), and arXiv (HTML full text or the abstract). Paywalled sources are never
+scraped; they come back `source_unavailable`, with any free full-text page the index lists for you to read.
+
+Exit codes: 0 every quote located with no flag; 1 at least one claim flagged (quote_not_found,
+polarity_mismatch, numbers_missing); 2 usage error or malformed claims file; 3 nothing flagged, but at least one
+source was unavailable, so the run cannot be called clean.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+import os
+import re
+import time
+import unicodedata
+import xml.etree.ElementTree as ET
+from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
+from html.parser import HTMLParser
+from pathlib import Path
+from typing import Annotated, Any, Optional
+
+import httpx
+import typer
+import yaml
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+USER_AGENT = ("manuscript-reference-check/1.0 (claim-support check by the authors; "
+              "https://github.com/dna-seq/manuscript-skills)")
+STATUSES = ("source_unavailable", "quote_not_found", "polarity_mismatch", "numbers_missing", "quote_located")
+FLAGGED = {"quote_not_found", "polarity_mismatch", "numbers_missing"}
+PRIORITIES = {"load-bearing", "abstract", "borrowed-number", "first-only", "other"}
+MIN_QUOTE_CHARS = 30
+
+
+# --------------------------------------------------------------------------------------------------
+# Normalisation
+# --------------------------------------------------------------------------------------------------
+
+_CHAR_MAP = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'", "\u2032": "'", "\u00b4": "'", "`": "'",
+    "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"', "\u2033": '"', "\u00ab": '"', "\u00bb": '"',
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-", "\u2015": "-", "\u2212": "-",
+    "\ufe63": "-", "\uff0d": "-", "\u00d7": "x", "\u22c5": "x",
+    "\u00ad": None, "\u200b": None, "\u200c": None, "\u200d": None, "\u2060": None, "\ufeff": None,
+})
+
+
+def normalise(text: str) -> str:
+    """Fold the differences that copying from a PDF, HTML or XML introduces, never the wording.
+
+    Ligatures, full-width forms and superscript digits (NFKC); typographic quotes, dashes and the minus sign;
+    soft hyphens and zero-width characters; hyphenation across a line break and hyphens between letters (on both
+    sides alike, so "long- term", "long-term" and "longterm" meet); the Lancet decimal point; spaces inside
+    brackets and before punctuation; case and runs of whitespace.
+    """
+    text = unicodedata.normalize("NFKC", text).casefold().translate(_CHAR_MAP)
+    text = re.sub(r"(\d)\u00b7(\d)", r"\1.\2", text)
+    text = re.sub(r"([^\W\d_])-\s+([^\W\d_])", r"\1\2", text)  # hyphenation at a line break
+    text = re.sub(r"([^\W\d_])-([^\W\d_])", r"\1\2", text)
+    text = re.sub(r"(\d)\s*-\s*(\d)", r"\1-\2", text)
+    text = re.sub(r"(\d)\s*x\s*(\d)", r"\1x\2", text)
+    text = re.sub(r"10\s*\^\s*\{?\s*(-?)\s*(\d+)\s*\}?", r"10\1\2", text)  # LaTeX 10^{-6}
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"([(\[])\s+", r"\1", text)
+    text = re.sub(r"\s+([)\],.;:!?%])", r"\1", text)
+    return text.strip()
+
+
+# --------------------------------------------------------------------------------------------------
+# Text from XML and HTML sources
+# --------------------------------------------------------------------------------------------------
+
+_JATS_SKIP = {"ref-list", "permissions", "license", "funding-group", "object-id", "contrib-group", "aff",
+              "author-notes", "history", "pub-date", "article-id", "journal-meta", "custom-meta-group", "kwd-group"}
+_JATS_BLOCK = {"p", "title", "article-title", "caption", "tr", "list-item", "abstract", "sec", "table-wrap", "fig",
+               "label", "disp-quote", "def-item", "boxed-text"}
+_JATS_META_TEXT = {"title-group", "abstract", "trans-abstract"}
+
+
+def _local(tag: Any) -> str:
+    return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
+
+
+def jats_to_text(xml_text: str) -> str:
+    """Article title, abstracts, body, tables and figure captions of a JATS article; references left out."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        stripped = re.sub(r"<ref-list\b.*?</ref-list>", " ", xml_text, flags=re.DOTALL)
+        return html.unescape(re.sub(r"<[^>]+>", " ", stripped))
+    parts: list[str] = []
+
+    def walk(node: ET.Element) -> None:
+        tag = _local(node.tag)
+        if tag in _JATS_SKIP:
+            if node.tail:
+                parts.append(node.tail)
+            return
+        if node.text and tag != "article-meta":
+            parts.append(node.text)
+        for child in node:
+            # Of the front matter only the title and the abstracts are text; volume, dates and ids are not.
+            if tag == "article-meta" and _local(child.tag) not in _JATS_META_TEXT:
+                continue
+            walk(child)
+        if tag in _JATS_BLOCK:
+            parts.append("\n")
+        if node.tail:
+            parts.append(node.tail)
+
+    walk(root)
+    return re.sub(r"[ \t]+", " ", "".join(parts))
+
+
+class _HTMLText(HTMLParser):
+    SKIP = {"script", "style", "nav", "header", "footer", "noscript", "svg", "button", "form"}
+    BLOCK = {"p", "div", "section", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr", "figcaption", "caption",
+             "blockquote", "br", "table"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.skipping = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag in self.SKIP:
+            self.skipping += 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self.SKIP and self.skipping:
+            self.skipping -= 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self.skipping:
+            self.parts.append(data)
+
+
+def html_to_text(page: str) -> str:
+    parser = _HTMLText()
+    parser.feed(page)
+    return re.sub(r"[ \t]+", " ", "".join(parser.parts))
+
+
+def read_text_file(path: Path) -> str:
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    suffix = path.suffix.lower()
+    if suffix in (".xml", ".nxml", ".jats"):
+        return jats_to_text(raw)
+    if suffix in (".html", ".htm", ".xhtml"):
+        return html_to_text(raw)
+    return raw
+
+
+# --------------------------------------------------------------------------------------------------
+# Locating the quote
+# --------------------------------------------------------------------------------------------------
+
+ELLIPSIS_RE = re.compile(r"\[\s*(?:\.\s*){3}\]|\[\s*…\s*\]|(?:\.\s*){3}|…")
+MAX_ELLIPSIS_GAP = 1500
+
+
+def locate(quote: str, source: str) -> Optional[tuple[int, int, str]]:
+    """(start, end, "exact" | "ellipsis") of the normalised quote in the normalised source, or None."""
+    segments = [normalise(s) for s in ELLIPSIS_RE.split(quote)]
+    segments = [s.strip(" ,;:") for s in segments if s.strip(" ,;:.")]
+    if not segments:
+        return None
+    if len(segments) == 1:
+        at = source.find(segments[0])
+        return (at, at + len(segments[0]), "exact") if at >= 0 else None
+    for first in re.finditer(re.escape(segments[0]), source):
+        start, cursor = first.start(), first.end()
+        for seg in segments[1:]:
+            at = source.find(seg, cursor)
+            if at < 0 or at - cursor > MAX_ELLIPSIS_GAP:
+                break
+            cursor = at + len(seg)
+        else:
+            return start, cursor, "ellipsis"
+    return None
+
+
+def closest_passage(quote: str, source: str) -> tuple[Optional[str], Optional[float]]:
+    """The source window most like the quote, to show what the source says instead."""
+    q_words = quote.split()
+    s_words = source.split()
+    if not q_words or not s_words:
+        return None, None
+    width, step = len(q_words), max(1, len(q_words) // 4)
+    wanted = set(q_words)
+    scored: list[tuple[int, int]] = []
+    for i in range(0, max(1, len(s_words) - width + 1), step):
+        scored.append((len(wanted & set(s_words[i:i + width])), i))
+    best_text, best_ratio = None, 0.0
+    for _, i in sorted(scored, reverse=True)[:5]:
+        window = " ".join(s_words[max(0, i - 3):i + width + 3])
+        ratio = SequenceMatcher(None, quote, window, autojunk=False).ratio()
+        if ratio > best_ratio:
+            best_text, best_ratio = window, ratio
+    return best_text, round(best_ratio, 2)
+
+
+def sentence_context(source: str, start: int, end: int, reach: int = 300) -> str:
+    """The located passage widened to the sentences around it (citations often sit at the sentence end)."""
+    lo, hi = max(0, start - reach), min(len(source), end + reach)
+    before = source[lo:start]
+    cut = max(before.rfind(". "), before.rfind("\n"))
+    left = lo + cut + 2 if cut >= 0 else lo
+    after = source[end:hi]
+    stop = after.find(". ")
+    right = end if source[end - 1:end] in ".!?" else end + stop + 1 if stop >= 0 else hi
+    return source[left:right].strip()
+
+
+# A passage that reports someone else's result: the number may belong to a primary study, not this source.
+SECONDARY_RE = re.compile(
+    r"\bet al\b\.?|\[\d+(?:\s*[-,]\s*\d+)*\]|\([^()]*[a-z][^()]*\b(?:19|20)\d{2}[a-z]?\)|\breported by\b|"
+    r"\baccording to\b|"
+    r"\bas (?:shown|reported|described|found) (?:by|in)\b|\bprevious(?:ly)? (?:studies|work|reports?)\b|"
+    r"\bha(?:s|ve) been (?:shown|reported|demonstrated|documented)\b|\bstudies have\b|\bwas reported\b")
+
+
+# --------------------------------------------------------------------------------------------------
+# Numbers
+# --------------------------------------------------------------------------------------------------
+
+SCI_RE = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)x10(-?)(\d+)\b|(?<![\w.])(\d+(?:\.\d+)?)e(-?)(\d+)\b")
+NUM_RE = re.compile(r"(?<![\w.])(?<![a-z]-)(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?!\d)")
+CITATION_MARKERS = [
+    re.compile(r"\[\s*\d+(?:\s*[-\u2013,]\s*\d+)*\s*\]"),                               # [3], [3-5], [3, 7]
+    re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{[^}]*\}"),                   # \citep{key}
+    re.compile(r"\[@[^\]]+\]"),                                                         # [@key]
+    re.compile(r"\([^()]*\b[A-Z][a-z][\w'\-]*[^()]*?\b(?:19|20)\d{2}[a-z]?[^()]*\)"),   # (Duncan et al., 2019)
+    re.compile(r"\b[A-Z][\w'\-]+(?: et al\.?| and [A-Z][\w'\-]+)? \((?:19|20)\d{2}[a-z]?\)"),  # Duncan et al. (2019)
+    re.compile(r"\b(?:fig(?:ure)?s?|tables?|supplementary (?:fig(?:ure)?s?|tables?|data|notes?)|eqs?|equations?|"
+               r"sections?|refs?|references?)\.?\s*s?\d+[a-z]?(?:\s*(?:[-\u2013,]|and|&)\s*s?\d+[a-z]?)*",
+               re.IGNORECASE),                                                          # Figure 2, Table S1
+]
+
+
+def strip_citations(claim: str) -> str:
+    """The claim without citation markers and figure or table references, whose numbers are not claims."""
+    for rx in CITATION_MARKERS:
+        claim = rx.sub(" ", claim)
+    return claim
+
+
+def numbers_in(text: str) -> list[tuple[str, Decimal]]:
+    """(as written, value) for every number in normalised text; 3.7x10-6, 3.7e-6 and 0.0000037 are one value."""
+    out: list[tuple[str, Decimal]] = []
+    masked = list(text)
+    for m in SCI_RE.finditer(text):
+        mantissa, sign, exponent = (m.group(1), m.group(2), m.group(3)) if m.group(1) else (m.group(4), m.group(5),
+                                                                                              m.group(6))
+        try:
+            out.append((m.group(0), Decimal(f"{mantissa}e{sign}{exponent}")))
+        except InvalidOperation:
+            continue
+        masked[m.start():m.end()] = " " * (m.end() - m.start())
+    for m in NUM_RE.finditer("".join(masked)):
+        try:
+            out.append((m.group(1), Decimal(m.group(1).replace(",", ""))))
+        except InvalidOperation:
+            continue
+    return out
+
+
+def _year_like(raw: str, value: Decimal) -> bool:
+    return raw.isdigit() and len(raw) == 4 and 1800 <= value <= 2100
+
+
+class NumberCheck(BaseModel):
+    in_claim: list[str] = []
+    found: list[str] = []
+    missing: list[str] = []
+    year_like_missing: list[str] = []  # reported, never flagged: "in 2019" rarely needs to be in the quote
+
+
+def check_numbers(claim: str, quote: str) -> NumberCheck:
+    quote_values = {value for _, value in numbers_in(normalise(quote))}
+    result = NumberCheck()
+    for raw, value in numbers_in(normalise(strip_citations(claim))):
+        result.in_claim.append(raw)
+        if value in quote_values:
+            result.found.append(raw)
+        elif _year_like(raw, value):
+            result.year_like_missing.append(raw)
+        else:
+            result.missing.append(raw)
+    return result
+
+
+# --------------------------------------------------------------------------------------------------
+# Polarity
+# --------------------------------------------------------------------------------------------------
+
+UP_RE = re.compile(r"\b(?:increas\w*|higher|greater|more|elevat\w*|rais(?:e|ed|es|ing)|ris(?:e|es|ing)|rose|"
+                   r"enhanc\w*|improv\w*|upregulat\w*|gain(?:s|ed)?|exceed\w*|larger|stronger|better|"
+                   r"outperform\w*)\b")
+DOWN_RE = re.compile(r"\b(?:decreas\w*|lower(?:ed|s|ing)?|reduc\w*|less|fewer|smaller|declin\w*|diminish\w*|"
+                     r"downregulat\w*|impair\w*|loss|lose|lost|drop(?:s|ped)?|fell|fall(?:s|ing)?|weaker|worse|"
+                     r"worst|poorer|attenuat\w*|underperform\w*)\b")
+NULL_RE = re.compile(r"\b(?:similar(?:ly)?|comparabl[ey]|unchanged|equivalent|indistinguishable|"
+                     r"no (?:significant |statistically significant |clear )?(?:difference|change|effect|association|"
+                     r"correlation|relationship|link|evidence)|did not (?:differ|change|affect)|not (?:differ\w*|"
+                     r"associated|correlated|significant\w*|related|linked)|independent of|unrelated|"
+                     r"nonsignificant\w*|insignificant)\b")
+ASSOC_RE = re.compile(r"\b(?:associat\w*|correlat\w*|linked|predict(?:s|ed|or|ors)?|risk factor)\b")
+NEGATION_RE = re.compile(r"\b(?:not|no|never|none|neither|nor|without|cannot|fail(?:s|ed)? to|lack(?:s|ed|ing)?)\b|"
+                         r"n't\b")
+
+
+def _negated(text: str, start: int) -> bool:
+    window = " ".join(text[:start].split()[-3:])
+    return bool(NEGATION_RE.search(window))
+
+
+def polarity_terms(text: str) -> set[str]:
+    """Labels for the direction a normalised text states: up, down, null, assoc, and not_up/not_down/not_assoc."""
+    labels: set[str] = set()
+    null_spans = [m.span() for m in NULL_RE.finditer(text)]
+    if null_spans:
+        labels.add("null")
+
+    def inside_null(pos: int) -> bool:
+        return any(lo <= pos < hi for lo, hi in null_spans)
+
+    for label, rx in (("up", UP_RE), ("down", DOWN_RE), ("assoc", ASSOC_RE)):
+        for m in rx.finditer(text):
+            if inside_null(m.start()):
+                continue
+            labels.add(f"not_{label}" if _negated(text, m.start()) else label)
+    return labels
+
+
+def polarity_mismatch(claim: str, quote: str) -> list[str]:
+    """Reasons the claim and the quote point different ways; empty when no mechanical reason was found."""
+    c, q = polarity_terms(normalise(strip_citations(claim))), polarity_terms(normalise(quote))
+    reasons: list[str] = []
+    directional = {"up", "down", "assoc"}
+    if "null" in c and "null" not in q and q & directional:
+        reasons.append(f"the claim states no difference or association; the quote states {_describe(q)}")
+    if "null" in q and "null" not in c and c & directional:
+        reasons.append(f"the quote states no difference or association; the claim states {_describe(c)}")
+    for a, b in (("up", "down"), ("down", "up")):
+        if a in c and b not in c and b in q and a not in q:
+            reasons.append(f"the claim states {_word(a)}; the quote states {_word(b)}")
+    for label in ("up", "down", "assoc"):
+        if f"not_{label}" in c and label in q and f"not_{label}" not in q:
+            reasons.append(f"'{_word(label)}' is negated in the claim only")
+        if f"not_{label}" in q and label in c and f"not_{label}" not in c:
+            reasons.append(f"'{_word(label)}' is negated in the quote only")
+    return list(dict.fromkeys(reasons))
+
+
+def _word(label: str) -> str:
+    return {"up": "an increase", "down": "a decrease", "assoc": "an association"}[label]
+
+
+def _describe(labels: set[str]) -> str:
+    return " and ".join(_word(x) for x in ("up", "down", "assoc") if x in labels)
+
+
+# --------------------------------------------------------------------------------------------------
+# Sources: local files, the cache, and legal open-access routes
+# --------------------------------------------------------------------------------------------------
+
+class SourceInfo(BaseModel):
+    given: Optional[str] = None
+    kind: str = "none"  # file | doi | pmid | pmcid | arxiv | none
+    scope: str = "none"  # supplied | full_text | abstract | none
+    via: Optional[str] = None
+    cache_file: Optional[str] = None
+    reason: Optional[str] = None
+    free_urls: list[str] = []
+    characters: int = 0
+
+
+IDENTIFIER_PATTERNS = [
+    ("pmcid", re.compile(r"^(?:pmcid:\s*)?(PMC\d+)$", re.IGNORECASE)),
+    ("pmid", re.compile(r"^pmid:\s*(\d{1,9})$", re.IGNORECASE)),
+    ("arxiv", re.compile(r"^(?:arxiv:\s*|https?://arxiv\.org/(?:abs|html|pdf)/)(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?$",
+                         re.IGNORECASE)),
+    ("doi", re.compile(r"^(?:doi:\s*|https?://(?:dx\.)?doi\.org/)?(10\.\d{4,9}/\S+)$", re.IGNORECASE)),
+]
+ARXIV_DOI_RE = re.compile(r"^10\.48550/arxiv\.(\d{4}\.\d{4,5})(?:v\d+)?$", re.IGNORECASE)
+RXIV_DOI_RE = re.compile(r"^10\.1101/(?:\d{4}\.\d{2}\.\d{2}\.)?\d{6,}(?:v\d+)?$")
+EUROPEPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
+
+
+def parse_identifier(value: str) -> Optional[tuple[str, str]]:
+    value = value.strip()
+    for kind, rx in IDENTIFIER_PATTERNS:
+        m = rx.match(value)
+        if m:
+            ident = m.group(1).upper() if kind == "pmcid" else m.group(1)
+            arxiv = ARXIV_DOI_RE.match(ident) if kind == "doi" else None
+            return ("arxiv", arxiv.group(1)) if arxiv else (kind, ident.rstrip(".,;"))
+    return None
+
+
+def default_cache_dir() -> Path:
+    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    return base / "manuscript-reference-check" / "sources"
+
+
+def _cache_paths(cache_dir: Path, kind: str, value: str) -> tuple[Path, Path]:
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{kind}_{value}").strip("_")
+    return cache_dir / f"{stem}.txt", cache_dir / f"{stem}.json"
+
+
+class Fetcher:
+    """Polite GETs: one client, a pause per host (3 s for arXiv, as its terms ask), retries on 429 and 5xx."""
+
+    PAUSE = {"arxiv.org": 3.1, "export.arxiv.org": 3.1}
+
+    def __init__(self) -> None:
+        self.client = httpx.Client(timeout=30, follow_redirects=True, headers={"User-Agent": USER_AGENT})
+        self.last: dict[str, float] = {}
+
+    def get(self, url: str, **params: str) -> Optional[httpx.Response]:
+        host = httpx.URL(url).host
+        for attempt in range(3):
+            wait = self.PAUSE.get(host, 1.0) - (time.monotonic() - self.last.get(host, -1e9))
+            if wait > 0:
+                time.sleep(wait)
+            self.last[host] = time.monotonic()
+            try:
+                r = self.client.get(url, params=params or None)
+            except httpx.HTTPError:
+                return None
+            if r.status_code == 429 or r.status_code >= 500:
+                time.sleep(2 ** attempt)
+                continue
+            return r
+        return None
+
+    def close(self) -> None:
+        self.client.close()
+
+
+def _json(r: Optional[httpx.Response]) -> Optional[dict]:
+    if r is None or r.status_code != 200:
+        return None
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _europepmc_fulltext(fetch: Fetcher, pmcid: str) -> Optional[str]:
+    r = fetch.get(f"{EUROPEPMC}/{pmcid}/fullTextXML")
+    if r is None or r.status_code != 200 or "<" not in r.text[:200]:
+        return None
+    text = jats_to_text(r.text)
+    return text if len(text.split()) > 200 else None
+
+
+def _europepmc(fetch: Fetcher, kind: str, value: str) -> tuple[Optional[str], SourceInfo]:
+    info = SourceInfo(given=f"{kind}:{value}", kind=kind)
+    if kind == "pmcid":
+        text = _europepmc_fulltext(fetch, value)
+        if text:
+            info.scope, info.via = "full_text", "europepmc:fullTextXML"
+            return text, info
+        info.reason = "Europe PMC serves no full text for this PMCID through its API"
+        info.free_urls = [f"https://europepmc.org/article/PMC/{value}"]
+        return None, info
+    query = f'DOI:"{value}"' if kind == "doi" else f"EXT_ID:{value} AND SRC:MED"
+    data = _json(fetch.get(f"{EUROPEPMC}/search", query=query, format="json", resultType="core", pageSize="1"))
+    if data is None:
+        info.reason = "Europe PMC did not answer"
+        return None, info
+    hits = [h for h in data.get("resultList", {}).get("result", [])
+            if (kind == "doi" and (h.get("doi") or "").lower() == value.lower())
+            or (kind == "pmid" and str(h.get("pmid") or "") == value)]
+    if not hits:
+        info.reason = "not indexed by Europe PMC, so no legal open-access copy was found"
+        return None, info
+    hit = hits[0]
+    info.free_urls = [u.get("url") for u in (hit.get("fullTextUrlList") or {}).get("fullTextUrl", [])
+                      if u.get("availabilityCode") in ("F", "OA") and u.get("url")]
+    if hit.get("pmcid"):
+        text = _europepmc_fulltext(fetch, hit["pmcid"])
+        if text:
+            info.scope, info.via, info.free_urls = "full_text", "europepmc:fullTextXML", []
+            return text, info
+    abstract = html.unescape(re.sub(r"<[^>]+>", " ", hit.get("abstractText") or "")).strip()
+    title = hit.get("title") or ""
+    if abstract:
+        info.scope, info.via = "abstract", "europepmc:abstract"
+        info.reason = "only the abstract is openly available (full text paywalled or not deposited)"
+        return f"{title}\n{abstract}", info
+    info.reason = ("the index lists a free full text (often an author manuscript) that its API does not serve: "
+                   "read it at the link" if info.free_urls else
+                   "no open-access full text and no abstract (paywalled or not deposited)")
+    return None, info
+
+
+def _rxiv(fetch: Fetcher, doi: str) -> tuple[Optional[str], SourceInfo]:
+    info = SourceInfo(given=f"doi:{doi}", kind="doi")
+    for server in ("biorxiv", "medrxiv"):
+        data = _json(fetch.get(f"https://api.biorxiv.org/details/{server}/{doi}"))
+        versions = (data or {}).get("collection") or []
+        if not versions:
+            continue
+        latest = versions[-1]
+        if latest.get("jatsxml"):
+            r = fetch.get(latest["jatsxml"])
+            if r is not None and r.status_code == 200 and "<" in r.text[:200]:
+                text = jats_to_text(r.text)
+                if len(text.split()) > 200:
+                    info.scope, info.via = "full_text", f"{server}:jatsxml (version {latest.get('version')})"
+                    return text, info
+        if latest.get("abstract"):
+            info.scope, info.via = "abstract", f"{server}:abstract"
+            info.reason = "the full-text XML could not be fetched; only the abstract was read"
+            return f"{latest.get('title', '')}\n{latest['abstract']}", info
+    return None, info
+
+
+def _arxiv(fetch: Fetcher, arxiv_id: str) -> tuple[Optional[str], SourceInfo]:
+    info = SourceInfo(given=f"arxiv:{arxiv_id}", kind="arxiv")
+    r = fetch.get(f"https://arxiv.org/html/{arxiv_id}")
+    if r is not None and r.status_code == 200 and "html" in r.headers.get("content-type", ""):
+        text = html_to_text(r.text)
+        if len(text.split()) > 300:
+            info.scope, info.via = "full_text", "arxiv:html"
+            return text, info
+    r = fetch.get("https://export.arxiv.org/api/query", id_list=arxiv_id)
+    if r is not None and r.status_code == 200:
+        m = re.search(r"<entry>.*?<title>(.*?)</title>.*?<summary>(.*?)</summary>", r.text, re.DOTALL)
+        if m:
+            info.scope, info.via = "abstract", "arxiv:abstract"
+            info.reason = "arXiv has no HTML full text for this paper; only the abstract was read"
+            info.free_urls = [f"https://arxiv.org/pdf/{arxiv_id}"]
+            return html.unescape(f"{m.group(1)}\n{m.group(2)}"), info
+    info.reason = "arXiv did not answer"
+    return None, info
+
+
+def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir: Path) -> tuple[Optional[str], SourceInfo]:
+    text_path, meta_path = _cache_paths(cache_dir, kind, value)
+    if text_path.exists() and meta_path.exists():
+        info = SourceInfo.model_validate_json(meta_path.read_text(encoding="utf-8"))
+        info.cache_file = str(text_path)
+        return text_path.read_text(encoding="utf-8"), info
+    if fetch is None:
+        return None, SourceInfo(given=f"{kind}:{value}", kind=kind,
+                                reason="an identifier needs --online (or save the source's text and give its path)")
+    if kind == "arxiv":
+        text, info = _arxiv(fetch, value)
+    elif kind == "doi" and RXIV_DOI_RE.match(value):
+        text, info = _rxiv(fetch, value)
+        if text is None:
+            text, info = _europepmc(fetch, kind, value)
+    else:
+        text, info = _europepmc(fetch, kind, value)
+    if text is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        text_path.write_text(text, encoding="utf-8")
+        meta_path.write_text(info.model_dump_json(indent=2), encoding="utf-8")
+        info.cache_file = str(text_path)
+    return text, info
+
+
+def load_source(given: Optional[str], base: Path, fetch: Optional[Fetcher],
+                cache_dir: Path) -> tuple[Optional[str], SourceInfo]:
+    if not given:
+        return None, SourceInfo(reason="no source given for this claim")
+    path = Path(given).expanduser()
+    path = path if path.is_absolute() else base / path
+    if path.is_file():
+        if path.suffix.lower() == ".pdf":
+            return None, SourceInfo(given=given, kind="file",
+                                    reason="PDF: convert it to text first (pdftotext -layout FILE.pdf) and give the .txt")
+        text = read_text_file(path)
+        return text, SourceInfo(given=given, kind="file", scope="supplied", via="file")
+    ident = parse_identifier(given)
+    if ident is None:
+        return None, SourceInfo(given=given, kind="file", reason=f"file not found: {path}")
+    return fetch_identifier(ident[0], ident[1], fetch, cache_dir)
+
+
+# --------------------------------------------------------------------------------------------------
+# The claims file
+# --------------------------------------------------------------------------------------------------
+
+class ClaimIn(BaseModel):
+    id: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+    claim: str = Field(min_length=1)
+    reference: str = Field(min_length=1)
+    quote: Optional[str] = None
+    source: Optional[str] = None
+    priority: Optional[str] = None
+
+    @field_validator("id", "location", "reference", "source", mode="before")
+    @classmethod
+    def _scalar_to_text(cls, value: Any) -> Any:
+        return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+    @field_validator("claim", "quote", mode="after")
+    @classmethod
+    def _not_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("priority")
+    @classmethod
+    def _known_priority(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in PRIORITIES:
+            raise ValueError(f"must be one of {', '.join(sorted(PRIORITIES))}")
+        return value
+
+
+class ClaimsFileError(ValueError):
+    def __init__(self, problems: list[str]) -> None:
+        super().__init__("; ".join(problems))
+        self.problems = problems
+
+
+def load_claims(path: Path) -> tuple[list[ClaimIn], Path]:
+    """The claims and the directory relative source paths resolve against. Raises ClaimsFileError."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ClaimsFileError([f"cannot read {path}: {exc}"]) from exc
+    try:
+        data = json.loads(raw) if path.suffix.lower() == ".json" else yaml.safe_load(raw)
+    except (json.JSONDecodeError, yaml.YAMLError) as exc:
+        raise ClaimsFileError([f"{path.name} is not valid {'JSON' if path.suffix.lower() == '.json' else 'YAML'}: "
+                               f"{str(exc).splitlines()[0]}"]) from exc
+    base = path.parent
+    if isinstance(data, dict):
+        if data.get("sources_dir") is not None:
+            base = base / str(data["sources_dir"])
+        items = data.get("claims")
+    else:
+        items = data
+    if not isinstance(items, list) or not items:
+        raise ClaimsFileError(["expected a non-empty list of claims (top level, or under 'claims:')"])
+    claims: list[ClaimIn] = []
+    problems: list[str] = []
+    seen: set[str] = set()
+    for i, item in enumerate(items):
+        label = f"claims[{i}]" + (f" (id {item.get('id')})" if isinstance(item, dict) and item.get("id") else "")
+        if not isinstance(item, dict):
+            problems.append(f"{label}: expected a mapping of fields, got {type(item).__name__}")
+            continue
+        try:
+            claim = ClaimIn.model_validate(item)
+        except ValidationError as exc:
+            for err in exc.errors():
+                field = ".".join(str(p) for p in err["loc"]) or "entry"
+                problems.append(f"{label}: '{field}' {err['msg'].lower()}")
+            continue
+        if claim.id in seen:
+            problems.append(f"{label}: duplicate id '{claim.id}'")
+            continue
+        seen.add(claim.id)
+        claims.append(claim)
+    if problems:
+        raise ClaimsFileError(problems)
+    return claims, base
+
+
+# --------------------------------------------------------------------------------------------------
+# Checking a claim
+# --------------------------------------------------------------------------------------------------
+
+class ClaimResult(BaseModel):
+    id: str
+    location: str
+    reference: str
+    claim: str
+    priority: Optional[str] = None
+    status: str
+    flags: list[str] = []
+    quote: Optional[str] = None
+    match: Optional[str] = None  # exact | ellipsis
+    source: SourceInfo
+    numbers: Optional[NumberCheck] = None
+    polarity: list[str] = []
+    secondary_markers: list[str] = []
+    context: Optional[str] = None
+    closest_passage: Optional[str] = None
+    closest_ratio: Optional[float] = None
+    notes: list[str] = []
+
+
+def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> ClaimResult:
+    result = ClaimResult(id=claim.id, location=claim.location, reference=claim.reference, claim=claim.claim,
+                         priority=claim.priority, status="quote_located", quote=claim.quote, source=source)
+    if text is not None:
+        source.characters = len(text)
+    if text is None or not text.strip():
+        result.status, result.flags = "source_unavailable", ["source_unavailable"]
+        return result
+    norm_source = normalise(text)
+    if not claim.quote:
+        if source.scope == "abstract":
+            result.status, result.flags = "source_unavailable", ["source_unavailable"]
+            result.notes.append("Only the abstract was available and no quote was given; read the full text.")
+        else:
+            result.status, result.flags = "quote_not_found", ["quote_not_found"]
+            result.notes.append("No quote was given: locate the passage that carries the claim and add it.")
+        return result
+    found = locate(claim.quote, norm_source)
+    if found is None:
+        passage, ratio = closest_passage(normalise(claim.quote), norm_source)
+        result.closest_passage, result.closest_ratio = passage, ratio
+        if source.scope == "abstract":
+            result.status, result.flags = "source_unavailable", ["source_unavailable"]
+            result.notes.append("The quote is not in the abstract, the only text available; the full text may hold it.")
+        else:
+            result.status, result.flags = "quote_not_found", ["quote_not_found"]
+        return result
+    start, end, kind = found
+    result.match = kind
+    result.context = sentence_context(norm_source, start, end)
+    result.secondary_markers = list(dict.fromkeys(m.group(0) for m in SECONDARY_RE.finditer(result.context)))
+    if len(normalise(claim.quote)) < MIN_QUOTE_CHARS:
+        result.notes.append("The quote is short; a short string can occur by chance. Read the passage around it.")
+    if source.scope == "abstract":
+        result.notes.append("Located in the abstract; the full text was not available.")
+    result.numbers = check_numbers(claim.claim, claim.quote)
+    result.polarity = polarity_mismatch(claim.claim, claim.quote)
+    if result.polarity:
+        result.flags.append("polarity_mismatch")
+    if result.numbers.missing:
+        result.flags.append("numbers_missing")
+    result.status = next((s for s in STATUSES if s in result.flags), "quote_located")
+    return result
+
+
+class SupportReport(BaseModel):
+    claims_file: str
+    online: bool
+    cache_dir: str
+    summary: dict[str, int]
+    results: list[ClaimResult]
+    note: str = ("Mechanical checks only. A located quote does not establish support and no status here means "
+                 "'confirmed': the reading in references/claim-support.md decides confirmed, partial, rejected or "
+                 "blocked.")
+
+
+def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
+    claims, base = load_claims(claims_path)
+    fetch = Fetcher() if online else None
+    results: list[ClaimResult] = []
+    texts: dict[str, tuple[Optional[str], SourceInfo]] = {}
+    try:
+        for claim in claims:
+            key = claim.source or ""
+            if key not in texts:
+                texts[key] = load_source(claim.source, base, fetch, cache_dir)
+            text, info = texts[key]
+            results.append(check_claim(claim, text, info.model_copy(deep=True)))
+    finally:
+        if fetch is not None:
+            fetch.close()
+    summary = {status: sum(r.status == status for r in results) for status in STATUSES}
+    summary["claims"] = len(results)
+    summary["with_secondary_markers"] = sum(bool(r.secondary_markers) for r in results)
+    return SupportReport(claims_file=str(claims_path), online=online, cache_dir=str(cache_dir), summary=summary,
+                         results=results)
+
+
+def exit_code(report: SupportReport) -> int:
+    if any(r.status in FLAGGED for r in report.results):
+        return 1
+    if any(r.status == "source_unavailable" for r in report.results):
+        return 3
+    return 0
+
+
+def to_markdown(report: SupportReport) -> str:
+    s = report.summary
+    out = [f"# Claim-support mechanical check: {report.claims_file}", "",
+           f"{s['claims']} claims: " + ", ".join(f"{s[k]} {k}" for k in STATUSES) + ".",
+           report.note, ""]
+    if not report.online:
+        out.append("Offline: identifiers were read from the cache only; run with --online to fetch open-access text.")
+        out.append("")
+    out += ["| id | location | reference | status | source |", "|---|---|---|---|---|"]
+    for r in report.results:
+        src = f"{r.source.scope}" + (f" via {r.source.via}" if r.source.via else "")
+        out.append(f"| {r.id} | {_cell(r.location)} | {_cell(r.reference)} | {r.status} | {_cell(src)} |")
+    for r in report.results:
+        lines: list[str] = []
+        if r.source.reason:
+            lines.append(f"source: {r.source.reason}")
+        if r.source.free_urls:
+            lines.append("free full text to read yourself: " + ", ".join(r.source.free_urls))
+        if r.numbers and r.numbers.missing:
+            lines.append(f"numbers in the claim not in the quote: {', '.join(r.numbers.missing)}")
+        if r.numbers and r.numbers.year_like_missing:
+            lines.append(f"year-like numbers not in the quote (not flagged): {', '.join(r.numbers.year_like_missing)}")
+        lines += [f"polarity: {reason}" for reason in r.polarity]
+        if r.secondary_markers:
+            lines.append("the passage cites or reports other work (" + "; ".join(r.secondary_markers)
+                         + "): check whether the number belongs to a primary study")
+        if r.closest_passage:
+            lines.append(f"closest passage (similarity {r.closest_ratio}): \"{r.closest_passage}\"")
+        lines += r.notes
+        if lines:
+            out += ["", f"## {r.id} ({r.status})", ""] + [f"- {line}" for line in lines]
+    return "\n".join(out) + "\n"
+
+
+def _cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+@app.command()
+def main(
+    claims_file: Annotated[Path, typer.Argument(exists=True, dir_okay=False, readable=True,
+                                                help="YAML or JSON claims file")],
+    online: Annotated[bool, typer.Option(help="Fetch legal open-access text for identifiers (Europe PMC, "
+                                              "bioRxiv/medRxiv, arXiv)")] = False,
+    cache_dir: Annotated[Optional[Path], typer.Option(help="Where fetched texts are kept (default: "
+                                                           "~/.cache/manuscript-reference-check/sources)")] = None,
+    json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
+    md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
+) -> None:
+    try:
+        report = run(claims_file, online, (cache_dir or default_cache_dir()).expanduser())
+    except ClaimsFileError as exc:
+        typer.echo(f"malformed claims file {claims_file}:", err=True)
+        for problem in exc.problems:
+            typer.echo(f"  - {problem}", err=True)
+        raise typer.Exit(code=2) from exc
+    if json_out:
+        json_out.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    md = to_markdown(report)
+    if md_out:
+        md_out.write_text(md, encoding="utf-8")
+        typer.echo(f"wrote {md_out}")
+    else:
+        typer.echo(md)
+    raise typer.Exit(code=exit_code(report))
+
+
+if __name__ == "__main__":
+    app()

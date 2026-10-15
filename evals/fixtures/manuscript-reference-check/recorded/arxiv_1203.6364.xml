@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/g7OmtQfpbqCrlf0CaNDPpNYi1ts</id>
+  <title>arXiv Query: search_query=&amp;id_list=1203.6364&amp;start=0&amp;max_results=10</title>
+  <updated>2026-10-15T20:00:49Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=&amp;start=0&amp;max_results=10&amp;id_list=1203.6364" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>10</opensearch:itemsPerPage>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/1203.6364v2</id>
+    <title>Exploring single-sample SNP and INDEL calling with whole-genome de novo assembly</title>
+    <updated>2012-04-03T14:31:21Z</updated>
+    <link href="https://arxiv.org/abs/1203.6364v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1203.6364v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Motivation: Eugene Myers in his string graph paper (Myers, 2005) suggested that in a string graph or equivalently a unitig graph, any path spells a valid assembly. As a string/unitig graph also encodes every valid assembly of reads, such a graph, provided that it can be constructed correctly, is in fact a lossless representation of reads. In principle, every analysis based on whole-genome shotgun sequencing (WGS) data, such as SNP and insertion/deletion (INDEL) calling, can also be achieved with unitigs.
+  Results: To explore the feasibility of using de novo assembly in the context of resequencing, we developed a de novo assembler, fermi, that assembles Illumina short reads into unitigs while preserving most of information of the input reads. SNPs and INDELs can be called by mapping the unitigs against a reference genome. By applying the method on 35-fold human resequencing data, we showed that in comparison to the standard pipeline, our approach yields similar accuracy for SNP calling and better results for INDEL calling. It has higher sensitivity than other de novo assembly based methods for variant calling. Our work suggests that variant calling with de novo assembly be a beneficial complement to the standard variant calling pipeline for whole-genome resequencing. In the methodological aspects, we proposed FMD-index for forward-backward extension of DNA sequences, a fast algorithm for finding all super-maximal exact matches and one-pass construction of unitigs from an FMD-index.
+  Availability: http://github.com/lh3/fermi
+  Contact: hengli@broadinstitute.org</summary>
+    <category term="q-bio.GN" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2012-03-28T20:04:10Z</published>
+    <arxiv:comment>Rev2: submitted version with minor improvements; 7 pages</arxiv:comment>
+    <arxiv:primary_category term="q-bio.GN"/>
+    <arxiv:journal_ref>Bioinformatics 2012</arxiv:journal_ref>
+    <author>
+      <name>Heng Li</name>
+    </author>
+    <arxiv:doi>10.1093/bioinformatics/bts280</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1093/bioinformatics/bts280" title="doi"/>
+  </entry>
+</feed>

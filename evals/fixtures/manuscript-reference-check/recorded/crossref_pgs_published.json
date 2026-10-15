@@ -1,0 +1,102 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1038/s41588-021-00783-5",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1038/s41588-021-00783-5",
+  "type": "journal-article",
+  "title": [
+   "The Polygenic Score Catalog as an open database for reproducibility and systematic evaluation"
+  ],
+  "author": [
+   {
+    "given": "Samuel A.",
+    "family": "Lambert",
+    "sequence": "first"
+   },
+   {
+    "given": "Laurent",
+    "family": "Gil",
+    "sequence": "additional"
+   },
+   {
+    "given": "Simon",
+    "family": "Jupp",
+    "sequence": "additional"
+   },
+   {
+    "given": "Scott C.",
+    "family": "Ritchie",
+    "sequence": "additional"
+   },
+   {
+    "given": "Yu",
+    "family": "Xu",
+    "sequence": "additional"
+   },
+   {
+    "given": "Annalisa",
+    "family": "Buniello",
+    "sequence": "additional"
+   },
+   {
+    "given": "Aoife",
+    "family": "McMahon",
+    "sequence": "additional"
+   },
+   {
+    "given": "Gad",
+    "family": "Abraham",
+    "sequence": "additional"
+   },
+   {
+    "given": "Michael",
+    "family": "Chapman",
+    "sequence": "additional"
+   },
+   {
+    "given": "Helen",
+    "family": "Parkinson",
+    "sequence": "additional"
+   },
+   {
+    "given": "John",
+    "family": "Danesh",
+    "sequence": "additional"
+   },
+   {
+    "given": "Jacqueline A. L.",
+    "family": "MacArthur",
+    "sequence": "additional"
+   },
+   {
+    "given": "Michael",
+    "family": "Inouye",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2021,
+     3,
+     10
+    ]
+   ]
+  },
+  "container-title": [
+   "Nature Genetics"
+  ],
+  "volume": "53",
+  "issue": "4",
+  "page": "420-425",
+  "relation": {
+   "has-preprint": [
+    {
+     "id-type": "doi",
+     "id": "10.1101/2020.05.20.20108217",
+     "asserted-by": "object"
+    }
+   ]
+  }
+ }
+}

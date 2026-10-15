@@ -4,10 +4,12 @@ description: >-
   Review and edit manuscripts to reduce avoidable clinical, regulatory, ethics and privacy
   misclassification and submission burden. Determine which requirements actually apply, use supported
   exemptions, clarify voluntarily self-published author genomes or biomedical data, compare preprint
-  servers and journals, and draft scope clarifications or reviewer replies. Use for policy-friction
-  reviews, bioRxiv/medRxiv referral loops, human-data wording and proportionate ethics statements.
-  Use manuscript-journal-select for a full journal shortlist, manuscript-journal-adapt for AI-use
-  statements and venue formatting, and manuscript-prose-edit for general language editing.
+  servers and journals, and draft scope clarifications and replies to ethics, consent, clinical-scope or
+  privacy comments. Use for policy-friction reviews, bioRxiv/medRxiv referral loops, human-data wording
+  and proportionate ethics statements. Use manuscript-reviewer-response for the full response letter to
+  referees, manuscript-reporting-check for reporting checklists and availability statements,
+  manuscript-journal-select for a full journal shortlist, manuscript-journal-adapt for AI-use statements
+  and venue formatting, and manuscript-prose-edit for general language editing.
 ---
 
 # Manuscript policy fit
@@ -21,6 +23,10 @@ Support **assess**, **edit**, **compare venues**, and **respond to screening/rev
 Use the manuscript, existing author explanations and any rejection correspondence first. A passage
 edit does not require a full compliance audit. In the bundled plugin, also follow the shared
 [author priorities](../manuscript-integrity-check/references/author-priorities.md).
+
+Apply the requested task across the whole paper unless the author specifies a narrower scope.
+Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
+for requested section or stage review, before/after comparisons and optional interviews.
 
 ## Establish the facts that change the answer
 
@@ -85,7 +91,10 @@ keywords or automated thresholds.
   is what was evaluated. Separate database disease labels from new diagnostic or clinical-utility claims.
 - State self-release directly: an author voluntarily made **their own** genome or biomedical data public,
   where, under what stated terms, and how it is used here. Preserve that the data are human and potentially
-  identifying; do not turn them into an anonymous cohort or invent recruitment.
+  identifying; do not turn them into an anonymous cohort or invent recruitment. Put the detail in Methods
+  or Data availability and add to the abstract only what its word limit allows. Whether to name the person
+  whose data it is stays the authors' decision, weighed against the venue's rules on identifiable
+  individuals (some preprint servers have them).
 - Use precise statements such as "no additional individuals were recruited" only when true. That fact
   alone does not establish exemption from human-subject research. Separate public reanalysis from any
   new collection or intervention, including self-experimentation.
@@ -98,7 +107,9 @@ keywords or automated thresholds.
 When editing is authorised, make the focused changes and review the diff. Preserve results, sample sizes,
 identifiers, citations and scientific meaning. Mark any proposed narrowing of a substantive claim as a
 claim correction, not cosmetic rephrasing. The companion `manuscript-prose-edit/scripts/guard.py` can
-help with selected mechanical changes, but cannot establish policy fit or semantic equivalence.
+help with selected mechanical changes, but cannot establish policy fit or semantic equivalence. When the
+authors authorised a claim correction, run it with `--allow-strengthening`: claim changes are then listed
+as authorised, while changed numbers and citations still fail.
 
 ## Compare venues or resolve a referral loop
 
@@ -121,6 +132,11 @@ before recommending a move. Keep the existing submission history accurate.
 
 Drafting a clarification or reply is part of this workflow; submitting, emailing or publishing requires
 the user's authorisation for that external action. Do not initiate repeated appeals or new submissions.
+
+When a decision letter mixes policy comments with scientific ones, `manuscript-reviewer-response` keeps the
+comment ledger and the response letter. Draft the replies to the ethics, consent, clinical-scope and
+privacy items here and hand them back for the letter. `manuscript-reporting-check` checks that required
+declarations and checklist items are present; deciding which of them apply stays with this skill.
 
 ## Report only what changes a decision
 

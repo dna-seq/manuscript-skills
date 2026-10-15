@@ -3,8 +3,17 @@
 # manuscript-journal-adapt/scripts/venues.py (rank, show).
 #
 # Every value comes from the venue's own pages as read on `checked` (sources and verbatim quotes:
-# publisher-policies.md, target-journals.md). `null` means not researched, never "no rule".
-# JIFs are the values circulating in mid-2026, not re-checked: confirm in Journal Citation Reports.
+# publisher-policies.md, target-journals.md, journal-policies/<publisher>.md). `null` means not
+# researched, never "no rule". A `jif` with a `jif_year` was read on the journal's or publisher's own
+# page; one without is a value circulating in mid-2026: confirm in Journal Citation Reports.
+# policy_watch.py re-reads every url, ai_policy_url and sources entry; policy-snapshots/index.yaml holds
+# the date each page was last read.
+#
+# Kinds and inheritance
+#   kind:          absent for a journal; `publisher` for a default that journals inherit (never ranked);
+#                  `preprint` for a preprint server (venues.py rank --preprints)
+#   inherits:      the entry whose fields apply unless restated; a journal never inherits a publisher
+#                  default's name, url, sources, JIF, fields or fit note
 #
 # Vocabularies
 #   writing_help:  free             AI writing help needs no disclosure
@@ -15,7 +24,17 @@
 #                  banned_drafting  drafting from a prompt forbidden; only correction aids named (ISCB)
 #   prompts:       no | on_request | encouraged | required
 #   screening:     plagiarism | integrity_signals | may_detect_ai | ai_detector_deployed
-#   extra_burden:  free-text items that cost the authors work beyond a disclosure paragraph
+#   extra_burden:  free-text items that cost the authors of AI-assisted text work beyond the disclosure
+#                  (deposited outputs, AI-free replies to reviewers, the tool cited, labelled AI text); not
+#                  repeats of prompts/tracking/writing_help, and not image rules
+#   image_rules:   rules on AI-generated or AI-edited figures, cover art and graphical abstracts (shown by
+#                  `venues.py show`, not scored)
+#   disclosure_neutral: true if the page says a declared AI use does not count against the paper, false if
+#                  it says it may weigh in the decision, null if silent
+#   reviewer_ai:   banned | restricted (only publisher-approved tools) | allowed | null
+#   fields:        aging, bioinformatics, genomics, genetics, systems-biology, clinical, general, data, software
+#   article_types: research, methods, software, database, data, review, perspective, letter
+#   oa:            full | hybrid | subscription
 #   tracking:      required     the venue makes authors record AI use beyond one acknowledgement (prompts,
 #                               deposited outputs, kept versions); venues.py rank leaves these out by default
 #                  recommended  the policy says authors should keep records and may be asked for them
@@ -31,10 +50,12 @@ venues:
   bioinformatics:
     name: Bioinformatics (Original Paper)
     publisher: OUP / ISCB
-    jif: 5.4
+    jif: 5.5
+    jif_year: 2025
     status: VERIFIED
     url: https://academic.oup.com/bioinformatics/pages/author-guidelines
     ai_policy_url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    fields: [bioinformatics, software]
     writing_help: banned_drafting
     exempt: null # permitted use does not by itself establish a disclosure exemption
     permitted_uses: [spelling and grammar checking, translation (author responsible), code-writing help, code documentation, LLM as research technique, LLM as evaluation (finding inconsistencies)]
@@ -45,26 +66,29 @@ venues:
     screening_note: ISCB "does not intend to systematically detect usage"; investigates reported cases
     penalties: [rejection for non-disclosure (OUP), correction or retraction]
     extra_burden: [supplementary documentation of any LLM help that produced part of the content]
-    limits: {abstract_words: 150, body_words: 5000, over_limit_return: 1.2}
+    limits: {abstract_words: 150, body_words: 5000, over_limit_return: null} # the live page (2026-10-15) states no
+      # return rule for overlength papers; "approx. 5,000 words, excluding figures" (7 template pages)
     abstract_headings: [Motivation, Results, Availability and Implementation, Contact, Supplementary Information]
     required_sections: [Data availability, Availability and Implementation (in the abstract)]
     software: [source at a stable URL at submission, "archived version (Zenodo, Software Heritage or Figshare) URL in the abstract", test data, install and run documentation, instructions to reproduce each figure]
-    other_desk_rules: [ML papers validated by leave-one-out are editorially rejected, new methods compared with state of the art, pre-screen returns papers of less significance]
+    other_desk_rules: [ML papers validated by leave-one-out are editorially rejected, new methods compared with state of the art, pre-screen returns papers of less significance, all data on which the conclusions are based publicly available in stable public repositories (Supporting Data)]
     software_article: true
 
   bioinformatics-note:
     name: Bioinformatics (Application Note)
     inherits: bioinformatics
-    limits: {abstract_words: 150, body_words: 2600, over_limit_return: 1.2}
+    limits: {abstract_words: 150, body_words: 2600, over_limit_return: null}
     abstract_headings: [Summary, Availability and Implementation, Contact, Supplementary Information]
     other_desk_rules: [application name in the title, software available for 2 years, web services without mandatory registration, ML papers validated by leave-one-out are editorially rejected, pre-screen returns papers of less significance]
 
   briefings-bioinformatics:
     name: Briefings in Bioinformatics
     publisher: OUP / ISCB
-    jif: 7.7
+    jif: 7.3
+    jif_year: 2025
     status: VERIFIED
     url: https://academic.oup.com/bib/pages/general_instructions
+    fields: [bioinformatics]
     inherits: bioinformatics
     limits: null
     abstract_headings: null
@@ -73,16 +97,19 @@ venues:
   nar:
     name: Nucleic Acids Research
     publisher: OUP
-    jif: 13.1
+    jif: 15.0
+    jif_year: 2025
     status: VERIFIED
     url: https://academic.oup.com/nar/pages/author-guidelines
     ai_policy_url: https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    fields: [bioinformatics, genomics, data, software]
     writing_help: disclose
     exempt: [spelling and grammar, formatting references]
     disclosure_places: [cover letter, Acknowledgements, Methods if integral]
     disclosure_fields: [tool, version, how used, author oversight, dates (recommended), sections (recommended)]
     prompts: "no"
-    screening: plagiarism
+    screening: integrity_signals
+    screening_note: "papermill, image and journal trust and integrity checks besides plagiarism (2026-10-15 re-check)"
     penalties: [rejection for non-disclosure, correction or retraction]
     extra_burden: [update the disclosure at every revision]
     limits: null
@@ -91,18 +118,6 @@ venues:
     software_article: false
     fit_note: Web Server or Database issue only
 
-  database:
-    name: "Database: The Journal of Biological Databases and Curation"
-    publisher: OUP (International Society for Biocuration)
-    jif: 3.6
-    status: PARTIAL
-    url: https://academic.oup.com/database/pages/instructions_for_authors
-    inherits: nar
-    limits: null
-    required_sections: null
-    software: null
-    software_article: false
-    fit_note: live 2026 page read only in part; no ISCB adoption found
 
   gigascience:
     name: GigaScience
@@ -110,6 +125,7 @@ venues:
     jif: 3.9
     status: VERIFIED
     url: https://academic.oup.com/gigascience/pages/editorial_policies_and_reporting_standards
+    fields: [data, genomics, software]
     writing_help: disclose_all
     exempt: []
     disclosure_places: [in-text citation, reference list entry, usage summary at the end, cover letter]
@@ -130,6 +146,7 @@ venues:
     jif: 4.1
     status: VERIFIED
     url: https://spj.science.org/page/csbj/publication-ethics
+    fields: [bioinformatics, systems-biology, software]
     writing_help: disclose_all
     exempt: []
     disclosure_places: [cover letter, Acknowledgments, Methods]
@@ -145,9 +162,13 @@ venues:
   genome-biology:
     name: Genome Biology
     publisher: BMC / Springer Nature
-    jif: 9.4
+    jif: 9.2
+    jif_year: 2025
     status: VERIFIED
     url: https://link.springer.com/journal/13059/submission-guidelines/software
+    fields: [genomics, bioinformatics]
+    article_types: [research, methods, software, database, review, letter]
+    oa: full
     ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
     writing_help: red_line
     exempt: []
@@ -166,27 +187,38 @@ venues:
   genome-medicine:
     name: Genome Medicine
     publisher: BMC / Springer Nature
-    jif: 11.2
+    jif: 10.8
+    jif_year: 2025
     status: VERIFIED
     inherits: genome-biology
     url: https://link.springer.com/journal/13073/submission-guidelines/software
+    fields: [genomics, clinical]
+    oa: full
+    software: [software project URL in the abstract, Availability and requirements block with archived DOI]
     fit_note: clinical genomics venue; expects clinical relevance and safeguards
 
   bmc-bioinformatics:
     name: BMC Bioinformatics
     publisher: BMC / Springer Nature
-    jif: 3.3
+    jif: 4.4
+    jif_year: 2025
     status: VERIFIED
     inherits: genome-biology
-    url: https://link.springer.com/journal/12859/submission-guidelines
+    url: https://link.springer.com/journal/12859/submission-guidelines/software-article
+    fields: [bioinformatics, software]
+    oa: full
+    software: [Availability and requirements block with archived DOI, open-source licence recommended but not required]
+    fit_note: "BMC series: judged on scientific validity, not perceived interest"
 
   scientific-data:
     name: Scientific Data
     publisher: Springer Nature
-    jif: 6.9
+    jif: 7.2
+    jif_year: 2025
     status: VERIFIED
     inherits: genome-biology
     url: https://www.nature.com/sdata/policies/ai
+    fields: [data]
     software: [Code availability statement]
     software_article: false
     fit_note: Data Descriptors (datasets), not software papers
@@ -197,6 +229,7 @@ venues:
     jif: 3.6
     status: VERIFIED
     url: https://journals.plos.org/ploscompbiol/s/ethical-publishing-practice
+    fields: [bioinformatics, systems-biology, software]
     writing_help: disclose
     exempt: [spelling and grammar, rephrasing for clarity or conciseness]
     disclosure_places: [Methods, Acknowledgements or figure legend]
@@ -220,11 +253,26 @@ venues:
 
   frontiers-default:
     kind: publisher
-    name: Frontiers (publisher validation policy)
+    name: "Frontiers (publisher default: AI and validation policy)"
     publisher: Frontiers
-    status: PARTIAL
+    status: VERIFIED
     url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
-    writing_help: null
+    ai_policy_url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    sources: [https://www.frontiersin.org/guidelines/aira-review-guide-reviewers, https://www.frontiersin.org/about/artificial-intelligence, https://www.frontiersin.org/news/2025/07/07/frontiers-broadens-ai-driven-integrity-checks-with-integration-of-cactus]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Acknowledgments, Methods if applicable]
+    disclosure_fields: [name, version, model, source]
+    prompts: encouraged
+    screening: integrity_signals
+    screening_note: "AIRA runs 40+ checks on every submission (language accuracy, image manipulation, papermill); Paperpal Preflight and Clear Skies Papermill Alarm joined AIRA in July 2025; no AI-text detector named"
+    penalties: []
+    extra_burden: []
+    tracking: recommended
+    disclosure_neutral: null
+    reviewer_ai: restricted
+    fit_note: "text merely edited with generative AI is also covered; prompts and outputs as supplementary files are encouraged; external AI tools are banned for reviewers, who use the in-house AIRA Review Guide (summarises the manuscript, helps draft feedback) and declare it"
     validation_requirements:
       - applies_to: [public-data, bioinformatics, mr, public-health-database]
         strength: required
@@ -241,12 +289,18 @@ venues:
 
   frontiers-bioinformatics:
     name: Frontiers in Bioinformatics
+    publisher: Frontiers
+    jif: 3.6
+    status: VERIFIED
     inherits: frontiers-default
     url: https://www.frontiersin.org/journals/bioinformatics/about
+    sources: [https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines]
     fields: [bioinformatics, genomics, software]
     article_types: [research, methods, software, data, review, perspective]
     software_article: true
     oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    fit_note: "Technology and Code articles need the code in a repository with a DOI or URI; the IF is shown without a year"
     excluded_study_designs: [mr, bibliometric]
     open_science:
       summary: "Full open access with CC-BY articles; software-licence and artifact rules need separate checking."
@@ -265,9 +319,11 @@ venues:
   peerj:
     name: PeerJ / PeerJ Computer Science
     publisher: Taylor & Francis
-    jif: 3.8
+    jif: 2.9
+    jif_year: 2025
     status: VERIFIED
     url: https://peerj.com/about/policies-and-procedures/
+    fields: [general, bioinformatics, software]
     writing_help: disclose_all
     exempt: []
     disclosure_places: [Methods or Acknowledgments]
@@ -277,37 +333,13 @@ venues:
     penalties: [undisclosed use listed as misconduct, decline, institution notified, retraction]
     extra_burden: [keep both the original and the AI-edited version]
     tracking: required
+    disclosure_neutral: false
     limits: null
     software_article: true
+    fit_note: "may decline where the extent of AI contribution raises concerns about the authors' contribution; AI-assisted data visualisations need every image version and the prompts kept; the page tells authors to follow the parent Taylor & Francis AI policy, whose author-services page (2026-08-26) bans AI first drafts"
 
-  patterns:
-    name: Patterns
-    publisher: Cell Press / Elsevier
-    jif: 7.4
-    status: VERIFIED
-    url: https://www.cell.com/cell/information-for-authors/journal-policies
-    writing_help: disclose
-    exempt: [grammar, spelling, reference tools]
-    disclosure_places: [titled declaration after Declaration of interests, STAR Methods if AI is part of the method]
-    disclosure_fields: [tool, version, developer, purpose, oversight]
-    prompts: on_request
-    screening: integrity_signals
-    penalties: [fabricated references may lead to rejection]
-    extra_burden: [no AI-generated cover art or graphical abstracts, no AI change to data images]
-    tracking: recommended
-    limits: null
-    software_article: false
 
-  cell-genomics:
-    name: Cell Genomics
-    inherits: patterns
-    jif: 9.0
 
-  iscience:
-    name: iScience
-    inherits: patterns
-    jif: 4.1
-    url: https://www.cell.com/iscience/information-for-authors/journal-policies
 
   genome-research:
     name: Genome Research
@@ -315,6 +347,7 @@ venues:
     jif: 5.5
     status: VERIFIED
     url: https://genome.cshlp.org/ifora_Artificial
+    fields: [genomics, bioinformatics]
     writing_help: disclose
     exempt: [refining, editing, grammar tools]
     disclosure_places: [Methods]
@@ -333,6 +366,7 @@ venues:
     jif: null
     status: VERIFIED
     url: https://f1000research.com/about/policies
+    fields: [general, bioinformatics, software]
     writing_help: disclose
     exempt: []
     disclosure_places: [Methods or Acknowledgments]
@@ -343,6 +377,7 @@ venues:
     extra_burden: [one clause lists computer code among things AI may not create; ask before relying on coding help]
     limits: null
     software_article: true
+    fit_note: "the parent Taylor & Francis author-services AI page (2026-08-26) bans AI first drafts; F1000's own policy page does not repeat that; ask the editorial office before relying on AI drafting"
 
   wellcome-open-research:
     name: Wellcome Open Research
@@ -362,6 +397,7 @@ venues:
     jif: null
     status: VERIFIED
     url: https://reviewer.elifesciences.org/author-guide/journal-policies
+    fields: [general, genomics, bioinformatics, aging]
     writing_help: disclose
     exempt: []
     disclosure_places: [Materials and Methods]
@@ -370,8 +406,9 @@ venues:
     screening: plagiarism
     penalties: []
     extra_burden: [no AI-generated striking images]
+    reviewer_ai: allowed
     limits: null
-    software_article: false
+    software_article: true
 
   acm:
     name: ACM journals and conferences (baseline policy)
@@ -379,6 +416,7 @@ venues:
     jif: null
     status: VERIFIED
     url: https://www.acm.org/publications/policies/new-acm-policy-on-authorship
+    fields: [software, general]
     writing_help: free
     exempt: [all help with writing the submission]
     disclosure_places: [Methods (only for AI used in the research)]
@@ -397,8 +435,9 @@ venues:
     jif: null
     status: VERIFIED
     url: https://ieeeaccess.ieee.org/authors/submission-guidelines/
-    writing_help: disclose_all
-    exempt: []
+    fields: [general, software]
+    writing_help: disclose
+    exempt: [grammar and editing help (disclosure recommended, not required, by the IEEE master policy)]
     disclosure_places: [Acknowledgments, the sections that use AI-generated text cite the AI system]
     disclosure_fields: [AI system, sections, level of use]
     prompts: "no"
@@ -538,3 +577,3717 @@ venues:
       the instructions and policy pages return HTTP 403 to scripts and headless Chrome (2026-10-15); the blog (15 Apr
       2026) says safeguards added "since 2024" include "more detailed author screening to identify inconsistencies,
       policies for the disclosure of AI use, and more involvement of the advisory board within the screening process"
+
+  # ------------------------------------------------------------------ Oxford University Press and its societies
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/oup.md
+
+  oup:
+    kind: publisher
+    name: Oxford University Press journals (default AI policy)
+    publisher: OUP
+    status: VERIFIED
+    url: https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    ai_policy_url: https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    sources:
+    - https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals
+    - https://corp.oup.com/news/supporting-researchers-to-disclose-ai-use-with-confidence/
+    writing_help: disclose
+    exempt: [spelling and grammar, formatting references]
+    disclosure_places: [cover letter, Acknowledgements, Methods if integral]
+    disclosure_fields: [tool, version, how used, author oversight, dates (recommended), sections (recommended)]
+    prompts: 'no'
+    screening: integrity_signals
+    screening_note: no AI-text detector named; "Manuscripts may also be screened, including with services provided by third
+      parties, to help detect integrity issues such as inappropriate image alteration and papermill activity" (journal
+      pages)
+    penalties: [rejection for non-disclosure, correction or retraction]
+    extra_burden: [update the disclosure at every revision]
+    disclosure_neutral: null
+    reviewer_ai: null
+    fit_note: policy last updated 13 July 2026; journal-specific guidance prevails where it differs; authors assert compliance
+      in the submission system
+
+  iscb:
+    kind: publisher
+    name: ISCB Policy for Acceptable Use of Large Language Models (as printed by OUP's ISCB journals)
+    publisher: ISCB (adopted by OUP for Bioinformatics and Bioinformatics Advances; Briefings in Bioinformatics prints
+      it)
+    inherits: oup
+    status: VERIFIED
+    url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    ai_policy_url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    sources:
+    - https://academic.oup.com/bioinformatics/pages/author-guidelines
+    - https://academic.oup.com/bioinformaticsadvances/pages/author-guidelines
+    writing_help: banned_drafting
+    exempt:
+    - spelling and grammar checking
+    - translation (author responsible)
+    - code-writing help
+    - code documentation
+    - LLM as research technique
+    - LLM as evaluation (finding inconsistencies)
+    - background information subject to verification (ISCB page only)
+    disclosure_places: [cover letter, Methods or Acknowledgements, supplementary materials]
+    disclosure_fields: [tool, version, how used, which parts, author oversight]
+    prompts: 'no'
+    screening_note: ISCB "does not intend to systematically detect usage of these models" and "will investigate reported
+      instances on a case-by-case basis"
+    extra_burden:
+    - supplementary documentation of any LLM help that produced part of the content
+    - update the disclosure at every revision (OUP)
+    disclosure_neutral: null
+    reviewer_ai: banned
+    fit_note: ISCB page updated 3 April 2025; applies to ISCB conference submissions and Bioinformatics Advances, and OUP
+      accepted it for Bioinformatics. The OUP-derived fields (penalties, revision updates) apply only to the OUP journals.
+
+  bioinformatics-advances:
+    name: Bioinformatics Advances
+    publisher: OUP / ISCB
+    inherits: iscb
+    jif: 2.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/bioinformaticsadvances/pages/author-guidelines
+    sources:
+    - https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    fields: [bioinformatics, software, data]
+    article_types: [research, software, data, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: true
+    fit_note: Original Article up to 8 pages, Application Note up to 4 pages, Scientific Data up to 4 pages (page limits,
+      no word counts); journal page says it follows the ISCB LLM policy
+
+  nar-genomics-bioinformatics:
+    name: NAR Genomics and Bioinformatics
+    publisher: OUP
+    inherits: oup
+    jif: 3.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/nargab/pages/author-guidelines
+    sources: ['https://academic.oup.com/nargab/pages/scope_and_criteria']
+    fields: [genomics, bioinformatics, software]
+    article_types: [research, methods, software, database, review, perspective]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: only the OUP authorship/AI clause (no ISCB text); Application Notes max 3000 words, 3 figures/tables, 30
+      references; novel bioinformatics components must be open source
+
+  gpb:
+    name: Genomics, Proteomics & Bioinformatics
+    publisher: OUP (Beijing Institute of Genomics, CAS / China National Center for Bioinformation; Genetics Society of
+      China)
+    inherits: oup
+    jif: 7.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/gpb/pages/general-instructions
+    fields: [genomics, bioinformatics, software, data]
+    article_types: [research, methods, software, database, review, perspective]
+    oa: full
+    limits: {abstract_words: null, body_words: 6000, over_limit_return: null}
+    software_article: true
+    fit_note: on Oxford Academic; page carries only the AI-authorship sentence (no disclosure sentence), so the OUP default
+      governs disclosure; Database and Webserver articles under 3000 words, Method and Application note 4-6 pages
+
+  briefings-functional-genomics:
+    name: Briefings in Functional Genomics
+    publisher: OUP
+    inherits: oup
+    jif: 3.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/bfg/pages/author-guidelines
+    fields: [genomics, systems-biology]
+    article_types: [research, review, methods]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: fully open access since 1 January 2025; primary research, reviews and protocol articles
+
+  nar-cancer:
+    name: NAR Cancer
+    publisher: OUP
+    inherits: oup
+    jif: 4.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/narcancer/pages/author-guidelines
+    fields: [genomics, clinical, data]
+    article_types: [research, database, software, review]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: Cancer Data Resource articles cover queryable databases, web services or stand-alone software; resource name
+      in the title, URL in the abstract, available at the same URL for at least 5 years
+
+  genetics:
+    name: GENETICS
+    publisher: OUP (Genetics Society of America)
+    inherits: oup
+    jif: 6.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/genetics/pages/author-guidelines
+    sources: ['https://academic.oup.com/genetics/pages/guidelines-for-reviewers']
+    fields: [genetics, genomics]
+    article_types: [research, database, software, review, perspective, letter]
+    oa: hybrid
+    disclosure_places: [cover letter, Methods or Acknowledgements, Methods (LLM specifications)]
+    disclosure_fields:
+    - tool
+    - version
+    - how used
+    - author oversight
+    - LLM name
+    - version
+    - model and source
+    - method of application (query structure
+    - syntax)
+    prompts: required
+    reviewer_ai: banned
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: true
+    fit_note: Investigations have no length limit, Brief Investigations max 3000 words; Knowledgebase and Database Resources
+      article type; scope lists software and computational resources
+
+  g3:
+    name: 'G3: Genes|Genomes|Genetics'
+    publisher: OUP (Genetics Society of America)
+    inherits: genetics
+    jif: 2.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/g3journal/pages/author-guidelines
+    sources: ['https://academic.oup.com/g3journal/pages/guidelines-for-reviewers']
+    fields: [genetics, genomics, software]
+    article_types: [research, methods, software, data]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: publishes original research regardless of length; Software and Workflow Reports, Genome Reports, Molecular
+      Method Reports; LLM Methods paragraph read on the 2026-04-11 Wayback snapshot (live page truncated before it)
+
+  mbe:
+    name: Molecular Biology and Evolution
+    publisher: OUP (Society for Molecular Biology and Evolution)
+    inherits: oup
+    jif: 6.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/mbe/pages/author-guidelines
+    fields: [genomics, genetics, software]
+    article_types: [research, methods, software, database, review, perspective]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: only the OUP authorship/AI clause; Resources articles describe software tools and databases, which must be
+      available at publication
+
+  gbe:
+    name: Genome Biology and Evolution
+    publisher: OUP (Society for Molecular Biology and Evolution)
+    inherits: oup
+    jif: 3.3
+    jif_year: null
+    status: VERIFIED
+    url: https://academic.oup.com/gbe/pages/General_Instructions
+    fields: [genomics]
+    article_types: [research, methods, data, review, perspective, letter]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [cover letter, Methods and/or Acknowledgements]
+    disclosure_neutral: false
+    limits: {abstract_words: 250, body_words: 10000, over_limit_return: null}
+    software_article: false
+    fit_note: the only journal in this cluster that discourages all AI use, language editing included; Genome Resources
+      max 2500 words
+
+  dna-research:
+    name: DNA Research
+    publisher: OUP (Kazusa DNA Research Institute)
+    inherits: oup
+    jif: 2.8
+    jif_year: 2025
+    status: PARTIAL
+    url: https://academic.oup.com/dnaresearch/pages/Instructions_To_Authors
+    fields: [genomics]
+    article_types: [research, data, review]
+    oa: full
+    limits: {abstract_words: 200, body_words: 7000, over_limit_return: null}
+    software_article: false
+    fit_note: no AI text on the page (2026-03-31 snapshot; the live page's Ethics section is not visible to WebFetch);
+      OUP default applies; about 10 typeset pages
+
+  hmg:
+    name: Human Molecular Genetics
+    publisher: OUP
+    inherits: oup
+    jif: 3.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/hmg/pages/author-guidelines
+    sources: ['https://academic.oup.com/hmg/pages/reviewer-instructions']
+    fields: [genetics, clinical]
+    article_types: [research, review, letter]
+    oa: hybrid
+    reviewer_ai: banned
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: only the OUP authorship/AI clause; offers the optional AI-driven Paperpal Preflight check before submission
+
+  human-reproduction:
+    name: Human Reproduction
+    publisher: OUP (European Society of Human Reproduction and Embryology)
+    inherits: oup
+    jif: 6.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/humrep/pages/Manuscript_Preparation
+    sources: ['https://academic.oup.com/humrep/pages/Policies']
+    fields: [clinical]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    screening: plagiarism
+    screening_note: '"A proportion of manuscripts submitted to the ESHRE Journals are routinely screened with iThenticate
+      anti-plagiarism software"'
+    limits: null
+    software_article: false
+    fit_note: journal pages carry no AI text at all (not even the OUP authorship clause); the OUP default applies
+
+  mol-hum-reprod:
+    name: Molecular Human Reproduction
+    publisher: OUP (European Society of Human Reproduction and Embryology)
+    inherits: oup
+    jif: 4.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/molehr/pages/General_Instructions
+    sources: ['https://academic.oup.com/molehr/pages/Processes_And_Policies']
+    fields: [clinical]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: null
+    software_article: false
+    fit_note: journal pages carry no AI text; the OUP default applies; basic reproductive biology
+
+  j-gerontol-a:
+    name: 'The Journals of Gerontology, Series A: Biological Sciences and Medical Sciences'
+    publisher: OUP (Gerontological Society of America)
+    inherits: oup
+    jif: 4.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/biomedgerontology/pages/General_Instructions_1
+    sources: ['https://academic.oup.com/biomedgerontology/pages/General_Instructions_2']
+    fields: [aging, clinical]
+    article_types: [research, review, letter]
+    oa: hybrid
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Methods (or similar section)]
+    disclosure_fields: [tool, how used]
+    limits: {abstract_words: 250, body_words: 5800, over_limit_return: null}
+    software_article: false
+    fit_note: 'GSA''s own COPE/ICMJE-based AI section with no language-editing exemption; Biological Sciences limits shown
+      (Medical Sciences: 5200 words including title page and abstract, structured 250-word abstract)'
+
+  innovation-in-aging:
+    name: Innovation in Aging
+    publisher: OUP (Gerontological Society of America)
+    inherits: j-gerontol-a
+    jif: 6.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/innovateage/pages/author_guidelines
+    sources: []
+    fields: [aging, general]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 250, body_words: 6000, over_limit_return: null}
+    software_article: false
+    fit_note: same GSA AI section as J Gerontol A; Research Reports max 3000 words
+
+  age-ageing:
+    name: Age and Ageing
+    publisher: OUP (British Geriatrics Society)
+    inherits: oup
+    jif: 7.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/ageing/pages/General_Instructions
+    fields: [aging, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 3000, over_limit_return: null}
+    software_article: false
+    fit_note: only the OUP authorship/AI clause; Short Reports max 1500 words
+
+  jamia:
+    name: Journal of the American Medical Informatics Association
+    publisher: OUP (American Medical Informatics Association)
+    inherits: oup
+    jif: 7.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/jamia/pages/General_Instructions
+    fields: [clinical, data, software]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    screening: plagiarism
+    screening_note: '"Papers submitted to the journal will be screened for plagiarism using Similarity Check / iThenticate";
+      no papermill or AI screening stated'
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: only the OUP authorship/AI clause; no dedicated software type, but Research and Applications covers innovative
+      applications and new methodology; Brief Communications 2000 words
+
+  database:
+    name: 'Database: The Journal of Biological Databases and Curation'
+    publisher: OUP (International Society for Biocuration)
+    inherits: oup
+    jif: 2.7
+    jif_year: 2025
+    status: PARTIAL
+    url: https://academic.oup.com/database/pages/instructions_for_authors
+    fields: [bioinformatics, data, software]
+    article_types: [database, software, research]
+    oa: full
+    limits: null
+    required_sections: null
+    software: null
+    software_article: false
+    fit_note: live instructions page unreadable past the open-access section (WebFetch sees 10,773 characters; no 2026
+      snapshot); no AI or ISCB text in what was read or in the 2025-04-18 snapshot, so the OUP default applies by inference
+
+  # ------------------------------------------------------------------ Springer Nature: Nature Portfolio, EMBO Press
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/nature.md
+
+  springer-nature:
+    kind: publisher
+    name: Springer Nature (publisher default; Nature Portfolio and SN risk-assessment framework)
+    publisher: Springer Nature
+    status: VERIFIED
+    url: https://www.nature.com/nature-portfolio/editorial-policies/ai
+    ai_policy_url: https://www.springernature.com/gp/policies/editorial-policies/ai-manuscript-preparation
+    sources:
+    - https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-research
+    - https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-peer-review
+    - https://www.springernature.com/gp/policies/editorial-policies/ai-editor-guidance
+    - https://www.springernature.com/gp/policies/editorial-policies
+    - https://www.nature.com/nature-portfolio/editorial-policies/peer-review
+    - https://group.springernature.com/gp/group/ai/ai-guidance-for-our-researchers-and-communities
+    writing_help: red_line
+    exempt: []
+    disclosure_places: [AI Declaration in the manuscript, Methods (Nature Portfolio journal author guidelines)]
+    disclosure_fields:
+    - how AI was used
+    - confirmation of author accountability
+    - AI-generated or AI-assisted content labelled (Amber)
+    - model and purpose and extent of contribution (visual content)
+    - inputs and outputs and validation steps (research use)
+    prompts: 'no'
+    screening: integrity_signals
+    screening_note: publisher-wide nonsense-text detector (Geppetto) and irrelevant-reference checker, per 2025 SN press
+      releases; these flag fabricated papers and references, not AI authorship of a genuine paper; the 2026 editor guidance
+      calls detector accuracy "far from definitive" and says "Springer Nature does not expect editors to identify or investigate
+      undisclosed or unsafe uses of AI"
+    penalties:
+    - Red-tier uses (fabricating data or citations or results; AI-written results or discussion) are Not permitted
+    - withdrawal after an irrelevant-reference flag (RIG check)
+    - rejection or retraction for hallucinated references (SN citation policy as carried on BMC pages)
+    - undeclared use may trigger investigation or clarification that delays review
+    extra_burden: [AI-generated or AI-assisted content clearly labelled (Amber tier)]
+    disclosure_neutral: true
+    reviewer_ai: restricted
+    image_rules:
+    - AI visual content only from verifiable inputs
+    - declared in the AI Declaration and the caption
+    other_desk_rules:
+    - authors confirm at submission that they read and followed the SN AI Editorial Policies (being rolled out)
+    fit_note: 'framework announced 10 Sept 2026; the Nature Portfolio and journal AI pages show no date. SN''s own pages
+      disagree: the group page says AI copy editing need not be declared and disclosure goes in the Introduction or Acknowledgements,
+      while the author page asks Green-tier uses to ''Clearly describe use''; journal author guidelines still say Methods.
+      The Nature Portfolio peer-review page still tells reviewers not to upload manuscripts into generative AI tools at
+      all, stricter than the framework.'
+
+  nature:
+    name: Nature
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 56.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/nature/for-authors
+    ai_policy_url: https://www.nature.com/nature/editorial-policies/ai
+    sources: ['https://www.nature.com/nature/for-authors/initial-submission']
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 4300, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Code and Software Submission Checklist when custom code is central
+    software_article: false
+    fit_note: limits are the formatting guide's summary paragraph 'ideally of no more than 200 words' and the 'typical'
+      8-page article of ~4,300 words, not hard caps
+
+  nature-aging:
+    name: Nature Aging
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 25.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/nataging/submission-guidelines
+    ai_policy_url: https://www.nature.com/nataging/editorial-policies/ai
+    sources:
+    - https://www.nature.com/nataging/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/nataging/submission-guidelines/aip-and-formatting
+    fields: [aging]
+    article_types: [research, methods, data, database, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 4500, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+    fit_note: Resource type covers 'a large and newly-generated data set, a new data platform or library, or a collection
+      of reagents or tools'; Technical Report covers a new technique
+
+  nature-biotechnology:
+    name: Nature Biotechnology
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 44.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/nbt/submission-guidelines
+    ai_policy_url: https://www.nature.com/nbt/editorial-policies/ai
+    sources:
+    - https://www.nature.com/nbt/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/nbt/submission-guidelines/aip-and-formatting
+    fields: [genomics, bioinformatics]
+    article_types: [research, data, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 3000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+
+  nature-methods:
+    name: Nature Methods
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 28.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/nmeth/submission-guidelines
+    ai_policy_url: https://www.nature.com/nmeth/editorial-policies/ai
+    sources:
+    - https://www.nature.com/nmeth/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/nmeth/submission-guidelines/aip-and-formatting
+    fields: [bioinformatics, genomics, software]
+    article_types: [research, methods, software, data, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 3000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: true
+    fit_note: Article = 'a novel method or tool' (3,000 words, up to 5,000 at editorial discretion); Brief Communication
+      covers 'software platforms' (1,200 words, 70-word abstract); Analysis covers benchmark comparisons
+
+  nature-genetics:
+    name: Nature Genetics
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 25.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/ng/submission-guidelines
+    ai_policy_url: https://www.nature.com/ng/editorial-policies/ai
+    sources:
+    - https://www.nature.com/ng/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/ng/submission-guidelines/aip-and-formatting
+    fields: [genetics, genomics]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 4000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+
+  nature-medicine:
+    name: Nature Medicine
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 52.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/nm/submission-guidelines
+    ai_policy_url: https://www.nature.com/nm/editorial-policies/ai
+    sources:
+    - https://www.nature.com/nm/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/nm/submission-guidelines/aip-and-formatting
+    fields: [clinical]
+    article_types: [research, data, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 4000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+
+  nature-machine-intelligence:
+    name: Nature Machine Intelligence
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 29.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/natmachintell/submission-guidelines
+    ai_policy_url: https://www.nature.com/natmachintell/editorial-policies/ai
+    sources:
+    - https://www.nature.com/natmachintell/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/natmachintell/submission-guidelines/aip-and-formatting
+    fields: [software, general]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 3500, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+    fit_note: AI, machine learning and robotics; also a Reusability Report type
+
+  nature-computational-science:
+    name: Nature Computational Science
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 20.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/natcomputsci/submission-guidelines
+    ai_policy_url: https://www.nature.com/natcomputsci/editorial-policies/ai
+    sources:
+    - https://www.nature.com/natcomputsci/submission-guidelines/preparing-your-submission
+    - https://www.nature.com/natcomputsci/submission-guidelines/aip-and-formatting
+    fields: [bioinformatics, systems-biology, software]
+    article_types: [research, data, review, perspective, letter]
+    oa: hybrid
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 150, body_words: 3500, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    - Software submission checklist when new code is central
+    software_article: false
+
+  nature-communications:
+    name: Nature Communications
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 18.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/ncomms/submit/how-to-submit
+    ai_policy_url: https://www.nature.com/ncomms/editorial-policies/ai
+    sources: ['https://www.nature.com/ncomms/submit/policy']
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 200, body_words: 5000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    software_article: false
+    fit_note: one research format (Article); Reviews, Perspectives and Comments are commissioned
+
+  communications-biology:
+    name: Communications Biology
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 5.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/commsbio/submit/guide-to-authors
+    ai_policy_url: https://www.nature.com/commsbio/editorial-policies/ai
+    sources: ['https://www.nature.com/commsbio/submit/policy']
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    exempt: [AI-assisted copy editing (journal Policy Guide; conflicts with the SN author page)]
+    image_rules:
+    - the journal Policy Guide still says Springer Nature journals cannot permit AI-generated images and videos
+    limits: {abstract_words: 250, body_words: 5000, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    software_article: false
+
+  scientific-reports:
+    name: Scientific Reports
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 4.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/srep/author-instructions/submission-guidelines
+    ai_policy_url: https://www.nature.com/srep/journal-policies/ai
+    sources: ['https://www.nature.com/srep/journal-policies/editorial-policies']
+    fields: [general]
+    article_types: [research]
+    oa: full
+    limits: {abstract_words: 200, body_words: 4500, over_limit_return: null}
+    software:
+    - Code availability section after Data availability
+    - code in a DOI-minting repository (Zenodo or Code Ocean) and cited
+    - code shared with editors and reviewers during peer review
+    software_article: false
+    fit_note: two formats only (Article, Registered Report); limits are 'strongly recommend' guidelines
+
+  npj-aging:
+    name: npj Aging
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 13.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/npjamd/for-authors-and-referees/submission-guidelines
+    ai_policy_url: https://www.nature.com/npjamd/editorial-policies/artificial-intelligence
+    sources: []
+    fields: [aging]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 150, body_words: null, over_limit_return: null}
+    software:
+    - code central to the claims available to editors and referees
+    - Code availability section where applicable
+    software_article: false
+
+  npj-digital-medicine:
+    name: npj Digital Medicine
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 18.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/npjdigitalmed/for-authors-and-referees/submission-guidelines
+    ai_policy_url: https://www.nature.com/npjdigitalmed/editorial-policies/artificial-intelligence
+    sources: []
+    fields: [clinical, software]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 150, body_words: null, over_limit_return: null}
+    software:
+    - custom code central to the claims "must be made available to Editors and referees upon request"
+    - Code availability section where applicable
+    software_article: false
+
+  npj-systems-biology:
+    name: npj Systems Biology and Applications
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 4.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/npjsba/for-authors-and-referees/submission-guidelines
+    ai_policy_url: https://www.nature.com/npjsba/editorial-policies/artificial-intelligence
+    sources: []
+    fields: [systems-biology, bioinformatics]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 150, body_words: null, over_limit_return: null}
+    software:
+    - code central to the claims available to editors and referees
+    - Code availability section where applicable
+    software_article: false
+
+  npj-genomic-medicine:
+    name: npj Genomic Medicine
+    publisher: Springer Nature (Nature Portfolio)
+    inherits: springer-nature
+    jif: 5.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/npjgenmed/for-authors-and-referees/submission-guidelines
+    ai_policy_url: https://www.nature.com/npjgenmed/editorial-policies/artificial-intelligence
+    sources: []
+    fields: [genomics, genetics, clinical]
+    article_types: [research, methods, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 150, body_words: null, over_limit_return: null}
+    software:
+    - code central to the claims available to editors and referees
+    - Code availability section where applicable
+    software_article: false
+    fit_note: content types include Case Report and Protocol
+
+  ejhg:
+    name: European Journal of Human Genetics
+    publisher: Springer Nature (for the European Society of Human Genetics)
+    inherits: springer-nature
+    jif: 4.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.nature.com/ejhg/authors-and-referees/gta
+    ai_policy_url: https://www.nature.com/ejhg/authors-and-referees/gta
+    sources: ['https://www.nature.com/ejhg/authors-and-referees/policies']
+    fields: [genetics, genomics, clinical, bioinformatics]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software: [Code Availability statement (if required)]
+    software_article: false
+    fit_note: 'EJHG''s own pages carry only the older LLM sentence (document LLM use in Methods) and do not link the SN
+      framework; the framework is publisher-wide, so it applies by inheritance (inference). Hybrid: gold OA or subscription
+      chosen after acceptance.'
+
+  molecular-systems-biology:
+    name: Molecular Systems Biology
+    publisher: EMBO Press (on Springer Nature Link)
+    jif: 7.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/44320/submission-guidelines
+    ai_policy_url: https://link.springer.com/partners/embo-press/editorial-policies
+    sources: ['https://link.springer.com/partners/embo-press/editorial-policies/reviewer-guidelines']
+    fields: [systems-biology, bioinformatics, genomics]
+    article_types: [research, methods, review, perspective, letter]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places:
+    - the published article
+    - naming the parts assembled with AI
+    - Methods (AI in data collection or analysis)
+    disclosure_fields: [which parts of the article were assembled with AI, tools employed]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: CrossCheck plagiarism screen; "routine image analysis" of submitted data; no AI-text detector named
+      on EMBO pages
+    penalties:
+    - investigation under the EMBO Press scientific-integrity policy; no AI-specific sanction stated
+    extra_burden:
+    - AI use expected to be "primarily restricted to improve the style, accessibility or quality of human generated text"
+    disclosure_neutral: null
+    reviewer_ai: null
+    image_rules: [AI-generated synthetic data labelled in text and figure and documented in Methods]
+    limits: null
+    software: null
+    software_article: false
+    fit_note: 'EMBO Press''s own AI policy governs, not the SN framework (EMBO pages link only EMBO Press policies). JIF
+      7.0 is the page''s ''official, corrected number'' because ''the 2025 JIF was erroneous''. Scope lists AI and computational
+      biology; ''Reports of new methods and resources are also considered''. No strict length limits (Report: 25,000 characters).'
+
+  embo-reports:
+    name: EMBO Reports
+    publisher: EMBO Press (on Springer Nature Link)
+    inherits: molecular-systems-biology
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://link.springer.com/journal/44319/submission-guidelines
+    fields: [general]
+    article_types: [research, methods, data, review, perspective, letter]
+    oa: full
+    fit_note: molecular, cell and developmental biology and ecology; Method and Resource types; the journal home page shows
+      no JIF
+
+  # ------------------------------------------------------------------ Springer Nature: Springer and BMC journals
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/springer.md
+
+  geroscience:
+    name: GeroScience
+    publisher: Springer Nature (official journal of the American Aging Association)
+    inherits: springer-nature
+    jif: 6.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/11357/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [aging, clinical]
+    article_types: [research, methods, review, perspective]
+    oa: hybrid
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no software type; a tool fits only as Innovative Methodology with a 'proof of principle' on geroscience data;
+      most submissions rejected without review (~25% acceptance of research articles)
+
+  biogerontology:
+    name: Biogerontology
+    publisher: Springer Nature
+    inherits: springer-nature
+    jif: 5.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/10522/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [aging]
+    article_types: [research, methods, review, perspective]
+    oa: hybrid
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no software type; METHODOLOGY covers 'a new experimental or computational method'
+
+  z-gerontol-geriatr:
+    name: Zeitschrift für Gerontologie und Geriatrie
+    publisher: 'Springer Medizin / Springer Nature (societies: DGGG, DGG)'
+    inherits: springer-nature
+    jif: 1.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/391/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [aging, clinical]
+    article_types: [research, review]
+    oa: hybrid
+    limits: null
+    software_article: false
+    fit_note: German-language journal (English 'Original Studies' accepted); journal page and its guideline PDFs (last
+      modified 2022) have no AI text, so only the Springer brand policy applies; limits are in characters (25,000 incl.
+      spaces; abstracts 1,800 characters, German and English)
+
+  aging-clin-exp-res:
+    name: Aging Clinical and Experimental Research
+    publisher: Springer Nature (official journal of ESCEO)
+    inherits: springer-nature
+    jif: 4.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/40520/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [aging, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: 5000, over_limit_return: null}
+    software_article: false
+    fit_note: fully open access since 1 Jan 2024; Research <= 5,000 words including the abstract; clinical gerontology
+      and geriatrics; pre-submission enquiries are not answered
+
+  human-genetics:
+    name: Human Genetics
+    publisher: Springer Nature
+    inherits: springer-nature
+    jif: 3.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/439/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [genetics, genomics]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no software type; Brief Reports (750-1,000 words) may carry 'new methodological advances'
+
+  mol-genet-genomics:
+    name: Molecular Genetics and Genomics
+    publisher: Springer Nature
+    inherits: springer-nature
+    jif: 2.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/438/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [genetics, genomics]
+    article_types: [research, methods, software, database, review]
+    oa: hybrid
+    exempt:
+    - AI-assisted copy editing (readability, style, correctness; without generating new content)
+    disclosure_places: [Methods (or an appropriate alternative), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: true
+    fit_note: software goes in 'Methodology Papers' (methods, software or databases 'without applying them to a research
+      question'); the journal restates the LLM rule in its own words ('must be documented')
+
+  bmc-genomics:
+    name: BMC Genomics
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 3.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12864/submission-guidelines/software-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [genomics, genetics]
+    article_types: [research, database, software, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software:
+    - Availability and requirements block
+    - archived version DOI (e.g. Zenodo) in data availability
+    - open-source licence recommended but not required
+    software_article: true
+    fit_note: 'BMC series: judged on scientific validity, not perceived interest; software must show ''a significant advance
+      over previously published software'''
+
+  bmc-biology:
+    name: BMC Biology
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 5.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12915/submission-guidelines/software
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [general]
+    article_types: [research, methods, software, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software:
+    - strict open access, open source and open data policy
+    - in-house analysis scripts in a public repository or supplement
+    - Availability and requirements block
+    - archived version DOI in data availability
+    software_article: true
+    fit_note: selective (broad interest), in-house editors; software must be 'of utility to a wide audience'; Registered
+      Reports offered
+
+  bmc-medical-genomics:
+    name: BMC Medical Genomics
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 2.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12920/submission-guidelines/software-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [genomics, clinical, bioinformatics]
+    article_types: [research, database, software, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software:
+    - Availability and requirements block
+    - archived version DOI in data availability
+    - open-source licence recommended but not required
+    software_article: true
+    fit_note: BMC series (scientific validity, not perceived impact); genomics in relation to human health, 'novel bioinformatics
+      methods on medical data' in scope
+
+  immunity-ageing:
+    name: Immunity & Ageing
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 8.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12979/submission-guidelines/research-articles
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [aging]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: will not consider 'work solely reporting in silico analyses of publicly-available data' or ageing work without
+      'a substantial immunological element'; poor fit for a software paper
+
+  biodata-mining:
+    name: BioData Mining
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 7.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/13040/submission-guidelines/software-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [bioinformatics, data, software]
+    article_types: [research, methods, software, review]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software:
+    - Availability and requirements block
+    - archived version DOI in data availability
+    - open-source licence recommended but not required
+    software_article: true
+    fit_note: open peer review; scope names 'agentic AI approaches' and 'open-source software, benchmarks, datasets, databases,
+      and web services'; computational contribution must be useful beyond a single dataset
+
+  algorithms-mol-biol:
+    name: Algorithms for Molecular Biology
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 1.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/13015/submission-guidelines/software-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [bioinformatics, software]
+    article_types: [research, software, review, perspective]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software:
+    - Availability and requirements block
+    - archived version DOI in data availability
+    - open-source licence recommended but not required
+    software_article: true
+    fit_note: software considered only 'if they contain algorithmically interesting aspects'; does not publish applications
+      of established tools or 'incremental improvements of software tools or data resources'; the Research articles page
+      carries no AI sentence (older template)
+
+  j-biomed-semantics:
+    name: Journal of Biomedical Semantics
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 2.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/13326/submission-guidelines/software
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [bioinformatics, data, software]
+    article_types: [research, database, software, review]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software: [Availability and requirements block, archived version DOI in data availability]
+    other_desk_rules:
+    - datasets deposited in a public repository before peer review or supplied as supplementary files
+    software_article: true
+    fit_note: ontologies, metadata standards, semantic mining; data are 'assessed and reviewed as part of the journal's
+      standard peer-review process'
+
+  j-cheminformatics:
+    name: Journal of Cheminformatics
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 7.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/13321/submission-guidelines/software
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [software, data]
+    article_types: [research, methods, software, database, data, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: null
+    abstract_headings: [Scientific Contribution (max 3 sentences)]
+    software:
+    - OSI-approved open-source licence required
+    - source code must be provided
+    - no registration or login to obtain it
+    - licence and author list in the distribution
+    - Zenodo archive strongly encouraged
+    - links to all code repositories incl. benchmarking code
+    software_article: true
+    fit_note: chemistry scope; 'will only publish research or software that is entirely reproducible by third parties';
+      software quality is assessed in review
+
+  j-transl-med:
+    name: Journal of Translational Medicine
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 9.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12967/submission-guidelines/methodology
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [clinical]
+    article_types: [research, methods, review, perspective, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no software type; Methodology ('a new experimental or computational method') is the closest; sections include
+      Medical Bioinformatics and Translational Genomics and Genetics; focus on 'information derived from human experimentation'
+
+  # ------------------------------------------------------------------ Elsevier, Cell Press, The Lancet
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/elsevier.md
+
+  elsevier:
+    kind: publisher
+    name: Elsevier journals (publisher default)
+    publisher: Elsevier
+    status: VERIFIED
+    url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    sources:
+    - https://www.elsevier.com/connect/updated-generative-ai-policies-for-journals-supporting-responsible-use-while-protecting-trust
+    writing_help: disclose
+    exempt:
+    - basic grammar
+    - spelling and punctuation checks
+    - basic reference-manager functions
+    - AI features of disability assistive technology used only for accessibility
+    disclosure_places:
+    - separate declaration section immediately before the references (published)
+    - Methods (AI in the research process or to write or edit code)
+    disclosure_fields: [tool, model, purpose, extent, author oversight]
+    prompts: on_request
+    screening: integrity_signals
+    screening_note: Elsevier teams use AI tools for technical checks and "research integrity checks"; editors' AI tools
+      detect duplicate submissions; no AI-text detector named
+    penalties: [fabricated references may lead to rejection]
+    extra_burden: [AI-written or AI-edited code declared in detail in Methods]
+    tracking: recommended
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules:
+    - AI-assisted explanatory images named in the caption
+    - no general-purpose gen-AI graphical abstracts
+    - AI cover art only with prior editor and publisher permission
+    - no AI creation or alteration of primary research images
+    limits: null
+    fit_note: 'authors keep a record of tool, model and use (logs, prompts, outputs, tracked changes) and provide it if
+      editors ask (tracking: recommended, prompts: on_request)'
+
+  cell-press:
+    kind: publisher
+    name: Cell Press journals (publisher default)
+    publisher: Cell Press / Elsevier
+    status: VERIFIED
+    url: https://www.cell.com/cell/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell/information-for-authors/journal-policies
+    sources:
+    - https://www.cell.com/cell/information-for-authors/revise-manuscript
+    - https://www.cell.com/reviewers
+    - https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    writing_help: disclose
+    exempt: [grammar, spelling, reference tools]
+    disclosure_places:
+    - titled declaration after Declaration of interests (published)
+    - methods or STAR Methods when AI is part of the research design or methods
+    disclosure_fields:
+    - tool
+    - reason
+    - model or tool + version + developer or manufacturer for research use and data visualizations
+    prompts: on_request
+    screening: integrity_signals
+    screening_note: Crossref Similarity Check, screening against a Cell Press cross-journal database, image screening of
+      all accepted manuscripts; no AI-text detector named
+    penalties: [fabricated references may lead to rejection (Elsevier policy)]
+    extra_burden: []
+    tracking: recommended
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules:
+    - AI-assisted explanatory images named in the figure legend
+    - no AI-generated cover art unless AI is integral to the research
+    - no general-purpose gen-AI graphical abstracts
+    - no AI creation or alteration of research or data images (incl. brightness, contrast, colour)
+    limits: null
+    fit_note: AI text word-identical on the journal-policies pages of Cell, Cell Metabolism, Cell Systems, Cell Reports,
+      Cell Reports Methods, Patterns, Cell Genomics and iScience (diffed 2026-10-15). Partner AJHG and HGG Advances, and
+      Trends in Genetics, print the older 'readability and language only' text.
+
+  lancet:
+    kind: publisher
+    name: The Lancet Group journals (publisher default)
+    publisher: Elsevier (The Lancet Group)
+    status: VERIFIED
+    url: https://www.thelancet.com/pb-assets/Lancet/authors/tl-info-for-authors-1787150940677.pdf
+    ai_policy_url: https://www.thelancet.com/editorial-policies
+    sources:
+    - https://www.thelancet.com/pb-assets/Lancet/authors/tlhl-info-for-authors.pdf
+    - https://www.thelancet.com/pb-assets/Lancet/authors/ebm-info-for-authors.pdf
+    - https://www.thelancet.com/peer-review
+    writing_help: disclose
+    exempt: [basic checks of grammar, spelling and punctuation]
+    disclosure_places:
+    - AI declaration question at submission
+    - separate AI declaration at the end of the manuscript (published)
+    - Methods for AI used in the research process
+    disclosure_fields: [tool name and version, purpose, extent of oversight, prompts where applicable]
+    prompts: required
+    screening: plagiarism
+    screening_note: editors check material with CrossCheck (The Lancet - non-research items; LANHL and eBioMedicine - "at
+      our discretion"); no AI-text detector named
+    penalties:
+    - editors decide whether the AI use is appropriate
+    - breach of the Comment and Correspondence AI rule leads to rejection
+    extra_burden: []
+    disclosure_neutral: false
+    reviewer_ai: banned
+    image_rules:
+    - gen-AI in figures limited to brainstorming and image concepts (direct use only to demonstrate AI capabilities)
+    limits: null
+    other_desk_rules:
+    - 'Comments and Correspondence: AI for grammar and spelling only'
+    - 'The Lancet World Report and Perspectives: no AI at all'
+    fit_note: Information for Authors PDFs dated August 2026. Starts from Elsevier's text but adds tool version, prompts,
+      editorial discretion over appropriateness and per-content-type bans; reviewers may not use AI to assist the scientific
+      review at all.
+
+  ageing-research-reviews:
+    name: Ageing Research Reviews
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 15.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/ageing-research-reviews/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [aging]
+    article_types: [review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: reviews only (Review Article, Short Review ~2,500 words, View Point ~2,000 words); systematic reviews must
+      show subject expertise in the cover letter
+
+  mech-ageing-dev:
+    name: Mechanisms of Ageing and Development
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 6.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/mechanisms-of-ageing-and-development/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [aging]
+    article_types: [research, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: research papers carry a 100-200 word Summary (the generic abstract rule says 250); Short Communications max
+      1,000 words
+
+  exp-gerontol:
+    name: Experimental Gerontology
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 5.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/experimental-gerontology/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [aging, clinical]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+
+  arch-gerontol-geriatr:
+    name: Archives of Gerontology and Geriatrics
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 4.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/archives-of-gerontology-and-geriatrics/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [aging, clinical]
+    article_types: [research]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: guide lists no article types; scope covers experimental, clinical and social gerontology
+
+  neurobiol-aging:
+    name: Neurobiology of Aging
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 4.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/neurobiology-of-aging/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [aging, clinical]
+    article_types: [research, review]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: hypothesis-driven neurobiology of aging; reviews limited to PRISMA systematic reviews; AD studies need biomarker-based
+      classification
+
+  transl-med-aging:
+    name: Translational Medicine of Aging
+    publisher: KeAi (hosted by Elsevier)
+    inherits: elsevier
+    jif: null
+    jif_year: null
+    status: PARTIAL
+    url: https://www.sciencedirect.com/journal/translational-medicine-of-aging/publish/guide-for-authors
+    ai_policy_url: null
+    sources:
+    - https://www.keaipublishing.com/en/journals/translational-medicine-of-aging/guide-for-authors/
+    - https://www.keaipublishing.com/en/for-authors/publishing-ethics-authors/
+    fields: [aging, clinical]
+    article_types: [research, review, perspective]
+    oa: full
+    screening: plagiarism
+    screening_note: 'KeAi: iThenticate CrossCheck on every submission; ''High similarity papers will be desk rejected.'''
+    limits: null
+    software_article: false
+    fit_note: 'no AI text on the ScienceDirect guide, the KeAi guide or KeAi''s ethics pages; Elsevier policy assumed (KeAi''s
+      ethics page points to Elsevier''s). Page shows CiteScore 3.0 only, no Impact Factor. TMA Express: max 1,500 words.'
+
+  comput-biol-med:
+    name: Computers in Biology and Medicine
+    publisher: Elsevier
+    inherits: elsevier
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/computers-in-biology-and-medicine/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [bioinformatics, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: 'journal page: ''placed On Hold in April 2024 and had its coverage in the Web of Science Core Collection
+      discontinued on November 17, 2025''; Elsevier integrity investigation ongoing; page shows CiteScore 13.1, no Impact
+      Factor. Rejects minor model tweaks and unclear train/validation/test splits.'
+
+  j-biomed-inform:
+    name: Journal of Biomedical Informatics
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 5.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/journal-of-biomedical-informatics/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [bioinformatics, clinical, data]
+    article_types: [methods, research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 300, body_words: 6000, over_limit_return: null}
+    software_article: false
+    fit_note: 'methodology journal: novel method compared with state of the art; bioinformatics only if translational (human);
+      Special Communication can report widely adopted tools (REDCap, FHIR, OMOP); reviews by invitation only'
+
+  genomics:
+    name: Genomics
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 3.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [genomics, bioinformatics]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: '''Manuscripts analysing existing sequence data only are no longer suitable, unless adding new sequence data
+      or a introducing a new algorithm''; the algorithm must be public; accepts the top 25-30%'
+
+  gene:
+    name: Gene
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 2.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/gene/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [genetics, genomics]
+    article_types: [research, methods, review, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: computational work needs experimental or other validation; minor method improvements not accepted; no systematic
+      reviews
+
+  softwarex:
+    name: SoftwareX
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 1.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/softwarex/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [software]
+    article_types: [software]
+    oa: full
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: true
+    fit_note: short descriptive paper plus open-source distribution; journal templates mandatory (Original software publication,
+      Software update); accepted code is copied to the journal's GitHub
+
+  genetics-in-medicine:
+    name: Genetics in Medicine
+    publisher: Elsevier / ACMG
+    inherits: elsevier
+    jif: 6.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/genetics-in-medicine/publish/guide-for-authors
+    ai_policy_url: https://www.sciencedirect.com/journal/genetics-in-medicine/publish/guide-for-authors
+    fields: [genetics, genomics, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    writing_help: banned_drafting
+    exempt: [basic tools for checking grammar, spelling, references]
+    disclosure_places:
+    - section 'Declaration of AI and AI-assisted technologies in the writing process' before the References (published)
+    disclosure_fields: [tool, reason]
+    limits: {abstract_words: 200, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: 'guide keeps Elsevier''s 2023 text: ''Only use these technologies to improve readability and language'' (journal
+      page conflicts with the June 2026 Elsevier policy; ask the office). Article limits marked ''not enforced''. Mendelian
+      randomization out of scope; GWAS low priority.'
+
+  int-j-biochem-cell-biol:
+    name: The International Journal of Biochemistry & Cell Biology
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 3.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/the-international-journal-of-biochemistry-and-cell-biology/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [general, genomics, bioinformatics]
+    article_types: [research, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 5000, over_limit_return: null}
+    software_article: false
+    fit_note: 'out of scope: ''Computational/bioinformatic studies without clear significant novelty in analysis approach
+      and/or experimental validation of the computed findings'''
+
+  lancet-healthy-longevity:
+    name: The Lancet Healthy Longevity
+    publisher: Elsevier (The Lancet Group)
+    inherits: lancet
+    jif: 20.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.thelancet.com/pb-assets/Lancet/authors/tlhl-info-for-authors.pdf
+    ai_policy_url: https://www.thelancet.com/pb-assets/Lancet/authors/tlhl-info-for-authors.pdf
+    fields: [aging, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 250, body_words: 3500, over_limit_return: null}
+    software_article: false
+    fit_note: clinically focused longevity research; Articles up to 3,500 words (4,500 for RCTs), 30 references, Research
+      in context panel; PDF dated August 2026
+
+  ebiomedicine:
+    name: eBioMedicine
+    publisher: Elsevier (The Lancet Group)
+    inherits: lancet
+    jif: 11.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.thelancet.com/pb-assets/Lancet/authors/ebm-info-for-authors.pdf
+    ai_policy_url: https://www.thelancet.com/pb-assets/Lancet/authors/ebm-info-for-authors.pdf
+    fields: [clinical, general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: translational biomedical research with clear human relevance; Lancet Discovery Science; PDF pages dated April
+      and August 2026
+
+  cell:
+    name: Cell
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 45.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell/information-for-authors/journal-policies
+    fields: [general]
+    article_types: [research, methods, database, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 150, body_words: 7000, over_limit_return: null}
+    software_article: false
+
+  cell-metabolism:
+    name: Cell Metabolism
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 37.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell-metabolism/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell-metabolism/information-for-authors/journal-policies
+    fields: [general, clinical]
+    article_types: [research, methods, database, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: null, body_words: 7000, over_limit_return: null}
+    software_article: false
+    fit_note: Technology format covers "new reagents, methods, tools, and other technologies" for metabolism research
+
+  cell-systems:
+    name: Cell Systems
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 7.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell-systems/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell-systems/information-for-authors/journal-policies
+    fields: [systems-biology]
+    article_types: [research, methods, review, perspective]
+    oa: hybrid
+    limits: null
+    software_article: false
+    fit_note: limits by display items, not words (Articles 7, Reports 4, Methods 7); Methods papers must 'engage biological
+      problems in a new or better way'
+
+  cell-reports:
+    name: Cell Reports
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 7.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell-reports/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell-reports/information-for-authors/journal-policies
+    fields: [general]
+    article_types: [research, database, data, review]
+    oa: full
+    limits: {abstract_words: null, body_words: 7000, over_limit_return: null}
+    software_article: false
+    fit_note: Resources must "provide new biological insight as a demonstration of utility of the resource"
+
+  cell-reports-methods:
+    name: Cell Reports Methods
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 5.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
+    fields: [general, bioinformatics]
+    article_types: [methods, research, review, perspective]
+    oa: full
+    limits: {abstract_words: null, body_words: 7000, over_limit_return: null}
+    software_article: false
+    fit_note: '''a robust, reproducible method'' is the main criterion; Articles need method, comparison with related methods,
+      validation; no software-specific type'
+
+  ajhg:
+    name: American Journal of Human Genetics
+    publisher: Cell Press / ASHG (partner journal)
+    inherits: cell-press
+    jif: 7.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/ajhg/authors
+    ai_policy_url: https://www.cell.com/ajhg/authors
+    fields: [genetics, genomics]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    writing_help: banned_drafting
+    exempt: [basic tools for checking grammar, spelling, references]
+    disclosure_places:
+    - section 'Declaration of generative AI and AI-assisted technologies in the manuscript preparation process' at the
+      end of the core manuscript file, before the references (published)
+    disclosure_fields: [tool, reason]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: 'own text: ''authors should only use these technologies to improve readability and language''; applies to
+      writing only, not to AI in the research. Reports ~3,600 words; Research Letters 800 words.'
+
+  hgg-advances:
+    name: Human Genetics and Genomics Advances
+    publisher: Cell Press / ASHG (partner journal)
+    inherits: cell-press
+    jif: 3.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/hgg-advances/authors
+    ai_policy_url: https://www.cell.com/hgg-advances/authors
+    fields: [genetics, genomics]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    writing_help: banned_drafting
+    exempt: [basic tools for checking grammar, spelling, references]
+    disclosure_places:
+    - section 'Declaration of generative AI and AI-assisted technologies in the manuscript preparation process' at the
+      end of the core manuscript file, before the references (published)
+    disclosure_fields: [tool, reason]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: same AI text as AJHG ('only ... improve readability and language'). Brief communications max 2,500 words;
+      Reports 3,500-4,000 words.
+
+  trends-genetics:
+    name: Trends in Genetics
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 12.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/trends/genetics/authors
+    ai_policy_url: https://www.cell.com/trends/genetics/authors
+    fields: [genetics, genomics]
+    article_types: [review, perspective, letter]
+    oa: hybrid
+    writing_help: banned_drafting
+    exempt: [basic tools such as tools used to check grammar, spelling and references]
+    disclosure_places:
+    - section 'Declaration of generative AI and AI-assisted technologies in the writing process' after Declaration of interests
+      (published)
+    disclosure_fields: [tool, reason]
+    limits: {abstract_words: 120, body_words: 3500, over_limit_return: null}
+    software_article: false
+    fit_note: '''should only be used in the writing process to improve the readability and language of the manuscript'';
+      mostly commissioned; ''cannot consider manuscripts that rely on unpublished data''. Review 3,000-3,500 words, abstract
+      100-120.'
+
+  patterns:
+    name: Patterns
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.cell.com/patterns/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/patterns/information-for-authors/journal-policies
+    fields: [data, software]
+    article_types: [research, software, database, data, review, perspective]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: 'neither ScienceDirect insights nor the cell.com home shows an Impact Factor (old entry: 7.4, not confirmable);
+      Resource articles cover ''workflows, software, platforms, repositories, frameworks, services, or datasets'''
+
+  cell-genomics:
+    name: Cell Genomics
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 8.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
+    fields: [genomics]
+    article_types: [research, data, methods, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: null, body_words: 8000, over_limit_return: null}
+    software_article: true
+    fit_note: 'Technology format: ''new experimental or computational methods and other technologies'' (under 7,000 words,
+      step-by-step protocol in SI)'
+
+  iscience:
+    name: iScience
+    publisher: Cell Press / Elsevier
+    inherits: cell-press
+    jif: 4.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.cell.com/iscience/information-for-authors/journal-policies
+    ai_policy_url: https://www.cell.com/iscience/information-for-authors/journal-policies
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: advises research articles below 8,000 words (not a hard limit)
+
+  # ------------------------------------------------------------------ Wiley, Taylor & Francis, Sage and Mary Ann Liebert, Karger
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/wiley.md
+
+  wiley:
+    kind: publisher
+    name: Wiley (publisher default)
+    publisher: Wiley
+    jif: null
+    status: VERIFIED
+    url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    ai_policy_url: https://www.wiley.com/en-gb/publish/article/ai-guidelines/
+    sources:
+    - https://newsroom.wiley.com/press-releases/press-release-details/2026/Wiley-Bolsters-Research-Integrity-Efforts-with-Imagetwins-Enhanced-Image-Screening/default.aspx
+    writing_help: disclose
+    exempt:
+    - spelling
+    - grammar and general editing
+    - word choice and rephrasing awkward sentences
+    - conciseness
+    - formatting citations and references
+    - code debugging
+    - code style
+    - code documentation
+    - summaries read only for the author's own understanding
+    disclosure_places:
+    - at submission
+    - Acknowledgments (drafting, editing, translation, formatting)
+    - Methods (methodology, data collection or analysis, literature review, code development)
+    disclosure_fields:
+    - tool name and version
+    - date or year of use
+    - the tool's role
+    - sections where used (recommended for Acknowledgments)
+    - author's role in directing and reviewing the output
+    - privacy compliance for sensitive or human-subject data (Methods)
+    prompts: on_request
+    screening: integrity_signals
+    screening_note: Research Exchange uses AI to flag plagiarism, image manipulation and other integrity issues; Imagetwin
+      image screening, which detects AI-generated image content, rolling out from life sciences (press release 26 May 2026);
+      no AI-text detector named
+    penalties:
+    - disclosure requested during peer review or after publication if missing
+    - fabricated citations may warrant rejection
+    - editor decides whether a given AI use is permissible
+    extra_burden:
+    - AI-written analysis scripts, software pipelines or models disclosed in Methods with version and date
+    - AI tools whose terms claim rights over or train on the submission may not be used
+    tracking: recommended
+    disclosure_neutral: true
+    reviewer_ai: banned
+    image_rules:
+    - any AI-generated or AI-edited visual disclosed in the caption
+    - no AI-edited photographs and no AI factual or evidential images
+    limits: null
+    fit_note: 'ethics page ''Last updated: July 2026''; the AI-guidelines page shows no date. Reviewers may use AI only
+      on their own report text (organise, polish, translate), with disclosure to the editor'
+
+  taylor-francis:
+    kind: publisher
+    name: Taylor & Francis (publisher default)
+    publisher: Taylor & Francis
+    jif: null
+    status: VERIFIED
+    url: https://taylorandfrancis.com/our-policies/ai-policy/
+    ai_policy_url: https://authorservices.taylorandfrancis.com/editorial-policies/using-ai-in-your-research-and-manuscript-preparations/
+    sources:
+    - https://authorservices.taylorandfrancis.com/editorial-policies/defining-authorship-research-paper/
+    writing_help: banned_drafting
+    exempt: []
+    disclosure_places:
+    - Declaration of generative AI use in the article (required even when none was used)
+    - Methods (AI in research methods or literature reviews)
+    - submission-system confirmation
+    disclosure_fields:
+    - tool name with version
+    - how used
+    - reason for use
+    - originality and accuracy confirmed by the authors
+    - tool terms of use checked
+    - authors take full responsibility including references
+    prompts: on_request
+    screening: plagiarism
+    penalties: [editorial investigation, T&F retains discretion over publication]
+    extra_burden:
+    - original and AI-revised versions kept for the editor (copyediting, translation, plain-language summaries), with prompt
+      records when AI is part of the method or a literature review
+    tracking: required
+    disclosure_neutral: false
+    reviewer_ai: banned
+    image_rules: [AI visuals disclosed in the figure legend]
+    limits: null
+    fit_note: the author-services AI page (modified 2026-08-26) bans AI first drafts of a manuscript or any section; individual
+      journals may limit AI to language improvement; translation declarations name the author who checked the text
+
+  sage:
+    kind: publisher
+    name: Sage (publisher default)
+    publisher: Sage
+    jif: null
+    status: VERIFIED
+    url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    sources:
+    - https://www.sagepub.com/journals/editorial-policies/artificial-intelligence-policy
+    - https://www.sagepub.com/generative-AI-tools-policy-msg
+    writing_help: red_line
+    exempt:
+    - assistive AI that suggests improvements to the authors' own language
+    - grammar or structure
+    disclosure_places: [at submission, Methods or Acknowledgements]
+    disclosure_fields: [use of the tool, the content it generated]
+    prompts: 'no'
+    screening: plagiarism
+    penalties:
+    - rejection at any stage for inappropriate undisclosed use
+    - joint Sage and editor investigation under COPE for published articles
+    - reviewers who generate reports with GenAI are not invited again
+    extra_burden: [AI-generated or AI-checked code disclosed]
+    disclosure_neutral: true
+    reviewer_ai: banned
+    limits: null
+    other_desk_rules: [cite original sources rather than GenAI tools]
+    fit_note: no page date; prohibited uses include 'Generation of data or submission using a series of prompts' and 'Analysis
+      of experiences and themes'. Reviewers may use GenAI to write and format their report but must not upload or paste
+      the manuscript
+
+  liebert:
+    kind: publisher
+    name: Mary Ann Liebert (publisher default)
+    publisher: Mary Ann Liebert (Sage)
+    inherits: sage
+    jif: null
+    status: VERIFIED
+    url: https://journals.sagepub.com/liebert-info
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    sources:
+    - https://web.archive.org/web/20250709163740/https://home.liebertpub.com/publications/journal-of-computational-biology/31/for-authors
+    fit_note: Liebert journals moved to Sage Journals on 1 Jan 2026 (liebertpub.com redirects since 30 Mar 2026); their
+      submission guidelines now link Sage's AI policy. The superseded Liebert policy (snapshot 2025-07-09) required tool,
+      version, date and 'all relevant prompts' in Materials and Methods; expect that text in older author kits
+
+  karger:
+    kind: publisher
+    name: Karger (publisher default)
+    publisher: Karger (owned by OUP since Dec 2025)
+    jif: null
+    status: VERIFIED
+    url: https://karger.com/pages/publication-ethics
+    ai_policy_url: https://karger.com/pages/publication-ethics
+    sources: ['https://karger.com/pages/karger-ai-principles']
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places:
+    - Methods (Acknowledgements if the article type has no Methods)
+    - References (the tool cited under the software citation policy)
+    disclosure_fields: [tool used, how the accuracy of each AI output was verified]
+    prompts: encouraged
+    screening: integrity_signals
+    screening_note: '''Karger uses and tests AI powered tools and technologies in the screening of submissions for completeness''
+      (AI principles); Crossref Similarity Check (iThenticate); image integrity software; no AI-text detector named'
+    penalties: [violation of Editorial Policies, rejection, post-publication notice]
+    extra_burden: [AI tool cited in References, how the accuracy of AI output was verified]
+    disclosure_neutral: null
+    reviewer_ai: banned
+    limits: null
+    fit_note: no page date. Read via WebFetch (karger.com blocks curl and headless Chrome) and the Wayback snapshot of
+      2026-10-01
+
+  aging-cell:
+    name: Aging Cell
+    publisher: Wiley / Anatomical Society
+    inherits: wiley
+    jif: 7.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/14749726/homepage/forauthors.html
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [aging]
+    article_types: [research, review, perspective]
+    oa: full
+    limits: {abstract_words: 250, body_words: 7500, over_limit_return: null}
+    software_article: false
+    fit_note: no AI section; links Wiley's ethics guidelines. iThenticate plus an integrity check of every figure. Mechanistic
+      geroscience scope; research articles max 45 references
+
+  human-mutation:
+    name: Human Mutation
+    publisher: Wiley (Hindawi-model open access)
+    inherits: wiley
+    jif: 1.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/humu/homepage/author-guidelines
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [genetics, genomics, clinical]
+    article_types: [research, review, letter]
+    oa: full
+    limits: {abstract_words: 300, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no AI section; iThenticate; links Wiley's ethics guidelines. Max three manuscripts under review per author;
+      CC BY
+
+  clinical-genetics:
+    name: Clinical Genetics
+    publisher: Wiley
+    inherits: wiley
+    jif: 2.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/13990004/homepage/forauthors.html
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [genetics, clinical]
+    article_types: [research, review, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 6000, over_limit_return: null}
+    software_article: false
+    fit_note: no AI section; iThenticate. The 6,000-word Original Article limit includes cover page, abstract, references
+      and legends
+
+  genetic-epidemiology:
+    name: Genetic Epidemiology
+    publisher: Wiley / International Genetic Epidemiology Society
+    inherits: wiley
+    jif: 3.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/10982272/homepage/forauthors.html
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [genetics, bioinformatics]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: no AI section; links Wiley's ethics guidelines. Statistical-genetics methods venue; no software article type
+
+  mol-ecol-resources:
+    name: Molecular Ecology Resources
+    publisher: Wiley
+    inherits: wiley
+    jif: 5.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/17550998/homepage/forauthors.html
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [genomics, bioinformatics, software, data]
+    article_types: [methods, software, data, review, perspective]
+    oa: full
+    limits: {abstract_words: 250, body_words: 8000, over_limit_return: null}
+    software:
+    - all data metadata and code available to editors and referees at submission
+    - software snapshot on Dryad CRAN Zenodo or similar plus a long-term server
+    - performance compared with existing software where relevant
+    software_article: true
+    fit_note: no AI section; iThenticate. Open access since 1 Jan 2026. 'Computer Programs' resource category; empirical
+      research and single-species genome assemblies are out of scope; human-genome tools fit only if relevant to ecology
+      and evolution
+
+  cpt-psp:
+    name: 'CPT: Pharmacometrics & Systems Pharmacology'
+    publisher: Wiley / ASCPT
+    inherits: wiley
+    jif: 2.8
+    jif_year: 2025
+    status: VERIFIED
+    url: https://ascpt.onlinelibrary.wiley.com/page/journal/21638306/guidetoauthors
+    ai_policy_url: https://ascpt.onlinelibrary.wiley.com/page/journal/21638306/guidetoauthors
+    sources: ['https://authorservices.wiley.com/ethics-guidelines/index.html']
+    fields: [systems-biology, clinical]
+    article_types: [research, review, database, perspective, letter]
+    oa: full
+    writing_help: banned_drafting
+    exempt: []
+    disclosure_places: [Acknowledgements or Methods]
+    disclosure_fields: [AI use credited]
+    extra_burden: [every AI use credited including language editing]
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: 'journal rule is stricter than Wiley: ''These tools should only be used to improve readability and language.''
+      The same paragraph allows ''drafting assistance'', so ask the editor before relying on more than language help. Databases
+      article type'
+
+  clin-pharmacol-ther:
+    name: Clinical Pharmacology & Therapeutics
+    publisher: Wiley / ASCPT
+    inherits: cpt-psp
+    jif: 4.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://ascpt.onlinelibrary.wiley.com/page/journal/15326535/guidetoauthors
+    ai_policy_url: https://ascpt.onlinelibrary.wiley.com/page/journal/15326535/guidetoauthors
+    fields: [clinical, genetics]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: same ASCPT AI paragraph as CPT:PSP; over-length articles need an 'overage justification upon submission'.
+      Hosts CPIC guideline updates
+
+  advanced-science:
+    name: Advanced Science
+    publisher: Wiley
+    inherits: wiley
+    jif: 14.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/21983844/homepage/author-guidelines
+    ai_policy_url: https://advanced.onlinelibrary.wiley.com/hub/editorial-policies
+    sources: ['https://advanced.onlinelibrary.wiley.com/hub/reviewer-guidelines']
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    disclosure_places: ['Methods (or a disclosure or the Acknowledgements, as applicable)']
+    disclosure_fields: [use described transparently and in detail]
+    image_rules: [no generative-AI cover images]
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: 'journal AI paragraph: GenAI use to ''develop any portion of a manuscript'' described ''transparently and
+      in detail'' in Methods. Broad materials and life science scope'
+
+  quantitative-biology:
+    name: Quantitative Biology
+    publisher: Wiley / Higher Education Press
+    inherits: wiley
+    jif: 2.2
+    jif_year: 2025
+    status: VERIFIED
+    url: https://onlinelibrary.wiley.com/page/journal/20954697/homepage/author-guidelines
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [bioinformatics, systems-biology]
+    article_types: [research, methods, software, data, review, perspective]
+    oa: full
+    limits: null
+    software_article: true
+    fit_note: no AI section; iThenticate; COPE core practices. Published by Wiley with Higher Education Press (editorial
+      office qb@pub.hep.cn); 'Technical Note' covers new tools, algorithms, implementations and databases
+
+  proteomics:
+    name: Proteomics
+    publisher: Wiley
+    inherits: wiley
+    jif: 4.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://analyticalsciencejournals.onlinelibrary.wiley.com/hub/journal/16159861/homepage/2120_authorguidelines.html
+    ai_policy_url: https://authorservices.wiley.com/ethics-guidelines/index.html
+    fields: [bioinformatics, data]
+    article_types: [research, methods, software, data, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 8000, over_limit_return: null}
+    software_article: true
+    fit_note: no AI section; CrossCheck before acceptance. Technical Briefs cover 'new software'; proteomics data deposition
+      mandatory; the guidelines page looks years old (OnlineOpen wording)
+
+  rejuvenation-research:
+    name: Rejuvenation Research
+    publisher: Mary Ann Liebert (Sage)
+    inherits: liebert
+    jif: 1.8
+    jif_year: 2026
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/REJ
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    fields: [aging]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: journal page only links Sage's AI policy (plus 'AI chatbots ... should not be listed as authors'). Mandatory
+      page charges of $90 per page
+
+  j-comput-biol:
+    name: Journal of Computational Biology
+    publisher: Mary Ann Liebert (Sage) / RECOMB
+    inherits: liebert
+    jif: 1.3
+    jif_year: 2026
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/CPB
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    fields: [bioinformatics, software]
+    article_types: [research, software, methods, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 3000, over_limit_return: null}
+    software_article: true
+    fit_note: journal page only links Sage's AI policy. Sage journal code is CPB, not CMB. Research articles 3,000 words
+      ('Longer articles may also be submitted'); Software articles 2-4 pages with a cover letter on the novel implementation
+      and algorithmic challenges; $90 per page
+
+  omics:
+    name: 'OMICS: A Journal of Integrative Biology'
+    publisher: Mary Ann Liebert (Sage)
+    inherits: liebert
+    jif: 2.0
+    jif_year: 2026
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/OMI
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    fields: [genomics, systems-biology, bioinformatics]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 4000, over_limit_return: null}
+    software_article: false
+    fit_note: journal page only links Sage's AI policy. No fees to publish; Protocol type must compare with existing processes
+
+  bioinformatics-biology-insights:
+    name: Bioinformatics and Biology Insights
+    publisher: Sage
+    inherits: sage
+    jif: 2.0
+    jif_year: 2026
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/BBI
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    fields: [bioinformatics]
+    article_types: [research, methods, software, database, review]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: true
+    fit_note: journal page only links Sage's AI policy. APC $3,200. 'Data Article' covers software, code or a database;
+      example data must be usable anonymously by reviewers
+
+  evolutionary-bioinformatics:
+    name: Evolutionary Bioinformatics
+    publisher: Sage (page shows the Mary Ann Liebert imprint)
+    inherits: sage
+    jif: 1.6
+    jif_year: 2026
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/EVB
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    fields: [bioinformatics, genomics]
+    article_types: [research, review, software, database, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 300, body_words: 6000, over_limit_return: null}
+    software_article: true
+    fit_note: journal page only links Sage's AI policy. Hybrid since 1 Sep 2025, no publication fee unless open access.
+      Software appears only as a 'Software or database review' subtype of Review
+
+  gerontology:
+    name: Gerontology
+    publisher: Karger (OUP), hosted on Oxford Academic
+    inherits: karger
+    jif: 3.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/ger/pages/author-guidelines
+    ai_policy_url: https://karger.com/pages/publication-ethics
+    fields: [aging, clinical]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    disclosure_places:
+    - cover letter
+    - Methods (Acknowledgements if no Methods)
+    - References (the tool cited under the software citation policy)
+    limits: {abstract_words: null, body_words: 5000, over_limit_return: null}
+    software_article: false
+    fit_note: karger.com/ger/pages/guidelines now redirects to Oxford Academic. That page carries OUP's journal clause
+      (disclose 'in cover letters to editors and in the Methods or Acknowledgements') and links Karger's ethics page; whether
+      OUP's 13 July 2026 policy also applies is not stated. Read via WebFetch only. Pages beyond five cost $500 each unless
+      open access
+
+  pharmacogenomics:
+    name: Pharmacogenomics
+    publisher: Taylor & Francis (Expert Medicine, formerly Future Medicine)
+    inherits: taylor-francis
+    jif: 1.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=ipgs20
+    ai_policy_url: https://authorservices.taylorandfrancis.com/editorial-policies/using-ai-in-your-research-and-manuscript-preparations/
+    sources: ['https://files.taylorandfrancis.com/expert-medicine-author-guidelines.pdf']
+    fields: [genetics, clinical]
+    article_types: [research, methods, review, perspective, letter]
+    oa: hybrid
+    disclosure_places:
+    - Declaration of generative AI use (required even when none was used)
+    - Acknowledgments (all AI use
+    - Expert Medicine guidelines)
+    - Methods (research use)
+    image_rules: [AI visuals disclosed in the figure legend]
+    limits: {abstract_words: 200, body_words: 8000, over_limit_return: null}
+    software_article: false
+    fit_note: 'Crossref originality screening. Expert Medicine guidelines (Version: September 2026) offer Software Tool
+      only in Bioanalysis and Epigenomics, not Pharmacogenomics'
+
+  # ------------------------------------------------------------------ Open-access and society publishers, software journals, aging independents
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/open.md
+
+  plos:
+    kind: publisher
+    name: PLOS (publisher default)
+    publisher: PLOS
+    status: VERIFIED
+    url: https://journals.plos.org/plosone/s/ethical-publishing-practice
+    ai_policy_url: https://journals.plos.org/plosone/s/ethical-publishing-practice
+    sources:
+    - https://journals.plos.org/ploscompbiol/s/ethical-publishing-practice
+    - https://journals.plos.org/plosgenetics/s/ethical-publishing-practice
+    - https://journals.plos.org/plosbiology/s/ethical-publishing-practice
+    oa: full
+    writing_help: disclose
+    exempt:
+    - spelling and grammar
+    - rephrasing for clarity or conciseness
+    - translation (disclosure recommended
+    - not required)
+    disclosure_places: [dedicated section of Methods, Acknowledgements]
+    disclosure_fields: [tools, how used, what it affected, how outputs were validated]
+    prompts: 'no'
+    screening: may_detect_ai
+    screening_note: '"We may use available AI detection tools in article-level checks or assessments"; PLOS also uses AI
+      tools for submission checks and integrity investigations; Crossref Similarity Check'
+    penalties:
+    - integrity investigation
+    - delayed peer review
+    - rejection
+    - retraction
+    - expression of concern
+    - institution notified or institutional assurances required
+    extra_burden: [AI-generated analysis scripts or code disclosed]
+    disclosure_neutral: true
+    reviewer_ai: banned
+    image_rules: [AI use in figures disclosed in the legend]
+    limits: null
+    fit_note: AI section is word-for-word identical on the PLOS ONE, Computational Biology, Genetics and Biology pages;
+      PLOS does not display Journal Impact Factors
+
+  mdpi:
+    kind: publisher
+    name: MDPI (publisher default)
+    publisher: MDPI
+    status: VERIFIED
+    url: https://www.mdpi.com/ethics
+    ai_policy_url: https://www.mdpi.com/ethics
+    sources: ['https://www.mdpi.com/journal/ijms/instructions']
+    oa: full
+    writing_help: disclose
+    exempt: ['text editing (grammar, structure, spelling, punctuation, formatting)']
+    disclosure_places: [submission system declaration, Materials and Methods, Acknowledgments]
+    disclosure_fields: [tool name, version, purpose, statement that authors reviewed the output]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: iThenticate on all submissions; automated and manual checks
+    penalties: [MDPI may request further information]
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: banned
+    limits: null
+    fit_note: journal instruction pages say "superficial text editing (e.g., regarding grammar, spelling, punctuation and
+      formatting)", dropping the word "structure" that the ethics page includes
+
+  aaas:
+    kind: publisher
+    name: Science family (AAAS publisher default)
+    publisher: AAAS
+    status: VERIFIED
+    url: https://www.science.org/content/page/science-journals-editorial-policies
+    ai_policy_url: https://www.science.org/cms/asset/cea1081d-3aa4-42a2-96b7-72290067116a/sept26_science_journals_guidelines_ai_use.pdf
+    sources: ['https://www.science.org/content/page/peer-review-science-publications']
+    oa: null
+    writing_help: disclose
+    exempt:
+    - language refinement or editing for clarity
+    - literature searches
+    - gathering references
+    - formatting data
+    - refining code without changing functionality
+    disclosure_places:
+    - cover letter
+    - Acknowledgments (drafting
+    - translation
+    - data visualizations)
+    - Methods (code that changes functionality
+    - data generation or analysis)
+    disclosure_fields: [model name, version number]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: Crossref Similarity Check; editors may use Proofig to screen images
+    penalties: [editors may decline to move forward]
+    extra_burden:
+    - no entering all or part of the manuscript into an LLM while revising
+    - responses to reviews not generated or augmented by AI (language refinement allowed with declaration)
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules: [no AI illustrative images, diagrams or figures without editor permission]
+    limits: null
+    other_desk_rules: [cited sources may not be AI-authored]
+
+  impact-journals:
+    kind: publisher
+    name: Impact Journals (publisher default for Aging and Oncotarget)
+    publisher: Impact Journals LLC (Rapamycin Press LLC dba Impact Journals)
+    status: VERIFIED
+    url: https://www.aging-us.com/editorial-policies
+    ai_policy_url: https://www.aging-us.com/editorial-policies
+    sources: ['https://www.oncotarget.com/editorial-policies/']
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Methods (LLM use), Methods or Acknowledgements (other AI tools)]
+    disclosure_fields: [tools used, their application, validation of outputs]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: Crossref Similarity Check; all new submissions screened for image irregularities (ImageTwin plus in-house
+      tools)
+    penalties:
+    - non-compliance regarded as misrepresentation
+    - institution notified
+    - rejection
+    - retraction
+    - editorial notices
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules:
+    - AI-generated images and videos generally not permitted (only licensed agency images or papers about AI)
+    - non-generative AI image tools named in the caption
+    limits: null
+    fit_note: no AI section on the publisher's own editorial-policies page (impactjournals.com); the identical section
+      sits on each journal's page
+
+  royal-society:
+    kind: publisher
+    name: Royal Society Publishing (publisher default)
+    publisher: The Royal Society
+    status: VERIFIED
+    url: https://royalsociety.org/journals/ethics-policies/artificial-intelligence/
+    ai_policy_url: https://royalsociety.org/journals/ethics-policies/artificial-intelligence/
+    sources:
+    - https://royalsociety.org/journals/authors/author-guidelines/
+    - https://royalsociety.org/journals/ethics-policies/editorial-standards/
+    oa: null
+    writing_help: banned_drafting
+    exempt: []
+    disclosure_places: [submission declaration, published statement in the article]
+    disclosure_fields: [which elements of the work were generated by AI]
+    prompts: on_request
+    screening: integrity_signals
+    screening_note: routine plagiarism and image-integrity (paper-mill) screening; STM Integrity Hub
+    penalties:
+    - retraction if use is discovered after publication
+    - rejection if prompts and outputs cannot be supplied
+    extra_burden: [prompts and outputs kept; journals may ask for them as ESM files]
+    tracking: required
+    disclosure_neutral: false
+    reviewer_ai: banned
+    limits: null
+
+  aging-us:
+    name: Aging (Albany NY)
+    publisher: Impact Journals
+    inherits: impact-journals
+    jif: 5.955
+    jif_year: 2021
+    status: VERIFIED
+    url: https://www.aging-us.com/editorial-policies
+    fields: [aging, clinical]
+    article_types: [research, review, perspective]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: the publisher's IF table (impactjournals.com) ends at 2021 (5.955), no later JIF shown; APC $3,850; single-anonymous
+      review; the homepage's latest items on 14-15 Oct 2026 include two retraction notices
+
+  oncotarget:
+    name: Oncotarget
+    publisher: Impact Journals
+    inherits: impact-journals
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.oncotarget.com/editorial-policies/
+    fields: [clinical, genetics]
+    article_types: [research, review, perspective]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: primarily oncology; the publisher lists PubMed/MEDLINE (re-accepted 15 Sep 2022), PMC, Scopus and EMBASE
+      but not Web of Science, and shows no JIF
+
+  aging-disease:
+    name: Aging and Disease
+    publisher: International Society on Aging and Disease (ISOAD)
+    jif: 9.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.aginganddisease.org/EN/column/column227.shtml
+    ai_policy_url: https://www.aginganddisease.org/EN/column/column227.shtml
+    sources: ['https://www.aginganddisease.org/EN/column/column217.shtml']
+    fields: [aging, clinical]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [cover letter, Acknowledgments, Methods]
+    disclosure_fields: [tool name, version, prompt used]
+    prompts: required
+    screening: plagiarism
+    screening_note: Crossref Similarity Check; the author guidelines also name Turnitin for selected manuscripts
+    penalties: []
+    extra_burden: []
+    tracking: required
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules: [AI images only with advance editor approval]
+    limits: {abstract_words: 300, body_words: null, over_limit_return: null}
+    other_desk_rules: [AI-generated content may not be cited as a source]
+    software_article: false
+    fit_note: policy page Pubdate 2025-04-14; APC $3,500 for an original article from 1 Oct 2026; reviews up to 20,000
+      words, short communications up to 2,000
+
+  aging-biology:
+    name: Aging Biology
+    publisher: Aging Biology, LLC
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://agingbiologyjournal.org/Scientific_Integrity/
+    ai_policy_url: https://agingbiologyjournal.org/Scientific_Integrity/
+    fields: [aging]
+    article_types: [research, review]
+    oa: full
+    writing_help: free
+    exempt:
+    - all stages of manuscript production
+    - hypothesis generation
+    - data analysis
+    - manuscript writing
+    disclosure_places: []
+    disclosure_fields: []
+    prompts: 'no'
+    screening: null
+    penalties: []
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: null
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: launched 2023 (ISSN 2994-2578), run by former Aging Cell editors per a third-party site; not a COPE member
+      (own page); 2 articles listed in Vol 4 (2026); research articles up to 50,000 characters; APC $4,000; asks for no
+      AI disclosure at all
+
+  ageing-longevity:
+    name: Ageing & Longevity
+    publisher: Research Institute of Biology, V. N. Karazin Kharkiv National University, Ukraine
+    jif: null
+    jif_year: null
+    status: NOT FOUND
+    url: https://aging-longevity.org.ua/index.php/journal-description/en/publication-ethics
+    ai_policy_url: null
+    sources: ['https://aging-longevity.org.ua/index.php/journal-description/en/about/submissions']
+    fields: [aging, clinical]
+    article_types: [research, review, perspective]
+    oa: full
+    writing_help: null
+    prompts: null
+    screening: plagiarism
+    screening_note: '"we use dedicated software to check submissions against previous publications"'
+    penalties: null
+    disclosure_neutral: null
+    reviewer_ai: null
+    limits: null
+    software_article: false
+    fit_note: 'no AI or LLM text on any journal page read (ethics, submissions, authors, peer review, payment, aims, about);
+      nearest rule: authors disclose "any external editing support, including that by commercial editing agencies"; ISSN
+      2709-0205, founded 2020, free to publish (no APC); the ISSN record names the Chebotarev Institute of Gerontology
+      as earliest publisher, the site now names Karazin Kharkiv National University'
+
+  frontiers-aging:
+    name: Frontiers in Aging
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 4.9
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/aging/for-authors/author-guidelines
+    fields: [aging]
+    article_types: [research, methods, software, data, review, perspective]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software_article: true
+    fit_note: 'journal scope page: computational studies of public data (NHANES, MR) must include validation, "Manuscripts
+      not adhering to these standards will not be considered." IF shown without a year'
+
+  frontiers-genetics:
+    name: Frontiers in Genetics
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 3.0
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/genetics/for-authors/author-guidelines
+    fields: [genetics, genomics]
+    article_types: [research, methods, software, data, review, perspective]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software_article: true
+    fit_note: 'scope page: bioinformatics or computational analyses of public data without validation (independent cohort
+      or in vitro / in vivo) "or are not highly innovative are not suitable". IF shown without a year'
+
+  ijms:
+    name: International Journal of Molecular Sciences
+    publisher: MDPI
+    inherits: mdpi
+    jif: 5.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/ijms/instructions
+    fields: [general, genetics]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+
+  genes:
+    name: Genes
+    publisher: MDPI
+    inherits: mdpi
+    jif: 3.1
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/genes/instructions
+    fields: [genetics, genomics]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: structured abstract of about 250 words; JCR Q2 (Genetics and Heredity) per the journal page; IF tile shows
+      no year
+
+  cells:
+    name: Cells
+    publisher: MDPI
+    inherits: mdpi
+    jif: 6.0
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/cells/instructions
+    fields: [general]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: wet-lab cell-biology expectations (more than one cell line, two siRNAs, densitometry); IF tile shows no year
+
+  biomolecules:
+    name: Biomolecules
+    publisher: MDPI
+    inherits: mdpi
+    jif: 5.6
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/biomolecules/instructions
+    fields: [general]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: IF tile shows no year
+
+  plos-one:
+    name: PLOS ONE
+    publisher: PLOS
+    inherits: plos
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://journals.plos.org/plosone/s/submission-guidelines
+    fields: [general]
+    article_types: [research, methods, software, database, review]
+    oa: full
+    limits: {abstract_words: 300, body_words: null, over_limit_return: null}
+    software:
+    - open source conforming to the Open Source Definition
+    - deposited in an appropriate archive
+    - test data and install/run instructions
+    software_article: true
+    fit_note: '"Recapitulation of existing methods, software, or databases is not useful and will not be considered for
+      publication"; health-database and MR rules in publisher-policies.md section 4.6'
+
+  plos-genetics:
+    name: PLOS Genetics
+    publisher: PLOS
+    inherits: plos
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://journals.plos.org/plosgenetics/s/submission-guidelines
+    fields: [genetics, genomics]
+    article_types: [research, methods, software, database]
+    oa: full
+    limits: {abstract_words: 300, body_words: null, over_limit_return: null}
+    software:
+    - open source conforming to the Open Source Definition
+    - deposited in an appropriate archive
+    - test data and install/run instructions
+    software_article: true
+    fit_note: same methods/software/databases/tools criteria as PLOS ONE (utility, validation, availability)
+
+  plos-biology:
+    name: PLOS Biology
+    publisher: PLOS
+    inherits: plos
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://journals.plos.org/plosbiology/s/what-we-publish
+    fields: [general]
+    article_types: [research, methods, data, perspective]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: Methods and Resources articles cover technical innovations and data resources; software is not named as a
+      type
+
+  science:
+    name: Science
+    publisher: AAAS
+    inherits: aaas
+    jif: 47.3
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.science.org/content/page/science-journals-editorial-policies
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: null
+    limits: {abstract_words: 125, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: JIF from science.org journal-metrics page ("Metrics data are current as of June 2026"); 2025 accept rate
+      5.3%
+
+  science-advances:
+    name: Science Advances
+    publisher: AAAS
+    inherits: aaas
+    jif: 13.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.science.org/content/page/science-advances-information-authors
+    fields: [general]
+    article_types: [research, methods, software, database, review]
+    oa: full
+    limits: {abstract_words: 150, body_words: 15000, over_limit_return: null}
+    software_article: true
+    fit_note: Research Resources type (validated technique, tool or database); APC $5,450; 2025 accept rate 8.8%; JIF from
+      science.org journal-metrics page (current as of June 2026)
+
+  pnas:
+    name: PNAS
+    publisher: National Academy of Sciences
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.pnas.org/author-center/editorial-and-journal-policies
+    ai_policy_url: https://www.pnas.org/author-center/editorial-and-journal-policies#artificial-intelligence
+    sources:
+    - https://www.pnas.org/reviewer
+    - https://www.pnas.org/author-center/submitting-your-manuscript
+    fields: [general]
+    article_types: [research, perspective, letter]
+    oa: hybrid
+    writing_help: disclose
+    exempt: []
+    disclosure_places: [Materials and Methods, Acknowledgments if no Methods section]
+    disclosure_fields: [tool name, specific model or version]
+    prompts: 'no'
+    screening: ai_detector_deployed
+    screening_note: PNAS names "Pangram to detect content generated by AI" alongside iThenticate, Prophy and Web of Science
+      Reviewer Locator
+    penalties: []
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules:
+    - AI images or graphics only if the software is the subject of the work or the editorial office permits
+    - cover art not wholly or substantially AI-generated
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: policy text names only AI used "during the research process"; writing help is not addressed, so 'disclose'
+      is an interpretation, and with Pangram running an undisclosed AI-drafted text is the risk; Research Report about
+      4,000 words at 6 pages (max 12), significance statement up to 120 words; immediate OA $6,075 (or delayed free access
+      at 6 months)
+
+  joss:
+    name: Journal of Open Source Software
+    publisher: Open Journals
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://joss.readthedocs.io/en/latest/submitting.html
+    ai_policy_url: https://joss.readthedocs.io/en/latest/policies.html
+    sources:
+    - https://joss.readthedocs.io/en/latest/review_criteria.html
+    - https://joss.readthedocs.io/en/latest/paper.html
+    - https://blog.joss.theoj.org/
+    fields: [software]
+    article_types: [software]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [AI usage disclosure section in the paper (required even when no AI was used)]
+    disclosure_fields:
+    - tools and versions
+    - where used (code, documentation, paper)
+    - nature and scope of assistance
+    - confirmation that humans reviewed and validated outputs and made the core design decisions
+    prompts: 'no'
+    screening: integrity_signals
+    screening_note: '"We run automated checks on commit distribution"; desk rejection for a repository public less than
+      six months or developed in a burst'
+    penalties:
+    - desk rejection
+    - mandatory revisions
+    - post-publication correction or withdrawal
+    - institution or funder notified for intentional misrepresentation
+    extra_burden: [no AI for conversational interaction with editors or reviewers, except translation]
+    disclosure_neutral: null
+    reviewer_ai: allowed
+    limits: {abstract_words: null, body_words: 1750, over_limit_return: null}
+    required_sections:
+    - Statement of need
+    - State of the field
+    - Software design
+    - Research impact statement
+    - AI usage disclosure
+    software:
+    - OSI-approved licence
+    - public repository with open development
+    - tests
+    - documentation
+    - research impact evidence
+    other_desk_rules:
+    - at least six months of public development history with iterative commits
+    - releases and issues or PRs before submission
+    - an AI usage disclosure section is mandatory even when none was used
+    software_article: true
+    fit_note: scope changed 5 Jan 2026 to weigh design thinking and research impact over effort proxies; diamond OA (free
+      to publish); paper 750-1,750 words; new Editor-in-Chief transition through end of 2026
+
+  jors:
+    name: Journal of Open Research Software
+    publisher: Ubiquity Press
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://openresearchsoftware.metajnl.com/about/editorialpolicies
+    ai_policy_url: https://ubiquitypress.com/ai-policy
+    sources: ['https://openresearchsoftware.metajnl.com/about/submissions']
+    fields: [software]
+    article_types: [software, perspective]
+    oa: full
+    writing_help: disclose
+    exempt: ['basic manuscript refinement (copyediting, formatting)']
+    disclosure_places: [Methods (ideally)]
+    disclosure_fields: [use beyond basic refinement]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: Crossref Similarity Check on all submissions; Ubiquity does not use GenAI tools in its editorial process
+    penalties: []
+    extra_burden: []
+    disclosure_neutral: false
+    reviewer_ai: banned
+    limits: null
+    software:
+    - deposited in a repository under an open licence (OSI or CC0)
+    - persistent identifier in the paper
+    software_article: true
+    fit_note: 'journal page only points to the publisher policy ("Last updated: 10th November 2025"); Software Metapaper
+      APC GBP 824; Issues in Research Software 3,000-4,000 words'
+
+  gigabyte:
+    name: GigaByte
+    publisher: GigaScience Press (BGI)
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://gigabytejournal.com/information-for-authors
+    ai_policy_url: https://gigabytejournal.com/information-for-authors
+    sources: ['https://gigabytejournal.com/faq', 'https://gigabytejournal.com/reviewer-information']
+    fields: [data, software, genomics]
+    article_types: [data, software]
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [in-text citation, reference list entry, end-of-manuscript summary section, cover letter]
+    disclosure_fields: [tool, use, AI use for coding]
+    prompts: 'no'
+    screening: null
+    penalties: []
+    extra_burden:
+    - AI-generated text and other outputs deposited as a supplementary file in GigaDB or another open repository
+    - AI tool cited as a reference
+    tracking: required
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules: [no AI creation or modification of figure elements]
+    limits: null
+    software:
+    - OSI-approved licence where practicable
+    - trusted code repository
+    - software citation with version and identifier
+    software_article: true
+    fit_note: Technical Release (software) and Data Release types; APC $535; signed DORA and refuses to use the JIF; same
+      publisher as GigaScience (see the gigascience entry for the 2025 BGI editorial dismissal)
+
+  life-science-alliance:
+    name: Life Science Alliance
+    publisher: Life Science Alliance LLC (EMBO Press, Rockefeller University Press, CSHL Press)
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.life-science-alliance.org/editorial-policies
+    ai_policy_url: https://www.life-science-alliance.org/editorial-policies
+    sources: ['https://www.life-science-alliance.org/reviewers']
+    fields: [general, genomics, systems-biology]
+    article_types: [research, methods, data]
+    oa: full
+    writing_help: disclose
+    exempt: [AI-based grammar/spelling checkers, reference managers]
+    disclosure_places: [Methods]
+    disclosure_fields: [which parts were AI-assisted, tool or LLM, version, how used]
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: Crossref Similarity Check
+    penalties: []
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: restricted
+    limits: null
+    software_article: false
+    fit_note: 'AI wording matches Genome Research (CSHL Press); reviewer_ai restricted: reviewers may not upload to LLMs
+      that ingest input for training, "noting this excludes most publicly available AI/LLM tools"; transfers from EMBO,
+      RUP and CSHL journals; fee $3,975'
+
+  rsos:
+    name: Royal Society Open Science
+    publisher: The Royal Society
+    inherits: royal-society
+    jif: 3.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://royalsocietypublishing.org/rsos/for-authors
+    fields: [general]
+    article_types: [research, review, perspective]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: citation-metrics page labels the 3.0 "2025 Journal Citation Reports (JCR)"; peer review history published
+      by default; suggests Paperpal Preflight before submission
+
+  ieee-tcbb:
+    name: IEEE Transactions on Computational Biology and Bioinformatics
+    publisher: IEEE (Computer Society)
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.computer.org/csdl/journal/tb/write-for-us/15053
+    ai_policy_url: https://journals.ieeeauthorcenter.ieee.org/become-an-ieee-journal-author/publishing-ethics/guidelines-and-policies/submission-and-peer-review-policies/
+    sources: ['https://ieeexplore.ieee.org/xpl/RecentIssue.jsp?punumber=10723156']
+    fields: [bioinformatics, systems-biology]
+    article_types: [research, review, letter]
+    oa: hybrid
+    writing_help: disclose
+    exempt: ['editing and grammar enhancement (disclosure "not required, but recommended")']
+    disclosure_places: [Acknowledgments, the sections that use AI-generated content identified]
+    disclosure_fields: [AI system, sections, level of use]
+    prompts: 'no'
+    screening: null
+    penalties: []
+    extra_burden: [exclude the reference section from AI editing]
+    disclosure_neutral: null
+    reviewer_ai: restricted
+    limits: null
+    software_article: false
+    fit_note: 'IEEE-wide AI policy (no TCBB-specific text); reviewer_ai restricted: manuscript content "shall not be processed
+      through a public platform" for a review; retitled from IEEE/ACM TCBB as of 2025 (old title''s Xplore page shows IF
+      4.1; the new title''s page shows CiteScore 9.7 and no IF); regular paper 12 double-column pages (14 with overlength
+      charges); OA APC $2,800'
+
+  # ------------------------------------------------------------------ Other journals where tracked aging and bioinformatics researchers publish
+  # Read 2026-10-15; sources and verbatim quotes: journal-policies/peers.md
+
+  bmj:
+    kind: publisher
+    name: BMJ Publishing Group (publisher default)
+    publisher: BMJ
+    status: VERIFIED
+    url: https://authors.bmj.com/policies/ai-use/
+    ai_policy_url: https://authors.bmj.com/policies/ai-use/
+    oa: null
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places:
+    - contributor section
+    - Methods (fuller description if AI was used in the research)
+    - supplementary files or information for the editor (optional summary of input and output)
+    disclosure_fields:
+    - what AI technology (name)
+    - why it was used
+    - how it was used (its task)
+    - optional summary of input
+    - output and how the authors reviewed the output
+    prompts: encouraged
+    screening: may_detect_ai
+    screening_note: '"We may, on a systematic or case by case basis, use screening tools pre-publication to assist with
+      the identification of content generated (in whole or in part) through AI technologies. We may also use such tools
+      post-publication." iThenticate runs on submissions (BMJ Open page).'
+    penalties:
+    - rejection or post-publication changes for inadequate declaration or for the circumstances of use
+    extra_burden:
+    - disclosure also covers AI used in "any other work by the authors which underpins" the submission and in "any key
+      sources which are cited"
+    tracking: recommended
+    disclosure_neutral: false
+    reviewer_ai: restricted
+    limits: null
+    software_article: null
+    fit_note: 'page dateModified 2026-05-21; policy says it is reviewed ''every six months until further notice''. No language-editing
+      exemption: the policy covers ''all types of content'' and asks reviewers to declare even language help. disclosure_neutral
+      false: ''Editors will consider the suitability of the use outlined''.'
+
+  portland-press:
+    kind: publisher
+    name: Portland Press / Biochemical Society (publisher default)
+    publisher: Portland Press (Biochemical Society)
+    status: VERIFIED
+    url: https://portlandpress.com/pages/editorial_policy
+    ai_policy_url: https://portlandpress.com/pages/editorial_policy
+    oa: null
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [Materials and Methods (or similar section)]
+    disclosure_fields:
+    - which AI tool
+    - how it was used
+    - for custom-written AI tools the algorithm and the training data or its source
+    prompts: 'no'
+    screening: plagiarism
+    screening_note: '"All papers are screened for plagiarism using Similarity Check." No AI detector named.'
+    penalties: []
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules:
+    - no AI-generated images or videos ("Authors shall not use AI tools in generating images or videos for inclusion in
+      their manuscript")
+    limits: null
+    other_desk_rules:
+    - a custom-written AI tool must have its algorithm and training data (or their source) available to readers
+    software_article: null
+    fit_note: portlandpress.com sits behind a Cloudflare challenge that defeated headless Chrome, CDP and WebFetch (403);
+      read from the Wayback snapshot of 2026-10-01 (web.archive.org/web/20261001065519/https://portlandpress.com/pages/editorial_policy).
+      Editing is named alongside writing with no exemption, hence disclose_all. Reviewers may polish their own report's
+      language with AI but must not upload any part of the article, abstract included.
+
+  asm:
+    kind: publisher
+    name: American Society for Microbiology journals (publisher default)
+    publisher: ASM
+    status: VERIFIED
+    url: https://journals.asm.org/generative-ai
+    ai_policy_url: https://journals.asm.org/generative-ai
+    sources: ['https://journals.asm.org/editorial-policies', 'https://journals.asm.org/plagiarism']
+    oa: null
+    writing_help: banned_drafting
+    exempt: []
+    disclosure_places: [cover letter at submission, manuscript (details on request)]
+    disclosure_fields: [AI use (cover letter); on request name and version of AI tool, purpose, prompts, input]
+    prompts: on_request
+    screening: plagiarism
+    screening_note: iThenticate on all manuscripts (plagiarism page, 'UPDATED November 2021'); no AI detector named
+    penalties: []
+    extra_burden: [every AI use, language help included, disclosed in the cover letter at submission]
+    disclosure_neutral: null
+    reviewer_ai: null
+    image_rules: ['no AI for "images, cover art, videos, or schematics"']
+    limits: null
+    software_article: null
+    fit_note: exceptions ("such as manuscripts specifically about AI tools or machine learning") are cleared case by case
+      with staff; AI-written analysis code is not addressed
+
+  bioscientifica:
+    kind: publisher
+    name: Bioscientifica (publisher default)
+    publisher: Bioscientifica
+    status: VERIFIED
+    url: https://journals.bioscientifica.com/joe/pages/ethical-policy
+    ai_policy_url: https://journals.bioscientifica.com/joe/pages/ethical-policy
+    sources: ['https://journals.bioscientifica.com/joe/pages/author-guidelines']
+    oa: null
+    writing_help: disclose_all
+    exempt: [reference management software (Mendeley, EndNote, Zotero)]
+    disclosure_places:
+    - Materials and Methods
+    - AI Disclosure statement (required in every manuscript, including 'No generative AI tools were used')
+    disclosure_fields:
+    - name
+    - version
+    - model
+    - source; for AI images integral to the method a description of the generated content
+    - the tool's role
+    - model
+    - tool
+    - version
+    - manufacturer
+    prompts: 'no'
+    screening: plagiarism
+    penalties:
+    - undisclosed use "will be considered research misconduct and will result in immediate retraction of the article"
+    extra_burden: []
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules: [no AI-generated images unless integral to the research design or methodology]
+    limits: null
+    software_article: null
+    fit_note: journals.bioscientifica.com is Cloudflare-blocked (403); read from Wayback snapshots of the Journal of Endocrinology
+      ethical-policy (2026-08-08) and author-guidelines (2026-07-24) pages, which call this the 'full publisher policy'.
+      Reproduction left Bioscientifica for OUP on 1 Jan 2026 (see reproduction), so no journal in this cluster inherits
+      this entry.
+
+  de-gruyter:
+    kind: publisher
+    name: De Gruyter Brill (publisher default)
+    publisher: De Gruyter Brill
+    status: VERIFIED
+    url: https://www.degruyterbrill.com/publishing/for-authors/author-policies/artificial-intelligence
+    ai_policy_url: https://www.degruyterbrill.com/publishing/for-authors/author-policies/artificial-intelligence
+    oa: null
+    writing_help: disclose
+    exempt: [simple proofreading and copy-editing]
+    disclosure_places: [acknowledgements section]
+    disclosure_fields:
+    - tools used and how
+    - when their output "significantly contributed to any part of your manuscript"
+    prompts: 'no'
+    screening: null
+    penalties:
+    - '"We do not accept papers (journal articles, book chapters, etc.) that are generated by Artificial Intelligence (AI)
+      or Machine Learning Tools"'
+    extra_burden:
+    - code assistants are named as generative AI ("code assistants like ClaudeCode or Cursor"), so their significant output
+      is disclosed
+    - no copyrighted material fed into AI tools without the rights holder's permission
+    tracking: recommended
+    disclosure_neutral: null
+    reviewer_ai: banned
+    image_rules: [AI-generated or AI-assisted images disclosed at submission]
+    limits: null
+    software_article: null
+    fit_note: page says 'As of September 2026'. Allows AI-generated illustrative and cover images with disclosure, forbids
+      AI creation or alteration of research data, figures or experimental images. Reviewers must not enter the manuscript
+      into AI systems, Grammarly named.
+
+  ame:
+    kind: publisher
+    name: AME Publishing Company (publisher default, from journal guidelines)
+    publisher: AME Publishing Company
+    status: PARTIAL
+    url: https://apm.amegroups.org/pages/view/guidelines-for-authors
+    ai_policy_url: https://apm.amegroups.org/pages/view/guidelines-for-authors
+    sources: ['https://tlcr.amegroups.org/pages/view/guidelines-for-authors']
+    oa: full
+    writing_help: disclose_all
+    exempt: []
+    disclosure_places: [cover letter, Materials and Methods, Acknowledgement]
+    disclosure_fields:
+    - all prompts used to generate new text or convert text into tables or illustrations
+    - full prompt used to generate research results
+    - time and date of each query
+    - AI tool and version
+    prompts: required
+    screening: plagiarism
+    screening_note: iThenticate (APM plagiarism-screening policy)
+    penalties: []
+    extra_burden: [the date and time of each query besides every prompt]
+    tracking: required
+    disclosure_neutral: null
+    reviewer_ai: null
+    limits: null
+    other_desk_rules: ['"Referencing AI-generated material as the primary source is not acceptable."']
+    software_article: null
+    fit_note: 'PARTIAL: no publisher-wide AI page found (AME''s editorial, publication-ethics and plagiarism policy pages
+      carry no AI text). The WAME-style clause is in the author guidelines of APM and Translational Lung Cancer Research,
+      word for word, but not in Quantitative Imaging in Medicine and Surgery, so check each AME journal.'
+
+  cancers:
+    name: Cancers
+    publisher: MDPI
+    inherits: mdpi
+    jif: 4.8
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/cancers/instructions
+    ai_policy_url: https://www.mdpi.com/ethics
+    fields: [clinical]
+    article_types: [research, review]
+    oa: full
+    exempt: ['superficial text editing (grammar, spelling, punctuation and formatting)']
+    limits: null
+    other_desk_rules:
+    - 'a Simple Summary (<= 150 words) is required: "Submissions without a simple summary will be returned directly"'
+    - research articles using only one cell line "will not be considered for publication"
+    - Articles should have more than 30 references
+    software_article: false
+    fit_note: journal page restates the MDPI rule (Methods details, Acknowledgments template, no declaration for superficial
+      editing); abstract around 250 words, structured
+
+  metabolites:
+    name: Metabolites
+    publisher: MDPI
+    inherits: mdpi
+    jif: 4.5
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/metabolites/instructions
+    ai_policy_url: https://www.mdpi.com/ethics
+    fields: [systems-biology, data]
+    article_types: [research, methods, review]
+    oa: full
+    exempt: ['superficial text editing (grammar, spelling, punctuation and formatting)']
+    limits: null
+    software_article: false
+
+  pharmaceutics:
+    name: Pharmaceutics
+    publisher: MDPI
+    inherits: mdpi
+    jif: 6.9
+    jif_year: null
+    status: VERIFIED
+    url: https://www.mdpi.com/journal/pharmaceutics/instructions
+    ai_policy_url: https://www.mdpi.com/ethics
+    fields: [clinical]
+    article_types: [research, review]
+    oa: full
+    exempt: ['superficial text editing (grammar, spelling, punctuation and formatting)']
+    limits: null
+    software_article: false
+
+  frontiers-nutrition:
+    name: Frontiers in Nutrition
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 5.5
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/nutrition/for-authors/author-guidelines
+    ai_policy_url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    sources: ['https://www.frontiersin.org/journals/nutrition/for-authors/article-types']
+    fields: [clinical]
+    article_types: [research, methods, review, perspective, data]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software_article: false
+    fit_note: journal author guidelines carry the full Frontiers AI section (name, version, model, source in Acknowledgements
+      and Methods; prompts and outputs encouraged as supplementary files). Computational-only papers need validation (Frontiers-wide
+      rule).
+
+  frontiers-microbiology:
+    name: Frontiers in Microbiology
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 5.8
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/microbiology/for-authors/author-guidelines
+    ai_policy_url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    sources: ['https://www.frontiersin.org/journals/microbiology/for-authors/article-types']
+    fields: [genomics, bioinformatics]
+    article_types: [research, methods, software, review, perspective, data]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software:
+    - 'Technology & Code articles: software "placed online in a repository", novel and well documented'
+    software_article: true
+    fit_note: only Frontiers journal in this cluster with a Technology & Code type. Computational-only papers need validation
+      (Frontiers-wide rule).
+
+  frontiers-oncology:
+    name: Frontiers in Oncology
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 3.4
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/oncology/for-authors/author-guidelines
+    ai_policy_url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    sources: ['https://www.frontiersin.org/journals/oncology/for-authors/article-types']
+    fields: [clinical, genomics]
+    article_types: [research, methods, review, perspective, data]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software_article: false
+
+  frontiers-neuroscience:
+    name: Frontiers in Neuroscience
+    publisher: Frontiers
+    inherits: frontiers-default
+    jif: 4.0
+    jif_year: null
+    status: VERIFIED
+    url: https://www.frontiersin.org/journals/neuroscience/for-authors/author-guidelines
+    ai_policy_url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+    sources: ['https://www.frontiersin.org/journals/neuroscience/for-authors/article-types']
+    fields: [clinical]
+    article_types: [research, methods, review, perspective, data]
+    oa: full
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    software_article: false
+
+  bmj-open:
+    name: BMJ Open
+    publisher: BMJ
+    inherits: bmj
+    jif: 2.5
+    jif_year: null
+    status: VERIFIED
+    url: https://bmjopen.bmj.com/pages/authors
+    ai_policy_url: https://authors.bmj.com/policies/ai-use/
+    fields: [clinical, general]
+    article_types: [research, methods, data]
+    oa: full
+    limits: null
+    other_desk_rules:
+    - Patient and Public Involvement statement in Methods
+    - original protocol as a supplementary file
+    - reporting checklist (e.g. STROBE, STREGA)
+    - Data Availability Statement
+    software_article: false
+    fit_note: journal page has no AI text; it sends authors to the BMJ Author Hub policies. Publishes anything technically
+      sound after open peer review (reviewer reports published); APC GBP 2,535. 'Cohort profile' counted as data.
+
+  biochem-j:
+    name: Biochemical Journal
+    publisher: Portland Press (Biochemical Society)
+    inherits: portland-press
+    jif: 4.3
+    jif_year: 2024
+    status: VERIFIED
+    url: https://portlandpress.com/biochemj/pages/instructions_to_authors
+    ai_policy_url: https://portlandpress.com/pages/editorial_policy
+    fields: [systems-biology]
+    article_types: [research, review, perspective, letter]
+    oa: null
+    limits: null
+    other_desk_rules:
+    - Methods in the main text after the Discussion
+    - Data Availability Statement
+    - meta-analyses, systematic and bibliographical reviews are not considered
+    software_article: false
+    fit_note: no AI text on the journal page; links to the Portland Press editorial policy. Read via Wayback (instructions
+      2026-07-25). The JIF is from the Impact_and_Information snapshot of 2025-07-13 ('2024 Impact Factor, Journal Citation
+      Reports ... 2025'); the 2025 value was not seen.
+
+  bioscience-reports:
+    name: Bioscience Reports
+    publisher: Portland Press (Biochemical Society)
+    inherits: portland-press
+    jif: 4.7
+    jif_year: 2024
+    status: VERIFIED
+    url: https://portlandpress.com/bioscirep/pages/paper_types
+    ai_policy_url: https://portlandpress.com/pages/editorial_policy
+    sources: ['https://portlandpress.com/bioscirep/pages/submission_checklist']
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: no AI text on the paper-types or submission-checklist pages. Read via Wayback (paper_types 2026-07-14, checklist
+      2025-07-16); JIF from the impact_and_information snapshot of 2025-07-08 (2024 JIF). No word limit for Original Research;
+      Brief Reports <= 4,000 words. Charges an APC on every article (Brief Reports reduced), counted as fully OA.
+
+  microbiol-spectr:
+    name: Microbiology Spectrum
+    publisher: American Society for Microbiology
+    inherits: asm
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://journals.asm.org/journal/spectrum/article-types
+    ai_policy_url: https://journals.asm.org/generative-ai
+    sources: ['https://journals.asm.org/journal/spectrum/about']
+    fields: [genomics, bioinformatics]
+    article_types: [research, methods, database, perspective, letter]
+    oa: full
+    limits: {abstract_words: 250, body_words: 5000, over_limit_return: null}
+    abstract_headings: [Abstract, Importance (<= 150 words)]
+    software_article: true
+    fit_note: 'Resource Reports (''technical advances and/or informational databases'') and Methods and Protocols (''bioinformatic
+      or laboratory techniques'', compared with state of the art) take tools; 5,000 words excluding Methods, references,
+      tables and legends. Publishes on technical quality, not impact. The about page shows citation counts but no JIF.
+      Watch the ASM rule: AI only to improve human-written text.'
+
+  reproduction:
+    name: Reproduction
+    publisher: OUP (Society for Reproduction and Fertility; Bioscientifica until 31 Dec 2025)
+    inherits: oup
+    jif: 3.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/reproduction/pages/author-guidelines
+    ai_policy_url: https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+    sources:
+    - https://academic.oup.com/pages/reproduction-transition
+    - https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools
+    fields: [clinical]
+    article_types: [research, review, perspective]
+    oa: hybrid
+    limits: {abstract_words: 250, body_words: 5000, over_limit_return: null}
+    software_article: false
+    fit_note: 'rep.bioscientifica.com now 301-redirects to academic.oup.com/reproduction. Journal page (read via WebFetch,
+      fragments only) carries the OUP clause: AI use ''should be disclosed both in cover letters to editors and in the
+      Methods or Acknowledgements section'', AI tools screened for in author lists; it links COPE, not the OUP policy page.
+      No publication charge; choice of standard or CC licence. iThenticate screening.'
+
+  bmc-cancer:
+    name: BMC Cancer
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 4.1
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12885/submission-guidelines/research-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    sources: ['https://link.springer.com/journal/12885/submission-guidelines/software-article']
+    fields: [clinical, genomics]
+    article_types: [research, database, software, review, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: true
+
+  bmc-microbiology:
+    name: BMC Microbiology
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 5.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12866/submission-guidelines/research-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [genomics, bioinformatics]
+    article_types: [research, database, software, review, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: true
+
+  cancer-cell-int:
+    name: Cancer Cell International
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 7.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/12935/submission-guidelines/research-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [clinical]
+    article_types: [research, review, perspective]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: false
+
+  diabetol-metab-syndr:
+    name: Diabetology & Metabolic Syndrome
+    publisher: BMC / Springer Nature
+    inherits: springer-nature
+    jif: 4.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/13098/submission-guidelines/research
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    fields: [clinical]
+    article_types: [research, review, letter]
+    oa: full
+    exempt: []
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 350, body_words: null, over_limit_return: null}
+    software_article: false
+
+  cell-mol-neurobiol:
+    name: Cellular and Molecular Neurobiology
+    publisher: Springer Nature
+    inherits: springer-nature
+    jif: 7.4
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/10571/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [clinical]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: fully open access since February 2024 (journal home page)
+
+  applied-intelligence:
+    name: Applied Intelligence
+    publisher: Springer Nature
+    inherits: springer-nature
+    jif: 3.5
+    jif_year: 2025
+    status: VERIFIED
+    url: https://link.springer.com/journal/10489/submission-guidelines
+    ai_policy_url: https://link.springer.com/brands/springer/journal-policies
+    fields: [software, data]
+    article_types: null
+    oa: hybrid
+    exempt:
+    - AI assisted copy editing (readability, style, grammar, spelling, punctuation, tone of human-generated text; not generative
+      editorial work)
+    disclosure_places: [Methods (or a suitable alternative part), AI declaration (SN author guidance)]
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: null
+
+  crit-rev-food-sci-nutr:
+    name: Critical Reviews in Food Science and Nutrition
+    publisher: Taylor & Francis
+    inherits: taylor-francis
+    jif: 10.6
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=bfsn20
+    ai_policy_url: https://taylorandfrancis.com/our-policies/ai-policy/
+    sources: ['https://www.tandfonline.com/action/journalInformation?journalCode=bfsn20']
+    fields: [clinical]
+    article_types: [research]
+    oa: hybrid
+    disclosure_places:
+    - Declaration of generative AI use statement (required, including a statement that AI was not used)
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: page says it accepts 'original articles' only and 'There are no word limits'; the journal is a review venue
+      by name, so read 'original' as unpublished. Open Select (hybrid).
+
+  drug-delivery:
+    name: Drug Delivery
+    publisher: Taylor & Francis
+    inherits: taylor-francis
+    jif: 8.0
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=idrd20
+    ai_policy_url: https://taylorandfrancis.com/our-policies/ai-policy/
+    sources: ['https://www.tandfonline.com/action/journalInformation?journalCode=idrd20']
+    fields: [clinical]
+    article_types: [research, methods, review, data, letter]
+    oa: full
+    disclosure_places:
+    - Declaration of generative AI use statement (required, including a statement that AI was not used)
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: an APC (USD 3,940) is invoiced for every accepted paper once it has a DOI, so treated as fully OA; the page
+      also carries T&F's generic Open Select paragraph.
+
+  stat-methods-med-res:
+    name: Statistical Methods in Medical Research
+    publisher: Sage
+    inherits: sage
+    jif: 2.4
+    jif_year: null
+    status: VERIFIED
+    url: https://journals.sagepub.com/author-instructions/SMM
+    ai_policy_url: https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy
+    sources: ['https://journals.sagepub.com/home/smm']
+    fields: [data, clinical]
+    article_types: [research, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 8000, over_limit_return: null}
+    software_article: false
+    fit_note: journal page only says AI chatbots must not be listed as authors and links the Sage policy. ~8,000 words
+      is 'around', with tables counted as ~200 words each.
+
+  ann-epidemiol:
+    name: Annals of Epidemiology
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 3.6
+    jif_year: null
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/annals-of-epidemiology/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [clinical, data]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: 200, body_words: 3000, over_limit_return: null}
+    software_article: false
+    fit_note: 'guide carries Elsevier''s 2026 AI text: declaration statement before the references, grammar/spelling/reference
+      tools exempt, editors and reviewers may not upload manuscripts to generative AI. Original article <= 3,000 words,
+      structured abstract <= 200.'
+
+  hbpd-int:
+    name: Hepatobiliary & Pancreatic Diseases International
+    publisher: Elsevier
+    inherits: elsevier
+    jif: 3.9
+    jif_year: null
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/hepatobiliary-and-pancreatic-diseases-international/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [clinical]
+    article_types: [research, review, letter]
+    oa: null
+    limits: {abstract_words: 300, body_words: null, over_limit_return: null}
+    software_article: false
+
+  eur-neuropsychopharmacol:
+    name: European Neuropsychopharmacology
+    publisher: Elsevier (ECNP)
+    inherits: elsevier
+    jif: 8.1
+    jif_year: null
+    status: VERIFIED
+    url: https://www.sciencedirect.com/journal/european-neuropsychopharmacology/publish/guide-for-authors
+    ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    fields: [clinical, genetics]
+    article_types: [research, review, perspective, letter]
+    oa: hybrid
+    limits: {abstract_words: null, body_words: 6500, over_limit_return: null}
+    software_article: false
+    fit_note: the journal's guide (an older free-text template) has no AI section; the Elsevier policy ('Policy updated
+      June 2026') applies. Research papers max 6,500 words including tables and legends, <= 80 references; Crossref Similarity
+      Check.
+
+  lancet-microbe:
+    name: The Lancet Microbe
+    publisher: Elsevier (The Lancet Group)
+    inherits: lancet
+    jif: 21.9
+    jif_year: 2025
+    status: VERIFIED
+    url: https://www.thelancet.com/pb-assets/Lancet/authors/tlmicro-info-for-authors-1787150928107.pdf
+    ai_policy_url: https://www.thelancet.com/editorial-policies
+    sources: ['https://www.thelancet.com/lanmic/about']
+    fields: [clinical, genomics]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    writing_help: disclose
+    exempt: [basic checks of grammar, spelling and punctuation]
+    disclosure_places:
+    - separate AI declaration statement at the end of the manuscript (published)
+    - Methods (research use)
+    - declaration at submission
+    disclosure_fields: [name and version of the AI tool, purpose, extent of oversight, prompts where applicable]
+    prompts: on_request
+    extra_burden: []
+    tracking: recommended
+    image_rules: [AI-generated figures limited to demonstrations of AI's capabilities]
+    limits: {abstract_words: 300, body_words: 3500, over_limit_return: null}
+    other_desk_rules:
+    - 'Comments and Correspondence: AI "permitted only to assist with grammar and spelling"; any breach "will lead to rejection"'
+    software_article: false
+    fit_note: Information for Authors PDF dated August 2026. 'Editors reserve the right to determine whether the use of
+      AI is appropriate'. Gold OA; APC only for peer-reviewed full-length articles. Articles <= 3,500 words (4,500 for
+      RCTs).
+
+  biology-letters:
+    name: Biology Letters
+    publisher: The Royal Society
+    inherits: royal-society
+    jif: 2.7
+    jif_year: null
+    status: VERIFIED
+    url: https://royalsocietypublishing.org/rsbl/pages/for-authors
+    ai_policy_url: https://royalsociety.org/journals/ethics-policies/artificial-intelligence/
+    fields: [general]
+    article_types: [research, review, perspective, letter]
+    oa: full
+    limits: {abstract_words: null, body_words: 3500, over_limit_return: null}
+    other_desk_rules:
+    - '"The word count is strictly enforced" (figure and table legends included)'
+    - max 3 figures plus 3 other display items
+    - data and code in a DOI-minting repository at revision ("available upon request" not accepted)
+    - a paper returned three times by the Editorial office is rejected
+    software_article: false
+    fit_note: journal page has no AI text; links the Royal Society ethics policies. royalsocietypublishing.org is Cloudflare-blocked,
+      so read from the Wayback snapshot of 2026-10-04; the RS AI policy page itself was read live. 'Open Access with no
+      charges for authors or readers' (home page snapshot 2026-10-09).
+
+  curr-dir-biomed-eng:
+    name: Current Directions in Biomedical Engineering
+    publisher: De Gruyter Brill (DGBMT in VDE, Austrian and Swiss societies)
+    inherits: de-gruyter
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://www.degruyterbrill.com/journal/key/cdbme/html
+    ai_policy_url: https://www.degruyterbrill.com/publishing/for-authors/author-policies/artificial-intelligence
+    fields: [software, clinical]
+    article_types: [research]
+    oa: full
+    limits: null
+    software_article: false
+    fit_note: 'conference-proceedings journal (BMTE, CURAC, TAR): submission ''only possible via the current year''s organizers'';
+      no AI text on the journal page beyond the publisher link; no JIF shown. Free OA (CC BY 4.0), camera-ready copy.'
+
+  ann-palliat-med:
+    name: Annals of Palliative Medicine
+    publisher: AME Publishing Company
+    inherits: ame
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://apm.amegroups.org/pages/view/guidelines-for-authors
+    ai_policy_url: https://apm.amegroups.org/pages/view/guidelines-for-authors
+    sources: ['https://apm.amegroups.org/page/about/plagiarism-screening-policy']
+    fields: [clinical]
+    article_types: [research, review]
+    oa: full
+    limits: {abstract_words: 450, body_words: null, over_limit_return: null}
+    software_article: false
+    fit_note: journal page lists indexing in PubMed/MEDLINE and Ovid only (no Web of Science), and shows no JIF. Structured
+      abstract 200-450 words; no fixed word limit. AI disclosure must include every prompt and its date and time (WAME).
+
+  romanian-biotechnol-lett:
+    name: Romanian Biotechnological Letters
+    publisher: University of Bucharest (Bucharest University Press; Ars Docendi until 2020)
+    jif: null
+    jif_year: null
+    status: VERIFIED
+    url: https://rombio.unibuc.ro/instructions-for-authors/
+    ai_policy_url: null
+    sources:
+    - https://rombio.unibuc.ro/ethics-and-malpractice/
+    - https://journals.unibuc.ro/index.php/rbl/about/submissions
+    - https://journals.unibuc.ro/index.php/rbl/guid
+    - https://journals.unibuc.ro/index.php/rbl/spe
+    fields: [general]
+    article_types: [research, review, letter]
+    oa: full
+    writing_help: null
+    exempt: null
+    disclosure_places: null
+    disclosure_fields: null
+    prompts: null
+    screening: plagiarism
+    penalties: [withdrawal of a published paper for plagiarism]
+    disclosure_neutral: null
+    reviewer_ai: null
+    limits: null
+    other_desk_rules:
+    - the cover letter states conformity with the ICMJE Recommendations
+    - whose January 2026 Section V asks for AI disclosure in the cover letter and the manuscript
+    software_article: false
+    fit_note: 'NO AI POLICY on any page, a finding, not a gap: the legacy site (instructions, ethics and malpractice) and
+      the OJS site say nothing about AI, and the OJS ''Submission Guidelines'' and ''Statement of Publication Ethics''
+      pages hold only placeholder text (''Submission Guidelines here''). Null AI fields here mean no rule exists. Disclose
+      per ICMJE anyway. Abstract <= 1,000 characters. Large backlog: the current issue, Vol. 28 No. 6 (2023), was published
+      2025-09-15. Claims SCIE indexing; no JIF shown.'

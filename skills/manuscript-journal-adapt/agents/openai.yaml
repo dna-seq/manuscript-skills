@@ -1,0 +1,4 @@
+interface:
+  display_name: "Journal adaptation"
+  short_description: "Adapt a manuscript to a chosen journal and draft required statements"
+  default_prompt: "Use $manuscript-journal-adapt to prepare this manuscript for initial submission to the chosen journal: apply its length and structure rules, check required statements and draft a concise AI-use statement if one is needed."

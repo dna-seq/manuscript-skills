@@ -1,0 +1,1222 @@
+# Reporting guidelines and minimum-information standards, selected by study design.
+# Read by scripts/guidelines.py (select, items, validate). The design keys are the shared list in
+# ../../manuscript-integrity-check/references/manuscript-record.md; tests check every key against it.
+#
+# Fields of a guideline
+#   id, name, full_name   identifiers; `id` is what guidelines.py and an audit table use
+#   version               the version current on `checked`, with any successor or withdrawal noted
+#   kind                  reporting-guideline | extension (of `extends`) | minimum-information | venue-checklist
+#   extends               the base guideline it builds on, else null
+#   base_items            extension only: interleave (the base's items apply, under shared numbers: STREGA),
+#                         append (the base's items apply under their own numbers: STARD-AI) or none (a
+#                         stand-alone checklist: STROBE-MR)
+#   designs               design keys that make the guideline a candidate
+#   applies_if            the condition the authors confirm before a candidate applies; absent means the
+#                         design key alone is enough
+#   note                  optional: one sentence printed with the condition, for the common case that misses it
+#   match                 venue-checklist only: venues.yaml keys and publisher names (regular expressions) it
+#                         is selected for. A venue checklist is never selected for any other venue.
+#   scope                 what it covers and does not, in our words
+#   sources               equator (the EQUATOR Network page), paper_doi (the defining paper), checklist_url
+#                         (the official form) and any further official pages
+#   licence               the licence of the checklist text or defining paper, as established
+#   licence_basis         how it was established (Crossref license field, Europe PMC or PMC, publisher page).
+#                         No licence statement is not permission.
+#   checked, status       when the version, sources and licence were last confirmed online; verified |
+#                         unverified (what could not be confirmed is in `verification`) | withdrawn
+#   verification          what was fetched and what each source confirmed
+#   items                 n (the official item number, or a stable short id where the standard has no
+#                         numbers), topic, text: a short paraphrase in our own words of what a manuscript
+#                         reports. Never the checklist's wording: several checklists are not openly licensed.
+#                         When a venue asks for the form itself, prepare answers keyed by the official item
+#                         numbers (location, short quote) for the authors to transfer; never copy the form.
+#
+# Maintenance: re-check `version`, `sources` and `licence` when `checked` is older than a year
+# (guidelines.py validate --max-age-days 365 lists them), and record a successor before removing an entry.
+
+checked: 2026-10-15
+
+# Designs with no EQUATOR reporting guideline of their own. guidelines.py select prints the note instead of
+# inventing a checklist; the availability and reproducibility checks then carry the weight.
+design_notes:
+  software-tool: >-
+    No EQUATOR reporting guideline covers a software or web-service paper. Apply the availability and
+    reproducibility checks (scripts/check_availability.py, references/availability.md) and the venue's
+    software rules: source location, archived version, licence, install and run documentation, test data,
+    how each figure is reproduced. If the tool contains a trained model, DOME covers its validation.
+  method-benchmark: >-
+    No EQUATOR reporting guideline covers a computational method comparison. Report the availability of
+    every dataset, the code and versions of every method compared, parameter choices and how they were
+    tuned, and the evaluation split. DOME applies when supervised models are trained or tuned; STARD when
+    the benchmark estimates diagnostic accuracy against a reference standard.
+  database-resource: >-
+    No EQUATOR reporting guideline covers a database or data resource paper. Check the availability and
+    persistence of the resource (stable URL, versioned releases, archived dumps, licence, access terms) and
+    the minimum-information standard of the data type it holds (MINSEQE, MIAME, MIxS).
+  public-data-reanalysis: >-
+    The guideline follows the design of the reanalysis (STROBE for an observational reanalysis, STREGA for a
+    genetic association, STROBE-MR for MR). Check that every dataset is cited with its accession and version
+    and that controlled-access data name their access route.
+  omics-profiling: >-
+    The minimum-information standard follows the assay (MINSEQE for sequencing, MIAME for microarrays) and
+    the archive's own submission requirements; the study design adds its own guideline.
+  in-vitro-experiment: >-
+    MDAR is the cross-cutting framework for laboratory studies. Venues often ask for their own form built
+    on it (EMBO Press, eLife); use the venue's form when it is the target.
+  qualitative: >-
+    SRQR (O'Brien et al., Acad Med 2014, doi 10.1097/ACM.0000000000000388,
+    https://www.equator-network.org/reporting-guidelines/srqr/) and COREQ for interviews and focus groups
+    (Tong et al., Int J Qual Health Care 2007, doi 10.1093/intqhc/mzm042,
+    https://www.equator-network.org/reporting-guidelines/coreq/). Neither is bundled: no open licence was
+    found for either text (Crossref has no licence field, Europe PMC no open copy; checked 2026-10-15).
+    Audit from the official checklist.
+  simulation-theory: >-
+    No reporting guideline. Report the model, parameter values and their sources, random seeds, software
+    versions, and where the simulation code and outputs are available.
+  ai-generated-science: >-
+    No reporting guideline yet. Use ../../manuscript-integrity-check/references/ai-science-design.md for the
+    design questions; the availability checks cover prompts, code and outputs where the claims depend on them.
+
+guidelines:
+  - id: strobe
+    name: STROBE
+    full_name: Strengthening the Reporting of Observational Studies in Epidemiology
+    version: "2007"
+    kind: reporting-guideline
+    extends: null
+    designs: [observational-human, genetic-association]
+    scope: >-
+      Reports of the three main analytical observational designs: cohort, case-control and
+      cross-sectional studies. It is a reporting checklist, not a tool for judging study quality,
+      and other designs or topics are handled by its extensions.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/strobe/
+      paper_doi: 10.1371/journal.pmed.0040296
+      checklist_url: https://www.strobe-statement.org/checklists/
+    licence: CC BY (PLoS Medicine version of the statement); the checklist PDF itself states no licence
+    licence_basis: >-
+      Europe PMC license field "cc by" and PMC permissions block (links CC BY 4.0) for PMC2020495;
+      Crossref returns no license field for 10.1371/journal.pmed.0040296; the strobe-statement.org
+      checklist PDF has no licence text.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Fetched the EQUATOR STROBE page (lists the 2007 statement, published in 8 journals incl. PLoS Med
+      2007;4(10):e296, PMID 17941714, plus extensions up to STROBE-Equity, BMJ 2025, and STROBE EPIC,
+      Ann Intern Med 2026-07-21, doi 10.7326/ANNALS-25-02412). Read the combined checklist PDF from
+      strobe-statement.org (22 items, sub-items as listed). No updated core STROBE found: the official
+      site still serves the 2007 checklists, EQUATOR's "under development for observational studies"
+      page lists only extensions (e.g. STROBE-prev, STROBE-D), and web searches found no revision.
+      Items 8 and 13-15 are reported separately per group (cases/controls, exposed/unexposed).
+    items:
+      - {n: "1a", topic: Title and abstract, text: "Name the study design with a standard term in the title or abstract."}
+      - {n: "1b", topic: Title and abstract, text: "Abstract gives a balanced, informative summary of methods and findings."}
+      - {n: "2", topic: Background/rationale, text: "Scientific background and the reasons for doing the study."}
+      - {n: "3", topic: Objectives, text: "Specific aims, including any hypotheses fixed in advance."}
+      - {n: "4", topic: Study design, text: "Key design features presented early in the paper."}
+      - {n: "5", topic: Setting, text: "Locations and dates for recruitment, exposure, follow-up and data collection."}
+      - {n: "6a", topic: Participants, text: "Eligibility and how participants, or cases and controls, were found and selected; cohort follow-up methods; case/control rationale."}
+      - {n: "6b", topic: Participants, text: "For matched designs, the matching criteria and numbers matched (exposed/unexposed or controls per case)."}
+      - {n: "7", topic: Variables, text: "Define every outcome, exposure, predictor, confounder and effect modifier; diagnostic criteria where relevant."}
+      - {n: "8", topic: Data sources/measurement, text: "Data source and measurement method for each variable; comparability of methods across groups."}
+      - {n: "9", topic: Bias, text: "Steps taken to deal with possible sources of bias."}
+      - {n: "10", topic: Study size, text: "How the sample size was arrived at."}
+      - {n: "11", topic: Quantitative variables, text: "How continuous variables were analysed, including any groupings and why."}
+      - {n: "12a", topic: Statistical methods, text: "All statistical methods, including confounder control."}
+      - {n: "12b", topic: Statistical methods, text: "Methods for subgroup and interaction analyses."}
+      - {n: "12c", topic: Statistical methods, text: "How missing data were handled."}
+      - {n: "12d", topic: Statistical methods, text: "Design-specific handling: loss to follow-up, case-control matching, or survey sampling strategy."}
+      - {n: "12e", topic: Statistical methods, text: "Any sensitivity analyses."}
+      - {n: "13a", topic: Participants (results), text: "Counts at each stage from potentially eligible through included, followed up and analysed."}
+      - {n: "13b", topic: Participants (results), text: "Reasons for non-participation at each stage."}
+      - {n: "13c", topic: Participants (results), text: "Consider a flow diagram."}
+      - {n: "14a", topic: Descriptive data, text: "Participant characteristics plus information on exposures and potential confounders."}
+      - {n: "14b", topic: Descriptive data, text: "Number of participants missing data for each variable of interest."}
+      - {n: "14c", topic: Descriptive data, text: "Cohort studies: summary of follow-up time."}
+      - {n: "15", topic: Outcome data, text: "Outcome event counts or summary measures (or exposure counts for case-control), by design."}
+      - {n: "16a", topic: Main results, text: "Crude and adjusted estimates with precision; which confounders were adjusted for and why."}
+      - {n: "16b", topic: Main results, text: "Cut-points used when continuous variables were categorised."}
+      - {n: "16c", topic: Main results, text: "Where useful, convert relative risk to absolute risk over a meaningful period."}
+      - {n: "17", topic: Other analyses, text: "Results of subgroup, interaction and sensitivity analyses."}
+      - {n: "18", topic: Key results, text: "Main findings related back to the objectives."}
+      - {n: "19", topic: Limitations, text: "Limitations, including likely direction and size of bias and imprecision."}
+      - {n: "20", topic: Interpretation, text: "Cautious interpretation weighing limitations, multiple analyses and other evidence."}
+      - {n: "21", topic: Generalisability, text: "External validity of the findings."}
+      - {n: "22", topic: Funding, text: "Funding sources and funders' role, for this study and any parent study."}
+  - id: strobe-mr
+    name: STROBE-MR
+    full_name: Strengthening the Reporting of Observational Studies in Epidemiology Using Mendelian Randomization
+    version: "2021"
+    kind: extension
+    extends: strobe
+    base_items: none
+    designs: [mendelian-randomization]
+    scope: >-
+      Reports of Mendelian randomization studies, one-sample or two-sample, that use genetic variants
+      as instruments to estimate causal effects of an exposure. It is a stand-alone 20-item checklist
+      with its own numbering, not a set of add-ons to STROBE items.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/strobe-mr-statement/
+      paper_doi: 10.1001/jama.2021.18236
+      checklist_url: https://www.strobe-mr.org/download/strobe-mr-checklist/
+    licence: CC BY 3.0 (checklist, per its own footer); explanation and elaboration paper CC BY 4.0; the JAMA statement itself has no open licence
+    licence_basis: >-
+      Checklist PDF from strobe-mr.org states it is under CC BY 3.0 Unported (copyright EQUATOR Network);
+      Crossref license for the E&E paper 10.1136/bmj.n2233 is CC BY 4.0 (Europe PMC "cc by", PMC8546498);
+      Crossref has no license for 10.1001/jama.2021.18236, Europe PMC marks it not open access, and the
+      JAMA page footer reserves all rights.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      EQUATOR page (slug strobe-mr-statement; /strobe-mr/ redirects there) cites Skrivankova et al.,
+      JAMA 2021;326(16):1614-1621, PMID 34698778, with the E&E in BMJ 2021;375:n2233. Read the official
+      checklist PDF from strobe-mr.org (20 items); WebFetch of the JAMA article confirmed Table 2 uses the
+      same numbering (4a-e, 6a-e, 9a-b, 10a-d with 10d i/ii, 11a-d, 12a-b, 13a-e, 16a-c). No newer version
+      found on strobe-mr.org or EQUATOR. Item stems 4 and 6 carry their own text and are listed.
+    items:
+      - {n: "1", topic: Title and abstract, text: "Name Mendelian randomization as the design in title and/or abstract when it is a main aim."}
+      - {n: "2", topic: Background, text: "Rationale: the exposure, why a causal link is plausible, and why MR suits the question."}
+      - {n: "3", topic: Objectives, text: "Aims and prespecified causal hypotheses; note MR gives causal estimates only under assumptions."}
+      - {n: "4", topic: Study design and data sources, text: "Design overview early; consider a table of data sources for every study phase."}
+      - {n: "4a", topic: Study design and data sources, text: "Per source: design, underlying population, locations and key dates."}
+      - {n: "4b", topic: Study design and data sources, text: "Per source: eligibility, selection, sample size and any prior power calculation."}
+      - {n: "4c", topic: Study design and data sources, text: "How genetic variants were measured, quality-controlled and selected."}
+      - {n: "4d", topic: Study design and data sources, text: "Assessment methods and disease definitions for exposures, outcomes and other variables."}
+      - {n: "4e", topic: Study design and data sources, text: "Ethics approval and participant consent, where relevant."}
+      - {n: "5", topic: Assumptions, text: "State the three core instrumental-variable assumptions and those behind any extra analyses."}
+      - {n: "6", topic: Statistical methods (main analysis), text: "Statistical methods and statistics used."}
+      - {n: "6a", topic: Statistical methods (main analysis), text: "Scale, units and model for quantitative variables."}
+      - {n: "6b", topic: Statistical methods (main analysis), text: "How variants entered the analysis and how any weights were chosen."}
+      - {n: "6c", topic: Statistical methods (main analysis), text: "MR estimator and covariates; for two-sample MR, whether both samples used the same adjustment."}
+      - {n: "6d", topic: Statistical methods (main analysis), text: "Handling of missing data."}
+      - {n: "6e", topic: Statistical methods (main analysis), text: "Handling of multiple testing, if applicable."}
+      - {n: "7", topic: Assessment of assumptions, text: "Methods or prior knowledge used to test or justify the assumptions."}
+      - {n: "8", topic: Sensitivity and additional analyses, text: "Robustness and extra analyses, e.g. other estimators, replication, bias analysis, instrument validation, simulation."}
+      - {n: "9a", topic: Software and pre-registration, text: "Statistical software and packages with versions and settings."}
+      - {n: "9b", topic: Software and pre-registration, text: "Whether, when and where the protocol was pre-registered."}
+      - {n: "10a", topic: Descriptive data, text: "Numbers at each stage of each contributing study and exclusion reasons; consider a flow diagram."}
+      - {n: "10b", topic: Descriptive data, text: "Summary statistics for phenotypic exposures, outcomes and other variables."}
+      - {n: "10c", topic: Descriptive data, text: "Between-study heterogeneity when data come from meta-analyses."}
+      - {n: "10d", topic: Descriptive data, text: "Two-sample MR: justify comparable variant-exposure associations across samples, and report participant overlap."}
+      - {n: "11a", topic: Main results, text: "Variant-exposure and variant-outcome associations on an interpretable scale."}
+      - {n: "11b", topic: Main results, text: "MR effect estimates with uncertainty on an interpretable scale."}
+      - {n: "11c", topic: Main results, text: "Where useful, express relative risks as absolute risk over a meaningful period."}
+      - {n: "11d", topic: Main results, text: "Consider plots such as forest plots or variant-outcome versus variant-exposure scatterplots."}
+      - {n: "12a", topic: Assessment of assumptions, text: "Results of checks on assumption validity."}
+      - {n: "12b", topic: Assessment of assumptions, text: "Additional statistics, e.g. heterogeneity across variants (I2, Q) or E-value."}
+      - {n: "13a", topic: Sensitivity and additional analyses, text: "Robustness of main results to assumption violations."}
+      - {n: "13b", topic: Sensitivity and additional analyses, text: "Results of other sensitivity or additional analyses."}
+      - {n: "13c", topic: Sensitivity and additional analyses, text: "Any test of causal direction, e.g. bidirectional MR."}
+      - {n: "13d", topic: Sensitivity and additional analyses, text: "Comparison with non-MR estimates where relevant."}
+      - {n: "13e", topic: Sensitivity and additional analyses, text: "Consider further plots, e.g. leave-one-out."}
+      - {n: "14", topic: Key results, text: "Main findings related to the objectives."}
+      - {n: "15", topic: Limitations, text: "Limitations: IV assumption validity, other biases, imprecision, their direction and size, and mitigation."}
+      - {n: "16a", topic: Interpretation, text: "Cautious overall meaning given limitations and other studies."}
+      - {n: "16b", topic: Interpretation, text: "Plausible biological mechanism, gene-environment equivalence, and careful causal wording."}
+      - {n: "16c", topic: Interpretation, text: "Clinical or policy relevance and what it implies for intervention effect sizes."}
+      - {n: "17", topic: Generalizability, text: "Generalisability to other populations, exposure periods or timings, and exposure levels."}
+      - {n: "18", topic: Funding, text: "Funders and their role, including for databases and source studies."}
+      - {n: "19", topic: Data and data sharing, text: "Where the analysis data can be accessed, and availability of code to reproduce results."}
+      - {n: "20", topic: Conflicts of interest, text: "Every author declares potential conflicts of interest."}
+  - id: strega
+    name: STREGA
+    full_name: STrengthening the REporting of Genetic Association Studies
+    version: "2009"
+    kind: extension
+    extends: strobe
+    base_items: interleave
+    designs: [genetic-association]
+    scope: >-
+      Genetic association studies (candidate-gene and genome-wide) of cohort, case-control or
+      cross-sectional design. It keeps all 22 STROBE items and adds or modifies genetic content on 12
+      of them; only those additions are listed here, under STROBE item numbers.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/strobe-strega/
+      paper_doi: 10.1371/journal.pmed.1000022
+      checklist_url: https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1000022
+    licence: CC0 1.0 (PLoS Medicine version)
+    licence_basis: >-
+      Crossref license field for 10.1371/journal.pmed.1000022 is creativecommons.org/publicdomain/zero/1.0;
+      Europe PMC license "cc0" and the PMC2634792 permissions block confirm the public-domain dedication.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      EQUATOR page is at /strobe-strega/ (the /strega/ slug returns 404); it lists Little et al. 2009,
+      published in 7 journals incl. PLoS Med 2009;6(2):e22, PMID 19192942. Table 1 of the PLoS paper
+      (STREGA recommendations alongside STROBE) is an image in PMC; downloaded it from PLoS, OCR'd it and
+      checked every row visually. Additions sit on STROBE items 3, 6a, 7, 8, 9, 11, 12, 13a, 14a, 15, 16
+      and 17, with new sub-items 7b, 8b, 9b, 12f-12j, 16d, 17b, 17c. No later STREGA version found.
+      The former checklist sites are unusable: www.strega-statement.org now serves unrelated content
+      and goodreports.org (linked from EQUATOR) redirects to an unrelated domain, so the PLoS paper is
+      given as the checklist source.
+    items:
+      - {n: "3", topic: Objectives, text: "Say whether the study is the first report of a genetic association, a replication, or both."}
+      - {n: "6a", topic: Participants, text: "Criteria and methods for selecting a subset of participants from a larger study, if relevant."}
+      - {n: "7b", topic: Variables, text: "Define genetic variants with standard nomenclature; name variables likely tied to population stratification."}
+      - {n: "8b", topic: Data sources/measurement, text: "Lab methods: DNA source/storage, platform, calling algorithm and version, error and call rates, lab, group comparability, batching."}
+      - {n: "9b", topic: Bias, text: "For quantitative traits, whether bias from drug treatment was examined, its size, and how it was handled."}
+      - {n: "11", topic: Quantitative variables, text: "How treatment effects on quantitative measures were dealt with, if applicable."}
+      - {n: "12a", topic: Statistical methods, text: "Software versions used and options or settings chosen."}
+      - {n: "12f", topic: Statistical methods, text: "Whether and how Hardy-Weinberg equilibrium was considered."}
+      - {n: "12g", topic: Statistical methods, text: "Methods used to infer genotypes or haplotypes."}
+      - {n: "12h", topic: Statistical methods, text: "Methods to assess or correct for population stratification."}
+      - {n: "12i", topic: Statistical methods, text: "Methods for multiple comparisons or controlling false-positive risk."}
+      - {n: "12j", topic: Statistical methods, text: "Methods to account for relatedness among participants."}
+      - {n: "13a", topic: Participants (results), text: "Number of people in whom genotyping was attempted and number successfully genotyped."}
+      - {n: "14a", topic: Descriptive data, text: "Consider presenting participant characteristics by genotype."}
+      - {n: "15", topic: Outcome data, text: "Phenotypes or counts per genotype category, over time for cohorts."}
+      - {n: "16d", topic: Main results, text: "Results of any adjustment for multiple comparisons."}
+      - {n: "17b", topic: Other analyses, text: "When many variants were tested, summarise results of every analysis performed."}
+      - {n: "17c", topic: Other analyses, text: "If fuller results are held elsewhere, say how to access them."}
+  - id: stard
+    name: STARD 2015
+    full_name: Standards for Reporting of Diagnostic Accuracy Studies
+    version: "2015"
+    kind: reporting-guideline
+    extends: null
+    designs: [observational-human, prediction-model, method-benchmark]
+    applies_if: the study estimates how accurately a test, marker or classifier identifies a condition against a reference standard
+    scope: >-
+      Studies that estimate how well one or more medical tests (index tests) classify people against a
+      reference standard for a target condition. Not written for prognostic, staging or other non-accuracy
+      outcomes, though many items still apply. The shared list has no diagnostic-accuracy key, so it is a
+      candidate for three designs and `applies_if` decides.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/stard/
+      paper_doi: 10.1136/bmj.h5527
+      checklist_url: https://www.equator-network.org/wp-content/uploads/2015/03/STARD-2015-checklist.pdf
+    licence: CC BY 4.0 (BMJ version)
+    licence_basis: >-
+      Crossref lists only a BMJ TDM licence for 10.1136/bmj.h5527; Europe PMC license "cc by" and the
+      PMC4623764 permissions block state CC BY 4.0. The E&E (10.1136/bmjopen-2016-012799) is CC BY-NC.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      EQUATOR STARD page lists Bossuyt et al. 2015 (BMJ 351:h5527, Radiology, Clin Chem), links the
+      checklist PDF/Word and flow diagram, and lists STARD-AI (Nat Med 2025) as a specialised extension.
+      Read the official checklist PDF (30 items with sub-items 10a/b, 12a/b, 13a/b, 21a/b). No STARD
+      revision after 2015 found on EQUATOR or by web search.
+    items:
+      - {n: "1", topic: Title or abstract, text: "Identify as a diagnostic accuracy study and give at least one accuracy measure."}
+      - {n: "2", topic: Abstract, text: "Structured summary of design, methods, results and conclusions (see STARD for Abstracts)."}
+      - {n: "3", topic: Introduction, text: "Scientific and clinical background, including intended use and clinical role of the index test."}
+      - {n: "4", topic: Introduction, text: "Objectives and hypotheses."}
+      - {n: "5", topic: Study design, text: "Whether data collection was planned before (prospective) or after (retrospective) the tests."}
+      - {n: "6", topic: Participants, text: "Eligibility criteria."}
+      - {n: "7", topic: Participants, text: "Basis for identifying potentially eligible people, e.g. symptoms, earlier tests, registry."}
+      - {n: "8", topic: Participants, text: "Setting, locations and dates when eligible people were identified."}
+      - {n: "9", topic: Participants, text: "Whether the sample was consecutive, random or convenience."}
+      - {n: "10a", topic: Test methods, text: "Index test described in enough detail to repeat it."}
+      - {n: "10b", topic: Test methods, text: "Reference standard described in enough detail to repeat it."}
+      - {n: "11", topic: Test methods, text: "Why this reference standard was chosen, where alternatives exist."}
+      - {n: "12a", topic: Test methods, text: "Index test positivity thresholds or categories with rationale, prespecified versus exploratory."}
+      - {n: "12b", topic: Test methods, text: "Reference standard positivity thresholds or categories with rationale, prespecified versus exploratory."}
+      - {n: "13a", topic: Test methods, text: "Whether index test readers knew clinical details or reference results."}
+      - {n: "13b", topic: Test methods, text: "Whether reference standard assessors knew clinical details or index test results."}
+      - {n: "14", topic: Analysis, text: "Methods for estimating or comparing accuracy measures."}
+      - {n: "15", topic: Analysis, text: "Handling of indeterminate index or reference results."}
+      - {n: "16", topic: Analysis, text: "Handling of missing index or reference test data."}
+      - {n: "17", topic: Analysis, text: "Analyses of variability in accuracy, prespecified versus exploratory."}
+      - {n: "18", topic: Analysis, text: "Intended sample size and how it was set."}
+      - {n: "19", topic: Participants (results), text: "Participant flow shown in a diagram."}
+      - {n: "20", topic: Participants (results), text: "Baseline demographic and clinical characteristics."}
+      - {n: "21a", topic: Participants (results), text: "Disease severity distribution among those with the target condition."}
+      - {n: "21b", topic: Participants (results), text: "Alternative diagnoses among those without the target condition."}
+      - {n: "22", topic: Participants (results), text: "Interval and any clinical interventions between index test and reference standard."}
+      - {n: "23", topic: Test results, text: "Index test results cross-tabulated against reference standard results."}
+      - {n: "24", topic: Test results, text: "Accuracy estimates with precision, e.g. 95% confidence intervals."}
+      - {n: "25", topic: Test results, text: "Adverse events from either the index test or reference standard."}
+      - {n: "26", topic: Discussion, text: "Limitations: potential bias, statistical uncertainty and generalisability."}
+      - {n: "27", topic: Discussion, text: "Practice implications, including intended use and clinical role of the index test."}
+      - {n: "28", topic: Other information, text: "Registry name and registration number."}
+      - {n: "29", topic: Other information, text: "Where the full protocol can be found."}
+      - {n: "30", topic: Other information, text: "Funding and other support, and the funders' role."}
+  - id: stard-ai
+    name: STARD-AI
+    full_name: Standards for Reporting of Diagnostic Accuracy Studies - Artificial Intelligence
+    version: "2025"
+    kind: extension
+    extends: stard
+    base_items: append
+    designs: [observational-human, prediction-model, method-benchmark]
+    applies_if: STARD applies and the index test is an AI system
+    scope: >-
+      Diagnostic accuracy studies in which the index test is an AI system. It keeps all STARD 2015
+      content in a renumbered 40-item list (with sub-items) and adds 14 new and 4 modified items; only
+      those 18 are listed here, under STARD-AI numbers.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/the-stard-ai-reporting-guideline-for-diagnostic-accuracy-studies-using-artificial-intelligence/
+      paper_doi: 10.1038/s41591-025-03953-8
+      checklist_url: https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41591-025-03953-8/MediaObjects/41591_2025_3953_MOESM3_ESM.pdf
+    licence: no open licence found (summaries only)
+    licence_basis: >-
+      Crossref lists only Springer Nature TDM licences for 10.1038/s41591-025-03953-8; nature.com dc.rights
+      reads "under exclusive licence to Springer Nature America"; Europe PMC marks it not open access with
+      no PMCID; the White Rose deposit (eprint 234133) has no downloadable file.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Published: Sounderajah et al., Nat Med 2025;31(10):3283-3289, online 2025-09-15, PMID 40954311
+      (Crossref and Europe PMC). EQUATOR has a STARD-AI page (record updated 2025-09-16) and the STARD
+      page lists it as an extension. Read Table 2 (the STARD-AI checklist) from nature.com, which marks
+      new items with * and modified ones with dagger, plus Supplementary Table 2 (downloadable checklist)
+      and Supplementary Table 3 (rationale per new/modified item). Modified items map to STARD 2015
+      items 1, 3, 6 and 20. Unchanged STARD 2015 items carry over under new numbers (e.g. 2015 item 10a
+      becomes 15a, 30 becomes 38).
+    items:
+      - {n: "1", topic: Title or abstract, text: "Modified (STARD 2015 #1): identify an AI-centred diagnostic accuracy study with at least one accuracy measure."}
+      - {n: "3", topic: Introduction, text: "Modified (#3): background also says if the index test is new or established and how it fits a workflow."}
+      - {n: "6", topic: Ethics, text: "New: ethics committee approval, or why none was needed."}
+      - {n: "7", topic: Participants, text: "Modified (#6): inclusion and exclusion criteria listed separately, in order applied, at participant and data level."}
+      - {n: "11", topic: Dataset, text: "New: data source and whether data were routine, purpose-collected or from an open repository."}
+      - {n: "12", topic: Dataset, text: "New: who annotated the data, their expertise, and how and in what context."}
+      - {n: "13", topic: Dataset, text: "New: capture devices (make, model) and software versions used to build the index test."}
+      - {n: "14", topic: Dataset, text: "New: data acquisition protocols and preprocessing, detailed enough to replicate."}
+      - {n: "15b", topic: Test methods, text: "New: how the index test was developed (training, validation, testing, external evaluation) with sample sizes."}
+      - {n: "15d", topic: Test methods, text: "New: intended end-user of the index test and the expertise required."}
+      - {n: "23", topic: Analysis, text: "New: any error analysis and algorithmic bias or fairness assessment."}
+      - {n: "25", topic: Participants and dataset, text: "Modified (#20): demographic, clinical and technical characteristics of training, validation and test sets."}
+      - {n: "28", topic: Participants and dataset, text: "New: whether datasets match the target-condition distribution expected in the intended-use population."}
+      - {n: "29", topic: Participants and dataset, text: "New: for external evaluation, how the independent dataset differs from development sets."}
+      - {n: "35", topic: Discussion, text: "New: ethical considerations and fairness issues in using the index test."}
+      - {n: "39", topic: Other information, text: "New: commercial interests, if any."}
+      - {n: "40a", topic: Other information, text: "New: availability of datasets and code, and any reuse restrictions."}
+      - {n: "40b", topic: Other information, text: "New: whether outputs are stored, auditable and available for evaluation."}
+  - id: care
+    name: CARE
+    full_name: CAse REport guidelines
+    version: "2013"
+    kind: reporting-guideline
+    extends: null
+    designs: [case-report]
+    scope: >-
+      Clinical case reports describing one patient's episode of care (presentation, diagnosis,
+      intervention, outcomes). Not for case series analysed as cohorts or for experimental studies.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/care/
+      paper_doi: 10.1136/bcr-2013-201554
+      checklist_url: https://www.care-statement.org/checklist
+    licence: CC BY-NC-ND 3.0 (journal versions of the statement); the care-statement.org checklist page shows a CC BY-NC 4.0 badge; non-commercial use only
+    licence_basis: >-
+      Crossref has no license for 10.1136/bcr-2013-201554; Europe PMC "cc by-nc-nd" and the PMC3822203
+      permissions block state CC BY-NC-ND 3.0; Global Adv Health Med version (PMC3833570) also
+      CC BY-NC-ND 3.0; J Med Case Rep reprint (PMC3844611) says "Creative Commons Attribution" but links a
+      malformed by-ny-nd 3.0 URL; care-statement.org checklist page embeds a CC BY-NC 4.0 badge and its
+      copyright page (IMI LLC) allows copying for informational, non-commercial use only.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      EQUATOR CARE page lists Gagnier et al. 2013 in 7 journals, the 2017 E&E (Riley et al., J Clin
+      Epidemiol, PMID 28529185) and extensions up to 2025-2026 (CARE-acupuncture, PhyCARE, CARE-DN); no
+      core update. care-statement.org still presents the "2013 CARE Checklist". Items follow the official
+      checklist PDF (13 items, sub-items 3a-d, 5a-d, 8a-d, 9a-c, 10a-d, 11a-d). Note: Table 1 of the 2013
+      paper (read in PMC3844611) groups sub-items differently (3a-c, 5a-c, 9a and 10a with bullets), so
+      sub-item letters depend on the source; the checklist PDF numbering is used here. No updated CARE found.
+    items:
+      - {n: "1", topic: Title, text: "Title names the main diagnosis or intervention and labels the article a case report."}
+      - {n: "2", topic: Key words, text: "Two to five keywords on diagnoses or interventions, including 'case report'."}
+      - {n: "3a", topic: Abstract, text: "What makes the case new and what it adds."}
+      - {n: "3b", topic: Abstract, text: "Main symptoms and key clinical findings."}
+      - {n: "3c", topic: Abstract, text: "Main diagnoses, treatments and outcomes."}
+      - {n: "3d", topic: Abstract, text: "The main lesson or lessons from the case."}
+      - {n: "4", topic: Introduction, text: "Short account of why the case is unique, with references if useful."}
+      - {n: "5a", topic: Patient information, text: "De-identified patient details."}
+      - {n: "5b", topic: Patient information, text: "The patient's main concerns and symptoms."}
+      - {n: "5c", topic: Patient information, text: "Medical, family and psychosocial history, including relevant genetic information."}
+      - {n: "5d", topic: Patient information, text: "Relevant earlier interventions and their results."}
+      - {n: "6", topic: Clinical findings, text: "Significant physical examination and other clinical findings."}
+      - {n: "7", topic: Timeline, text: "Past and current events of this care episode arranged as a timeline."}
+      - {n: "8a", topic: Diagnostic assessment, text: "Diagnostic testing used, e.g. examination, laboratory, imaging, questionnaires."}
+      - {n: "8b", topic: Diagnostic assessment, text: "Diagnostic obstacles such as access, cost or culture."}
+      - {n: "8c", topic: Diagnostic assessment, text: "Final diagnosis and other diagnoses considered."}
+      - {n: "8d", topic: Diagnostic assessment, text: "Prognosis, e.g. staging, where applicable."}
+      - {n: "9a", topic: Therapeutic intervention, text: "Kinds of intervention: drug, surgical, preventive, self-care."}
+      - {n: "9b", topic: Therapeutic intervention, text: "How it was given: dose, strength, duration."}
+      - {n: "9c", topic: Therapeutic intervention, text: "Changes to treatment and the reasons."}
+      - {n: "10a", topic: Follow-up and outcomes, text: "Outcomes judged by clinician and by patient, if available."}
+      - {n: "10b", topic: Follow-up and outcomes, text: "Key diagnostic and other test results at follow-up."}
+      - {n: "10c", topic: Follow-up and outcomes, text: "Adherence and tolerability, and how they were assessed."}
+      - {n: "10d", topic: Follow-up and outcomes, text: "Adverse and unexpected events."}
+      - {n: "11a", topic: Discussion, text: "Strengths and limitations of the approach to this case."}
+      - {n: "11b", topic: Discussion, text: "Relevant medical literature, with references."}
+      - {n: "11c", topic: Discussion, text: "Scientific reasoning behind conclusions, including assessment of possible causes."}
+      - {n: "11d", topic: Discussion, text: "One-paragraph conclusion stating the main lessons, without references."}
+      - {n: "12", topic: Patient perspective, text: "The patient's own account of the treatment received, in one or two paragraphs."}
+      - {n: "13", topic: Informed consent, text: "Whether the patient gave informed consent; provide it if asked."}
+  - id: prs-rs
+    name: PRS-RS
+    full_name: Polygenic Risk Score Reporting Standards
+    version: "2021"
+    kind: reporting-guideline
+    extends: null
+    designs: [polygenic-score]
+    applies_if: a polygenic score is developed or validated, or its predictive performance (discrimination, calibration, risk estimates) is reported in a sample
+    note: >-
+      A paper that only applies published scores (a scoring tool, a pipeline, a personal report) does not
+      bind PRS-RS; it still names each score's PGS Catalog ID, the genome build and how missing variants
+      were handled.
+    scope: >-
+      Studies that develop and/or validate polygenic risk scores, alone or within integrated risk
+      models, for predicting disease or clinical outcomes. Minimal reporting items; it updates the 2011
+      GRIPS statement rather than extending STROBE.
+    sources:
+      equator: null
+      paper_doi: 10.1038/s41586-021-03243-6
+      checklist_url: https://www.nature.com/articles/s41586-021-03243-6/tables/1
+    licence: no open licence found for the Nature version (summaries only); the medRxiv preprint (an earlier 33-item draft) is CC BY
+    licence_basis: >-
+      Crossref lists only Springer TDM licences for 10.1038/s41586-021-03243-6; Europe PMC marks it not
+      open access; the PMC author manuscript (PMC8609771, NIHMS1749270) permits text mining and fair use
+      only. bioRxiv API reports cc_by for medRxiv 10.1101/2020.04.23.20077099 v1-v3.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Table 1 (PRS-RS) on nature.com and in the PMC author manuscript; both have 22 named, unnumbered
+      items in six sections (Background 2, Study population and data 7, Risk model development and
+      application 3, Risk model evaluation 5, Limitations and clinical implications 4, Data transparency
+      and availability 1). Items therefore use short stable ids. EQUATOR library searches for
+      "polygenic", "polygenic score" and "PRS-RS" returned no entry (GRIPS is listed), so equator is null.
+      No later PRS-RS version found. The preprint's 33-item draft differs from the published table.
+    items:
+      - {n: "study-type", topic: Background, text: "Whether the study develops and/or validates a PRS; identifiers (PMID, PGS Catalog ID) of reused scores."}
+      - {n: "purpose-outcome", topic: Background, text: "What the model predicts and why: intended use, predicted outcome, and existing models."}
+      - {n: "design-recruitment", topic: Study population and data, text: "Per dataset: design, eligibility, recruitment period and setting, follow-up; primary or secondary data with source."}
+      - {n: "demographics", topic: Study population and data, text: "Per-dataset distributions of age, sex and relevant clinical traits, split by case status if applicable."}
+      - {n: "ancestry", topic: Study population and data, text: "Ancestry make-up of every sample incl. GWAS sources, its origin, inference method, GWAS Catalog categories."}
+      - {n: "genetic-data", topic: Study population and data, text: "Genotyping or sequencing method, genome build, assay, imputation panel and quality-control filters."}
+      - {n: "non-genetic-variables", topic: Study population and data, text: "Definition, measurement and scale of non-genetic variables; which ones the final model includes."}
+      - {n: "outcome", topic: Study population and data, text: "Outcome definition, ascertainment and distribution, any categorisation, and whether PRS trait equals model outcome."}
+      - {n: "missing-data", topic: Study population and data, text: "How missing data were handled, including any imputation and filtering."}
+      - {n: "prs-construction", topic: Risk model development and application, text: "How variants were selected, weighted and combined into the score; source reference if reused."}
+      - {n: "risk-model-type", topic: Risk model development and application, text: "Method for relative or absolute risk, comparison groups, prediction horizon and baseline incidence."}
+      - {n: "integrated-model", topic: Risk model development and application, text: "How models combining the PRS with other variables were built and chosen; all variables named."}
+      - {n: "prs-distribution", topic: Risk model evaluation, text: "Description of the continuous score distribution."}
+      - {n: "predictive-ability", topic: Risk model evaluation, text: "Overall performance (variance explained) and risk estimates such as odds or hazard ratios."}
+      - {n: "discrimination", topic: Risk model evaluation, text: "AUROC, AUPRC or C-index, plus tail and reclassification measures at clinical thresholds."}
+      - {n: "calibration", topic: Risk model evaluation, text: "Calibration metrics and which variables the assessed model included."}
+      - {n: "subgroups", topic: Risk model evaluation, text: "Subgroup sizes and characteristics, with performance measures for each subgroup."}
+      - {n: "interpretation", topic: Limitations and clinical implications, text: "What the model predicts, how well, for whom; added value over conventional risk models."}
+      - {n: "limitations", topic: Limitations and clinical implications, text: "Study limitations, how they affect interpretation, and replication still needed."}
+      - {n: "generalizability", topic: Limitations and clinical implications, text: "Target populations and limits of generalisability, including external validation and ancestry coverage."}
+      - {n: "intended-uses", topic: Limitations and clinical implications, text: "Any intended clinical use, readiness, and comparison with standard care or existing scores."}
+      - {n: "data-availability", topic: Data transparency and availability, text: "Variant IDs, positions, effect alleles and weights (and non-genetic weights) to recompute; deposit in PGS Catalog."}
+  - id: tripod-ai
+    name: TRIPOD+AI
+    full_name: Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis, updated for regression or machine learning methods
+    version: "2024"
+    kind: reporting-guideline
+    extends: null
+    designs: [prediction-model, polygenic-score]
+    applies_if: a model that predicts an individual's diagnosis or outcome is developed, validated or updated
+    scope: >-
+      Studies that develop, evaluate (validate) or update a diagnostic or prognostic prediction model in
+      health care, whether built with regression or machine learning. It replaces the 2015 TRIPOD checklist;
+      clustered data, systematic reviews of models and LLM studies have their own TRIPOD extensions.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/tripod-statement/
+      paper_doi: 10.1136/bmj-2023-078378
+      checklist_url: https://www.tripod-statement.org/wp-content/uploads/2019/12/TRIPODAI_checklist.pdf
+    licence: CC BY 4.0
+    licence_basis: >-
+      Crossref license field of 10.1136/bmj-2023-078378 (creativecommons.org/licenses/by/4.0); Europe PMC
+      record PMC11019967 licence "cc by"; license statement in the PMC full-text XML.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Table 2 ("TRIPOD+AI checklist") in the Europe PMC full-text XML of PMC11019967 (BMJ
+      2024;385:e078378). The paper states twice that the new checklist supersedes TRIPOD 2015, which should
+      no longer be used; the TRIPOD website says TRIPOD+AI replaces TRIPOD-2015 (27 items). The EQUATOR page
+      at /reporting-guidelines/tripod-statement/ now carries TRIPOD+AI and lists TRIPOD 2015 under
+      "Previous versions" (record updated 2025-01-10); it still advises using the TRIPOD 2015 E&E until a
+      TRIPOD+AI E&E appears, and a Europe PMC title search (2025-2026) found no TRIPOD+AI E&E. Checklist PDF
+      URL returned HTTP 200 (application/pdf). Applicability from the paper is marked in topic: [D] development
+      only, [E] evaluation only; unmarked items apply to both. Item 2 points to the separate TRIPOD+AI for
+      Abstracts list (Table 3), not itemised here.
+    items:
+      - {n: "1", topic: Title, text: "Title signals a study that builds or assesses a multivariable prediction model, naming the population and predicted outcome."}
+      - {n: "2", topic: Abstract, text: "Abstract covers the elements of the separate TRIPOD+AI for Abstracts list."}
+      - {n: "3a", topic: Background, text: "Clinical context (diagnostic or prognostic), why the model is needed, and relevant existing models."}
+      - {n: "3b", topic: Background, text: "Intended population, purpose, place in the care pathway, and intended users of the model."}
+      - {n: "3c", topic: Background, text: "Any documented health disparities across social or demographic groups that bear on the problem."}
+      - {n: "4", topic: Objectives, text: "Aims, saying whether the study develops a model, validates one, or both."}
+      - {n: "5a", topic: Data, text: "Origin of development and evaluation data (trial, cohort, registry, etc.), why chosen, and how representative."}
+      - {n: "5b", topic: Data, text: "Time span of the data: accrual start and end, and end of follow-up if any."}
+      - {n: "6a", topic: Participants, text: "Kind of care setting, how many centres took part, and where they are."}
+      - {n: "6b", topic: Participants, text: "Criteria that decided who was eligible."}
+      - {n: "6c", topic: Participants, text: "Treatments participants received and how the analysis dealt with them, if relevant."}
+      - {n: "7", topic: Data preparation, text: "Preprocessing and quality checks, and whether these were comparable across sociodemographic groups."}
+      - {n: "8a", topic: Outcome, text: "Exact definition of the predicted outcome and time horizon, how and when assessed, why chosen, consistency across groups."}
+      - {n: "8b", topic: Outcome, text: "Training and demographics of outcome assessors when judging the outcome is subjective."}
+      - {n: "8c", topic: Outcome, text: "Any blinding of those who assessed the outcome."}
+      - {n: "9a", topic: "Predictors [D]", text: "How candidate predictors were picked and any pre-selection before modelling."}
+      - {n: "9b", topic: Predictors, text: "Definition of every predictor, how and when measured, and any blinding of that measurement."}
+      - {n: "9c", topic: Predictors, text: "Training and demographics of predictor assessors when measurement is subjective."}
+      - {n: "10", topic: Sample size, text: "How the size of development and evaluation samples was reached and justified, with any calculation."}
+      - {n: "11", topic: Missing data, text: "How missing values were handled and why any data were left out."}
+      - {n: "12a", topic: "Analytical methods [D]", text: "How data were allocated to development and performance evaluation, including any partitioning."}
+      - {n: "12b", topic: "Analytical methods [D]", text: "How predictors were treated in analysis: functional form, rescaling, transformation, standardisation."}
+      - {n: "12c", topic: "Analytical methods [D]", text: "Model type and reason, every model-building step including hyperparameter tuning, and internal validation."}
+      - {n: "12d", topic: Analytical methods, text: "Whether and how heterogeneity of parameters and performance across clusters was handled and quantified."}
+      - {n: "12e", topic: Analytical methods, text: "Performance measures and plots (discrimination, calibration, utility) with rationale, and how models were compared."}
+      - {n: "12f", topic: "Analytical methods [E]", text: "Any updating such as recalibration after evaluation, overall or for particular groups or settings."}
+      - {n: "12g", topic: "Analytical methods [E]", text: "How predictions were produced during evaluation (formula, code, object, API)."}
+      - {n: "13", topic: Class imbalance, text: "Any class-imbalance technique, why and how used, and later recalibration."}
+      - {n: "14", topic: Fairness, text: "Any steps taken to make the model fair across groups, and why."}
+      - {n: "15", topic: "Model output [D]", text: "Form of the output (probability, class) and how and why any thresholds were set."}
+      - {n: "16", topic: Training versus evaluation, text: "Differences between development and evaluation data in setting, eligibility, outcome and predictors."}
+      - {n: "17", topic: Ethical approval, text: "Ethics board that approved the study and how consent was obtained or waived."}
+      - {n: "18a", topic: "Open science: funding", text: "Funding sources and what the funders did."}
+      - {n: "18b", topic: "Open science: conflicts of interest", text: "Competing interests and financial disclosures of every author."}
+      - {n: "18c", topic: "Open science: protocol", text: "Where the protocol is available, or that none was written."}
+      - {n: "18d", topic: "Open science: registration", text: "Registry name and number, or an explicit note of non-registration."}
+      - {n: "18e", topic: "Open science: data sharing", text: "Whether and how the study data can be obtained."}
+      - {n: "18f", topic: "Open science: code sharing", text: "Whether and how the analysis code can be obtained."}
+      - {n: "19", topic: Patient and public involvement, text: "Patient and public involvement at any stage, or a statement that there was none."}
+      - {n: "20a", topic: "Results: participants", text: "Flow of participants, counts of those who did and did not have the outcome, follow-up summary; diagram optional."}
+      - {n: "20b", topic: "Results: participants", text: "Characteristics per source or setting: dates, predictors, treatments, size, events, follow-up, missingness, group differences."}
+      - {n: "20c", topic: "Results: participants [E]", text: "Comparison of predictor and outcome distributions between evaluation and development data."}
+      - {n: "21", topic: Model development, text: "Number of participants and events used in every analysis step (development, tuning, evaluation)."}
+      - {n: "22", topic: "Model specification [D]", text: "Full model (formula, code, object or API) so others can predict and evaluate, plus access restrictions."}
+      - {n: "23a", topic: Model performance, text: "Performance results with confidence intervals, overall and for key subgroups; plots encouraged."}
+      - {n: "23b", topic: Model performance, text: "Results of any check of performance heterogeneity across clusters."}
+      - {n: "24", topic: "Model updating [E]", text: "Outcome of any updating: the updated model and its performance."}
+      - {n: "25", topic: Interpretation, text: "Overall interpretation against objectives and earlier studies, including fairness."}
+      - {n: "26", topic: Limitations, text: "Limitations (sample, size, overfitting, missingness) and their effect on bias, uncertainty and generalisability."}
+      - {n: "27a", topic: "Usability in current care [D]", text: "How poor-quality or unavailable inputs should be detected and handled in deployment."}
+      - {n: "27b", topic: "Usability in current care [D]", text: "Whether users must handle inputs or operate the model, and the expertise required."}
+      - {n: "27c", topic: Usability in current care, text: "Next research steps, with attention to applicability and generalisability."}
+  - id: prisma
+    name: PRISMA 2020
+    full_name: Preferred Reporting Items for Systematic reviews and Meta-Analyses
+    version: "2020"
+    kind: reporting-guideline
+    extends: null
+    designs: [systematic-review]
+    scope: >-
+      Systematic reviews, chiefly of intervention effects, with or without meta-analysis; it also suits other
+      review questions. Scoping, living, network and other review types have dedicated PRISMA extensions.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/prisma/
+      paper_doi: 10.1136/bmj.n71
+      checklist_url: https://www.prisma-statement.org/prisma-2020-checklist
+    licence: CC BY 4.0
+    licence_basis: >-
+      Crossref license field of 10.1136/bmj.n71 (CC BY 4.0); Europe PMC PMC8005924 licence "cc by";
+      prisma-statement.org checklist page states the checklists are distributed under CC BY 4.0.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Table 1 ("PRISMA 2020 item checklist") in the Europe PMC full-text XML of PMC8005924 (BMJ
+      2021;372:n71). EQUATOR /reporting-guidelines/prisma/ shows the PRISMA 2020 statement with links to
+      prisma-statement.org. The PRISMA website (copyright 2024-2026) still names PRISMA 2020 as the main
+      guideline. A web search surfaced pages (journalmetrics.org, casrai.org) claiming a "PRISMA 2026"; they are
+      not primary sources and contradict each other, and Crossref and Europe PMC title searches found no
+      such statement (only the PRISMA-C 2026 paediatric extension, 10.1136/bmj-2025-088561). Treated as
+      no update. Item 2 points to the PRISMA 2020 for Abstracts list (Table 2), not itemised here.
+    items:
+      - {n: "1", topic: Title, text: "Title makes clear the work is a systematic review."}
+      - {n: "2", topic: Abstract, text: "Abstract follows the PRISMA 2020 for Abstracts list."}
+      - {n: "3", topic: Rationale, text: "Why the review was needed given current knowledge."}
+      - {n: "4", topic: Objectives, text: "Explicit objectives or questions the review answers."}
+      - {n: "5", topic: Eligibility criteria, text: "Inclusion and exclusion criteria, and how studies were sorted into groups for each synthesis."}
+      - {n: "6", topic: Information sources, text: "Every database, register, website or other source used, with the date each was last searched."}
+      - {n: "7", topic: Search strategy, text: "Full search strings for every database, register and website searched, with filters and limits."}
+      - {n: "8", topic: Selection process, text: "How inclusion was decided: screeners per record and report, independence, automation tools."}
+      - {n: "9", topic: Data collection process, text: "How data were extracted: extractors per report, independence, contact with investigators, automation."}
+      - {n: "10a", topic: Data items, text: "Outcomes sought and defined, and whether all compatible results were collected or how some were chosen."}
+      - {n: "10b", topic: Data items, text: "Other variables sought (participants, interventions, funding) and assumptions about missing or unclear data."}
+      - {n: "11", topic: Study risk of bias assessment, text: "Risk-of-bias method: tools, number of assessors, independence, automation."}
+      - {n: "12", topic: Effect measures, text: "Effect measure per outcome, such as a risk ratio or mean difference."}
+      - {n: "13a", topic: Synthesis methods, text: "How studies were judged eligible for each synthesis."}
+      - {n: "13b", topic: Synthesis methods, text: "Data preparation before synthesis, such as missing summary statistics or conversions."}
+      - {n: "13c", topic: Synthesis methods, text: "How individual and pooled results were tabulated or displayed."}
+      - {n: "13d", topic: Synthesis methods, text: "Synthesis method and rationale; for meta-analysis, models, heterogeneity methods and software."}
+      - {n: "13e", topic: Synthesis methods, text: "Methods used to explore causes of heterogeneity (subgroups, meta-regression)."}
+      - {n: "13f", topic: Synthesis methods, text: "Sensitivity analyses testing the robustness of pooled results."}
+      - {n: "14", topic: Reporting bias assessment, text: "Methods to judge bias from results missing from a synthesis."}
+      - {n: "15", topic: Certainty assessment, text: "Methods to rate certainty in the body of evidence per outcome."}
+      - {n: "16a", topic: Study selection, text: "Numbers from records identified to studies included, ideally as a flow diagram."}
+      - {n: "16b", topic: Study selection, text: "Studies that looked eligible but were excluded, with reasons."}
+      - {n: "17", topic: Study characteristics, text: "Citation and characteristics of each included study."}
+      - {n: "18", topic: Risk of bias in studies, text: "Risk-of-bias judgement for every included study."}
+      - {n: "19", topic: Results of individual studies, text: "Per study and outcome, group summaries and an effect estimate with precision, in tables or plots."}
+      - {n: "20a", topic: Results of syntheses, text: "For each synthesis, brief characteristics and risk of bias of the contributing studies."}
+      - {n: "20b", topic: Results of syntheses, text: "All synthesis results; for meta-analysis, pooled estimate, precision and heterogeneity; direction of effect."}
+      - {n: "20c", topic: Results of syntheses, text: "Findings of heterogeneity investigations."}
+      - {n: "20d", topic: Results of syntheses, text: "Findings of sensitivity analyses."}
+      - {n: "21", topic: Reporting biases, text: "Bias-from-missing-results assessment for each synthesis assessed."}
+      - {n: "22", topic: Certainty of evidence, text: "Certainty rating of the evidence for each outcome assessed."}
+      - {n: "23a", topic: Discussion, text: "Interpretation of results alongside other evidence."}
+      - {n: "23b", topic: Discussion, text: "Limitations of the evidence included."}
+      - {n: "23c", topic: Discussion, text: "Limitations of the review process."}
+      - {n: "23d", topic: Discussion, text: "What the findings mean for practice, policy and further research."}
+      - {n: "24a", topic: Registration and protocol, text: "Register name and number, or an explicit note of non-registration."}
+      - {n: "24b", topic: Registration and protocol, text: "Where the protocol is available, or that none was prepared."}
+      - {n: "24c", topic: Registration and protocol, text: "Changes from the registration or protocol, with explanation."}
+      - {n: "25", topic: Support, text: "Financial or other support and the funders' role."}
+      - {n: "26", topic: Competing interests, text: "Competing interests of the review authors."}
+      - {n: "27", topic: Availability of data, code and other materials, text: "Which of forms, extracted data, analysis data, code and other materials are public, and where."}
+  - id: consort
+    name: CONSORT 2025
+    full_name: Consolidated Standards of Reporting Trials
+    version: "2025"
+    kind: reporting-guideline
+    extends: null
+    designs: [randomized-trial]
+    scope: >-
+      Reports of the results of randomised trials, with the two-group parallel design as the reference case.
+      Other designs (cluster, crossover, adaptive, etc.) add CONSORT extensions; trial protocols use SPIRIT 2025.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/consort/
+      paper_doi: 10.1136/bmj-2024-081123
+      checklist_url: https://www.consort-spirit.org/
+    licence: CC BY 4.0
+    licence_basis: >-
+      Crossref license field of 10.1136/bmj-2024-081123 (CC BY 4.0); Europe PMC PMC11995449 licence "cc by";
+      license statement in the PMC full-text XML.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Table 1 ("CONSORT 2025 checklist") in the Europe PMC full-text XML of PMC11995449: 30 numbered
+      items (42 rows with sub-items). The paper says it supersedes CONSORT 2010, which should no longer be
+      used. BMJ DOI 10.1136/bmj-2024-081123 confirmed by Crossref (Hopewell S first author, issued
+      2025-04-14); Crossref and Europe PMC give the citation as BMJ 2025;389:e081123, while the EQUATOR page
+      prints volume 388 (apparently an EQUATOR typo). Simultaneous publications listed on EQUATOR: JAMA,
+      Lancet, Nat Med, PLoS Med. The consort-spirit.org home page (HTTP 200) presents CONSORT 2025 as current
+      with a 30-item checklist and links an editable Word checklist; it also announces a 2026 SPIRIT-CONSORT
+      consultation survey, which is not a new version.
+    items:
+      - {n: "1a", topic: Title and structured abstract, text: "Report is identified as a randomised trial."}
+      - {n: "1b", topic: Title and structured abstract, text: "Structured abstract summarising design, methods, results and conclusions."}
+      - {n: "2", topic: "Open science: trial registration", text: "Registry name, trial number with URL, and date registered."}
+      - {n: "3", topic: "Open science: protocol and statistical analysis plan", text: "Where readers can find the protocol and the statistical analysis plan."}
+      - {n: "4", topic: "Open science: data sharing", text: "Where and how de-identified participant data, data dictionary, code and other materials are available."}
+      - {n: "5a", topic: "Open science: funding and conflicts of interest", text: "Funding and other support, and funders' part in design, conduct, analysis and reporting."}
+      - {n: "5b", topic: "Open science: funding and conflicts of interest", text: "Authors' competing interests, financial or otherwise."}
+      - {n: "6", topic: Background and rationale, text: "Scientific background and the reason for doing the trial."}
+      - {n: "7", topic: Objectives, text: "Specific objectives on both benefits and harms."}
+      - {n: "8", topic: Patient and public involvement, text: "How patients or the public took part in design, conduct and reporting."}
+      - {n: "9", topic: Trial design, text: "Trial type, allocation ratio and framework (superiority, equivalence, non-inferiority, exploratory)."}
+      - {n: "10", topic: Changes to trial protocol, text: "Important changes after the start, including unplanned outcomes or analyses, with reasons."}
+      - {n: "11", topic: Trial setting, text: "Settings and locations (countries, sites) where the trial ran."}
+      - {n: "12a", topic: Eligibility criteria, text: "Who could take part as a participant."}
+      - {n: "12b", topic: Eligibility criteria, text: "Where applicable, criteria for sites and for those delivering interventions."}
+      - {n: "13", topic: Intervention and comparator, text: "Intervention and comparator in enough detail to replicate, and where extra materials are."}
+      - {n: "14", topic: Outcomes, text: "Prespecified primary and secondary outcomes: variable, analysis metric, aggregation method, time point."}
+      - {n: "15", topic: Harms, text: "How harms were defined and collected."}
+      - {n: "16a", topic: Sample size, text: "How sample size was set, with all assumptions behind the calculation."}
+      - {n: "16b", topic: Sample size, text: "Any interim analyses and stopping rules."}
+      - {n: "17a", topic: "Randomisation: sequence generation", text: "Who generated the allocation sequence and by what method."}
+      - {n: "17b", topic: "Randomisation: sequence generation", text: "Type of randomisation and restrictions such as stratification or block size."}
+      - {n: "18", topic: "Randomisation: allocation concealment mechanism", text: "How the sequence was implemented and kept hidden until assignment."}
+      - {n: "19", topic: "Randomisation: implementation", text: "Whether staff enrolling or assigning participants could see the sequence."}
+      - {n: "20a", topic: Blinding, text: "Who was blinded after assignment (participants, carers, assessors, analysts)."}
+      - {n: "20b", topic: Blinding, text: "How blinding was achieved and how alike the interventions were."}
+      - {n: "21a", topic: Statistical methods, text: "Methods comparing groups on primary and secondary outcomes, harms included."}
+      - {n: "21b", topic: Statistical methods, text: "Who was included in each analysis and in which group."}
+      - {n: "21c", topic: Statistical methods, text: "Approach to missing data in the analysis."}
+      - {n: "21d", topic: Statistical methods, text: "Methods for additional analyses, separating prespecified from post hoc."}
+      - {n: "22a", topic: Participant flow, text: "Per group, numbers randomised, given the intended intervention, and analysed for the primary outcome."}
+      - {n: "22b", topic: Participant flow, text: "Per group, participants lost or excluded after randomisation, with reasons."}
+      - {n: "23a", topic: Recruitment, text: "Dates of recruitment and of follow-up for benefits and harms."}
+      - {n: "23b", topic: Recruitment, text: "Reason the trial ended or was halted early, if relevant."}
+      - {n: "24a", topic: Intervention and comparator delivery, text: "How interventions were actually delivered: by whom, adherence, fidelity."}
+      - {n: "24b", topic: Intervention and comparator delivery, text: "Concomitant care each group received during the trial."}
+      - {n: "25", topic: Baseline data, text: "Table of baseline demographic and clinical characteristics by group."}
+      - {n: "26", topic: Numbers analysed, outcomes and estimation, text: "Per outcome and group: numbers analysed and with data, results, effect size with precision; absolute and relative for binary."}
+      - {n: "27", topic: Harms, text: "Every harm or unintended effect observed, by group."}
+      - {n: "28", topic: Ancillary analyses, text: "Other analyses such as subgroup or sensitivity, separating prespecified from post hoc."}
+      - {n: "29", topic: Interpretation, text: "Interpretation matching the results, weighing benefits, harms and other evidence."}
+      - {n: "30", topic: Limitations, text: "Limitations: sources of bias, imprecision, generalisability and, where relevant, multiplicity."}
+  - id: arrive
+    name: ARRIVE 2.0
+    full_name: Animal Research - Reporting of In Vivo Experiments, version 2.0
+    version: "2.0 (2020)"
+    kind: reporting-guideline
+    extends: null
+    designs: [animal-experiment]
+    scope: >-
+      Any bioscience research using laboratory animals, in vivo. Items 1-10 are the Essential 10 (minimum);
+      items 11-21 are the Recommended Set (best practice). It does not cover in vitro or human studies.
+    sources:
+      equator: https://www.equator-network.org/reporting-guidelines/improving-bioscience-research-reporting-the-arrive-guidelines-for-reporting-animal-research/
+      paper_doi: 10.1371/journal.pbio.3000410
+      checklist_url: https://arriveguidelines.org/resources/author-checklists
+    licence: CC0 1.0
+    licence_basis: >-
+      Crossref license field of 10.1371/journal.pbio.3000410 (creativecommons.org/publicdomain/zero/1.0);
+      Europe PMC PMC7360023 licence "cc0"; CC0 dedication in the PMC full-text XML. Same for the E&E
+      (10.1371/journal.pbio.3000411).
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Table 1 (ARRIVE Essential 10) and Table 2 (Recommended Set) in the Europe PMC full-text XML of
+      PMC7360023 (PLoS Biol 2020;18(7):e3000410). Sub-items a-d appear inside items as in the official
+      checklist. The EQUATOR record keeps its 2010-era URL slug but is titled ARRIVE 2.0 and lists the 2010
+      guideline as the previous version; it cites the statement as PLoS Biol e3000411 with PMID 32663219,
+      but e3000411 is the E&E's number (Crossref and Europe PMC put the statement at e3000410, PMID 32663219).
+      The arriveguidelines.org author-checklists page (HTTP 200) offers full and Essential-10-only fillable
+      checklists. That site says the E&E was published "under a CC-BY license", while Crossref and PMC record
+      CC0. No newer ARRIVE version found by web search.
+    items:
+      - {n: "1a", topic: "Study design (Essential 10)", text: "Groups compared in each experiment, controls included, or why there is no control."}
+      - {n: "1b", topic: "Study design (Essential 10)", text: "The experimental unit (single animal, litter, cage)."}
+      - {n: "2a", topic: "Sample size (Essential 10)", text: "Exact experimental units per group and per experiment, and total animals used."}
+      - {n: "2b", topic: "Sample size (Essential 10)", text: "How sample size was chosen, with any a priori calculation."}
+      - {n: "3a", topic: "Inclusion and exclusion criteria (Essential 10)", text: "Criteria for including or excluding animals, units or data points, whether preset, or that none existed."}
+      - {n: "3b", topic: "Inclusion and exclusion criteria (Essential 10)", text: "Per group, any animals, units or data points excluded from analysis and why, or that none were."}
+      - {n: "3c", topic: "Inclusion and exclusion criteria (Essential 10)", text: "Exact n per group in every analysis."}
+      - {n: "4a", topic: "Randomisation (Essential 10)", text: "Whether allocation was randomised and how the sequence was generated."}
+      - {n: "4b", topic: "Randomisation (Essential 10)", text: "How confounders such as treatment order or cage position were controlled, or that they were not."}
+      - {n: "5", topic: "Blinding (Essential 10)", text: "Who knew group allocation during allocation, conduct, outcome assessment and analysis."}
+      - {n: "6a", topic: "Outcome measures (Essential 10)", text: "Definition of every outcome measure assessed."}
+      - {n: "6b", topic: "Outcome measures (Essential 10)", text: "For hypothesis tests, the primary outcome that drove the sample size."}
+      - {n: "7a", topic: "Statistical methods (Essential 10)", text: "Statistical method for each analysis, with software."}
+      - {n: "7b", topic: "Statistical methods (Essential 10)", text: "How test assumptions were checked and what was done if unmet."}
+      - {n: "8a", topic: "Experimental animals (Essential 10)", text: "Species, strain/substrain, sex, life stage or age, and body weight where it matters."}
+      - {n: "8b", topic: "Experimental animals (Essential 10)", text: "Source, health or immune status, genetic modification, genotype and prior procedures."}
+      - {n: "9a", topic: "Experimental procedures (Essential 10)", text: "For each group, what was done, how, and with which materials, in replicable detail."}
+      - {n: "9b", topic: "Experimental procedures (Essential 10)", text: "When and how often procedures were done."}
+      - {n: "9c", topic: "Experimental procedures (Essential 10)", text: "Where procedures took place, including acclimatisation."}
+      - {n: "9d", topic: "Experimental procedures (Essential 10)", text: "Rationale for the procedures."}
+      - {n: "10a", topic: "Results (Essential 10)", text: "Per group descriptive statistics with variability, for each experiment and replication."}
+      - {n: "10b", topic: "Results (Essential 10)", text: "Effect size with confidence interval where applicable."}
+      - {n: "11", topic: "Abstract (Recommended Set)", text: "Accurate summary of aims, species, strain and sex, methods, findings and conclusions."}
+      - {n: "12a", topic: "Background (Recommended Set)", text: "Scientific context and rationale, and the experimental approach."}
+      - {n: "12b", topic: "Background (Recommended Set)", text: "Why the species and model suit the aims and, where apt, their relevance to humans."}
+      - {n: "13", topic: "Objectives (Recommended Set)", text: "Research question, objectives and any specific hypotheses."}
+      - {n: "14", topic: "Ethical statement (Recommended Set)", text: "Approving ethics body and licence or protocol numbers, or justification for no approval."}
+      - {n: "15", topic: "Housing and husbandry (Recommended Set)", text: "Housing and husbandry conditions, including enrichment."}
+      - {n: "16a", topic: "Animal care and monitoring (Recommended Set)", text: "Measures used to lessen pain, suffering and distress."}
+      - {n: "16b", topic: "Animal care and monitoring (Recommended Set)", text: "Expected and unexpected adverse events."}
+      - {n: "16c", topic: "Animal care and monitoring (Recommended Set)", text: "Humane endpoints, signs and frequency of monitoring, or that none were set."}
+      - {n: "17a", topic: "Interpretation/scientific implications (Recommended Set)", text: "Interpretation against aims, hypotheses, theory and other studies."}
+      - {n: "17b", topic: "Interpretation/scientific implications (Recommended Set)", text: "Limitations: bias sources, animal-model limits, imprecision."}
+      - {n: "18", topic: "Generalisability/translation (Recommended Set)", text: "Whether findings may transfer to other species or conditions, including humans."}
+      - {n: "19", topic: "Protocol registration (Recommended Set)", text: "Whether a protocol existed beforehand and where it was registered."}
+      - {n: "20", topic: "Data access (Recommended Set)", text: "Whether and where the study data are available."}
+      - {n: "21a", topic: "Declaration of interests (Recommended Set)", text: "Financial and non-financial conflicts of interest, or that none exist."}
+      - {n: "21b", topic: "Declaration of interests (Recommended Set)", text: "All funding sources with grant identifiers and funders' role."}
+  - id: mdar
+    name: MDAR
+    full_name: Materials Design Analysis Reporting framework (checklist for authors)
+    version: "2021 framework; author checklist file revision 4 (2026-09-22), text unchanged since 2020"
+    kind: reporting-guideline
+    extends: null
+    designs: [in-vitro-experiment, animal-experiment, omics-profiling, microbiome-metagenomics]
+    applies_if: a laboratory life-science study; most useful when the venue uses MDAR or a checklist built on it
+    scope: >-
+      A cross-journal minimum standard for transparent reporting of life-science research papers, covering
+      materials, design, analysis and reporting. It is generalist and defers to discipline-specific guidelines
+      (ARRIVE, CONSORT, PRISMA) rather than replacing them.
+    sources:
+      equator: null
+      paper_doi: 10.1073/pnas.2103238118
+      checklist_url: https://osf.io/bj3mu/
+    licence: CC BY 4.0
+    licence_basis: >-
+      Crossref license field of 10.1073/pnas.2103238118 (CC BY 4.0); Europe PMC PMC8092464 licence "cc by";
+      OSF project 2k3va (holds the checklist, framework and elaboration files) licence "CC-By Attribution 4.0
+      International" via the OSF API.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      PNAS paper (Macleod et al. 2021) Box 1 points to the Framework (osf.io/xfpn4), the Checklist
+      (osf.io/bj3mu) and the Elaboration document (osf.io/xzy4s). Read the checklist itself: OSF file
+      MDAR-checklist-Author.pdf, revision 4 uploaded 2026-09-22, and compared it with revision 3 (2020-11-25,
+      a Word file); the item text is identical, so the new revision is a re-export, not a content change.
+      The checklist has no item numbers: four sections (Materials, Design, Analysis, Reporting) with named
+      items; `n` below is a slug of each item label. EQUATOR library title searches for "MDAR",
+      "Materials Design", "MDAR framework" and "Macleod" returned "Nothing Found", and web searches showed no
+      EQUATOR page, so there is no EQUATOR entry.
+    items:
+      - {n: newly-created-materials, topic: "Materials: Newly created materials", text: "A materials availability statement saying how new materials can be obtained and any access limits."}
+      - {n: antibodies, topic: "Materials: Antibodies", text: "For commercial antibodies, supplier, catalogue number and RRID if one exists."}
+      - {n: dna-and-rna-sequences, topic: "Materials: DNA and RNA sequences", text: "Short new sequences such as primers and probes given in the paper or deposited publicly."}
+      - {n: cell-materials, topic: "Materials: Cell materials", text: "Cell lines: species, strain, accession or supplier/catalogue/clone or RRID; primary cultures: species, strain, donor sex, modification."}
+      - {n: experimental-animals, topic: "Materials: Experimental animals", text: "Lab animals: species, strain, sex, age, modification, source ID or RRID; field animals: species, sex, age if possible."}
+      - {n: plants-and-microbes, topic: "Materials: Plants and microbes", text: "Species and strain (plus ecotype or cultivar), accession if any, and source or collection location."}
+      - {n: human-research-participants, topic: "Materials: Human research participants", text: "Participant age, sex, gender or ethnicity when gathered and privacy permits, or a note that they were not gathered."}
+      - {n: study-protocol, topic: "Design: Study protocol", text: "DOI of a preregistered protocol; for clinical trials, the registration number or DOI."}
+      - {n: laboratory-protocol, topic: "Design: Laboratory protocol", text: "DOI or citation for detailed step-by-step protocols when available."}
+      - {n: experimental-study-design, topic: "Design: Experimental study design (statistics details)", text: "For in vivo work, whether and how sample size, randomisation, blinding and inclusion/exclusion were handled, or not done."}
+      - {n: sample-definition-and-in-laboratory-replication, topic: "Design: Sample definition and in-laboratory replication", text: "How often each experiment was repeated in the lab, and whether replicates are technical or biological."}
+      - {n: ethics, topic: "Design: Ethics", text: "Approving authority and reference number for human or animal work; permits for field or specimen samples, or why none."}
+      - {n: dual-use-research-of-concern, topic: "Design: Dual Use Research of Concern (DURC)", text: "Where DURC rules apply, the approving authority and approval reference."}
+      - {n: attrition, topic: "Analysis: Attrition", text: "Whether exclusion criteria were preset; any omitted samples or data points, whether attrition or deliberate, and why."}
+      - {n: statistics, topic: "Analysis: Statistics", text: "Statistical tests used and why they were chosen."}
+      - {n: data-availability, topic: "Analysis: Data availability", text: "A data availability statement; accession, DOI or URL and licence for new data, and identifiers or citations for reused data."}
+      - {n: code-availability, topic: "Analysis: Code availability", text: "An availability statement for essential new or reused code; accession, DOI or URL, licence and access restrictions."}
+      - {n: adherence-to-community-standards, topic: "Reporting: Adherence to community standards", text: "Which community reporting guidelines were followed, and whether a filled-in checklist such as CONSORT or ARRIVE accompanies the paper."}
+  - id: dome
+    name: DOME
+    full_name: "DOME: recommendations for supervised machine learning validation in biology (Data, Optimization, Model, Evaluation)"
+    version: "2021"
+    kind: reporting-guideline
+    extends: null
+    designs: [prediction-model, method-benchmark, software-tool]
+    applies_if: a supervised machine-learning model is trained, tuned or evaluated
+    scope: >-
+      Methods sections of papers that report supervised machine learning in biology, usually without direct
+      experimental validation. Clinical applications and unsupervised, semi-supervised or reinforcement learning
+      are explicitly outside its scope.
+    sources:
+      equator: null
+      paper_doi: 10.1038/s41592-021-01205-4
+      checklist_url: https://dome-ml.org/guidelines
+    licence: no open licence found for the defining paper (summaries only)
+    licence_basis: >-
+      Crossref for 10.1038/s41592-021-01205-4 lists only the Springer TDM licence; Europe PMC (PMID
+      34316068) has no PMC copy and isOpenAccess N; the Nature Methods article page shows only "Reprints and
+      permissions", no Creative Commons licence. The dome-ml.org footer pairs "All rights reserved" with a
+      CC BY 4.0 badge (contradictory, and it covers the website, not the paper); the checklist GitHub repo
+      MachineLearning-ELIXIR/dome-ml has no licence. The DOME Registry paper (10.1093/gigascience/giae094) is
+      CC BY 4.0 per Crossref but does not define the items.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Read Box 1 (21 questions in four sections: Data 4, Optimization 8, Model 4, Evaluation 5) and Table 1
+      on the Nature Methods page of Walsh et al. 2021 (fetched with a browser User-Agent). The paper gives no
+      item numbers and no requirement/recommendation labels. The numbering 1.1-4.5 and the labels in `topic`
+      come from the DOME-ML guidelines page (dome-ml.org/guidelines, an Angular app whose text was read from
+      its JS bundle); the questions there match Box 1. No revised DOME recommendations found: the newer outputs
+      are the DOME Registry (registry.dome-ml.org; Attafi et al., GigaScience 2024, 10.1093/gigascience/giae094),
+      DOME Copilot, a 2025 training course, and the related OSAI recommendations (arXiv 2505.16619, v2 October
+      2025). No EQUATOR entry: EQUATOR title searches for "DOME" (only CORDES returned), "supervised machine
+      learning", "DOME recommendations" and "Walsh" found nothing, and the 8 hits for "machine learning" do
+      not include DOME.
+    items:
+      - {n: "1.1", topic: "Data: Provenance (requirement)", text: "Data source, per-class counts or number of regression values, and prior use of the dataset."}
+      - {n: "1.2", topic: "Data: Data splits (requirement)", text: "Training, validation and test set sizes, and whether and how their distributions differ (plotted)."}
+      - {n: "1.3", topic: "Data: Redundancy between data splits (requirement)", text: "How sets were split and independence enforced (e.g. identity cut-off), versus earlier published datasets."}
+      - {n: "1.4", topic: "Data: Availability of data (requirement)", text: "Whether data and exact splits are public, where, and under which licence."}
+      - {n: "2.1", topic: "Optimization: Algorithm (requirement)", text: "Algorithm class, whether it is new, and why chosen over established options."}
+      - {n: "2.2", topic: "Optimization: Meta-predictions (requirement)", text: "Whether other models' outputs are inputs, which ones, and that their training data stay independent of the test set."}
+      - {n: "2.3", topic: "Optimization: Data encoding (recommendation)", text: "How inputs were encoded and preprocessed."}
+      - {n: "2.4", topic: "Optimization: Parameters (recommendation)", text: "Number of model parameters and how it was chosen."}
+      - {n: "2.5", topic: "Optimization: Features (recommendation)", text: "Number of input features, any feature selection, and whether selection used training data only."}
+      - {n: "2.6", topic: "Optimization: Fitting (recommendation)", text: "How over- or underfitting was ruled out given parameter and feature counts versus training size."}
+      - {n: "2.7", topic: "Optimization: Regularization (requirement)", text: "Overfitting safeguards used, such as early stopping on a validation set."}
+      - {n: "2.8", topic: "Optimization: Availability of configuration (recommendation)", text: "Whether hyperparameters, schedules, model files and settings are released, where, and under which licence."}
+      - {n: "3.1", topic: "Model: Interpretability (recommendation)", text: "Whether the model is a black box or interpretable, with examples if interpretable."}
+      - {n: "3.2", topic: "Model: Output (requirement)", text: "Whether the model performs classification or regression."}
+      - {n: "3.3", topic: "Model: Execution time (recommendation)", text: "Time for one typical prediction on stated hardware."}
+      - {n: "3.4", topic: "Model: Availability of software (requirement)", text: "Whether source code and a runnable form (executable, web server, container) are released, where, and licence."}
+      - {n: "4.1", topic: "Evaluation: Evaluation method (requirement)", text: "How performance was assessed (cross-validation, independent dataset, new experiments)."}
+      - {n: "4.2", topic: "Evaluation: Performance measures (requirement)", text: "Metrics reported and whether the set is representative of the field."}
+      - {n: "4.3", topic: "Evaluation: Comparison (requirement)", text: "Comparison with public methods on benchmark data and with simpler baselines."}
+      - {n: "4.4", topic: "Evaluation: Confidence (recommendation)", text: "Confidence intervals on metrics and statistical support for any superiority claim."}
+      - {n: "4.5", topic: "Evaluation: Availability of evaluation (recommendation)", text: "Whether raw evaluation outputs (predictions, statistics code, confusion matrices) are released, where, and licence."}
+  - id: minseqe
+    name: MINSEQE
+    full_name: Minimum Information about a high-throughput Nucleotide SeQuencing Experiment
+    version: "1.0 (June 2012)"
+    kind: minimum-information
+    extends: null
+    designs: [omics-profiling]
+    applies_if: high-throughput sequencing data (RNA-seq, ChIP-seq, ATAC-seq and similar) are reported
+    scope: >-
+      Says what has to accompany the data from a functional-genomics experiment run on high-throughput
+      sequencing (expression, binding, methylation and similar assays) so that others can interpret and
+      reproduce it. It covers the data and its description, not the structure of the manuscript. Its
+      steward, the FGED Society, stopped operating in 2021, so the text is frozen at 1.0.
+    sources:
+      equator: null
+      paper_doi: 10.5281/zenodo.5706412   # Zenodo DOI of the specification itself; no journal paper defines MINSEQE
+      checklist_url: https://zenodo.org/records/5706412
+    licence: CC BY 4.0
+    licence_basis: >-
+      Zenodo record 5706412 metadata (license id cc-by-4.0) for MINSEQE_1.0.pdf; FAIRsharing record
+      10.25504/FAIRsharing.a55z32 also lists CC BY 4.0. The FGED page itself states no licence.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Home page https://www.fged.org/projects/minseqe/ lists the five elements, names version 1.0 (June
+      2012, developed from a 2008 draft) and links the Zenodo DOI as the official reference; it cites no
+      defining paper. Zenodo API (records/5706412) confirmed title, version 1.0, publication date
+      2012-06-01, DOI 10.5281/zenodo.5706412 and the CC BY 4.0 licence; the downloaded MINSEQE_1.0.pdf
+      (2 pages) numbers the five elements 1-5 in the order used below. https://www.fged.org/ states the
+      FGED Society operated 1999-2021 and has closed. FAIRsharing a55z32 (rendered page, last reviewed
+      2026-05-25) gives the Zenodo DOI as homepage and year of creation 2008.
+    items:
+      - {n: "1", topic: Samples and variables, text: "Describe the biological system, the samples and the experimental variables being studied."}
+      - {n: "2", topic: Read data, text: "Supply the sequence reads for every assay together with base-level quality scores, e.g. as FASTQ."}
+      - {n: "3", topic: Processed data, text: "Supply the final processed or summary data that the conclusions rest on, with its format described."}
+      - {n: "4", topic: Experiment overview, text: "Give a study summary and state which data files come from which sample."}
+      - {n: "5", topic: Protocols, text: "Report the essential wet-lab and computational protocols, from sample preparation through alignment and analysis."}
+  - id: miame
+    name: MIAME
+    full_name: Minimum Information About a Microarray Experiment
+    version: "2001 (Brazma et al.); the FGED page names no later version"
+    kind: minimum-information
+    extends: null
+    designs: [omics-profiling]
+    applies_if: microarray data are reported
+    scope: >-
+      Defines the information needed to interpret a microarray experiment unambiguously and, ideally,
+      repeat it; it fixes the content to be reported, not a file format. Journals invoke it when array
+      data are deposited in GEO or ArrayExpress; it does not cover sequencing-based assays (see MINSEQE).
+    sources:
+      equator: null
+      paper_doi: 10.1038/ng1201-365
+      checklist_url: https://www.fged.org/projects/miame/
+    licence: none stated (not openly licensed)
+    licence_basis: >-
+      Crossref license field for 10.1038/ng1201-365 carries only the Springer text-and-data-mining
+      licence (http://www.springer.com/tdm), which is not a reuse licence; Europe PMC (PMID 11726920)
+      has no PMC copy and flags it not open access; the FGED page and FAIRsharing 32b10v state no licence.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      https://www.fged.org/projects/miame/ lists the six most critical elements used below, cites
+      Brazma et al. 2001 and states no version or licence; the site notes FGED has closed. Crossref
+      confirmed title, Nature Genetics, December 2001, first authors Brazma, Hingamp, Quackenbush,
+      Sherlock. PubMed abstract (PMID 11726920) read; the full paper is paywalled and was not read, so
+      the items follow FGED's six-element summary rather than the paper's own section layout.
+      FAIRsharing record 10.25504/FAIRsharing.32b10v (rendered) confirms the FGED homepage and year of
+      creation 1999. The Nature Portfolio reporting-standards page still requires gene expression data
+      to be MIAME compliant on deposition in GEO or ArrayExpress.
+    items:
+      - {n: raw-data, topic: Raw data, text: "Deposit the unprocessed output of every hybridisation, such as CEL or GPR files."}
+      - {n: processed-data, topic: Processed data, text: "Deposit the final normalised data set, such as the expression matrix the conclusions are drawn from."}
+      - {n: sample-annotation, topic: Samples, text: "Annotate each sample, including the experimental factors and their values."}
+      - {n: experimental-design, topic: Design, text: "Describe the design, linking data files to samples and marking technical versus biological replicates."}
+      - {n: array-annotation, topic: Array, text: "Identify the array content: gene IDs, coordinates, probe sequences or a commercial catalogue number."}
+      - {n: protocols, topic: Protocols, text: "Report the essential lab and data-processing protocols, including the normalisation method."}
+  - id: mixs
+    name: MIxS
+    full_name: Minimum Information about any (x) Sequence
+    version: "7.0.1 (released 2026-08-01; follows the 7.0.0 major release of 2026-07-29)"
+    kind: minimum-information
+    extends: null
+    designs: [microbiome-metagenomics]
+    applies_if: sequences from environmental, host-associated or microbial samples are deposited
+    scope: >-
+      Genomic Standards Consortium framework for the contextual metadata of a sequenced sample: one
+      checklist per kind of sequence (genome, metagenome, marker gene, single-cell or metagenome-assembled
+      genome, uncultivated virus), optionally combined with an environment extension. It governs sample
+      metadata submitted to INSDC archives, not the structure of a manuscript.
+    sources:
+      equator: null
+      paper_doi: 10.1038/nbt.1823
+      checklist_url: https://genomicsstandardsconsortium.github.io/mixs/
+    licence: CC0 1.0 (the standard; the defining paper is not openly licensed)
+    licence_basis: >-
+      Repository LICENSE at tag v7.0.1 (GitHub API license id CC0-1.0; file header 'CC0 1.0 Universal').
+      For the paper, the Crossref license field of 10.1038/nbt.1823 carries only the Springer TDM licence,
+      and Europe PMC lists PMC3367316 as an author manuscript that is not open access. FAIRsharing
+      9aa0zp lists CC BY 1.0, which conflicts with the repository LICENSE; the repository is taken as
+      authoritative.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      GitHub releases API for GenomicsStandardsConsortium/mixs: latest is v7.0.1 (2026-08-01), after
+      v7.0.0 (2026-07-29, major: 65 new reporting terms, MInAS ancient-DNA extension, env_medium now
+      multivalued with pipe-separated values) and v6.3.1 (2026-07-14). The release notes say nothing
+      valid under 7.0.0 becomes invalid under 7.0.1. The documentation site lists version-change pages up
+      to v7.0.0 to v7.0.1. The schema src/mixs/schema/mixs.yaml at tag v7.0.1 declares version 7.0.1 and
+      cites doi 10.1038/nbt.1823. Its 13 checklist classes are MIGS bacteria (MigsBa), MIGS eukaryote
+      (MigsEu), MIGS organelle (MigsOrg), MIGS plasmid (MigsPl), MIGS virus (MigsVi), MIMS, MIMARKS
+      survey (MimarksS), MIMARKS specimen (MimarksC), MISAG, MIMAG, MIUViG, MIMS-MISIP and MIMARKS
+      specimen-MISIP (the last two are stable-isotope-probing variants added in 6.3.0/6.3.1). Its 24
+      extensions are agriculture, air, ancient (MInAS, new in 7.0.0), built environment, food-animal and
+      animal feed, food-farm environment, food-food production facility, food-human foods,
+      host-associated, human-associated, human-gut, human-oral, human-skin, human-vaginal, hydrocarbon
+      resources-cores, hydrocarbon resources-fluids/swabs, microbial mat/biofilm, miscellaneous natural
+      or artificial environment, plant-associated, sediment, soil, symbiont-associated,
+      wastewater/sludge and water. The items below are the slots required in all 13 checklists,
+      computed from slot definitions plus each checklist's slot_usage in that schema (each checklist adds
+      its own mandatory fields, e.g. target_gene for MIMARKS, assembly fields for MIGS/MIMAG/MISAG).
+      Crossref confirmed the paper (Yilmaz, Kottmann, Field, Knight et al., Nat Biotechnol, May 2011).
+      FAIRsharing 10.25504/FAIRsharing.9aa0zp (rendered, last edited 2026-06-22) points to the GitHub
+      repository as homepage.
+    items:
+      - {n: project_name, topic: Investigation, text: "Name the project under which the sequencing was organised."}
+      - {n: samp_name, topic: Investigation, text: "Give a concise, unique local name for the sample that was sequenced."}
+      - {n: samp_taxon_id, topic: Investigation, text: "Give the NCBI taxon ID of the sample, or a metagenome taxon for mixed samples and controls."}
+      - {n: collection_date, topic: Environment, text: "State when the sample was taken, as an ISO 8601 date or interval, truncated if needed."}
+      - {n: geo_loc_name, topic: Environment, text: "Name the country or sea of origin from INSDC/GAZ, followed by the region."}
+      - {n: lat_lon, topic: Environment, text: "Give the sampling latitude and longitude in WGS84 decimal degrees."}
+      - {n: env_broad_scale, topic: Environment, text: "Name the coarse environmental system sampled, ideally an ENVO biome term."}
+      - {n: env_local_scale, topic: Environment, text: "Name the nearby entities that plausibly influence the sample, using finer-grained ENVO terms."}
+      - {n: env_medium, topic: Environment, text: "Name the material directly surrounding the sample when taken, using ENVO environmental-material terms."}
+      - {n: seq_meth, topic: Sequencing, text: "Name the sequencing instrument used, preferably with an OBI sequencer term."}
+
+  # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  - id: nature-reporting-summary
+    name: Nature Portfolio Reporting Summary
+    full_name: Nature Portfolio Reporting Summary (life sciences, behavioural & social sciences, ecology/evolution/environmental sciences)
+    version: "Current flat copy is the Aug-2023 extended form (PDF created 2023-08-02); fillable form last modified 2023-10-05"
+    kind: venue-checklist
+    extends: null
+    designs: []
+    match: {keys: ['^nature$', '^nature-'], publishers: []}
+    venues:
+      - Nature
+      - Nature Communications
+      - Nature Portfolio journals (research articles in the life sciences, behavioural & social sciences, and ecology, evolution & environmental sciences)
+    scope: >-
+      Journal form on statistics, code, data, materials and study design that research articles in
+      these fields must submit for peer review; it is published with every accepted paper. Physical-science
+      papers use separate field forms (solar cells, claims of lasing) instead.
+    sources:
+      equator: null
+      paper_doi: null
+      checklist_url: https://www.nature.com/documents/nr-reporting-summary-flat.pdf
+      fillable_url: https://www.nature.com/documents/nr-reporting-summary.pdf
+      policy_url: https://www.nature.com/nature-portfolio/editorial-policies/reporting-standards
+    licence: CC BY 4.0
+    licence_basis: >-
+      The reporting-standards page says the templates may be reused and adapted with attribution under
+      CC BY; the flat PDF carries a CC BY 4.0 International licence statement.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      Fetched the reporting-standards page (via cookie redirect): life-sciences, behavioural & social
+      sciences and ecology/evolution/environmental research articles must include a reporting summary,
+      shown to editors and reviewers and published with accepted papers; it links
+      nr-reporting-summary-Apr-2023-flat.pdf, nr-reporting-summary.pdf and the flat reference copy
+      nr-reporting-summary-flat.pdf, plus the solar-cell and lasing forms. All three reporting-summary
+      PDFs return 200; the flat copy's embedded title is nr-reporting-summary-Aug-2023-extended.pdf.
+      The same requirement text appears on https://www.nature.com/ncomms/editorial-policies/reporting-standards
+      and on Nature's initial-submission page. The Scientific Reports editorial-policies and submission
+      pages did not mention it, so Scientific Reports is not listed. The page does not mention MDAR.
+    items: []
+  - id: nature-editorial-policy-checklist
+    name: Nature Portfolio Editorial Policy Checklist
+    full_name: Nature Portfolio Editorial Policy Checklist
+    version: "withdrawn; replaced by a notice dated 2026-01-23 (last real form: Apr-2023)"
+    kind: venue-checklist
+    extends: null
+    designs: []
+    match: {keys: ['^nature$', '^nature-'], publishers: []}
+    venues: []
+    scope: >-
+      Former Nature Portfolio form on competing interests, authorship (including LLM use), data
+      availability and ethics. It is no longer required for submissions; do not ask authors for it.
+    sources:
+      equator: null
+      paper_doi: null
+      checklist_url: https://www.nature.com/documents/nr-editorial-policy-checklist.pdf
+    licence: not established
+    licence_basis: Not checked; the form is withdrawn.
+    checked: 2026-10-15
+    status: withdrawn
+    verification: >-
+      nr-editorial-policy-checklist.pdf and nr-editorial-policy-checklist-flat.pdf now serve a one-page
+      PDF (created 2026-01-23) stating the form is no longer required for Nature Portfolio submissions and
+      has been removed, pointing to https://www.nature.com/nature-portfolio/editorial-policies. The old
+      nr-editorial-policy-checklist-Apr-2023-flat.pdf still downloads (4 pages, created 2023-04-03) but
+      is unlinked from the reporting-standards page. The reporting summary's flat PDF still refers to the
+      Editorial Policy Checklist in its preamble, a stale cross-reference.
+    items: []
+  - id: cell-star-methods
+    name: STAR Methods
+    full_name: Cell Press STAR Methods (structured, transparent, accessible reporting) with Key Resources Table
+    version: "Guide dated 2026-04-10 (general authors); Cell-specific guide PDF created 2024-08-23"
+    kind: venue-checklist
+    extends: null
+    designs: []
+    match: {keys: ['^iscience$'], publishers: ['^Cell Press / Elsevier$']}
+    venues:
+      - Cell Press life science journals (e.g. Cell, Cancer Cell, Cell Genomics, Cell Host & Microbe, Cell Metabolism, Cell Reports, Cell Systems, Current Biology, Immunity, Molecular Cell, Neuron)
+      - iScience
+      - Stem Cell Reports (partner journal)
+    scope: >-
+      House methods format: four standard headings (experimental model and study participant details,
+      method details, quantification and statistical analysis, additional resources) plus a Key Resources
+      Table listing reagents, organisms, cell lines, software and data. Required before acceptance,
+      encouraged but not required at first submission.
+    sources:
+      equator: null
+      paper_doi: null
+      checklist_url: https://www.cell.com/pb-assets/journals/research/cell/methods/Methods_Guide_general-1678470557763.pdf
+      author_guide_url: https://www.cell.com/star-authors-guide
+      cell_guide_url: https://www.cell.com/pb-assets/journals/research/cell/methods/Methods_Guide_Cell-1678470557763.pdf
+      krt_template_url: https://www.cell.com/pb-assets/journals/research/cell/methods/table-template1-1699013648137.docx
+      krt_webform_url: https://star-methods.com/
+    licence: none stated
+    licence_basis: Neither guide PDF carries a licence or copyright statement; no open licence found.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      The live HTML guide https://www.cell.com/star-authors-guide returns 403 to scripted clients
+      (WebFetch and curl), so its current text was read from the Wayback snapshot of 2025-03-12, which
+      links the two guide PDFs, the KRT Word template and the star-methods.com webform. All four links
+      return 200 today. The general guide PDF (dated 2026-04-10 on its pages) says STAR Methods is used in
+      Cell Press life science journals, iScience and partner Stem Cell Reports, is required for
+      acceptance but not for initial submission, has four standard headings (method details mandatory)
+      and a KRT, and includes a reference sheet editors check. Elsevier's key-resources-table page
+      confirms the KRT as part of STAR Methods. The venue list names journals from the cell.com journal
+      menu in the 2025 snapshot; the PDF names only the groups.
+    items: []
+  - id: embo-author-checklist
+    name: EMBO Press Author Checklist
+    full_name: EMBO Press Author Checklist (reporting checklist for life science articles, adapted from MDAR)
+    version: "Spreadsheet last modified 2022-01-18"
+    kind: venue-checklist
+    extends: null
+    designs: []
+    match: {keys: [], publishers: ['^EMBO Press']}
+    venues:
+      - The EMBO Journal
+      - EMBO Reports
+      - Molecular Systems Biology
+      - EMBO Molecular Medicine
+    scope: >-
+      MDAR-based checklist on data presentation, figure captions, materials, design and statistics,
+      required with every revised research paper and published in the article's transparent process
+      file. Comes with a Reagents and Tools table and a Source Data checklist.
+    sources:
+      equator: null
+      paper_doi: null
+      checklist_url: https://media.springernature.com/original/springer-cms/rest/v1/content/27825796/data/v1
+      author_guide_url: https://link.springer.com/journal/44318/submission-guidelines
+    licence: none stated
+    licence_basis: The spreadsheet and guideline pages state no licence; no open licence found.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      embopress.org author-guide URLs now redirect to Springer Nature Link. Submission-guideline pages
+      for The EMBO Journal (44318), EMBO Reports (44319), Molecular Systems Biology (44320) and EMBO
+      Molecular Medicine (44321), rendered in headless Chrome past a JavaScript challenge, each require
+      revisions of research papers to include the reporting checklist for life science articles, link
+      the same xlsx, and say it will appear in the transparent process file. The xlsx (EMBO Press Author
+      Checklist, created 2021-10-13, modified 2022-01-18) names all four journals and states it is
+      adapted from the MDAR Checklist for Authors (statement of task doi 10.31222/osf.io/9sm4x).
+      Required at revision; whether it is also needed at first submission was not checked.
+    items: []
+  - id: elife-mdar-checklist
+    name: eLife MDAR checklist
+    full_name: eLife reporting form based on the MDAR (Materials Design Analysis Reporting) checklist
+    version: "Not dated on the author-instructions page"
+    kind: venue-checklist
+    extends: null
+    designs: []
+    match: {keys: ['^elife$'], publishers: []}
+    venues:
+      - eLife
+    scope: >-
+      eLife endorses the MDAR framework and asks authors to upload a completed MDAR-based form saying
+      where sample size, replicates and statistics are reported; the form is published as a
+      supplementary file. eLife also asks for a Key Resources Table where appropriate.
+    sources:
+      equator: null
+      paper_doi: null
+      checklist_url: https://elife-cdn.s3.amazonaws.com/xpub/guides/eLife_MDAR_checklist.pdf
+      word_url: https://elife-cdn.s3.amazonaws.com/xpub/guides/eLife_MDAR_checklist.docx
+      author_guide_url: https://elife-rp.msubmit.net/html/elife-rp_author_instructions.html
+    licence: not established
+    licence_basis: Licence of the eLife form and of the underlying MDAR checklist not checked.
+    checked: 2026-10-15
+    status: verified
+    verification: >-
+      The eLife author instructions (elife-rp.msubmit.net, the reviewed-preprint submission system)
+      contain a Reporting Standards section endorsing MDAR and asking authors to upload the completed
+      form (PDF and Word links above), noting eLife publishes it; an "MDAR checklist" subsection sits
+      under the article-preparation guidance next to the Key Resources Table. The PDF link returns 200.
+      Published eLife articles carry mdarchecklist1 supplementary PDFs (seen in search results), which
+      is consistent with the form being collected. The instructions phrase it as a request ("asked to
+      upload") rather than a hard submission block.
+    items: []

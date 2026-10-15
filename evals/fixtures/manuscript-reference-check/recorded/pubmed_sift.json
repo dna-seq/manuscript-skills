@@ -1,0 +1,29 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. PubMed esummary for PMID 12824425",
+ "result": {
+  "uids": [
+   "12824425"
+  ],
+  "12824425": {
+   "uid": "12824425",
+   "title": "SIFT: Predicting amino acid changes that affect protein function.",
+   "pubdate": "2003 Jul 1",
+   "authors": [
+    {
+     "name": "Ng PC",
+     "authtype": "Author",
+     "clusterid": ""
+    },
+    {
+     "name": "Henikoff S",
+     "authtype": "Author",
+     "clusterid": ""
+    }
+   ],
+   "pubtype": [
+    "Journal Article",
+    "Research Support, U.S. Gov't, P.H.S."
+   ]
+  }
+ }
+}

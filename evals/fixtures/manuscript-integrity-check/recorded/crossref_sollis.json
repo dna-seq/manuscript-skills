@@ -1,0 +1,145 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.1093/nar/gkac1010",
+  "type": "journal-article",
+  "title": [
+   "The NHGRI-EBI GWAS Catalog: knowledgebase and deposition resource"
+  ],
+  "container-title": [
+   "Nucleic Acids Research"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2022,
+     11,
+     9
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Elliot",
+    "family": "Sollis"
+   },
+   {
+    "given": "Abayomi",
+    "family": "Mosaku"
+   },
+   {
+    "given": "Ala",
+    "family": "Abid"
+   },
+   {
+    "given": "Annalisa",
+    "family": "Buniello"
+   },
+   {
+    "given": "Maria",
+    "family": "Cerezo"
+   },
+   {
+    "given": "Laurent",
+    "family": "Gil"
+   },
+   {
+    "given": "Tudor",
+    "family": "Groza"
+   },
+   {
+    "given": "Osman",
+    "family": "Güneş"
+   },
+   {
+    "given": "Peggy",
+    "family": "Hall"
+   },
+   {
+    "given": "James",
+    "family": "Hayhurst"
+   },
+   {
+    "given": "Arwa",
+    "family": "Ibrahim"
+   },
+   {
+    "given": "Yue",
+    "family": "Ji"
+   },
+   {
+    "given": "Sajo",
+    "family": "John"
+   },
+   {
+    "given": "Elizabeth",
+    "family": "Lewis"
+   },
+   {
+    "given": "Jacqueline A L",
+    "family": "MacArthur"
+   },
+   {
+    "given": "Aoife",
+    "family": "McMahon"
+   },
+   {
+    "given": "David",
+    "family": "Osumi-Sutherland"
+   },
+   {
+    "given": "Kalliope",
+    "family": "Panoutsopoulou"
+   },
+   {
+    "given": "Zoë",
+    "family": "Pendlington"
+   },
+   {
+    "given": "Santhi",
+    "family": "Ramachandran"
+   },
+   {
+    "given": "Ray",
+    "family": "Stefancsik"
+   },
+   {
+    "given": "Jonathan",
+    "family": "Stewart"
+   },
+   {
+    "given": "Patricia",
+    "family": "Whetzel"
+   },
+   {
+    "given": "Robert",
+    "family": "Wilson"
+   },
+   {
+    "given": "Lucia",
+    "family": "Hindorff"
+   },
+   {
+    "given": "Fiona",
+    "family": "Cunningham"
+   },
+   {
+    "given": "Samuel A",
+    "family": "Lambert"
+   },
+   {
+    "given": "Michael",
+    "family": "Inouye"
+   },
+   {
+    "given": "Helen",
+    "family": "Parkinson"
+   },
+   {
+    "given": "Laura W",
+    "family": "Harris"
+   }
+  ]
+ }
+}

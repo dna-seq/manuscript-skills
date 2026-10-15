@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript integrity check"
+  short_description: "Find concrete scientific and submission problems before upload"
+  default_prompt: "Use $manuscript-integrity-check to review this manuscript before submission: prioritise problems that could affect the conclusions or prevent review, and separate required fixes from optional ones."

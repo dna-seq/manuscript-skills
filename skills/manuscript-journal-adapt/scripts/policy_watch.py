@@ -14,7 +14,8 @@ so `git log -p` on a snapshot is the history of that policy.
     uv run --script policy_watch.py check --stale-days 30 --update      # only URLs not read for 30 days
     uv run --script policy_watch.py record URL saved.html        # a page saved from your browser (challenge pages)
 
-A page that could not be read is `not_assessed`, never `unchanged`. Exit code 1 when a page changed or is gone.
+A page that could not be read is `not_assessed`, never `unchanged`. Exit code 1 when a page changed or is gone,
+3 when nothing changed but at least one page could not be read (not a clean result).
 """
 
 from __future__ import annotations
@@ -74,9 +75,10 @@ class Result(str, Enum):
 @dataclass
 class Fetched:
     route: Optional[str]  # httpx | chrome | wayback:<timestamp> | the route named to `record`
-    html: Optional[str] = None
+    html: Optional[str] = None  # the page, or its plain text when `plain` (a PDF, a text file given to `record`)
     status: Optional[int] = None
     reason: Optional[str] = None
+    plain: bool = False
 
 
 @dataclass
@@ -165,6 +167,15 @@ def _challenged(html: str) -> bool:
     return any(m in head for m in CHALLENGE_MARKERS)
 
 
+def _pdf_text(data: bytes) -> Optional[str]:
+    """A PDF's text through poppler's pdftotext, or None when it is not installed."""
+    binary = shutil.which("pdftotext")
+    if binary is None:
+        return None
+    run = subprocess.run([binary, "-layout", "-", "-"], input=data, capture_output=True, timeout=120)
+    return run.stdout.decode("utf-8", errors="replace") if run.returncode == 0 else None
+
+
 def fetch_httpx(url: str) -> Fetched:
     try:
         r = httpx.get(url, headers={"User-Agent": USER_AGENT, "Accept-Language": "en"}, follow_redirects=True,
@@ -173,6 +184,11 @@ def fetch_httpx(url: str) -> Fetched:
         return Fetched("httpx", reason=f"{type(e).__name__}: {e}")
     if r.status_code in (404, 410):
         return Fetched("httpx", status=r.status_code, reason=f"HTTP {r.status_code}")
+    if r.content[:5] == b"%PDF-" or "pdf" in r.headers.get("content-type", ""):
+        text = _pdf_text(r.content)
+        if text is None:
+            return Fetched("httpx", status=r.status_code, reason="a PDF, and pdftotext (poppler) is not installed")
+        return Fetched("httpx", html=text, status=r.status_code, plain=True)
     if r.status_code >= 400 or _challenged(r.text):
         return Fetched("httpx", status=r.status_code, reason=f"blocked (HTTP {r.status_code})")
     return Fetched("httpx", html=r.text, status=r.status_code)
@@ -227,14 +243,25 @@ def fetch_wayback(url: str, newer_than: Optional[date]) -> Fetched:
     return Fetched(f"wayback:{stamp}", html=got.html, status=got.status, reason=got.reason)
 
 
+def blocks_of(got: Fetched) -> list[tuple[str, str]]:
+    return text_blocks(got.html or "") if got.plain else page_blocks(got.html or "")
+
+
+def readable(blocks: list[tuple[str, str]]) -> bool:
+    return sum(len(t) for _, t in blocks) >= MIN_PAGE_CHARS
+
+
 def fetch(url: str, routes: list[str], last: Optional[date]) -> Fetched:
-    """Each route in turn until one returns a readable page."""
+    """Each route in turn until one returns a readable page; a stub ("JavaScript is disabled") tries the next."""
     reasons: list[str] = []
     for route in routes:
         got = (fetch_httpx(url) if route == "httpx" else fetch_chrome(url) if route == "chrome"
                else fetch_wayback(url, last))
         if got.html is not None:
-            return got
+            if readable(blocks_of(got)):
+                return got
+            reasons.append(f"{route}: page too short (a stub, login wall or script shell)")
+            continue
         if got.status in (404, 410) and route == "httpx":
             return got
         reasons.append(f"{route}: {got.reason}")
@@ -296,19 +323,18 @@ def _route_kind(route: Optional[str]) -> str:
     return (route or "").split(":")[0]
 
 
-def compare(url: str, got: Fetched, index: dict[str, dict[str, Any]], venues: list[str],
-            plain_text: bool = False) -> Outcome:
+def compare(url: str, got: Fetched, index: dict[str, dict[str, Any]], venues: list[str]) -> Outcome:
     if got.html is None:
         result = Result.gone if got.status in (404, 410) else Result.not_assessed
         return Outcome(url, result, got.route, got.reason or "", venues=venues)
-    blocks = text_blocks(got.html) if plain_text else page_blocks(got.html)
-    if sum(len(t) for _, t in blocks) < MIN_PAGE_CHARS:
+    blocks = blocks_of(got)
+    if not readable(blocks):
         return Outcome(url, Result.not_assessed, got.route, "page too short: a stub, login wall or script shell",
                        venues=venues)
     body = ai_extract(blocks)
     n = body.count("\n\n") + 1 if body else 0
     entry = index.get(url)
-    old = read_snapshot(entry) if entry else None
+    old = read_snapshot(entry) if entry and "file" in entry else None  # an entry may hold only failed attempts
     if old is None:
         return Outcome(url, Result.new, got.route, "no AI text on this page" if not body else "", n, venues, body=body)
     if digest(old) == digest(body):
@@ -320,10 +346,17 @@ def compare(url: str, got: Fetched, index: dict[str, dict[str, Any]], venues: li
     return Outcome(url, Result.changed, got.route, note, n, venues, diff, body)
 
 
+def route_date(route: Optional[str]) -> Optional[date]:
+    """The capture date of an archived copy (`wayback:YYYYMMDDhhmmss`), which is when its text was current."""
+    m = re.match(r"wayback:(\d{8})", route or "")
+    return datetime.strptime(m.group(1), "%Y%m%d").date() if m else None
+
+
 def apply(outcomes: list[Outcome], index: dict[str, dict[str, Any]], today: date) -> None:
+    """Store what was read. An archived copy is dated by its capture, not by today, so `venues.py` shows its age."""
     for o in outcomes:
         if o.result in (Result.new, Result.changed, Result.unchanged) and o.body is not None and o.route:
-            index[o.url] = {"file": write_snapshot(o.url, o.body), "read": today.isoformat(),
+            index[o.url] = {"file": write_snapshot(o.url, o.body), "read": (route_date(o.route) or today).isoformat(),
                             "route": o.route, "passages": o.blocks, "sha256": digest(o.body)}
         else:
             entry = index.setdefault(o.url, {})
@@ -396,6 +429,8 @@ def check(
                                        indent=2), encoding="utf-8")
     if any(o.result in (Result.changed, Result.gone) for o in outcomes):
         raise typer.Exit(1)
+    if any(o.result == Result.not_assessed for o in outcomes):
+        raise typer.Exit(3)
 
 
 @app.command()
@@ -413,7 +448,7 @@ def record(
         raise typer.BadParameter(f"{url} is not cited by any venue in venues.yaml")
     content = page_file.read_text(encoding="utf-8", errors="replace")
     is_html = bool(re.search(r"<(html|body|p|div)\b", content[:5000], re.IGNORECASE))
-    outcome = compare(url, Fetched(route, html=content), index, venues, plain_text=not is_html)
+    outcome = compare(url, Fetched(route, html=content, plain=not is_html), index, venues)
     typer.echo(f"{outcome.result.value}: {url} via {route}, {outcome.blocks} AI passages. {outcome.reason}")
     for line in outcome.diff:
         typer.echo(f"    {line}")

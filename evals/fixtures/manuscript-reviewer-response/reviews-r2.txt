@@ -1,0 +1,18 @@
+Decision on manuscript VL-2026-0417-R1: minor revision
+
+Editor's comments to the authors:
+
+Reviewer 1 is satisfied with the revision. Please address the remaining points of Reviewer 2.
+
+Reviewer 1
+
+The authors have addressed my comments.
+
+Reviewer 2
+
+I thank the authors for adding a long-read genome. However, the long-read callset is again HG002, so all
+results still come from two individuals. Please add a genome from a third individual, sequenced on any
+platform, or limit the claims about generalisability in the Abstract and Discussion.
+
+The new comparison with VEP is helpful. Please state in the Methods which VEP options were used, so that the
+comparison can be reproduced.

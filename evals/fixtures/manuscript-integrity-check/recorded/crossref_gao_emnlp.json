@@ -1,0 +1,39 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.18653/v1/2023.emnlp-main.398",
+  "type": "proceedings-article",
+  "title": [
+   "Enabling Large Language Models to Generate Text with Citations"
+  ],
+  "container-title": [
+   "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2023
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Tianyu",
+    "family": "Gao"
+   },
+   {
+    "given": "Howard",
+    "family": "Yen"
+   },
+   {
+    "given": "Jiatong",
+    "family": "Yu"
+   },
+   {
+    "given": "Danqi",
+    "family": "Chen"
+   }
+  ]
+ }
+}

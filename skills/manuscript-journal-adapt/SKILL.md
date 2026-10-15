@@ -7,7 +7,9 @@ description: >-
   Use manuscript-prose-edit for language editing and manuscript-reference-check for citation verification.
   Use manuscript-journal-select for journal shortlists and requirements-based venue comparisons,
   manuscript-policy-fit for clinical-scope, ethics and privacy ambiguity or author
-  self-published biomedical data, and manuscript-integrity-check for full audits.
+  self-published biomedical data, manuscript-reporting-check to verify reporting checklists and
+  availability statements, manuscript-reviewer-response for response letters to referees, and
+  manuscript-integrity-check for full audits.
 ---
 
 # Adapt manuscripts to a chosen venue
@@ -24,6 +26,10 @@ For edits intended to reduce clinical, ethics, privacy or regulatory misclassifi
 `manuscript-policy-fit` to establish which conditions actually apply, then preserve those facts during
 adaptation. An author's deliberately public personal genome is a distinct case from recruited patient
 data; neither human origin nor voluntary release alone settles every venue requirement.
+
+Apply the requested task across the whole paper unless the author specifies a narrower scope.
+Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
+for requested section or stage review, before/after comparisons and optional interviews.
 
 ## AI-use context (only when the decision needs it)
 
@@ -55,13 +61,27 @@ uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --venue <
 ```
 
 Apply the relevant checklist items within the authorised task: abstract restructured to the venue's headings and
-length; body length (some venues return a paper 20% over the limit unread); required sections (data and
-code availability, archived software DOI, competing interests, author contributions); AI disclosure in
-**every** place the venue names with the fields it asks for, drafted from
-`../manuscript-integrity-check/references/disclosure-templates.md` with what the authors say the tools did,
-never guessed;
-figure rules; required cover-letter points. Separate requirements for initial submission from those for
-revision or acceptance; use free-format submission when allowed. A request to adapt the manuscript covers
+length; body length (a return rule for overlength papers applies only when the venue entry records one
+from the current page); required sections (data and code availability, archived software DOI, competing
+interests, author contributions); the venue's reference style (identity and support stay with
+`manuscript-reference-check`); AI disclosure in **every** place the venue names with the fields it asks
+for, drafted from `../manuscript-integrity-check/references/disclosure-templates.md` with what the authors
+say the tools did, never guessed; figure rules; required cover-letter points. Separate requirements for
+initial submission from those for revision or acceptance; use free-format submission when allowed. This
+skill owns drafting and placing AI-use statements; `manuscript-integrity-check` only checks that they are
+present.
+
+Fitting the abstract or body to a limit shortens and restructures; it never adds a result, number or
+claim that the abstract did not already make, and it keeps qualifiers such as "in these configurations"
+or "does not provide diagnoses". If a stronger abstract needs a result from the body, propose it to the
+authors as a content change rather than inserting it. Cutting a qualifier is a claim change, not a trim.
+
+This skill formats and places the venue's statements and checklists. `manuscript-reporting-check` verifies
+their content: that accessions, archives and repositories resolve and that a required reporting checklist
+is complete. Before upload, the submission-package check in `manuscript-integrity-check` finds LaTeX
+comments, hidden text and leaked secrets in the files the venue will publish. For a revised submission,
+`manuscript-reviewer-response` owns the response letter; apply only the venue's revision-stage formatting
+here. A request to adapt the manuscript covers
 routine formatting and content-preserving reorganisation. Apply these and show a diff. Flag changes to
 scientific meaning or decisions needing facts the authors have; do not require a second approval for
 every heading, paragraph move or disclosure already authorised.
@@ -71,7 +91,10 @@ every heading, paragraph move or disclosure already authorised.
 For content-preserving edits, consult the shared
 [prose-edit contract](../manuscript-prose-edit/references/prose-edit-contract.md) and review the diff.
 `../manuscript-prose-edit/scripts/guard.py BEFORE AFTER` flags selected changes to numbers, citations,
-identifiers, terms and wording; it does not prove semantic equivalence. Resolve false positives in context
+identifiers, terms and wording, and claims that an edit strengthened; it does not prove semantic
+equivalence. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
+lists each change with its section and line. Revision markers in the text stay as they are; strip them
+only for the upload files when the authors want that (see author-priorities). Resolve false positives in context
 and rerun only checks affected by the adaptation. Use `manuscript-prose-edit` for broader language editing
 when requested; venue adaptation does not require style profiling or detector checks.
 
@@ -79,7 +102,10 @@ when requested; venue adaptation does not require style profiling or detector ch
 
 Follow `../manuscript-integrity-check/references/author-priorities.md` and consult the relevant part of
 `../manuscript-integrity-check/references/disclosure-templates.md`. Check exemptions before adding a
-statement, use known facts and only required fields, and do not create a per-pass record. Drafting-ban
+statement, use known facts and only required fields (dates only where the venue asks for them; never
+reconstruct them from revision markers or version history), and do not create a per-pass record. When the
+authors ask whether a target's AI policy has changed, this skill answers it: run
+`scripts/policy_watch.py check --venue KEY`, then read the live page for anything it could not reach. Drafting-ban
 policies need a separate compatibility decision; do not prescribe an author rewrite as a guaranteed cure.
 
 ## Shared resources and maintenance

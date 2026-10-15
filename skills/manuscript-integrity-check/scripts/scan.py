@@ -22,6 +22,7 @@ import json
 import re
 import subprocess
 import time
+import unicodedata
 from collections import Counter
 from difflib import SequenceMatcher
 from enum import Enum
@@ -31,7 +32,7 @@ from typing import Annotated, Optional
 import httpx
 import typer
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -54,6 +55,22 @@ class Finding(BaseModel):
     suggestion: str = ""
 
 
+class PublishedVersion(BaseModel):
+    """Where a cited preprint was published, and how that record compares with the preprint's."""
+    doi: Optional[str] = None
+    title: Optional[str] = None
+    venue: Optional[str] = None
+    year: Optional[str] = None
+    # crossref:is-preprint-of | biorxiv:published | medrxiv:published | arxiv:doi | arxiv:journal_ref, recorded by the
+    # registries; arxiv:comment | crossref:title-search, candidates found by this script for the authors to confirm
+    source: str = ""
+    comment: Optional[str] = None  # the arXiv comment that names a venue ("Accepted by EMNLP 2023")
+    title_similarity: Optional[float] = None
+    shared_authors: Optional[bool] = None
+    retraction: Optional[str] = None  # of the published version, when its record was read
+    metadata_checked: bool = False
+
+
 class Reference(BaseModel):
     line: int
     text: str
@@ -65,8 +82,24 @@ class Reference(BaseModel):
     resolved_first_author: Optional[str] = None
     first_author_found: Optional[bool] = None
     title_similarity: Optional[float] = None
-    # not_checked | resolved | mismatch | unresolved | retracted | concern | no_identifier
+    # not_checked | resolved | mismatch | unresolved | retracted | concern | no_identifier | lookup_failed
     status: str = "not_checked"
+    # Retraction checking with its source, so that an unchecked reference never reads as clean:
+    # retracted | concern | none_found (the registries asked hold no notice) | not_checked
+    retraction: str = "not_checked"
+    retraction_source: Optional[str] = None  # e.g. "crossref (retraction-watch)", "crossref+europepmc", "pubmed"
+    retraction_notice: Optional[str] = None
+    is_preprint: Optional[bool] = None
+    published_version: Optional[PublishedVersion] = None
+    withdrawn: Optional[bool] = None  # None: not checked (arXiv and bioRxiv/medRxiv expose withdrawals)
+    withdrawn_source: Optional[str] = None
+    resolved_authors: list[str] = []  # "Family, Given" as the record lists them
+    author_check: str = "not_compared"  # consistent | differs | not_compared
+    author_notes: list[str] = []
+    author_severity: Optional[str] = None  # minor | info, when author_check is "differs"
+    lookup_notes: list[str] = []
+    # For an identifier that does not resolve: the record a Crossref title search found (also in lookup_notes).
+    _title_match: Optional[dict] = PrivateAttr(default=None)
 
 
 class ReferenceReport(BaseModel):
@@ -228,7 +261,10 @@ AI_DISCLOSURE = [
     r"(?:we|the authors) used [^.]{0,80}\b(?:claude|chatgpt|gpt-?\d|gemini|copilot|llama|deepseek|qwen|mistral)\b",
 ]
 DECLARATIONS = [
-    ("Data availability", [r"data availability", r"availability of data"], Severity.major),
+    # "Data and code availability", "Data, code and materials availability" are data statements too.
+    ("Data availability", [r"data availability", r"availability of data",
+                           r"\bdata(?:,? (?:and |& )?(?:code|software|materials?|protocols?))+ availability"],
+     Severity.major),
     ("Code / software availability", [r"code availability", r"software availability", r"code and data availability",
                                       r"availability and implementation", r"availability and requirements"],
      Severity.major),
@@ -258,8 +294,17 @@ MODEL_VERSION = re.compile(
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>)\],;]+)", re.IGNORECASE)
 PMID_RE = re.compile(r"\bPMID:?\s*(\d{5,9})\b", re.IGNORECASE)
 ARXIV_RE = re.compile(r"\barXiv\W{0,3}(\d{4}\.\d{4,5})(?:v\d+)?\b|arxiv\.org/abs/(\d{4}\.\d{4,5})", re.IGNORECASE)
-# Author-year citations in the text: "(Lambert et al., 2021)", "Lambert et al. (2021)", "(Illumina, 2023; ...)".
-AUTHOR_YEAR_RE = re.compile(r"([A-Z][A-Za-z'\-]+(?: (?:et al\.|and|&) ?[A-Z]?[A-Za-z'\-]*)?),? \(?((?:19|20)\d{2})(?!\d)[a-z]?\)?")
+_CAP = r"[A-ZÀ-ÖØ-Þ][^\W\d_]*(?:['’\-][^\W\d_]+)*"  # a capitalised name word, any script with Latin capitals
+_PARTICLES = r"(?:(?:van|von|de|der|den|del|della|di|da|du|la|le|ter|ten)\s+)*"
+# Author-year citations in a parenthesis: "(Lambert et al., 2021)", "(Illumina, 2023; Ultima Genomics, 2025)".
+AUTHOR_YEAR_RE = re.compile(rf"({_PARTICLES}{_CAP}(?:\s+{_CAP}){{0,5}}(?:\s+(?:et\s+al\.?|and|&)\s*(?:{_CAP})?)?),?\s+"
+                            rf"((?:19|20)\d{{2}})(?!\d)[a-z]?")
+CITE_LEAD = re.compile(r"^(?:e\.g\.|i\.e\.|see(?:\s+also)?|but\s+see|cf\.|for\s+example|for\s+a\s+review,?\s+see|"
+                       r"reviewed\s+in|as\s+in|also|and)\s*,?\s*", re.IGNORECASE)
+YEAR_TAIL = re.compile(r"(?:\s*,\s*(?:(?:19|20)\d{2}[a-z]?|[a-z])\b)*\s*,?\s*")
+NOT_AUTHORS = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+               "november", "december", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov",
+               "dec", "spring", "summer", "autumn", "fall", "winter"}
 PAREN_GROUP_RE = re.compile(r"\(([^()]*?(?:19|20)\d{2}[a-z]?[^()]*)\)")
 NUMERIC_CITE_RE = re.compile(r"\[(\d+(?:\s*[-–,]\s*\d+)*)\]")
 REF_HEADING = re.compile(r"^#{1,6}\s*\**\s*(?:\d+\.?\s*)?(references|bibliography|literature cited|works cited)\b",
@@ -307,42 +352,178 @@ def _reference_start(lines: list[str]) -> Optional[int]:
     return None
 
 
-def _reference_entries(lines: list[str], start: Optional[int]) -> list[tuple[int, str]]:
-    """Each non-empty line after the references heading, up to the next heading, is one entry."""
-    if start is None:
-        return []
+# A later list of references: "## Supplementary references", or a bold label such as "**References for Table S7.**".
+FURTHER_REF_LABEL = re.compile(r"^(?:#{1,6}\s*\**|\*\*)\s*(?:\w+\s+){0,2}(?:references|bibliography)\b[^*\n]{0,60}"
+                               r"(?:\*\*\s*:?|[^*\n]*)$", re.IGNORECASE)
+# Where a new author-year reference starts: "Mordaunt, D. A., et al. (2024)" or "Ultima Genomics (2025). Title".
+REF_START = (rf"{_PARTICLES}{_CAP},\s+(?:[A-ZÀ-ÖØ-Þ]\.\s?-?)+(?=[^()]{{0,300}}?\((?:19|20)\d{{2}}[a-z]?\))"
+             rf"|(?:{_CAP}\s+){{0,6}}{_CAP}\s+\((?:19|20)\d{{2}}[a-z]?\)\.\s+(?=[A-Z*\"“‘'])")
+REF_BOUNDARY = re.compile(rf"(?<=\.)\s+(?={REF_START})")
+REF_LEAD_IN = re.compile(rf"(?P<lead>[^:]{{3,160}}?):\s+(?={REF_START})")
+
+
+def _list_entries(lines: list[str], start: int, further: bool) -> list[tuple[int, str]]:
+    """Each non-empty line after a list's label, up to the next heading, is one entry. A further list also ends at
+    a bold label or a table; a lead-in ending in a colon ("Software without a paper:") is not an entry."""
     entries: list[tuple[int, str]] = []
     for i in range(start, len(lines)):
         line = lines[i].strip()
-        if HEADING.match(line):
+        if HEADING.match(line) or (further and (line.startswith("**") or line.startswith("|"))):
             break
-        if len(line) < 25 or (line.startswith("*(") and line.endswith(")*")):
+        if len(line) < 25 or (line.startswith("*(") and line.endswith(")*")) or line.endswith(":"):
             continue
         entries.append((i + 1, line))
     return entries
 
 
+def _reference_lists(lines: list[str], start: Optional[int]) -> list[tuple[int, int, str, list[tuple[int, str]]]]:
+    """(label line, last line, label, entries) for the main reference list and any later list (a supplement's)."""
+    if start is None:
+        return []
+    out = []
+    begin, label, further = start, lines[start - 1].strip(), False
+    while True:
+        entries = _list_entries(lines, begin, further)
+        end = entries[-1][0] if entries else begin
+        out.append((begin, end, label, entries))
+        nxt = next((i for i in range(end, len(lines)) if FURTHER_REF_LABEL.match(lines[i].strip())), None)
+        if nxt is None:
+            return out
+        begin, label, further = nxt + 1, lines[nxt].strip(), True
+
+
+def _numbered_parts(chunk: str) -> list[str]:
+    """A paragraph that starts "[1]" or "1." split before "[2]", "[3]" ... or "2.", "3." ... in sequence."""
+    numbered = re.match(r"\s*(\[(\d+)\]|(\d+)\.)\s", chunk)
+    if not numbered:
+        return [chunk]
+    n, cut, parts = int(numbered.group(2) or numbered.group(3)), 0, []
+    bracket = numbered.group(1).startswith("[")
+    while True:
+        n += 1
+        marker = re.compile(rf"\s\[{n}\]\s" if bracket else rf"(?<=\.)\s+{n}\.\s+(?={_CAP},?\s+[A-Z])")
+        nxt = marker.search(chunk, cut + 1)
+        if not nxt:
+            return parts + [chunk[cut:]]
+        parts.append(chunk[cut:nxt.start()])
+        cut = nxt.start()
+
+
+def _split_after_dois(piece: str) -> list[str]:
+    dois = list(DOI_RE.finditer(piece))
+    if len(dois) < 2:
+        return [piece]
+    cuts = [0] + [m.end() for m in dois]
+    return [piece[a:b] for a, b in zip(cuts, cuts[1:] + [len(piece)])]
+
+
 def _split_entries(entries: list[tuple[int, str]]) -> list[tuple[int, str]]:
-    """A line holding several DOI-terminated references becomes one entry per DOI."""
+    """One entry per reference: a line that holds several is split at line breaks (<br>), numbering ([2], 2.),
+    author-year starts after a full stop and DOIs; a lead-in such as "Added in the revision:" is dropped."""
     out: list[tuple[int, str]] = []
     for line_no, text in entries:
-        dois = list(DOI_RE.finditer(text))
-        if len(dois) < 2:
-            out.append((line_no, text))
-            continue
-        start = 0
-        for m in dois:
-            out.append((line_no, text[start:m.end()].strip(" .;")))
-            start = m.end()
-        if len(text[start:].strip(" .;")) >= 25:
-            out.append((line_no, text[start:].strip(" .;")))
+        pieces: list[str] = []
+        for chunk in re.split(r"<br\s*/?>", text, flags=re.IGNORECASE):
+            for part in _numbered_parts(chunk):
+                part = part.strip()
+                lead = REF_LEAD_IN.match(part)
+                if lead and not re.search(r"\((?:19|20)\d{2}", lead.group("lead")):
+                    part = part[lead.end():]
+                pieces += [p for piece in REF_BOUNDARY.split(part) for p in _split_after_dois(piece)]
+        pieces = [p.strip(" .;") for p in pieces if len(p.strip(" .;")) >= 25]
+        out += [(line_no, p) for p in pieces] or [(line_no, text)]
     return out
 
 
 LATEX_BIB = re.compile(r"\\(?:bibliography|addbibresource)\{([^}]+)\}")
 LATEX_CITE_KEYS = re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
 BIB_ENTRY = re.compile(r"@(\w+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\}", re.DOTALL)
-BIB_FIELD = re.compile(r"(\w+)\s*=\s*(\{(?:[^{}]|\{[^{}]*\})*\}|\"[^\"]*\"|\d+)", re.DOTALL)
+BIB_FIELD_NAME = re.compile(r"[\s,]*([A-Za-z][\w-]*)\s*=\s*")
+BIB_BARE = re.compile(r"[^,#\s}]+")
+# LaTeX accents and letters as BibTeX writes them: {\"u}, \"{u}, {\c{s}}, \'{\i}, {\o}, \ss.
+_ACCENTS = {'"': "\u0308", "'": "\u0301", "`": "\u0300", "^": "\u0302", "~": "\u0303", "=": "\u0304", ".": "\u0307",
+            "u": "\u0306", "v": "\u030c", "H": "\u030b", "c": "\u0327", "k": "\u0328", "r": "\u030a", "d": "\u0323",
+            "b": "\u0331"}
+_LATEX_LETTERS = {"ss": "ß", "aa": "å", "AA": "Å", "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ", "o": "ø", "O": "Ø",
+                  "l": "ł", "L": "Ł", "i": "i", "j": "j"}
+LATEX_ACCENT = re.compile(r"\\([\"'`^~=.])\s*\{?\s*(\\[ij](?![A-Za-z])|[A-Za-z])\s*\}?"
+                          r"|\\([uvHckrdb])(?:\s*\{\s*(\\[ij](?![A-Za-z])|[A-Za-z])\s*\}|\s+([A-Za-z]))")
+LATEX_LETTER = re.compile(r"\\(ss|aa|AA|ae|AE|oe|OE|o|O|l|L|i|j)(?![A-Za-z])\s?")
+
+
+def _bib_value(body: str, i: int) -> tuple[str, int]:
+    """One field value from position i: braces balanced at any depth, a quoted string or a bare word, joined by #."""
+    parts: list[str] = []
+    n = len(body)
+    while i < n:
+        while i < n and body[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        if body[i] in "{\"":
+            close, depth, j = body[i], 0, i + (body[i] == "\"")
+            while j < n:
+                c = body[j]
+                if c == "\\":
+                    j += 2
+                    continue
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if close == "{" and depth == 0:
+                        break
+                elif c == "\"" and close == "\"" and depth == 0:
+                    break
+                j += 1
+            parts.append(body[i + 1:j])
+            i = j + 1
+        else:
+            m = BIB_BARE.match(body, i)
+            if not m:
+                break
+            parts.append(m.group(0))
+            i = m.end()
+        while i < n and body[i].isspace():
+            i += 1
+        if i < n and body[i] == "#":
+            i += 1
+            continue
+        break
+    return "".join(parts), i
+
+
+def _bib_fields(body: str) -> dict[str, str]:
+    """The fields of one BibTeX entry, read with a brace-balancing scanner (a regex stops at a fixed depth)."""
+    fields: dict[str, str] = {}
+    i = 0
+    while i < len(body):
+        m = BIB_FIELD_NAME.match(body, i)
+        if not m:
+            comma = body.find(",", i)
+            if comma < 0:
+                break
+            i = comma + 1
+            continue
+        value, i = _bib_value(body, m.end())
+        fields[m.group(1).lower()] = value
+    return fields
+
+
+def _latex_text(value: str) -> str:
+    """BibTeX field text as a reader sees it: accents composed, commands and braces dropped."""
+    def accent(m: re.Match[str]) -> str:
+        mark = _ACCENTS[m.group(1) or m.group(3)]
+        letter = (m.group(2) or m.group(4) or m.group(5) or "").lstrip("\\")
+        return letter + mark
+
+    text = LATEX_ACCENT.sub(accent, value)
+    text = LATEX_LETTER.sub(lambda m: _LATEX_LETTERS[m.group(1)], text)
+    text = re.sub(r"\\([&%$#_{}])", r"\1", text.replace("\\-", ""))
+    text = re.sub(r"\\[A-Za-z]+\*?", " ", text)  # \url, \texttt, \emph: keep the argument, drop the command
+    text = re.sub(r"\\[ ,;:!]|~", " ", text)
+    text = re.sub(r"---?", "–", text.replace("{", "").replace("}", ""))
+    return unicodedata.normalize("NFC", " ".join(text.split()))
 
 
 def _bib_files(tex: str, base: Path) -> list[Path]:
@@ -361,13 +542,16 @@ def _bib_references(bib: Path) -> list[tuple[str, "Reference"]]:
     text = bib.read_text(encoding="utf-8")
     out: list[tuple[str, Reference]] = []
     for m in BIB_ENTRY.finditer(text):
-        fields = {k.lower(): re.sub(r"[{}\s]+", " ", v.strip('{}"')).strip() for k, v in BIB_FIELD.findall(m.group(3))}
+        fields = {k: _latex_text(v) for k, v in _bib_fields(m.group(3)).items()}
         line = text[: m.start()].count("\n") + 1
         venue = fields.get("journal") or fields.get("booktitle") or fields.get("publisher") or ""
-        entry = f"{fields.get('author', '')} ({fields.get('year', '')}). {fields.get('title', '')}. {venue}"
+        # An entry with no author starts with its year, so the online check knows there is no list to compare.
+        entry = " ".join(f"{fields.get('author', '')} ({fields.get('year', '')}). {fields.get('title', '')}. "
+                         f"{venue}".split())
         arxiv = ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note", "url")))
         eprint = fields.get("eprint") if fields.get("archiveprefix", "").lower() == "arxiv" else None
-        out.append((m.group(2), Reference(line=line, text=entry, doi=fields.get("doi") or None,
+        doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", fields.get("doi", ""), flags=re.IGNORECASE)
+        out.append((m.group(2), Reference(line=line, text=entry, doi=doi or None,
                                           pmid=fields.get("pmid") or None,
                                           arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))))
     return out
@@ -504,28 +688,66 @@ def _name_tokens(text: str) -> list[str]:
     return [re.sub(r"[^a-z]", "", w.lower()) for w in re.findall(r"[A-Za-z][A-Za-z'’\-]*", text)]
 
 
-def _citation_consistency(body_lines: list[str], refs: list[Reference]) -> list[Finding]:
+def _author_year_citations(group: str, whole: bool = False) -> list[tuple[str, str]]:
+    """(name, year) for each citation in a parenthesis. A citation starts the parenthesis or follows ';' (after an
+    optional 'e.g.' or 'see'), so "(entered at EASRP 2026 and ...)" or "(accessed 10 October 2026)" is not one.
+    With `whole`, the text must be citations and nothing else (a table cell "McLaren et al., 2016")."""
+    out: list[tuple[str, str]] = []
+    for segment in group.split(";"):
+        text = CITE_LEAD.sub("", segment.strip())
+        pos = 0
+        while (m := AUTHOR_YEAR_RE.match(text, pos)) is not None:
+            name = re.sub(r"\s+(?:et\s+al\.?|and|&).*$", "", m.group(1))
+            if name.lower() not in NOT_AUTHORS:
+                out.append((name, m.group(2)))
+            pos = YEAR_TAIL.match(text, m.end()).end()  # "Smith, 2019, 2020b, Jones 2021"
+        if whole and pos < len(text.rstrip(" .")):
+            return []
+    return out
+
+
+def _name_words(name: str) -> list[str]:
+    """A name's folded words without particles: 'van der Berg' -> ['berg'], 'Tandy-Connor' -> ['tandy', 'connor']."""
+    return [w for w in _fold(name).split() if w not in NAME_PARTICLES]
+
+
+def _acronym(entry: str) -> str:
+    """Initials of a corporate author: 'National Human Genome Research Institute (2021). ...' -> 'NHGRI'."""
+    author = re.split(r"\(|\.\s|,", entry, maxsplit=1)[0]
+    return "".join(w[0] for w in re.findall(r"[A-Z][^\W\d_]*", author))
+
+
+def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) -> list[Finding]:
     """In-text citations with no matching bibliography entry, and entries the text never cites."""
     if not refs:
         return []
     out: list[Finding] = []
-    ref_tokens = [(set(_name_tokens(r.text)), r.text) for r in refs]
+    ref_tokens = [(_entry_tokens(r.text), r.text, _acronym(r.text), r) for r in refs]
     numeric_max = 0
     cited_surnames: set[str] = set()
-    for i, line in enumerate(body_lines, start=1):
+    for i, line in body:
         for m in NUMERIC_CITE_RE.finditer(line):
             for part in re.split(r"[,\s]+", m.group(1)):
                 bounds = [int(x) for x in re.split(r"[-–]", part) if x.strip().isdigit()]
                 numeric_max = max([numeric_max, *bounds])
-        for group in PAREN_GROUP_RE.finditer(line):
-            for m in AUTHOR_YEAR_RE.finditer(group.group(1)):
-                surname, year = m.group(1).split()[0], m.group(2)
-                key = _name_tokens(surname)[0]
-                cited_surnames.add(key)
-                if not any(key in tokens and year in text for tokens, text in ref_tokens):
+        groups = [(g.group(1), g.start(), g.end(), False) for g in PAREN_GROUP_RE.finditer(line)]
+        if line.lstrip().startswith("|"):  # a table's reference column: "| McLaren et al., 2016 |"
+            groups += [(c.group(1), c.start(), c.end(), True)
+                       for c in re.finditer(r"\|([^|()]*(?:19|20)\d{2}[^|()]*)(?=\|)", line)]
+        for group, start, end, whole in groups:
+            for name, year in _author_year_citations(group, whole=whole):
+                first = next((w for w in name.split() if w.lower() not in NAME_PARTICLES), name)
+                key = "".join(_fold(first).split())
+                cited_surnames |= {key, *_name_words(name)}  # every word: "Ultima Genomics" is cited as Ultima
+                acronym = name if name.isupper() and len(name) > 1 else None
+                found = [r for tokens, text, initials, r in ref_tokens
+                         if year in text and (key in tokens or (acronym is not None and initials == acronym))]
+                for r in found:
+                    cited_surnames.update(_name_words(r.text[:120])[:1])
+                if not found:
                     out.append(Finding(check="citations", severity=Severity.major, line=i,
-                                       excerpt=_excerpt(line, group.start(), group.end()),
-                                       message=f"In-text citation '{surname} {year}' has no bibliography entry "
+                                       excerpt=_excerpt(line, start, end),
+                                       message=f"In-text citation '{name} {year}' has no bibliography entry "
                                                f"with that surname and year.",
                                        suggestion="Add the entry (with DOI) or fix the citation."))
     if numeric_max > len(refs):
@@ -534,7 +756,7 @@ def _citation_consistency(body_lines: list[str], refs: list[Reference]) -> list[
                            suggestion="Renumber, or restore the missing entries."))
     if cited_surnames:
         for ref in refs:
-            first_author = _name_tokens(ref.text)[:1]
+            first_author = _name_words(ref.text[:120])[:1]
             if first_author and first_author[0] not in cited_surnames:
                 out.append(Finding(check="citations", severity=Severity.minor, line=ref.line, excerpt=ref.text[:100],
                                    message="Bibliography entry is never cited in the text.",
@@ -574,11 +796,13 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
                     text_lower: str) -> list[Finding]:
     out: list[Finding] = []
     if not ARCHIVE_RE.search(text_lower):
-        out.append(Finding(check="availability", severity=Severity.major,
+        # A cheap offline hint only: manuscript-reporting-check owns availability (what the venue requires,
+        # whether accessions, DOIs and releases resolve), so the defect is graded there, once.
+        out.append(Finding(check="availability", severity=Severity.info,
                            message="No archived software or data record (Zenodo, Software Heritage, figshare, "
                                    "Bioconductor, CRAN) is cited.",
-                           suggestion="Archive the submitted version (Zenodo, Software Heritage) and give its DOI; several "
-                                      "journals want it in the abstract or the availability statement."))
+                           suggestion="Run manuscript-reporting-check (scripts/check_availability.py) to see whether "
+                                      "the venue or the paper's reproducibility needs one."))
     if re.search(r"leave[- ]one[- ]out", text_lower):
         out.append(Finding(check="validation", severity=Severity.info,
                            message="Leave-one-out validation is mentioned.",
@@ -643,8 +867,12 @@ def _similarity(title: str, entry: str) -> float:
 
 
 def _get(client: httpx.Client, url: str, **params: str) -> Optional[httpx.Response]:
+    """GET with retries on 429 and 5xx. None means the service did not answer, never "not found"."""
     for attempt in range(3):
-        r = client.get(url, params=params or None)
+        try:
+            r = client.get(url, params=params or None)
+        except httpx.HTTPError:
+            return None
         if r.status_code == 429 or r.status_code >= 500:
             time.sleep(2 ** attempt)
             continue
@@ -652,112 +880,718 @@ def _get(client: httpx.Client, url: str, **params: str) -> Optional[httpx.Respon
     return None
 
 
-def _resolve_doi(client: httpx.Client, ref: Reference) -> None:
+def _head(client: httpx.Client, url: str) -> Optional[httpx.Response]:
+    try:
+        return client.head(url, follow_redirects=False)
+    except httpx.HTTPError:
+        return None
+
+
+def _json_message(r: Optional[httpx.Response]) -> Optional[dict]:
+    if r is None or r.status_code != 200:
+        return None
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+    return data.get("message") if isinstance(data, dict) and isinstance(data.get("message"), dict) else None
+
+
+# --- names ------------------------------------------------------------------------------------------------
+# Registries and citation styles spell the same person differently: initials or given names, diacritics or
+# transliterations (Müller, Mueller, Muller), particles (van der, de la), hyphens and apostrophes. Surnames of two
+# letters (Ng, Li, Xu) are names like any other.
+
+NAME_PARTICLES = {"van", "von", "der", "den", "de", "del", "della", "di", "da", "dos", "das", "du", "la", "le", "ter",
+                  "ten", "zu", "y", "e", "bin", "ibn"}
+NAME_STOPWORDS = {"et", "al", "and", "others", "eds", "ed", "editor", "editors", "in", "the", "of", "with", "jr", "sr",
+                  "ii", "iii", "iv"}
+GROUP_AUTHOR_RE = re.compile(r"\b(?:consortium|collaborat\w*|group|project|network|initiative|team|committee|"
+                             r"investigators?|society|association|alliance|council)\b", re.IGNORECASE)
+ET_AL_RE = re.compile(r"\bet\.?\s*al\b|\band\s+(?:\d+\s+)?others\b|\.\.\.|…", re.IGNORECASE)
+_TRANSLIT = str.maketrans({"ß": "ss", "ẞ": "ss", "ø": "o", "Ø": "O", "æ": "ae", "Æ": "Ae", "œ": "oe", "Œ": "Oe",
+                           "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ð": "d", "þ": "th", "Þ": "Th", "ı": "i"})
+_UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue"})
+NAME_TOKEN_RE = re.compile(r"[^\W\d_]+(?:['’\-][^\W\d_]+)*")
+
+
+def _fold(text: str) -> str:
+    """Lower-case ASCII letters and spaces: diacritics dropped, apostrophes removed, other marks to spaces."""
+    text = unicodedata.normalize("NFKD", text.translate(_TRANSLIT))
+    text = "".join(c for c in text if not unicodedata.combining(c)).lower()
+    return re.sub(r"[^a-z]+", " ", re.sub(r"['’`ʼ]", "", text)).strip()
+
+
+def _surname_keys(family: str) -> set[str]:
+    """Spellings under which a family name can appear in a citation."""
+    keys: set[str] = set()
+    for variant in {family, family.translate(_UMLAUTS)}:
+        words = _fold(variant).split()
+        core = [w for w in words if w not in NAME_PARTICLES] or words
+        if core:
+            keys.add("".join(core))
+            keys.update(w for w in core if len(w) > 1)
+    return keys
+
+
+def _entry_tokens(text: str) -> set[str]:
+    tokens = set(_name_tokens(text))  # the earlier matching, kept
+    for variant in {text, text.translate(_UMLAUTS)}:
+        words = _fold(variant).split()
+        tokens.update(words)
+        tokens.update(a + b for a, b in zip(words, words[1:]))
+    return tokens
+
+
+def _split_author(name: str) -> tuple[str, str]:
+    family, _, given = name.partition(", ")
+    return family, given
+
+
+def _crossref_authors(msg: dict) -> list[str]:
+    out = []
+    for a in msg.get("author") or []:
+        if a.get("family"):
+            out.append(f"{a['family']}, {a['given']}" if a.get("given") else a["family"])
+        elif a.get("name"):
+            out.append(a["name"])
+    return out[:200]
+
+
+def _pubmed_author(name: str) -> str:
+    """'Lambert SA' -> 'Lambert, SA'; collective names stay whole."""
+    parts = name.split()
+    if len(parts) > 1 and parts[-1].isupper() and len(parts[-1]) <= 4:
+        return f"{' '.join(parts[:-1])}, {parts[-1]}"
+    return name
+
+
+def _given_first_author(name: str) -> str:
+    """'Samuel A. Lambert' -> 'Lambert, Samuel A.'; particles stay with the family name."""
+    parts = name.split()
+    if len(parts) < 2:
+        return name
+    i = len(parts) - 1
+    while i > 1 and parts[i - 1].lower() in NAME_PARTICLES:
+        i -= 1
+    return f"{' '.join(parts[i:])}, {' '.join(parts[:i])}"
+
+
+def _author_segment(entry: str, title: Optional[str]) -> Optional[str]:
+    """The citation's text before its title, where every common style puts the authors; None if not found."""
+    if not title:
+        return None
+    title_words = _fold(title).split()
+    words: list[tuple[str, int]] = []
+    for m in NAME_TOKEN_RE.finditer(entry):
+        words.extend((w, m.start()) for w in _fold(m.group(0)).split())
+    plain = [w for w, _ in words]
+    for size in (4, 3, 2):
+        probe = title_words[:size]
+        if len(probe) < min(size, len(title_words)) or not probe:
+            continue
+        for i in range(len(plain) - len(probe) + 1):
+            if plain[i:i + len(probe)] == probe:
+                return entry[:words[i][1]]
+    return None
+
+
+def _compare_authors(ref: Reference, source: str) -> None:
+    """Compare the record's author list with the citation's, beyond the first author.
+
+    Records an outcome in `author_check` and the details in `author_notes`. A difference is a metadata question
+    for the authors to check against the publisher's page, never evidence that a reference was invented:
+    registries cut long lists short, list editors or groups, and spell names their own way.
+    """
+    record = [_split_author(a) for a in ref.resolved_authors]
+    people = [(f, g) for f, g in record if f and not GROUP_AUTHOR_RE.search(f)]
+    segment = _author_segment(ref.text, ref.resolved_title)
+    if not people or segment is None or GROUP_AUTHOR_RE.search(segment):
+        ref.author_check = "not_compared"
+        return
+    # arXiv keeps names as the submitter typed them ("Kulaga Anton" beside "Ryangguk Kim"), so either part can be
+    # the family name there.
+    any_order = source == "arXiv"
+    spans = [(m.group(0), _fold(m.group(0)), m.start(), m.end()) for m in NAME_TOKEN_RE.finditer(segment)]
+    spans = [s for s in spans if s[1] and s[1] not in NAME_STOPWORDS]
+    tokens = [(raw, folded) for raw, folded, _, _ in spans]
+
+    def keys_of(family: str, given: str) -> set[str]:
+        keys = _surname_keys(family)
+        return keys | {w for w in _fold(given).split() if len(w) > 1} if any_order else keys
+
+    def matches(i: int, keys: set[str]) -> bool:
+        raw, folded = tokens[i]
+        parts = folded.split()
+        return "".join(parts) in keys or any(p in keys for p in parts) or \
+            "".join(_fold(raw.translate(_UMLAUTS)).split()) in keys
+
+    # Each record author is searched after the previous one's place, so two authors who share a surname (Wang P and
+    # Wang K; Griffith M first and Griffith OL last) take different tokens; out-of-order lists fall back to any token
+    # not yet taken.
+    places: list[Optional[int]] = []
+    taken: set[int] = set()
+    cursor = 0
+    for family, given in people:
+        keys = keys_of(family, given)
+        place = next((i for i in range(cursor, len(tokens)) if i not in taken and matches(i, keys)), None)
+        if place is None:
+            place = next((i for i in range(len(tokens)) if i not in taken and matches(i, keys)), None)
+        places.append(place)
+        if place is not None:
+            taken.add(place)
+            cursor = place + 1
+    matched = [i for i, p in enumerate(places) if p is not None]
+    notes: list[str] = []
+    level = "consistent"
+    if not matched:
+        ref.author_check, ref.author_notes = "differs", [f"No author on the {source} record appears before the title."]
+        return
+    last = max(matched)
+    gaps = [people[i][0] for i in range(last + 1) if places[i] is None]
+    if gaps:
+        notes.append(f"On the {source} record but not in the citation's list: {', '.join(gaps[:8])}"
+                     + (" …" if len(gaps) > 8 else "") + ".")
+        level = "differs"
+    if not ET_AL_RE.search(segment) and last < len(people) - 1:
+        notes.append(f"The citation names {len(matched)} of the record's {len(people)} authors without 'et al.'")
+        level = "differs" if level == "differs" else "omits"
+    known: set[str] = set()
+    for f, g in record:
+        given_words = _fold(g).split()
+        known |= _surname_keys(f) | set(given_words) | set(_fold(f).split()) | {"".join(given_words)}
+    used = set(taken)
+    surname_first = min(used) == 0
+    record_surnames = set().union(*(_surname_keys(f) for f, _ in people))
+
+    def separated(i: int, j: int, comma: bool = True) -> bool:
+        """A person boundary between tokens i < j: a semicolon, '&', 'and' or (unless allowed) a comma."""
+        between = segment[spans[i][3]:spans[j][2]]
+        return bool(re.search(r"[,;&]|\band\b" if comma else r"[;&]|\band\b", between, re.IGNORECASE))
+
+    def given_run(place: int) -> list[int]:
+        """The tokens that spell the given names of the author cited at `place`, in citation order."""
+        run: list[int] = []
+        if surname_first:
+            k = place + 1
+            if k < len(tokens) and k not in used and not separated(place, k, comma=False) \
+                    and not matches(k, record_surnames):
+                run.append(k)
+                k += 1
+                while k < len(tokens) and k not in used and not separated(k - 1, k):
+                    run.append(k)
+                    k += 1
+        else:
+            k = place - 1
+            while k >= 0 and k not in used and not separated(k, k + 1):
+                run.insert(0, k)
+                k -= 1
+        return [k for k in run if not (tokens[k][1] in NAME_PARTICLES and tokens[k][0].islower())]  # "E." is an initial
+
+    runs = {place: given_run(place) for place in used}
+    given_slots = {k for run in runs.values() for k in run}
+    if surname_first and len(re.findall(r"\band\b", segment)) >= 2 and "&" not in segment:
+        # BibTeX style ("Family, Given and Family, Given"): the given name of an author missing from the record
+        # follows that author's surname after a bare comma, so it is not a further author.
+        given_slots |= {k for k in range(1, len(tokens)) if k not in used and k - 1 not in used | given_slots
+                        and not separated(k - 1, k, comma=False) and re.fullmatch(r"\s*,\s*", segment[
+                            spans[k - 1][3]:spans[k][2]])}
+    unknown = [(i, t) for i, (t, f) in enumerate(tokens)
+               if i not in used and i not in given_slots and not (len(t) <= 3 and t.isupper())
+               and len(f.replace(" ", "")) > 1 and f not in NAME_PARTICLES and "".join(f.split()) not in known
+               and not set(f.split()) & known and _fold(t.translate(_UMLAUTS)) not in known]
+    if unknown:
+        names = ", ".join(t for _, t in unknown[:8])
+        if len(matched) == len(people) and all(i > max(used) for i, _ in unknown):
+            notes.append(f"The {source} record lists {len(people)} author(s); the citation also names {names}. "
+                         f"Registry lists can stop short; check the publisher's page if it matters.")
+        else:
+            notes.append(f"In the citation but not on the {source} record: {names}.")
+            level = "differs"
+    for (family, given), place in zip(people, places):
+        if place is None or not runs.get(place):
+            continue
+        shown, who = given, family
+        if any_order:  # the record's given name is whichever part the citation did not use as the surname
+            used_parts = set(tokens[place][1].split()) | {"".join(tokens[place][1].split())}
+            given = " ".join(w for w in _fold(f"{family} {given}").split() if w not in used_parts)
+            shown, who = f"{shown} {family}", tokens[place][0]
+        record_given = _fold(given).split()
+        if not record_given:
+            continue
+        raw, cited = tokens[runs[place][0]]
+        if cited[:1] != record_given[0][:1]:
+            notes.append(f"Initials differ for {who}: citation {cited[:1].upper()}, record {shown}.")
+            level = level if level != "consistent" else "initials"
+        elif len(cited) > 1 and len(record_given[0]) > 1 and not (len(raw) <= 3 and raw.isupper()) \
+                and not (cited.startswith(record_given[0]) or record_given[0].startswith(cited)):
+            notes.append(f"Given name differs for {who}: citation {raw}, record {shown}.")
+            level = level if level != "consistent" else "initials"
+    ref.author_check = {"consistent": "consistent", "omits": "differs", "initials": "differs"}.get(level, "differs")
+    ref.author_notes = notes
+    ref.author_severity = {"differs": "minor"}.get(level, "info") if ref.author_check == "differs" else None
+
+
+# --- retractions, expressions of concern, withdrawals --------------------------------------------------------
+
+RETRACTION_UPDATES = ("retraction", "withdrawal", "removal")  # Crossref `updated-by` types (incl. partial_retraction)
+WITHDRAWN_RE = re.compile(r"\b(?:has|have) been withdrawn\b|\b(?:is|was|being) withdrawn\b|\bwithdrawn by\b|"
+                          r"\bwithdrawn (?:due to|because|for|pending|as|at)\b|^\W*withdrawn\b|\bwithdrawal of this\b",
+                          re.IGNORECASE)
+RESTORED_RE = re.compile(r"\b(?:erroneously|mistakenly|accidentally|inadvertently)\b[^.]{0,40}\bwithdr|"
+                         r"\bwithdr\w*\b[^.]{0,40}\b(?:in error|by mistake|erroneously|mistakenly)\b", re.IGNORECASE)
+EUROPEPMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+ARXIV_DOI_RE = re.compile(r"^10\.48550/arxiv\.(\d{4}\.\d{4,5})(?:v\d+)?$", re.IGNORECASE)
+RXIV_DOI_RE = re.compile(r"^10\.1101/(?:\d{4}\.\d{2}\.\d{2}\.)?\d{6,}(?:v\d+)?$")
+_ARXIV_LAST = [0.0]
+
+
+def _withdrawn(text: str) -> bool:
+    return bool(WITHDRAWN_RE.search(text)) and not RESTORED_RE.search(text)
+
+
+def _crossref_notice(msg: dict) -> tuple[str, str, Optional[str]]:
+    """('retracted' | 'concern' | 'none', source, notice DOI) from a Crossref work record.
+
+    Crossref carries Retraction Watch's records in `updated-by` (source "retraction-watch") beside publishers'
+    own notices. A retraction outranks an expression of concern on the same work.
+    """
+    updates = msg.get("updated-by") or []
+    for state, test in (("retracted", lambda k: any(r in k for r in RETRACTION_UPDATES)),
+                        ("concern", lambda k: "concern" in k)):
+        for u in updates:
+            if test(str(u.get("type", "")).lower()):
+                origin = u.get("source")
+                return state, "crossref" + (f" ({origin})" if origin else ""), u.get("DOI")
+    title = (msg.get("title") or [""])[0]
+    if re.match(r"\s*(?:retracted|withdrawn)\b", title, re.IGNORECASE):
+        return "retracted", "crossref (title)", None
+    return "none", "crossref", None
+
+
+def _europepmc_record(client: httpx.Client, doi: Optional[str], pmid: Optional[str]) -> Optional[dict]:
+    """Europe PMC's record for a DOI or PMID: {} when it holds none, None when it did not answer."""
+    query = f'DOI:"{doi}"' if doi else f"EXT_ID:{pmid} AND SRC:MED"
+    r = _get(client, EUROPEPMC_SEARCH, query=query, format="json", resultType="core", pageSize="1")
+    if r is None or r.status_code != 200:
+        return None
+    try:
+        hits = r.json().get("resultList", {}).get("result", [])
+    except (ValueError, AttributeError):
+        return None
+    for hit in hits:
+        if (doi and (hit.get("doi") or "").lower() == doi.lower()) or (not doi and str(hit.get("pmid")) == str(pmid)):
+            return hit
+    return {}
+
+
+def _europepmc_notice(hit: dict) -> tuple[str, Optional[str]]:
+    """Europe PMC marks a retracted paper by publication type and links notices as comment-corrections."""
+    types = [t.lower() for t in (hit.get("pubTypeList") or {}).get("pubType") or []]
+    links = (hit.get("commentCorrectionList") or {}).get("commentCorrection") or []
+    for state, prefixes in (("retracted", ("retraction in", "partial retraction in")),
+                            ("concern", ("expression of concern in",))):
+        for link in links:
+            if (link.get("type") or "").lower().startswith(prefixes):
+                return state, link.get("reference") or link.get("id")
+        if state == "retracted" and "retracted publication" in types:
+            return state, None
+    return "none", None
+
+
+def _check_retraction(client: httpx.Client, ref: Reference, first: Optional[tuple[str, str, Optional[str]]]) -> None:
+    """Ask a second registry unless the first already found a retraction; any notice found wins.
+
+    Crossref (with Retraction Watch) and PubMed each miss retractions the other records, so a clean answer from
+    one source does not end the search. A reference no registry answered for stays `not_checked`, never clean.
+    """
+    answered: list[str] = []
+    state, notice, found_by = "none", None, None
+    if first is not None:
+        answered.append(first[0])
+        if first[1] != "none":
+            state, found_by, notice = first[1], first[0], first[2]
+    if state != "retracted":
+        hit = _europepmc_record(client, ref.doi, ref.pmid)
+        if hit is None:
+            ref.lookup_notes.append("Europe PMC did not answer; retraction checked with fewer sources.")
+        elif hit:
+            answered.append("europepmc")
+            second, second_notice = _europepmc_notice(hit)
+            if second == "retracted" or (second == "concern" and state == "none"):
+                state, found_by, notice = second, "europepmc", second_notice
+    if not answered:
+        ref.retraction = "not_checked"
+        return
+    ref.retraction = {"none": "none_found"}.get(state, state)
+    ref.retraction_source = found_by if state != "none" else "+".join(dict.fromkeys(answered))
+    ref.retraction_notice = notice
+    if state in ("retracted", "concern") and ref.status == "resolved":
+        ref.status = state
+
+
+# --- registries ----------------------------------------------------------------------------------------------
+
+def _published_version(client: httpx.Client, ref: Reference, doi: Optional[str], source: str,
+                       venue: Optional[str] = None) -> None:
+    """Record where a cited preprint was published, with the published record's metadata compared."""
+    pv = PublishedVersion(doi=doi.lower() if doi else None, source=source, venue=venue)
+    if doi:
+        msg = _json_message(_get(client, f"https://api.crossref.org/works/{doi}"))
+        if msg is None:
+            ref.lookup_notes.append(f"Crossref did not return the published version {doi}; compare it by hand.")
+        else:
+            pv.title = (msg.get("title") or [""])[0]
+            pv.venue = (msg.get("container-title") or [venue])[0]
+            parts = (msg.get("issued") or {}).get("date-parts") or [[None]]
+            pv.year = str(parts[0][0]) if parts[0][0] else None
+            pv.title_similarity = round(_similarity(pv.title, ref.resolved_title or ref.text), 2) if pv.title else None
+            theirs = {k for a in _crossref_authors(msg) for k in _surname_keys(_split_author(a)[0])}
+            ours = {k for a in ref.resolved_authors for k in _surname_keys(_split_author(a)[0])} or _entry_tokens(ref.text)
+            pv.shared_authors = bool(theirs & ours) if theirs else None
+            state, _, _ = _crossref_notice(msg)
+            pv.retraction = {"none": "none_found"}.get(state, state)
+            pv.metadata_checked = True
+    ref.published_version = pv
+
+
+def _rxiv_details(client: httpx.Client, ref: Reference, msg: dict) -> None:
+    """bioRxiv/medRxiv: the server's own record of a later publication and of a withdrawal."""
+    servers = ["medrxiv", "biorxiv"] if "medrxiv" in json.dumps(msg.get("institution") or "").lower() else \
+        ["biorxiv", "medrxiv"]
+    for server in servers:
+        r = _get(client, f"https://api.biorxiv.org/details/{server}/{ref.doi}")
+        if r is None or r.status_code != 200:
+            ref.lookup_notes.append(f"The {server} API did not answer.")
+            continue
+        try:
+            versions = r.json().get("collection") or []
+        except (ValueError, AttributeError):
+            versions = []
+        if not versions:
+            continue
+        latest = versions[-1]
+        ref.withdrawn = _withdrawn(f"{latest.get('title', '')}. {latest.get('abstract', '')}")
+        ref.withdrawn_source = f"{server}:details"
+        published = str(latest.get("published") or "")
+        if ref.published_version is None and published.startswith("10."):
+            _published_version(client, ref, published, f"{server}:published")
+        return
+
+
+def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, str, Optional[str]]]:
+    """Crossref first; DataCite for dataset, software and preprint DOIs; doi.org for any other agency."""
     r = _get(client, f"https://api.crossref.org/works/{ref.doi}")
-    if r is not None and r.status_code == 200:
-        msg = r.json()["message"]
+    msg = _json_message(r)
+    if msg is not None:
         ref.resolved_title = (msg.get("title") or [""])[0]
         parts = (msg.get("issued") or {}).get("date-parts") or [[None]]
         ref.resolved_year = str(parts[0][0]) if parts[0][0] else None
         authors = msg.get("author") or []
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
-        updates = [u.get("type", "") for u in msg.get("updated-by", []) or []]
-        # Crossref carries Retraction Watch's records in `updated-by` (source "retraction-watch").
-        ref.status = ("retracted" if any("retraction" in u for u in updates)
-                      else "concern" if any("concern" in u for u in updates) else "resolved")
-        return
-    # Not every DOI is Crossref's (DataCite: Zenodo, figshare, arXiv). Ask doi.org whether it exists.
-    head = client.head(f"https://doi.org/{ref.doi}", follow_redirects=False)
-    ref.status = "resolved" if head.status_code in (301, 302, 303, 307, 308) else "unresolved"
+        ref.resolved_authors = _crossref_authors(msg)
+        state, source, notice = _crossref_notice(msg)
+        ref.status = state if state != "none" else "resolved"
+        ref.is_preprint = msg.get("type") == "posted-content" or msg.get("subtype") == "preprint"
+        if ref.is_preprint:
+            later = [t.get("id") for t in (msg.get("relation") or {}).get("is-preprint-of", []) if t.get("id")]
+            if later:
+                _published_version(client, ref, later[0], "crossref:is-preprint-of")
+            if RXIV_DOI_RE.match(ref.doi or ""):
+                _rxiv_details(client, ref, msg)
+        return source, state, notice
+    if r is not None and r.status_code == 404 and _resolve_datacite(client, ref):
+        return None
+    head = _head(client, f"https://doi.org/{ref.doi}")
+    if head is not None and head.status_code in (301, 302, 303, 307, 308):
+        ref.status = "resolved"
+        ref.lookup_notes.append("The DOI exists (doi.org) but no Crossref or DataCite metadata was read.")
+    elif head is not None and head.status_code == 404:
+        ref.status = "unresolved"
+    else:
+        ref.status = "lookup_failed"
+        ref.lookup_notes.append("Crossref and doi.org did not answer.")
+    return None
 
 
-def _resolve_pmid(client: httpx.Client, ref: Reference) -> None:
+def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
+    r = _get(client, f"https://api.datacite.org/dois/{ref.doi}")
+    if r is None or r.status_code != 200:
+        return False
+    try:
+        attrs = r.json()["data"]["attributes"]
+    except (ValueError, KeyError, TypeError):
+        return False
+    ref.resolved_title = ((attrs.get("titles") or [{}])[0]).get("title")
+    ref.resolved_year = str(attrs["publicationYear"]) if attrs.get("publicationYear") else None
+    names = []
+    for c in attrs.get("creators") or []:
+        family, given = c.get("familyName"), c.get("givenName")
+        names.append(f"{family}, {given}" if family and given else family or c.get("name") or "")
+    ref.resolved_authors = [n for n in names if n][:200]
+    ref.resolved_first_author = _split_author(ref.resolved_authors[0])[0] if ref.resolved_authors else None
+    kind = ((attrs.get("types") or {}).get("resourceTypeGeneral") or "").lower()
+    ref.is_preprint = kind == "preprint"
+    ref.status = "resolved"
+    ref.lookup_notes.append(f"DataCite record ({kind or 'unknown type'}); DataCite carries no retraction notices.")
+    return True
+
+
+def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, str, Optional[str]]]:
     r = _get(client, "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi", db="pubmed", id=ref.pmid or "",
              retmode="json")
-    doc = (r.json().get("result", {}).get(ref.pmid or "", {}) if r is not None and r.status_code == 200 else {})
+    if r is None or r.status_code != 200:
+        ref.status = "lookup_failed"
+        ref.lookup_notes.append("PubMed did not answer.")
+        return None
+    try:
+        doc = r.json().get("result", {}).get(ref.pmid or "", {})
+    except (ValueError, AttributeError):
+        doc = {}
     if not doc or "error" in doc:
         ref.status = "unresolved"
-        return
+        return None
     ref.resolved_title = doc.get("title", "")
     ref.resolved_year = (doc.get("pubdate") or "")[:4] or None
     authors = doc.get("authors") or []
     ref.resolved_first_author = authors[0]["name"] if authors else None  # "Lambert SA"
-    ref.status = "retracted" if "Retracted Publication" in (doc.get("pubtype") or []) else "resolved"
+    ref.resolved_authors = [_pubmed_author(a.get("name", "")) for a in authors if a.get("name")][:200]
+    retracted = "Retracted Publication" in (doc.get("pubtype") or [])
+    ref.status = "retracted" if retracted else "resolved"
+    return "pubmed", "retracted" if retracted else "none", None
 
 
 def _resolve_arxiv(client: httpx.Client, ref: Reference) -> None:
+    wait = 3.1 - (time.monotonic() - _ARXIV_LAST[0])  # arXiv asks for 3 s between calls
+    if wait > 0:
+        time.sleep(wait)
+    _ARXIV_LAST[0] = time.monotonic()
     r = _get(client, "https://export.arxiv.org/api/query", id_list=ref.arxiv or "")
-    m = re.search(r"<entry>.*?<title>(.*?)</title>", r.text, re.DOTALL) if r is not None else None
+    if r is None or r.status_code != 200:
+        ref.status = "lookup_failed"
+        ref.lookup_notes.append("arXiv did not answer.")
+        return
+    entry = re.search(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
+    m = re.search(r"<title>(.*?)</title>", entry.group(1), re.DOTALL) if entry else None
     if not m or "Error" in m.group(1):
         ref.status = "unresolved"
         return
+    body = entry.group(1)
+
+    def field(name: str) -> Optional[str]:
+        found = re.search(rf"<arxiv:{name}[^>]*>(.*?)</arxiv:{name}>", body, re.DOTALL)
+        return " ".join(found.group(1).split()) if found else None
+
     ref.resolved_title = " ".join(m.group(1).split())
-    year = re.search(r"<entry>.*?<published>(\d{4})", r.text, re.DOTALL)
+    year = re.search(r"<published>(\d{4})", body)
     ref.resolved_year = year.group(1) if year else None
-    author = re.search(r"<entry>.*?<author>\s*<name>(.*?)</name>", r.text, re.DOTALL)
-    ref.resolved_first_author = author.group(1).strip() if author else None  # name order varies
+    names = [" ".join(n.split()) for n in re.findall(r"<author>\s*<name>(.*?)</name>", body, re.DOTALL)]
+    ref.resolved_first_author = names[0] if names else None  # name order varies
+    ref.resolved_authors = [_given_first_author(n) for n in names][:200]
+    ref.is_preprint = True
+    ref.withdrawn = _withdrawn(field("comment") or "")
+    ref.withdrawn_source = "arxiv:comment"
+    ref.lookup_notes.append("arXiv records withdrawals, not retractions; retraction was not checked.")
     ref.status = "resolved"
+    if field("doi"):
+        _published_version(client, ref, field("doi"), "arxiv:doi", field("journal_ref"))
+    elif field("journal_ref"):
+        _published_version(client, ref, None, "arxiv:journal_ref", field("journal_ref"))
+    elif not ref.withdrawn:
+        _published_by_title(client, ref, field("comment"))
+
+
+# "Accepted by EMNLP 2023", "accepted for publication in Bioinformatics", "To appear in Proc. ACL".
+ARXIV_ACCEPTED_RE = re.compile(r"\b(?:accepted|to appear|published|appears?|appeared)\b[^.;]{0,25}?\b(?:by|at|in|to|for)"
+                               r"\s+(?:the\s+)?(?P<venue>[A-Z][^;()]{1,80}?)\s*(?:[.;(]|$)", re.IGNORECASE)
+
+
+def _crossref_title_search(client: httpx.Client, query: str, rows: int = 3) -> Optional[list[dict]]:
+    """Crossref's best bibliographic matches for a query; None when Crossref did not answer."""
+    msg = _json_message(_get(client, "https://api.crossref.org/works",
+                             **{"query.bibliographic": query[:300], "rows": str(rows)}))
+    return None if msg is None else [i for i in msg.get("items") or [] if isinstance(i, dict)]
+
+
+def _published_by_title(client: httpx.Client, ref: Reference, comment: Optional[str]) -> None:
+    """An arXiv preprint whose record names no DOI or journal: a venue in its comment, and a Crossref record with the
+    same title and a shared author. Both are candidates to confirm; neither is a link the registries recorded."""
+    accepted = ARXIV_ACCEPTED_RE.search(comment or "")
+    hint = accepted.group("venue").strip() if accepted else None
+    first = _split_author(ref.resolved_authors[0]) if ref.resolved_authors else ("", "")
+    items = _crossref_title_search(client, f"{ref.resolved_title} {first[1]} {first[0]}")
+    if items is None:
+        ref.lookup_notes.append("Crossref did not answer the search for a published version.")
+    ours = {k for a in ref.resolved_authors for part in _split_author(a) for k in _surname_keys(part)}
+    for item in items or []:
+        doi, title = str(item.get("DOI") or ""), (item.get("title") or [""])[0]
+        if not doi or not title or item.get("type") == "posted-content" or doi.lower().startswith("10.48550/"):
+            continue
+        similarity = min(_similarity(title, ref.resolved_title or ""), _similarity(ref.resolved_title or "", title))
+        theirs = {k for a in _crossref_authors(item) for k in _surname_keys(_split_author(a)[0])}
+        if similarity >= 0.95 and theirs & ours:
+            parts = (item.get("issued") or {}).get("date-parts") or [[None]]
+            ref.published_version = PublishedVersion(
+                doi=doi.lower(), title=title, venue=(item.get("container-title") or [hint])[0],
+                year=str(parts[0][0]) if parts[0][0] else None, source="crossref:title-search",
+                title_similarity=round(similarity, 2), shared_authors=True, comment=comment if hint else None,
+                retraction={"none": "none_found"}.get(_crossref_notice(item)[0], _crossref_notice(item)[0]),
+                metadata_checked=True)
+            return
+    if hint:
+        ref.published_version = PublishedVersion(venue=hint, source="arxiv:comment", comment=comment)
+
+
+def _title_candidate(client: httpx.Client, ref: Reference) -> None:
+    """An identifier that does not resolve: the record Crossref finds for the entry's own text, as a candidate."""
+    query = re.sub(rf"{DOI_RE.pattern}|{PMID_RE.pattern}|{ARXIV_RE.pattern}|https?://\S+", " ", ref.text,
+                   flags=re.IGNORECASE)
+    items = _crossref_title_search(client, query)
+    if items is None:
+        ref.lookup_notes.append("The Crossref title search did not answer.")
+        return
+    names_authors = not re.match(r"\(?(?:19|20)\d{2}", ref.text.strip())
+    best: Optional[dict] = None
+    for item in items:
+        title = (item.get("title") or [""])[0]
+        if not item.get("DOI") or not title:
+            continue
+        authors = _crossref_authors(item)
+        first_shared = bool(authors) and bool(_surname_keys(_split_author(authors[0])[0]) & _entry_tokens(ref.text))
+        candidate = {"doi": str(item["DOI"]).lower(), "title": title, "similarity": round(_similarity(title, ref.text), 2),
+                     "first_author_shared": first_shared}
+        if candidate["similarity"] < 0.5:  # a search always returns something; a distant title is no candidate
+            continue
+        candidate["strong"] = candidate["similarity"] >= 0.9 and (first_shared or not names_authors)
+        if best is None or candidate["strong"]:
+            best = candidate
+        if candidate["strong"]:
+            break
+    ref._title_match = best
+    ref.lookup_notes.append(
+        f"Crossref title search: doi:{best['doi']} '{best['title']}' (title similarity {best['similarity']}, first "
+        f"author shared: {'yes' if best['first_author_shared'] else 'no'})." if best else
+        "A Crossref title search found no close record.")
 
 
 def _search_crossref(client: httpx.Client, ref: Reference) -> None:
     """No identifier: ask Crossref for the best bibliographic match and report how well it fits."""
-    r = _get(client, "https://api.crossref.org/works", **{"query.bibliographic": ref.text[:300], "rows": "1"})
-    items = r.json()["message"]["items"] if r is not None and r.status_code == 200 else []
+    items = _crossref_title_search(client, ref.text, rows=1)
     if items:
         ref.resolved_title = (items[0].get("title") or [""])[0]
         ref.doi = items[0].get("DOI")
         authors = items[0].get("author") or []
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
+    elif items is None:
+        ref.lookup_notes.append("Crossref search did not answer.")
     ref.status = "no_identifier"
+
+
+def _first_author_keys(ref: Reference) -> set[str]:
+    if ref.resolved_authors:
+        family, given = _split_author(ref.resolved_authors[0])
+        if _record_source(ref) == "arXiv":  # name order as typed: either part can be the family name
+            return _surname_keys(family) | {w for w in _fold(given).split() if len(w) > 1}
+        return _surname_keys(family)
+    # A bare name of unknown order (Crossref search, arXiv): any part longer than an initial.
+    return {t for t in _fold(ref.resolved_first_author or "").split() if len(t) > 1}
 
 
 def resolve_references(refs: list[Reference], search_unidentified: bool) -> None:
     with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
         for ref in refs:
-            if ref.doi:
-                _resolve_doi(client, ref)
+            arxiv_doi = ARXIV_DOI_RE.match(ref.doi or "")
+            if arxiv_doi and not ref.arxiv:
+                ref.arxiv = arxiv_doi.group(1)
+            first, route = None, None
+            if ref.doi and not arxiv_doi:
+                first, route = _resolve_doi(client, ref), "doi"
             elif ref.pmid:
-                _resolve_pmid(client, ref)
+                first, route = _resolve_pmid(client, ref), "pmid"
             elif ref.arxiv:
                 _resolve_arxiv(client, ref)
             elif search_unidentified:
                 _search_crossref(client, ref)
+            if route and ref.status in ("resolved", "retracted", "concern"):
+                _check_retraction(client, ref, first)
+            if ref.status == "unresolved" and search_unidentified:  # the entry's text leaves the machine
+                _title_candidate(client, ref)
+            # A BibTeX entry without an author field starts with its year: there is no list to compare.
+            names_authors = not re.match(r"\(?(?:19|20)\d{2}", ref.text.strip())
             if ref.resolved_title:
                 ref.title_similarity = round(_similarity(ref.resolved_title, ref.text), 2)
-                if ref.resolved_first_author:
-                    # Any part of the name longer than an initial: sources disagree on name order.
-                    want = [t for t in _name_tokens(ref.resolved_first_author) if len(t) > 2]
-                    ref.first_author_found = bool(want) and any(t in set(_name_tokens(ref.text)) for t in want)
+                if not names_authors and ref.resolved_authors:
+                    ref.lookup_notes.append("The entry names no author, so authors were not compared with the record.")
+                elif ref.resolved_first_author or ref.resolved_authors:
+                    keys = _first_author_keys(ref)
+                    ref.first_author_found = bool(keys) and bool(keys & _entry_tokens(ref.text))
                 # A title that does not match is a different work; a first author that does not match, with
-                # the title right, is usually a wrong author list (RefChecker flags both).
-                if ref.status == "resolved" and (ref.title_similarity < 0.6 or ref.first_author_found is False):
+                # the title right, is usually a wrong author list (RefChecker flags both). A mismatch outranks a
+                # retraction notice, which then belongs to the work the identifier points to, not the one cited.
+                if ref.status in ("resolved", "retracted", "concern") and (
+                        ref.title_similarity < 0.6 or ref.first_author_found is False):
                     ref.status = "mismatch"
+                if ref.status in ("resolved", "retracted", "concern") and ref.resolved_authors and names_authors:
+                    _compare_authors(ref, _record_source(ref))
             time.sleep(0.35)  # NCBI allows 3 req/s without a key; Crossref asks for politeness
 
 
-def _reference_findings(refs: list[Reference]) -> list[Finding]:
+def _record_source(ref: Reference) -> str:
+    if ref.doi and not ARXIV_DOI_RE.match(ref.doi):
+        return "DataCite" if any(n.startswith("DataCite") for n in ref.lookup_notes) else "Crossref"
+    return "PubMed" if ref.pmid and not ref.arxiv else "arXiv"
+
+
+def _reference_findings(refs: list[Reference], online: bool = False) -> list[Finding]:
     out: list[Finding] = []
     for ref in refs:
         short = ref.text[:140]
         if ref.status == "unresolved":
-            out.append(Finding(check="references", severity=Severity.blocker, line=ref.line, excerpt=short,
-                               message=f"Identifier does not resolve ({ref.doi or ref.pmid or ref.arxiv}).",
-                               suggestion="Find the real record or remove the citation. One fabricated reference "
-                                          "is a desk reject at several venues."))
+            ident, match = ref.doi or ref.pmid or ref.arxiv, ref._title_match
+            if match and match["strong"]:
+                out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
+                                   message=f"Identifier {ident} does not resolve. Crossref holds a record with this "
+                                           f"title: doi:{match['doi']} '{match['title']}' (title similarity "
+                                           f"{match['similarity']}, same first author).",
+                                   suggestion="A mistyped identifier is the usual cause: compare that record with the "
+                                              "entry (authors, year, journal), then correct the identifier."))
+            else:
+                found = (f"; Crossref's closest title match differs: doi:{match['doi']} '{match['title']}' (title "
+                         f"similarity {match['similarity']}, first author shared: "
+                         f"{'yes' if match['first_author_shared'] else 'no'})" if match else
+                         "; the Crossref title search " + ("did not answer" if any(
+                             "title search did not answer" in n for n in ref.lookup_notes) else "found no close record"))
+                out.append(Finding(check="references", severity=Severity.blocker, line=ref.line, excerpt=short,
+                                   message=f"Identifier {ident} does not resolve{found}.",
+                                   suggestion="A typo in the identifier is the usual cause. Find the work by title, "
+                                              "journal, volume and pages and correct the entry; a reference that no "
+                                              "one can trace is a desk-reject trigger at several venues."))
         elif ref.status == "retracted":
             out.append(Finding(check="references", severity=Severity.blocker, line=ref.line, excerpt=short,
-                               message="Cited work is marked as retracted.",
+                               message="Cited work is marked as retracted"
+                                       + (f" (source: {ref.retraction_source}"
+                                          + (f"; notice {ref.retraction_notice}" if ref.retraction_notice else "")
+                                          + ")." if ref.retraction_source else "."),
                                suggestion="Drop it, or cite it explicitly as retracted if the retraction is the point."))
         elif ref.status == "concern":
             out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
-                               message="Cited work carries an expression of concern.",
+                               message="Cited work carries an expression of concern"
+                                       + (f" (source: {ref.retraction_source})." if ref.retraction_source else "."),
                                suggestion="Say so where it is cited, or support the claim with other work."))
         elif ref.status == "mismatch":
+            notice = (f" The record it resolves to is marked {ref.retraction} ({ref.retraction_source})."
+                      if ref.retraction in ("retracted", "concern") else "")
             out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
                                message=f"Identifier resolves to '{ref.resolved_title}' by "
                                        f"{ref.resolved_first_author or '?'} (title similarity {ref.title_similarity}, "
-                                       f"first author in citation: {ref.first_author_found}).",
+                                       f"first author in citation: {ref.first_author_found}).{notice}",
                                suggestion="Correct the identifier or the citation text; check authors and year too."))
+        elif ref.status == "lookup_failed":
+            out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
+                               message="Lookup did not answer; identity and retraction not assessed ("
+                                       + " ".join(ref.lookup_notes) + ")",
+                               suggestion="Re-run later or check the record by hand. A failed lookup is not evidence "
+                                          "that the reference is wrong."))
         elif ref.status == "no_identifier":
             weak = (ref.title_similarity or 0) < 0.6
             sev = Severity.major if weak and not ref.first_author_found else Severity.minor if weak else Severity.info
@@ -768,8 +1602,9 @@ def _reference_findings(refs: list[Reference]) -> list[Finding]:
             hint = (f" Best Crossref match: '{ref.resolved_title}' doi:{ref.doi} (similarity {ref.title_similarity})."
                     if ref.resolved_title else " Crossref found no match.")
             if (ref.title_similarity or 0) < 0.4 and not ref.first_author_found:
-                hint += (" No matching record: possibly fabricated. Search PubMed by title and by journal, volume "
-                         "and pages before keeping it.")
+                hint += (" No close match: unverified, which is not evidence that the work does not exist (software, "
+                         "web pages, reports and new works are often missing from Crossref). Search PubMed, the "
+                         "publisher or the project page by title, journal, volume and pages.")
             out.append(Finding(check="references", severity=sev, line=ref.line, excerpt=short,
                                message="Reference carries no DOI, PMID or arXiv id." + hint + hint_author,
                                suggestion="Add the DOI (or PMID/arXiv id) after confirming title, authors, year."))
@@ -777,6 +1612,60 @@ def _reference_findings(refs: list[Reference]) -> list[Finding]:
             out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
                                message="Reference carries no DOI, PMID or arXiv id.",
                                suggestion="Run with --online to search Crossref, then add the identifier."))
+        if ref.withdrawn:
+            out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
+                               message=f"The cited preprint has been withdrawn by its authors ({ref.withdrawn_source}).",
+                               suggestion="Cite the version or work that replaces it; its authors no longer stand by "
+                                          "it. Keep it only to discuss the withdrawal."))
+        pv = ref.published_version
+        if pv is not None and pv.source in ("arxiv:comment", "crossref:title-search") \
+                and ref.status not in ("unresolved", "mismatch"):
+            said = f"The arXiv comment says '{pv.comment}'. " if pv.comment else ""
+            found = (f"Crossref holds a record with the same title and a shared author: "
+                     f"{', '.join(x for x in (pv.venue, pv.year) if x)}, doi:{pv.doi} (title similarity "
+                     f"{pv.title_similarity})." if pv.doi else "No Crossref record with the same title was found.")
+            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
+                               message=f"The cited preprint may have been published. {said}{found} A candidate to "
+                                       f"confirm: neither arXiv nor Crossref links it to the preprint.",
+                               suggestion="Open the published record, check that it is the same work and still reports "
+                                          "what you cite, then cite it; keep the preprint if you need content the "
+                                          "published version dropped."))
+        elif pv is not None and ref.status not in ("unresolved", "mismatch"):
+            where = ", ".join(x for x in (pv.venue, pv.year) if x) or "a journal"
+            check = ""
+            if pv.metadata_checked and (pv.title_similarity or 0) < 0.5 and not pv.shared_authors:
+                check = " Its title and authors differ from the preprint's: confirm the link before switching."
+            elif pv.metadata_checked:
+                check = (f" Title similarity {pv.title_similarity}, shared authors: {pv.shared_authors}.")
+            if pv.retraction in ("retracted", "concern"):
+                check += f" The published version is marked {pv.retraction}."
+            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
+                               message=f"Cites a preprint that has been published in {where}"
+                                       + (f", doi:{pv.doi}" if pv.doi else "") + f" ({pv.source})." + check,
+                               suggestion="Cite the published version after confirming it still reports what you "
+                                          "cite: numbers, methods and author lists change between versions. Keep "
+                                          "the preprint only if you need content the published version dropped."))
+        if any(n.startswith("The entry names no author") for n in ref.lookup_notes):
+            out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
+                               message=f"The entry names no author (no author field could be read); the record "
+                                       f"lists {len(ref.resolved_authors)}. Authors were not compared.",
+                               suggestion="Add the author list from the record, or check the entry's author field."))
+        if ref.author_check == "differs" and ref.status not in ("unresolved", "mismatch"):
+            out.append(Finding(check="references", severity=Severity(ref.author_severity or "minor"), line=ref.line,
+                               excerpt=short, message="Author list differs from the record: " + " ".join(ref.author_notes),
+                               suggestion="Check against the publisher's page. Registries truncate lists and spell "
+                                          "names differently (initials, transliteration, particles); this is a "
+                                          "metadata difference to check, not evidence of fabrication."))
+    if online:
+        unchecked = [r for r in refs if r.retraction == "not_checked" and r.status not in ("unresolved", "not_checked")]
+        if unchecked:
+            out.append(Finding(check="references", severity=Severity.info,
+                               message=f"Retraction status not checked for {len(unchecked)} reference(s) (lines "
+                                       f"{', '.join(str(r.line) for r in unchecked[:20])}): no registry that records "
+                                       "retractions covers them (arXiv, DataCite, no identifier) or the lookup failed. "
+                                       "They are not known to be clean.",
+                               suggestion="For any that carry the argument, check the publisher's page or the "
+                                          "Retraction Watch database by hand."))
     return out
 
 
@@ -808,7 +1697,6 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
     text = _strip_comments(raw)
     lines = _lines(text)
     ref_start = _reference_start(lines)
-    body_lines = lines[: (ref_start or len(lines) + 1) - 1]
     findings: list[Finding] = []
     refs: list[Reference] = []
     bibliography_only = path.suffix.lower() == ".bib"
@@ -819,14 +1707,34 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
         if not bibliography_only:
             findings += _cite_key_findings(lines, {k for k, _ in keyed})
     if not bibliography_only:
-        for line_no, entry in _split_entries(_reference_entries(lines, ref_start)):
-            doi = DOI_RE.search(entry)
-            pmid = PMID_RE.search(entry)
-            arxiv = ARXIV_RE.search(entry)
-            refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                                  pmid=pmid.group(1) if pmid else None,
-                                  arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
-        findings += _citation_consistency(body_lines, refs)
+        lists = _reference_lists(lines, ref_start)
+        in_lists: set[int] = set()
+        for number, (begin, end, label, entries) in enumerate(lists):
+            in_lists.update(range(begin, end + 1))  # 1-based: the label line and the list's lines
+            split = _split_entries(entries)
+            for line_no, count in Counter(n for n, _ in split).items():
+                if count > 1:
+                    findings.append(Finding(check="references", severity=Severity.info, line=line_no,
+                                            message=f"One paragraph holds {count} references; the scan split it at "
+                                                    f"reference starts. Check the split in the table below.",
+                                            suggestion="Put each reference on its own line, and move any lead-in "
+                                                       "('Added in the revision:') out of the list."))
+            if number:
+                findings.append(Finding(check="references", severity=Severity.info, line=begin,
+                                        excerpt=label.strip("*# "),
+                                        message=f"A further reference list ({len(split)} entries) was checked with "
+                                                f"the main one, and the text after the main list was read for "
+                                                f"citations.", suggestion=""))
+            for line_no, entry in split:
+                doi = DOI_RE.search(entry)
+                pmid = PMID_RE.search(entry)
+                arxiv = ARXIV_RE.search(entry)
+                refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
+                                      pmid=pmid.group(1) if pmid else None,
+                                      arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
+        # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
+        cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
+        findings += _citation_consistency(cited_text, refs)
     if ref_start is None and not bibs:
         findings.append(Finding(check="references", severity=Severity.major,
                                 message="No references/bibliography heading found; references were not checked.",
@@ -837,7 +1745,7 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
                                 suggestion="Check the bibliography format and inspect the entries manually."))
     if online and refs:
         resolve_references(refs, search_unidentified)
-    findings += _reference_findings(refs)
+    findings += _reference_findings(refs, online)
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return ReferenceReport(path=str(path), online=online, findings=findings, references=refs)
@@ -943,13 +1851,29 @@ def references_to_markdown(report: ReferenceReport) -> str:
         out += ["", f"- **{finding.severity.value} / {finding.check}** {location}: {finding.message}"
                 + (f" `{finding.excerpt}`" if finding.excerpt else "")
                 + (f"\n  → {finding.suggestion}" if finding.suggestion else "")]
+    if report.online and report.references:
+        states = Counter(ref.retraction for ref in report.references)
+        out += ["", "Retraction check: " + ", ".join(f"{states[s]} {s}" for s in
+                                                    ("retracted", "concern", "none_found", "not_checked") if states[s])
+                + ". `not_checked` means no registry that records retractions answered for that entry; it is not "
+                  "known to be clean."]
     if report.references:
-        out += ["", "## References", "", "| line | status | id | resolved title |",
-                "|---|---|---|---|"]
+        out += ["", "## References", "", "| line | status | id | resolved title | retraction | notes |",
+                "|---|---|---|---|---|---|"]
         for ref in report.references:
             ident = ref.doi or (f"PMID {ref.pmid}" if ref.pmid else "") or (f"arXiv {ref.arxiv}" if ref.arxiv else "")
             title = (ref.resolved_title or "").replace("|", "\\|").replace("\n", " ")
-            out.append(f"| {ref.line} | {ref.status} | {ident} | {title} |")
+            retraction = ref.retraction + (f" ({ref.retraction_source})" if ref.retraction_source else "")
+            notes = []
+            if ref.published_version:
+                notes.append(f"published: {ref.published_version.doi or ref.published_version.venue}")
+            if ref.withdrawn:
+                notes.append("withdrawn")
+            if ref.author_check == "differs":
+                notes.append("authors differ")
+            notes += [n for n in ref.author_notes if "stop short" in n]
+            cell = "; ".join(notes).replace("|", "\\|")
+            out.append(f"| {ref.line} | {ref.status} | {ident} | {title} | {retraction} | {cell} |")
     return "\n".join(out) + "\n"
 
 
@@ -987,8 +1911,10 @@ def main(
     path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, readable=True)],
     online: Annotated[bool, typer.Option(help="Resolve DOIs, PMIDs and arXiv ids over the network")] = False,
     references_only: Annotated[bool, typer.Option(help="Check references and citation consistency without other audit checks")] = False,
-    search_unidentified: Annotated[bool, typer.Option(help="With --online, search Crossref for references that "
-                                                           "carry no identifier")] = True,
+    search_unidentified: Annotated[bool, typer.Option(help="With --online, search Crossref by the entry text for "
+                                                           "references with no identifier or one that does not "
+                                                           "resolve; --no-search-unidentified keeps reference "
+                                                           "text on this machine")] = True,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
     venue: Annotated[Optional[str], typer.Option(help="Venue key from references/venues.yaml")] = None,

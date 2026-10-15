@@ -1,0 +1,33 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.1038/s41467-026-76834-4",
+  "type": "journal-article",
+  "title": [
+   "PubMind: literature-based genetic variant extraction and functional annotation using large language models"
+  ],
+  "container-title": [
+   "Nature Communications"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2026,
+     8,
+     20
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Peng",
+    "family": "Wang"
+   },
+   {
+    "given": "Kai",
+    "family": "Wang"
+   }
+  ]
+ }
+}

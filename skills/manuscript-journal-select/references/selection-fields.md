@@ -1,7 +1,12 @@
 # Recording selection evidence in the shared venue database
 
-Use `../../manuscript-integrity-check/references/venues.yaml`. Preserve existing fields; research only
-decision-changing gaps for the requested comparison. Missing or `null` means unresearched, never no rule,
+This file guides maintenance of the plugin's catalogue,
+`../../manuscript-integrity-check/references/venues.yaml`. During an author's task, put newly researched
+facts in the result in this format (and in the shared manuscript record's `venue` entry when one exists);
+write them into `venues.yaml` only when the task is maintaining this repository, following
+`../../manuscript-journal-adapt/references/policy-maintenance.md`. In an installed plugin the catalogue
+sits in a cache that an update replaces. Preserve existing fields; research only decision-changing gaps
+for the requested comparison. Missing or `null` means unresearched, never no rule,
 zero cost, permissive policy or fast review. Date each new fact independently; an AI-policy check date
 does not refresh fees or review statistics.
 
@@ -9,9 +14,15 @@ does not refresh fees or review statistics.
 
 `validation_requirements` is a list of scoped rules. Record:
 
-- `applies_to`: normalised study designs used by the helper: `public-data`, `bioinformatics`, `mr`,
-  `bibliometric`, `public-health-database` or `other`. Describe the precise scope in prose as well;
-  classification of an ambiguous manuscript remains an editorial/author judgement.
+- `applies_to`: normalised study designs used by the helper: `software`, `public-data`, `bioinformatics`,
+  `mr`, `bibliometric`, `public-health-database` or `other`. Describe the precise scope in prose as well;
+  classification of an ambiguous manuscript remains an editorial/author judgement. The shared record's
+  design keys map onto these: `software-tool`, `database-resource` and a `method-benchmark` whose
+  contribution is the method map to `software` (a tool or resource paper, not a biological finding);
+  `public-data-reanalysis` to `public-data`; computational biological findings (`omics-profiling`,
+  `genetic-association`, `polygenic-score` without new data) to `bioinformatics`;
+  `mendelian-randomization` to `mr`; anything else to `other`. A publisher rule about "predominantly
+  bioinformatics findings" does not by itself cover a software paper; read its scope.
 - `strength`: `required`, `conditional` or `recommended`. Only an explicit applicable requirement with
   no available accepted alternative supports an automated resource NO-GO.
 - `accepted_any`: alternative routes, using `independent-cohort`, `wet-lab`, `multi-database` or
@@ -68,6 +79,11 @@ statement about a design means unknown. Journal-specific editorial profiles are 
 
 Never combine desk-inclusive and external-review timing or a target and an observed statistic into one
 rank. Missing timing stays unknown. These metrics are not inherited from other venues.
+
+Look before recording unknown: many publishers post timing on the journal's own pages. BMC and Springer
+Nature journal home pages show median days from submission to first decision and to acceptance; PLOS
+publishes turnaround metrics per journal; some OUP and Frontiers journals state averages in their "about"
+or author pages. Record what the source states, with its population and period.
 
 `publication_costs` records researched APC/other fees with `amount`, `currency`, `fee_year`, applicable
 article type, tax caveats where material, waiver/agreement routes, `source` and `checked`. An unresearched

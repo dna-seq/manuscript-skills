@@ -1,0 +1,52 @@
+# Claims of seeded.md with the passages the authors quoted, for scripts/support.py.
+manuscript: seeded.md
+sources_dir: sources
+claims:
+  - id: C1
+    location: "seeded.md:6 (Abstract)"
+    claim: "In the first decade of polygenic scoring (2008–2017), 67% of studies included only participants of European ancestry [1]."
+    reference: "1"
+    quote: "We analyze the first decade of polygenic scoring studies (2008–2017, inclusive), and find that 67% of studies included exclusively European ancestry participants"
+    source: duncan2019.txt
+    priority: abstract
+  - id: C6
+    location: "seeded.md:7 (Abstract)"
+    claim: "When it was first released, the PGS Catalog held 192 published polygenic scores from 78 publications [4]."
+    reference: "4"
+    quote: "The PGS Catalog currently contains 192 published PGS from 78 publications"
+    source: lambert2020-medrxiv.txt
+    priority: abstract
+  - id: C2
+    location: "seeded.md:14 (Introduction)"
+    claim: "A further 29% of studies in that decade included only East Asian ancestry participants [1]."
+    reference: "1"
+    quote: "and another 19% included only East Asian ancestry participants"
+    source: duncan2019.txt
+    priority: borrowed-number
+  - id: C4
+    location: "seeded.md:15 (Introduction)"
+    claim: "Only 3.8% of polygenic score studies from the same period included cohorts of African, Hispanic or Indigenous peoples [2]."
+    reference: "2"
+    quote: "Only 3.8% of studies analysed from this time period included cohorts of African, Hispanic, or Indigenous peoples, highlighting the huge disparities in genetic research populations (Duncan et al., 2019)."
+    source: cross2022.txt
+    priority: borrowed-number
+  - id: C3
+    location: "seeded.md:16 (Introduction)"
+    claim: "European ancestry-derived polygenic scores performed comparably in African ancestry samples [1]."
+    reference: "1"
+    quote: "We find that predictive performance of European ancestry-derived polygenic scores is lower in non-European ancestry samples"
+    source: duncan2019.txt
+    priority: load-bearing
+  - id: C5
+    location: "seeded.md:17 (Introduction)"
+    claim: "A model of 150 SNPs was reported to predict exceptional longevity with 77% accuracy in an independent set of centenarians and controls [3]."
+    reference: "3"
+    quote: "we built a genetic model that includes 150 single-nucleotide polymorphisms (SNPs) and found that it could predict EL with 77% accuracy in an independent set of centenarians and controls"
+    source: "doi:10.1126/science.1190532"
+    priority: borrowed-number
+  - id: C7
+    location: "seeded.md:22 (Discussion)"
+    claim: "Polygenic risk profiling has been proposed for stratifying screening, for example in breast cancer and coronary artery disease [5]."
+    reference: "5"
+    source: "doi:10.1038/s41576-018-0018-x"
+    priority: other

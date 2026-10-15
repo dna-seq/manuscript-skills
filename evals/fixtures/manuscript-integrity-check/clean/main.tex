@@ -1,0 +1,107 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\title{Layered genome reports and lay comprehension: a randomised comparison}
+\author{Jana Example \and Tomas Example}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Genome reports written for clinicians are hard for lay readers to follow. We randomised 64 participants
+to a layered report, which puts a plain-language summary above the technical detail, or to a standard
+report. Comprehension ratings were higher with the layered report, t(62) = 3.85, p < .001, and higher
+numeracy was associated with better comprehension. In volunteers, a layered format was associated with
+better self-rated comprehension; whether it helps patients receiving clinical results remains to be tested.
+\end{abstract}
+
+\section{Introduction}
+Clinical genome reports are written for specialists, and lay readers find them hard to follow
+\cite{haga2014,goehringer2018}. Layered formats put a short plain-language summary first and the
+technical detail after it. We asked whether a layered format improves self-rated comprehension compared
+with a standard report.
+
+\section{Methods}
+\subsection{Participants}
+We recruited 64 participants through a university volunteer register and randomised them 1:1 to the
+layered or the standard report (32 per group). All gave written informed consent, and the ethics
+committee of the host university approved the study.
+
+\subsection{Measures}
+Participants rated their comprehension of the report on a 7-point Likert scale (1 = did not understand,
+7 = fully understood); we analysed one overall rating per participant. Numeracy was the number of items
+answered correctly on an eight-item numeracy test (0--8). Confidence in explaining the result to a
+relative was rated on a 5-point scale.
+
+\subsection{Statistical analysis}
+We compared groups with two-sided t-tests, compared format preference with a chi-square test and related
+numeracy to comprehension with Pearson's correlation. A pre-registered directional hypothesis about the
+risk section was tested one-tailed. P < 0.05 was considered statistically significant. Analyses used
+R 4.4.
+
+\section{Results}
+Table~\ref{tab:characteristics} describes the participants. Comprehension ratings were higher with the
+layered report (M = 5.62, SD = 1.04, n = 32) than with the standard report (M = 4.47, SD = 1.34,
+n = 32), t(62) = 3.85, p < .001. Confidence ratings also differed, t(62) = 2.10, p = .04, and a one-way
+analysis of variance on the same ratings gave F(1, 62) = 4.41, p = .04.
+
+Most participants preferred the layered format, $\chi^2(1, N = 64) = 4.71$, $p = .03$. In a one-tailed
+test of the pre-registered hypothesis, risk-section ratings rose after the summary among the 31
+participants who completed that section, t(30) = 1.80, p = .041. Higher numeracy was associated with
+better comprehension, r(62) = .45, p < .001.
+
+\begin{table}[ht]
+\centering
+\caption{Characteristics of the 64 participants, by report format.}
+\label{tab:characteristics}
+\begin{tabular}{lcc}
+\hline
+Characteristic & Layered (n = 32) & Standard (n = 32) \\
+\hline
+Age, years, mean (SD) & 47.7 (13.7) & 40.5 (13.1) \\
+Women, n (\%) & 17 (53.1) & 15 (46.9) \\
+Numeracy items correct (0--8), mean (SD) & 5.22 (1.43) & 4.88 (1.50) \\
+University degree, n (\%) & 21 (65.6) & 19 (59.4) \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/report-layouts.jpg}
+\caption{The two report layouts compared in the study.}
+\end{figure}
+
+\section{Discussion}
+In this sample of volunteers, a layered format was associated with higher self-rated comprehension than a
+standard format. The volunteers were more often university-educated than the general population, and
+comprehension was self-rated rather than tested, so the size of the difference may not transfer to
+patients receiving clinical results. Higher numeracy went with better comprehension; this study cannot
+say whether numeracy causes it.
+
+\section*{Data and code availability}
+The anonymised ratings and the analysis script are in the supplementary files (ratings.csv, analysis.R).
+
+\section*{Competing interests}
+The authors declare no competing interests.
+
+\section*{Funding}
+This work received no specific funding.
+
+\section*{Author contributions}
+J.E. designed the study and analysed the data; T.E. recruited participants. Both authors wrote the paper.
+
+\appendix
+\section{Reproducing the analysis}
+\begin{verbatim}
+Rscript analysis.R ratings.csv
+\end{verbatim}
+
+\begin{thebibliography}{2}
+\bibitem{haga2014} Haga SB, Mills R, Pollak KI, Rehder C, Buchanan AH, Lipkus IM, Crow JH, Datto M. Developing patient-friendly genetic and genomic test reports: formats to promote patient engagement and understanding. Genome Medicine. 2014;6(7):58. doi:10.1186/s13073-014-0058-6
+\bibitem{goehringer2018} Goehringer JM, Bonhag MA, Jones LK, Schmidlen T, Schwartz M, Rahm AK, Williams JL, Williams MS. Generation and implementation of a patient-centered and patient-facing genomic test report in the EHR. eGEMs. 2018;6(1):14. doi:10.5334/egems.256
+\end{thebibliography}
+
+\end{document}

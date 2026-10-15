@@ -1,0 +1,71 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. Europe PMC REST search, resultType=core, by DOI.",
+ "hitCount": 1,
+ "resultList": {
+  "result": [
+   {
+    "id": "33692568",
+    "source": "MED",
+    "doi": "10.1038/s41588-021-00783-5",
+    "pmid": "33692568",
+    "pmcid": "PMC11165303",
+    "title": "The Polygenic Score Catalog as an open database for reproducibility and systematic evaluation.",
+    "authorString": "Lambert SA, Gil L, Jupp S, Ritchie SC, Xu Y, Buniello A, McMahon A, Abraham G, Chapman M, Parkinson H, Danesh J, MacArthur JAL, Inouye M.",
+    "pubYear": "2021",
+    "isOpenAccess": "N",
+    "inEPMC": "Y",
+    "pubTypeList": {
+     "pubType": [
+      "Research Support, Non-U.S. Gov't",
+      "research-article",
+      "Journal Article",
+      "Research Support, N.I.H., Extramural"
+     ]
+    },
+    "commentCorrectionList": {
+     "commentCorrection": [
+      {
+       "source": "PPR",
+       "id": "PPR166646",
+       "type": "Preprint in",
+       "note": "CrossRef Pre-print loader",
+       "orderIn": 10002
+      }
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1038/s41588-021-00783-5"
+      },
+      {
+       "availability": "Free",
+       "availabilityCode": "F",
+       "documentStyle": "html",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC11165303"
+      },
+      {
+       "availability": "Free",
+       "availabilityCode": "F",
+       "documentStyle": "pdf",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC11165303?pdf=render"
+      },
+      {
+       "availability": "Free",
+       "availabilityCode": "F",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1038/s41588-021-00783-5"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

@@ -168,7 +168,7 @@ Verifiability and desk-rejection rules on the same *Bioinformatics* page (VERIFI
 - Data: "The inclusion of a data availability statement is a requirement for papers published in the Journal."
 - Real data: "Actual biological data must be used ... Only in extremely well-justified cases can simulated data alone be used instead of real data."
 - Pre-screening: "Papers that are considered to be of less significance to the readership of the journal are returned without review." (~30% acceptance)
-- Length: "manuscripts that exceed the limit by 20% or more are usually returned by the Editorial Office immediately" (Original Paper 7 pages ≈ 5,000 words; Application Note 4 pages ≈ 2,600 words or 2,000 + one figure).
+- Length: Original Paper "Up to 7 pages; this is approx. 5,000 words. excluding figures"; Application Note "Up to 4 pages; this is approx. 2,600 words or 2,000 words plus one figure" (live page, 2026-10-15). An earlier reading quoted a rule that papers 20% over the limit are returned immediately; the live page no longer states it, so treat it as unconfirmed. "All data on which the conclusions given in the publication are based must be publicly available in stable public repositories."
 - Abstract: headings "Motivation, Results, Availability and Implementation, Contact and Supplementary Information"; "A maximum of 150 words is recommended." Application Notes: "Summary, Availability and Implementation, Contact and Supplementary Information".
 - Section-specific: "New methods MUST be compared to existing state-of-the-art methods"; "We will not consider manuscripts that describe straightforward application of established computational methods to biological datasets, nor those that report incremental improvements in performance on benchmark datasets without a substantial advance in methodology."
 
@@ -459,7 +459,7 @@ Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
 - V5 (B). Data availability statement present with links or identifiers.
 - V6 (B). ML: training-set composition subsection, independent test set, homology handling, no leave-one-out (editorial rejection).
 - V7 (B). New methods compared against state of the art on real data; simulated-only data needs strong justification.
-- V8 (B). Formatting: ≤7 pages / ~5,000 words (Original) or ≤4 pages / ~2,600 words (App Note), +20% gets "returned ... immediately"; structured abstract ≤150 words; software name in the title.
+- V8 (B). Formatting: ≤7 pages / ~5,000 words (Original) or ≤4 pages / ~2,600 words (App Note); no return rule for overlength papers on the live page (2026-10-15); structured abstract ≤150 words; software name in the title.
 - V9. Other targets: Nature "Code availability" section after Data availability; Genome Biology/BMC "Availability and requirements" block with archived DOI and licence; GigaScience OSI licence plus WorkflowHub; PLOS ONE OSD-compliant open source.
 
 ### 6.6 Formulaic public-data papers

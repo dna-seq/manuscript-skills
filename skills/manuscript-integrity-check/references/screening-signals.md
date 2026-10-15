@@ -432,8 +432,9 @@ permitted "Evaluation, to find inconsistencies or anomalies" use. Rewriting the 
 is at best a grey zone there (only correction aids are named) and must be documented. The skill should output
 located findings (line, span, rule, source), each with a fix the human author applies: verify,
 delete, re-measure, cite, disclose. It should never output replacement paragraphs. Where AI was used
-(for example code, figures, language polishing, these checks), it should draft the disclosure
-statement *contents* (tool, version, where, how verified) for the authors to write.
+(for example code, figures, language polishing, these checks), the disclosure statement is drafted by
+`manuscript-journal-adapt` (tool, version, where, how verified); this check only reports whether one is
+required and present.
 
 ---
 

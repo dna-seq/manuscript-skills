@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/CrRQTALDRTHm3lzYo2mQeI+lVqI</id>
+  <title>arXiv Query: search_query=&amp;id_list=1206.6899&amp;start=0&amp;max_results=10</title>
+  <updated>2026-10-15T20:00:45Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=&amp;start=0&amp;max_results=10&amp;id_list=1206.6899" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>10</opensearch:itemsPerPage>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/1206.6899v2</id>
+    <title>Tandem halving problems by DCJ</title>
+    <updated>2012-07-17T00:14:04Z</updated>
+    <link href="https://arxiv.org/abs/1206.6899v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1206.6899v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This paper has been withdrawn by the author.</summary>
+    <category term="cs.DS" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="q-bio.GN" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2012-06-28T20:43:14Z</published>
+    <arxiv:comment>This paper has been withdrawn by the author</arxiv:comment>
+    <arxiv:primary_category term="cs.DS"/>
+    <author>
+      <name>Antoine Thomas</name>
+    </author>
+    <author>
+      <name>Aïda Ouangraoua</name>
+    </author>
+    <author>
+      <name>Jean-Stéphane Varré</name>
+    </author>
+  </entry>
+</feed>

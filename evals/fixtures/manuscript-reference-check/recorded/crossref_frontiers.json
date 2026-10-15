@@ -1,0 +1,43 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.3389/fgene.2022.1000667",
+ "status": "ok",
+ "message": {
+  "DOI": "10.3389/fgene.2022.1000667",
+  "type": "journal-article",
+  "title": [
+   "Polygenic risk scores: An overview from bench to bedside for personalised medicine"
+  ],
+  "author": [
+   {
+    "given": "Benjamin",
+    "family": "Cross",
+    "sequence": "first"
+   },
+   {
+    "given": "Richard",
+    "family": "Turner",
+    "sequence": "additional"
+   },
+   {
+    "given": "Munir",
+    "family": "Pirmohamed",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2022,
+     11,
+     11
+    ]
+   ]
+  },
+  "container-title": [
+   "Frontiers in Genetics"
+  ],
+  "volume": "13",
+  "article-number": "1000667",
+  "relation": {}
+ }
+}

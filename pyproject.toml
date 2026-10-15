@@ -15,6 +15,7 @@ dev = [
     "huggingface_hub>=0.34",
     "psutil>=5.9",
     "beautifulsoup4>=4.12",
+    "pillow>=10",
 ]
 
 [tool.uv]

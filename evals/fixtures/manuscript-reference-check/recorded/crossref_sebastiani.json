@@ -1,0 +1,140 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. GET https://api.crossref.org/works/10.1126/science.1190532",
+ "status": "ok",
+ "message": {
+  "DOI": "10.1126/science.1190532",
+  "type": "journal-article",
+  "title": [
+   "Genetic Signatures of Exceptional Longevity in Humans"
+  ],
+  "author": [
+   {
+    "given": "Paola",
+    "family": "Sebastiani",
+    "sequence": "first"
+   },
+   {
+    "given": "Nadia",
+    "family": "Solovieff",
+    "sequence": "additional"
+   },
+   {
+    "given": "Annibale",
+    "family": "Puca",
+    "sequence": "additional"
+   },
+   {
+    "given": "Stephen W.",
+    "family": "Hartley",
+    "sequence": "additional"
+   },
+   {
+    "given": "Efthymia",
+    "family": "Melista",
+    "sequence": "additional"
+   },
+   {
+    "given": "Stacy",
+    "family": "Andersen",
+    "sequence": "additional"
+   },
+   {
+    "given": "Daniel A.",
+    "family": "Dworkis",
+    "sequence": "additional"
+   },
+   {
+    "given": "Jemma B.",
+    "family": "Wilk",
+    "sequence": "additional"
+   },
+   {
+    "given": "Richard H.",
+    "family": "Myers",
+    "sequence": "additional"
+   },
+   {
+    "given": "Martin H.",
+    "family": "Steinberg",
+    "sequence": "additional"
+   },
+   {
+    "given": "Monty",
+    "family": "Montano",
+    "sequence": "additional"
+   },
+   {
+    "given": "Clinton T.",
+    "family": "Baldwin",
+    "sequence": "additional"
+   },
+   {
+    "given": "Thomas T.",
+    "family": "Perls",
+    "sequence": "additional"
+   }
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2010,
+     7,
+     2
+    ]
+   ]
+  },
+  "container-title": [
+   "Science"
+  ],
+  "volume": "329",
+  "issue": "5987",
+  "article-number": "1190532",
+  "relation": {
+   "has-review": [
+    {
+     "id-type": "doi",
+     "id": "10.3410/f.4144956.3926054",
+     "asserted-by": "object"
+    }
+   ]
+  },
+  "updated-by": [
+   {
+    "DOI": "10.1126/science.330.6006.912-b",
+    "type": "expression_of_concern",
+    "label": "Expression of concern",
+    "source": "retraction-watch",
+    "updated": {
+     "date-parts": [
+      [
+       2010,
+       11,
+       12
+      ]
+     ],
+     "date-time": "2010-11-12T00:00:00Z",
+     "timestamp": 1289520000000
+    },
+    "record-id": "16682"
+   },
+   {
+    "DOI": "10.1126/science.333.6041.404-a",
+    "type": "retraction",
+    "label": "Retraction",
+    "source": "retraction-watch",
+    "updated": {
+     "date-parts": [
+      [
+       2011,
+       7,
+       22
+      ]
+     ],
+     "date-time": "2011-07-22T00:00:00Z",
+     "timestamp": 1311292800000
+    },
+    "record-id": "493"
+   }
+  ]
+ }
+}

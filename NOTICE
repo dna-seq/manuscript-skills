@@ -27,3 +27,58 @@ K-Dense-AI/scientific-agent-skills, Orchestra-Research/AI-Research-SKILLs, conor
 hardikpandya/stop-slop, Nanako0129/sepia, Aboudjem/humanizer-skill, seyedehsanhadi/sloptrim (Apache-2.0),
 mshumer/unslop and eric-tramel/slop-guard (MIT unless noted). No text was copied from sources without a
 licence; their ideas are restated in our own words.
+
+skills/manuscript-prose-edit/references/claim-ladders.md adapts the claim-strength ladder ("Claim-Strength
+Contract") from Yila-AI/awesome-research-skills, https://github.com/Yila-AI/awesome-research-skills,
+Apache License 2.0. The rungs and markers are rewritten for scientific manuscripts.
+
+The skills added in October 2026 (manuscript-peer-review, manuscript-reviewer-response,
+manuscript-reporting-check, and the claim-support, number, submission-package and claim-strength checks
+in the existing skills) reimplement design ideas from the projects below. No code or text was copied;
+every script is an independent implementation and every rule is restated in our own words.
+
+- Boom5426/Nature-Paper-Skills (MIT; parts Apache-2.0): comment splitting that keeps the referees'
+  numbering, a review ledger with a landed field, reply-block order and tone, structural coverage checks,
+  claim-source verification with four outcomes, data-availability and statistics-reporting audits, and
+  behavioural evaluations with hidden rubrics.
+- pedrohcgs/claude-code-my-workflow, Spark-To-Paper-Skills/paperjury, poldrack/ai-peer-review,
+  amirkiarafiei/open-scholar-peer, GeoGeekLab/nature-reviewer-skills and xf686/Meet-Reviewer-2 (MIT):
+  quote-verified findings, adjudication before reporting, routing and triage of concerns, the
+  claim-consequence gate, identifier-grounded literature claims and matched negative controls.
+- wanshuiyin/Auto-claude-code-research-in-sleep and wanshuiyin/Anti-Autoresearch (MIT): a fresh reviewer
+  per round, the rule that a new number or citation must exist in the replaced text, deterministic
+  adjudication, GRIM/GRIMMER/statcheck-style checks and corrupt-a-fixture tests.
+- amos689/paper-preflight (MIT): registry lookups that never read a refused request as "not found",
+  preprint-since-published and withdrawn-preprint checks, and positive confirmation or abstention.
+- poemswe/co-researcher (MIT): a retraction ladder that records which source was checked, and a quote
+  gate for cited claims.
+- Aperivue/medsci-skills and aipoch/medical-research-skills (MIT): per-checklist licence verification,
+  staleness fields and item states including "unclear because material was not supplied".
+- THUROI0787/absent-author (MIT): a number ledger, hidden-text checks in PDFs, the claim ceiling and the
+  author's checkpoint.
+- pachterlab/paperpush (BSD-2-Clause): hidden-text, sensitive-content and anonymity checks of submission
+  files.
+- xmutfyh/dsh-plugin-writing-guard, heise3/academic-deai, SNL-UCSB/paper-writing-skill,
+  drpwchen/paper-review-and-digest, Orchestra-Research/AI-Research-SKILLs and
+  AIScientists-Dev/academic-humanizer (MIT): clause-level claim ladders with scope, null-result and
+  evidence-status locks, content locks, blind red-team passes with rule-ID provenance and a stop rule,
+  inference-gap names, the claim-type to required-evidence table, and the preserve list.
+- WenyuChiou/academic-writing-skills (MIT): selecting checks by study design rather than discipline,
+  and an optional per-paper record kept beside the manuscript.
+
+Ideas only, with no text used, come from Imbad0202/academic-research-skills (CC BY-NC 4.0: criteria
+committed before reading, judging a revision before the response letter, five revision states,
+regressions versus previously missed issues) and from projects without a licence
+(TobiasLee/Rebuttal-Skill: decide-first revision planning; HeartWise-AI/ai-writing-skills: the
+negative-space test).
+
+Reporting-guideline items in skills/manuscript-reporting-check/references/guidelines.yaml are
+paraphrases with the official item numbers. Each entry records its source and licence; checklists that
+are non-commercial or not openly licensed (for example CARE) are not reproduced.
+
+evals/fixtures/manuscript-reference-check/sources/ holds plain-text conversions of Duncan et al. 2019
+(Nature Communications, doi:10.1038/s41467-019-11112-0), Cross et al. 2022 (Frontiers in Genetics,
+doi:10.3389/fgene.2022.1000667) and Lambert et al. 2020 (medRxiv, doi:10.1101/2020.05.20.20108217), each
+licensed CC BY 4.0, with attribution and the changes made recorded in each file's header.
+evals/fixtures/manuscript-reference-check/recorded/ holds trimmed public metadata responses from Crossref,
+Europe PMC, PubMed, arXiv, DataCite and medRxiv, recorded on 2026-10-15 for offline tests.

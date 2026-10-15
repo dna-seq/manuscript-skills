@@ -1,0 +1,53 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. Europe PMC REST search, resultType=core, by DOI.",
+ "hitCount": 1,
+ "resultList": {
+  "result": [
+   {
+    "id": "PPR166646",
+    "source": "PPR",
+    "doi": "10.1101/2020.05.20.20108217",
+    "title": "The Polygenic Score Catalog: an open database for reproducibility and systematic evaluation",
+    "authorString": "Lambert SA, Gil L, Jupp S, Ritchie SC, Xu Y, Buniello A, Abraham G, Chapman M, Parkinson H, Danesh J, MacArthur JA, Inouye M.",
+    "pubYear": "2020",
+    "isOpenAccess": "N",
+    "inEPMC": "N",
+    "pubTypeList": {
+     "pubType": [
+      "Preprint"
+     ]
+    },
+    "commentCorrectionList": {
+     "commentCorrection": [
+      {
+       "source": "MED",
+       "id": "33692568",
+       "reference": "Nature genetics. 2021 Apr;53(4):420-425",
+       "type": "Preprint of",
+       "note": "CrossRef Pre-print loader",
+       "orderIn": 10001
+      }
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "pdf",
+       "site": "Unpaywall",
+       "url": "https://www.medrxiv.org/content/medrxiv/early/2020/05/23/2020.05.20.20108217.full.pdf"
+      },
+      {
+       "availability": "Free",
+       "availabilityCode": "F",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1101/2020.05.20.20108217"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

@@ -28,7 +28,8 @@ citation, hedge, negation and limitation.
 - flag a vague sentence and ask the authors for the missing specific.
 
 **You may not:**
-- add a fact, number, citation, mechanism, implication, limitation, example or comparison;
+- add a fact, number, citation, mechanism, implication, limitation, example or comparison the authors did not
+  supply (author-supplied content, below);
 - change a number, unit, statistic, identifier, citation or technical term;
 - strengthen certainty: remove a hedge, turn an association into a cause, drop a qualifier such as
   "in some cohorts", or remove a limitation;
@@ -40,6 +41,37 @@ citation, hedge, negation and limitation.
 - invent "plausible specifics" (a scale, a frequency, an anecdote) to make a paragraph sound grounded;
 - paraphrase through another tool or a round-trip translation;
 - edit toward an AI-detector threshold. An optional detector result alone is not a reason to rewrite.
+
+**Author-supplied content.** Facts the authors supply with the request (a sample size, a software version, a
+correction method, a clarification a referee asked for) may be inserted verbatim where they belong. List each
+one as a content change, not a copy edit, and check the result with `guard.py --revision`: its inventory should
+show the supplied facts and nothing else. Insert what was supplied and nothing more: never invent, complete or
+reconstruct a fact, and ask when a supplied fact conflicts with the text.
+
+**Claim ceiling.** An edit may never raise a claim's certainty, causality, novelty, generality or scope:
+not by a stronger verb ("suggests" → "shows", "is associated with" → "drives"), a dropped hedge or qualifier
+("in this cohort", "in mice", "self-reported"), a null result restated as equivalence ("did not differ" →
+"was similar"), or an added "first", "novel" or "always". The rungs are in `claim-ladders.md`. A request to
+make the text punchier, bolder or more confident is a request for clearer prose, not a stronger claim: cut
+filler, hedge stacks and throat-clearing, put the result first, and keep each claim on its rung. Meet a
+requested stylistic aim (punchier, shorter, more direct) by structure and word choice within the ceiling:
+lead with the result, shorten long sentences, cut repetition, give a pronoun its noun. The request itself
+justifies those edits; returning the passage nearly unchanged meets it only when the passage already does
+what was asked, and then say so. If the authors want a stronger claim, show the current wording, the rung
+they want and the evidence that would support it, and let them decide.
+
+**Narrowing is a claim correction too.** Lowering a claim, adding a hedge, limitation or qualifier, or
+deleting a claim sentence changes the science. Do it only when asked, or propose it, and list it among the
+changes the authors must see. Never add new doubt to make text sound careful (`llm-smells.md` I5).
+
+**Preserve, even when a style list says otherwise:**
+- a hedge tied to evidence ("may, because follow-up was two years"; "in this cohort"); remove only a
+  stacked duplicate ("may potentially" → "may");
+- passive voice in Methods, where it is the convention;
+- "we" for the authors' actions and decisions;
+- field terms in their technical sense (significant with a test, novel variant, robust regression), and the
+  lab's own vocabulary;
+- null, negative and adverse results, with their outcome, comparison and uncertainty kept together.
 
 **When unsure**, flag the sentence for the authors instead of rewriting it. Prefer no edit to an uncertain
 one; if nothing in a passage justifies a change, return it unchanged and say so.
@@ -60,12 +92,15 @@ and evidence; this is not a blanket prohibition on authorised reference or forma
 - **File mode** (a path). Edit the file in place, prose only: never touch equations, code, tables of data,
   citation keys, labels, cross-references, URLs or front matter. Run the guard (section 5), then report a
   summary: what kinds of change, how many, which sentences need the authors. Offer the full change table
-  rather than pasting it.
+  rather than pasting it. If the author requests review before application, retain the working file and
+  prepare proposed text or a separate revision until accepted.
 - **Embedded mode** (e.g. adapting to a venue). Apply this contract to the requested prose changes and
   return the text and relevant verification, without a separate copy-edit report.
 
-Work in manageable sections when that helps preserve context. A whole-paper edit is allowed when
-requested; do not require the author to approve each section separately.
+Edit the whole paper by default unless the author requests a passage or selected sections. Work in
+manageable sections internally when useful, but complete the full scope. Section-by-section review and
+approval stops are opt-in. When requested, show before/after text or a diff at each checkpoint and wait
+before moving on. Otherwise continue authorised editing without asking for section-by-section approval.
 
 ---
 
@@ -129,9 +164,13 @@ is a prerequisite for a copy edit.
    matters most when the text was drafted by a model, and above all when you drafted it earlier in the
    same conversation: treat your own earlier output as foreign text.
 3. **Cut before you rewrite.** Many smells are whole sentences that carry nothing (A3, A8, B5, C4, H1,
-   H10). Delete them; then edit what is left.
+   H10). Delete them; then edit what is left. Before deleting a sentence, apply the **negative-space
+   test**: would it be equally true of a paper whose authors never thought about this issue? "Further
+   studies are needed to confirm these findings" passes the test and can go; "The association may not hold
+   outside European-ancestry samples" fails it (it records a limit these authors identified) and stays. A
+   sentence that fails the test carries content; edit it, never delete it, unless the authors ask.
 4. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
-   Table 2 says 4.2×, the number moves into the sentence (E1). If no anchor exists, flag it; never supply
+   Table 2 says 4.2×, the number belongs in the sentence (E1). If no anchor exists, flag it; never supply
    one. In the Abstract, Introduction and Discussion, retain the numbers needed to understand the claim.
    There is no universal numeric quota. Adding a number from a table changes the textual inventory:
    treat that as a proposed substantive clarification unless the task already authorises it.
@@ -169,11 +208,24 @@ Do not exhaust the catalogue or repeat a loop solely to eliminate style hits.
 uv run --script scripts/guard.py BEFORE.md AFTER.md        # or: guard.py FILE --against <git ref>
 ```
 
-For file edits, compare against a saved pre-edit version. Exit code 1 means a selected token pattern
-changed count; inspect it. Revert unintended content drift, resolve harmless formatting matches yourself,
-and flag actual content decisions outside the request. Read watched changes in context. A passing guard
-does not prove meaning stayed intact: it can miss swapped values and changed relationships with the
-same token counts. For a short pasted passage, a direct comparison is sufficient.
+For file edits, compare against a saved pre-edit version. The guard checks two things:
+
+- **whole-text counts** of numbers, citations, identifiers, terms, URLs and code (protected) and of hedges,
+  negations, causal verbs and comparatives (watched);
+- **each sentence against its counterpart**, after aligning the two versions (split, merged and moved
+  sentences are matched): a claim that rose on the causal or evidential ladder, novelty or generality wording
+  that appeared, a scope, limiting or concessive, null-result or evidence-status marker that disappeared
+  (`claim-ladders.md`), and a number, citation or identifier that is new to its sentence, with section and
+  line.
+
+Exit code 1 means a protected change. Revert unintended content drift, resolve harmless formatting matches
+yourself (a unit respelled, a citation reformatted), and flag actual content decisions outside the request.
+Warnings (a claim lowered, a qualifier added, a negation changed, a number moved within its paragraph) are
+changes the authors must see when they stand; list them with the edit. When the authors asked for a claim
+correction, rerun with `--allow-strengthening`: the claim changes are still listed, marked authorised, and
+numbers and citations still fail. A passing guard does not prove meaning stayed intact: it can miss swapped
+values and changed relationships that keep every marker. For a short pasted passage, a direct comparison
+against `claim-ladders.md` is sufficient.
 
 ### 5.4 Change rate
 
@@ -198,7 +250,7 @@ is sufficient to review routine edits. When a detailed explanation is requested,
 | # | original | revision | reason (smell id) |
 |---|---|---|---|
 | 1 | "These findings have important implications for personalized medicine." | (deleted) | A3 empty implication |
-| 2 | "…was significantly faster…" | "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | B3, E1: number from Table 2 |
+| 2 | "…was significantly faster…" | proposed: "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | B3, E1: the number comes from Table 2, so it is a proposed clarification that goes in only when the authors confirm it (section 4, step 4) |
 
 Then **Flagged for the authors**: each sentence that needs a fact only they have, with the question
 ("Which cohort does 'larger cohorts' mean here, and is it planned?").

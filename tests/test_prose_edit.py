@@ -1,0 +1,571 @@
+"""Offline tests for manuscript-prose-edit's guard: sentence-aligned claim checks and the revision inventory.
+
+Run with `uv run pytest tests/test_prose_edit.py -vvv`.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+from typer.testing import CliRunner
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "evals" / "fixtures" / "manuscript-prose-edit"
+
+
+def _load(name: str, path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+guard = _load("prose_edit_guard", ROOT / "skills" / "manuscript-prose-edit" / "scripts" / "guard.py")
+CLAIM_KINDS = {"causal", "evidential", "generality", "scope", "limitation", "null_result", "evidence_status", "negation"}
+
+
+def _changes(before: str, after: str) -> list[dict]:
+    return guard.sentence_changes(before, after)[0]
+
+
+def _claims(before: str, after: str) -> list[dict]:
+    return [c for c in _changes(before, after) if c["kind"] in CLAIM_KINDS]
+
+
+def _only(changes: list[dict], kind: str) -> dict:
+    found = [c for c in changes if c["kind"] == kind]
+    assert len(found) == 1, (kind, changes)
+    return found[0]
+
+
+# --- ladders: every step up is protected, every step down a warning ---------------------------------------------
+
+SUBJECT, OBJECT = "Carriers of the APOE e4 allele", "shorter telomeres in the replication cohort"
+CAUSAL_STEPS = ["are consistent with", "are associated with", "predict", "contribute to", "lead to", "cause"]
+CLAIM = "lower TERT expression in older donors limits DNA repair"
+EVIDENTIAL_STEPS = ["may reflect", "suggest", "indicate", "show", "prove"]
+
+
+def _ladder_cases(steps: list[str], make) -> list[tuple[str, str, str]]:
+    cases = []
+    for low, high in zip(steps, steps[1:]):
+        cases.append((make(low), make(high), "raised"))
+        cases.append((make(high), make(low), "lowered"))
+    return cases
+
+
+@pytest.mark.parametrize(("before", "after", "direction"), _ladder_cases(
+    CAUSAL_STEPS, lambda v: f"{SUBJECT} {v} {OBJECT}."))
+def test_causal_ladder_step(before: str, after: str, direction: str) -> None:
+    claims = _claims(before, after)
+    finding = _only(claims, "causal")
+    assert finding["change"] == direction
+    assert finding["severity"] == ("protected" if direction == "raised" else "warning")
+    assert (finding["before"], finding["after"]) == (before, after)
+    assert {c["kind"] for c in claims} == {"causal"}
+    assert guard.exit_code(guard.compare(before, after)) == (1 if direction == "raised" else 0)
+
+
+@pytest.mark.parametrize(("before", "after", "direction"), _ladder_cases(
+    EVIDENTIAL_STEPS, lambda v: f"These results {v} that {CLAIM}."))
+def test_evidential_ladder_step(before: str, after: str, direction: str) -> None:
+    finding = _only(_claims(before, after), "evidential")
+    assert finding["change"] == direction
+    assert finding["severity"] == ("protected" if direction == "raised" else "warning")
+    assert finding["before_line"] == finding["after_line"] == 1
+
+
+def test_a_dropped_hedge_raises_and_a_stacked_hedge_does_not() -> None:
+    raised = _only(_claims("These data may suggest a role for APOE in repair.",
+                           "These data suggest a role for APOE in repair."), "evidential")
+    assert (raised["change"], raised["removed"]) == ("raised", ["may"])
+    assert _claims("Smoking may potentially shorten telomeres in older donors.",
+                   "Smoking may shorten telomeres in older donors.") == []
+
+
+def test_a_lowered_claim_in_a_negated_sentence_is_protected() -> None:
+    finding = _only(_claims("The variant did not cause disease in carriers of the founder haplotype.",
+                            "The variant was not associated with disease in carriers of the founder haplotype."),
+                    "causal")
+    assert (finding["change"], finding["severity"]) == ("lowered", "protected")
+
+
+def test_descriptive_and_procedural_verbs_are_not_claims() -> None:
+    assert _claims("Figure 2 shows the layout of the annotation pipeline.",
+                   "Figure 2 presents the layout of the annotation pipeline.") == []
+    assert _claims("We established a pipeline for annotating whole genomes.",
+                   "We built a pipeline for annotating whole genomes.") == []
+    assert _only(_claims("Figure 2 suggests that coverage limits recall.",
+                         "Figure 2 shows that coverage limits recall."), "evidential")["change"] == "raised"
+
+
+@pytest.mark.parametrize("after, added", [
+    ("TeloScan is the first scalable alternative to wet-lab telomere assays.", "the first scalable alternative"),
+    ("TeloScan is a novel scalable alternative to wet-lab telomere assays.", "novel"),
+    ("TeloScan is always a scalable alternative to wet-lab telomere assays.", "always"),
+])
+def test_novelty_and_generality_wording_is_protected(after: str, added: str) -> None:
+    finding = _only(_claims("TeloScan is a scalable alternative to wet-lab telomere assays.", after), "generality")
+    assert (finding["change"], finding["severity"], finding["added"]) == ("raised", "protected", [added])
+
+
+# --- scope, null results and evidence status ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("before, lost", [
+    ("In this cohort, rs429358 was associated with shorter telomeres.", "In this cohort"),
+    ("Knockout of Tert led to shorter telomeres in mice within two generations.", "in mice"),
+    ("In our data, carriers of rs429358 had shorter telomeres than non-carriers.", "In our data"),
+    ("Under these conditions, the annotation was robust to coverage between 25x and 60x.", "Under these conditions"),
+    ("The score was calibrated in European-ancestry samples from three biobanks.", "European-ancestry"),
+    ("Binding of the inhibitor to TERT was observed in vitro at nanomolar doses.", "in vitro"),
+    ("The variant was associated with longevity in some cohorts of older adults.", "in some cohorts"),
+])
+def test_a_lost_scope_qualifier_is_protected(before: str, lost: str) -> None:
+    after = before.replace(lost + ", ", "").replace(" " + lost, "").replace(lost, "")
+    after = after[0].upper() + after[1:]
+    finding = _only(_claims(before, after), "scope")
+    assert (finding["change"], finding["severity"]) == ("removed", "protected")
+    assert finding["removed"] == [lost]
+    assert guard.exit_code(guard.compare(before, after)) == 1
+
+
+@pytest.mark.parametrize("before, after", [
+    ("In this cohort, rs429358 was associated with shorter telomeres.",
+     "In our cohort, rs429358 was associated with shorter telomeres."),
+    ("Knockout of Tert led to shorter telomeres in mice within two generations.",
+     "Knockout of Tert led to shorter telomeres in a mouse model within two generations."),
+    ("In this study, we present a tool that estimates telomere length.",
+     "We present a tool that estimates telomere length."),
+])
+def test_scope_synonyms_and_paper_framing_are_not_changes(before: str, after: str) -> None:
+    assert [c for c in _claims(before, after) if c["kind"] == "scope"] == []
+
+
+def test_an_added_qualifier_is_a_warning() -> None:
+    finding = _only(_claims("Carriers of rs429358 had shorter telomeres than non-carriers.",
+                            "In this cohort, carriers of rs429358 had shorter telomeres than non-carriers."), "scope")
+    assert (finding["change"], finding["severity"]) == ("added", "warning")
+
+
+@pytest.mark.parametrize("before, after", [
+    ("We found no significant difference in telomere length between arms.",
+     "We found a difference in telomere length between arms."),
+    ("Telomere length did not differ between smokers and non-smokers.",
+     "Telomere length differed between smokers and non-smokers."),
+    ("The variant was not associated with body mass index in the cohort.",
+     "The variant was associated with body mass index in the cohort."),
+    ("The variant was not associated with body mass index in the cohort.",
+     "The variant was independent of body mass index in the cohort."),
+])
+def test_a_lost_null_result_is_protected(before: str, after: str) -> None:
+    finding = _only(_claims(before, after), "null_result")
+    assert (finding["change"], finding["severity"]) == ("removed", "protected")
+    assert [c for c in _claims(before, after) if c["kind"] == "negation"] == []  # one change, reported once
+
+
+def test_a_reworded_null_result_is_not_a_change() -> None:
+    assert [c for c in _claims("Telomere length did not differ between smokers and non-smokers.",
+                               "Telomere length showed no difference between smokers and non-smokers.")
+            if c["kind"] == "null_result"] == []
+
+
+@pytest.mark.parametrize("before, after, change, lost", [
+    ("Participants reported improvement in sleep quality after the intervention.",
+     "Participants improved in sleep quality after the intervention.", "removed", ["reported"]),
+    ("Self-reported smoking was associated with shorter telomeres in the cohort.",
+     "Smoking was associated with shorter telomeres in the cohort.", "removed", ["self-reported"]),
+    ("Predicted loss-of-function variants were enriched in long-lived individuals.",
+     "Observed loss-of-function variants were enriched in long-lived individuals.", "replaced", ["predicted"]),
+])
+def test_a_changed_evidence_status_is_protected(before: str, after: str, change: str, lost: list[str]) -> None:
+    finding = _only(_claims(before, after), "evidence_status")
+    assert (finding["change"], finding["severity"], finding["removed"]) == (change, "protected", lost)
+
+
+def test_reporting_verbs_are_not_an_evidence_status() -> None:
+    assert _claims("Here we report a tool that estimates telomere length.",
+                   "Here we present a tool that estimates telomere length.") == []
+    assert _claims("Runtimes are reported in Table 2 for every genome.",
+                   "Runtimes are listed in Table 2 for every genome.") == []
+
+
+# --- limiting and concessive words ---------------------------------------------------------------------------------
+
+# The smoke run's Paper 1 Conclusion (markers kept as in the file): "Albeit tested on" went and the guard exited 0.
+P1_CONCLUSION_BEFORE = (
+    "Albeit tested on<!-- @rev A3c rounds=2 by=claude:2026-10-11,claude:2026-10-12 --> four genomes for annotation "
+    "and one for scoring, the reported benchmarks show faster annotation than the OakVar-based Generation I system "
+    "run on the same machine<!-- @/rev A3c --> and close numerical agreement between scoring engines.\n")
+P1_CONCLUSION_AFTER = (
+    "<!-- @rev A3c rounds=2 by=claude:2026-10-11,claude:2026-10-12 -->In the reported benchmarks on four genomes for "
+    "annotation and one for scoring, annotation was faster than in the OakVar-based Generation I system run on the "
+    "same machine<!-- @/rev A3c -->, with close numerical agreement between scoring engines.\n")
+
+
+@pytest.mark.parametrize("before, after, lost", [
+    ("The annotation was tested on only four genomes and was faster than the Generation I system.",
+     "The annotation was tested on four genomes and was faster than the Generation I system.", "only"),
+    (P1_CONCLUSION_BEFORE, P1_CONCLUSION_AFTER, "albeit"),
+    ("Although tested on four genomes, the benchmarks show faster annotation than the Generation I system.",
+     "Tested on four genomes, the benchmarks show faster annotation than the Generation I system.", "although"),
+    ("Even though the benchmark used one genome for scoring, the two engines agreed closely on every score.",
+     "The benchmark used one genome for scoring, and the two engines agreed closely on every score.", "even though"),
+    ("Despite the small benchmark of four genomes, annotation was faster than in the Generation I system.",
+     "With a benchmark of four genomes, annotation was faster than in the Generation I system.", "despite"),
+    ("While the benchmark covered four genomes, annotation was faster than in the Generation I system.",
+     "The benchmark covered four genomes, and annotation was faster than in the Generation I system.", "while"),
+])
+def test_a_lost_limiting_or_concessive_word_is_protected(before: str, after: str, lost: str) -> None:
+    finding = _only(_claims(before, after), "limitation")
+    assert (finding["change"], finding["severity"], finding["removed"]) == ("removed", "protected", [lost])
+    assert guard.exit_code(guard.compare(before, after)) == 1
+    assert guard.exit_code(guard.compare(before, after, allow_strengthening=True)) == 0
+    assert guard.exit_code(guard.compare(before, after, revision=True)) == 0
+
+
+@pytest.mark.parametrize("before, after, lost", [
+    # the claim was narrowed in the same edit (a lowered rung and an added qualifier)
+    ("Although tested on four genomes, the benchmarks show faster annotation than the Generation I system.",
+     "On these four genomes, the benchmarks suggest faster annotation than the Generation I system.", "although"),
+    # the whole sentence went: a deletion the authors must see, not a claim that now reads wider
+    ("Annotation was faster than in the Generation I system. A limitation is that we tested only two genomes.",
+     "Annotation was faster than in the Generation I system.", "only"),
+])
+def test_a_lost_limiting_word_is_a_warning_when_the_claim_was_narrowed_or_deleted(before: str, after: str,
+                                                                                  lost: str) -> None:
+    finding = _only(_claims(before, after), "limitation")
+    assert (finding["change"], finding["severity"], finding["removed"]) == ("removed", "warning", [lost])
+    assert guard.exit_code(guard.compare(before, after)) == 0
+
+
+@pytest.mark.parametrize("before, after", [
+    ("Although tested on only four genomes, the benchmarks show faster annotation.",
+     "The benchmarks show faster annotation, although they were run on only four genomes."),
+    ("Although the benchmark covered four genomes, annotation was faster than in the Generation I system.",
+     "The benchmark covered four genomes. However, annotation was faster than in the Generation I system."),
+    ("However, biology is not linear, and interactions are not always captured by a polygenic score.",
+     "Biology is not linear, though, and interactions are not always captured by a polygenic score."),
+    ("However, most scoring files were derived from European cohorts in the catalogue.",
+     "Most scoring files were derived from European cohorts in the catalogue."),
+    ("The annotation was tested on only four genomes in the benchmark.",
+     "The annotation was tested on merely four genomes in the benchmark."),
+    ("The tool annotates not only single-nucleotide variants but also short indels.",
+     "The tool annotates single-nucleotide variants and short indels."),
+    ("It is the only annotation tool that runs offline on a laptop.",
+     "It is an annotation tool that runs offline on a laptop."),
+    ("Annotation took longer on the long-read genome, while memory stayed under the limit.",
+     "Annotation took longer on the long-read genome; memory stayed under the limit."),
+])
+def test_a_concession_kept_moved_or_replaced_and_non_limiting_uses_are_not_changes(before: str, after: str) -> None:
+    assert [c for c in _claims(before, after) if c["kind"] == "limitation"] == []
+
+
+def test_an_added_limiting_word_is_a_warning() -> None:
+    finding = _only(_claims("The benchmarks show faster annotation than the Generation I system.",
+                            "The benchmarks show faster annotation than the Generation I system, although only on "
+                            "four genomes."), "limitation")
+    assert (finding["change"], finding["severity"]) == ("added", "warning")
+
+
+# --- numbers, citations and identifiers per sentence ---------------------------------------------------------------
+
+def test_a_new_number_inside_a_rephrased_sentence_is_located() -> None:
+    before = "## Results\n\nThe new caller was substantially faster than GATK on all benchmark genomes (Table 2).\n"
+    after = "## Results\n\nThe new caller was 4.2 times faster than GATK on every benchmark genome (Table 2).\n"
+    finding = _only(_changes(before, after), "number")
+    assert (finding["token"], finding["token_status"], finding["severity"]) == ("4.2", "new", "protected")
+    assert (finding["section"], finding["before_line"], finding["after_line"]) == ("Results", 3, 3)
+
+
+def test_a_number_moved_within_its_paragraph_is_a_warning_and_from_elsewhere_is_protected() -> None:
+    before = ("The caller was substantially faster than GATK on the benchmark genomes. Table 2 lists a 4.2-fold "
+              "speed-up.\n\nMemory use stayed under 8 GB on every genome.\n")
+    within = ("The caller was 4.2-fold faster than GATK on the benchmark genomes. Table 2 lists the "
+              "speed-up.\n\nMemory use stayed under 8 GB on every genome.\n")
+    statuses = {(c["change"], c["token_status"], c["severity"]) for c in _changes(before, within)}
+    assert statuses == {("added", "moved_within_paragraph", "warning"), ("removed", "moved_within_paragraph", "warning")}
+    elsewhere = before.replace("on every genome.", "on every genome, 8 GB in total.").replace(
+        "substantially faster than GATK", "substantially faster than GATK with 8 GB")
+    finding = [c for c in _changes(before, elsewhere) if c["token"] == "8gb" and c["before_line"] == 1]
+    assert [(c["token_status"], c["severity"]) for c in finding] == [("from_elsewhere", "protected")]
+
+
+@pytest.mark.parametrize("before, after, token", [
+    ("Existing tools require high coverage (Ding et al., 2014).",
+     "Existing tools need high coverage (Ding et al., 2014; Nersisyan and Arakelyan, 2015).", "Nersisyan 2015"),
+    ("Existing tools require high coverage [3].", "Existing tools need high coverage [3, 4].", "[4]"),
+    ("Existing tools require high coverage~\\citep{ding2014}.\n\\section{Methods}",
+     "Existing tools need high coverage~\\citep{ding2014,nersisyan2015}.\n\\section{Methods}",
+     "\\cite{nersisyan2015}"),
+    ("Existing tools require high coverage [@ding2014].", "Existing tools need high coverage [@ding2014; @lee2021].",
+     "@lee2021"),
+    ("Telomere attrition is a hallmark of ageing (Müller et al., 2019).",
+     "Telomere attrition is a hallmark of ageing (Müller et al., 2019; Østergaard, 2020).", "Østergaard 2020"),
+])
+def test_a_new_citation_is_reported_alone(before: str, after: str, token: str) -> None:
+    found = [c for c in _changes(before, after) if c["kind"] == "citation"]
+    assert [(c["token"], c["token_status"], c["change"]) for c in found] == [(token, "new", "added")]
+
+
+def test_reformatting_a_number_or_citation_is_not_a_sentence_change() -> None:
+    assert _changes("We sequenced 1,204 genomes (Lambert et al., 2021) at 30x.",
+                    "We sequenced 1204 genomes (Lambert et al. 2021) at 30x.") == []
+
+
+# --- alignment: split, merged and moved sentences -----------------------------------------------------------------
+
+def test_split_and_merged_sentences_align_without_findings() -> None:
+    before = ("TeloScan processed each genome in 4.2 minutes, and in this cohort, telomere length was associated "
+              "with age (r = -0.31). The tool is robust to coverage. This held at all three centres.\n")
+    after = ("TeloScan processed each genome in 4.2 minutes. In this cohort, telomere length was associated "
+             "with age (r = -0.31). The tool is robust to coverage at all three centres.\n")
+    changes, alignment = guard.sentence_changes(before, after)
+    assert changes == []
+    assert (alignment["split"], alignment["merged"]) == (1, 1)
+
+
+def test_a_scope_lost_while_splitting_is_still_caught() -> None:
+    before = "TeloScan processed each genome in 4.2 minutes, and in mice, telomere length fell with age.\n"
+    after = "TeloScan processed each genome in 4.2 minutes. Telomere length fell with age.\n"
+    changes, alignment = guard.sentence_changes(before, after)
+    assert alignment["split"] == 1
+    assert [(c["kind"], c["removed"], c["alignment"]) for c in changes] == [("scope", ["in mice"], "split")]
+
+
+def test_a_moved_sentence_is_not_a_change() -> None:
+    before = ("Variants were called with DeepVariant on every genome. Reads were aligned with BWA-MEM to GRCh38.\n\n"
+              "Coverage was computed with mosdepth for each sample.\n")
+    after = ("Variants were called with DeepVariant on every genome.\n\nCoverage was computed with mosdepth for each "
+             "sample. Reads were aligned with BWA-MEM to GRCh38.\n")
+    changes, alignment = guard.sentence_changes(before, after)
+    assert changes == [] and alignment["moved"] == 1
+
+
+def test_a_deleted_limitation_and_a_new_claim_sentence_are_reported() -> None:
+    before = "Telomere length fell with age. The effect may not generalise beyond European-ancestry samples.\n"
+    after = "Telomere length fell with age. Telomere shortening drives frailty in older adults.\n"
+    kinds = {(c["kind"], c["change"], c["severity"]) for c in _claims(before, after)}
+    assert ("scope", "removed", "protected") in kinds
+    assert ("causal", "added", "protected") in kinds
+
+
+def test_dynamic_programming_alignment_scales_to_a_long_manuscript() -> None:
+    before = "\n\n".join(f"Sample group {i} had a median coverage of {i} reads at locus L{i} in the cohort."
+                         for i in range(800))
+    after = before.replace(" had a median coverage ", " showed a median coverage ")
+    changes, alignment = guard.sentence_changes(before, after)
+    assert alignment["changed"] == alignment["sentences_before"] == 800 and changes == []
+
+
+# --- Markdown and LaTeX structure ---------------------------------------------------------------------------------
+
+MARKDOWN = """---
+title: TeloScan
+---
+
+# Results
+
+## Performance
+
+<!-- @rev C3 rounds=1 by=x:2026-10-01 -->Each genome took 4.2 minutes in this cohort.<!-- @/rev C3 -->
+
+- Peak memory was 7.5 GB.
+- Runtime scaled linearly with coverage.
+
+| Tool | Minutes |
+|---|---|
+| TeloScan | 4.2 |
+
+```python
+x = 1  # not prose
+```
+
+In 40% of runs (Smith et al., 2020) the cache was warm.
+"""
+
+
+def test_markdown_sections_lines_lists_tables_and_comments() -> None:
+    sentences = guard.segment(MARKDOWN)
+    by_text = {s.text: s for s in sentences}
+    assert by_text["Each genome took 4.2 minutes in this cohort."].line == 9
+    assert by_text["Peak memory was 7.5 GB."].section == "Results > Performance"
+    assert "| TeloScan | 4.2 |" in by_text and not any("not prose" in t for t in by_text)
+    edited = MARKDOWN.replace("| TeloScan | 4.2 |", "| TeloScan | 4.9 |").replace("rounds=1", "rounds=2")
+    numbers = [c for c in _changes(MARKDOWN, edited) if c["kind"] == "number"]
+    assert {(c["token"], c["change"], c["after_line"]) for c in numbers} == {("4.2", "removed", 16),
+                                                                            ("4.9", "added", 16)}
+
+
+def test_a_percent_sign_in_markdown_does_not_hide_the_rest_of_the_line() -> None:
+    edited = MARKDOWN.replace("(Smith et al., 2020)", "(Lee et al., 2021)")
+    report = guard.compare(MARKDOWN, edited)
+    assert report["protected"]["citations"] == {"removed": {"(Smith et al., 2020)": 1},
+                                                "added": {"(Lee et al., 2021)": 1}}
+    assert {c["token"] for c in report["sentence_changes"]} == {"Smith 2020", "Lee 2021"}
+
+
+LATEX = r"""\documentclass{article}
+\begin{document}
+\section{Results}
+\subsection{Association}
+Variants in \textit{APOE} were associated with longevity in this cohort~\citep{smith2020}. % 40% done
+Runtime fell by 12\% (Fig.~\ref{fig:runtime}).
+\begin{equation}
+y = 2x + 3
+\end{equation}
+\end{document}
+"""
+
+
+def test_latex_sections_comments_and_citation_keys() -> None:
+    sentences = guard.segment(LATEX)
+    assert [(s.line, s.section) for s in sentences] == [(5, "Results > Association"), (6, "Results > Association")]
+    assert guard.compare(LATEX, LATEX.replace("% 40% done", "% 90% done"))["sentence_changes"] == []
+    edited = LATEX.replace("were associated with longevity in this cohort~\\citep{smith2020}",
+                           "drive longevity~\\citep{smith2020,lee2021}")
+    found = {(c["kind"], c["change"], c["after_line"]) for c in _changes(LATEX, edited)}
+    assert found == {("causal", "raised", 5), ("scope", "removed", 5), ("citation", "added", 5)}
+
+
+# --- malformed and boundary input ---------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("before, after", [
+    ("", ""),
+    ("# Only a heading\n", "# Only a heading\n"),
+    ("   \n\n\t\n", ""),
+    ("No terminal punctuation in this line", "No terminal punctuation in this line"),
+])
+def test_empty_and_degenerate_input(before: str, after: str) -> None:
+    changes, alignment = guard.sentence_changes(before, after)
+    assert changes == [] and alignment["changed"] == alignment["deleted"] == alignment["inserted"] == 0
+
+
+def test_abbreviations_do_not_split_sentences() -> None:
+    texts = [s.text for s in guard.segment("As in Fig. 2 and Smith et al. (2020), e.g. at 4.2 Mb, it held. Next.\n")]
+    assert texts == ["As in Fig. 2 and Smith et al. (2020), e.g. at 4.2 Mb, it held.", "Next."]
+
+
+# --- the fixtures: clean control and seeded edit ------------------------------------------------------------------
+
+ORIGINAL = (FIXTURES / "original.md").read_text(encoding="utf-8")
+
+# (kind, change, after line) of every change planted in edited-seeded.md.
+PLANTED = {
+    ("evidential", "raised", 5),        # "suggest ... may be useful" → "show ... is useful"
+    ("citation", "added", 9),           # [3] → [3, 4]
+    ("causal", "raised", 17),           # "was associated with" → "caused", inside a split sentence
+    ("evidence_status", "removed", 17),  # "self-reported smokers" → "smokers"
+    ("null_result", "removed", 17),     # "were not associated" → "were independent of"
+    ("causal", "raised", 17),           # the same sentence: the association verb went under negation
+    ("scope", "removed", 17),           # "In mice" dropped
+    ("number", "added", 17),            # a confidence interval added: 95%, 0.55, 0.83
+    ("evidential", "raised", 21),       # "suggest ... may provide" → "provides"
+    ("generality", "raised", 21),       # "the first scalable alternative"
+    ("scope", "removed", 21),           # "beyond European-ancestry samples" dropped
+}
+
+
+def test_clean_control_passes_with_no_sentence_finding() -> None:
+    report = guard.compare(ORIGINAL, (FIXTURES / "edited-clean.md").read_text(encoding="utf-8"))
+    assert report["sentence_changes"] == [] and report["protected"] == {}
+    assert guard.exit_code(report) == 0
+    assert report["alignment"]["split"] == report["alignment"]["merged"] == 1
+
+
+def test_seeded_edit_reports_each_planted_change_at_its_location() -> None:
+    report = guard.compare(ORIGINAL, (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8"))
+    found = {(c["kind"], c["change"], c["after_line"]) for c in report["sentence_changes"]}
+    assert found == PLANTED
+    numbers = {c["token"] for c in report["sentence_changes"] if c["kind"] == "number"}
+    assert numbers == {"95%", "0.55", "0.83"}
+    assert guard.exit_code(report) == 1
+
+
+def test_allow_strengthening_authorises_claims_but_never_numbers() -> None:
+    seeded = (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8")
+    report = guard.compare(ORIGINAL, seeded, allow_strengthening=True)
+    authorised = {c["kind"] for c in report["sentence_changes"] if c["authorised"]}
+    assert authorised == {"causal", "evidential", "generality", "scope", "null_result", "evidence_status"}
+    assert not any(c["authorised"] for c in report["sentence_changes"] if c["kind"] in ("number", "citation"))
+    assert guard.exit_code(report) == 1
+    claim_only = ("These results suggest that lower TERT expression limits repair.",
+                  "These results show that lower TERT expression limits repair.")
+    assert guard.exit_code(guard.compare(*claim_only)) == 1
+    assert guard.exit_code(guard.compare(*claim_only, allow_strengthening=True)) == 0
+
+
+def test_revision_mode_lists_changes_and_never_fails() -> None:
+    revised = (FIXTURES / "revised.md").read_text(encoding="utf-8")
+    report = guard.compare(ORIGINAL, revised, revision=True)
+    assert report["mode"] == "revision" and guard.exit_code(report) == 0
+    assert report["protected"]  # the revision changes content, and it is still listed
+    for c in report["sentence_changes"]:
+        assert c["section"] and (c["before_line"] or c["after_line"])
+        assert set(c) >= {"id", "kind", "change", "severity", "before", "after", "removed", "added", "token",
+                          "token_status", "alignment", "authorised", "note"}
+    assert [c["id"] for c in report["sentence_changes"]] == list(range(1, len(report["sentence_changes"]) + 1))
+    assert guard.to_markdown(report).startswith("# Revision inventory")
+
+
+def test_existing_guard_example_also_gets_sentence_findings() -> None:
+    before = ("Annotating a 4.5 GB VCF took 40 s on GRCh38 (Lambert et al., 2021). It is important to note that "
+              "this matters.\n\nThe APOE variant rs429358 is associated with lower longevity in some cohorts, and "
+              "the effect may not replicate.\n")
+    after = ("Annotating a 4.6 GB VCF took 40 s on GRCh38. This matters.\n\n"
+             "The APOE variant rs429358 causes lower longevity in cohorts, and the effect replicates.\n")
+    found = {(c["kind"], c["change"]) for c in _changes(before, after)}
+    assert {("causal", "raised"), ("evidential", "raised"), ("scope", "removed"), ("negation", "removed"),
+            ("number", "added"), ("number", "removed"), ("citation", "removed")} <= found
+
+
+# --- command line -------------------------------------------------------------------------------------------------
+
+def test_cli_writes_json_and_markdown_and_uses_documented_exit_codes(tmp_path: Path) -> None:
+    out_json, out_md = tmp_path / "r.json", tmp_path / "r.md"
+    seeded, clean = FIXTURES / "edited-seeded.md", FIXTURES / "edited-clean.md"
+    runner = CliRunner()
+    result = runner.invoke(guard.app, [str(FIXTURES / "original.md"), str(seeded), "--json", str(out_json),
+                                       "--md", str(out_md)])
+    assert result.exit_code == 1
+    data = json.loads(out_json.read_text(encoding="utf-8"))
+    assert data["mode"] == "edit" and data["summary"]["protected"] > 0
+    assert out_md.read_text(encoding="utf-8") == result.output.rstrip("\n") + "\n"
+    assert runner.invoke(guard.app, [str(FIXTURES / "original.md"), str(clean)]).exit_code == 0
+    assert runner.invoke(guard.app, [str(FIXTURES / "original.md"), str(seeded), "--revision"]).exit_code == 0
+    assert runner.invoke(guard.app, [str(FIXTURES / "original.md")]).exit_code == 2
+
+
+def test_cli_against_a_git_ref(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(ORIGINAL, encoding="utf-8")
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "T")
+    git("add", paper.name)
+    git("commit", "-q", "-m", "original")
+    paper.write_text((FIXTURES / "edited-seeded.md").read_text(encoding="utf-8"), encoding="utf-8")
+    result = CliRunner().invoke(guard.app, [str(paper), "--against", "HEAD", "--revision"])
+    assert result.exit_code == 0 and "scope removed" in result.output
+
+
+def test_dropping_the_article_adjective_reported_is_not_an_evidence_status_change() -> None:
+    """'The reported benchmarks' names the paper's own results; only a self-report status is protected."""
+    def kinds(before: str, after: str) -> set[tuple[str, str]]:
+        report = guard.compare(before, after)
+        return {(c["kind"], c["severity"]) for c in report["sentence_changes"]}
+    assert ("evidence_status", "protected") not in kinds(
+        "The reported benchmarks ran on one laptop.\n", "The benchmarks ran on one laptop.\n")
+    assert ("evidence_status", "protected") in kinds(
+        "Participants reported less pain after treatment.\n", "Participants had less pain after treatment.\n")

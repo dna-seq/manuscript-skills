@@ -10,10 +10,22 @@
     {
       "name": "manuscript-skills",
       "source": "./",
-      "description": "Manuscript integrity checks, practical journal selection, clinical/ethics/privacy scope review including voluntarily self-published genomes, venue adaptation and content-preserving editing.",
+      "description": "Manuscript integrity, reference-support and reporting checks, simulated peer review and responses to referees, practical journal selection, clinical/ethics/privacy scope review including voluntarily self-published genomes, venue adaptation and content-preserving editing.",
       "license": "MIT",
       "category": "research",
-      "tags": ["manuscript", "publishing", "ai-disclosure", "references", "journals", "preprints", "ethics", "privacy"]
+      "tags": [
+        "manuscript",
+        "publishing",
+        "ai-disclosure",
+        "references",
+        "journals",
+        "preprints",
+        "ethics",
+        "privacy",
+        "peer-review",
+        "reporting-guidelines",
+        "rebuttal"
+      ]
     }
   ]
 }

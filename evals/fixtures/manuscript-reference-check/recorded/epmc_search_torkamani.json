@@ -1,0 +1,39 @@
+{
+ "_recorded": "Recorded from the live API on 2026-10-15 and trimmed to the fields manuscript-skills reads. Europe PMC REST search, resultType=core, by DOI.",
+ "hitCount": 1,
+ "resultList": {
+  "result": [
+   {
+    "id": "29789686",
+    "source": "MED",
+    "doi": "10.1038/s41576-018-0018-x",
+    "pmid": "29789686",
+    "title": "The personal and clinical utility of polygenic risk scores.",
+    "authorString": "Torkamani A, Wineinger NE, Topol EJ.",
+    "pubYear": "2018",
+    "isOpenAccess": "N",
+    "inEPMC": "N",
+    "pubTypeList": {
+     "pubType": [
+      "Research Support, Non-U.S. Gov't",
+      "Review",
+      "Journal Article",
+      "Research Support, N.I.H., Extramural"
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.1038/s41576-018-0018-x"
+      }
+     ]
+    },
+    "abstractText": "Initial expectations for genome-wide association studies were high, as such studies promised to rapidly transform personalized medicine with individualized disease risk predictions, prevention strategies and treatments. [abstract trimmed for the fixture]"
+   }
+  ]
+ }
+}
