@@ -276,3 +276,17 @@ def test_readiness_verdict_names_the_worst_tier(paper: Path) -> None:
     report = scan.scan(paper, online=False, search_unidentified=False)
     blockers = sum(f.severity == scan.Severity.blocker for f in report.findings)
     assert blockers > 0 and f"**Readiness:** not ready: {blockers} desk-reject trigger" in scan.to_markdown(report)
+
+
+@pytest.mark.parametrize("abstract, severity", [
+    ("Across 12 datasets the method found more true variants than the next-best tool and ran about four "
+     "times faster (recall 0.94 vs 0.88).", None),
+    ("Our method achieved 94.3% recall (95% CI 92.1–96.0), 91.7% precision, an F1 of 0.930 and an AUROC of "
+     "0.971 across 12 datasets (n = 48,213), running 4.2× faster (40.1 s vs 168.4 s).", scan.Severity.major),
+    ("Recall was 94.3%, precision 91.7%, F1 0.930, AUROC 0.971 and runtime 40.1 s.", None),
+    ("Recall was 94.3%, precision 91.7%, F1 0.930, AUROC 0.971, runtime 40.1 s, memory 3.1 GB and 4.2× faster.",
+     scan.Severity.minor),
+])
+def test_abstract_metric_dump(abstract: str, severity: scan.Severity | None) -> None:
+    found = scan._abstract_metric_dump(["# Paper", "", "## Abstract", "", abstract, "", "## Introduction"])
+    assert [f.severity for f in found] == ([severity] if severity else [])

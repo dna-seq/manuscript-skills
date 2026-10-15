@@ -95,7 +95,7 @@ style defaults in `llm-smells.md`: if the authors use semicolons or the occasion
 their frequency.
 
 Without a sample, use the plain technical register: short declarative sentences, "we" for the authors'
-actions, numbers instead of adjectives, present tense for established facts and past tense for this
+actions, numbers instead of adjectives in Results (one headline number at most in the abstract), present tense for established facts and past tense for this
 study's results.
 
 ### 3.3 Inventory
@@ -122,8 +122,11 @@ mechanical part of this list.
    same conversation: treat your own earlier output as foreign text.
 2. **Cut before you rewrite.** Many smells are whole sentences that carry nothing (A8, B5, C4, H1, H12,
    H14). Delete them; then edit what is left.
-3. **Put the anchor in the claim.** If a paragraph says "substantially faster" and Table 2 says 4.2×,
-   the number moves into the sentence (E1). If no anchor exists, flag it; never supply one.
+3. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
+   Table 2 says 4.2×, the number moves into the sentence (E1). If no anchor exists, flag it; never supply
+   one. Do the opposite in the Abstract, Introduction and Discussion: a run of metrics there (A12) is a
+   smell. Moving figures out of the abstract changes what the abstract says, so propose it to the authors
+   as a restructuring item instead of doing it.
 4. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
    Do not pad a paragraph that became short after cuts: a shorter, specific paragraph is the goal.
 5. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.
@@ -203,7 +206,7 @@ Then the guard result. No preamble before the edited text, no narrative of what 
 
 | text | register notes |
 |---|---|
-| Abstract | Structured if the journal says so; one claim per sentence with its number; no hype, no field-landscape opener |
+| Abstract | Structured if the journal says so; one claim per sentence; one or two headline numbers, not the metric table (A12); no hype, no field-landscape opener |
 | Introduction | The gap and the aim; citations to specific prior work; no textbook padding |
 | Methods | Passive voice is fine; exact parameters, versions, thresholds and the reason for each non-default choice |
 | Results | Past tense; the number first; figures cited, not described |

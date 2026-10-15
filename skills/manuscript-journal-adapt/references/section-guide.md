@@ -14,10 +14,12 @@ venue asks for it.
 
 ## Abstract
 
-**Needs:** one sentence each for the problem, what was done, the main result with its number, and what it
-means and for whom; availability for software. Structured headings when the journal uses them.
-**Reads as AI:** the field-landscape opener [A2]; "In this paper, we present a novel …" [C4, A5]; results
-as adjectives [E1, B3]; a closing implication sentence [A3]; a triplet of benefits [C2].
+**Needs:** one sentence each for the problem, what was done, the main result, and what it means and for
+whom; availability for software. One or two headline numbers at most (clinical formats: the primary
+outcome with its interval). Structured headings when the journal uses them.
+**Reads as AI:** the field-landscape opener [A2]; "In this paper, we present a novel …" [C4, A5]; a dump of
+every metric, interval and speed-up [A12]; vague boosters instead of a result [B3]; a closing implication
+sentence [A3]; a triplet of benefits [C2].
 **Check:** every number in the abstract appears in the body (the scan flags those that do not); no claim
 the results do not support; within the word limit.
 

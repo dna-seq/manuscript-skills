@@ -448,6 +448,29 @@ def _percentages(lines: list[str]) -> list[Finding]:
     return out
 
 
+# A reported metric: a decimal, a percentage, a fold change, a value with a unit, a sample size or an interval.
+METRIC_RE = re.compile(
+    r"(?<![\w.\[])(?:\d+(?:[.,]\d+)?\s?(?:%|×|-fold|fold\b|x\b|s\b|ms\b|min\b|h\b|GB\b|MB\b|TB\b|bp\b|kb\b|Mb\b)"
+    r"|\d+\.\d+|\bn\s?=\s?\d[\d,]*|\b(?:CI|AUROC|AUC|F1|r|R2|R²|OR|HR|RR|β)\s?[=:]\s?-?\d)", re.IGNORECASE)
+ABSTRACT_METRICS_MINOR, ABSTRACT_METRICS_MAJOR = 6, 10
+
+
+def _abstract_metric_dump(lines: list[str]) -> list[Finding]:
+    """An abstract that lists the benchmark table (llm-smells A12)."""
+    span = _abstract_span(lines)
+    if span is None:
+        return []
+    text = "\n".join(lines[span[0]:span[1]])
+    metrics = METRIC_RE.findall(text)
+    if len(metrics) <= ABSTRACT_METRICS_MINOR:
+        return []
+    return [Finding(check="abstract", severity=Severity.major if len(metrics) > ABSTRACT_METRICS_MAJOR else Severity.minor,
+                    line=span[0], excerpt=", ".join(m.strip() for m in metrics[:8]),
+                    message=f"The abstract reports {len(metrics)} metrics; most belong in Results and its tables.",
+                    suggestion="Keep the one or two numbers that carry the main claim (clinical formats: the primary "
+                               "outcome with its interval) and say the rest in words backed by Results.")]
+
+
 def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Finding]:
     """Numbers stated in the abstract that never appear again in the body: check each by hand."""
     start = next((i for i, l in enumerate(lines) if ABSTRACT_HEADING.search(l.strip())), None)
@@ -798,6 +821,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                "known answers and drop 'first/novel' unless a search shows it.")
     findings += _dashes(lines, ref_start)
     findings += _abstract_numbers(lines, ref_start)
+    findings += _abstract_metric_dump(lines)
     findings += _percentages(body_lines)
 
     refs: list[Reference] = []

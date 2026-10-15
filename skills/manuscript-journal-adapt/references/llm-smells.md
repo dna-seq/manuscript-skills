@@ -227,6 +227,32 @@ is.
 
 **Leave it when:** never as a filler. If no explanation was tested, say so.
 
+### A12. Metric dump in the abstract (and the introduction)
+
+**Watch for:** an abstract that lists every benchmark number: several percentages, decimals, speed-ups,
+memory figures, dataset counts and intervals in one or two sentences; the same in the last paragraph of
+the Introduction or the first of the Discussion; strings like "(F1 = 0.94, AUROC = 0.97, 4.2×, 3.1 GB)".
+
+**Why:** Models try to make every claim concrete by stuffing in numbers, and an abstract is where they
+stuff most. A reader cannot take in eight figures in two sentences, and a reviewer reads the dump as
+compensating for a weak headline. The full set of metrics belongs in Results and its tables.
+
+**Before:**
+> Our method achieved 94.3% recall (95% CI 92.1–96.0), 91.7% precision, an F1 of 0.930 and an AUROC of
+> 0.971 across 12 datasets (n = 48,213), while running 4.2× faster (40.1 s vs 168.4 s) and using 3.1 GB of
+> memory (a 74.2% reduction).
+
+**After:**
+> Across 12 benchmark datasets, the method found more true variants than the next-best tool at similar
+> precision, and ran about four times faster on a laptop.
+
+(The individual figures stay in Results and Table 2. If the venue wants a number in the abstract, give
+the one that carries the main claim: "recall 0.94 vs 0.88".)
+
+**Leave it when:** the venue's abstract format requires them. Clinical and trial abstracts (CONSORT, many
+medical journals) must report the primary outcome with its effect size and interval; keep those, and only
+those.
+
 ---
 
 ## B. Vocabulary
@@ -631,13 +657,15 @@ narration.
 
 ## E. Numbers, statistics and evidence
 
-### E1. Adjectives where numbers belong
+### E1. Adjectives where numbers belong (in Results)
 
-**Watch for:** substantially faster, considerably more accurate, a large cohort, high concordance, low
-memory footprint, a small number of errors.
+**Watch for:** in Results and Methods: substantially faster, considerably more accurate, a large cohort,
+high concordance, low memory footprint, a small number of errors.
 
-**Fix:** the number, its unit and its comparison: "4.2 times faster (40 s vs 168 s)", "n = 12,408",
-"concordance 99.8% (1,204 of 1,206 scores)".
+**Fix:** in Results, the number, its unit and its comparison: "4.2 times faster (40 s vs 168 s)",
+"n = 12,408", "concordance 99.8% (1,204 of 1,206 scores)". In the Abstract, Introduction and Discussion,
+a plain comparison backed by those Results is usually better than repeating the figures (see A12); one
+headline number is enough.
 
 ### E2. Spurious or inconsistent precision
 
@@ -960,7 +988,7 @@ from connective tissue rather than content.
 - Uneven emphasis: a long paragraph on the one design decision that mattered, a line for the rest.
 - The lab's own vocabulary, used consistently, even when it is a little odd.
 - Honest uncertainty with a reason ("we could not tell whether…, because…").
-- Numbers in the sentence, not adjectives.
+- Numbers where the result is reported, not adjectives; and not a pile of them in the abstract.
 - Credit to specific prior work, including work that did something similar.
 
 When the authors' text has these, edit lightly. Over-editing removes exactly what makes it read as theirs.
