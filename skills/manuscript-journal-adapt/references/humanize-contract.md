@@ -102,7 +102,8 @@ style defaults in `llm-smells.md`: if the authors use semicolons or the occasion
 their frequency.
 
 Without a sample, use the plain technical register: short declarative sentences, "we" for the authors'
-actions, numbers instead of adjectives in Results (one headline number at most in the abstract), present tense for established facts and past tense for this
+actions (the conventional passive stays in Methods), numbers instead of adjectives in Results (one
+headline number at most in the abstract), present tense for established facts and past tense for this
 study's results.
 
 ### 3.3 Inventory
@@ -122,33 +123,34 @@ mechanical part of this list.
 
 ## 4. Rewriting
 
-0. **Deepest layer first, one dimension at a time.** Fix structure (paragraph order, repetition across
-   sections, lists wearing prose), then paragraphs, then sentences, then words. When checking your own
-   draft, check one dimension per pass (certainty, then connectives, then vocabulary): asked to judge
-   everything at once, models judge none of it reliably.
-1. **Re-derive, do not word-swap.** Read a sentence, state to yourself what it claims and on what
+1. **Deepest layer first, one dimension at a time.** Assess structure first (paragraph order, repetition
+   across sections, lists wearing prose) and list what needs restructuring for the authors (section 1);
+   then edit paragraphs, then sentences, then words. When checking your own draft, check one dimension
+   per pass (certainty, then connectives, then vocabulary): asked to judge everything at once, models
+   judge none of it reliably.
+2. **Re-derive, do not word-swap.** Read a sentence, state to yourself what it claims and on what
    evidence, then write that claim plainly. Swapping "utilize" for "use" inside an unchanged sentence
    leaves the shape that reads as AI (the participle tail, the connector, the mini-conclusion). This
    matters most when the text was drafted by a model, and above all when you drafted it earlier in the
    same conversation: treat your own earlier output as foreign text.
-2. **Cut before you rewrite.** Many smells are whole sentences that carry nothing (A8, B5, C4, H1, H12,
-   H14). Delete them; then edit what is left.
-3. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
+3. **Cut before you rewrite.** Many smells are whole sentences that carry nothing (A3, A8, B5, C4, H1,
+   H10). Delete them; then edit what is left.
+4. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
    Table 2 says 4.2×, the number moves into the sentence (E1). If no anchor exists, flag it; never supply
    one. Do the opposite in the Abstract, Introduction and Discussion: a run of metrics there (A12) is a
    smell. Moving figures out of the abstract changes what the abstract says, so propose it to the authors
    as a restructuring item instead of doing it.
-4. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
+5. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
    Do not pad a paragraph that became short after cuts: a shorter, specific paragraph is the goal.
-5. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.
+6. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.
    Remove only stacked duplicates ("may potentially" → "may").
-6. **Keep the terms.** One name per object, the paper's own.
-7. **Minimal edits, deletion over insertion.** Professional editors mostly replace and delete; they rarely
+7. **Keep the terms.** One name per object, the paper's own.
+8. **Minimal edits, deletion over insertion.** Professional editors mostly replace and delete; they rarely
    insert. Copy untouched sentences exactly. Two tests on every change: the **deletion test** (delete what
    you added; if nothing is lost, it should not be there) and the **reversion test** (put the original back;
    if it reads as well, keep the original).
-8. **Restore links you cut.** Removing a connector or a participle tail must not leave the next sentence
-   unanchored (C19); a paragraph of unlinked declaratives is its own smell (C22).
+9. **Restore links you cut.** Removing a connector or a participle tail must not leave the next sentence
+   unanchored (K3); a paragraph of unlinked declaratives is its own smell (C16).
 
 ---
 
@@ -167,8 +169,8 @@ hit. Write zeros explicitly. A gate entry without a count was not run.
 - C5 sentence-initial connectors: count consecutive runs;
 - A9 participle tails: count;
 - A8 and H1 paragraph-final restatements and aphorisms: count;
-- C22 declarative chains (runs of short sentences with nothing linking them) and, after your own cuts,
-  any link you removed without restoring (C19): count;
+- C16 declarative chains (runs of short sentences with nothing linking them) and, after your own cuts,
+  any link you removed without restoring (K3): count;
 - H2 announcement colons and thesis-first openers: count;
 - mixed quote styles, Markdown residue, emojis: count.
 
@@ -177,7 +179,7 @@ you just rewrote.
 
 ### 5.2 The scaffolding audit
 
-Go through section H of `llm-smells.md` pattern by pattern (H1 to H18) over the edited section. Then ask
+Go through section H of `llm-smells.md` pattern by pattern (H1 to H12) over the edited section. Then ask
 once: **"What still makes this read as machine-written?"** List the two or three residual patterns, fix
 them, and run the gate again. Stop after one loop: further loops over-edit into choppy, voiceless prose.
 
@@ -228,25 +230,7 @@ Then the guard result. No preamble before the edited text, no narrative of what 
 
 ---
 
-## 7. Register by text type
-
-| text | register notes |
-|---|---|
-| Abstract | Structured if the journal says so; one claim per sentence; one or two headline numbers, not the metric table (A12); no hype, no field-landscape opener |
-| Introduction | The gap and the aim; citations to specific prior work; no textbook padding |
-| Methods | Passive voice is fine; exact parameters, versions, thresholds and the reason for each non-default choice |
-| Results | Past tense; the number first; figures cited, not described |
-| Discussion | Interpretation tied to results; the two limitations that matter; no send-off |
-| Figure captions | What is plotted, n, error bars, statistics; not "This figure illustrates" |
-| Cover letter | Short and specific; what the paper shows, why this journal, required declarations (H16) |
-| Response to reviewers | One thank-you; per point, what changed and where (G3) |
-| Plain-language summary | Short sentences, everyday words, no semicolons; still no invented facts |
-
-Details per section: `section-guide.md`.
-
----
-
-## 8. What this procedure refuses, and why
+## 7. What this procedure refuses, and why
 
 | refused | why |
 |---|---|

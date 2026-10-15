@@ -61,7 +61,7 @@ SHORT_SENTENCE_WORDS = 12
 
 
 def declarative_chain(sents: list[str]) -> Optional[list[str]]:
-    """Four or more sentences, mostly short, with almost nothing linking them (llm-smells C22)."""
+    """Four or more sentences, mostly short, with almost nothing linking them (llm-smells C16)."""
     if len(sents) < 4:
         return None
     lengths = [len(WORD.findall(x)) for x in sents]
@@ -180,7 +180,7 @@ def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], koba
                         hits.setdefault(sid, []).append(m.group(0).strip())
         chain = declarative_chain(sents)
         if chain:
-            hits["C22"] = chain
+            hits["C16"] = chain
         words = WORD.findall(para)
         n_words = len(words)
         n_hits = sum(len(v) for v in hits.values())

@@ -8,7 +8,7 @@ author guidelines override anything here (structured abstracts, section names, w
 **Needs:** what was done or found, on what, in plain terms; the tool's name for software papers where the
 venue asks for it.
 **Reads as AI:** "Towards …", "Unlocking …", "Harnessing the power of …", "A comprehensive framework for
-…", two colons, a slogan before the colon [A1, A4, C10].
+…", two colons, a slogan before the colon [A1, A4, H1].
 **Example.** "Unlocking the Genome: A Novel, Comprehensive Framework for Privacy-Preserving Annotation" →
 "Local annotation of personal genomes with versioned, shareable modules".
 
@@ -45,15 +45,15 @@ tool meets; dismissive adjectives ("limited", "cumbersome") without a measuremen
 **Needs:** enough to reproduce: data sources with versions and accessions, software with versions and
 parameters, thresholds and the reason for each non-default one, statistical tests and corrections, code
 availability.
-**Reads as AI:** "rigorous", "carefully", "meticulously" [B1]; "a variety of filtering strategies" instead
-of the filters [H15]; signposting [C4]; hidden decisions ("it was decided") [C11].
+**Reads as AI:** "rigorous", "carefully", "meticulously" [B1, J6]; "a variety of filtering strategies" instead
+of the filters [B11]; signposting [C4]; hidden decisions ("it was decided") [C10].
 **Normal here:** passive voice, long parameter lists, repetitive sentence shapes across similar steps.
 
 ## Results
 
 **Needs:** each result with its number, unit, uncertainty and the figure or table; past tense; ordered by
 the argument, not by the order of the analyses.
-**Reads as AI:** describing the figure instead of the result [E6]; boosters and "significantly" without a
+**Reads as AI:** describing the figure instead of the result [E5]; boosters and "significantly" without a
 test [B3, E3]; participle tails interpreting each result [A9]; mini-conclusions after each paragraph [A8].
 **Check:** percentages recompute from their counts (the scan does this for "x of y (z%)"); tests named; the
 same precision for the same measure throughout [E2].
@@ -64,7 +64,7 @@ same precision for the same measure throughout [E2].
 limitations that bear on the conclusions, each with its consequence; what would test the interpretation.
 **Reads as AI:** restating the results [D5]; implications without content [A3]; speculative mechanism
 filler [A11]; boilerplate limitations [A7]; symmetric strengths and weaknesses [D4]; a positive send-off
-[H14].
+[A3].
 **Fix:** one paragraph per interpretive point; the two limitations that matter most, specifically; end on
 the main limit or the next concrete step.
 
@@ -79,7 +79,7 @@ to every study.
 
 **Needs:** one or two sentences: the finding and its main condition.
 **Reads as AI:** a third repetition of the contributions [D5]; "In conclusion, this work represents a
-significant step towards…" [A1, A8, H14].
+significant step towards…" [A1, A3, A8].
 
 ## Figure and table captions
 
@@ -101,7 +101,7 @@ requires availability at submission); generic AI statements that name no tool or
 journal (its scope, a related paper it published); the declarations the journal asks for (AI use,
 preprint, competing interests, suggested or excluded reviewers if asked).
 **Reads as AI:** "We are pleased to submit…", "We believe this work will be of great interest to your
-readership", "We look forward to hearing from you at your earliest convenience" [H16]; superlatives about
+readership", "We look forward to hearing from you at your earliest convenience" [G5]; superlatives about
 the work [A1, A4].
 **Length:** one page at most.
 

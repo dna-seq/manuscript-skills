@@ -29,7 +29,7 @@ smells:
       - 'a growing body of (?:evidence|literature|research|work)'
       - '\bevolving landscape\b'
   A3:
-    name: empty implication
+    name: empty implication or send-off
     patterns:
       - '(?:important|significant|profound|broad|far-reaching) implications for'
       - 'pave[sd]? the way'
@@ -39,6 +39,9 @@ smells:
       - 'deeper understanding of'
       - 'valuable insights?'
       - 'promising avenue'
+      - 'future (?:looks|is) bright'
+      - 'exciting (?:step|times|avenue|direction)'
+      - 'we hope (?:that )?(?:this|our) (?:tool|work|framework|study)'
   A4:
     name: promotional tool language
     patterns:
@@ -92,6 +95,13 @@ smells:
       - 'intricate (?:interplay|network|relationship|mechanisms?)'
       - 'various (?:underlying )?(?:mechanisms|factors)'
       - 'multifaceted (?:nature|process|interplay)'
+  B2:
+    name: inflated phrase
+    patterns:
+      - '\bin order to\b'
+      - 'due to the fact that'
+      - 'in the event that'
+      - 'has the ability to'
   B3:
     name: booster
     patterns:
@@ -113,10 +123,6 @@ smells:
       - 'first and foremost'
       - 'last but not least'
       - 'at the end of the day'
-      - '\bin order to\b'
-      - 'due to the fact that'
-      - 'in the event that'
-      - 'has the ability to'
       - 'generally speaking'
       - 'it can be argued'
       - 'it is clear that'
@@ -126,6 +132,13 @@ smells:
     patterns:
       - '\b(?:serves|stands|functions) as (?:a|an|the)\b'
       - '\bboasts\b'
+  B11:
+    name: quantity and scope inflation
+    patterns:
+      - '\ba (?:myriad|plethora|wide array|broad spectrum) of\b'
+      - '\bcountless\b'
+      - '\bin the realm of\b'
+      - 'across (?:diverse|various) domains'
   C1:
     name: negation pivot
     patterns:
@@ -152,23 +165,22 @@ smells:
       - '\bat its core\b'
       - '^fundamentally,'
       - '\bin essence\b'
-      - 'the key insight'
-      - 'what (?:truly|really) matters'
       - 'the real question'
       - '\bundoubtedly\b'
   C7:
     name: rhetorical question
     patterns:
       - '\?$'
-  C10:
+  H1:
     name: aphorism or slogan
     patterns:
       - '\bis the (?:new|language|currency|backbone|lifeblood|heart) of\b'
       - '\bdemocrati[sz](?:e|es|ing)\b'
   H2:
-    name: announcement colon
+    name: thesis-first opener or announcement
     scope: start
     patterns:
+      - '^the key insight is\b'
       - '^(?:the )?(?:key|main|core|real|bottom|short|simple) (?:insight|point|idea|takeaway|line|answer|rule|problem|challenge|question|lesson)(?: is)?:'
   H3:
     name: setup-and-reveal
@@ -183,33 +195,21 @@ smells:
       - '\bless (?:a|an) [a-z -]{1,30} than\b'
       - '\bmore (?:a|an) [a-z -]{1,30} than\b'
       - 'less about\b.{1,40}\bmore about\b'
-  H11:
+  H9:
     name: fake candour
     patterns:
       - "here(?:'s| is) the thing"
       - '^the thing is\b'
       - "let(?:'s| us) be honest"
       - 'make no mistake'
-  H12:
+      - 'to be (?:fully |completely )?(?:transparent|honest|upfront)'
+  H10:
     name: reframe or landing phrase
     patterns:
       - '^seen this way,'
       - '^put differently,'
       - 'is where the real'
-      - 'is what (?:truly|really) matters'
-  H14:
-    name: generic positive ending
-    patterns:
-      - 'future (?:looks|is) bright'
-      - 'exciting (?:step|times|avenue|direction)'
-      - 'we hope (?:that )?(?:this|our) (?:tool|work|framework|study)'
-  H15:
-    name: quantifier inflation
-    patterns:
-      - '\ba (?:myriad|plethora|wide array|broad spectrum) of\b'
-      - '\bcountless\b'
-      - '\bin the realm of\b'
-      - 'across (?:diverse|various) domains'
+      - 'what (?:truly|really) matters'
   F1:
     name: em dash
     patterns:
@@ -231,7 +231,7 @@ smells:
     name: response-letter sycophancy
     patterns:
       - 'thank the reviewers? for (?:this|their|the|his|her) (?:excellent|insightful|valuable|thoughtful|helpful|great|constructive)'
-  C22:
+  C16:
     name: declarative chain (slogans with no transitions)
     structural: true   # computed by style_profile.py from sentence lengths and links, not by a regex
     patterns: []

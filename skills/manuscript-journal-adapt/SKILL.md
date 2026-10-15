@@ -74,7 +74,7 @@ Restructuring changes content placement, so present it as a list and apply it on
 ## Mode C: copy-edit ("humanize")
 
 Read `references/humanize-contract.md` (the contract and the full procedure) and
-`references/llm-smells.md` (about 70 patterns, general and manuscript-specific, each with a bad example, a
+`references/llm-smells.md` (about 100 patterns, general and manuscript-specific, each with a bad example, a
 fix and when to leave it). In short:
 
 1. **Targets.** `uv run --script scripts/style_profile.py PAPER.md [--sample AUTHORS.md]` ranks paragraphs by
