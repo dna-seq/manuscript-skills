@@ -1,0 +1,17 @@
+url: https://journals.bioscientifica.com/joe/pages/author-guidelines
+---
+## 7. Declaration of interest, Funding and Acknowledgements
+
+AI Disclosure
+
+We ask all authors to disclose in a statement whether or not they have used generative AI in the preparation of their manuscript. If authors have used written or visual content produced by or edited using a generative AI technology, this must be acknowledged. This explanation must list the name, version, model, and source of the generative AI technology. Where no AI technology has been used in the preparation of the manuscript, please state the following:
+
+"No generative Artificial Intelligence (AI) tools were used in the preparation of the written or visual content of this manuscript."
+
+Our full publisher policy on use of Large Language Models and other AI technologies can be found on our Ethical Policies page.
+
+## 11. Figures
+
+Line images/graphs: eps, tiff, high-resolution pdf, jpg and png, AI (Adobe Illustrator); resolution at final published size: 1200 dpi
+
+Colour images: tiff, high-resolution pdf, jpg and png; eps or AI files can be used for graphical data and illustrations that don't include photographs; resolution at final published size: 300 dpi; CMYK format (not RGB)

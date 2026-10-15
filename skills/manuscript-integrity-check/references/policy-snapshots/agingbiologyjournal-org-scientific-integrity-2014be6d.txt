@@ -1,0 +1,5 @@
+url: https://agingbiologyjournal.org/Scientific_Integrity/
+---
+## Artificial Intelligence
+
+AI tools, such as ChatGPT, are acceptable at all stages of MS production, hypothesis generation, data analysis and manuscript writing. However, AI tools cannot be authors and so responsibility for any AI contributions is that of the listed authors, ultimately the senior/corresponding author. Results of AI writing tools should be verified for potential plagiarism, as this also is the responsibility of the authors.

@@ -1,0 +1,13 @@
+url: https://joss.readthedocs.io/en/latest/review_criteria.html
+---
+## AI usage disclosure (required) 
+
+The paper must include a section that transparently discloses any use of generative AI in:
+
+If no AI tools were used, this should be explicitly stated. If AI tools were used, authors should describe how they were used and how the quality and correctness of AI-generated content was verified.
+
+Good: Clear, specific disclosure of AI tool usage and verification methods OK: Statement that no AI tools were used, or general disclosure of AI assistance Bad (not acceptable): Missing section or vague/evasive language about AI usage
+
+## Using AI to generate code 
+
+JOSS has a detailed policy describing what we consider appropriate use of AI by authors and reviewers. Please review these guidelines before starting your review.

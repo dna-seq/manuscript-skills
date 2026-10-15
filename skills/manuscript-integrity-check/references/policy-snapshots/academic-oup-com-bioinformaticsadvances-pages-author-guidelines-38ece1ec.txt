@@ -1,0 +1,23 @@
+url: https://academic.oup.com/bioinformaticsadvances/pages/author-guidelines
+---
+AI Discovery Assistant
+
+## Authorship
+
+Natural language processing tools driven by artificial intelligence (AI) do not qualify as authors, and the Journal will screen for them in author lists. The use of AI (for example, to help generate content or images, write code, process data, or for translation) should be disclosed both in cover letters to editors and in the Methods or Acknowledgements section of manuscripts. Please see the COPE position statement on Authorship and AI for more details.
+
+## Policy for acceptable use of large language models (LLMS)
+
+The International Society for Computational Biology has created an acceptable use policy for LLMs , which the journal follows. It is likely that these guidelines will be subject to change in the future as the development of these models continues to change.
+
+It is permissible to include LLM generated text snippets as examples in research papers where appropriate, but these MUST be clearly labelled, and their use explained.
+
+Any acceptable use of LLMs or related technologies to produce, or help to produce, part of the text, figures or other contents of the paper should be explicitly declared and documented with sufficient details in the supplementary materials.
+
+It is not acceptable to use LLMs or related technologies to draft papers (including but not limited to text, figures, tables, and references) from a prompt text. In essence, papers must be written by researchers.
+
+LLMs cannot be listed as authors as they would not fulfil the requirements of authorship as laid out in the ICMJE guidelines .
+
+Natural language processing tools driven by artificial intelligence (AI) do not qualify as authors, and the Journal will screen for them in author lists. The use of AI (for example, to help generate content, write code, or process data) should be disclosed both in cover letters to editors and in the Methods or Acknowledgements section of manuscripts. Please see the COPE position statement on Authorship and AI for more details .
+
+If your usage of LLMs is not covered by any of these use cases, then please contact the Editor of the journal or Editorial Office.

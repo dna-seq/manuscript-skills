@@ -1,0 +1,9 @@
+url: https://www.nature.com/srep/author-instructions/submission-guidelines
+---
+## Manuscript
+
+Your manuscript text file should start with a title page that shows author affiliations and contact information, identifying the corresponding author with an asterisk. We recommend that each section includes an introduction of referenced text that expands on the background of the work. Some overlap with the Abstract is acceptable. Large Language Models (LLMs), such as ChatGPT , do not currently satisfy our authorship criteria . Notably an attribution of authorship carries with it accountability for the work, which cannot be effectively applied to LLMs. Use of an LLM should be properly documented in the Methods section (and if a Methods section is not available, in a suitable alternative part) of the manuscript. In response to emerging information, advice, guidance and policy around artificial intelligence (AI), we have created a dedicated AI section in our Editorial Policy page . Please familiarize yourself with this content and comply with relevant policies.
+
+## 1. Line art, graphs, charts and schematics
+
+For optimal results, you should supply all line art, graphs, charts and schematics in vector format, such as EPS or AI. Please save or export it directly from the application in which it was made, making sure that data points and axis labels are clearly legible.

@@ -1,0 +1,5 @@
+url: https://journals.asm.org/editorial-policies
+---
+## Generative AI
+
+ASM policy on use of generative AI in your submission

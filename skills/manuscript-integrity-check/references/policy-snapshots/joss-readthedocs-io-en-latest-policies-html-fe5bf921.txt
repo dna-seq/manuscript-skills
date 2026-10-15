@@ -1,0 +1,23 @@
+url: https://joss.readthedocs.io/en/latest/policies.html
+---
+## AI usage policy 
+
+The Journal of Open Source Software permits the use of generative AI in submissions with mandatory disclosure and human oversight requirements.
+
+## Author AI usage 
+
+The use of generative AI is permitted for most aspects of a JOSS submission (e.g., software creation and review, generating documentation, assisting with paper authoring).
+
+Required disclosure: All submissions must include an AI usage disclosure section in the paper that clearly states whether generative AI tools were used. This disclosure must include:
+
+Tool identification: Specify which AI systems and versions were employed, noting exactly where they were applied (code, documentation, manuscript sections).
+
+Human verification confirmation: Authors must affirm that human team members thoroughly reviewed, modified, and validated all AI-generated content while making primary architectural and design decisions.
+
+Prohibited AI interactions: Conversational use of AI between authors and editors/reviewers is restricted, except for translation support.
+
+Author accountability: Submitting authors bear complete responsibility for accuracy, originality, licensing compliance, and ethical/legal standards of submitted materials. Incomplete or inaccurate AI disclosures constitute ethical violations with consequences ranging from desk rejection to institutional notification.
+
+## Reviewer AI usage 
+
+Reviewers may employ AI tools for non-substantive tasks (grammar checking, code contextualization) requiring brief disclosure at review conclusion.

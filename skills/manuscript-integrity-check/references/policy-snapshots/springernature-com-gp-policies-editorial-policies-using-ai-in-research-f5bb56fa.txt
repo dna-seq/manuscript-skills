@@ -1,0 +1,45 @@
+url: https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-research
+---
+## AI use in research practice
+
+Using AI safely across the research lifecycle
+
+Artificial intelligence (AI) tools are increasingly used across the research lifecycle, from early-stage discovery through to data analysis and interpretation. These tools can enhance efficiency and support exploration, but they also introduce important considerations around transparency, reproducibility, and accountability.
+
+Springer Nature's policy takes a risk-assessment approach. Rather than focusing on specific tools, we consider how AI is used, and whether that use supports or undermines the integrity of the research.
+
+AI may support your work, but you remain fully accountable for all research decisions, outputs, and conclusions.
+
+## A risk-assessment framework for AI use in research practice
+
+AI supports efficiency and exploration without influencing core research decisions
+
+AI contributes to analytical or interpretive processes
+
+AI replaces core scholarly judgement or compromises integrity
+
+## What this means in practice
+
+AI can support many aspects of research, but its use should be managed with increasing levels of care proportionate to the level of risk involved.
+
+In lower-risk contexts, such as literature discovery or data preparation, AI can improve efficiency without shaping the intellectual contribution of the work.
+
+In higher-risk contexts, such as data analysis, modelling, or qualitative interpretation, AI may assist but must not replace critical reasoning. Authors should be able to clearly describe how AI was used, what inputs and outputs were involved and how results were validated.
+
+Quantitative research: ensure analytical methods remain transparent and reproducible. AI may be used to explore large datasets or support modelling. When doing so, authors should be able to clearly describe inputs, outputs and validation steps, ensuring results are reproducible and independently assessable.
+
+Qualitative research: preserve nuance and demonstrate human-led argument and interpretation. AI tools can assist with coding or theme identification, but argument and interpretation must remain human-led.
+
+Social or online data: reflect on bias, context, and ethical considerations. AI tools could be used to assist classification of data or sentiment analysis; however, this should be accompanied by critical human reflection and a strong adherence to privacy and consent expectations from participants and the wider research community.
+
+Evidence synthesis: ensure completeness, accuracy, and verifiability. AI may be used to manage large volumes of data or evidence synthesis but risks omitting key studies, oversimplification or fabricating content. Authors must clearly document their methodology and design.
+
+## Transparency and declaration
+
+We recognise that authors may sometimes feel uncertain about declaring AI use, particularly where there are concerns about how this might affect editorial or peer review outcomes.
+
+Where AI use is unclear or undeclared, editors may need to seek clarification, which can delay assessment or shift focus away from the research itself.
+
+## Key principle
+
+The acceptability of AI use in research depends not on the tool itself, but on whether its use supports transparency, rigour, and the integrity of the research process and outcomes.

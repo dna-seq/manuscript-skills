@@ -1,0 +1,37 @@
+url: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
+---
+## Image manipulation
+
+Our artificial intelligence review assistant (AIRA) is trained to detect specific types of recycling, modifications, and manipulation. Any concerns raised over undeclared image modifications will be investigated, and the authors will be asked to provide the original images and data (see more about providing raw data ). Failure by authors to adequately address such concerns will result in rejection of the manuscript, and the issue may be raised with the authors' institutions. If it is brought to our attention post-publication, it will be investigated, and authors will be required to provide the original images. Failure to do so may result in retraction.
+
+## Reporting standards
+
+Clinical trials and artificial intelligence (AI) : Clinical trials with AI components should adhere to the Consolidated Standards of Reporting Trials-Artificial Intelligence extension .
+
+Clinical study protocols and artificial intelligence (AI): Clinical study protocols evaluating interventions with an AI component, should conform to the Standard Protocol Items: Recommendations for Interventional Trials-Artificial Intelligence (SPIRIT-AI) extension.
+
+## For clinical protocols
+
+All submissions should follow the Standard Protocol Items: Recommendations for Interventional Trials (SPIRIT) guidelines and checklist. For Study Protocols of Clinical Trials that use AI components, please follow the Standard Protocol Items: Recommendations for Interventional Trials-Artificial Intelligence extension.
+
+## Artificial intelligence: fair use and disclosure policy
+
+This policy covers acceptable uses of generative AI technologies such as Large Language Models (ChatGPT, Jasper) and text-to-image generators (DALL-E 2, Midjourney, Stable Diffusion) in the writing or editing of manuscripts submitted to Frontiers.
+
+## AI generated text and authorship
+
+If AI tools have been used to generate main text, then this must be clearly disclosed in the acknowledgments. Authors should not list a generative AI technology as a co-author or author of any submitted manuscript. Generative AI technologies cannot be held accountable for all aspects of a manuscript and consequently do not meet the ICMJE criteria required for authorship.
+
+If the author of a submitted manuscript has used written or visual content produced by or edited using a generative AI technology, this use must comply to all Frontiers guidelines and policies. Specifically, the author remains responsible for checking the factual accuracy of all content created using generative AI technology. This includes, but is not limited to, any quotes, citations, or references.
+
+## AI generated figures and images
+
+Figures produced by or edited using a generative AI technology must be checked to ensure they accurately reflect the data presented in the manuscript. Authors must also check that any written or visual content produced by or edited using a generative AI technology is free from plagiarism.
+
+If the author of a submitted manuscript has used written or visual content produced by or edited using a generative AI technology, such use must be acknowledged in the acknowledgments section of the manuscript and the methods section, if applicable. This explanation must list the name, version, model, and source of the generative AI technology.
+
+We encourage authors to upload all input prompts provided to a generative AI technology and outputs received from a generative AI technology in the supplementary files for the manuscript.
+
+## AI use by editors and reviewers
+
+Frontiers adheres to WAME , EASE , and COPE guidelines on the use of AI in peer review. To protect confidentiality and intellectual property, manuscript content must not be uploaded to external generative AI tools. To support peer reviewers, we provide an internal AI tool within the review forum, operating in a secure, closed environment. It helps by summarizing manuscript content, highlighting areas for analysis, and assisting in drafting constructive feedback - while fully preserving author privacy. Importantly, this AI tool does not participate in editorial decision-making, and should not be used for that purpose. Academic editors and invited community reviewers remain solely responsible for the accuracy, integrity, and relevance of their peer review reports and editorial decisions. Any use of external AI tools must be discussed with the editorial team in advance, and - if approved - clearly disclosed to authors in the review.

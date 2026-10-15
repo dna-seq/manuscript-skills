@@ -1,0 +1,85 @@
+url: https://journals.plos.org/plosone/s/ethical-publishing-practice
+---
+## Compliance with PLOS policies
+
+Reviewers and editors must comply with all PLOS policies, including but not limited to this Ethical Peer Review policy, the Code of Conduct for Editorial Board Members , and PLOS policies on Standards for Professional Behavior , Confidentiality , AI Tools and Technologies , and Competing Interests .
+
+## Confidentiality of unpublished submissions that are not shared on preprint servers
+
+As is stated in our Ethical Peer Review policy , submission content may not be uploaded by handling editors or reviewers to generative AI platforms, websites, databases, or other tools; this is essential for protecting the confidentiality of unpublished work.
+
+## Artificial Intelligence Tools and Technologies
+
+## AI use by authors
+
+AI tools may be used to support development or revision of a PLOS submission. However, articles should report the listed authors' own work and ideas, and AI tools cannot be listed as authors.
+
+Any AI use to generate or revise content for a PLOS submission, or to support research reported in a PLOS article, must be clearly disclosed as outlined in the AI use disclosures section of this policy.
+
+Whether or not AI tools are used, authors are accountable for responsible stewardship of their research records and outputs, and for the reliability of all content they submit to PLOS. This includes (but is not limited to) authors' responsibility for ensuring that:
+
+The use of AI tools and technologies to fabricate or otherwise misrepresent primary research data is unacceptable and will be considered by PLOS to be a breach of publication ethics.
+
+Concerns about undisclosed or unacceptable AI use by authors may prompt an integrity investigation, delay peer review, and/or lead to editorial action on the article such as a rejection, retraction, or publication of an Expression of Concern. We may also inform the authors' institution(s) of our concerns or require institutional assurances as to the reliability of an affected article's content.
+
+## AI use in peer review
+
+Peer review feedback and decision letters should reflect reviewers' and editors' personal assessments of submitted content. AI tools cannot serve as peer reviewers or as decision-issuing editors, and should not be used by reviewers or editors to summarize or evaluate submission content.
+
+As is noted in our Confidentiality policy , unpublished submission content must be held as strictly confidential. Editorial board members and reviewers must not upload submissions, submission summaries, or any comments that would reveal information about unpublished submissions to generative AI tools, web platforms, databases, or other services.
+
+AI tools can only be used in peer review for purposes that (i) do not place the confidentiality of manuscript content or data at risk, AND (ii) would not misrepresent the reviewer's or editor's own intellectual contributions. If you have questions about whether a particular AI use case would be considered acceptable, please email the journal office before you proceed.
+
+Examples of allowable use include using AI to obtain general information on how to formulate a review, translating or copyediting a reviewer's own comments which do not include manuscript summaries or other confidential information about a submission's content, or supporting a reviewer's assessment by surfacing general/published information relevant to the article's content.
+
+Any AI use by a reviewer or editor must be disclosed as discussed in the AI use disclosures section of this policy.
+
+If concerns arise about AI use in peer review that is not compliant with this policy, PLOS may take actions such as notifying the relevant institution, terminating an Editorial Board position, and/or removing an editor's or reviewer's permissions to engage in further peer review for PLOS. If concerns come to light post-publication, we may take action on the affected publication(s) if and as warranted. Peer review integrity concerns may result in a correction, expression of concern, or retraction whether or not there are concerns about the article's contents.
+
+## AI use disclosures
+
+All AI use pertaining to PLOS submission content or peer review must be transparently and publicly disclosed. This helps to support trust, both in the people using AI and in the affected content.
+
+AI use disclosures should include all of the following:
+
+For AI use by authors, disclosures should be in the body of the article, either in a dedicated section of the Methods, in the Acknowledgement section, or in the relevant figure legend(s).
+
+For AI use by editors or reviewers, the disclosure should be in the review form or decision letter so that the information about AI use is available to authors when they receive their decision letter.
+
+## AI use by PLOS
+
+PLOS uses AI tools to support submission checks, screening, and integrity investigations, and we may also integrate AI tools to further support our publishing processes, communications, and author services. We carefully vet all AI tools used by PLOS to ensure that they meet strict internal standards for efficacy and data security. In evaluating new tools and other options for process improvements, we place high priority on ensuring that we uphold the quality and integrity of our services, and that we protect personal and submission data in secure environments.
+
+See the PLOS Privacy policy for more information about disclosure of information to third-party tools (including AI tools).
+
+## FAQs
+
+Do I need to disclose AI use for language editing or translation?
+
+We do not require disclosure of AI use for language improvements, such as to correct spelling or grammar, or to rephrase content for clarity or conciseness. If an AI tool has been used for language translation, we recommend this be disclosed in order to preempt concerns, but this is not strictly required.
+
+Do I need to disclose AI use for preparing a cover letter?
+
+Do I need to disclose AI use for generation or development of analysis scripts or software code?
+
+Does PLOS allow AI use in figure preparation?
+
+Yes, provided AI-generated content is not used to misrepresent primary research outputs and the use of AI does not introduce invalid content or place any personal or sensitive data at risk. For example, authors can use AI-generated figures for illustrative purposes or to summarize results, but should be aware that depending on the AI tool's terms and conditions any data uploaded to the tool may be ingested into the AI tool's training dataset and exposed to future users.
+
+Any AI use for figure preparation should be clearly disclosed in the figure legend. Authors are responsible for checking the accuracy and validity of AI-generated figure content, and for ensuring that any AI-generated content complies with the PLOS policy on Licenses and Copyright .
+
+Why do I need to disclose AI use?
+
+Transparency around AI can foster trust in the integrity of your work, as well as trust in AI-supported work more broadly. By contrast, undisclosed AI use may raise concerns about fabrication and/or unreliability of the article or review content. Additionally, by identifying where and how AI tools are used, these disclosures can help to support aspects of the review process or submission checks. For example, if an editor knows that a translation tool was used, this may help to clarify concerns about unusual or inappropriate terminology, and may inform how we follow up on such issues.
+
+Will AI use disclosures negatively affect my article's review or editorial decision?
+
+Does PLOS routinely screen submissions for AI use?
+
+Our submission checks are constantly evolving. We may use available AI detection tools in article-level checks or assessments, and we follow up if editors, reviewers, staff, or readers report concerns about undisclosed AI use.
+
+Importantly, PLOS does not forbid AI use, we only require that it is used responsibly and disclosed transparently, as is explained in this policy.
+
+Why can't editors and reviewers upload submission content to AI tools?
+
+Uploading submission content or summaries to an AI tool places the confidentiality of that content at risk: it may be ingested into the AI's training dataset and thereafter included in other users' AI outputs. This places the authors' intellectual property at risk, is a breach of PLOS' Confidentiality policy, can introduce risk that work is re-used or relied upon before it has been vetted and published, and introduces risks of plagiarism and copyright/license infringement if content is reused by another AI user.

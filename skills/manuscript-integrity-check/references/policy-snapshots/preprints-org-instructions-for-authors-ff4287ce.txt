@@ -1,0 +1,7 @@
+url: https://www.preprints.org/instructions-for-authors
+---
+## Instructions for Authors
+
+Preprints.org follows the Committee on Publication Ethics (COPE) position statement when it comes to the use of Artificial Intelligence (AI) and AI-assisted technology in manuscript preparation. AI tools such as ChatGPT and other large language models (LLMs) do not meet authorship criteria and thus cannot be listed as authors on manuscripts. Use of AI tools and LLM should be properly documented in the Methods section (and if a Methods section is not available, in a suitable alternative part) of the manuscript. The authors are responsible for the final text and should check for errors introduced by such tools.
+
+Any use of AI is clearly disclosed and conforms to our policy.

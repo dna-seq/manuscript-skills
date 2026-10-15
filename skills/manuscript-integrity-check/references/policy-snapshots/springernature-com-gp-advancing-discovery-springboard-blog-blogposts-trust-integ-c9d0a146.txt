@@ -1,0 +1,13 @@
+url: https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690
+---
+## Author: Chris Graf
+
+Over the past year, we've made real strides in expanding our suite of in-house tools , many of which use artificial intelligence (AI), to support our editors, reviewers, and authors. These tools are designed not to replace human judgment, but to enhance it-by identifying signals of potential manipulation or integrity breaches early in the submission process, and by freeing-up valuable time for deeper editorial assessment.
+
+Our latest addition is a tool that detects non-standard phrases in submitted manuscripts. These are phrases that appear awkward or overly convoluted, such as "counterfeit consciousness" instead of "artificial intelligence." These unusual constructions, known as "tortured phrases", can be a sign that paraphrasing tools have been used to disguise plagiarism or manipulate content.
+
+Nonsense text detector: This tool, previously known as "Geppetto" internally, identifies manuscripts that contain AI-generated nonsense text.
+
+SnappShot: Our image integrity tool, SnappShot, uses AI to detect duplicated or manipulated images in gels and blots, with ongoing work to expand into microscopy. It also checks for image plagiarism against a growing library of known problematic content.
+
+As the landscape of scholarly publishing evolves, so too must our approaches to research integrity. The rise of generative AI, the increasing sophistication of paper mills, and the pressures faced by researchers all contribute to a complex environment. We're confident we're meeting these challenges with the right people, partnerships and tools-and we are also always open to fresh ideas and innovation.

@@ -1,0 +1,13 @@
+url: https://link.springer.com/journal/438/submission-guidelines
+---
+## Reviews
+
+Use of large language models (LLMs) or other AI tools must be documented in the Methods section (or an appropriate alternative). Use of AI for copy editing only does not need to be declared. "AI-assisted copy editing" refers to improvements in readability, style, and correctness (grammar, spelling, punctuation, and tone) without generating new content. In all cases, authors remain fully accountable for the final text and must agree that edits accurately reflect their original work.
+
+## Title Page
+
+Large Language Models (LLMs), such as ChatGPT , do not currently satisfy our authorship criteria . Notably an attribution of authorship carries with it accountability for the work, which cannot be effectively applied to LLMs. Use of an LLM should be properly documented in the Methods section (and if a Methods section is not available, in a suitable alternative part) of the manuscript. The use of an LLM (or other AI-tool) for "AI assisted copy editing" purposes does not need to be declared. In this context, we define the term "AI assisted copy editing" as AI-assisted improvements to human-generated texts for readability and style, and to ensure that the texts are free of errors in grammar, spelling, punctuation and tone. These AI-assisted improvements may include wording and formatting changes to the texts, but do not include generative editorial work and autonomous content creation. In all cases, there must be human accountability for the final version of the text and agreement from the authors that the edits reflect their original work.
+
+## Generative AI Images
+
+Please check Springer's policy on generative AI images and make sure your work adheres to the principles described therein.

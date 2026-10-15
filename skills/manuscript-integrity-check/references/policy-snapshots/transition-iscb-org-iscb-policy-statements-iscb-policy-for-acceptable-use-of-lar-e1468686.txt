@@ -1,0 +1,27 @@
+url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+---
+## ISCB Policy for Acceptable Use of Large Language Models
+
+In recent years, large language models (LLMs) with billions of parameters have become increasingly adept at reading and generating text. These models are also beginning to have an important influence as tools for computational biology. With the emergence of freely available text generation tools, the International Society for Computational Biology (ISCB) has decided to create an acceptable use policy for these models. ISCB accepts that this is a fast-moving area of research and that this policy is likely to be subject to change.
+
+The ISCB Acceptable Use of Large Language Models Policy is applied to all scientific research submissions for ISCB Conferences, as well as research submissions to the ISCB/OUP Bioinformatic Advances journal. OUP has also accepted the use of the policy for research submissions to OUP Bioinformatics journal.
+
+## Confidentiality
+
+When using commercial LLMs. such as ChatGPT or Gemini, data may be reused and thus it is important that confidential or personal information is not shared. This is particularly important with respect to peer review. The NIH currently forbids the use of LLMs in peer review for this reason (see NIH policy ). Many Institutions have also developed further policies that may apply.
+
+Below we list the acceptable and unacceptable uses of LLMs and related technologies. Note that acceptable use cases only apply where confidentiality is not an issue.
+
+## Unacceptable Uses:
+
+It is not acceptable to use LLMs or related technologies to draft paper sections. In essence, papers MUST be written by humans.
+
+It is not acceptable to use LLMs or related technologies to carry out reviewing activities, such as scientific peer reviews and promotion and tenure reviews. Firstly, these are an important part of the scientific process and they require scientific judgement. Secondly, review processes are in general confidential and should not be shared with third parties, including commercial LLM providers.
+
+LLMs cannot be listed as authors as they do not fulfill the requirements of authorship as laid out in the ICMJE guidelines .
+
+## Acceptable Uses:
+
+As an algorithmic technique for research study in your research e.g. LLMs for protein structure prediction
+
+It is permissible to include LLM generated text snippets as examples in research papers where appropriate, but these MUST be clearly labeled and their use explained.

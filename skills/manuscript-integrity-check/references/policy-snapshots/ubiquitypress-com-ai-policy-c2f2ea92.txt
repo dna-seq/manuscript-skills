@@ -1,0 +1,57 @@
+url: https://ubiquitypress.com/ai-policy
+---
+## Policy on the Use of GenAI Tools in the Publication Process
+
+## Introduction
+
+Ubiquity Press is committed to maintaining the integrity of the publication process while adapting to new technologies. This policy covers the use of Generative AI (GenAI) tools in all aspects of the publication process, and applies to authors, reviewers, and editorial teams involved in the publication of scholarly works.
+
+Ubiquity does not currently use bespoke or commercially available GenAI tools as part of the editorial process, but would consider their use in the future providing there were controls in place to protect intellectual property and privacy. In such cases, we would permit the use of such tools in an assistive role for the editorial team. GenAI outcomes can never be fully relied upon and human oversight is always necessary.
+
+Our policy takes into account the key issues surrounding the use of GenAI tools in scholarly publishing:
+
+Accountability: GenAI tools cannot be held accountable for their outputs.
+
+Transparency: Users must declare any use of GenAI tools and understand the limitations regarding transparency of these tools.
+
+Attribution: AI-generated text often lacks proper attribution and referencing standards.
+
+Accuracy and Trustworthiness: GenAI tools may introduce inaccuracies and biases and cannot verify their sources. Their outputs can blur the line between fact and fiction.
+
+Copyright, Privacy, and Confidentiality: GenAI tools may not provide adequate confidentiality, data security, or copyright protection. In the case of publicly available GenAI platforms, users should assume there are no controls over any future use of their inputs and responses. (Locally run AI tools do not present the same risks).
+
+## Guidelines for Authors
+
+Authors are permitted to use GenAI in the preparation of their manuscript, according to the following stipulations:
+
+Any use of GenAI beyond basic manuscript refinement (e.g. copyediting, formatting) must be explicitly declared, ideally in the Methods section of the manuscript.
+
+Authors must ensure they have the necessary rights to all content uploaded to public GenAI platforms, considering confidentiality and proprietary rights. It should be recognised by the author that any content uploaded into a publicly available GenAI platform could be used in future GenAI outputs for other people.
+
+We do not permit GenAI tools to be used to create, alter, or manipulate original research data, including images and measurements.
+
+AI tools do not qualify for authorship as it is impossible for them to be held accountable for all aspects of the work. An AI tool should not be included in the author list of a manuscript. (See our full authorship guidelines ).
+
+## Guidelines for Reviewers
+
+Reviews should only be undertaken by the appointed reviewer. We do not permit the use of GenAI tools in the creation of a review of a paper, due to the problems of accountability, accuracy and trustworthiness. The responsibilities and tasks involved in reviewing a paper can only be attributed to and performed by the human submitting the review.
+
+Manuscripts under review should never be uploaded to publicly available GenAI services. This would create a risk of violating copyright, privacy, security, and confidentiality obligations. While an author may use publicly available GenAI tools as basic author tools, we discourage their use by reviewers because confidentiality and privacy are more important at the review stage.
+
+If reviewers suspect undisclosed GenAI use by authors, they should report this to the editor handling the manuscript.
+
+## Guidelines for Editorial Teams
+
+Editorial teams should consider the legitimacy of any declared use of GenAI tools on a case-by-case basis.
+
+Editorial teams should not use publicly available GenAI platforms for integrity checks, such as plagiarism detection, due to confidentiality concerns.
+
+## Additional reading
+
+STM (2023) Generative AI in Scholarly Communications: Ethical and Practical Guidelines for the Use of Generative AI in the Publication Process. Available from: https://stm-assoc.org/document/stm-generative-ai-paper-2023/
+
+(2023) "Why Nature will not allow the use of generative AI in images and video", Nature , 618 (214). DOI: https://doi.org/10.1038/d41586-023-01546-4
+
+COPE (13 February 2023) Authorship and AI tools. Available from: https://publicationethics.org/cope-position-statements/ai-author
+
+EASE (25 September 2024) Recommendations on the Use of AI in Scholarly Communication. Available from: https://ease.org.uk/2024/09/recommendations-on-the-use-of-ai-in-scholarly-communication/

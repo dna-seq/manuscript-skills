@@ -1,0 +1,5 @@
+url: https://www.pnas.org/reviewer
+---
+## Confidentiality
+
+Reviewers may not submit any submitted manuscript or related materials to any generative artificial intelligence (AI) software, such as Large Language Models or ChatGPT. Using an AI tool to help revise your own writing is permitted if the system does not save or use your inputs to train the model. Reviewers are solely accountable for, and must thoroughly fact-check, outputs created with the help of generative AI software.

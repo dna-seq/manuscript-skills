@@ -1,0 +1,13 @@
+url: https://www.aginganddisease.org/EN/column/column227.shtml
+---
+## Artificial intelligence (AI) Use Policy
+
+Aging and Disease does not recognize AI tools (e.g., ChatGPT, image generators) as authors or coauthors, and AI-generated content may not be cited as a source.
+
+Authors using AI-assisted tools in research or manuscript preparation must disclose this in the cover letter , Acknowledgments , and Methods sections, including the tool name, version, and prompt used. Authors are fully responsible for the accuracy, originality, and integrity of their work, including any AI-assisted content.
+
+Reviewers are not allowed to use AI tools during the peer review process to ensure confidentiality and ethical compliance.
+
+AI-generated images or multimedia are not permitted unless approved in advance by the editors. All figures must reflect original, unaltered data, and any assembly from multiple sources must be clearly indicated.
+
+This policy may evolve with advancements in AI and publishing ethics.

@@ -1,0 +1,5 @@
+url: https://link.springer.com/journal/44320/submission-guidelines
+---
+## Figure formatting
+
+For publication, we require TIFF, PDF or EPS files, preferably from PhotoShop or Illustrator software. We cannot accept Freehand, Canvas, CorelDRAW or MacDrawPro files. These files must be converted to postscript (eps) format. For any figures submitted in Photoshop or TIFF format we require layered files to be sent whereby all text, arrows or additional attributes are placed on individual layers within the file. For line art, charts and graphs we prefer to work with Adobe Illustrator AI, EPS or high-resolution PDF files. We can also accept high-resolution PDF files.

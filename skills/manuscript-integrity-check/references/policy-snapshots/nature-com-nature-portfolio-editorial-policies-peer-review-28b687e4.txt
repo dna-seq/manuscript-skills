@@ -1,0 +1,9 @@
+url: https://www.nature.com/nature-portfolio/editorial-policies/peer-review
+---
+## On this page
+
+AI use by peer reviewers
+
+Peer reviewers play a vital role in scientific publishing. Their expert evaluations and recommendations guide editors in their decisions and ensure that published research is valid, rigorous, and credible. Editors select peer reviewers primarily because of their in-depth knowledge of the subject matter or methods of the work they are asked to evaluate. This expertise is invaluable and irreplaceable. Peer reviewers are accountable for the accuracy and views expressed in their reports, and the peer review process operates on a principle of mutual trust between authors, reviewers and editors. Despite rapid progress, generative AI tools have considerable limitations: they can lack up-to-date knowledge and may produce nonsensical, biased or false information. Manuscripts may also include sensitive or proprietary information that should not be shared outside the peer review process. For these reasons we ask that, while Springer Nature explores providing our peer reviewers with access to safe AI tools, peer reviewers do not upload manuscripts into generative AI tools.
+
+If any part of the evaluation of the claims made in the manuscript was in any way supported by an AI tool, we ask peer reviewers to declare the use of such tools transparently in the peer review report.

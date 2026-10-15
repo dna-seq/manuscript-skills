@@ -1,0 +1,43 @@
+url: https://www.frontiersin.org/guidelines/aira-review-guide-reviewers
+---
+## Introducing AIRA Review Guide
+
+AIRA Review Guide, an integrated AI assistant is now available to reviewers in the 'Reviewer' tab of our review forum. The interface allows reviewers to interact directly with AIRA as they evaluate manuscripts, with suggested prompts and context-aware guidance at their disposal. Reviewers can ask AIRA any question about the manuscript to help them summarize, extract claims, find gaps, and more.
+
+## Why peer review needs trusted AI
+
+AI is entering peer review across our industry, offering new ways to elevate research assessments for quality, consistency, and efficiency. We're taking a proactive step to pioneer responsible, expert-led integration of AI to set clear standards for quality and integrity as the landscape evolves.
+
+## Our position: AI elevates human review
+
+We believe AI has untapped potential to strengthen peer review, and that all individuals participating in peer review deserve access to safe, trusted tools that support high-quality research evaluation. AIRA is designed to elevate - not replace - human expertise. Editors and reviewers remain responsible and publicly accountable for the accuracy, fairness, and scientific rigor of the process. AI can enhance clarity, consistency, and efficiency, but human judgment must always drive the final assessment.
+
+To support this mission, we have developed an in-house tool to ensure that the intellectual property and privacy rights of our authors remain fully protected, which is not the case with external LLM-based tools.
+
+## Your responsibilities as a reviewer
+
+As a peer reviewer, you are contributing your expertise to ensure constructive, accurate, and ethical scientific evaluation. The following guidelines outline your role, the usage of AI tools at Frontiers, and how AIRA Review Guide can be used responsibly during the peer review process.
+
+## Using our AI assistant
+
+1: Upholding policy Ensure that you comply with Frontiers' policies for using generative AI .
+
+2: Protecting confidentiality Never upload or share research content, manuscripts or reviewer reports with external AI tools; this is a breach of our Authors' intellectual property and personal privacy rights. Use only Frontiers' AIRA Review Guide, the review forum tool that operates in a secure, closed system.
+
+3: Checking and validating AI-assisted content You must use AIRA Review Guide only to support your own analysis-not to form conclusions. You are responsible for validating all AIRA Review Guide responses and providing links or in-text references to support your analysis. You must still read the entire manuscript thoroughly, assess any figures or tables, and your comments. Any formal recommendations must be based on your own knowledge and expertise.
+
+4: Avoid AI citations Do not copy and paste AIRA-generated text directly into your review or communication with authors. Verify any references provided by AIRA Review Guide for validity and accuracy.
+
+5: Transparency If you have used AIRA Review Guide, you are required to declare it in the review report questionnaire. 6: Inform us about misuse If you become aware of anyone misusing AI, notify Frontiers' peer review team immediately.
+
+## How the handling editor will oversee the use of AI
+
+A member of Frontiers' editorial board will be assigned as handling editor for any papers you are invited to review. Editors will monitor the peer review process to ensure AI is used appropriately. Someone may contact you if there are any concerns about the use of AI in your evaluation or writing of your review report, and this will regrettably delay the peer review process for authors.
+
+## Authors' use of AI
+
+Authors must declare in their acknowledgments (and methods section if appropriate) if AI was used to create or edit any part of their work. Report immediately to Frontiers' peer review team if you suspect improper AI use by authors.
+
+## Frontiers' use of AI
+
+We are fully transparent about where and how AI is used across our workflows: any AI-powered features or assistants are clearly identified so that authors, editors, and reviewers know when they are interacting with AI-supported tools during peer review.

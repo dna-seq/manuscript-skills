@@ -1,0 +1,5 @@
+url: https://www.nature.com/natmachintell/submission-guidelines/aip-and-formatting
+---
+## 16 - Cover artwork
+
+Authors of accepted papers are encouraged to submit images related to their research for consideration as an issue cover once their paper is assigned to an issue. Cover images are selected for their scientific interest and aesthetic appeal. Please upload good quality image files along with a clear and concise legend explaining the image content. Images created with Generative AI (such as from DALL-E, Stable Diffusion, and Midjourney) are not permitted. View additional cover guidance in the Nature guide .

@@ -1,0 +1,9 @@
+url: https://tlcr.amegroups.org/pages/view/guidelines-for-authors
+---
+## Guidelines for Authors
+
+Contributors who meet fewer than all 4 of the above criteria for authorship should not be listed as authors, but they should be acknowledged. Examples of activities that alone (without other contributions) do not qualify a contributor for authorship are acquisition of funding; general supervision of a research group or general administrative support; writing assistance, technical editing, language editing, and proofreading. Additionally, AI tools cannot be listed as an author of a paper as AI tools cannot meet the requirements for authorship and cannot take responsibility for the submitted work (1-3).
+
+Authors must disclose in the Cover letter, Materials and Methods, and the Acknowledgement for applying any AI tools (e.g., ChatGPT, Bing) in the writing of a manuscript, production of images or graphical elements of the paper, or in the collection and analysis of data. Disclosure should include - but is not limited to - all prompts used to generate new text, or to convert text or text prompts into tables or illustrations; the full prompt used to generate the research results; the time and date of a query; and the AI tool used and its version. Authors are fully responsible for the content of their manuscript, even those parts produced by an AI tool, and are thus liable for any breach of publication ethics. For more recommendations, please refer to the WAME Recommendations on Chatbots and Generative Artificial Intelligence in Relation to Scholarly Publications: https://wame.org/page3.php?id=106 (21).
+
+3.7 References Sources should be referenced according to the Vancouver reference style. Referencing AI-generated material as the primary source is not acceptable. For guidance on references, please refer to: https://www.icmje.org/recommendations/ .

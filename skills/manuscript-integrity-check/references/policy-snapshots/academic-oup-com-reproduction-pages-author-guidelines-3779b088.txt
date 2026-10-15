@@ -1,0 +1,7 @@
+url: https://academic.oup.com/reproduction/pages/author-guidelines
+---
+AI Discovery Assistant
+
+## Authorship
+
+Natural language processing tools driven by artificial intelligence (AI) do not qualify as authors, and the Journal will screen for them in author lists. The use of AI (for example, to help generate content or images, write code, process data, or for translation) should be disclosed both in cover letters to editors and in the Methods or Acknowledgements section of manuscripts. Please see the COPE position statement on Authorship and AI for more details.

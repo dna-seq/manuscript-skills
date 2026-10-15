@@ -1,0 +1,21 @@
+url: https://journals.bioscientifica.com/joe/pages/ethical-policy
+---
+## Author code of ethics
+
+disclose the use of AI tools in the writing of a manuscript, production of images or graphical elements of a paper, or in the collection and analysis of data;
+
+## Artificial Intelligence (AI)
+
+In accordance with our Authorship policy, Large Language Models (LLMs) and other AI technologies cannot be listed as authors on any submitted works. Authorship implies responsibilities and tasks that can only be attributed to and performed by humans. Each (co-) author is accountable for ensuring that questions related to the accuracy or integrity of any part of the work are appropriately investigated and resolved and authorship requires the ability to approve the final version of the work and agree to its submission. Authors are also responsible for ensuring that the work is original, that the stated authors qualify for authorship, and the work does not infringe third party rights. Any use of an LLM or AI technology should be described in detail within the Materials and Methods section of the article.
+
+Currently, there are unique legal challenges to AI-generated images related to copyright and research integrity. AI-generative tools should also not be used to create images in submitted manuscripts, except when it is an integral part of the research design or methodology. In such cases a detailed description of the altered or generated content, an explanation of the AI or AI-assisted tool's role in the process, and information about the model, tool, version, and manufacturer must be provided in the Materials and Methods section.
+
+This policy pertains solely to AI and AI-assisted tools, like Large Language Models, capable of generating content for scientific purposes. Disclosure is not required for reference management software, such as Mendeley, EndNote, Zotero and similar tools, which authors are free to employ for collecting, organizing, annotating, and utilizing references to scholarly articles.
+
+## Reviewer code of ethics
+
+not upload the document or otherwise input the content into an Artificial Intelligence, Large Language Model, or similar tool in the course of preparing their review;
+
+## AI Guidance for Reviewers
+
+Reviewers should not use generative artificial intelligence (AI) tools when assessing a manuscript, as doing so risks breaching confidentiality by exposing manuscript content to Large Language Models (LLMs) and other AI systems. Using these tools undermines the secure and confidential nature of the peer‐review process, and they cannot replace the expert judgment and insight that reviewers are expected to provide.

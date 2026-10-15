@@ -1,0 +1,5 @@
+url: https://academic.oup.com/gpb/pages/general-instructions
+---
+## Authorship
+
+Note: Neither symbolic figures such as Camille Noûs nor natural language processing tools driven by artificial intelligence (AI) such as ChatGPT qualify as authors, and OUP will screen for them in author lists.

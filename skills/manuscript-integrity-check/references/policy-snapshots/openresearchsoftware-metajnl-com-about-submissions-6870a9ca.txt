@@ -1,0 +1,5 @@
+url: https://openresearchsoftware.metajnl.com/about/submissions
+---
+## Artificial Intelligence
+
+The Journal of Open Research Software follows the publisher's policy regarding the use of AI at any stage of the publishing process.

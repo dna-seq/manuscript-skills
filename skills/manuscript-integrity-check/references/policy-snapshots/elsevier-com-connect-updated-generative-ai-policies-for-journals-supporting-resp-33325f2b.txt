@@ -1,0 +1,49 @@
+url: https://www.elsevier.com/connect/updated-generative-ai-policies-for-journals-supporting-responsible-use-while-protecting-trust
+---
+## Updated generative AI policies for journals: supporting responsible use while protecting trust
+
+## Elsevier's updated journal policies are designed to help researchers use AI tools with confidence
+
+Generative AI tools are becoming part of everyday academic workflows, creating new opportunities for how research is produced, written and published. But scholarly publishing depends on trust. Authors, reviewers, editors and readers need confidence that research remains accurate, original, confidential and accountable.
+
+That is why Elsevier has updated its generative AI policies for journals. These give authors, reviewers and editors clearer guidance on how AI tools may be used, what must be disclosed, and why human responsibility and oversight remain essential.
+
+## Authors are welcome to use AI, while remaining accountable
+
+AI tools can support authors during manuscript preparation. These tools can help with tasks such as summarizing complex literature, identifying research gaps, organizing content, generating ideas, creating explanatory images and improving language or readability. AI can support and accelerate this work, while human expertise, critical thinking and evaluation are still central.
+
+Authors remain fully responsible for everything they submit. That includes checking AI-generated material for accuracy, bias, completeness and fabricated or incorrect references. It also means editing and adapting any AI-assisted content so that the manuscript reflects the authors' own analysis, interpretation and original contribution.
+
+Authors should also check the terms and conditions of any AI tool they use, especially when working with unpublished manuscripts, research data or personal information. Tools can be used as long as they protect confidentiality, data privacy, intellectual property and future publication rights.
+
+Why it matters: AI can support manuscript preparation, but accountability for the work rests with the human authors.
+
+To further support authors in using AI responsibly with confidence, check out Elsevier's free e-learning module: "Using Generative AI in Manuscript Preparation" opens in new tab/window .
+
+## Disclosure is essential for transparency
+
+To support transparency, authors are asked to disclose the use of AI tools in manuscript preparation through a separate AI declaration statement at submission.
+
+That statement should identify the tool used, explain the purpose of its use and confirm that the authors reviewed and edited the content and take full responsibility for the published article. Where AI tools have been used to create or edit an image, this should also be disclosed in the image caption itself, in addition to the general AI declaration.
+
+Basic spelling, grammar and punctuation checks do not need to be declared. However, where an AI tool makes substantive changes to sentence structure, organization or content, that use should be disclosed.
+
+There is also an important distinction between using AI to prepare a manuscript and using AI as part of the research itself. If AI tools are used in research design, methods, data collection, analysis or interpretation, this should be described in the Methods section in a reproducible way.
+
+Why it matters: Readers, reviewers and editors should be able to understand where AI has played a meaningful role in the work.
+
+## Image guidance is now clearer
+
+One of the most important updates concerns the use of AI tools for figures, images and artwork. The policy distinguishes between different types of images because they play different roles in research articles.
+
+Authors may use AI tools to support the creation of certain explanatory images, such as flow charts, decision trees, timelines, schematic illustrations or experimental workflow diagrams.
+
+Research and data images are treated more strictly. AI tools must not be used to fabricate results, invent or alter underlying data, or generate figures that are not faithfully derived from the research. Data visualizations may use AI support only when the output is directly derived from the underlying data and the methods are reproducible and clearly reported.
+
+For primary research images, such as microscopy, histology, western blots, radiology scans or patient images, AI tools must not be used to create or alter images representing primary observed or experimental data that were not directly obtained in the research.
+
+General-purpose generative AI image tools must not be used to create graphical abstracts. AI-generated cover art may be permitted in some cases, but only with prior permission from the journal editor and publisher.
+
+## The opportunity lies in responsible use
+
+In scholarly publishing, what matters is not whether AI tools are used, but whether they are used responsibly. As technologies and research practices evolve, policies will continue to change. What stays essential is that human expertise, responsibility and transparency are preserved.

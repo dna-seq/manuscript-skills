@@ -1,0 +1,5 @@
+url: https://www.life-science-alliance.org/reviewers
+---
+## Confidentiality
+
+Rigorous peer review demands direct accountability that only human reviewers can provide. Reviewers are prohibited from uploading a manuscript to large language models (LLMs), or other generative Artificial Intelligence (AI) technologies that ingest user input for model training, noting this excludes most publicly available AI/LLM tools. This represents a breach of confidentiality.

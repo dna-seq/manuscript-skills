@@ -1,0 +1,117 @@
+url: https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-peer-review
+---
+## AI use in peer-review
+
+Using AI safely in peer review
+
+Peer review plays a critical role in safeguarding the quality, integrity, and fairness of the scientific and scholarly record. As artificial intelligence (AI) tools become more widely used, they may offer support to reviewers, but they also introduce important considerations around confidentiality, independence, and accountability.
+
+Springer Nature's policy takes a risk-assessment approach. The key question is not whether AI is used, but how it is used, and whether the peer review report remains clearly the product of independent expert judgement.
+
+AI may support aspects of the review process, but reviewers remain fully responsible for their assessment, reasoning, and recommendations.
+
+## A risk-assessment framework for AI use in peer review
+
+AI supports communication and organisation without shaping evaluative judgement
+
+Outputs remain fully reviewer-controlled; AI does not influence critical assessment
+
+AI supports analytical reflection may influence how critique is framed without robust human oversight and verification
+
+Describe how AI was used, confirm independent judgement and take accountability for all content in report
+
+AI replaces reviewer judgement or compromises confidentiality or independence
+
+Uploading manuscripts to public/unsecured tools; generating full review reports; producing accept/reject recommendations; delegating critique to AI
+
+## Using AI tools safely: understanding "secure" vs "public" tools
+
+## Choosing an appropriate AI tool
+
+Not all AI tools provide the same level of privacy or confidentiality. When using AI to support peer review, you should consider how a tool handles data, not just what it can do.
+
+Enterprise/controlled AI tools, or local LLMs
+
+Enterprise/controlled AI tools offer increased data protection and confidentiality. Local LLMs can run without internet solely on your own hardware.
+
+## What this means in practice
+
+AI can support reviewers in a number of practical and constructive ways, particularly where it enhances clarity, structure, and efficiency.
+
+## Supporting communication
+
+AI may be used to refine how feedback is expressed, for example improving clarity, tone, or organisation of comments. These uses are low risk, as they do not shape the underlying evaluation.
+
+## Supporting the review process
+
+AI can support organisation and completeness, for example by helping align feedback with reporting standards or structuring key points.
+
+## Supporting analytical thinking (Amber use)
+
+AI may support analytical reflection for example by helping reviewers explore limitations, identify gaps, or consider alternative interpretations. These uses can add value but require careful handling to preserve confidentiality and independence.
+
+## 1. Work from your notes, not the manuscript
+
+Instead of pasting the manuscript content into an AI tool use your own notes about the manuscript.
+
+AI is supporting reflection, not replacing evaluation.
+
+## 2. Use abstraction rather than verbatim detail
+
+Think about how you might generalise the information before using AI, using more abstract and conceptual language so that confidential data remains non-identifiable.
+
+## 3. Use AI for "what should I look for?" not "what should I conclude?"
+
+Make a clean distinction between what AI is being asked to do and what the role of the expert, you, is. So, thinking about safe uses of AI might be generating checklists to ensure compliance with reporting standards, prompting lines of questioning for you to explore and surfacing general risks of a particular approach or research design.
+
+Evaluation outcomes and recommendations remain strictly with you and are not outsourced to the AI tool.
+
+## 4. Use AI to stress-test your own reasoning
+
+You could use AI tools as a sounding board for your own assumptions and thoughts about the manuscript.
+
+Do: Write your own interpretation of the study's themes and conclusions, then asks AI, "What alternative explanations or critiques could apply to these findings?" You then review the output, verify whether these are valid and challenge anything you feel is unsubstantiated, biased or incorrect.
+
+## The appropriate approach depends on the type of AI tool used.
+
+## Using AI in different environments
+
+Public or open AI tools (including systems that retain or train on inputs):
+
+AI could be used to explore general methodological considerations, identify questions to investigate and support reflection, but crucially, not evaluation.
+
+## Secure or institutionally-approved AI tools
+
+Confidentiality risks may be reduced when using secure or institutionally approved AI tools. Dependent on the data and privacy policies and settings of these tools limited use of manuscript content may be acceptable.
+
+use AI proportionately and cautiously
+
+You may have access to AI detection tools via your institution. Some enterprise and institutional versions of these AI detectors can retain and train on content uploaded to them; making them inappropriate for use with unpublished manuscripts as this would be a breach of confidentiality. The terms of service, data retention practices and model-training provisions of such systems vary considerably. The confidentiality of unpublished manuscripts and the compliance with applicable laws must be guaranteed at all time.
+
+## Maintaining independent expert judgement
+
+Across all contexts AI may support reflection but must not determine the critique. You must independently verify all outputs, make sure that you use your own discipline-specific expertise and ensure conclusions and recommendations are your own.
+
+A useful approach is to use AI to challenge or stress-test your own reasoning, rather than to generate it.
+
+## Across research areas
+
+AI-supported peer review may look different across disciplines, but some common principles apply:
+
+Data-intensive research: AI may help structure thinking about large or complex analyses, but you must independently assess validity and robustness
+
+Qualitative and social science research: AI may assist in organising critique, but argument and interpretation must remain human-led and sensitive to nuance
+
+Clinical or reporting-standard-driven research : AI can support structured checklist-based review, but not replace critical appraisal
+
+Interdisciplinary work: AI may help orient you to broader contexts, but not substitute subject expertise
+
+## Transparency and declaration
+
+We recognise that reviewers may be uncertain about whether to disclose AI use.
+
+Declaring AI use ensures your review can be interpreted clearly and confidently.
+
+## Key principle
+
+AI can support how a review is written and, in some contexts, how reasoning is explored but it must not replace expert evaluation. The value of peer review depends on independent human judgement. AI may support that process, but it cannot substitute it. Confidentiality and privacy must be upheld with any use of AI.

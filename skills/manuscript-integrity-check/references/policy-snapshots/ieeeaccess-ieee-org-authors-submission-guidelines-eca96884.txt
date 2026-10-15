@@ -1,0 +1,5 @@
+url: https://ieeeaccess.ieee.org/authors/submission-guidelines/
+---
+## Submission Checklist
+
+The use of artificial intelligence (AI)-generated text in an article shall be disclosed in the acknowledgements section. The sections of the paper that use AI-generated text shall have a citation to the AI system used to generate the text. For more information please click here.

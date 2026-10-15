@@ -1,0 +1,5 @@
+url: https://files.taylorandfrancis.com/expert-medicine-author-guidelines.pdf
+---
+## Example:
+
+All use of Artificial Intelligence (AI) needs to be declared in the Acknowledgments section.

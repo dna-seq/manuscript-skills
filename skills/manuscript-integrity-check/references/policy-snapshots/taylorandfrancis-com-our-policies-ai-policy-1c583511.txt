@@ -1,0 +1,57 @@
+url: https://taylorandfrancis.com/our-policies/ai-policy/
+---
+## AI Policy
+
+Generative Artificial Intelligence (AI) tools, such as large language models (LLMs) or multimodal models, continue to develop and evolve, including in their application for businesses and consumers.
+
+Taylor & Francis welcomes the new opportunities offered by Generative AI tools, particularly in: copyediting and language refinement, enhancing idea generation and exploration, supporting authors to express content in a non-native language, and accelerating the research and dissemination process.
+
+Taylor & Francis is offering guidance to authors , editors, and reviewers on the use of such tools, which will evolve given the swift development of the AI field.
+
+Generative AI tools can produce diverse forms of content, spanning text generation, image synthesis, audio, and synthetic data. Some examples include ChatGPT, Copilot, Gemini, Claude, NovelAI, Jasper AI, DALL-E, Midjourney, Runway, etc.
+
+While Generative AI has immense capabilities to enhance creativity for authors, there are certain risks associated with the current generation of Generative AI tools.
+
+Some of the risks associated with the way Generative AI tools work today are:
+
+Inaccuracy and bias : Generative AI tools are of a statistical nature (as opposed to factual) and, as such, can introduce inaccuracies, falsities (so-called hallucinations) or bias, which can be hard to detect, verify, and correct.
+
+Lack of attribution : Generative AI is often lacking the standard practice of the global scholarly community of correctly and precisely attributing ideas, quotes, or citations.
+
+Confidentiality and Intellectual Property Risks : At present, Generative AI tools are often used on third-party platforms that may not offer sufficient standards of confidentiality, data security, or copyright protection.
+
+Unintended uses : Generative AI providers may reuse the input or output data from user interactions (e.g. for AI training). This practice could potentially infringe on the rights of authors and publishers, amongst others.
+
+## Authors
+
+Authors are accountable for the originality, validity, and integrity of the content of their submissions, including the references. In choosing to use Generative AI tools, journal authors are expected to do so responsibly and in accordance with our journal editorial policies on authorship and principles of publishing ethics and book authors and editors in accordance with our book publishing guidelines . This includes reviewing the outputs of any Generative AI tools and confirming content accuracy.
+
+Taylor & Francis supports the responsible use of Generative AI tools that respect high standards of data security, confidentiality, and copyright protection in cases such as:
+
+Authors are responsible for ensuring that the content of their submissions meets the required standards of rigorous scientific and scholarly assessment, research and validation, and is created by the author. Note that some journals may not allow use of Generative AI tools beyond language improvement, therefore authors are advised to review the "Instructions for authors" on the journal homepage prior to submission.
+
+Generative AI tools must not be listed as an author because such tools are unable to assume responsibility for the submitted content or manage copyright and licensing agreements. Authorship requires taking accountability for content, consenting to publication via a publishing agreement and giving contractual assurances about the integrity of the work, among other principles. These are uniquely human responsibilities that cannot be undertaken by Generative AI tools.
+
+Authors must clearly acknowledge within the article or book any use of Generative AI tools through a statement that includes: the full name of the tool used (with version number), how it was used and the reason for use. For article submissions, a specific statement of AI usage disclosure must be included. Book authors must disclose their intent to employ Generative AI tools at the earliest possible stage to their editorial contacts for approval - either at the proposal phase if known, or during the manuscript writing phase. If approved, the book author must then include the statement in the preface or introduction of the book. This level of transparency ensures that editors know whether Generative AI tools have been used and whether they have been used responsibly. Taylor & Francis will retain its discretion over publication of the work, to ensure that integrity and guidelines have been upheld.
+
+If an author is intending to use an AI tool, they should ensure that the tool is appropriate and robust for their proposed use and that the terms applicable to such tool provide sufficient safeguards and protections, for example around intellectual property rights, confidentiality and security.
+
+Authors should not submit manuscripts where Generative AI tools have been used in ways that replace core researcher and author responsibilities, for example:
+
+Taylor & Francis does permit use of Generative AI tools to assist research data visualisations and conceptual illustrations of processes, flow diagrams or teaching illustrations. Taylor & Francis does not permit the use of Generative AI in the creation or manipulation of outputs of research or clinical testing, for example, research results, clinical samples and diagnostic images. The term "manipulation" includes augmenting, concealing, moving, removing, or introducing a specific feature within an image or figure. For additional information on Taylor & Francis' image policy for journals, please see Images and figures. Utilising Generative AI and AI-assisted technologies in any part of the research process should always be undertaken with human oversight and transparency. Taylor & Francis will continue to update our editorial guidelines as the technology and research ethics guidelines evolve.
+
+## Editors and Peer reviewers
+
+Taylor & Francis strives for the highest standards of editorial integrity and transparency. Editors' and peer reviewers' use of proposals and manuscripts in Generative AI systems may pose a risk to confidentiality, proprietary rights and data, including personally identifiable information. Therefore, editors and peer reviewers must not upload files, images, or information from unpublished manuscripts into Generative AI tools. Failure to comply with this policy may infringe upon the rightsholder's intellectual property.
+
+## Editors
+
+Use of manuscripts in Generative AI systems may give rise to risks around confidentiality, infringement of proprietary rights and data and other risks. Therefore, editors must not upload unpublished manuscripts, including any associated files, images, or information into Generative AI tools.
+
+Editors should check with their Taylor & Francis contact prior to using any Generative AI tools, unless they have already been informed that the tool and proposed use of the tool is authorised.
+
+## Peer reviewers
+
+Peer reviewers are chosen experts in their fields and should not be using Generative AI for analysis or to summarise submitted articles or portions thereof in the creation of their reviews. The use of manuscripts in Generative AI systems may give rise to risks around confidentiality, infringement of proprietary rights and data and other risks. As such, peer reviewers must not upload unpublished manuscripts or project proposals, including any associated files, images, or information, into Generative AI tools.
+
+Reviewers must not use artificial intelligence tools to generate manuscript and proposal review reports, including LLM based tools like ChatGPT. However, Generative AI may be utilised to assist with improving review language. Peer reviewers will at all times remain responsible for ensuring the accuracy and integrity of their reviews.

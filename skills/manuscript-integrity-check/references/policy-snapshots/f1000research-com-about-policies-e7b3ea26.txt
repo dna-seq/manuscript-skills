@@ -1,0 +1,79 @@
+url: https://f1000research.com/about/policies
+---
+## Article Policies
+
+AI
+
+## 1.1. Affiliations: get it right
+
+Authors must be aware that using AI-based tools and technologies for article content generation, e.g. large language models (LLMs), generative AI, and chatbots (e.g. ChatGPT), is not in line with our authorship criteria. All authors are wholly responsible for the originality, validity and integrity of the content of their submissions. Therefore, LLMs and other similar types of tools do not meet the criteria for authorship.
+
+## 2. AI
+
+Generative Artificial Intelligence (AI) tools, such as large language models (LLMs) or multimodal models, continue to develop and evolve, including in their application for businesses and consumers.
+
+F1000 welcomes the new opportunities offered by Generative AI tools, particularly in: enhancing idea generation and exploration, supporting authors to express content in a non-native language, and accelerating the research and dissemination process.
+
+F1000 is offering guidance to authors, editors, and reviewers on the use of such tools, which may evolve given the swift development of the AI field.
+
+Generative AI tools can produce diverse forms of content, spanning text generation, image synthesis, audio, and synthetic data. Some examples include ChatGPT, Copilot, Gemini, Claude, NovelAI, Jasper AI, DALL-E, Midjourney, Runway, etc.
+
+While Generative AI has immense capabilities to enhance creativity for authors, there are certain risks associated with the current generation of Generative AI tools.
+
+Some of the risks associated with the way Generative AI tools work today are:
+
+Inaccuracy and bias: Generative AI tools are of a statistical nature (as opposed to factual) and, as such, can introduce inaccuracies, falsities (so-called hallucinations) or bias, which can be hard to detect, verify, and correct.
+
+Lack of attribution: Generative AI is often lacking the standard practice of the global scholarly community of correctly and precisely attributing ideas, quotes, or citations.
+
+Confidentiality and Intellectual Property Risks: At present, Generative AI tools are often used on third-party platforms that may not offer sufficient standards of confidentiality, data security, or copyright protection.
+
+Unintended uses: Generative AI providers may reuse the input or output data from user interactions (e.g. for AI training). This practice could potentially infringe on the rights of authors and publishers, amongst others.
+
+## 2.1. Authors
+
+Authors are accountable for the originality, validity, and integrity of the content of their submissions. In choosing to use Generative AI tools, authors are expected to do so responsibly and in accordance with our editorial policies on authorship .
+
+This includes reviewing the outputs of any Generative AI tools and confirming content accuracy.
+
+F1000 supports the responsible use of Generative AI tools that respect high standards of data security, confidentiality, and copyright protection in cases such as:
+
+Interactive online search with LLM-enhanced search engines
+
+Authors are responsible for ensuring that the content of their submissions meets the required standards of rigorous scientific and scholarly assessment, research and validation, and is created by the author. Note that some journals may not allow use of Generative AI tools beyond language improvement, therefore authors are advised to consult with the editor of the journal prior to submission.
+
+Generative AI tools must not be listed as an author , because such tools are unable to assume responsibility for the submitted content or manage copyright and licensing agreements. Authorship requires taking accountability for content, consenting to publication via a publishing agreement, and giving contractual assurances about the integrity of the work, among other principles. These are uniquely human responsibilities that cannot be undertaken by Generative AI tools.
+
+Authors must clearly acknowledge within the article or book any use of Generative AI tools through a statement which includes: the full name of the tool used (with version number), how it was used, and the reason for use. For article submissions, this statement must be included in the Methods or Acknowledgments section. Book authors must disclose their intent to employ Generative AI tools at the earliest possible stage to their editorial contacts for approval - either at the proposal phase if known, or if necessary, during the manuscript writing phase. If approved, the book author must then include the statement in the preface or introduction of the book. This level of transparency ensures that editors can assess whether Generative AI tools have been used and whether they have been used responsibly. F1000 will retain its discretion over publication of the work, to ensure that integrity and guidelines have been upheld.
+
+If an author is intending to use an AI tool, they should ensure that the tool is appropriate and robust for their proposed use, and that the terms applicable to such tool provide sufficient safeguards and protections, for example around intellectual property rights, confidentiality and security.
+
+Authors should not submit manuscripts where Generative AI tools have been used in ways that replace core researcher and author responsibilities, for example:
+
+## 2.2. These types of cases may be subject to editorial investigation.
+
+F1000 currently does not permit the use of Generative AI in the creation and manipulation of images and figures, or original research data for use in our publications. The term "images and figures" includes pictures, charts, data tables, medical imagery, snippets of images, computer code, and formulas. The term "manipulation" includes augmenting, concealing, moving, removing, or introducing a specific feature within an image or figure. For additional information on F1000's image policy for journals, please see Images and figures .
+
+Utilising Generative AI and AI-assisted technologies in any part of the research process should always be undertaken with human oversight and transparency. Research ethics guidelines are still being updated regarding current Generative AI technologies. F1000 will continue to update our editorial guidelines as the technology and research ethics guidelines evolve.
+
+## 2.3. Peer reviewers
+
+F1000 strives for the highest standards of peer review integrity and transparency. Peer reviewers' use of manuscripts in Generative AI systems may pose a risk to confidentiality, proprietary rights and data, including personally identifiable information. Therefore, peer reviewers should not upload files, images or information into Generative AI tools. Failure to comply with this policy may infringe upon the rightsholder's intellectual property.
+
+Generative AI may only be utilised to assist with improving review language, but peer reviewers will at all times remain responsible for ensuring the accuracy and integrity of their reviews.
+
+## 4.5. AI-based tools and technologies for content generation
+
+Authors must be aware that using AI-based tools and technologies for article content generation, e.g. large language models (LLMs), generative AI, and chatbots (e.g. ChatGPT), is not in line with our authorship criteria.
+
+All authors are wholly responsible for the originality, validity and integrity of the content of their submissions. Therefore, LLMs and other similar types of tools do not meet the criteria for authorship.
+
+Where AI tools are used in content generation, they must be acknowledged and documented appropriately in the authored work.
+
+## 4.8. Acknowledgments
+
+Any assistance from AI tools for content generation (e.g. large language models) and other similar types of technical tools which generate article content, must be clearly acknowledged within the article. It is the responsibility of authors to ensure the validity, originality and integrity of their article content. Authors are expected to use these types of tools responsibly and in accordance with our editorial policies on authorship and principles of publishing ethics.
+
+## 11. Dual use Research of Concern
+
+Artificial intelligence

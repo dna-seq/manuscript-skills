@@ -1,0 +1,13 @@
+url: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
+---
+## Guide for authors
+
+Declaration of generative AI in scientific writing
+
+## Before you begin
+
+Where authors use generative artificial intelligence (AI) and AI-assisted technologies in the writing process, authors should only use these technologies to improve readability and language. Applying the technology should be done with human oversight and control, and authors should carefully review and edit the result, as AI can generate authoritative-sounding output that can be incorrect, incomplete or biased. AI and AI-assisted technologies should not be listed as an author or co-author, or be cited as an author. Authorship implies responsibilities and tasks that can only be attributed to and performed by humans, as outlined in Elsevier's AI policy for authors .
+
+Authors should disclose in their manuscript the use of AI and AI-assisted technologies in the writing process by following the instructions below. A statement will appear in the published work. Please note that authors are ultimately responsible and accountable for the contents of the work.
+
+Disclosure instructions Authors must disclose the use of generative AI and AI-assisted technologies in the writing process by adding a statement at the end of their manuscript in the core manuscript file, before the References list. The statement should be placed in a new section entitled 'Declaration of Generative AI and AI-assisted technologies in the writing process'.

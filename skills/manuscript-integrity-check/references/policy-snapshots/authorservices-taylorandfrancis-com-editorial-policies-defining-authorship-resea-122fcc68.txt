@@ -1,0 +1,27 @@
+url: https://authorservices.taylorandfrancis.com/editorial-policies/defining-authorship-research-paper/
+---
+## AI-based tools and technologies for content generation
+
+If you have used AI tools (e.g. large language models, generative AI, and chatbots) in your research or the writing of your article, please note the following authorship principles:
+
+You must not list AI tools as a co-author of your article . This is because authorship requires taking accountability for content, consenting to publication via a publishing agreement, and giving contractual assurances about the integrity of the work. These are uniquely human responsibilities that cannot be undertaken by AI tools.
+
+You must clearly acknowledge within your article use of Generative AI tools . Please add a Declaration of generative AI use statement disclosing whether and how generative AI has been used in the research and manuscript preparation process. If generative AI was not used, please state this (suggested wording: The authors report generative AI was not used in their research or preparation of this manuscript). The statement must include:
+
+When you submit your work to a Taylor & Francis journal you may be asked to confirm that you have disclosed within your manuscript any use of AI tools. This level of transparency makes sure that editors and reviewers are aware that AI tools have been used, so that they can assess whether they have been used appropriately and responsibly.
+
+Please see the Taylor & Francis AI Policy for more details.
+
+Use of AI tools to assist translation of author's own work is permitted.
+
+The name and version number of the AI tool used.
+
+Confirmation the authors have checked terms of use for the specific AI tool used, and therefore confirm suitability for publication.
+
+Use of AI tools to assist copyediting, reference management and language refinement is permitted. Authors are responsible for ensuring references are valid, accurate (i.e. not hallucinations) and support the stated claims. Authors must retain the original and revised versions of the article, which must be shared with the Editor upon request. A declaration from the author must be included within the submission stating:
+
+## Acknowledgments
+
+Any assistance from AI tools for content generation (e.g. large language models) and other similar types of technical tools which generate article content, must be clearly acknowledged within the article. If AI tools have been used to assist with translations of authors own work, any person(s) or organisation who assisted with the accuracy checks for the translation, but who does not meet authorship criteria, must be acknowledged.
+
+It is the responsibility of authors to make sure that the validity, originality and integrity of their article content. Authors are expected to use AI tools responsibly, transparently and in accordance with our editorial policies on authorship and principles of publishing ethics.

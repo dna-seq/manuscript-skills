@@ -1,0 +1,35 @@
+url: https://blog.joss.theoj.org/
+---
+When Arfon first told me he was thinking of stepping down, back in 2019 while we were at Murrayfield Rugby Stadium (for a conference of course), I wondered if and how JOSS would survive. Fortunately, in the seven years since then, JOSS continued to thrive and grow, overcoming obstacles like the initial Covid period and then the increased impact of generative AI.
+
+## References
+
+The incoming EiC arrives at a genuinely interesting moment for research software. On the face of it, JOSS looks like a prime target for a wave of "vibe-coded" submissions, i.e., projects spun up in days with the support of an LLM. This is a real challenge for a journal built on giving research software scholarly credit. But we believe open-source research software has a critical role to play in this new landscape, and we have updated our scope in response : moving away from proxies like lines of code toward the things only humans contribute: problem framing, design judgment, durable abstractions, and the open collaborative practices that make software trustworthy and reusable. The new EiC will be in the front seat for helping the research software community through all of this.
+
+## Timeline
+
+Today, the landscape is fundamentally different. Where generating code once took three months, in some cases this can now be accomplished in three days - or even three hours - with generative AI tools. With AI agents increasingly capable of producing entire codebases from natural language prompts, the marginal cost of code generation is rapidly approaching zero. This transformation in what is possible to create in a short period of time, sometimes without even directly interacting with code , enables people of all backgrounds to create new software tools. It also poses a fundamental challenge: how do we evaluate what constitutes credit-worthy, publishable research software contributions?
+
+## Recognizing value in the age of generative AI
+
+Generative AI tools have progressed rapidly over the past three years, and we expect their capabilities will continue to grow. As AI becomes capable of handling increasing fractions of the actual implementation work, the irreplaceable human contributions to software become clearer: understanding context, collaboration with others, making design tradeoffs, creating abstractions that capture domain expertise, and building conceptual foundations and following sustainable software practices that enable future discovery.
+
+Put simply, we're shifting from evaluating software through proxies for effort - like lines of code - toward clear evidence of research impact, intellectual contribution, scholarly significance, and open-source software practices. Regardless of whether you leveraged AI assistance, show the human work: the problem framing, key design decisions and abstractions, and the practices that make the software usable and sustainable for others (tests, documentation, licensing, versioned releases, and a transparent issue and review process).
+
+## What we'll look for
+
+Development history: Meaningful research software typically emerges from sustained collaborative effort over time. We will examine the project's development timeline and commit history as indicators of genuine community engagement and iterative refinement. Projects with development histories spanning multiple months or years, showing contributions from multiple developers, and demonstrating evolution through community feedback are more likely to represent substantial scholarly contributions. While we don't impose strict temporal requirements, very recent projects (particularly those with commit histories of only weeks) may warrant additional scrutiny to ensure they represent genuine collaborative scholarship rather than rapid AI-assisted code generation. Projects developed in private are not eligible until there is a public record of open development: at least six months of public history prior to submission, with evidence of releases, public issues/pull requests. A history of contributions and engagement from individuals beyond the original team, across organisations, is especially welcome, though not essential. We particularly value projects that show evidence of open development practices from early stages, rather than private development followed by public release.
+
+## Implementing this scope change
+
+The JOSS editorial team remains firmly committed to the belief that high-quality open-source software is essential to the research enterprise, and we want JOSS to continue providing a valuable service to the people creating it. AI is fundamentally changing how software is built and how we assess scholarly contributions. We hope these updated policies will serve the community well as that transformation continues.
+
+## Transcript:
+
+[00:24:08] Mats van Es: Yeah, yes. So, at the lab in OHBA in Oxford, we're also building software for analyzing electrophysiology data. One is similar to FieldTrip but based in Python. It's called OSL. And this can be found on GitHub on the OHBA, that's O H B A Analysis page. And then there's one called OSL Dynamics, which is about generative modeling of brain data, which can also be found at the same GitHub page.
+
+[00:19:18] Giulia Crocioni: Sure. So the training is definitely more expensive than the inference time. So the inference time, if you have a machine that allows you to just run a model you are done. And we are not talking about large language models that could occupy terabytes of space. So we're talking about much smaller models here.
+
+I did have a question about defects. So I understand building a database super important, especially in this AI age. We need clean data that we can use to get really valuable insights. But why would we want to be studying defects? I'm not as familiar with the material space.
+
+And then there'll be another part of this where you programmatically access a lot of these properties, and then try to do computational research on top of them. Whether that's, AI focused , building more advanced machine learning models for these predictions, or whether you're just interested in tweaking these because you might be just doing research on a particular material. You might want to tweak these calculations to fit your own needs, right?

@@ -1,0 +1,13 @@
+url: https://www.nature.com/commsbio/submit/policy
+---
+## Policy Guide
+
+AI authorship and Generative AI images
+
+Artificial Intelligence (AI) is an area of on-going rapid development for which related polices are closely monitored and reviewed. For more information, please refer to the Nature Portfolio Artificial Intelligence page.
+
+Large Language Models (LLMs), such as ChatGPT, do not currently satisfy our Authorship Criteria and cannot be listed as authors.
+
+Use of an LLM should be properly documented in the Methods section, though use of an LLM or other AI-tool for "AI assisted copy editing" purposes does not need to be declared.
+
+While legal issues relating to AI-generated images and videos remain broadly unresolved, Springer Nature journals are unable to permit its use for publication. For more information, please refer to our page on Generative AI Images .

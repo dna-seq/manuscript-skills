@@ -1,5 +1,266 @@
 # Written by manuscript-journal-adapt/scripts/policy_watch.py. One entry per watched URL: the snapshot
 # file, when it was last read and how, and the last attempt when that attempt could not read the page.
+https://academic.oup.com/ageing/pages/General_Instructions:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/bfg/pages/author-guidelines:
+  file: academic-oup-com-bfg-pages-author-guidelines-bd132729.txt
+  read: '2026-04-20'
+  route: wayback:20260420141824
+  passages: 3
+  sha256: 3a6ae7adfc8edbe2c66e74aa1694bb839f559bf56c1146be20490756319253fb
+https://academic.oup.com/bib/pages/general_instructions:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: page too short (a stub, login wall or script
+      shell)'
+https://academic.oup.com/bioinformatics/pages/author-guidelines:
+  file: academic-oup-com-bioinformatics-pages-author-guidelines-452eb9af.txt
+  read: '2026-08-17'
+  route: wayback:20260817204053
+  passages: 14
+  sha256: d8bbd6c91c04b282a63cda4e28810f7da0c1d60bdc485f7172f7ff36382ce5b2
+https://academic.oup.com/bioinformaticsadvances/pages/author-guidelines:
+  file: academic-oup-com-bioinformaticsadvances-pages-author-guidelines-38ece1ec.txt
+  read: '2026-02-16'
+  route: wayback:20260216144104
+  passages: 11
+  sha256: 8c7ecc147ae0a2b09980f9b55d213c6f71cc6eca1259f24aadbc7f49c7d529e4
+https://academic.oup.com/biomedgerontology/pages/General_Instructions_1:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/biomedgerontology/pages/General_Instructions_2:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: wayback unreachable (JSONDecodeError)'
+https://academic.oup.com/database/pages/instructions_for_authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/dnaresearch/pages/Instructions_To_Authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/g3journal/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/g3journal/pages/guidelines-for-reviewers:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/gbe/pages/General_Instructions:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/genetics/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/genetics/pages/guidelines-for-reviewers:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/ger/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/gigascience/pages/editorial_policies_and_reporting_standards:
+  file: academic-oup-com-gigascience-pages-editorial-policies-and-reporting-standards-93675190.txt
+  read: '2026-04-06'
+  route: wayback:20260406211633
+  passages: 9
+  sha256: 686fa54f51383c41fea6f58a740c2f1c23b8a904353f46247ecdecccfbe7fdef
+https://academic.oup.com/gpb/pages/general-instructions:
+  file: academic-oup-com-gpb-pages-general-instructions-83b8fbf0.txt
+  read: '2024-06-17'
+  route: wayback:20240617115300
+  passages: 2
+  sha256: c735a7cca113411e07e3d36b5ad66aef242625961767fbf8c5b4772ddfd17b2b
+https://academic.oup.com/hmg/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/hmg/pages/reviewer-instructions:
+  file: academic-oup-com-hmg-pages-reviewer-instructions-c9381fde.txt
+  read: '2026-04-06'
+  route: wayback:20260406004356
+  passages: 8
+  sha256: 8f2236ad8ad46146e826f54e53663ed38eaf3fa55e960646d91528730519ee9f
+https://academic.oup.com/humrep/pages/Manuscript_Preparation:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/humrep/pages/Policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/innovateage/pages/author_guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/jamia/pages/General_Instructions:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/mbe/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/molehr/pages/General_Instructions:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: wayback unreachable (JSONDecodeError)'
+https://academic.oup.com/molehr/pages/Processes_And_Policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://academic.oup.com/nar/pages/author-guidelines:
+  file: academic-oup-com-nar-pages-author-guidelines-75b41e70.txt
+  read: '2026-05-20'
+  route: wayback:20260520212335
+  passages: 5
+  sha256: b747ae45c10313d55e12fa9756dcb0c22bd38481df99cec5650fb36ae28d98df
+https://academic.oup.com/narcancer/pages/author-guidelines:
+  file: academic-oup-com-narcancer-pages-author-guidelines-7db3f895.txt
+  read: '2026-03-27'
+  route: wayback:20260327002248
+  passages: 3
+  sha256: 866d11d5700a6082e1bf843304ede9f9c9accbae1a11a7ace53459d18688073a
+https://academic.oup.com/nargab/pages/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/nargab/pages/scope_and_criteria:
+  file: academic-oup-com-nargab-pages-scope-and-criteria-6330234b.txt
+  read: '2025-12-19'
+  route: wayback:20251219041307
+  passages: 1
+  sha256: 5c6166c7041aa21748d9eca165e8047802b538708cb14cfcf0190f9ea2a02d7a
+? https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals
+: last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+? https://academic.oup.com/pages/for-authors/journals/preparing-and-submitting-your-manuscript/ai-principles-for-oxford-journals/policy-on-ai-use-and-disclosure-for-oxford-journals-authors
+: last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/pages/reproduction-transition:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://academic.oup.com/reproduction/pages/author-guidelines:
+  file: academic-oup-com-reproduction-pages-author-guidelines-3779b088.txt
+  read: '2026-03-07'
+  route: wayback:20260307190002
+  passages: 3
+  sha256: d20825dcd7605f00d8be4f21ee45d275e3637626b5b7a10fe0d7f2cbd8c0e67f
+https://advanced.onlinelibrary.wiley.com/hub/editorial-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://advanced.onlinelibrary.wiley.com/hub/reviewer-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://aging-longevity.org.ua/index.php/journal-description/en/about/submissions:
+  file: aging-longevity-org-ua-index-php-journal-description-en-about-submissions-d9bf8d8e.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://aging-longevity.org.ua/index.php/journal-description/en/publication-ethics:
+  file: aging-longevity-org-ua-index-php-journal-description-en-publication-ethics-d563520e.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://agingbiologyjournal.org/Scientific_Integrity/:
+  file: agingbiologyjournal-org-scientific-integrity-2014be6d.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: d198dc1f02f596ffafd9a4175de0271f5efe88acf2c105204f653b15fb9e1982
+https://analyticalsciencejournals.onlinelibrary.wiley.com/hub/journal/16159861/homepage/2120_authorguidelines.html:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://apm.amegroups.org/page/about/plagiarism-screening-policy:
+  file: apm-amegroups-org-page-about-plagiarism-screening-policy-69766119.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://apm.amegroups.org/pages/view/guidelines-for-authors:
+  file: apm-amegroups-org-pages-view-guidelines-for-authors-e9ee405c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 63cf2323c4f89e2a866703975ffd8cbe715833bb23a3fc5711b81926f0e2ff58
+https://ascpt.onlinelibrary.wiley.com/page/journal/15326535/guidetoauthors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://ascpt.onlinelibrary.wiley.com/page/journal/21638306/guidetoauthors:
+  file: ascpt-onlinelibrary-wiley-com-page-journal-21638306-guidetoauthors-5d31b559.txt
+  read: '2024-02-27'
+  route: wayback:20240227024943
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://authors.bmj.com/policies/ai-use/:
+  file: authors-bmj-com-policies-ai-use-9d912e96.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 25
+  sha256: f51bd238365d804959a52c1e6a8c24aca7704ded5874f0861e6a6b402b439437
+https://authorservices.taylorandfrancis.com/editorial-policies/defining-authorship-research-paper/:
+  file: authorservices-taylorandfrancis-com-editorial-policies-defining-authorship-resea-122fcc68.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 13
+  sha256: eac8a384f5d52294c941a11c36aaa10f9d0f27b07f1a495a16f197e07ac79ffe
+https://authorservices.taylorandfrancis.com/editorial-policies/using-ai-in-your-research-and-manuscript-preparations/:
+  file: authorservices-taylorandfrancis-com-editorial-policies-using-ai-in-your-research-c92e5913.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 37
+  sha256: 3dfeab226369d96b4d4cb5291779a0cc2e82af7e504975ef71a445da9103cf64
+https://authorservices.wiley.com/ethics-guidelines/index.html:
+  file: authorservices-wiley-com-ethics-guidelines-index-html-758a16e2.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 18
+  sha256: 85d2ea3ea443c75a21f83e4fdf49b25be858d1926e6f2556f1ed1def4d124b96
 ? https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
 : file: blog-arxiv-org-2025-10-31-attention-authors-updated-practice-for-review-articles-eea6da18.txt
   read: '2026-10-15'
@@ -18,6 +279,77 @@ https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/:
   route: httpx
   passages: 21
   sha256: 9d4e9e8a0b0ebb5388aaae2d3d770706edb9b7468fd7d870df38b0b1e0cf8bbe
+https://blog.joss.theoj.org/:
+  file: blog-joss-theoj-org-73b942e0.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 17
+  sha256: 026f79e0bfd91d118bfbfaa9a7b28398e4fe956c8f25aab271b3daaa1dfd5576
+https://bmjopen.bmj.com/pages/authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://corp.oup.com/news/supporting-researchers-to-disclose-ai-use-with-confidence/:
+  file: corp-oup-com-news-supporting-researchers-to-disclose-ai-use-with-confidence-0e6ca613.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 38
+  sha256: d8f5095e356d8a11b0706b89344df2f81b02af3344f493058e981b7a1aa2de5d
+https://f1000research.com/about/policies:
+  file: f1000research-com-about-policies-e7b3ea26.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 39
+  sha256: 09703664b941da249e2719e44913552ebe8572ad71d1ec99e2687b3550b641cf
+https://files.taylorandfrancis.com/expert-medicine-author-guidelines.pdf:
+  file: files-taylorandfrancis-com-expert-medicine-author-guidelines-pdf-fef00953.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 785058f7445d11e43ffbd68b3d9b609944355fb13e778cc083859f28153824cf
+https://genome.cshlp.org/ifora_Artificial:
+  file: genome-cshlp-org-ifora-artificial-0f932835.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: d317ffd83d1c2a4fe5014de304aa71f15e2f1e30c2c0e9d82e32da2967264534
+https://gigabytejournal.com/faq:
+  file: gigabytejournal-com-faq-dc4a2736.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 1
+  sha256: 2399a4402eed6b06cc85d2b3791901f6e24d590c961eec8d8eefdd9a22b6bab1
+https://gigabytejournal.com/information-for-authors:
+  file: gigabytejournal-com-information-for-authors-aa675704.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 12
+  sha256: 260de4ddb366bed675733df3123e3aeacb554ede21dc6894c64f66640b74f1dd
+https://gigabytejournal.com/reviewer-information:
+  file: gigabytejournal-com-reviewer-information-e362d52f.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 93f4f4d6756977832db667ba7f843512d5cf4d70427dacde056e2d31f5e8bedd
+https://group.springernature.com/gp/group/ai/ai-guidance-for-our-researchers-and-communities:
+  file: group-springernature-com-gp-group-ai-ai-guidance-for-our-researchers-and-communi-b85373c3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 72
+  sha256: 70694668b0a242e8d9c970f7adcb865eaad7c74d012bb5412674a73bf2c5e136
+https://ieeeaccess.ieee.org/authors/submission-guidelines/:
+  file: ieeeaccess-ieee-org-authors-submission-guidelines-eca96884.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 20a778e54c8ac37f8423bc0f734a42d6b7d4fe90a23f949c2e419d76a4423c6f
+https://ieeexplore.ieee.org/xpl/RecentIssue.jsp?punumber=10723156:
+  file: ieeexplore-ieee-org-xpl-recentissue-jsp-punumber-10723156-c22a1d31.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 https://info.arxiv.org/help/moderation/index.html:
   file: info-arxiv-org-help-moderation-index-html-eb2dae41.txt
   read: '2026-10-15'
@@ -30,39 +362,1467 @@ https://info.arxiv.org/help/submit/index.html:
   route: httpx
   passages: 0
   sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://joss.readthedocs.io/en/latest/paper.html:
+  file: joss-readthedocs-io-en-latest-paper-html-295dbaba.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: 785c0628fc4d9fc09feedc19fb5703c3e28728883011d0fa018f9941d568921f
+https://joss.readthedocs.io/en/latest/policies.html:
+  file: joss-readthedocs-io-en-latest-policies-html-fe5bf921.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 11
+  sha256: e6adf55b9cbe92749a6e6a511c5f737a9c0f44d083a11657ef3d582a5e25c8fc
+https://joss.readthedocs.io/en/latest/review_criteria.html:
+  file: joss-readthedocs-io-en-latest-review-criteria-html-da1ef538.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: b346f3e385071522f72f46fb5cc38d7dc57d22a176cf8cb07a91a20e90aa5f50
+https://joss.readthedocs.io/en/latest/submitting.html:
+  file: joss-readthedocs-io-en-latest-submitting-html-8cde70d0.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 10
+  sha256: ac14bbbe2773aca53b3e6bd2ec31b2d00b01290aed295fc688e2141903c9645f
+https://journals.asm.org/editorial-policies:
+  file: journals-asm-org-editorial-policies-de38a604.txt
+  read: '2025-07-29'
+  route: wayback:20250729170329
+  passages: 2
+  sha256: 7b9a494861bf0a6f6536d9969df6c8028ad16c4397b6eca07784f9a1d6b22fd6
+https://journals.asm.org/generative-ai:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://journals.asm.org/journal/spectrum/about:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.asm.org/journal/spectrum/article-types:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://journals.asm.org/plagiarism:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.bioscientifica.com/joe/pages/author-guidelines:
+  file: journals-bioscientifica-com-joe-pages-author-guidelines-8ccb6993.txt
+  read: '2026-07-24'
+  route: wayback:20260724010037
+  passages: 8
+  sha256: 86a26c5ea31a00300db5e916100e718c207640bd42f3c8fc82a219989945aaea
+https://journals.bioscientifica.com/joe/pages/ethical-policy:
+  file: journals-bioscientifica-com-joe-pages-ethical-policy-4b738c99.txt
+  read: '2026-08-08'
+  route: wayback:20260808004822
+  passages: 10
+  sha256: 6f517baf33d0f428069f3846342289bd4f54c90afb5b4a9bafbe3be9e7e69edc
+? https://journals.ieeeauthorcenter.ieee.org/become-an-ieee-journal-author/publishing-ethics/guidelines-and-policies/submission-and-peer-review-policies/
+: file: journals-ieeeauthorcenter-ieee-org-become-an-ieee-journal-author-publishing-ethi-139bb7cf.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 7
+  sha256: 3e9eb25cde30864546dc9128c812fd4bfc9b84dbad8b46e81552c30ec82617ee
+https://journals.plos.org/plosbiology/s/ethical-publishing-practice:
+  file: journals-plos-org-plosbiology-s-ethical-publishing-practice-c73e50b1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 42
+  sha256: 9d2a5da5ede71290398763aa61890aa002544c7ab6ad1115c516182108873342
+https://journals.plos.org/plosbiology/s/what-we-publish:
+  file: journals-plos-org-plosbiology-s-what-we-publish-f2e86eb8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://journals.plos.org/ploscompbiol/s/ethical-publishing-practice:
+  file: journals-plos-org-ploscompbiol-s-ethical-publishing-practice-3df41d5f.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 42
+  sha256: 9d2a5da5ede71290398763aa61890aa002544c7ab6ad1115c516182108873342
+https://journals.plos.org/plosgenetics/s/ethical-publishing-practice:
+  file: journals-plos-org-plosgenetics-s-ethical-publishing-practice-25a39bad.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 42
+  sha256: 9d2a5da5ede71290398763aa61890aa002544c7ab6ad1115c516182108873342
+https://journals.plos.org/plosgenetics/s/submission-guidelines:
+  file: journals-plos-org-plosgenetics-s-submission-guidelines-21c09154.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1004854:
+  file: journals-plos-org-plosmedicine-article-id-10-1371-journal-pmed-1004854-85f6cb7c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 1
+  sha256: c579544dc87cf6e9916da6e667f31007ecdffc60d082afa053a9bb1de568221f
+https://journals.plos.org/plosone/s/ethical-publishing-practice:
+  file: journals-plos-org-plosone-s-ethical-publishing-practice-6a6eb4e1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 42
+  sha256: 9d2a5da5ede71290398763aa61890aa002544c7ab6ad1115c516182108873342
+https://journals.plos.org/plosone/s/submission-guidelines:
+  file: journals-plos-org-plosone-s-submission-guidelines-7e8199f4.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://journals.sagepub.com/author-instructions/BBI:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://journals.sagepub.com/author-instructions/CPB:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.sagepub.com/author-instructions/EVB:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.sagepub.com/author-instructions/OMI:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.sagepub.com/author-instructions/REJ:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.sagepub.com/author-instructions/SMM:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://journals.sagepub.com/home/smm:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://journals.sagepub.com/liebert-info:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://journals.unibuc.ro/index.php/rbl/about/submissions:
+  file: journals-unibuc-ro-index-php-rbl-about-submissions-c7c0b2d1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://journals.unibuc.ro/index.php/rbl/guid:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: page too short (a stub, login wall or script shell); chrome: page too short (a stub, login wall or script
+      shell); wayback: no archived copy'
+https://journals.unibuc.ro/index.php/rbl/spe:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: page too short (a stub, login wall or script shell); chrome: page too short (a stub, login wall or script
+      shell); wayback: no archived copy'
+https://karger.com/pages/karger-ai-principles:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://karger.com/pages/publication-ethics:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://link.springer.com/brands/bmc/editorial-policies:
+  file: link-springer-com-brands-bmc-editorial-policies-f7a9607d.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 41
+  sha256: 9251e3db08e687b0cd6b928f9092ac2c2cf1ec9dae5e447d356e9923fbbbf017
+https://link.springer.com/brands/springer/journal-policies:
+  file: link-springer-com-brands-springer-journal-policies-24b3df3a.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 41
+  sha256: 9a36e42e75e9e0402eb2fea07751feb764d5390181f2076cd905adb88276748f
+https://link.springer.com/journal/10489/submission-guidelines:
+  file: link-springer-com-journal-10489-submission-guidelines-5d582d37.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/10522/submission-guidelines:
+  file: link-springer-com-journal-10522-submission-guidelines-e4277d2f.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/10571/submission-guidelines:
+  file: link-springer-com-journal-10571-submission-guidelines-a7b4bb33.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/11357/submission-guidelines:
+  file: link-springer-com-journal-11357-submission-guidelines-625f5f40.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/12859/submission-guidelines/software-article:
+  file: link-springer-com-journal-12859-submission-guidelines-software-article-6463e5ac.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12864/submission-guidelines/software-article:
+  file: link-springer-com-journal-12864-submission-guidelines-software-article-9dcd62df.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12866/submission-guidelines/research-article:
+  file: link-springer-com-journal-12866-submission-guidelines-research-article-b5a8fa45.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12885/submission-guidelines/research-article:
+  file: link-springer-com-journal-12885-submission-guidelines-research-article-24f95005.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 44231f2876895624c0a39641c16dfe89fd8da58f44c727451047971f55674433
+https://link.springer.com/journal/12885/submission-guidelines/software-article:
+  file: link-springer-com-journal-12885-submission-guidelines-software-article-3a537932.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12915/submission-guidelines/software:
+  file: link-springer-com-journal-12915-submission-guidelines-software-177c7548.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12920/submission-guidelines/software-article:
+  file: link-springer-com-journal-12920-submission-guidelines-software-article-f0390414.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12935/submission-guidelines/research-article:
+  file: link-springer-com-journal-12935-submission-guidelines-research-article-d5f882e7.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 44231f2876895624c0a39641c16dfe89fd8da58f44c727451047971f55674433
+https://link.springer.com/journal/12967/submission-guidelines/methodology:
+  file: link-springer-com-journal-12967-submission-guidelines-methodology-c83b6481.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/12979/submission-guidelines/research-articles:
+  file: link-springer-com-journal-12979-submission-guidelines-research-articles-5f2b6282.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/13015/submission-guidelines/software-article:
+  file: link-springer-com-journal-13015-submission-guidelines-software-article-5f2dc37e.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/13040/submission-guidelines/software-article:
+  file: link-springer-com-journal-13040-submission-guidelines-software-article-48da849a.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/13059/submission-guidelines/software:
+  file: link-springer-com-journal-13059-submission-guidelines-software-2c0ce381.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/13073/submission-guidelines/software:
+  file: link-springer-com-journal-13073-submission-guidelines-software-ce9253ac.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/13098/submission-guidelines/research:
+  file: link-springer-com-journal-13098-submission-guidelines-research-e006b62e.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 44231f2876895624c0a39641c16dfe89fd8da58f44c727451047971f55674433
+https://link.springer.com/journal/13321/submission-guidelines/software:
+  file: link-springer-com-journal-13321-submission-guidelines-software-acb95e3f.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 21f6aa220447c3c892c7fc692d0504bb6afb8668a7e583e70f664e0dae6a658e
+https://link.springer.com/journal/13326/submission-guidelines/software:
+  file: link-springer-com-journal-13326-submission-guidelines-software-5b58f177.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: dec848c739803f2c042e20fda8202d97ebad83f5c8f5d512bc4b03bfdb1202c2
+https://link.springer.com/journal/391/submission-guidelines:
+  file: link-springer-com-journal-391-submission-guidelines-f96aa57c.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://link.springer.com/journal/40520/submission-guidelines:
+  file: link-springer-com-journal-40520-submission-guidelines-2fc9dae0.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/438/submission-guidelines:
+  file: link-springer-com-journal-438-submission-guidelines-28f74f38.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 6
+  sha256: be4105ed3406767101098fd21fe25abbda1827685edd4f1c0024b9be6ce8fbf1
+https://link.springer.com/journal/439/submission-guidelines:
+  file: link-springer-com-journal-439-submission-guidelines-f793e9e2.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 4
+  sha256: 74ed68cbe1f0aa0c67caa3d63eef4713c0572196566979e58c03917cbfeb258a
+https://link.springer.com/journal/44319/submission-guidelines:
+  file: link-springer-com-journal-44319-submission-guidelines-8c392bb6.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 4be7162719de84257d38b1a007116dc94274ad130d91af8298316f1bfa4ffcb9
+https://link.springer.com/journal/44320/submission-guidelines:
+  file: link-springer-com-journal-44320-submission-guidelines-9178f075.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 2
+  sha256: 4be7162719de84257d38b1a007116dc94274ad130d91af8298316f1bfa4ffcb9
+https://link.springer.com/partners/embo-press/editorial-policies:
+  file: link-springer-com-partners-embo-press-editorial-policies-4b9bd342.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 7
+  sha256: 53a346b862a10c4677fcc66e8204d4613ef0f26190fd6125df80e6b74d2efa55
+https://link.springer.com/partners/embo-press/editorial-policies/reviewer-guidelines:
+  file: link-springer-com-partners-embo-press-editorial-policies-reviewer-guidelines-38600eb4.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+? https://newsroom.wiley.com/press-releases/press-release-details/2026/Wiley-Bolsters-Research-Integrity-Efforts-with-Imagetwins-Enhanced-Image-Screening/default.aspx
+: last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/10982272/homepage/forauthors.html:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/13990004/homepage/forauthors.html:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/14749726/homepage/forauthors.html:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/17550998/homepage/forauthors.html:
+  file: onlinelibrary-wiley-com-page-journal-17550998-homepage-forauthors-html-4d8c6b9d.txt
+  read: '2024-11-09'
+  route: wayback:20241109135701
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://onlinelibrary.wiley.com/page/journal/20954697/homepage/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/21983844/homepage/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://onlinelibrary.wiley.com/page/journal/humu/homepage/author-guidelines:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://open-research-europe.ec.europa.eu/about/policies:
+  file: open-research-europe-ec-europa-eu-about-policies-9a030b2f.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 5
+  sha256: a244a6041cced132271f755cbb8fb659121c1550425945a452b58b8ce8439b5b
+https://openresearchsoftware.metajnl.com/about/editorialpolicies:
+  file: openresearchsoftware-metajnl-com-about-editorialpolicies-01625b0a.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: e2a976b7432666e52285ce2c3f27ff83c48b3866644c6c6ca9e941eb0c9d9f18
+https://openresearchsoftware.metajnl.com/about/submissions:
+  file: openresearchsoftware-metajnl-com-about-submissions-6870a9ca.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: e2a976b7432666e52285ce2c3f27ff83c48b3866644c6c6ca9e941eb0c9d9f18
 https://openrxiv.org/trust-signals-and-accountability/:
   file: openrxiv-org-trust-signals-and-accountability-0514081d.txt
   read: '2026-10-15'
   route: httpx
   passages: 3
   sha256: a627d0eaaad0da09514d1b0f8b83281d209976bf4529e24acbacad91ff8b5bef
+https://peerj.com/about/policies-and-procedures/:
+  file: peerj-com-about-policies-and-procedures-3295f76b.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 36
+  sha256: af302cb8537779aaa6df4e3c42a7c3b6de15b111f1d0952a54294dee4d4d9da5
+https://portlandpress.com/biochemj/pages/instructions_to_authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://portlandpress.com/bioscirep/pages/paper_types:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://portlandpress.com/bioscirep/pages/submission_checklist:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://portlandpress.com/pages/editorial_policy:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://publicationethics.org/guidance/cope-position/authorship-and-ai-tools:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://reviewer.elifesciences.org/author-guide/journal-policies:
+  file: reviewer-elifesciences-org-author-guide-journal-policies-a62f3628.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 8
+  sha256: 1decfe194826a5f55bc418ede4d0c97510caf8a8e871c2c86efaf93ecd031d71
+https://rombio.unibuc.ro/ethics-and-malpractice/:
+  file: rombio-unibuc-ro-ethics-and-malpractice-bfd8a708.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://rombio.unibuc.ro/instructions-for-authors/:
+  file: rombio-unibuc-ro-instructions-for-authors-72e6b7ba.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://royalsociety.org/journals/authors/author-guidelines/:
+  file: royalsociety-org-journals-authors-author-guidelines-98673673.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 1bd18a1a66253d68c5d394831b633f27dd88665ea2efa3d26ef598f9f2f6cb8d
+https://royalsociety.org/journals/ethics-policies/artificial-intelligence/:
+  file: royalsociety-org-journals-ethics-policies-artificial-intelligence-8b72384c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 9
+  sha256: 36af3e58303557d6800f1d0ce745a5606afac5f3b696b7d771322b0d9d9b6c79
+https://royalsociety.org/journals/ethics-policies/editorial-standards/:
+  file: royalsociety-org-journals-ethics-policies-editorial-standards-daa64c7d.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: d7af01cae8321d8112885f8b666af39c7701ec98b268567bd270897805fadd0f
+https://royalsocietypublishing.org/rsbl/pages/for-authors:
+  file: royalsocietypublishing-org-rsbl-pages-for-authors-c54a3685.txt
+  read: '2026-10-04'
+  route: wayback:20261004175004
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://royalsocietypublishing.org/rsos/for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://spj.science.org/page/csbj/publication-ethics:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://taylorandfrancis.com/our-policies/ai-policy/:
+  file: taylorandfrancis-com-our-policies-ai-policy-1c583511.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 28
+  sha256: ac21d3d167f28d433b00c6a63a683ef67796d0aac8a5a46867f264d8d99a313f
+https://tlcr.amegroups.org/pages/view/guidelines-for-authors:
+  file: tlcr-amegroups-org-pages-view-guidelines-for-authors-6ad9b7c3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 63cf2323c4f89e2a866703975ffd8cbe715833bb23a3fc5711b81926f0e2ff58
+https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models:
+  file: transition-iscb-org-iscb-policy-statements-iscb-policy-for-acceptable-use-of-lar-e1468686.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 13
+  sha256: c4c0d13d692d2c44b3a54c88e1961d6e44d7e66e540e8925c7ca56a4b12fb1e8
+https://ubiquitypress.com/ai-policy:
+  file: ubiquitypress-com-ai-policy-c2f2ea92.txt
+  read: '2026-05-13'
+  route: wayback:20260513213617
+  passages: 28
+  sha256: 8d7422e7cee9a405c79427df80db68c82e1f94289ddee9f1ba92888e27f4741c
+? https://web.archive.org/web/20250709163740/https://home.liebertpub.com/publications/journal-of-computational-biology/31/for-authors
+: last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: ConnectError: [Errno 111] Connection refused; chrome: chrome exit 0; wayback: no archived copy'
+https://wellcomeopenresearch.org/about/policies:
+  file: wellcomeopenresearch-org-about-policies-c70a538d.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 3
+  sha256: 7fdbb28366f01eceff6bf5cea1de5409ab0c48650019f1861fd8fb3380fc1e35
+https://www.acm.org/publications/policies/new-acm-policy-on-authorship:
+  file: acm-org-publications-policies-new-acm-policy-on-authorship-cb2449f9.txt
+  read: '2026-05-31'
+  route: wayback:20260531220816
+  passages: 9
+  sha256: 1fd61dc5dde2e64c2508e1281200af031501cd7d3204b143bb5133bcba2d0881
+https://www.aging-us.com/editorial-policies:
+  file: aging-us-com-editorial-policies-640d2b2c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 12
+  sha256: 0555796e1407dce9b0cbfd8292dbfb482dafc00eb1077e60d4f91e4493ad9325
+https://www.aginganddisease.org/EN/column/column217.shtml:
+  file: aginganddisease-org-en-column-column217-shtml-da8ccea8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.aginganddisease.org/EN/column/column227.shtml:
+  file: aginganddisease-org-en-column-column227-shtml-e5053e64.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 43d95d50e4defeac886ce82e2d815c9917976fdbba72fb18a63fdf1dbedb04db
 https://www.biorxiv.org/about/FAQ:
   file: biorxiv-org-about-faq-74e7e5d0.txt
   read: '2026-10-15'
   route: httpx
   passages: 3
   sha256: 9e3de87833341566bad1d4a16e47df19cd6dda5259975790dc31268a2205155b
+https://www.cell.com/ajhg/authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://www.cell.com/cell-genomics/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell-metabolism/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell-reports/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell-systems/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/cell/information-for-authors/revise-manuscript:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/hgg-advances/authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://www.cell.com/iscience/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/patterns/information-for-authors/journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/reviewers:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.cell.com/trends/genetics/authors:
+  file: cell-com-trends-genetics-authors-ce7007c8.txt
+  read: '2016-05-06'
+  route: wayback:20160506182229
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.computer.org/csdl/journal/tb/write-for-us/15053:
+  file: computer-org-csdl-journal-tb-write-for-us-15053-b5b2f8fc.txt
+  read: '2026-10-15'
+  route: chrome
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.degruyterbrill.com/journal/key/cdbme/html:
+  file: degruyterbrill-com-journal-key-cdbme-html-b4297522.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.degruyterbrill.com/publishing/for-authors/author-policies/artificial-intelligence:
+  file: degruyterbrill-com-publishing-for-authors-author-policies-artificial-intelligenc-546e1e68.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 24
+  sha256: 9d9e6fed1dc980f358b03f76d83cd4d24890d8d3b2c74b445328835193d76983
+https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals:
+  file: elsevier-com-about-policies-and-standards-generative-ai-policies-for-journals-c9d6b82a.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 100
+  sha256: 7c50b464cb25dbeec18379ff6fb788f7945b44d39983e11824970d7e1fda9c98
+? https://www.elsevier.com/connect/updated-generative-ai-policies-for-journals-supporting-responsible-use-while-protecting-trust
+: file: elsevier-com-connect-updated-generative-ai-policies-for-journals-supporting-resp-33325f2b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 24
+  sha256: d5c7a91cf52c92355f106e63d654362811adf3a8419d2d548c9468622753887c
 https://www.elsevier.support/ssrn/answer/AI:
   file: elsevier-support-ssrn-answer-ai-1a0f1f1a.txt
   read: '2026-10-15'
   route: httpx
   passages: 20
   sha256: 6d930c5907f1b2af13d46693ebbaf557766feab37207e603abc457571215acb9
+https://www.frontiersin.org/about/artificial-intelligence:
+  file: frontiersin-org-about-artificial-intelligence-709e7be8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 31
+  sha256: 81d19bfdabd3e7ae959ce88eb99619bd3d6bb9a02148584ef1a91cfbdbf3e66f
+https://www.frontiersin.org/guidelines/aira-review-guide-reviewers:
+  file: frontiersin-org-guidelines-aira-review-guide-reviewers-e588cc99.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 21
+  sha256: 333cbf90e4fc17e4de85b9958824ba7a91b186e5c747f487b4a4710e197c7fb2
+https://www.frontiersin.org/guidelines/policies-and-publication-ethics:
+  file: frontiersin-org-guidelines-policies-and-publication-ethics-3d32c809.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 18
+  sha256: 06b44f7b6d2eb0ccdfba592bf06a8a6f5b2d8616ba81b918f6c38d8d13a4adf8
+https://www.frontiersin.org/journals/aging/for-authors/author-guidelines:
+  file: frontiersin-org-journals-aging-for-authors-author-guidelines-c4be1bce.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/bioinformatics/about:
+  file: frontiersin-org-journals-bioinformatics-about-aed8b0d3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines:
+  file: frontiersin-org-journals-bioinformatics-for-authors-author-guidelines-3422a2ac.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/genetics/for-authors/author-guidelines:
+  file: frontiersin-org-journals-genetics-for-authors-author-guidelines-65eeacfb.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/microbiology/for-authors/article-types:
+  file: frontiersin-org-journals-microbiology-for-authors-article-types-85a82e98.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 936c9170a8d9e23709276e0c3f6c0618b1b19bfd1a370a4c76e5ed37c806e054
+https://www.frontiersin.org/journals/microbiology/for-authors/author-guidelines:
+  file: frontiersin-org-journals-microbiology-for-authors-author-guidelines-63fb088c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/neuroscience/for-authors/article-types:
+  file: frontiersin-org-journals-neuroscience-for-authors-article-types-27460070.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 936c9170a8d9e23709276e0c3f6c0618b1b19bfd1a370a4c76e5ed37c806e054
+https://www.frontiersin.org/journals/neuroscience/for-authors/author-guidelines:
+  file: frontiersin-org-journals-neuroscience-for-authors-author-guidelines-d6e62f4e.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/nutrition/for-authors/article-types:
+  file: frontiersin-org-journals-nutrition-for-authors-article-types-5b2c0e59.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 936c9170a8d9e23709276e0c3f6c0618b1b19bfd1a370a4c76e5ed37c806e054
+https://www.frontiersin.org/journals/nutrition/for-authors/author-guidelines:
+  file: frontiersin-org-journals-nutrition-for-authors-author-guidelines-a1f67e2c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/journals/oncology/for-authors/article-types:
+  file: frontiersin-org-journals-oncology-for-authors-article-types-a493b0e6.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 936c9170a8d9e23709276e0c3f6c0618b1b19bfd1a370a4c76e5ed37c806e054
+https://www.frontiersin.org/journals/oncology/for-authors/author-guidelines:
+  file: frontiersin-org-journals-oncology-for-authors-author-guidelines-848f6df4.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 97548c2086b873e700de9f7bc7ad2e87c78cd9991e774005a24c1bf36ec137ce
+https://www.frontiersin.org/news/2025/07/07/frontiers-broadens-ai-driven-integrity-checks-with-integration-of-cactus:
+  file: frontiersin-org-news-2025-07-07-frontiers-broadens-ai-driven-integrity-checks-wi-6c9fc48f.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 11
+  sha256: 87bc750f1bcb6fce787d8060bc89e895462b693273fdd4b2d930bb62a648c838
+https://www.keaipublishing.com/en/for-authors/publishing-ethics-authors/:
+  file: keaipublishing-com-en-for-authors-publishing-ethics-authors-98ce2cd1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.keaipublishing.com/en/journals/translational-medicine-of-aging/guide-for-authors/:
+  file: keaipublishing-com-en-journals-translational-medicine-of-aging-guide-for-authors-ef04be86.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.life-science-alliance.org/editorial-policies:
+  file: life-science-alliance-org-editorial-policies-a9386dcf.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: c8b5a5bb23d0cc031387a3d7813fec1776507102ab1376b99307b66d22af9882
+https://www.life-science-alliance.org/reviewers:
+  file: life-science-alliance-org-reviewers-5ab403b5.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: fe398f9f4b621b10e38c17b2b904616058d39ef8fa626843432a7070257f76c0
+https://www.mdpi.com/ethics:
+  file: mdpi-com-ethics-d47f31aa.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 10
+  sha256: bb04cd666dc455276f020d2d68d11fb03b811bbb624bfe5bb5dd43cb24b13084
+https://www.mdpi.com/journal/biomolecules/instructions:
+  file: mdpi-com-journal-biomolecules-instructions-31c4d787.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 6ba2ff4c7660251bd917b152a2fe48c982ebe7b560c53b22bd2f5e650f291235
+https://www.mdpi.com/journal/cancers/instructions:
+  file: mdpi-com-journal-cancers-instructions-434212be.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 26d74639a598b51ce2cbe251a768ffa7977f7f57112f387ab156712cb7b3be57
+https://www.mdpi.com/journal/cells/instructions:
+  file: mdpi-com-journal-cells-instructions-fd36c1ae.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 6ba2ff4c7660251bd917b152a2fe48c982ebe7b560c53b22bd2f5e650f291235
+https://www.mdpi.com/journal/genes/instructions:
+  file: mdpi-com-journal-genes-instructions-e1ae61c2.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 6ba2ff4c7660251bd917b152a2fe48c982ebe7b560c53b22bd2f5e650f291235
+https://www.mdpi.com/journal/ijms/instructions:
+  file: mdpi-com-journal-ijms-instructions-270f98fd.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: fc05d04c61997a414e3db136d835bcef56e334c490d906958224be6dbf71401f
+https://www.mdpi.com/journal/metabolites/instructions:
+  file: mdpi-com-journal-metabolites-instructions-797b573f.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 6ba2ff4c7660251bd917b152a2fe48c982ebe7b560c53b22bd2f5e650f291235
+https://www.mdpi.com/journal/pharmaceutics/instructions:
+  file: mdpi-com-journal-pharmaceutics-instructions-22e00777.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: 27e043632cd19924890510afb9ac03ead8d599e2340a0ac465c41c4f6fc01878
 https://www.medrxiv.org/about/FAQ:
   file: medrxiv-org-about-faq-e1599ec8.txt
   read: '2026-10-15'
   route: httpx
   passages: 2
   sha256: f62e856a7cbf3d0a9b14f41f6565e510c47695a094b64aa04365ccc42a479c0e
+https://www.nature.com/commsbio/editorial-policies/ai:
+  file: nature-com-commsbio-editorial-policies-ai-28f55ddc.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/commsbio/submit/guide-to-authors:
+  file: nature-com-commsbio-submit-guide-to-authors-6c6ef75a.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/commsbio/submit/policy:
+  file: nature-com-commsbio-submit-policy-b8916fc3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: ab72b39496c51effd19f48388d5fd4989d0bc05d34e3e7bc6c268d595f06c56a
+https://www.nature.com/ejhg/authors-and-referees/gta:
+  file: nature-com-ejhg-authors-and-referees-gta-657d4b1b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 03e67e879db92816fcbb27ce3476bf96fbc62fc7a521a7372620b6c51ed10c47
+https://www.nature.com/ejhg/authors-and-referees/policies:
+  file: nature-com-ejhg-authors-and-referees-policies-e8a5eaa8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nataging/editorial-policies/ai:
+  file: nature-com-nataging-editorial-policies-ai-ca9eed41.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nataging/submission-guidelines:
+  file: nature-com-nataging-submission-guidelines-8df97370.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nataging/submission-guidelines/aip-and-formatting:
+  file: nature-com-nataging-submission-guidelines-aip-and-formatting-95619ad7.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/nataging/submission-guidelines/preparing-your-submission:
+  file: nature-com-nataging-submission-guidelines-preparing-your-submission-f24b40fe.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/natcomputsci/editorial-policies/ai:
+  file: nature-com-natcomputsci-editorial-policies-ai-0176e229.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/natcomputsci/submission-guidelines:
+  file: nature-com-natcomputsci-submission-guidelines-a1b8c808.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/natcomputsci/submission-guidelines/aip-and-formatting:
+  file: nature-com-natcomputsci-submission-guidelines-aip-and-formatting-ad3ff4e8.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/natcomputsci/submission-guidelines/preparing-your-submission:
+  file: nature-com-natcomputsci-submission-guidelines-preparing-your-submission-128fcf63.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/natmachintell/editorial-policies/ai:
+  file: nature-com-natmachintell-editorial-policies-ai-f1782d17.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/natmachintell/submission-guidelines:
+  file: nature-com-natmachintell-submission-guidelines-a6d49c16.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/natmachintell/submission-guidelines/aip-and-formatting:
+  file: nature-com-natmachintell-submission-guidelines-aip-and-formatting-d21d89c3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/natmachintell/submission-guidelines/preparing-your-submission:
+  file: nature-com-natmachintell-submission-guidelines-preparing-your-submission-e6ab76c9.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/nature-portfolio/editorial-policies/ai:
+  file: nature-com-nature-portfolio-editorial-policies-ai-629221ff.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nature-portfolio/editorial-policies/peer-review:
+  file: nature-com-nature-portfolio-editorial-policies-peer-review-28b687e4.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 087d235403a09fec039adad59cbaf1f150b1e7e13404eb030b235152517dd8aa
+https://www.nature.com/nature/editorial-policies/ai:
+  file: nature-com-nature-editorial-policies-ai-20fe13c1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nature/for-authors:
+  file: nature-com-nature-for-authors-8abdb720.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nature/for-authors/initial-submission:
+  file: nature-com-nature-for-authors-initial-submission-12d22e7f.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: d2f09065cbee3d3596f89d5357fcd39d240567f3f36fb8e3164546a3b9be7912
+https://www.nature.com/nbt/editorial-policies/ai:
+  file: nature-com-nbt-editorial-policies-ai-f98238a3.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nbt/submission-guidelines:
+  file: nature-com-nbt-submission-guidelines-dd91bf56.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nbt/submission-guidelines/aip-and-formatting:
+  file: nature-com-nbt-submission-guidelines-aip-and-formatting-45a34ed1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/nbt/submission-guidelines/preparing-your-submission:
+  file: nature-com-nbt-submission-guidelines-preparing-your-submission-299042df.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/ncomms/editorial-policies/ai:
+  file: nature-com-ncomms-editorial-policies-ai-9f59c0ab.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/ncomms/submit/how-to-submit:
+  file: nature-com-ncomms-submit-how-to-submit-f76041d6.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 58072338b7f4bb2f9ce75283f4eb371a358989aec51ba26d28ac34ca67f72119
+https://www.nature.com/ncomms/submit/policy:
+  file: nature-com-ncomms-submit-policy-e99ce936.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: bef6a885bc3321081b6e692b87cf647241f3f4950759830f1d0d3317bd43bc18
+https://www.nature.com/ng/editorial-policies/ai:
+  file: nature-com-ng-editorial-policies-ai-316ad6fa.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/ng/submission-guidelines:
+  file: nature-com-ng-submission-guidelines-d9ebf32c.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/ng/submission-guidelines/aip-and-formatting:
+  file: nature-com-ng-submission-guidelines-aip-and-formatting-9b4f93b1.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/ng/submission-guidelines/preparing-your-submission:
+  file: nature-com-ng-submission-guidelines-preparing-your-submission-b4cd2c21.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/nm/editorial-policies/ai:
+  file: nature-com-nm-editorial-policies-ai-4c320735.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nm/submission-guidelines:
+  file: nature-com-nm-submission-guidelines-8c8f3f37.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nm/submission-guidelines/aip-and-formatting:
+  file: nature-com-nm-submission-guidelines-aip-and-formatting-f688b3e5.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/nm/submission-guidelines/preparing-your-submission:
+  file: nature-com-nm-submission-guidelines-preparing-your-submission-ad5a7ba0.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/nmeth/editorial-policies/ai:
+  file: nature-com-nmeth-editorial-policies-ai-d9f84e98.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/nmeth/submission-guidelines:
+  file: nature-com-nmeth-submission-guidelines-cf9be547.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.nature.com/nmeth/submission-guidelines/aip-and-formatting:
+  file: nature-com-nmeth-submission-guidelines-aip-and-formatting-8044c263.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 33aa4eee60e690935409449eec6f5ac1a378e37237f1e4e266da9c18a5c4b62a
+https://www.nature.com/nmeth/submission-guidelines/preparing-your-submission:
+  file: nature-com-nmeth-submission-guidelines-preparing-your-submission-5cd0c710.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: cc02983a78a4c51f9c4ab5f4d6a0373902e0bc6498526d58a61bb0860ae40d51
+https://www.nature.com/npjamd/editorial-policies/artificial-intelligence:
+  file: nature-com-npjamd-editorial-policies-artificial-intelligence-47a1c4ab.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 29cc849c73cc4f09ce672e05d888bc867b23826322388bc8587491212427a694
+https://www.nature.com/npjamd/for-authors-and-referees/submission-guidelines:
+  file: nature-com-npjamd-for-authors-and-referees-submission-guidelines-668878f5.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 212feb1f0bb81a3893a5b9cface25d43f44ed1e038fd4bd941d3cf94a70dc5f7
+https://www.nature.com/npjdigitalmed/editorial-policies/artificial-intelligence:
+  file: nature-com-npjdigitalmed-editorial-policies-artificial-intelligence-cfaf014b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 29cc849c73cc4f09ce672e05d888bc867b23826322388bc8587491212427a694
+https://www.nature.com/npjdigitalmed/for-authors-and-referees/submission-guidelines:
+  file: nature-com-npjdigitalmed-for-authors-and-referees-submission-guidelines-7a3abb21.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 212feb1f0bb81a3893a5b9cface25d43f44ed1e038fd4bd941d3cf94a70dc5f7
+https://www.nature.com/npjgenmed/editorial-policies/artificial-intelligence:
+  file: nature-com-npjgenmed-editorial-policies-artificial-intelligence-9018facb.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 29cc849c73cc4f09ce672e05d888bc867b23826322388bc8587491212427a694
+https://www.nature.com/npjgenmed/for-authors-and-referees/submission-guidelines:
+  file: nature-com-npjgenmed-for-authors-and-referees-submission-guidelines-993b5533.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 212feb1f0bb81a3893a5b9cface25d43f44ed1e038fd4bd941d3cf94a70dc5f7
+https://www.nature.com/npjsba/editorial-policies/artificial-intelligence:
+  file: nature-com-npjsba-editorial-policies-artificial-intelligence-41615e48.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 29cc849c73cc4f09ce672e05d888bc867b23826322388bc8587491212427a694
+https://www.nature.com/npjsba/for-authors-and-referees/submission-guidelines:
+  file: nature-com-npjsba-for-authors-and-referees-submission-guidelines-81ec1b95.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 212feb1f0bb81a3893a5b9cface25d43f44ed1e038fd4bd941d3cf94a70dc5f7
+https://www.nature.com/sdata/policies/ai:
+  file: nature-com-sdata-policies-ai-29715167.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/srep/author-instructions/submission-guidelines:
+  file: nature-com-srep-author-instructions-submission-guidelines-f8c2c7d9.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 811da5cc41e013f9d6739e166bf890f534ea0c72b09a41266d98ace3b32a747c
+https://www.nature.com/srep/journal-policies/ai:
+  file: nature-com-srep-journal-policies-ai-11c51ace.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 34
+  sha256: 843c964852969c4e913918e7c432ef4e239316bf2f3d6113c87ad759cfcd2c2d
+https://www.nature.com/srep/journal-policies/editorial-policies:
+  file: nature-com-srep-journal-policies-editorial-policies-61fe87b5.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.oncotarget.com/editorial-policies/:
+  file: oncotarget-com-editorial-policies-d6b99e6e.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 14
+  sha256: bf5170b8d2eb4f689f6383fe3fbde115a40b61b29956c43bd13acfb871a6a582
+https://www.pnas.org/author-center/editorial-and-journal-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.pnas.org/author-center/editorial-and-journal-policies#artificial-intelligence:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: wayback unreachable (JSONDecodeError)'
+https://www.pnas.org/author-center/submitting-your-manuscript:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.pnas.org/reviewer:
+  file: pnas-org-reviewer-3dfcf078.txt
+  read: '2026-05-28'
+  route: wayback:20260528160750
+  passages: 2
+  sha256: 87544c19169b079d4c27f756094f57e622d0c8b78995fe3829386a1c8594d54a
 https://www.preprints.org/blog/post/preprints-in-the-age-of-ai-their-role-in-the-scientific-ecosystem:
   file: preprints-org-blog-post-preprints-in-the-age-of-ai-their-role-in-the-scientific--55715d3a.txt
   read: '2026-10-15'
   route: httpx
   passages: 7
   sha256: d7a35c5dbe66f16a2d54284368bcf8edd47a2834d0f8f78871d50e82f607914c
+https://www.preprints.org/instructions-for-authors:
+  file: preprints-org-instructions-for-authors-ff4287ce.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: 2a8d6bdbcf6b4a03563314d5c3b0ea304be982393ad0242b4618d307e7b59341
 https://www.researchsquare.com/legal/editorial:
   file: researchsquare-com-legal-editorial-c6d9c9d7.txt
   read: '2026-10-15'
   route: httpx
   passages: 2
   sha256: 289d49377d2523faac1c27be0f20ab71652075cf0e82885292cac6f5f9ed227e
+https://www.sagepub.com/generative-AI-tools-policy-msg:
+  file: sagepub-com-generative-ai-tools-policy-msg-cc523b1b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 12
+  sha256: 545d64e4978ef3019da5b40ca0a83825773312c5dbc85d1da4a3f89b8c16fbc4
+https://www.sagepub.com/journals/editorial-policies/artificial-intelligence-policy:
+  file: sagepub-com-journals-editorial-policies-artificial-intelligence-policy-2e6b881d.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 12
+  sha256: 545d64e4978ef3019da5b40ca0a83825773312c5dbc85d1da4a3f89b8c16fbc4
+https://www.sagepub.com/journals/publication-ethics-policies/artificial-intelligence-policy:
+  file: sagepub-com-journals-publication-ethics-policies-artificial-intelligence-policy-80c07e13.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 12
+  sha256: 545d64e4978ef3019da5b40ca0a83825773312c5dbc85d1da4a3f89b8c16fbc4
+https://www.science.org/cms/asset/cea1081d-3aa4-42a2-96b7-72290067116a/sept26_science_journals_guidelines_ai_use.pdf:
+  file: science-org-cms-asset-cea1081d-3aa4-42a2-96b7-72290067116a-sept26-science-journa-2f9fb6af.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 2
+  sha256: 87313603841e5428e1169143997122ca58dc4faeb1a6e0d864b23b2919d962fb
+https://www.science.org/content/page/peer-review-science-publications:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.science.org/content/page/science-advances-information-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.science.org/content/page/science-journals-editorial-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.sciencedirect.com/journal/ageing-research-reviews/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/annals-of-epidemiology/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/archives-of-gerontology-and-geriatrics/publish/guide-for-authors:
+  file: sciencedirect-com-journal-archives-of-gerontology-and-geriatrics-publish-guide-f-e8a4a10d.txt
+  read: '2024-01-28'
+  route: wayback:20240128103451
+  passages: 6
+  sha256: eb0e4819305731dca3a15b949fde1f97b2ad714c98fbdc422c21996218741da4
+https://www.sciencedirect.com/journal/computers-in-biology-and-medicine/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/european-neuropsychopharmacology/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: ConnectError:
+      [Errno 111] Connection refused'
+https://www.sciencedirect.com/journal/experimental-gerontology/publish/guide-for-authors:
+  file: sciencedirect-com-journal-experimental-gerontology-publish-guide-for-authors-fe8ef41c.txt
+  read: '2023-11-17'
+  route: wayback:20231117005506
+  passages: 6
+  sha256: eb0e4819305731dca3a15b949fde1f97b2ad714c98fbdc422c21996218741da4
+https://www.sciencedirect.com/journal/gene/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/genetics-in-medicine/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: ConnectError:
+      [Errno 111] Connection refused'
+https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors:
+  file: sciencedirect-com-journal-genomics-publish-guide-for-authors-908bb778.txt
+  read: '2024-01-23'
+  route: wayback:20240123101040
+  passages: 6
+  sha256: eb0e4819305731dca3a15b949fde1f97b2ad714c98fbdc422c21996218741da4
+https://www.sciencedirect.com/journal/hepatobiliary-and-pancreatic-diseases-international/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/journal-of-biomedical-informatics/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/mechanisms-of-ageing-and-development/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/neurobiology-of-aging/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: ConnectError:
+      [Errno 111] Connection refused'
+https://www.sciencedirect.com/journal/softwarex/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+https://www.sciencedirect.com/journal/the-international-journal-of-biochemistry-and-cell-biology/publish/guide-for-authors:
+  file: sciencedirect-com-journal-the-international-journal-of-biochemistry-and-cell-bio-f9b4da69.txt
+  read: '2024-01-23'
+  route: wayback:20240123125024
+  passages: 6
+  sha256: eb0e4819305731dca3a15b949fde1f97b2ad714c98fbdc422c21996218741da4
+https://www.sciencedirect.com/journal/translational-medicine-of-aging/publish/guide-for-authors:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: page too short (a stub, login wall or script shell); wayback: no archived
+      copy'
+? https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690
+: file: springernature-com-gp-advancing-discovery-springboard-blog-blogposts-trust-integ-c9d0a146.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 6
+  sha256: fc5c084a18ada1ae409227c1e494351fa58b4f1f67f1bd9ac2318e07e44d4ba7
+https://www.springernature.com/gp/policies/editorial-policies:
+  file: springernature-com-gp-policies-editorial-policies-8a044671.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 4
+  sha256: 687a68b942f403e950bac326d442e5aada603a9c8f45180454887e93ce920210
+https://www.springernature.com/gp/policies/editorial-policies/ai-editor-guidance:
+  file: springernature-com-gp-policies-editorial-policies-ai-editor-guidance-fffb0511.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 42
+  sha256: 4bad98889f2b5daac3aaced3279ae8ab5f9cc6ee523249557f22cc15fc7a5be4
+https://www.springernature.com/gp/policies/editorial-policies/ai-manuscript-preparation:
+  file: springernature-com-gp-policies-editorial-policies-ai-manuscript-preparation-cc70d5ce.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 32
+  sha256: ff3b723ef8bf866d3e55e2ed6e388d6ecabb447aa773a05fb19eff32d5ecf715
+https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-peer-review:
+  file: springernature-com-gp-policies-editorial-policies-using-ai-in-peer-review-646d02f2.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 58
+  sha256: 453db758d1222e481e137d69975a38fac222ce9982d1035bd90483a79ce30834
+https://www.springernature.com/gp/policies/editorial-policies/using-ai-in-research:
+  file: springernature-com-gp-policies-editorial-policies-using-ai-in-research-f5bb56fa.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 22
+  sha256: 2f5a96954ce05affacb1d87726e8634de9fa7b0b86092984b407964aa779f696
+https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=bfsn20:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=idrd20:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=ipgs20:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.tandfonline.com/action/journalInformation?journalCode=bfsn20:
+  file: tandfonline-com-action-journalinformation-journalcode-bfsn20-acbac587.txt
+  read: '2024-07-08'
+  route: wayback:20240708224632
+  passages: 0
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+https://www.tandfonline.com/action/journalInformation?journalCode=idrd20:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://www.thelancet.com/editorial-policies:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.thelancet.com/lanmic/about:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: no archived copy'
+https://www.thelancet.com/pb-assets/Lancet/authors/ebm-info-for-authors.pdf:
+  file: thelancet-com-pb-assets-lancet-authors-ebm-info-for-authors-pdf-ba26787b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 1
+  sha256: 1a6c30b202ac255583464670722e46c1976745305d07d5ea3d116b755a70a17f
+https://www.thelancet.com/pb-assets/Lancet/authors/tl-info-for-authors-1787150940677.pdf:
+  file: thelancet-com-pb-assets-lancet-authors-tl-info-for-authors-1787150940677-pdf-b8602d02.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 7
+  sha256: c94fde26b533a74fb72145fa0f0918d7476e34c3d7d8028a305691e74d09fba3
+https://www.thelancet.com/pb-assets/Lancet/authors/tlhl-info-for-authors.pdf:
+  file: thelancet-com-pb-assets-lancet-authors-tlhl-info-for-authors-pdf-f2bd04da.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 1
+  sha256: 9c37db4bb73709f1b30f9fc307e79df4e0e64bf69e4e9515e3ebf70a96fc0cb9
+https://www.thelancet.com/pb-assets/Lancet/authors/tlmicro-info-for-authors-1787150928107.pdf:
+  file: thelancet-com-pb-assets-lancet-authors-tlmicro-info-for-authors-1787150928107-pd-6dd46dcc.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 3
+  sha256: f6eb6a687ab164b5e187dc03c0d7102ecb68bd0fd6a405f11a1f58c69757e93a
+https://www.thelancet.com/peer-review:
+  last_attempt:
+    date: '2026-10-15'
+    result: not_assessed
+    reason: 'httpx: blocked (HTTP 403); chrome: blocked (challenge page); wayback: ConnectError: [Errno 111] Connection refused'
+https://www.wiley.com/en-gb/publish/article/ai-guidelines/:
+  file: wiley-com-en-gb-publish-article-ai-guidelines-3a7da11b.txt
+  read: '2026-10-15'
+  route: httpx
+  passages: 318
+  sha256: c18ec3d85f5bb8458e6649f8d80cf7fad77d41db62f7cd5a451f8f3307d38389

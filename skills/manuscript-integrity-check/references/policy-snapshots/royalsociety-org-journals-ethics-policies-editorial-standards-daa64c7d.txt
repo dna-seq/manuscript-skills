@@ -1,0 +1,5 @@
+url: https://royalsociety.org/journals/ethics-policies/editorial-standards/
+---
+## Peer review systems
+
+Unless published with the article, the referee reports and other correspondence relating to your paper must remain confidential and should not be shared or made publicly available. If discussions between an author, editor, and referee have taken place in confidence they will remain in confidence unless explicit consent has been given by all parties or there are exceptional circumstances. Referees inputting manuscript details into generative AI tools is prohibited. AI tools provide no guarantee of where data are being sent, saved, viewed, or used in the future.

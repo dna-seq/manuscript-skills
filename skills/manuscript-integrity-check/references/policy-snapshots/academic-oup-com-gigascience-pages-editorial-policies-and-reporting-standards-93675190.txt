@@ -1,0 +1,19 @@
+url: https://academic.oup.com/gigascience/pages/editorial_policies_and_reporting_standards
+---
+AI Discovery Assistant
+
+## Authorship
+
+Authors should not list AI and AI-assisted technologies as an author or co-author, nor cite AI as an author or credit them as a contributor in the Acknowledgements. Each author is fully accountable for ensuring the accuracy or integrity of their manuscript, including those parts produced by an AI tool.
+
+## Use of AI Tools and Technologies in Writing
+
+Use of generative AI-writing tools such as ChatGPT is allowed as long as it is disclosed in a transparent manner and does not negatively affect empirical data and conclusions. AI-writing tools must be highlighted wherever necessary with in-text citations and mentioned among references. A summary of use (particularly in the introduction or among methods) needs to be included at the end of the paper, and the outputs should also be included as a supplementary file hosted in GigaDB or other open repositories. Authors should not list AI-writing tools and other AI-assisted technologies as an author or co-author. All authors should acknowledge that they are fully responsible for text generated or refined by AI-writing tools.
+
+## Image manipulation
+
+If any questions are raised at any time, these will be referred to the Editor. The use of generative AI tools must not be used to alter figures, particularly in any manner that adds, removes, alters, highlights, or modifies the relationship of individual elements within the image. The authors must be able to supply the original data, which will then be compared to the prepared figures. If the original data are not provided, the manuscript may be rejected during peer review, or retracted if published. If image manipulation effects in any way the interpretation of the data, the work will be rejected or retracted. If misconduct is suspected, this will be reported to the author(s)' institution(s). ALL authors of the work will be held accountable.
+
+## Misuse of AI-assisted technologies
+
+Authors must follow GigaScience and COPE guidelines on use of generative AI-assisted technologies. Authors hold responsibility for fact-checking and validity of any material generated using these technologies. GigaScence may use tools to detect undeclared or misuse of AI.

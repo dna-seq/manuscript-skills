@@ -1,0 +1,17 @@
+url: https://reviewer.elifesciences.org/author-guide/journal-policies
+---
+## Reviewed Preprints
+
+Striking images: Authors are encouraged to provide a striking image (preferably in colour) that we can use to highlight the article if it is published as a Reviewed Preprint. Images should be in landscape format, with strong visual impact, and be at least 1800 x 900 pixels in size: PNG, TIFF or JPEG formats are preferred. Images should not include labels or text, and should be composed of no more than one or two panels. Please see here , or look at our social media channels for more ideas about the types of images we look for. These files must be available to use under the terms of the Creative Commons Attribution Licence , which means that we cannot include images generated using artificial intelligence. Please upload these images using the Potential Striking Image file type, and please include a short caption that explains what is shown in the striking image.
+
+## Figures and figure supplements:
+
+Figures and figure supplements can be uploaded in the following formats: TIFF, JPG, EPS, AI and PDF. If providing figures in TIFF format, please provide this in 8-bit format. If you would like to supply PDF images please ensure that they are saved in a Vector image format.
+
+## Scientific Integrity
+
+We are committed to maintaining the scientific integrity of what we publish. Our process combines the advantages of preprints with the scrutiny of peer review. Authors are required to comply with our policies intended to safeguard the integrity of the work, such as our policies on image acquisition and presentation, plagiarism, and use of artificial intelligence. Staff perform quality and integrity checks on submissions in line with these policies, aided by a range of tools and services. Authors are expected to cooperate while we attempt to resolve questions or concerns, and to promote transparency and reproducibility of the work they publish. If issues are identified post-publication, the journal will investigate and where appropriate publish a post-publication notice to alert readers (see section below "Corrections and retractions").
+
+## Use of artificial intelligence tools and technology
+
+Generative artificial intelligence tools such as ChatGPT or AI using large language models to generate article content are at an essential level just tools as, for example, imaging or statistical software. Whilst such AI tools might be used to aid researchers and authors in doing their work, they cannot be listed as or serve as co-authors of a paper, and their use must be clearly described in the Materials and Methods section. All authors are expected to comply with best practice in research and publishing ethics, remain accountable for their contributions, responsible for the proper use of AI tools and the reporting of AI tool-output, and are expected to cooperate with questions relating to the accuracy or integrity of any part of the work, including data, analyses and representation.

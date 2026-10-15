@@ -1,0 +1,5 @@
+url: https://gigabytejournal.com/reviewer-information
+---
+## Guide to GigaByte transparent peer review
+
+This journal is a member of the Committee on Publication Ethics (COPE), and Reviewers may want to read their guidelines for reviewers . These address important considerations, including what to do in the case of potential conflicts of interest, and the use of generative AI. While there are potential opportunities arising from generative AI, Reviewers are asked to ensure these types of tools and resources are not used as a substitute for their expert opinion and judgement. Before publication, information about the manuscript should also not be shared with Large Language Models and AI tools.

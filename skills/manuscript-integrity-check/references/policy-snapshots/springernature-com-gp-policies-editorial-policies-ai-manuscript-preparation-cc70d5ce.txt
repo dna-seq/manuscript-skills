@@ -1,0 +1,65 @@
+url: https://www.springernature.com/gp/policies/editorial-policies/ai-manuscript-preparation
+---
+## AI use in manuscript preparation
+
+Using AI safely when preparing your manuscript
+
+## Artificial intelligence (AI) tools are increasingly used to support manuscript preparation, from improving clarity and structure to assisting with drafting and summarisation. These uses can enhance communication and accessibility, but they vary in the level of influence they have on the scholarly content.
+
+Springer Nature applies a risk-assessment approach, focusing on how AI is used, rather than whether it is used.
+
+## A risk-assessment framework for AI use in writing
+
+AI supports clarity and presentation without altering scholarly content
+
+AI contributes to structuring or shaping written content
+
+Risk of generic or inaccurate content, loss of disciplinary voice, fabricated or incorrect citations, all AI generated or assisted content must be clearly labelled
+
+AI replaces authorship or generates scholarly content without oversight
+
+Writing results or discussion independently; generating scientific claims or interpretations; producing data or figures as if empirical; listing AI as an author; creating content from text prompts or without verifiable source data or material
+
+## What this means in practice
+
+Many uses of AI in writing are low risk and widely accepted, for example, improving grammar, clarity, or structure. These uses are surface-level, reversible, and remain fully under author control.
+
+AI can assist with expression, but the argument, interpretation, and conclusions must be author-led.
+
+## AI-generated and AI-assisted visual content
+
+AI may be used to create, modify, enhance or analyse visual content where its use is transparent, lawful, and does not compromise the accuracy or integrity of the scholarly and scientific record.
+
+## Visual content derived from verifiable inputs and source material
+
+The use of AI to generate, analyse, visualise or enhance visual content may be permitted where authors meet the following requirements:
+
+AI use is disclosed appropriately, including model and purpose of use;
+
+any AI-assisted processing, analysis or code generation has been subject to appropriate human review and validation;
+
+authors remain responsible for ensuring that the use of AI-generated or AI-assisted visual content does not infringe copyright, licensing or other intellectual property rights.
+
+## Visual content without verifiable inputs and source material
+
+AI generated visual content that is not derived from independently verifiable data, source material, methods, computational outputs or author-developed content is considered opaque and is not permitted by Springer Nature policy.
+
+## Non-generative AI tools
+
+Not all AI tools are generative.
+
+Some authors may hesitate to disclose AI use due to concerns about how it might be perceived. However, the policy is designed to support openness and consistency.
+
+Where AI use is not declared, editors may need to investigate or request clarification, which can delay the review process and shift attention away from the manuscript's contribution.
+
+Declaring AI use helps ensure that your work is assessed on its scholarly merit.
+
+## Transparency and disclosure for visual content
+
+Visual content that has been created, substantially modified or enhanced using AI should be disclosed clearly and transparently.
+
+Where AI-generated or AI-assisted visual content is published, information about the AI system used, the purpose of its use, and the extent of its contribution should be provided in an AI Declaration in your manuscript.
+
+## Key principle
+
+AI is safe when it helps you communicate your research. It becomes unsafe without adequate human oversight and accountability.

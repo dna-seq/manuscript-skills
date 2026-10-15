@@ -1,0 +1,11 @@
+url: https://academic.oup.com/nar/pages/author-guidelines
+---
+AI Discovery Assistant
+
+## AI-powered language processing models
+
+Natural language processing tools driven by artificial intelligence (AI) do not qualify as authors, and the Journal will screen for them in author lists. The use of AI (for example, to help generate content or images, write code, process data, or for translation) should be disclosed both in cover letters to editors and in the Methods or Acknowledgements section of manuscripts. Please see the COPE position statement on Authorship and AI for more details.
+
+## Pre-submission technical checks
+
+In partnership with Cactus, we are offering authors free usage of their Paperpal Preflight tool pre-submission. This is an AI-driven tool that performs technical checks tailored to Nucleic Acids Research . Authors are given a markup of suggested corrections to match their paper to journal requirements. Before submission, we encourage authors to run their paper through this tool. Please note that this is not mandatory and suggested corrections are optional. Authors also have the option to pay for additional language checking. The paid service is also not mandatory and all suggested corrections are optional.

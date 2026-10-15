@@ -1,0 +1,9 @@
+url: https://www.springernature.com/gp/policies/editorial-policies
+---
+## Artificial Intelligence
+
+We believe that artificial intelligence (AI) can support research and publishing when used responsibly, transparently, and with appropriate human oversight. AI can improve efficiency and assist with a range of activities across the research and publishing lifecycle, but it must not replace scholarly judgement, accountability, or editorial decision-making.
+
+We achieve this by applying a risk-assessment framework across the research and publishing lifecycle. Specific guidance is available for AI use in manuscript preparation , AI use in research practice , AI use in peer review , and editor AI use and assessment guidance . Our editorial policies are guided by four core expectations: human accountability cannot be transferred to AI systems; AI may support but not replace scholarly judgement; transparency about AI use builds trust and confidence; and confidentiality and data protection must be maintained when using AI tools.
+
+We recognise that AI technologies are evolving rapidly and will continue to review and update our policies to reflect developments in technology, regulation, and community expectations.

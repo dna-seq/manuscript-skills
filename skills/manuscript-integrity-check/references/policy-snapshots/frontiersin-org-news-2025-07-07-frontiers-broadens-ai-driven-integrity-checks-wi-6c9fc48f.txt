@@ -1,0 +1,23 @@
+url: https://www.frontiersin.org/news/2025/07/07/frontiers-broadens-ai-driven-integrity-checks-with-integration-of-cactus
+---
+## Frontiers | Science news
+
+Frontiers broadens AI‐driven integrity checks with integration of Cactus' Paperpal Preflight and Clear Skies' Papermill Alarm and Oversight into AIRA
+
+Frontiers announced today that external industry‐leading fraud‐screening tools - Cactus Communications' Paperpal Preflight and Clear Skies' Papermill Alarm and Oversight - have been integrated into its own Artificial Intelligence Review Assistant (AIRA) submission-screening system. The expansion delivers an unprecedented, multilayered defense against organized research fraud, strengthening the reliability and integrity of every manuscript submitted to Frontiers.
+
+## Commitment to integrity and building on AIRA's seven‐year legacy
+
+Since its launch in 2018, AIRA has supported the Frontiers Research Integrity Team in maintaining quality and integrity at scale, making Frontiers one of the early adopters of AI in submission checking . In 2022, Frontiers added its own papermill check to its comprehensive catalogue of AIRA checks, which aims to tackle the industry-wide problem of manufactured manuscripts . This is part of the routine updates to AIRA, released regularly as additional industry insights into papermill operations have become available. The latest version, released in 2025, uses more than 15 data points and signals of potential manufactured manuscripts to be investigated and validated by a human expert.
+
+"Maintaining trust in the scholarly record demands constant innovation. By combining the unique strengths of Clear Skies and Cactus with our own AI capabilities, we are raising the bar for integrity screening and giving editors and reviewers the confidence that every submission has been rigorously vetted."
+
+"This partnership with Frontiers reflects the confidence leading publishers have in our AI-driven solutions. Paperpal Preflight is a vital tool that supports editorial teams and existing homegrown solutions in identifying and addressing potential issues early in the publishing workflow. As one of the world's largest and most impactful research publishers, Frontiers is taking an important step in strengthening research integrity, and we are proud to collaborate with them in this mission of safeguarding research."
+
+Frontiers is a leading research publisher. Our role is to provide the world's scientists with a rigorous and efficient publishing experience. Scientists empower society and our mission is to accelerate collaboration and discovery by making science open - enabling researchers to find the solutions we all need for healthy lives on a healthy planet. Powered by custom-built technology, artificial intelligence, and a collaborative peer review, our community journals give experts in more than 1,800 academic fields an open access platform to publish high quality, high impact research. Through our outreach work to build strong partnerships with business, policymakers, and educators, we're leading the transition to open science.
+
+Established in 2002, Cactus Communications ( cactusglobal.com ) is a leading technology company that specializes in expert services and AI-driven products which improve how research gets funded, published, communicated, and discovered. Its flagship brand Editage offers a comprehensive suite of researcher solutions, including expert services and cutting-edge AI products like Paperpal, R Discovery, and Mind the Graph.
+
+## Science for all with compatible AI
+
+## Artificial Intelligence to help meet global demand for high-quality, objective peer-review in publishing

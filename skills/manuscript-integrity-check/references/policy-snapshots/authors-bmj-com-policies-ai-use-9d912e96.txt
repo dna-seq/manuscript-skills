@@ -1,0 +1,51 @@
+url: https://authors.bmj.com/policies/ai-use/
+---
+## In this section:
+
+AI use
+
+BMJ considers artificial intelligence (AI) to include large language models such as Chat GPT, and any other technologies which use machine learning, deep learning, logical reasoning, knowledge representation, planning or navigation, natural-language processing, perception, emergent intelligence, or any other similar or equivalent technologies from time to time. This may include technologies that make automated decisions. We recognise the potential for both benefit and harm to academic literature from the use of AI technologies.
+
+Transparent reporting of AI technologies in content submitted to BMJ journals
+
+Responsibility for content produced or influenced by AI technology
+
+## The policy
+
+BMJ will consider content where AI technologies are used. Our approach is one of transparency. Where AI technology has been used this should be clearly described. Editors will consider the suitability of the use outlined. Our approach is in line with organisations including the World Association of Medical Editors (WAME) and the Committee on Publication Ethics (COPE) .
+
+This policy applies to all authors and contributors submitting content for publication in a BMJ title. It applies to all types of content, including original research, debate, opinion, journalism. It applies to all formats, including, without limitation, all text, audio, video and audio-visual material, abstracts, databases, tables, data, diagrams, photographs and other images or illustrative materials. The same principles apply to the use of AI in peer review comments submitted to journals and any other advice or material sent to us.
+
+We expect authors or others who are creating content to disclose and describe use of AI technologies in (a) any content which is submitted to us, (b) any other work by the authors which underpins or is otherwise connected with the content submitted to us, and (c) any key sources which are cited, to the best of the authors' knowledge.
+
+To ensure transparent declaration of AI, authors should:
+
+1. Include an acknowledgement of AI use in the 'contributor' section of written material. If the AI use was in the course of research, a fuller description should be included in the methods section.
+
+What AI technology was used (the name of the technology)
+
+Why this AI technology was used (the reason for its use)
+
+How the AI technology was used (what the task of the technology was)
+
+Consider including a summary of the input, output, and the way in which the AI output was reviewed on the part of the authors as supplementary files or additional information for the editor to review. The editor may ask for more information and/or for information to be added to the content for internal use and/or for publication.
+
+## Decision making
+
+BMJ will consider whether the way in which AI was used and declared is reasonable and consistent with its publication policies and practice. Content may be rejected or be subject to post-publication changes on the basis of inadequate declaration or on the particular circumstances of its use.
+
+## Authorship
+
+AI technologies will not be accepted as an author(s) of any content submitted to BMJ for publication. BMJ only recognises humans as being capable of authorship since they must be accountable for the work.
+
+Authors and contributors are responsible for content produced by AI technology in their work. This includes responsibility for accuracy, suitable attribution of sources, and absence of plagiarism.
+
+## Detection and screening
+
+We may, on a systematic or case by case basis, use screening tools pre-publication to assist with the identification of content generated (in whole or in part) through AI technologies. We may also use such tools post-publication.
+
+## Peer review
+
+If reviewers use AI technology to improve word processing and language, they should declare this when submitting their reports. However, reviewers should preserve the confidentiality of the peer review process by not putting unpublished manuscripts that they are reviewing for BMJ Journals (or information about them) into publicly available AI tools where ; the security of the confidential information cannot be guaranteed.
+
+Development in the field of AI is continuous. We will review this policy as necessary, or every six months until further notice. Any proposed significant variation will be discussed with relevant stakeholders according to the degree of change proposed and those likely to be affected.

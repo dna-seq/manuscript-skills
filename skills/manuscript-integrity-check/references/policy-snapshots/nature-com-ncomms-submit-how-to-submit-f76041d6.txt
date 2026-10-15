@@ -1,0 +1,9 @@
+url: https://www.nature.com/ncomms/submit/how-to-submit
+---
+## Author contributions
+
+Nature Communications requires an author contributions statement as described in the Authorship section of our joint Editorial policies . Large Language Models (LLMs), such as ChatGPT , do not currently satisfy our authorship criteria . Notably an attribution of authorship carries with it accountability for the work, which cannot be effectively applied to LLMs. Use of an LLM should be properly documented in the Methods section (and if a Methods section is not available, in a suitable alternative part) of the manuscript. In response to emerging information, advice, guidance and policy around artificial intelligence (AI), we have created a dedicated AI section in our Editorial Policy page . Please familiarize yourself with this content and comply with relevant policies.
+
+## Figures
+
+All line art, graphs, charts and schematics should be supplied in vector format, such as Encapsulated PostScript (.EPS), Adobe Illustrator (.AI), or Portable Document Format (.PDF), and should be saved or exported as such directly from the application in which they were made.

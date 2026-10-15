@@ -1,0 +1,19 @@
+url: https://www.acm.org/publications/policies/new-acm-policy-on-authorship
+---
+## Use of Artificial Intelligence
+
+Over the past few years, the computing community's use of large language models to support research and authorship has evolved rapidly, becoming a mainstream practice. ACM embraces any new technologies that have the potential to improve the efficiency and productivity of the research enterprise and assist with the authorship process.
+
+Rather than attempt to limit the use of Artificial Intelligence (AI) to conduct research or report on the results of that research by placing expectations on authors to disclose all uses of large language models in their Works, this updated Policy attempts to set clear expectations for their responsible use, as follows:
+
+When using Artificial Intelligence to conduct research, including the design and methodology of the research project, creation and selection of data sources, designing experiments, generation and collection of data, coding, implementing models, running simulations, data analysis, testing, validating results, deploying software, archiving data and code for reproducibility, or any other aspects of the research lifecycle that are directly relevant to the conclusions of the research underlying the Work, the specific use(s) of AI tools must be described in detail in the methods section of the Work. This includes the creation of artifacts that are directly relevant to the conclusions of the research, such as code, datasets, and charts or figures that rely on the AI tools.
+
+When using Artificial Intelligence to assist with writing an ACM submission, ACM no longer requires the disclosure of information regarding the use of AI (as distinct from AI used in the conduct of the research itself, addressed in item 1 above).
+
+In the event content integrity issues stemming from the use of AI during authorship are identified prior to publication or posting in the ACM Digital Library , ACM reserves the right to reject submissions in their entirety and impose additional penalties.
+
+In the event content integrity issues stemming from the use of AI during authorship are identified after publication or posting in the ACM Digital Library , ACM reserves the right to retract the published Work in its entirety.
+
+A retraction notice will be published on the citation page of the published Work, indicating the Work has been retracted because of integrity issues identified after publication, including the inclusion of fraudulent material. ACM may or may not include any reference to the use of Artificial Intelligence in the retraction notice.
+
+Further details regarding the interpretation of ACM's policy on the use of AI tools and illustrative examples are provided in the FAQs .

@@ -1,0 +1,85 @@
+url: https://www.springernature.com/gp/policies/editorial-policies/ai-editor-guidance
+---
+## Editor AI use and assessment guidance
+
+Artificial intelligence (AI) is increasingly used across the research and publishing lifecycle, from literature discovery and data analysis to manuscript preparation and peer review. As these tools become more common, editors need a practical way to assess AI use that supports innovation while protecting research integrity.
+
+Springer Nature's AI Editorial Policies take a risk-based approach. Rather than focusing on whether AI has been used, editors should consider how it has been used, the potential impact on the integrity of the work, and whether appropriate transparency and accountability measures are in place.
+
+This framework provides a shared approach for assessing AI use across manuscripts and peer review. It supports consistent, proportionate, and context-sensitive decision-making, helping editors respond to concerns fairly while encouraging openness and responsible AI use.
+
+The nature and extent of AI involvement
+
+Whether AI use has been disclosed transparently and appropriately
+
+The goal is not to identify or penalise AI use, but to understand and manage risk in a way that supports trust, transparency, and responsible research practice.
+
+## Editors' own use of AI to assist in evaluation of manuscripts
+
+Faced with assessing manuscripts where editors are unsure if and how AI might have been used can be daunting. We are aware that there are a number of tools which editors may have access to which claim to be able to detect the use of generative AI. The accuracy and usefulness of such tools is far from definitive, and no tool is able to confirm whether the AI use was safe and policy compliant. Indeed, any such tools should be used with extreme caution, both in terms of the results they surface and the privacy and confidentiality frameworks within which they are being used (1, 2, 3). Some enterprise and institutional versions of these AI detectors can retain and train on content uploaded to them; making them inappropriate for use with unpublished manuscripts as this would be a breach of confidentiality. The terms of service, data retention practices and model-training provisions of such systems vary considerably, and the confidentiality of unpublished manuscripts may not be guaranteed.
+
+Editors should also not upload manuscripts into public or open AI tools for assistance in evaluation. The idea of context when using AI and assessing its use is incredibly important as you can see from the further guidance below.
+
+1. Weber-Wulff, D., Anohina-Naumeca, A., Bjelobaba, S. et al. Testing of detection tools for AI-generated text. Int J Educ Integr 19, 26 (2023). https://doi.org/10.1007/s40979-023-00146-z
+
+2. Moorhouse B J., Jia M. Universities must help shut down the illicit AI detection economy . Times Higher Education, June 24 (2026).
+
+3. Deep, P.D., Edgington, W.D., Ghosh, N., Rahaman, M.S. Evaluating the Effectiveness and Ethical Implications of AI Detection Tools in Higher Education. Information 16, 905 (2025). https://doi.org/10.3390/info16100905
+
+## Editors assessing AI use in manuscripts
+
+Springer Nature uses a risk assessment style of AI Editorial Policy. This may require an adjustment in how AI use is considered by editors, peer reviewers, and authors. To help in this assessment Springer Nature has developed a traffic-light system where Green signifies safe, light-touch AI use, Amber signifies more extensive use where AI has been used for evaluative and analytical tasks and where a deeper consideration of bias, errors, safety and human accountability need to be taken into account, and Red signifies unsafe uses of AI. Red uses of AI would be where human accountability and expertise has been replaced by AI - delegating responsibility for scholarly or editorial contribution, or any use which compromises confidentiality, integrity or consent. The table below outlines the framework for different risk categories and gives some examples of AI-use for each risk.
+
+Green - Assistive AI use (low risk)
+
+Amber - Evaluative or interpretive AI use (requires caution and care)
+
+Red - Substitutive or opaque AI use (not permitted)
+
+AI use that supports expression, organisation, or efficiency without influencing scientific, scholarly or evaluative judgement.
+
+AI use that may influence interpretation, framing, emphasis, or evaluative judgement, but remains under human control.
+
+AI use that is opaque or replaces accountable human contributions, generates unverifiable outputs, or compromises confidentiality or integrity.
+
+AI use is likely to be reversible and verifiable
+
+AI use does not introduce new intellectual content
+
+AI contributes to reasoning or critique
+
+AI does introduce new intellectual content and requires verification and oversight
+
+AI use is opaque or creates non-verifiable outputs
+
+Author, reviewer or editorial responsibility has been delegated to AI
+
+AI use has breached confidentiality or consent
+
+Examples : using an LLM to polish or refine the language, suggesting structure or formatting of manuscript sections, translation, structuring or clarifying reviewer comments, comparing methodological options, stress-testing research questions, data cleaning and deduplication
+
+Examples : generating hypotheses, analyses or conclusions and presenting them as human-derived, fabricating data, citations or results, using an LLM to generate core research reasoning without disclosure, assigning authorship or accountability to AI systems or tools, delegating peer review to an LLM, creating photorealistic images (deepfakes)
+
+Permitted with human oversight, verification, and transparency through disclosure. If AI materially influences evaluative judgement, accountability must remain clearly human-led and defensible.
+
+## AI Declarations policy
+
+To support this new framework and approach to AI in editorial contexts Springer Nature has developed an AI Declarations policy. This new policy sets out the expectation for clear declaration of any AI use, including for research purposes, for writing/manuscript preparation and for peer review. This policy has been developed to encourage and foster an environment of trust and transparency. Researchers under-declare or simply do not declare their AI use for a number of reasons; the predominant one being that researchers fear negative repercussions, including negative bias towards the handling and peer review of their paper, and an assumption of poorer quality (4, 5).
+
+## Editorial assessment of declarations
+
+Editors should assess AI declarations proportionately and in accordance with the AI Editorial Policies.
+
+The presence of an AI declaration does not indicate concern.
+
+4. BaHammam AS. The Transparency Paradox: Why Researchers Avoid Disclosing AI Assistance in Scientific Writing. Nat Sci Sleep. 2025 Oct 8;17:2569-2574. doi: 10.2147/NSS.S568375. PMID: 41084525; PMCID: PMC12515416 .
+
+5. Staiman Avi. Why Authors Aren't Disclosing AI Use and What Publishers Should (Not) Do About it. The Scholarly Kitchen, 2026 Jan; https://scholarlykitchen.sspnet.org/2026/01/27/why-authors-arent-disclosing-ai-use-and-what-publishers-should-not-do-about-it/
+
+## What will this look like in practice?
+
+In practice, Springer Nature does not expect editors to identify or investigate undisclosed or unsafe uses of AI. The reframing of our policies into the traffic-light risk assessment framework, together with the introduction of the AI Declarations policy, represents an important first step towards fostering a culture of trust, transparency and accountability in the use of AI in research and publishing.
+
+As awareness and adoption of these policies grow, editors should expect to see AI declarations become a routine part of the submission process. These declarations may describe how AI was used and confirm that the authors take full accountability for all aspects of their work, or may simply state that AI was not used in any part of the submission. As we roll out this policy across our submission and peer review workflows authors and reviewers will also be asked to confirm that they have read and complied with the Springer Nature AI Editorial Policies when submitting a manuscript or peer review report.
+
+During this period of adoption, it is important to recognise that declarations may vary in detail and completeness as authors, reviewers and editors become familiar with these new requirements. We therefore encourage editors to support this transition by promoting openness and transparency wherever possible. The presence of an AI Declaration, or the disclosure of AI use, should not in itself be considered a cause for concern. There are many ways in which AI can be used safely and appropriately in both manuscript preparation and peer review, and transparent disclosure helps us build the trust needed to navigate this evolving landscape together.

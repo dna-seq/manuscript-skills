@@ -1,0 +1,11 @@
+url: https://open-research-europe.ec.europa.eu/about/policies
+---
+## 3. Authorship
+
+Authors must be aware that using AI-based tools and technologies for article content generation, e.g. large language models (LLMs), generative AI, and chatbots (e.g. ChatGPT), is not in line with our authorship criteria. All authors are wholly responsible for the originality, validity and integrity of the content of their submissions. Therefore, LLMs and other similar types of tools do not meet the criteria for authorship.
+
+Any assistance from AI tools for content generation (e.g. LLMs) and other similar types of technical tools which generate article content, must be clearly acknowledged within the article. It is the responsibility of authors to ensure the validity, originality and integrity of their article content. Authors are expected to use these types of tools responsibly and in accordance with our editorial policies on authorship and principles of publishing ethics.
+
+## 5. Ethical Policies
+
+Artificial intelligence.

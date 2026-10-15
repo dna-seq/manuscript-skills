@@ -1,0 +1,25 @@
+url: https://gigabytejournal.com/information-for-authors
+---
+## What should be cited?
+
+Articles, clinical trial registration records, abstracts that have been published or are in press, the products of public e-print/preprint servers, should be cited. Use of AI-assisted technology (e.g. generative AI tools such as ChatGPT) in parts of the text or figures should also be cited, including information about the version of AI-assisted writing tool used, the model used, the date of use and the user's name. See example in reference format information.
+
+## References
+
+Use of generative AI in manuscript and figure generation OpenAI (2023). ChatGPT (GPT-4, June 12 Version) [Large language model]. Response to query made by John Doe. 06/12/2023. https://chat.openai.com/chat
+
+DOME-ML Annotations with persistent identifier Atkins K, Garzón-Martínez GA, Lloyd L, Doonan JH and Lu C. (2024) Unlocking the Power of AI for Phenotyping Fruit Morphology in Arabidopsis. [DOME-ML Annotations]. DOME-ML Registry, https://registry.dome-ml.org/review/a8q3rb7qrv
+
+## Preparing Figures
+
+Authors are forbidden to use AI- Assisted Technology to create or modify figures in a manner that adds, removes, alters, highlights, or modifies the relationship of individual elements within the image.
+
+AI (Adobe Illustrator)
+
+## Preparing Supplementary Information
+
+Disclosure of use of AI-assisted tools including generative AI Any use of AI and AI-assisted technologies such as generative AI in writing papers should be declared and transparently cited and referenced. Disclosures should be made where used in the writing of and/or illustrations [MH1] in the paper and among the references, as appropriate. A summary of use needs to be included at the end of the manuscript (e.g. in a "Disclosure of use of AI-assisted tools including generative AI" section), and any text or and other AI generated output such as images generated should also be included as a supplementary file hosted in GigaDB or other open repositories.
+
+## Preparing Supporting Information
+
+Cover letter A cover letter that includes the following information, as well as any additional information requested in the instructions for your specific article type (see main manuscript section above): An explanation of why your manuscript should be published in GigaByte An explanation of any issues relating to journal policies A declaration of any potential competing interests Any use of AI-assisted technologies in the drafting of the manuscript should be declared Details on preprint versions of the submitted work Confirmation that all authors have approved the manuscript for submission Confirmation that the content of the manuscript has not been published, or submitted for publication elsewhere

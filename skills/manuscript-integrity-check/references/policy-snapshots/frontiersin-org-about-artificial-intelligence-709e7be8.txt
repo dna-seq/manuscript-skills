@@ -1,0 +1,63 @@
+url: https://www.frontiersin.org/about/artificial-intelligence
+---
+## Artificial intelligence
+
+At Frontiers we were born digital, built from the outset as a technology-enabled research publishing platform. Today, we steward one of the largest structured open access research datasets in the world. This scale of high-quality data powers our AI-driven integrity system, and the intelligent tools we use to strengthen research quality at scale.
+
+## About Frontiers' AI research tools
+
+advanced AI and technology
+
+AIRA is Frontiers' proprietary suite of artificial intelligence research tools, created to support peer review and the publishing process with innovative, trusted technology.
+
+The initials AIRA originally came from the name Artificial Intelligence Review Assistant. Now, AIRA is more than a single tool: it's a family of trusted AI assistants. From our original AI review to specialized integrity and workflow agents, every tool follows the same principles of transparency, ethics, and human oversight.
+
+AIRA is built on Frontiers' responsible AI governance framework , which commits us to transparency, human accountability, ethical guardrails, equitable access, and community-driven improvement. These principles ensure that AIRA strengthens scientific rigor and protects the integrity of research.
+
+Learn more about our AI-powered assistant
+
+## How AIRA was created
+
+Launched in 2018, AIRA's development began with a simple question: how can artificial intelligence enhance academic publishing while protecting research integrity? As the volume of scientific research grew along with a rise in sophisticated industry-wide fraud, publishers needed tools that are fast, accurate, and transparent. To answer this, Frontiers brought together experts in editorial workflows, data science, product design and research ethics. The result was an industry-first assistant that is:
+
+## How our AI tools support efficiency and integrity
+
+## AI supporting reviewers and editors
+
+AIRA Review Guide is an integrated AI assistant available to reviewers within our review forum. With suggested prompts to guide them, the chat interface offers reviewers a way to ask AIRA any question about the manuscript, helping them to summarize, extract claims, find gaps, and more.
+
+Developing the tool fully in-house means we can ensure that the intellectual property and privacy rights of our authors remain fully protected, unlike external LLM-based tools.
+
+## Continual learning and evolution
+
+This ongoing development cycle allows Frontiers to respond quickly to feedback, address risks early, and build AI features closely aligned with the future of open science publishing.
+
+## Our framework for responsible AI governance
+
+All of our work is guided by our framework for responsible AI governance. The framework is shaped by our hands-on experience developing and deploying AI tools and aligned with leading international frameworks, including the OECD, UNESCO, NIST, ISO, and EU AI standards. It is formed of six pillars:
+
+AI literacy and capacity building in research
+
+By translating these broad global standards into a research and publishing context, the pillars make them more practical and usable for stakeholders across the research ecosystem. They also acknowledge the vital role of all stakeholders, including editors, reviewers, and publishers, whose standards and practices ensure that responsible AI use is embedded throughout research publishing.
+
+Read the full framework in our AI whitepaper
+
+## Latest AI news
+
+## Frontiers wins awards for AI and research integrity work
+
+Frontiers won gold and silver at the 2026 EPIC Awards, presented by the Society for Scholarly Publishing (SSP), for our pioneering work in AI and research integrity in publishing
+
+## Unlocking AI's untapped potential
+
+Our award-winning whitepaper shows that most peer reviewers now use AI and explores how we can translate this momentum into more transparent and more equitable research practices.
+
+## AI playbook for researchers
+
+Explore step-by-step guides and frameworks with copy and paste prompts for using AI effectively and responsibly across every stage of the research process.
+
+## What to read next
+
+See our AI playbook for researchers
+
+See our policies for ethical AI usage

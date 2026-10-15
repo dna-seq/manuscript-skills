@@ -1,0 +1,29 @@
+url: https://www.oncotarget.com/editorial-policies/
+---
+## Most Popular DOIs of 2025 (Crossref Data)
+
+Converging blockchain and next-generation artificial intelligence technologies to decentralize and accelerate biomedical research and healthcare 10.18632/ONCOTARGET.22345
+
+## II. Editorial Policies
+
+Artificial Intelligence Tools
+
+The integration of Artificial Intelligence (AI) in scientific research offers numerous benefits but also presents unique challenges and ethical considerations. This policy outlines Oncotarget's stance on responsible AI use in scientific research and publication, ensuring transparency, accountability, and integrity.
+
+## AI AUTHORSHIP
+
+Large Language Models (LLMs), such as ChatGPT, currently do not meet the criteria for authorship. Authorship implies accountability for the work, which cannot be ascribed to LLMs. Researchers must document the use of LLMs in the Methods section of their manuscripts, or in an appropriate alternative section if a Methods section is not available.
+
+## GENERATIVE AI IMAGES
+
+The use of generative AI for image creation introduces complex legal and ethical issues. While these issues are still being resolved, the use of AI-generated images and videos in publications is generally not permitted unless the images are obtained from agencies with whom we have contractual agreements and are created in a legally acceptable manner. Exceptions are also made for images and videos referenced in works specifically about AI, subject to case-by-case review. Researchers should disclose the use of non-generative AI tools for manipulating, combining, or enhancing existing images or figures in the relevant caption upon submission for individual assessment.
+
+## AI USE BY PEER REVIEWERS
+
+Peer reviewers are crucial to maintaining the quality and credibility of content published in Oncotarget . Their evaluations must be based on their expertise and must not rely on generative AI tools due to potential issues such as outdated information and inaccuracies. Moreover, manuscripts may contain sensitive or proprietary information that should not be shared with AI tools. Any use of AI tools in evaluating manuscripts must be transparently declared in the peer review report.
+
+## AI TOOLS AND TECHNOLOGIES
+
+AI tools and technologies contributing to a study or article must be clearly reported in the Methods or Acknowledgements section, detailing the tools used, their application, and the validation of their outputs. Authors are responsible for ensuring the accuracy, validity, and originality of AI-generated content, avoiding plagiarism, and properly citing all sources. AI should not be used to fabricate or misrepresent research data.
+
+Adherence to this policy will help maintain the integrity of scientific research and publication in the evolving landscape of AI technology. Regular reviews and updates to this policy will be conducted to keep pace with advancements in AI.

@@ -1,0 +1,9 @@
+url: https://royalsociety.org/journals/authors/author-guidelines/
+---
+## Author guidelines
+
+Please refer to our policy on the use of Artificial intelligence (AI) and AI-assisted technologies in preparing your manuscript.
+
+## Use of Artificial Intelligence (AI) and AI-assisted technologies
+
+You will be asked to declare whether you have used AI technologies in the preparation of your paper. If you have, please provide a statement about how you have used this - the statement will be published in the final article. Please read our policy for full details of allowed use.

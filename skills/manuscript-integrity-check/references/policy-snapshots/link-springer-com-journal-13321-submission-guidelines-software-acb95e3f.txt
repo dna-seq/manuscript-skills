@@ -1,0 +1,9 @@
+url: https://link.springer.com/journal/13321/submission-guidelines/software
+---
+## Preparing your manuscript
+
+Large Language Models (LLMs), such as ChatGPT , do not currently satisfy our authorship criteria . Notably an attribution of authorship carries with it accountability for the work, which cannot be effectively applied to LLMs. Use of an LLM should be properly documented in the Methods section (and if a Methods section is not available, in a suitable alternative part) of the manuscript
+
+## Declarations
+
+Zowghi D (1996) A framework for reasoning about requirements in evolution. In: Foo N, Goebel R (eds) PRICAI'96: topics in artificial intelligence. 4th Pacific Rim conference on artificial intelligence, Cairns, August 1996. Lecture notes in computer science (Lecture notes in artificial intelligence), vol 1114. Springer, Heidelberg, p 157.

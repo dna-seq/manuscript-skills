@@ -1,0 +1,145 @@
+url: https://group.springernature.com/gp/group/ai/ai-guidance-for-our-researchers-and-communities
+---
+Our AI approach and principles
+
+AI guidance for researchers, editors and reviewers
+
+AI guidance for our communities and partners
+
+Our latest AI news
+
+Overview AI
+
+## AI GUIDANCE FOR RESEARCHERS, EDITORS AND REVIEWERS
+
+We require our research community to take accountability and authorship of their work, transparently declaring any use of AI in line with our policies.
+
+AI has many benefits, when used responsibly, to enhance discovery, broaden inclusivity, and protect the trustworthiness of the scientific record. Springer Nature supports the responsible and transparent use of AI where it strengthens research quality, upholds editorial independence, and preserves the integrity of the scientific and scholarly record.
+
+We place human-centred values at the heart of our approach to the responsible use of AI, and these are reflected in our AI Principles and editorial policies. We expect our authors, editors, and peer reviewers to follow our AI Principles. We firmly believe AI supports, not replaces human expertise, and a human should always be accountable to edit and fact-check original work.
+
+The Springer Nature AI Ethics and Policy Forums consistently monitor changes in regulations, technology as well as global and community expectations and update our AI policies in line with these as needed.
+
+For our detailed policies and information relating to AI use including images, videos and generative AI tools, please see below supported by the full policy documents at the links below.
+
+## AI policies for book authors and editors
+
+## AI policies for journal authors and editors
+
+## Guidance for researchers, editors and reviewers on the use of AI in publishing
+
+Springer Nature's AI policies set out an assessment framework governing how AI may be used across the research and publishing lifecycle, applied consistently to authors, peer reviewers, and editors, while recognising their distinct roles and responsibilities.
+
+AI is treated as a supporting technology. Scholarly judgement, accountability, and responsibility always remain human.
+
+Rather than focusing on whether AI has been used, the policies ask each user to consider:
+
+how AI has been used
+
+Human accountability is non‐transferable : Accountability for scholarly content, evaluation, and editorial decisions cannot be delegated to AI systems.
+
+AI may support, but must not replace, scholarly judgement: AI can assist clarity, efficiency, and exploration, but must not determine conclusions, evaluations, or decisions.
+
+Transparency creates trust and confidence: Transparent declaration of AI builds trust and confidence, and removes ambiguity about how AI might have been used.
+
+Confidentiality and data protection are mandatory : Manuscripts, peer review reports, and sensitive data must not be shared with unsecured or public AI systems, always in compliance with the applicable local laws.
+
+Assistive AI use
+
+Evaluative or interpretive AI use
+
+AI replacing scholarly judgement or lacking transparency
+
+AI use that supports expression, organisation, or efficiency without influencing scientific, scholarly or evaluative judgement.
+
+AI use that may influence interpretation, framing, emphasis, or evaluative judgement, but remains under human control.
+
+AI use that is opaque or replaced accountable human contribution, generates unverifiable outputs, compromises confidentiality or integrity, or violates applicable laws.
+
+AI use is likely to be reversible and verifiable
+
+AI use does not introduce new intellectual content
+
+AI contributes to reasoning or critique
+
+AI does introduce new intellectual content and requires verification and oversight
+
+AI use is opaque of creates non-verifiable outputs
+
+Authors, reviewer or editorial responsibility has been delegated to AI
+
+AI use has breached confidentiality, consent, or rights of others
+
+Using an LLM to polish or refine the language
+
+Using an LLM to generate core research reasoning without disclosure
+
+Assigning authorship or accountability to AI systems or tools
+
+Delegating peer review to an LLM
+
+## Frequently Asked Questions
+
+AI authorship Guidance
+
+Authors remain responsible and accountable for the use of AI in their research, where it adheres with our guidance and principles. We expect all authors to use AI responsibly, lawfully and ethically and any use must be declared as outlined in our policies and below.
+
+The use of generative AI tools should be declared in the Introduction ​or Acknowledgements of the manuscript.​ The use of an AI tool for "AI assisted copy editing" purposes does not need to be declared.
+
+AI is a tool and cannot be held accountable. Thus, authorship and other tasks requiring accountability can only be performed by a human.
+
+Authors should familiarise themselves with the current known risks of using AI models before using them in their manuscript. AI models have been known to plagiarise content and to create false content. As such, authors should carry out due diligence to ensure that any AI-generated content is correct, appropriately referenced, and follow the standards as laid out in our Authors' Code of Conduct.
+
+Thinking about using AI?
+
+Chatbots and other AI tools can offer many time saving advantages. It is important to remember our AI Principles and policies when using AI. The quality of your AI output will be determined by your input. So, it is critical to remember to be responsible when entering prompts. Prompts are what you input into the AI in order to generate an output. Prompts can be questions, instructional text, data, images, video, or a combination.
+
+Be guided by our AI Principles. ​
+
+Stay informed about the latest developments in AI ethics and incorporate best practices into prompt creation.
+
+Disclosure: Use of AIGC must be fully and transparently declared, including tool versions, usage dates, prompts, and the extent of AI contribution within manuscripts.
+
+Data Collection and Literature Review : Researchers may use AIGC to gather and summarize literature or obtain conceptual clarifications but must verify the accuracy and authenticity of AI-generated information, especially because AI can produce fabricated or outdated references. Human oversight is mandatory to ensure scientific validity.
+
+Statistical Analysis and Interpretation : AIGC can assist in selecting statistical methods and performing basic analyses, but researchers are responsible for validating results and applying expert judgment. AI suggestions should be cross-checked with other tools or expert advice.
+
+Text Writing and Language Polishing : AIGC can improve readability, grammar, and structure, and aid in drafting literature reviews or summaries. However, AI should not replace original scientific thinking or be used to write entire manuscripts or interpret data. Researchers must carefully review and verify AI-generated text to avoid inaccuracies or bias.
+
+Citation Management : AIGC can check citation formats, generate references, and sort bibliographies, but authors must ensure all citations are relevant, accurate, and truthful. AI tools should serve only as aids, not substitutes, for scholarly responsibility.
+
+Can AI to ols like ChatGPT be listed as authors?
+
+No. Large Language Models (LLMs) do not meet Springer Nature's authorship criteria, as they cannot take accountability for the work. Their use must be documented in the manuscript's Methods section (or equivalent) or for book authors in the acknowledgements, introduction of preface of the manuscript.
+
+Do I need to declare AI-assisted copy editing ?
+
+The use of an LLM (or other AI-tool) for "AI assisted copy editing" should be declared in line with our AI guidance. In all cases, there must be human accountability for the final version of the text and agreement from the authors that the edits reflect their original wor
+
+Are generative AI images allowed in publications?
+
+Not included in this policy are text-based and numerical display items, such as: tables, flow charts and other simple graphs that do not contain images. Please note that not all AI tools are generative. The non-generative use of tools to manipulate, combine or enhance existing images or figures should be disclosed in the relevant caption upon submission to allow a case-by-case review.
+
+Can peer reviewers use generative AI tools?
+
+Peer reviewers may use secure or institutionally-approved AI tools (*) to assist them in line with our AI policies and in compliance with applicable laws. However, while AI may support reviewers, it cannot replace reviewer expertise, critique or judgement.
+
+Reviewers must also protect manuscript confidentiality and should not upload manuscript content to unsecured or public AI systems. Confidentiality obligations remain unchanged under the new policy.
+
+(*) Secure or institutionally-approved AI tools - (e.g. enterprise systems with appropriate data protection):
+
+Confidentiality risks may be reduced when using secure or institutionally approved AI tools. Dependent on the data and privacy policies and settings of these tools limited use of manuscript content may be acceptable.
+
+use AI proportionately and cautiously
+
+You may have access to AI detection tools via your institution. Some enterprise and institutional versions of these AI detectors can retain and train on content uploaded to them; making them inappropriate for use with unpublished manuscripts as this would be a breach of confidentiality. The terms of service, data retention practices and model-training provisions of such systems vary considerably. The confidentiality of unpublished manuscripts and the compliance with applicable laws must be guaranteed at any time.
+
+Does Springer Nature ever use any AI tools for the generation of supporting editorial content?
+
+Some Springer Nature journals and books occasionally use internal Springer Nature-developed AI tools to support the generation of accessory content, such as summary points. These are always edited and fact-checked by the author and/or editor to meet publication standards. Any substantive use of artificial intelligence beyond accessory content will be declared on an individual article/ book chapter basis.
+
+How is content published by Springer Nature used in an AI context?
+
+Our focus is always on how we can best use AI to help researchers get published faster, find relevant content quickly, ensure the integrity of the academic record, and reduce barriers. We have been using AI for over 10 years already in support of these goals. It remains, though, a fast-moving area and we are always open to things which will improve the experience for our customers and the wider research community.
+
+Does it meet our AI governance principles of fairness, transparency, accountability, and respect?"

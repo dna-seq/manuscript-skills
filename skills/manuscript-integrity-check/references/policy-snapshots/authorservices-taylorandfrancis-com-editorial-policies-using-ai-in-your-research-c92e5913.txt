@@ -1,0 +1,75 @@
+url: https://authorservices.taylorandfrancis.com/editorial-policies/using-ai-in-your-research-and-manuscript-preparations/
+---
+## Using artificial intelligence (AI) in your research and manuscript preparations
+
+## Taylor & Francis Editorial Policies
+
+The rapid advancement of artificial intelligence has created new opportunities and considerations for researchers and authors. As AI tools become increasingly sophisticated and widely available, understanding when and how they can be appropriately used in research and manuscript preparation is essential.
+
+This page provides guidance on permissible scenarios for AI use in your research workflow and writing process. We recognize that AI technology and best practices continue to evolve, so we encourage you to review this guidance regularly to stay informed of any updates.
+
+Please bookmark our AI policy to keep up to date with the latest guidance.
+
+## How to declare generative AI use in your manuscript
+
+Include a statement disclosing whether and how you used generative AI in your research or manuscript preparation. Your statement should cover:
+
+The name and version number of the AI tool used.
+
+Confirmation the authors have checked terms of use for the specific AI tool used, and therefore confirm suitability for publication.
+
+If you didn't use generative AI, state that clearly. For example: ' The authors report generative AI was not used in their research or preparation of this manuscript '.
+
+No - Taylor & Francis does not allow generative AI to create a first draft of a manuscript or sections of a manuscript.
+
+Yes - generative AI can be used to improve the spelling, grammar and flow of an article. It cannot be used to create or conclude the argument of an article.
+
+Yes - generative AI tools may be used to suggest references; however, the responsibility remains with the author(s) to verify the appropriateness and validity of those suggested references.
+
+Yes - generative AI can be used to translate an article into another language, as long as it has been fully checked and verified by an author or someone named in the acknowledgements for this purpose.
+
+Yes - generative AI can be used to visualise research data such as graphs and charts. It is not permitted to generate or manipulate outputs of research data e.g. Western blots, clinical images or interviews.
+
+The figure legend must also fully detail the use of generative AI (tool name and version number).
+
+Yes - generative AI can be used, for example, to generate an image of a process diagram or flow chart.
+
+Research methodologies involving AI tools
+
+Yes - generative AI can be used in research methodology as long as the authors adhere to appropriate research ethics guidelines, applicable research reporting guidelines and keep full records of use, including prompts used. If handling personal data, consent must be obtained for data to be uploaded to a generative AI tool prior to its upload. Consideration around privacy and security implications must be given to private tool versions, versus public/free versions.
+
+The methods section must also fully detail the use of generative AI, and state adherence to applicable research ethics and research reporting guidelines, as well as any other appropriate disclosures.
+
+Yes - generative AI can be used to identify sources that are valid and relevant. It cannot be used to conduct and interpret the entire literature review, systematic review or meta-analysis. It cannot be used to generate an entire reference list or bibliography.
+
+The methods section must also fully detail the use of generative AI, and state adherence to applicable reporting guidelines, as well as any other appropriate disclosures.
+
+Yes - generative AI can be used to draft a PLS abstract that has been reviewed by the author for accuracy and validity.
+
+Yes - generative AI can be used for initial idea generation and exploration of a research project. It cannot be used to create or conclude the argument of an article.
+
+Yes - generative AI can be used to generate software code as long as it has been reviewed and verified by the author for accuracy.
+
+Yes - generative AI can be used to code interview responses. If handling personal data, consent must be obtained for data to be uploaded to a generative AI tool prior to its upload for coding.
+
+## Detailed AI use scenarios and guidelines
+
+Below, you'll find specific scenarios and recommendations to help you navigate the responsible use of AI tools in your scholarly work.
+
+## Authorship and acknowledgements
+
+Please read our Authorship editorial policies for the latest guidance on use of AI tools and how these relate to responsible and ethical authorship and acknowledgements publishing practices.
+
+## Images and figures
+
+Please read our Images and figures editorial policies for the latest guidance on responsible, transparent and ethical use of AI tools in image and figure generation.
+
+Use of AI tools as part of ethical research studies is permitted. Authors must provide full methodological details and adhere to relevant reporting guidelines where applicable (e.g. CONSORT-AI, STARD-AI, GAMER, TRIPOD-AI, etc). A declaration must be included in the research methodology, in addition to the Declaration of AI use statement, stating:
+
+## Literature reviews, meta-analysis and bibliometrics studies
+
+Use of AI tools as part of ethically conducted literature reviews, systematic reviews, meta-analysis and bibliometrics studies is permitted. Authors must provide full methodological details and adhere to relevant reporting guidelines where applicable. A declaration must be included in the research methodology, in addition to the Declaration of AI use statement, stating:
+
+## Plain Language Summaries (PLS) abstracts
+
+Use of AI tool assisted plain language summaries (PLS) of authors own work is permitted. Authors must retain the original and revised versions which must be shared upon request. A Declaration of AI use statement must be included within the submission, stating:
