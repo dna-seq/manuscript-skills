@@ -2363,6 +2363,7 @@ def _undated_findings(prose: list[tuple[int, str]]) -> list[Finding]:
 def check_references(path: Path, online: bool, search_unidentified: bool,
                      unidentified: str = "strict") -> ReferenceReport:
     """Identity and citation consistency only, shared by focused checks and full audits."""
+    _ASKED.clear()  # one run, one cache: never an answer from an earlier run in the same process
     raw = path.read_text(encoding="utf-8")
     text = _strip_comments(raw)
     lines = _lines(text)

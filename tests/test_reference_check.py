@@ -881,3 +881,11 @@ def test_a_reference_with_no_identifier_never_passes_unless_lax(mode: str, sever
     (finding,) = [f for f in scan._reference_findings([ref], online=True, unidentified=mode) if "no DOI" in f.message]
     assert finding.severity == severity
     assert ("candidate, not a pass" in finding.message) == (mode == "strict")
+
+
+def test_a_new_run_never_reuses_an_earlier_runs_answers(wire: Wire, tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text("# Paper\n\nSee https://example.org/page for the tool.\n", encoding="utf-8")
+    scan.check_references(paper, online=True, search_unidentified=False)
+    scan.check_references(paper, online=True, search_unidentified=False)
+    assert sum(r.url.host == "example.org" for r in wire.seen) == 2
