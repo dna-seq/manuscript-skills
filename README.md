@@ -225,7 +225,9 @@ claude plugin install manuscript-skills@manuscript-skills
 </details>
 
 The automated checks require [uv](https://docs.astral.sh/uv/) on the computer running the assistant;
-their dependencies install on first use. Ask the assistant to check the setup if needed. Looking up
+their dependencies install on first use. Building a PDF from a marked manuscript also needs
+[pandoc](https://pandoc.org/) and [tectonic](https://tectonic-typesetting.github.io/), which uv does not
+install. Ask the assistant to check the setup if needed. Looking up
 references and current journal policies requires internet access.
 
 ## Development

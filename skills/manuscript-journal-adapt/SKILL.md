@@ -95,7 +95,7 @@ identifiers, terms and wording, and claims that an edit strengthened; it does no
 equivalence. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
 lists each change with its section and line. Revision markers in the text stay as they are; strip them
 only for the upload files when the authors want that (see author-priorities; `manuscript-revision-marks`
-writes the clean copy). Resolve false positives in context
+writes the clean copy and builds the PDF from it, measured against a page limit). Resolve false positives in context
 and rerun only checks affected by the adaptation. Use `manuscript-prose-edit` for broader language editing
 when requested; venue adaptation does not require style profiling or detector checks.
 
