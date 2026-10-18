@@ -174,9 +174,9 @@ on your behalf.
 
 Reporting guidelines are checked when they fit your study design; a missing checklist item is a
 requirement only when your target journal asks for that guideline. Reference and availability checks
-look up public identifiers online (DOIs, PMIDs, accessions, package names); for a reference without a
-working identifier, the reference's own text is searched in Crossref. The rest of the manuscript is not
-sent anywhere. Controlled access, such as dbGaP or EGA, is a legitimate route, not a defect.
+look up public identifiers online (DOIs, PMIDs, accessions, package names, and links written in the
+text); for a reference without a working identifier, the reference's own text is searched in Crossref,
+and a match stays a candidate for you to confirm. The rest of the manuscript is not sent anywhere. Controlled access, such as dbGaP or EGA, is a legitimate route, not a defect.
 
 Reference checking distinguishes a source's identity from its support for a particular sentence. A DOI
 that resolves to the right paper does not establish that the paper supports your claim. The assistant

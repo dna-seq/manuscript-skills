@@ -105,7 +105,8 @@ withdrawn (`../manuscript-reference-check/references/identity-checks.md`). `--ve
 `--git` only when the authors ask. It finds chatbot leftovers, placeholders (also in HTML comments), missing
 declarations, AI mentions without a disclosure, citation mismatches, overclaim words, stock and tortured phrases,
 vocabulary densities, percentages that disagree with their counts and Abstract figures that never reappear (a
-missing software archive is only a hint for `manuscript-reporting-check`). Exit code 1 means a blocker. Read every
+missing software archive is only a hint for `manuscript-reporting-check`). Exit code 1 means a blocker; with
+`--online`, 3 means no blocker but a lookup did not answer, so the run is not clean. Read every
 blocker and major finding in context and omit false positives (a module named "Superhuman", "discovery" as a
 software term). Severities are provisional; AI mentions, style counts and absent generic declarations are not by
 themselves a submission barrier.

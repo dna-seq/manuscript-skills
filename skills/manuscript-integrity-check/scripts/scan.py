@@ -2030,7 +2030,9 @@ def _record_source(ref: Reference) -> str:
     return "PubMed" if ref.pmid and not ref.arxiv else "arXiv"
 
 
-def _reference_findings(refs: list[Reference], online: bool = False) -> list[Finding]:
+def _reference_findings(refs: list[Reference], online: bool = False, unidentified: str = "strict") -> list[Finding]:
+    """Findings per reference. `unidentified="strict"` (the default) never lets an entry with no identifier pass:
+    a Crossref match is a candidate to confirm, at least minor; "lax" lets a close match fall to info."""
     out: list[Finding] = []
     for ref in refs:
         short = ref.text[:140]
@@ -2083,6 +2085,8 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
         elif ref.status == "no_identifier":
             weak = (ref.title_similarity or 0) < 0.6
             sev = Severity.major if weak and not ref.first_author_found else Severity.minor if weak else Severity.info
+            if unidentified == "strict" and sev == Severity.info:
+                sev = Severity.minor
             if weak and ref.first_author_found:
                 hint_author = " Same first author: the citation's title is probably shortened or altered; use the real one."
             else:
@@ -2093,8 +2097,10 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
                 hint += (" No close match: unverified, which is not evidence that the work does not exist (software, "
                          "web pages, reports and new works are often missing from Crossref). Search PubMed, the "
                          "publisher or the project page by title, journal, volume and pages.")
+            strict = " Unverifiable until a person confirms that record: a search match is a candidate, not a pass." \
+                if unidentified == "strict" and ref.resolved_title else ""
             out.append(Finding(check="references", severity=sev, line=ref.line, excerpt=short,
-                               message="Reference carries no DOI, PMID or arXiv id." + hint + hint_author,
+                               message="Reference carries no DOI, PMID or arXiv id." + hint + hint_author + strict,
                                suggestion="Add the DOI (or PMID/arXiv id) after confirming title, authors, year."))
         elif ref.status == "not_checked" and not (ref.doi or ref.pmid or ref.arxiv):
             out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
@@ -2354,7 +2360,8 @@ def _undated_findings(prose: list[tuple[int, str]]) -> list[Finding]:
             for n, head in _undated(prose)]
 
 
-def check_references(path: Path, online: bool, search_unidentified: bool) -> ReferenceReport:
+def check_references(path: Path, online: bool, search_unidentified: bool,
+                     unidentified: str = "strict") -> ReferenceReport:
     """Identity and citation consistency only, shared by focused checks and full audits."""
     raw = path.read_text(encoding="utf-8")
     text = _strip_comments(raw)
@@ -2419,7 +2426,7 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
                                 suggestion="Check the bibliography format and inspect the entries manually."))
     if online and refs:
         resolve_references(refs, search_unidentified)
-    findings += _reference_findings(refs, online)
+    findings += _reference_findings(refs, online, unidentified)
     if bibliography_only:
         inline = []
     elif online and inline:
@@ -2431,7 +2438,7 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
-         git: bool = False) -> Report:
+         git: bool = False, unidentified: str = "strict") -> Report:
     VOCAB_SOURCES.update({"kobak2025_r>=2": _kobak_words(), "juzek_ward2025": JUZEK_WARD,
                           "wikipedia_aivocab": WIKIPEDIA_AIVOCAB})
     raw = path.read_text(encoding="utf-8")
@@ -2469,7 +2476,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += _abstract_metric_dump(lines)
     findings += _percentages(body_lines)
 
-    reference_report = check_references(path, online, search_unidentified)
+    reference_report = check_references(path, online, search_unidentified, unidentified)
     refs = reference_report.references
     findings += reference_report.findings
     if git:
@@ -2510,6 +2517,15 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     return Report(path=str(path), words=n_words, abstract_words=abstract_words, findings=findings, references=refs,
                   vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails,
                   inline_ids=reference_report.inline_ids)
+
+
+def unchecked_lookups(references: list[Reference], inline: list[InlineId]) -> int:
+    """Online lookups that did not answer: references, their further identifiers and url fields, and identifiers
+    in the text. Any of them makes a run with no blocker exit 3, never 0."""
+    return (sum(r.status == "lookup_failed" for r in references)
+            + sum(c["state"] == "unknown" for r in references for c in r.other_id_checks)
+            + sum(bool(r.url_status) and r.url_status.startswith("unknown") for r in references)
+            + sum(i.state == "unknown" for i in inline))
 
 
 def _verdict(counts: Counter[str]) -> str:
@@ -2616,17 +2632,24 @@ def main(
     venue: Annotated[Optional[str], typer.Option(help="Venue key from references/venues.yaml")] = None,
     git: Annotated[bool, typer.Option(help="Only when the authors ask: count commits touching the file that carry an AI "
                                             "co-author trailer (informational; trailers often mark automation)")] = False,
+    unidentified: Annotated[str, typer.Option(help="strict: an entry with no identifier never passes, a Crossref "
+                                                   "match is a candidate to confirm (at least minor); lax: a close "
+                                                   "match falls to info")] = "strict",
 ) -> None:
+    """Exit 0 clean, 1 a blocker, 3 (with --online) no blocker but a lookup that did not answer, so the run
+    cannot be called clean; 2 usage."""
+    if unidentified not in ("strict", "lax"):
+        raise typer.BadParameter("--unidentified takes strict or lax")
     if references_only:
         if venue or git:
             raise typer.BadParameter("--references-only cannot be combined with --venue or --git")
-        report = check_references(path, online, search_unidentified)
+        report = check_references(path, online, search_unidentified, unidentified)
         md = references_to_markdown(report)
     else:
         known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
         if venue and venue not in known:
             raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(known))}")
-        report = scan(path, online, search_unidentified, venue, git)
+        report = scan(path, online, search_unidentified, venue, git, unidentified)
         md = to_markdown(report)
     if json_out:
         json_out.write_text(report.model_dump_json(indent=2), encoding="utf-8")
@@ -2635,7 +2658,12 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    raise typer.Exit(code=1 if any(f.severity == Severity.blocker for f in report.findings) else 0)
+    if any(f.severity == Severity.blocker for f in report.findings):
+        raise typer.Exit(code=1)
+    unchecked = unchecked_lookups(report.references, report.inline_ids) if online else 0
+    if unchecked:
+        typer.echo(f"{unchecked} online lookup(s) did not answer: not a clean run (exit 3).", err=True)
+    raise typer.Exit(code=3 if unchecked else 0)
 
 
 if __name__ == "__main__":

@@ -856,3 +856,28 @@ def test_live_figures_without_a_year_are_flagged_offline(tmp_path: Path) -> None
     undated = [(f.line, f.excerpt) for f in report.findings if f.check == "undated"]
     assert undated == [(6, "The service currently holds 4,500 scores."), (6, "It now covers 12 traits.")]
     assert all(i.state == "not_checked" for i in report.inline_ids)
+
+
+def _one_reference_paper(tmp_path: Path, entry: str) -> Path:
+    paper = tmp_path / "paper.md"
+    paper.write_text(f"# Paper\n\nAs shown by Müller (2020).\n\n## References\n\n{entry}\n", encoding="utf-8")
+    return paper
+
+
+@pytest.mark.parametrize("doi, code", [("10.9999/medra.1", 0), ("10.9999/norecord", 3), ("10.9999/nothing", 1)])
+def test_online_exit_codes_say_clean_blocked_or_not_checked(wire: Wire, tmp_path: Path, doi: str, code: int) -> None:
+    paper = _one_reference_paper(tmp_path, f"Müller, A. (2020). Deep learning for Müller–Škoda graphs. doi:{doi}")
+    result = CliRunner().invoke(scan.app, [str(paper), "--references-only", "--online", "--no-search-unidentified"])
+    assert result.exit_code == code, result.output
+    offline = CliRunner().invoke(scan.app, [str(paper), "--references-only"])
+    assert offline.exit_code == 0  # offline nothing was looked up, so nothing is unknown
+
+
+@pytest.mark.parametrize("mode, severity", [("strict", scan.Severity.minor), ("lax", scan.Severity.info)])
+def test_a_reference_with_no_identifier_never_passes_unless_lax(mode: str, severity: object) -> None:
+    ref = scan.Reference(line=1, text="Müller, A. (2020). Deep learning for Müller–Škoda graphs.", status="no_identifier",
+                         resolved_title="Deep learning for Müller–Škoda graphs", doi="10.9999/medra.1",
+                         title_similarity=1.0, first_author_found=True)
+    (finding,) = [f for f in scan._reference_findings([ref], online=True, unidentified=mode) if "no DOI" in f.message]
+    assert finding.severity == severity
+    assert ("candidate, not a pass" in finding.message) == (mode == "strict")

@@ -29,6 +29,31 @@ read its findings without accusing anyone, and how to merge an independent paper
 5. **Authors beyond the first.** Where the record lists authors, the citation's author list (the text
    before its title) is compared with it: names on the record missing from the middle of the citation's
    list, names in the citation not on the record, a list shortened without "et al.", and differing initials.
+6. **Every identifier, and the url.** A BibTeX entry that carries several identifiers (a DOI and a PMID,
+   an arXiv eprint, a `url` on doi.org, arxiv.org or PubMed) has each one resolved: one that does not
+   resolve, or that names a different work than the first, is major. A `url` that is none of these is
+   checked by its status (HEAD, then GET): dead is major; refused (401, 403) or unanswered is a note to
+   open by hand. A DOI that neither Crossref nor DataCite holds gets its title from doi.org's record of
+   the agency that registered it (mEDRA, JaLC, ...); an agency that gives no record is not assessed.
+7. **Titles, strictly.** Above the fuzzy match, a BibTeX entry's title is also compared exactly once LaTeX,
+   HTML, accents, case and punctuation are set aside; a difference is minor, with a hint when one title is
+   the other plus a subtitle. An entry with an identifier but no title field is a minor finding naming the
+   work the identifier points to.
+8. **Identifiers in the text.** Outside the reference list, `doi:`, doi.org and arXiv links, `PMID`,
+   `arXiv:` and bare URLs in the prose (not in code, comments or verbatim) are resolved and listed with
+   the title each resolves to (`inline_ids` in the JSON, "Identifiers in the text" in the report) for a
+   person to read against the sentence; no match is attempted. One that does not resolve is major.
+
+Offline, two checks still run: a BibTeX entry that does not parse is a major finding (it was not read,
+and the entries after it may be missing), and a sentence with a number and a live cue ("currently", "as
+of", "to date", "now") but no year is flagged `undated`.
+
+**Exit codes** (`scan.py`): 0 clean; 1 a blocker; 3, with `--online`, no blocker but at least one lookup
+that did not answer (an entry, a further identifier, a url or an identifier in the text), so the run is
+not clean; 2 usage. **`--unidentified strict`** (the default) keeps an entry with no identifier at minor
+or above even when Crossref finds a close match, which stays a candidate to confirm; `--unidentified lax`
+lets a close match fall to info. PubMed requests name the tool and nothing personal; Crossref's polite
+pool header carries a placeholder address, never a person's.
 
 ## The JSON fields per reference
 
@@ -43,6 +68,12 @@ Earlier fields keep their names and meaning; these were added.
 | `withdrawn`, `withdrawn_source` | `true`/`false` where arXiv or bioRxiv/medRxiv was asked; `null` = not checked |
 | `resolved_authors`, `author_check`, `author_notes`, `author_severity` | the record's list; `consistent`, `differs` or `not_compared`; what differs; `minor` or `info` |
 | `lookup_notes` | which registry did not answer, and what was therefore not checked |
+| `cited_title`, `title_check` | a BibTeX entry's title as cited; `same`, `differs` (passes the fuzzy match, not the strict one), `no_title`, `not_compared` |
+| `other_ids`, `other_id_checks` | the entry's further identifiers (`pmid:123`), and for each its `state` (`ok`, `dead`, `unknown`), `title`, `why` and `same_work` |
+| `url`, `url_status` | a BibTeX `url` that is no DOI, arXiv or PubMed link, and its answer: `ok HTTP 200`, `dead HTTP 404`, `blocked HTTP 403`, `unknown: ...` |
+
+The report also carries `inline_ids`: each identifier in the text with its `line`, `kind`, `id`, `state` and
+`title`.
 
 The Markdown report adds a line with the counts per retraction state. Report a `not_checked` entry to the
 authors as "the retraction status could not be checked", with the reason (arXiv keeps no retraction record;

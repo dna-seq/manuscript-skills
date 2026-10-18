@@ -42,7 +42,10 @@ with its linked `.bib` files, and standalone `.bib` files are supported; export 
 or use a document tool. Run against the source the authors edit.
 
 Online, the scanner resolves DOI (Crossref, DataCite, doi.org), PMID and arXiv identifiers and compares
-title and authors, including authors beyond the first. It checks retractions and expressions of concern in
+title and authors, including authors beyond the first; it follows every identifier a BibTeX entry carries,
+checks `url` fields by their status, and lists the identifiers written in the text with the titles they
+resolve to, for you to read against their sentences. Offline it flags BibTeX entries that do not parse and
+live figures with no date ("currently 4,500 scores"). It checks retractions and expressions of concern in
 two registries and records the result per reference as `retracted`, `concern`, `none_found` or
 `not_checked`, with its source. It finds cited preprints that have since been published, and withdrawn
 arXiv, bioRxiv and medRxiv preprints. Entries without an identifier, and identifiers that do not
