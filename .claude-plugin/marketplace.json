@@ -10,7 +10,7 @@
     {
       "name": "manuscript-skills",
       "source": "./",
-      "description": "Manuscript integrity, reference-support and reporting checks, simulated peer review and responses to referees, practical journal selection, clinical/ethics/privacy scope review including voluntarily self-published genomes, venue adaptation and content-preserving editing.",
+      "description": "Manuscript integrity, reference-support and reporting checks, simulated peer review and responses to referees, practical journal selection, clinical/ethics/privacy scope review including voluntarily self-published genomes, venue adaptation, content-preserving editing, and revision marks that show which AI edits await a person's review.",
       "license": "MIT",
       "category": "research",
       "tags": [
@@ -24,7 +24,8 @@
         "privacy",
         "peer-review",
         "reporting-guidelines",
-        "rebuttal"
+        "rebuttal",
+        "revision-marks"
       ]
     }
   ]

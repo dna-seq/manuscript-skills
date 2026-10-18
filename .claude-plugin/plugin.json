@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "manuscript-skills",
   "displayName": "Manuscript Skills",
-  "version": "0.2.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: check references and whether sources support the claims, audit numbers, statistics and reporting standards, simulate referee review before submission, answer real referees and verify the revision, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, and edit without strengthening claims.",
+  "version": "0.3.0",
+  "description": "Help authors publish sound manuscripts with less avoidable work: check references and whether sources support the claims, audit numbers, statistics and reporting standards, simulate referee review before submission, answer real referees and verify the revision, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, edit without strengthening claims, and keep revision marks that show which AI edits no person has reviewed yet, with a review draft PDF built from them.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -34,7 +34,11 @@
     "equator",
     "claim-support",
     "citation-verification",
-    "retractions"
+    "retractions",
+    "revision-marks",
+    "traceability",
+    "ai-edits",
+    "typesetting"
   ],
   "skills": "./skills"
 }
