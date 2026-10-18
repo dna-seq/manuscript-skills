@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript mark people"
+  short_description: "Find the people in a manuscript repo for revision marks, separate them from AI agents, confirm, write"
+  default_prompt: "Use $manuscript-mark-people to find the people in this repository, show me the evidence for each, and after I confirm, write them to rev-marks.toml."
