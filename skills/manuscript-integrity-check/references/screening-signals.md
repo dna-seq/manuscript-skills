@@ -407,10 +407,11 @@ PPS now holds many more fingerprints. I found no bulk download of the current li
    quarter of the time. In both cases a score says nothing about whether the claims, numbers and
    references are right, which is what editors act on (references, relevance, numbers,
    availability, disclosure).
-2. If the text was substantially drafted by an LLM, modern detectors will likely say so, and the only
-   honest remedy is disclosure plus human authorship. Evasion ("humanizers", synonym swaps) is
-   misconduct-adjacent. It is also the mechanism that produces tortured phrases, the oldest
-   paper-mill fingerprint.
+2. If the text was substantially drafted by an LLM, modern detectors will likely say so. What follows is an
+   accurate disclosure where the chosen venue asks for one; whether to rewrite is the authors' decision, and a
+   rewrite does not undo earlier drafting. Rewriting only to lower a detector score (synonym-swapping
+   "humanizer" tools, as opposed to editing for clarity) does not help the paper and is the mechanism that
+   produces tortured phrases, the oldest paper-mill fingerprint.
 3. Word lists flag non-native writers and LLM-assisted language polishing, which ISCB and OUP permit.
    Report density per section with the source of each word, never a verdict.
 
@@ -428,11 +429,12 @@ PPS now holds many more fingerprints. I found no bulk download of the current li
 | **STM classification of AI use** (draft 7 Apr 2025; final Sep 2025 SECONDARY) | Nine categories. 1 language editing (2023 STM guidelines: disclosure not necessary); 2 writing or drafting content; 3 translation; 4 formatting reported data; 5 illustrative images; 6 visualising research data; 7 refining reported code; **8 compiling reference lists (excludes "AI generation of plausible-sounding references that do not exist")**; 9 presenting AI content as original data (not allowed). | VERIFIED (draft) | https://stm-assoc.org/new-stm-draft-report-classifying-ai-use-in-manuscript-preparation/ |
 
 **Design consequence:** under ISCB and Bioinformatics policy, a pre-submission checker fits the
-permitted "Evaluation, to find inconsistencies or anomalies" use. Rewriting the manuscript's prose
-is at best a grey zone there (only correction aids are named) and must be documented. The skill should output
-located findings (line, span, rule, source), each with a fix the human author applies: verify,
-delete, re-measure, cite, disclose. It should never output replacement paragraphs. Where AI was used
-(for example code, figures, language polishing, these checks), the disclosure statement is drafted by
+permitted "Evaluation, to find inconsistencies or anomalies" use; rewriting the prose is less clearly covered
+(only correction aids are named). That is a point for the authors to weigh, not a limit on the skills: when
+they ask for edits, make them and, if the venue's rule is relevant, say so once (`author-priorities.md`, "The
+author decides"). A review-only request gets findings that quote the passage with its section, name the rule
+with its source, and say what the authors would change: verify, delete, re-measure, cite, disclose. Where AI
+was used (for example code, figures, language polishing, these checks), the disclosure statement is drafted by
 `manuscript-journal-adapt` (tool, version, where, how verified); this check only reports whether one is
 required and present.
 
@@ -442,7 +444,11 @@ required and present.
 
 Severity: **H** means editors or tools act on it directly (desk-rejection, withdrawal, or the arXiv
 ban class). **M** means it routes the manuscript to manual review. **L** is a soft stylistic signal:
-report its density, never a verdict. The fix column is always substantive.
+report its density, never a verdict. The fix column is always substantive. The letters and the IDs (A1 to
+D12) label this catalogue for the agent; a report describes the signal in plain words, quotes the passage with
+its section, and places it by when it can be fixed (`author-priorities.md`), with an ID at most in parentheses.
+Severity here is how editors react, not when the authors can act: availability and disclosure items (D7, D8)
+are end-stage work for a draft.
 
 ### A. Chatbot leftovers and artifacts (H)
 
@@ -461,7 +467,7 @@ report its density, never a verdict. The fix column is always substantive.
 | ID | Check | Source | Fix |
 |---|---|---|---|
 | B1 | Every DOI resolves (doi.org / Crossref `works/{doi}`), every PMID resolves (E-utilities `esummary`), every arXiv ID resolves (arXiv API). The resolved title fuzzy-matches the cited title and the first author matches. | GPTZero taxonomy; RefChecker; Phantom References; Wikipedia (invalid DOI, DOI to unrelated article); Paperpal broken links | Replace with the verified record or delete the citation and its claim. Never "fix" by searching for any paper that fits. |
-| B2 | Identity-level mismatch: the identifier resolves to a different work; the author list differs substantially; a real title with invented authors (chimeric); "John Doe", "Firstname Lastname", or "et al." with invented names | GPTZero NeurIPS; Phantom References definition | Same as B1. Treat it as a hallucination until checked by hand. |
+| B2 | Identity-level mismatch: the identifier resolves to a different work; the author list differs substantially; a real title with invented authors (chimeric); "John Doe", "Firstname Lastname", or "et al." with invented names | GPTZero NeurIPS; Phantom References definition | Same as B1. Treat it as unconfirmed until checked by hand; a mismatch alone is not proof of fabrication. |
 | B3 | References without DOI, PMID or URL are found by title search in Crossref, OpenAlex or Semantic Scholar. No hit means "Unverified". | RefChecker ("Unverified" verdict); Badalova & Mayr (database coverage limits) | Supply an identifier, or justify (book with ISBN and pages, standard, dataset DOI). |
 | B4 | Retraction or expression of concern: `update-to` / `updated-by` relations with `type: retraction` (or `source: retraction-watch`) in Crossref, or a DOI join against the Retraction Watch CSV (daily) | Crossref docs; Feet of Clay; Signals; Paperpal; Edifix | Remove, or keep only when discussing the retraction and say so in the text. |
 | B5 | Relevance: similarity between the citing sentence and the cited abstract or title (embedding or keyword overlap). Low scores go to the author for manual confirmation. | SN irrelevant reference checker; Signals "Reference relevance"; Paperpal "Citation relevance" | Cite the source that supports the specific claim, or remove the claim. |
@@ -494,7 +500,7 @@ report its density, never a verdict. The fix column is always substantive.
 | D4 | Specific limitations: a limitations section exists and names concrete failure modes with numbers or scope. Flag generic-only items (`generalizability`, `dataset bias`, `future work could explore`, `may vary`, `further research is needed`). | Wikipedia outline-like conclusions (verified); arXiv 2601.11578 (SECONDARY); editor screen NOT FOUND | Name what the tool cannot do (for us: GRCh38-only annotation, no variant calling, no gene-disease inference, the restoration gates) and what that means for a reader. |
 | D5 | Statistical boilerplate: `p ?< ?0\.05 was considered (statistically )?significant` with no test named; many associations with no multiple-testing correction; unexplained data-year or cohort subsets | Suchak 2025 (SECONDARY); Spick 2025 | Name the test, the correction and the subset rationale, or remove the inference. |
 | D6 | Template public-dataset pattern: title or abstract tokens from Spick Table 3 (`NHANES`, `cross-sectional`, `association`, `Mendelian randomization`, `causal`, `bidirectional`, `FinnGen`, `UK Biobank`, `real world`, `pharmacovigilance`, `FAERS`, `burden`, `global`, `GBD`, `CHARLS`, `MIMIC`, `TriNetX`) together with a single-exposure single-outcome design | Spick 2025; Frontiers policy | If it applies, add external or own validation. For our software paper this is probably N/A; report it only. |
-| D7 | Availability: abstract has an "Availability and implementation" statement with a stable source URL, an archived version DOI (Zenodo or Software Heritage) for the *submitted* version, test data archived, an OSI licence named, and a data availability statement present | Bioinformatics author guidelines | Add the missing parts and mint a Zenodo DOI for the submission tag. |
+| D7 | Availability: abstract has an "Availability and implementation" statement with a stable source URL, an archived version DOI (Zenodo or Software Heritage) for the *submitted* version, test data archived, an OSI licence named, and a data availability statement present | Bioinformatics author guidelines | Add the missing parts and mint a Zenodo DOI for the submission tag, once the code is final (an end-stage item, not a blocker for a draft). |
 | D8 | AI-use statement fields and locations required by the current target, after exemptions | Applicable journal rule; cached Bioinformatics example above | Check presence and consistency separately from truth of process claims. Do not demand STM categories or a supplement unless required, or prescribe an author rewrite as a guaranteed cure for a drafting-policy conflict. Follow the author's decision. |
 | D9 | Consistent author metadata; ORCID and contact details where actually required; no AI tool as an author | Journal author instructions; vendor identity checks | Correct actual inconsistencies. A vendor risk signal does not justify requiring every author to obtain ORCID or an institutional email. |
 | D10 | Scope and length: article type and word count fit the journal (Bioinformatics Original Paper ~5,000 words or 7 pages; Application Note ~2,600 words or 4 pages) | Wiley "Journal scope checker"; Bioinformatics guidelines | Cut or move material to the supplement. |

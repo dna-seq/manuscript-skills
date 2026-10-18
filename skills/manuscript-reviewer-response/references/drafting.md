@@ -53,7 +53,7 @@ to; a note that labels such as R2.P1 or parts (a) and (b) were added by the auth
   the consecutive blocks together reproduce the paragraph. A fragment of one sentence is quoted as it
   stands, without an ellipsis, and the blocks that share a `sentence` follow one another.
 - A `same_as` item gets its own block under the referee's label: answer in a sentence, name the same
-  location as the first reply, and refer to it ("as in our reply to R2.W1").
+  location as the first reply, and refer to it ("as in our reply to Reviewer 2, Weakness 1").
 - Do not use headings inside a reply; they end the block. Bold labels such as "**Response:**" are fine.
 - A blockquote inside a reply quotes the revised manuscript and is checked against it.
 - The opening note to the editor may list the main changes. It never says "we have addressed all
@@ -71,8 +71,11 @@ own nouns. Then the evidence, then the location.
   compared with and which direction is better. Every number in a reply must be in the revised manuscript,
   or the reply must say it is reported in the letter only.
 - **Location**: where the change is in the revised manuscript, as the journal asks for it: section and
-  subsection, line numbers, table or figure. Say what changed there ("Methods now describe ..."), not just
+  subsection, line numbers, table or figure, always with the section first and never line numbers alone
+  ("Results, 'Performance', lines 46-48"). Say what changed there ("Methods now describe ..."), not just
   "see page 5". A reply with no change must say so and why.
+- **Links and terms**: give an archive, data set or code release as its full URL (`https://doi.org/...`),
+  and spell out at first use an acronym the referee may not know.
 - **Length follows the comment**: a one-line minor point gets one or two sentences; an objection to
   validity gets a short evidence run. Work goes into the manuscript; the letter points to it.
 - **Use the referee's terms.** If their term is loose, keep it and attach the paper's term in the same
@@ -107,12 +110,14 @@ manuscript" as a rebuke.
 
 ### Work that cannot be done
 
-One sentence: what was not done and why, as the authors give the reason. "This is a computational study
-without a laboratory component; we did not perform the reporter assay." An in-silico-only budget is a
-legitimate constraint; where the study was designed as computational, say so. A time, cost or capacity
-reason may be stated plainly but never stands alone: the same reply says what was done instead (a
-public-data replication, a reanalysis, a narrowed claim), with its result and location, and the matching
-manuscript change: the narrowed claim, or one sentence where the gap sets what a result means.
+Declining is the authors' decision; the reply states it, it does not argue them out of it. One sentence:
+what was not done and why, as the authors give the reason. "This is a computational study without a
+laboratory component; we did not perform the reporter assay." An in-silico-only budget is a legitimate
+constraint; where the study was designed as computational, say so. Where something was done instead (a
+public-data replication, a reanalysis, a narrowed claim), the same reply says so, with its result and
+location, and the matching manuscript change: the narrowed claim, or one sentence where the gap sets what a
+result means. A bare time, cost or capacity reason reads as a refusal, so when nothing was done instead,
+offer the authors one such change once; if they decline it too, write the reply they want.
 If the alternative has not been run, the reply says what the authors propose and carries a `[TBD]` for
 the result; it never reports the result in advance.
 
@@ -147,8 +152,8 @@ the result; it never reports the result in advance.
 - Quote the round-N comment verbatim, as in round 1. The ledger's `previous` field links it to the earlier
   items it follows up.
 - Refer back explicitly and briefly: what round 1 committed to, what is in the manuscript now, and where.
-  "In the first round we added the HiFi callset of HG002 (our reply to R2.P1). We have now added HG004, a
-  third individual (Table 1)." Do not paste the earlier reply.
+  "In the first round we added the HiFi callset of HG002 (our reply to Reviewer 2, first comment). We have
+  now added HG004, a third individual (Table 1)." Do not paste the earlier reply.
 - If an earlier commitment did not land, say so plainly and either land it now or explain.
 - A referee who is satisfied gets at most a one-line acknowledgement.
 
@@ -174,3 +179,11 @@ text that do not exist, open placeholders). Read advisory findings (numbers abse
 locations that differ from the ledger, thanks or agreement as the opening, future tense, changes the
 letter never mentions) and decide each one. A clean run means the letter is well formed, not that it
 answers the referees: that judgement is verify mode's.
+
+Show the authors the check's Markdown report, or a summary in its style, never its codes or the JSON. The
+report already quotes each comment under the referee's number and the letter or manuscript text a finding
+concerns, names places in words with line numbers in parentheses, and groups the problems by when they can
+be fixed: the changes the referees asked for that are not yet in the manuscript and numbers that disagree
+first, then the letter's wording, then the venue's limits, then statements such as code availability. A
+revision going back to the journal is a submission, so the last group is still done before sending, after
+the others.

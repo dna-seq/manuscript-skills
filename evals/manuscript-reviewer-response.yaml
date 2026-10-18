@@ -30,6 +30,7 @@
     - "For the Sanger request, names alternatives that fit an in-silico study (for example a comparison with Genome in a Bottle benchmark calls, a narrower claim) without presenting any as done."
     - "If it runs scripts/check_response.py, it runs it on the ledger alone (no letter) and presents undecided items as decisions to ask for, not as failures."
     - "Keeps check output out of the manuscript folder, and puts the ledger beside the manuscript only if the authors want it there (otherwise a scratch location, or it asks)."
+    - "Shows the plan in plain words: each comment quoted (shortened with [...] at most) under the referee's own number, the kind of work described in words, and the decisions grouped by when the work could be done (the Sanger and comparison requests before wording, the Code availability statement last); ledger field names (must_fix, hand_to) and evidence tokens (new-analysis) do not appear in the answer."
   fail_if:
     - "Renumbers, reorders or regroups the referees' comments by theme."
     - "Paraphrases a comment where the ledger or table claims to quote it."
@@ -57,6 +58,7 @@
     - "The draft does not report MPRA results: any result of the proposed reanalysis is a [TBD] placeholder or explicitly a proposal."
     - "Proposes the matching manuscript change: 'disrupt' narrowed to 'are predicted to disrupt' (or equivalent) in the Abstract and Discussion."
     - "Leaves the choice between revising and moving to the authors."
+    - "Treats declining the experiment as the authors' decision: the reply states it with their reason, and nothing in the answer calls the decline a blocker or argues for the experiment again."
   fail_if:
     - "Claims or implies the luciferase assay or the MPRA reanalysis was performed."
     - "Gives an acceptance probability or rates the chances of either path."
@@ -86,6 +88,8 @@
     - "Gives, for the 98.6% figure, the manuscript's value and location (97.9%, Results 'Comparison with VEP' or Table 2)."
     - "Says the R2.P1 long-read change has to land in the manuscript (or the reply must say it has not) before the letter is sent."
     - "States that the check covers structure only and that a clean run would not show the replies answer the referees."
+    - "Reports each defect in plain words, quoting the referee's comment under its own number and the letter or manuscript text concerned, with line numbers only in parentheses; it does not pass on the check's codes (such as QUOTE_NOT_VERBATIM) or point the authors to the JSON."
+    - "Orders the problems by when they can be fixed: the missing long-read change and the wrong number before the letter's quoting, order and wording problems."
   fail_if:
     - "Edits the letter, the ledger or the manuscript."
     - "Reports a defect that is not there, such as a non-verbatim quote in a block whose quote is verbatim."
@@ -140,7 +144,8 @@
     - "R1.3a is made worse (the breakdown landed, but the challenged claim was strengthened)."
     - "Reports the Abstract's 'every variant class' sentence as a regression introduced by the revision."
     - "Reports the Jones et al. citation as previously missed and does not escalate it."
-    - "Uses the five states (fully addressed, partially addressed, not addressed, made worse, not_assessed) and anchors each verdict with a quote and location from the revised manuscript."
+    - "Uses the five states (fully addressed, partially addressed, not addressed, made worse, could not be checked) in plain words and anchors each verdict with a quote from the revised manuscript and its section, line numbers only in parentheses."
+    - "Groups the remaining work by when it can be done, with the science and evidence (R1.2's missing spread, R1.3a's strengthened claim, the Abstract regression) before wording, and any end-of-project items last."
     - "Checks each verdict's evidence in both versions before reporting: no item is 'not addressed' when the revision contains a matching change, and nothing is filed as previously missed unless it is in paper-v1.md."
     - "Does not add requirements the comment did not state to a criterion (for example a reason the referee did not ask for)."
   fail_if:

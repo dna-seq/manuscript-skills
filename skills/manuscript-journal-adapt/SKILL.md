@@ -67,7 +67,9 @@ interests, author contributions); the venue's reference style (identity and supp
 `manuscript-reference-check`); AI disclosure in **every** place the venue names with the fields it asks
 for, drafted from `../manuscript-integrity-check/references/disclosure-templates.md` with what the authors
 say the tools did, never guessed; figure rules; required cover-letter points. Separate requirements for
-initial submission from those for revision or acceptance; use free-format submission when allowed. This
+initial submission from those for revision or acceptance; use free-format submission when allowed. When
+the venue's page does not say what counts toward a word limit (abstract headings, the Contact line,
+tables, figure legends), give the count both ways and say which one the page leaves open. This
 skill owns drafting and placing AI-use statements; `manuscript-integrity-check` only checks that they are
 present.
 
@@ -105,8 +107,31 @@ Follow `../manuscript-integrity-check/references/author-priorities.md` and consu
 statement, use known facts and only required fields (dates only where the venue asks for them; never
 reconstruct them from revision markers or version history), and do not create a per-pass record. When the
 authors ask whether a target's AI policy has changed, this skill answers it: run
-`scripts/policy_watch.py check --venue KEY`, then read the live page for anything it could not reach. Drafting-ban
-policies need a separate compatibility decision; do not prescribe an author rewrite as a guaranteed cure.
+`scripts/policy_watch.py check --venue KEY`, then read the live page for anything it could not reach.
+
+When the chosen journal restricts the use the authors describe (a ban on AI drafting, for example), adapt
+the manuscript and draft the statement as asked, under
+[authors first, journals second](../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second).
+Add at most one sentence naming the conflict and its practical consequence, with the URL of the policy
+page, and list it with the authors' other decisions. Do not put it first, offer options they did not ask
+for, or come back to it. The statement describes the use that happened: rewriting AI-drafted passages by
+hand afterwards does not undo that use, so never present a rewrite as a way to satisfy the ban.
+
+## Report the adaptation
+
+Write the report as [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+describes. Quote each journal rule you applied with the URL of the page it is on and the date it was read
+(`show` prints both), and say when a rule rests on the catalogue because the live page could not be read.
+Show each change as the passage before and after with its section; `guard.py BEFORE AFTER --revision`
+prints this. Spell out acronyms at first use and write full sentences.
+
+List what is left in the order of
+[Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done),
+under its four labels. `show` already separates what can be done once the journal is chosen from what
+waits until the code, data and results are final: the archived release and its DOI, versions quoted in the
+text, the final placement of the AI-use statement, the cover letter, removing revision markers and the
+upload check. Those last items are not blockers for the current draft. Put the authors' decisions,
+including any policy conflict, together in one place.
 
 ## Shared resources and maintenance
 

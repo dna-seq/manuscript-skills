@@ -232,6 +232,6 @@ smells:
     patterns:
       - 'thank the reviewers? for (?:this|their|the|his|her) (?:excellent|insightful|valuable|thoughtful|helpful|great|constructive)'
   C16:
-    name: declarative chain (slogans with no transitions)
+    name: chain of short sentences with no stated links
     structural: true   # computed by style_profile.py from sentence lengths and links, not by a regex
     patterns: []

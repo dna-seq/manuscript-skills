@@ -20,9 +20,8 @@ a claim (usability, reproducibility, availability) depends on it.
 ## What the seat checks from the paper and its links
 
 Work from the manuscript, its supplementary files and what its links show without installing anything.
-Opening a public repository page or package index entry to read its README, licence and release list is
-fine for the authors' own draft; in invited-referee mode, only when the venue's review process provides
-the link for that purpose.
+Opening a public repository page or package index entry the paper links to, to read its README, licence
+and release list, is fine in either mode.
 
 - **Documentation.** Is there enough to use the tool for the paper's stated purpose: installation,
   inputs and outputs, parameters with defaults, a worked example?
@@ -55,8 +54,8 @@ the link for that purpose.
 
 ## Running the authors' code
 
-Only when the authors ask for it (or, in invited-referee mode, when the user asks and the venue's
-review process supplies the code for review). Then:
+Only when the user asks for it, whether the code is the authors' own or was shared with a submission
+the user is refereeing. Then:
 
 - Ask before installing third-party code; it executes with the user's permissions.
 - Use a sandbox: a container or virtual machine, or at least a fresh environment in a scratch directory,

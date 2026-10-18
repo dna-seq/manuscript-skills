@@ -19,7 +19,20 @@ description: >-
 Help the authors answer the editor and referees so that the paper can be accepted with the least
 avoidable work, and so that every reply is true of the revised manuscript. Read the shared
 [author priorities](../manuscript-integrity-check/references/author-priorities.md). The authors decide
-what to do about each comment, whether to revise or go elsewhere, and what the letter says.
+what to do about each comment, whether to revise or go elsewhere, and what the letter says. A request they
+decline is their decision: draft the reply they want, and never list the decline as a blocker or argue for
+the work again. A journal policy that bears on the revision gets at most one sentence on its practical
+consequence, among the decisions.
+
+Everything the authors read from this skill (the plan, the check's report, the verification report)
+follows [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors):
+each comment quoted under the referee's own number, the manuscript or letter sentence a finding concerns
+quoted with its section and any line number in parentheses, plain words, full sentences. The ledger is part
+of the task, but its ids, field names and vocabulary, and the check's codes and state words, stay out of what
+the authors read (an id may follow a quote in parentheses). A list of open work follows
+[Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
+the science and evidence the referees asked for first, then the writing, then the journal's format, then
+statements and packaging at the end. The response letter itself always keeps the referees' order.
 
 Never fabricate. No reply claims a change, analysis, result, citation, approval or location that is not in
 the revised manuscript or the authors' own statement; a missing number is `[TBD: what is missing]`; a
@@ -64,14 +77,17 @@ Read [references/ledger.md](references/ledger.md) before splitting.
    `citation`, `methods-text`, `results-text`, `discussion-text`, `statement`, `wording`, `answer`,
    `acknowledge`). Mark the editor's conditions and objections to validity as `must_fix` (with no editor,
    objections to validity only).
-5. Give the authors a compact table and ask for a decision per item: **address** (with the target in the
+5. Show the authors the comments in the referees' order, each quoted (shortened with [...] when long)
+   under the referee's own number, with what it asks for, the kind of work it needs and whether it is
+   essential, in plain words, and ask for a decision per item: **address** (with the target in the
    manuscript), **decline** (with the authors' reason: design, scope, or the time, cost or capacity they
-   name), or **not on point** (with the reason).
-   Propose if useful, but leave `decision: undecided` until they answer. Flag conflicting requests between
-   referees for the authors to resolve.
+   name), or **not on point** (with the reason). Then list the decisions needed, grouped by when the work
+   could be done. Propose if useful, but leave `decision: undecided` until they answer. Flag conflicting
+   requests between referees for the authors to resolve.
 6. For requests the authors cannot meet (often new experiments in a computational study), list the honest
-   alternatives: a public-data replication or reanalysis, a narrower claim, a scope sentence, verified
-   existing evidence, another venue. An in-silico-only budget is a legitimate constraint.
+   alternatives with what each would cost (a rough estimate, labelled as one): a public-data replication or
+   reanalysis, a narrower claim, a scope sentence, verified existing evidence, another venue. An
+   in-silico-only budget is a legitimate constraint.
 7. **Revise or submit elsewhere.** When a condition of acceptance needs work the authors cannot do, set
    out what each path costs and hand the feasibility facts to `manuscript-journal-select` if moving is a
    real option. No acceptance probabilities.
@@ -97,9 +113,15 @@ that exist.
 - **Disagreeing**: state the fact in the referee's terms, lead with evidence that would have come out
   differently if the referee were right, concede what is true, and still change the text that invited
   the reading. Address the premise, never the referee.
-- **Cannot be done**: one sentence with the reason, then what was done instead and the matching
-  manuscript change (a narrowed claim, a scope sentence, a public-data alternative). A time, cost or
-  capacity reason never stands alone. Results of an alternative that has not been run are `[TBD]`.
+- **Declined or cannot be done**: the authors' decision, in one sentence with their reason, then what was
+  done instead and the matching manuscript change (a narrowed claim, a scope sentence, a public-data
+  alternative) where there is one. A bare time, cost or capacity reason reads as a refusal, so offer the
+  authors such a change once; whether to make it is theirs. Results of an alternative that has not been run
+  are `[TBD]`.
+- **Places and links**: name the section first and the lines after it ("Results, 'Performance', lines
+  46-48"), never lines alone; give archives, data and code as full URLs (`https://doi.org/...`); refer to
+  another reply by referee and comment ("our reply to Reviewer 2, comment 3"); spell out an acronym at first
+  use.
 - **Later rounds**: quote the new comment, refer back to what the earlier round committed to and where it
   is now, and link the item to its predecessors in the ledger (`previous`).
 - Insert the reply text `manuscript-policy-fit` drafts for policy items without adding facts; verify new
@@ -108,7 +130,8 @@ that exist.
   required statements, including an AI-use statement if the venue's policy covers the revision.
 
 Fill `landed` for each commitment, then run the check (commands below) and fix every blocking finding.
-Return the letter, the check summary and the items still waiting for the authors.
+Return the letter, the check's report (or a summary in its style) and the decisions still waiting for the
+authors.
 
 ## Verify: does the revision address each comment?
 
@@ -119,9 +142,9 @@ Read [references/verification.md](references/verification.md). The order is the 
    did not state is not part of the criterion. This comes first even when there is no letter.
 2. **Judge the revision before reading the letter.** Read the original and revised manuscripts and run
    guard.py's revision mode (see `manuscript-prose-edit`) for every number, citation, identifier and
-   claim-strength change. Give each item one state: `fully addressed`, `partially addressed`,
-   `not addressed`, `made worse` or `not_assessed` (the evidence was not supplied), with a quote and
-   location from the revised manuscript. Record new problems as **regressions** (introduced by the
+   claim-strength change. Give each item one state: fully addressed, partially addressed, not addressed,
+   made worse, or could not be checked (say which evidence was not supplied), with a quote from the revised
+   manuscript and its section. Record new problems as **regressions** (introduced by the
    revision) or **previously missed** (present before; report them, do not escalate them). Before
    reporting, check each verdict's evidence in both versions. Use a fresh subagent without the letter
    for this step when there is a letter and subagents are available.
@@ -130,8 +153,11 @@ Read [references/verification.md](references/verification.md). The order is the 
    show. With no letter, skip this step and step 4.
 4. Run the structural check with the guard inventory and reconcile each unexplained change.
 
-Report the per-item table, what remains for must-fix items, regressions, unaccounted changes and what was
-`not_assessed`. No acceptance probability or overall score.
+Report the per-item table in the referees' order, then the work that remains (essential items not fully
+addressed, regressions, changes no reply accounts for) grouped by when it can be done, then the decisions for
+the authors (declined items with their reason and its likely consequence, said once), then what could not
+be checked and why. A declined item is the authors' decision, never a failure of the revision. No acceptance
+probability or overall score.
 
 ## The structural check
 
@@ -155,10 +181,13 @@ comment, with no orphan replies; that each reply names a location or says nothin
 reply ("revised accordingly") or `[TBD]` remains; that every commitment has a landed location in the
 ledger; that named and landed locations, quoted revised text and stated numbers exist in the revised
 manuscript; and, with `--guard-json`, which changes between the versions sit at locations no reply names.
-Each check is `pass`, `fail` or `not_assessed`, with the reason; reply checks are `not_assessed` when the
-letter has no reply blocks. Exit codes: 0 no blocking finding among the checks that ran, 1 a blocking
-finding (any finding with `--strict`), 2 unreadable or malformed input. Exit 0 with any `not_assessed`
-check is not a clean result: say which checks did not run.
+In the JSON each check is `pass`, `fail` or `not_assessed`, with the reason; reply checks are not assessed
+when the letter has no reply blocks. The Markdown report says the same in words and is the one to show the
+authors: it quotes each comment under the referee's number, quotes the letter or manuscript text a finding
+concerns, and groups the problems by when they can be fixed. Never pass its codes or state words on. Exit
+codes: 0 no blocking finding among the checks that ran, 1 a blocking finding (any finding with `--strict`),
+2 unreadable or malformed input. Exit 0 when a check could not run is not a clean result: say which checks
+did not run.
 
 It checks structure only: it cannot tell whether a reply answers the comment or whether a change is
 adequate. A clean run is not a good letter; verify mode is the judgement.

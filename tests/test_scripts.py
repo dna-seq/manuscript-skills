@@ -128,7 +128,8 @@ def test_advisory_hook_reports_blockers_without_blocking_a_commit(paper: Path) -
     advisory = runner.invoke(precommit.app, [str(paper), "--advisory"])
     assert gated.exit_code == 1, gated.output
     assert advisory.exit_code == 0, advisory.output
-    assert "chatbot-leftover" in advisory.output and "blocker" in advisory.output
+    assert "Serious (then the writing): The phrase 'Certainly, here is' is text a chat interface produces" in \
+        advisory.output
 
 
 def test_latex_bibtex_references_and_cite_keys(tmp_path: Path) -> None:
@@ -425,7 +426,8 @@ def test_percentages_are_recomputed_from_their_counts(text: str, flagged: bool) 
 def test_readiness_verdict_names_the_worst_tier(paper: Path) -> None:
     report = scan.scan(paper, online=False, search_unidentified=False)
     blockers = sum(f.severity == scan.Severity.blocker for f in report.findings)
-    assert blockers > 0 and f"**Readiness:** not ready: {blockers} desk-reject trigger" in scan.to_markdown(report)
+    assert blockers > 0 and (f"**Readiness:** not ready. {blockers} finding could get the paper returned without "
+                             f"review") in scan.to_markdown(report)
 
 
 @pytest.mark.parametrize("abstract, severity", [
@@ -503,6 +505,92 @@ def test_setup_reports_missing_tokens_without_network(monkeypatch: pytest.Monkey
     assert rows["editlens"]["missing"][0] == "hf-token" and not rows["aiornot"]["ready"]
     assert not rows["binoculars"]["ready"]  # 8 GB RAM and no GPU
     assert "No Hugging Face token" in setup.recommend(list(rows.values()), env)
+
+
+# --- what the prose-edit scripts print for the authors: places by section, measures and states in words ----------
+
+NUMBERED = """# A Tool for Genomes
+
+## 1. Introduction
+
+In recent years, polygenic scores have garnered significant attention. It is important to note that they play a pivotal role in the evolving landscape of precision medicine, highlighting the importance of genetics. Furthermore, they hold great promise.
+
+## 2. Results
+
+### 2.1 Speed
+
+**Figure 2.** The pipeline annotated 4 genomes in 40 s each (Table 2) and agreed with the reference on 1,204 of 1,206 scores [3].
+
+- Peak memory was 3.1 GB on every genome we ran through the annotation pipeline.
+"""
+
+
+def test_profile_paragraphs_carry_their_section_and_keep_a_bold_opening() -> None:
+    doc = profile.profile_text(NUMBERED, False, profile.load_smells(), profile.load_kobak())
+    assert [(p["line"], p["section"]) for p in doc["paragraphs"]] == [
+        (5, "1. Introduction"), (11, "2. Results > 2.1 Speed"), (13, "2. Results > 2.1 Speed")]
+    figure, item = doc["paragraphs"][1]["text"], doc["paragraphs"][2]["text"]
+    assert figure.startswith("**Figure 2.** The pipeline") and item.startswith("Peak memory")
+
+
+def test_profile_report_quotes_paragraphs_by_section_and_names_patterns_in_words() -> None:
+    smells = profile.load_smells()
+    doc = profile.profile_text(NUMBERED, False, smells, profile.load_kobak())
+    md = profile.to_markdown("paper.md", doc, smells, 5, None)
+    assert "- In section 1, Introduction (line 5), a paragraph of " in md
+    assert "The paragraph begins: “In recent years, polygenic scores" in md
+    assert "- Significance inflation (A1): once." in md and "significance inflation (A1) in “play a pivotal role”" in md
+    assert re.search(r"\*\*L\d|\bL\d+\b", md) is None  # no bare line references
+    assert re.search(r"^- [A-K]\d+ ", md, re.MULTILINE) is None  # no catalogue code before its description
+    for internal in ("llm-smells.md", "anchors", "smells per", "n/a", "mtld |"):
+        assert internal not in md, internal
+    base = profile.profile_text(AUTHOR_SAMPLE, False, smells, profile.load_kobak())
+    compared = profile.to_markdown("paper.md", doc, smells, 5, profile.compare(doc, base))
+    assert "| Stock phrases and sentence shapes (the patterns listed below), per 1,000 words |" in compared
+    assert "at least 1.5 times theirs" in compared
+
+
+def test_detect_windows_know_their_section() -> None:
+    para = " ".join(["word"] * 130) + "."
+    wins = detect.windows(f"## 2. Results\n\n### 2.1 Speed\n\n{para}\n", False, detect._load_profile())
+    assert [(w["line"], w["section"]) for w in wins] == [(5, "2. Results > 2.1 Speed")]
+
+
+def test_detect_report_says_what_the_score_measures_and_where_each_passage_is() -> None:
+    rows = [{"line": 5, "end_line": 9, "words": 200, "section": "2. Results > 2.1 Speed", "state": "flagged",
+             "score": 0.91, "calibrated": False, "excerpt": "The pipeline annotated four genomes."},
+            {"line": 12, "end_line": 12, "words": 30, "section": "Discussion", "state": "not assessed",
+             "score": None, "reason": "under 50 words", "calibrated": False, "excerpt": "Short."},
+            {"line": 14, "end_line": 20, "words": 200, "section": "", "state": "not flagged", "score": 0.12,
+             "calibrated": False, "excerpt": "We thank the funders."}]
+    md = detect.to_markdown("paper.md", "modernbert", rows, 0.5, False)
+    assert ("the detector's estimate that a language model wrote it (the ModernBERT detector, "
+            "rasbt/ai-text-detector-modernbert)") in md
+    assert "It was not calibrated on the authors' own writing" in md
+    assert "- In section 2.1, Speed (lines 5 to 9), the score was 0.910." in md
+    assert "- In the Discussion (line 12), the passage has fewer than 50 words, too few to score." in md
+    assert "| The text before the first heading (lines 14 to 20) | 0.120 |" in md
+    for internal in ("llm-smells.md", "`modernbert`", "| lines |", "not assessed", "not flagged |", "uncalibrated"):
+        assert internal not in md, internal
+    calibrated = detect.to_markdown("paper.md", "modernbert", rows, 0.8, True)
+    assert "the highest score the detector gave to the authors' own earlier writing" in calibrated
+
+
+def test_setup_report_names_what_is_missing_in_words(monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+    env = {"hf_token": False, "aiornot_key": False, "gpu": None, "ram_gb": 8.0, "hf_cache": "/x",
+           "disk_free_gb": 50.0, "can_open_browser": False, "cached": {k: False for k in setup.DETECTORS}}
+    monkeypatch.setattr(setup, "environment", lambda: env)
+    out = CliRunner().invoke(setup.app, ["check"]).output
+    assert "| a Hugging Face token and access approval from Pangram |" in out
+    assert "| an AI or Not API key |" in out and "| on the company's server (the text is sent there) |" in out
+    assert ("a graphics card with 30 GB of memory, or 64 GB of memory to run on the processor" in out
+            and "about 64 GB of memory" in out)
+    assert "- A Hugging Face token (`hf-token`): https://huggingface.co/settings/tokens." in out
+    for internal in ("| hf-token", "editlens-access (", "needs ~", "(local", "Recommended: `"):
+        assert internal not in out, internal
+    raw = json.loads(CliRunner().invoke(setup.app, ["check", "--json"]).output)
+    assert raw["detectors"][2]["missing"][0] == "hf-token"  # the JSON keeps the keys other tools read
 
 
 watch = _load("policy_watch", SKILLS / "manuscript-journal-adapt" / "scripts" / "policy_watch.py")
@@ -918,6 +1006,44 @@ def test_show_reads_old_failure_reasons_in_words() -> None:
     assert venues.plain_reason("httpx: blocked (HTTP 403); chrome: blocked (challenge page)") == (
         "plain download: blocked (HTTP 403); headless browser: blocked (challenge page)")
     assert venues.route_words("wayback:20240617115300") == "the Internet Archive's copy of 2024-06-17"
+
+
+def test_peers_finds_a_name_listed_with_a_middle_initial(synthetic_venues: Path,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    # 2026-10-19: `peers "Anton Kulaga"` printed "no OpenAlex author with this name", because OpenAlex lists him as
+    # "Anton Y. Kulaga", and offered no id to pass with --author-id; a journal with an unread policy read "not known (?)".
+    from typer.testing import CliRunner
+    p = synthetic_venues
+    p.write_text(SYNTHETIC_VENUES + "  unread:\n    name: Unread Journal\n    url: https://unread.example\n",
+                 encoding="utf-8")
+    people = {"https://openalex.org/A1": "Anton Y. Kulaga", "https://openalex.org/A2": "Kuzmin Anton",
+              "https://openalex.org/A3": "Kim Smith"}
+    papers = {"A1": ["Calm Journal", "Unread Journal"], "A3": ["Strict Journal"]}
+
+    def fake_openalex(path: str, **params: object) -> dict:
+        if path == "authors":
+            words = set(venues._fold(str(params["search"])).split())
+            return {"results": [{"id": i, "display_name": n, "works_count": 16, "last_known_institutions": []}
+                                for i, n in people.items() if words & set(venues._fold(n).split())]}
+        aid = str(params["filter"]).split("author.id:")[1].split(",")[0]
+        return {"meta": {"next_cursor": None}, "results": [
+            {"primary_location": {"source": {"type": "journal", "id": f"https://openalex.org/S{j}",
+                                             "display_name": j}}} for j in papers.get(aid, [])]}
+
+    monkeypatch.setattr(venues, "_openalex", fake_openalex)
+    result = CliRunner().invoke(venues.app, ["peers", "Anton Kulaga", "J. Smith", "--since", "2019"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "Anton Kulaga: A1 Anton Y. Kulaga (16 works; no institution)" in out
+    rows = {r.split(" | ")[1]: r for r in out.splitlines() if r.startswith("| ") and not r.startswith("| Papers")}
+    assert set(rows) == {"Calm Journal", "Unread Journal"}  # only the matched person's papers are counted
+    score, _ = venues.friction(venues.load_venues()[1]["calm"])
+    assert f"| {venues._points(score)} ({venues.tier(score)}) |" in rows["Calm Journal"]
+    assert "| not known |" in rows["Unread Journal"] and "?" not in rows["Unread Journal"]
+    # A shared surname with a different given name is not the same person; the near miss is named so it can be chosen.
+    assert "J. Smith: OpenAlex has no author with this name. The nearest names it found: A3 Kim Smith" in out
+    assert "--author-id" in out
+    assert venues._same_name("Kulaga, Anton", "Anton Kulaga") and not venues._same_name("A. Kulaga", "Anton Kulaga")
 
 
 def test_abbreviations_spell_out_only_what_the_text_uses() -> None:

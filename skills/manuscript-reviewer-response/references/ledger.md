@@ -4,6 +4,12 @@ Read this when a decision letter, referee reports or a later-round decision arri
 any reply. The ledger is the response plan, not a log: it holds the current state of each comment, one
 entry per item, and the authors' decisions. It is the only record this skill keeps.
 
+The ledger is a working file. What the authors read about it is plain words: the comment quoted under the
+referee's own number, "essential" (the editor's condition, or an objection to validity) for `must_fix`,
+"make the change", "decline" or "does not apply" for the decision, the kind of work in words ("a new analysis
+of public data") for `evidence`, and the place in the revised manuscript for `landed`. Ids such as `R2.P1`
+may follow a quote in parentheses; field names and vocabulary tokens never appear.
+
 ## 1. Split the comments into items
 
 **Split wherever a different action would satisfy the referee.** Two clauses are one item only when one
@@ -94,7 +100,7 @@ Evidence vocabulary:
 | Value | Meaning |
 |---|---|
 | `new-data` | A new experiment, measurement or data collection (wet lab, new cohort, new sequencing). |
-| `new-analysis` | New computation on existing or public data, including a public-data replication. |
+| `new-analysis` | New computation on existing or public data, including a public-data replication and runs of other tools or models on the same inputs. |
 | `table`, `figure` | A new or changed display item. |
 | `citation` | A new or replaced reference. |
 | `methods-text`, `results-text`, `discussion-text` | New or changed text in that section. |
@@ -112,14 +118,18 @@ it checks the ledger alone and expects nothing to have landed yet. In a one-shot
 
 ## 4. The authors decide
 
-Present the items to the authors in a compact table (id, the ask in one line, evidence type, must-fix,
-proposed handling) and ask for a decision per item:
+Present the items to the authors in the referees' order, in a table whose cells are readable phrases: the
+referee and their own number, the comment quoted (shortened with [...] when long), what it asks for, the kind
+of work it needs, whether it is essential, and the proposed handling, with the ledger id in parentheses at
+most. Then ask for a decision per item, listing the decisions grouped by when the work could be done (the
+science and evidence first, then the writing, then the journal's format, then statements at the end):
 
 - **address**, with the target in the manuscript;
 - **decline**, with the reason as the authors give it (design, scope, data access, a regulatory or
   ethical limit, or time, cost or capacity), and what was done instead if anything. Record the real
-  reason; in the letter, a time, cost or capacity reason is never the whole answer and comes paired with
-  what was done instead (a narrowed claim, a scope sentence, a public-data alternative);
+  reason. Declining is the authors' call: do not argue for the work or list the decline as a problem. In the
+  letter a bare time, cost or capacity reason reads as a refusal, so offer once a matching change (a narrowed
+  claim, a scope sentence, a public-data alternative) and let the authors choose;
 - **not on point**, with the reason (the comment rests on a misreading the text should prevent, or
   concerns another paper).
 
@@ -129,11 +139,11 @@ easiest. When two referees ask for incompatible things, show both and let the au
 then explains the choice to both. A "not on point" decision usually still earns a manuscript change: the
 text that allowed the misreading.
 
-An in-silico-only budget is a legitimate constraint. For a request that needs `new-data` the authors
-cannot produce, list the honest options with their cost: a public-data replication or reanalysis, a
-narrower claim, a scope sentence where the gap sets what a result means, citing existing experimental
-evidence (verified), or a different venue. Never present a proposed experiment as one that will be done
-unless the authors commit to it.
+An in-silico-only budget is a legitimate constraint. For a request that needs new data the authors
+cannot produce, list the honest options with their cost (rough effort, labelled as an estimate): a
+public-data replication or reanalysis, a narrower claim, a scope sentence where the gap sets what a result
+means, citing existing experimental evidence (verified), or a different venue. Never present a proposed
+experiment as one that will be done unless the authors commit to it.
 
 ## 5. Revise or submit elsewhere
 
@@ -148,6 +158,8 @@ Help the authors decide after the items and decisions are clear; this is their c
 - the deadline in the decision letter;
 - what moving costs: reformatting, a new review, and the same substantive points from new referees. The
   ledger carries over as a revision plan either way.
+- a journal policy that bears on the choice (an AI-use or data-sharing rule, for example): one sentence on
+  its practical consequence, as one more cost, never a condition the authors must meet first.
 
 With no editor and no letter to write (contest feedback, or a rejection the authors will revise for
 another venue), the plan ends here: the ledger and decisions are the result, no letter is drafted, and the

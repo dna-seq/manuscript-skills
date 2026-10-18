@@ -49,6 +49,7 @@ REFERENCES_HEADING = re.compile(r"^\s*(?:#{1,6}\s*\**\s*(?:\d+\.?\s*)?(?:referen
 ABBREVIATIONS = re.compile(r"\b(?:et al|e\.g|i\.e|Fig|Figs|Eq|Eqs|Ref|Refs|vs|approx|cf|ca|No|Dr|Prof|Suppl|Tab|Sect)\.$",
                            re.IGNORECASE)
 WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*")
+LIST_MARKER = re.compile(r"^[-*+]\s+")
 NUMBER_ANCHOR = re.compile(r"(?<![A-Za-z])\d")
 CITATION_ANCHOR = re.compile(r"\[\d+(?:\s*[-–,]\s*\d+)*\]|\((?:[^()]*?\b(?:19|20)\d{2}[a-z]?\b[^()]*?)\)|\[c\]")
 
@@ -121,10 +122,59 @@ def paragraphs(text: str) -> list[tuple[int, str]]:
             continue
         if not block:
             start = i
-        block.append(stripped.lstrip("-*+ ").strip())
+        block.append(LIST_MARKER.sub("", stripped))  # "- item" loses its marker; "**Figure 2.**" keeps its bold
     if block:
         out.append((start, " ".join(block)))
     return [(n, p) for n, p in out if len(WORD.findall(p)) >= 8]
+
+
+HEADING_TEXT = re.compile(r"^\s*(?:(#{1,6})\s+(.+?)[\s#]*$|\\(chapter|section|subsection|subsubsection|paragraph)"
+                          r"\*?(?:\[[^\]]*\])?\{(.*)\}\s*$)")
+TEX_LEVEL = {"chapter": 1, "section": 2, "subsection": 3, "subsubsection": 4, "paragraph": 5}
+# "6. Conclusion", "5.1 Limitations", "A.2 Extra runs"; a bare capital ("A Study of ...") is a word, not a number.
+NUMBERED_HEADING = re.compile(r"^(\d+(?:\.\d+)*|[A-Z](?:\.\d+)+|[A-Z](?=\.))\.?\s+(\S.*)$")
+
+
+def headings(text: str) -> list[tuple[int, int, str]]:
+    """(line, level, title) of each Markdown or LaTeX heading, without the paper's title (a lone level-1 heading)."""
+    out: list[tuple[int, int, str]] = []
+    in_code = False
+    for i, line in enumerate(text.splitlines(), start=1):
+        if line.strip().startswith("```"):
+            in_code = not in_code
+            continue
+        m = None if in_code else HEADING_TEXT.match(line)
+        if m:
+            level = len(m.group(1)) if m.group(1) else TEX_LEVEL[m.group(3)]
+            title = " ".join(re.sub(r"\\[A-Za-z]+\*?|[{}*_`]", "", m.group(2) or m.group(4)).split())
+            if title:
+                out.append((i, level, title))
+    if len(out) > 1 and out[0][1] == 1 and sum(level == 1 for _, level, _ in out) == 1:
+        out = out[1:]
+    return out
+
+
+def section_at(heads: list[tuple[int, int, str]], line: int) -> str:
+    """The heading path in force at `line`, e.g. 'Results > Performance' ('' before the first heading)."""
+    path: list[tuple[int, str]] = []
+    for at, level, title in heads:
+        if at > line:
+            break
+        while path and path[-1][0] >= level:
+            path.pop()
+        path.append((level, title))
+    return " > ".join(title for _, title in path)
+
+
+def place(section: str, lines: str) -> str:
+    """'the Results, Performance (line 12)' or 'section 5.1, Limitations (lines 40 to 52)', ready to follow 'In'.
+
+    A numbered heading names its parents already, so only the deepest one is given."""
+    if not section:
+        return f"the text before the first heading ({lines})"
+    numbered = NUMBERED_HEADING.match(section.split(" > ")[-1])
+    where = f"section {numbered.group(1)}, {numbered.group(2)}" if numbered else "the " + section.replace(" > ", ", ")
+    return f"{where} ({lines})"
 
 
 def sentences(paragraph: str) -> list[str]:
@@ -159,7 +209,9 @@ def mtld(words: list[str], threshold: float = 0.72) -> Optional[float]:
 
 
 def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], kobak: set[str]) -> dict[str, Any]:
-    paras = paragraphs(clean(text, latex))
+    cleaned = clean(text, latex)
+    paras = paragraphs(cleaned)
+    heads = headings(cleaned)
     all_sentences: list[str] = []
     para_reports: list[dict[str, Any]] = []
     totals: Counter[str] = Counter()
@@ -186,7 +238,8 @@ def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], koba
         n_hits = sum(len(v) for v in hits.values())
         anchors = len(NUMBER_ANCHOR.findall(para)) + len(CITATION_ANCHOR.findall(para))
         totals.update({sid: len(v) for sid, v in hits.items()})
-        para_reports.append({"line": line, "words": n_words, "sentences": len(sents), "hits": hits,
+        para_reports.append({"line": line, "section": section_at(heads, line), "words": n_words,
+                             "sentences": len(sents), "hits": hits,
                              "smells_per_100_words": round(100 * n_hits / n_words, 2), "anchors": anchors,
                              "text": para[:160]})
     words = [w.lower() for _, p in paras for w in WORD.findall(p)]
@@ -249,32 +302,90 @@ def compare(doc: dict[str, Any], sample: dict[str, Any], factor: float = 1.5) ->
     return out
 
 
+MEASURES = {
+    "words": "Words of prose (headings, tables and references left out)",
+    "paragraphs": "Paragraphs",
+    "sentences": "Sentences",
+    "sentence_length_mean": "Average sentence length, in words",
+    "sentence_length_sd": "Spread of sentence lengths (standard deviation, in words)",
+    "sentence_length_cv": "Variation in sentence length (standard deviation divided by the mean; a low value means "
+                          "uniform sentences)",
+    "paragraph_length_cv": "Variation in paragraph length (the same measure for paragraphs)",
+    "connector_starts_per_100_sentences": "Sentences that open with a stock connector such as “Moreover” or "
+                                          "“Furthermore”, per 100 sentences",
+    "llm_vocabulary_per_1000_words": "Words that became far more frequent in scientific abstracts after 2023 (the "
+                                     "excess-vocabulary list of Kobak et al.), per 1,000 words",
+    "em_dashes_per_1000_words": "Em dashes per 1,000 words",
+    "semicolons_per_1000_words": "Semicolons per 1,000 words",
+    "smells_per_1000_words": "Stock phrases and sentence shapes (the patterns listed below), per 1,000 words",
+    "anchors_per_100_words": "Numbers and citations per 100 words",
+    "lexical_diversity_mtld": "Vocabulary diversity (MTLD, the measure of textual lexical diversity; higher means "
+                              "more varied wording)",
+}
+SMALL_NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f"{SMALL_NUMBERS[n] if n < len(SMALL_NUMBERS) else n} {one if n == 1 else many}"
+
+
+def _listed(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _times(n: int) -> str:
+    return {1: "once", 2: "twice"}.get(n, f"{n} times")
+
+
+def _pattern(sid: str, smells: dict[str, dict[str, Any]]) -> str:
+    return smells[sid]["name"] if sid in smells else sid
+
+
+def _value(v: Any) -> str:
+    return "not measured (too little text)" if v is None else str(v)
+
+
+def _paragraph_line(p: dict[str, Any], smells: dict[str, dict[str, Any]]) -> str:
+    """One paragraph to reread, as a sentence: where it is, how dense the patterns are, and what they are."""
+    n = sum(len(v) for v in p["hits"].values())
+    found = [f"{_pattern(sid, smells)} ({sid}) in " + _listed([f"“{h}”" for h in v[:3]]) for sid, v in p["hits"].items()]
+    anchors = ", and it has no number or citation" if p["anchors"] == 0 else ""
+    where = place(p.get("section", ""), "line " + str(p["line"]))
+    cut = "…" if len(p["text"]) >= 160 else ""
+    return (f"- In {where}, a paragraph of {p['words']} words has {_count(n, 'pattern', 'patterns')} "
+            f"({p['smells_per_100_words']} for every 100 words){anchors}. What was found: {'; '.join(found)}.\n"
+            f"  The paragraph begins: “{p['text']}{cut}”")
+
+
 def to_markdown(path: str, doc: dict[str, Any], smells: dict[str, dict[str, Any]], top: int,
-                baseline: Optional[list[dict[str, Any]]]) -> str:
+                baseline: Optional[list[dict[str, Any]]], factor: float = 1.5) -> str:
     m = doc["metrics"]
-    out = [f"# Style profile: {path}", "",
-           "Counts of named patterns and style measures. Not an AI detector; no number here is a probability.", "",
-           "| measure | value |", "|---|---|"]
-    out += [f"| {k.replace('_', ' ')} | {v if v is not None else 'n/a'} |" for k, v in m.items()]
+    out = [f"# Writing patterns and style measures: {path}", "",
+           "These counts show where to start editing. They are not an AI detector, and no number here is a "
+           "probability that a person or a model wrote the text.", "",
+           "| What is measured | Value |", "|---|---|"]
+    out += [f"| {MEASURES.get(k, k.replace('_', ' '))} | {_value(v)} |" for k, v in m.items()]
     if baseline is not None:
         out += ["", "## Compared with the authors' own writing", "",
-                "| measure | manuscript | authors | ratio | departs |", "|---|---|---|---|---|"]
-        out += [f"| {r['measure'].replace('_', ' ')} | {r['manuscript']} | {r['authors']} | {r['ratio'] or 'n/a'} "
-                f"| {'**yes**' if r['departs'] else ''} |" for r in baseline]
-    out += ["", "## Most frequent smells", ""]
-    out += [f"- {sid} {smells[sid]['name']}: {n}" for sid, n in list(doc["smell_totals"].items())[:12]] or ["- none"]
+                f"A measure is far from the authors' own writing when the manuscript's value is at least {factor} "
+                "times theirs, or that much lower, in the direction that reads as machine-written.", "",
+                "| What is measured | This manuscript | The authors' writing | Ratio | Far from the authors' writing |",
+                "|---|---|---|---|---|"]
+        out += [f"| {MEASURES.get(r['measure'], r['measure'].replace('_', ' '))} | {r['manuscript']} | {r['authors']} "
+                f"| {r['ratio'] if r['ratio'] is not None else 'none (the authors’ value is zero)'} "
+                f"| {'**yes**' if r['departs'] else 'no'} |" for r in baseline]
+    out += ["", "## The most frequent patterns", ""]
+    totals = list(doc["smell_totals"].items())[:12]
+    out += [f"- {_pattern(sid, smells)[:1].upper()}{_pattern(sid, smells)[1:]} ({sid}): {_times(n)}."
+            for sid, n in totals] or ["None of the patterns was found."]
     ranked = sorted((p for p in doc["paragraphs"] if p["words"] >= 15 and p["hits"]),
                     key=lambda p: (-p["smells_per_100_words"], p["anchors"]))[:top]
-    out += ["", f"## Paragraphs to edit first (top {len(ranked)} by smell density)", ""]
-    for p in ranked:
-        if not p["hits"]:
-            continue
-        hits = "; ".join(f"{sid} {smells[sid]['name']}: " + ", ".join(f"“{h}”" for h in v[:3])
-                         for sid, v in p["hits"].items())
-        anchor_note = " **no numbers or citations**" if p["anchors"] == 0 else ""
-        out.append(f"- **L{p['line']}** ({p['words']} words, {p['smells_per_100_words']} per 100 words,"
-                   f" {p['anchors']} anchors{anchor_note}): {hits}\n  > {p['text']}…")
-    out += ["", "Each id is an entry in `references/llm-smells.md`, with its fix and its \"Leave it when\"."]
+    out += ["", "## Paragraphs to reread first", "",
+            f"The {_count(len(ranked), 'paragraph', 'paragraphs')} with the most patterns for their length, densest "
+            "first." if ranked else "No paragraph of 15 words or more has any of the patterns.", ""]
+    out += [_paragraph_line(p, smells) for p in ranked]
+    out += ["", "Each pattern marks a place to reread, not an error: a sentence that still says something specific "
+                "can stay. The code in parentheses identifies the pattern in the editor's catalogue."]
     return "\n".join(out) + "\n"
 
 
@@ -300,10 +411,10 @@ def main(
         doc["comparison"] = baseline
     if json_out:
         json_out.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
-    md = to_markdown(str(path), doc, smells, top, baseline)
+    md = to_markdown(str(path), doc, smells, top, baseline, factor)
     if md_out:
         md_out.write_text(md, encoding="utf-8")
-        typer.echo(f"wrote {md_out}")
+        typer.echo(f"Wrote the report to {md_out}.")
     else:
         typer.echo(md)
 

@@ -68,12 +68,18 @@ class Finding(BaseModel):
     message: str
     arithmetic: str = ""
     suggestion: str = ""
+    section: Optional[str] = None  # where a reader finds it: "Results", "Table 1, row Women"
+    quote: str = ""  # the sentence or table row as written, shortened with [...] around the number
+    quote_span: Optional[tuple[int, int]] = None  # where the number sits inside `quote`
+    # Numbers that disagree are fixed now, while the analysis is open (references/author-priorities.md).
+    stage: str = "now"
 
 
 class Skipped(BaseModel):
     line: Optional[int] = None
     excerpt: str = ""
     reason: str
+    section: Optional[str] = None
 
 
 class CheckSummary(BaseModel):
@@ -405,7 +411,7 @@ class _Builder:
         clean = lambda t: re.sub(r"[*_`{}]|\\[a-z]+", "", t).strip()  # noqa: E731
         self.section = named or "other"
         first = next((k for k, (_, c, _) in enumerate(self.stack) if c), 0)  # not the document title
-        self.section_id = " / ".join(clean(t) for _, _, t in self.stack[first:])
+        self.section_id = ", ".join(clean(t) for _, _, t in self.stack[first:])
 
     def set_section(self, section: str, section_id: str) -> None:
         self.flush()
@@ -467,7 +473,7 @@ class _Builder:
 
     def _md_table(self, start: int, end: int) -> None:
         lines = self.lines
-        caption, label, caption_index = "", f"table at L{start + 1}", None
+        caption, label, caption_index = "", f"the table at line {start + 1}", None
         before = [j for j in range(start - 1, max(-1, start - 4), -1)]
         after = [j for j in range(end, min(len(lines), end + 3))]
         for j in before + after:
@@ -526,7 +532,7 @@ class _Builder:
             if re.search(r"\\begin\{tabular", line):
                 self.flush()
                 if table is None:
-                    table, bare = Table(label=f"table at L{number}", start_line=number), True
+                    table, bare = Table(label=f"the table at line {number}", start_line=number), True
                 rows = []
                 line = re.sub(r"^.*?\\begin\{tabular[x*]?\}(?:\{[^{}]*\})?(?:\{(?:[^{}]|\{[^{}]*\})*\})?", "", line)
             if table is not None:
@@ -600,6 +606,55 @@ def sentences(unit: Unit) -> list[tuple[int, str]]:
 def _excerpt(text: str, start: int, end: int, width: int = 50) -> str:
     lo, hi = max(0, start - width), min(len(text), end + width)
     return ("…" if lo else "") + text[lo:hi].strip() + ("…" if hi < len(text) else "")
+
+
+QUOTE_WIDTH = 160
+
+
+def _quote(text: str, start: int = 0, end: int = 0, width: int = QUOTE_WIDTH) -> tuple[str, Optional[tuple[int, int]]]:
+    """The text as written, cut to about `width` characters around [start, end) at word boundaries and marked
+    [...] where shortened, with the span's place in the result (the same rule as scan.py)."""
+    text = re.sub(r"[\r\n\t]", " ", text)
+    lead = len(text) - len(text.lstrip())
+    body = text.strip()
+    start, end = min(max(0, start - lead), len(body)), min(max(0, end - lead), len(body))
+    end = min(max(end, start), start + width)
+    if len(body) <= width:
+        return body, (start, end) if end > start else None
+    lo = max(0, start - (width - (end - start)) // 2)
+    hi = min(len(body), max(lo + width, end))
+    if hi == len(body):
+        lo = max(0, min(lo, hi - width))
+    if lo > 0:
+        space = body.find(" ", lo, start + 1)
+        lo = space + 1 if space >= 0 else lo
+    if hi < len(body):
+        space = body.rfind(" ", end, hi)
+        hi = space if space > end else hi
+    prefix, suffix = ("[...] " if lo > 0 else ""), (" [...]" if hi < len(body) else "")
+    shift = len(prefix) - lo
+    return prefix + body[lo:hi].strip() + suffix, ((start + shift, end + shift) if end > start else None)
+
+
+def _place_name(unit: Unit) -> str:
+    """What a reader calls the unit's place: its section, a table, or a table's row."""
+    if unit.kind == "row" and unit.table is not None and unit.cells:
+        label = re.sub(r"[*_`]", "", unit.cells[0]).strip()
+        return f"{unit.table.label}, row “{label[:60]}”" if label else unit.table.label
+    return unit.section_id
+
+
+def _cell_offset(unit: Unit, j: int) -> int:
+    """Where cell j starts in a row unit's text (its cells joined by ' | ')."""
+    return sum(len(c) + 3 for c in unit.cells[:j])
+
+
+def _placed(finding: Finding, unit: Unit, start: int, end: int) -> Finding:
+    """The finding with its section and the unit's text quoted around [start, end)."""
+    finding.section = _place_name(unit)
+    finding.quote, finding.quote_span = _quote(unit.text, start, end)
+    finding.message = finding.message[:1].upper() + finding.message[1:]
+    return finding
 
 
 def _decimals(literal: str) -> int:
@@ -799,7 +854,7 @@ def _appears_in(index: dict[str, list[tuple[str, bool]]], sections: set[str], li
 
 
 def _where(m: LedgerMention) -> str:
-    return f"{m.unit.section_id} (L{m.line})"
+    return f"{m.unit.section_id} (line {m.line})"
 
 
 def check_ledger(doc: Document, summary: CheckSummary) -> tuple[list[Finding], dict[str, list[Mention]]]:
@@ -861,19 +916,22 @@ def check_ledger(doc: Document, summary: CheckSummary) -> tuple[list[Finding], d
         values: dict[str, list[str]] = {}
         for m in group:
             values.setdefault(m.literal + ("%" if m.percent else ""), []).append(_where(m))
-        listing = "; ".join(f"{v}: {', '.join(dict.fromkeys(places))}" for v, places in values.items())
+        stated = [f"{v} in {' and '.join(dict.fromkeys(places))}" for v, places in values.items()]
+        listing = stated[0] if len(stated) == 1 else ", ".join(stated[:-1]) + " and " + stated[-1]
         assert anchor is not None
-        findings.append(Finding(
+        findings.append(_placed(Finding(
             check="ledger", severity=Severity.major, line=anchor.line,
             excerpt=_excerpt(anchor.unit.text, anchor.offset, anchor.offset + len(anchor.literal)),
             message=f"'{key}' is stated with different values: {'; '.join(problems)}.",
-            arithmetic=f"All statements of '{key}': {listing}.",
+            arithmetic=f"'{key}' is stated as {listing}.",
             suggestion="Check each value against the data. If both are right (a subset, an exclusion, another "
-                       "dataset), say which population or analysis each describes where it is stated."))
+                       "dataset), say which population or analysis each describes where it is stated."),
+            anchor.unit, anchor.offset, anchor.offset + len(anchor.literal)))
     for reason, count in skipped.items():
         if count:
-            summary.not_assessed.append(Skipped(reason=f"{count} statement(s) skipped as "
-                                                       f"{'cited prior work' if reason == 'cited' else 'Introduction background'}"))
+            summary.not_assessed.append(Skipped(reason=f"{count} {'statement was' if count == 1 else 'statements were'} "
+                                                       f"skipped because {'it reports' if count == 1 else 'they report'} "
+                                                       f"{'cited prior work' if reason == 'cited' else 'background in the Introduction'}"))
     ledger = {key: [Mention(key=key, value=m.literal + ("%" if m.percent else ""), line=m.line,
                             section=m.unit.section_id, excerpt=_excerpt(m.unit.text, m.offset, m.offset + len(m.literal), 30))
                     for m in group] for key, group in sorted(by_key.items())}
@@ -1012,13 +1070,13 @@ def _grim_one(unit: Unit, offset: int, text: str, position: int, mean: str, sd: 
         grim.candidates += 1
         assumption = (f"assuming each of the {items} items is a whole number" if items > 1
                       else "assuming one whole-number value per participant")
-        return [Finding(check="grim", severity=Severity.major, line=line, excerpt=excerpt,
-                        message=f"Mean {mean}{where} with n = {n} is not possible for whole-number data "
-                                f"({assumption}).",
-                        arithmetic=_grim_arithmetic(mean, n, items),
-                        suggestion="Check the mean and n against the data: the n behind this mean may differ "
-                                   "(missing responses, exclusions), the data may not be whole numbers, or a digit "
-                                   "may be mistyped.")]
+        return [_placed(Finding(check="grim", severity=Severity.major, line=line, excerpt=excerpt,
+                                message=f"Mean {mean}{where} with n = {n} is not possible for whole-number data "
+                                        f"({assumption}).",
+                                arithmetic=_grim_arithmetic(mean, n, items),
+                                suggestion="Check the mean and n against the data: the n behind this mean may differ "
+                                           "(missing responses, exclusions), the data may not be whole numbers, or a "
+                                           "digit may be mistyped."), unit, offset, offset + len(mean))]
     grim.consistent += 1
     if sd is None:
         return []
@@ -1042,13 +1100,13 @@ def _grim_one(unit: Unit, offset: int, text: str, position: int, mean: str, sd: 
         q_lo = (n - 1) * max(0.0, s - h) ** 2 + total * total / n
         q_hi = (n - 1) * (s + h) ** 2 + total * total / n
         ranges.append(f"sum {total}: sum of squares between {q_lo:.3f} and {q_hi:.3f}")
-    return [Finding(check="grimmer", severity=Severity.major, line=line, excerpt=excerpt,
+    return [_placed(Finding(check="grimmer", severity=Severity.major, line=line, excerpt=excerpt,
                     message=f"SD {sd} with mean {mean}{where} and n = {n} is not possible for whole-number data.",
                     arithmetic=f"SD {sd} (±{h:g} rounding) implies, for each sum that fits the mean, "
                                + "; ".join(ranges) + ". The sum of squares of whole numbers is a whole number with "
                                "the same parity as their sum; none fits (sample or population SD).",
                     suggestion="Check the SD, the mean and n against the data, and whether the dispersion is an SD "
-                               "and not a standard error.")]
+                               "and not a standard error."), unit, offset, offset + len(mean))]
 
 
 def _grim_sentence(unit: Unit, s_off: int, sent: str, assume_integer: bool, grim: CheckSummary,
@@ -1091,12 +1149,13 @@ def _percent_of_n(unit: Unit, offset: int, sent: str, m: re.Match[str], percent:
         return []
     percent.candidates += 1
     lo, hi = math.floor(target), math.ceil(target) if math.ceil(target) != math.floor(target) else math.floor(target) + 1
-    return [Finding(check="percent-of-n", severity=Severity.major, line=unit.line_at(offset),
-                    excerpt=_excerpt(sent, m.start(), m.end()),
-                    message=f"{pct}% of {n} is not a whole count.",
-                    arithmetic=f"{pct}% × {n} = {target:.3f}; {lo}/{n} = {100 * lo / n:.{d + 2}f}% and {hi}/{n} = "
-                               f"{100 * hi / n:.{d + 2}f}%, neither of which rounds to {pct}%.",
-                    suggestion="Check the percentage and its denominator.")]
+    return [_placed(Finding(check="percent-of-n", severity=Severity.major, line=unit.line_at(offset),
+                            excerpt=_excerpt(sent, m.start(), m.end()),
+                            message=f"{pct}% of {n} is not a whole count.",
+                            arithmetic=f"{pct}% × {n} = {target:.3f}; {lo}/{n} = {100 * lo / n:.{d + 2}f}% and "
+                                       f"{hi}/{n} = {100 * hi / n:.{d + 2}f}%, neither of which rounds to {pct}%.",
+                            suggestion="Check the percentage and its denominator."),
+                    unit, offset, offset + m.end() - m.start())]
 
 
 def _grim_table_row(unit: Unit, assume_integer: bool, grim: CheckSummary, grimmer: CheckSummary,
@@ -1127,12 +1186,14 @@ def _grim_table_row(unit: Unit, assume_integer: bool, grim: CheckSummary, grimme
                 continue
             percent.candidates += 1
             header = table.header[j] if j < len(table.header) else f"column {j + 1}"
-            out.append(Finding(check="table-percent", severity=Severity.major, line=unit.line_at(0),
-                               excerpt=f"{label}: {cell}",
-                               message=f"{table.label}, row '{label}', column '{header}': {k} of {n} is "
-                                       f"{actual:.{max(1, _decimals(pct))}f}%, not {pct}%.",
-                               arithmetic=f"100 × {k} / {n} = {actual:.3f}.",
-                               suggestion="Recompute from the count and the column n, or correct the n in the header."))
+            at = _cell_offset(unit, j)
+            out.append(_placed(Finding(check="table-percent", severity=Severity.major, line=unit.line_at(0),
+                                       excerpt=f"{label}: {cell}",
+                                       message=f"{table.label}, row '{label}', column '{header}': {k} of {n} is "
+                                               f"{actual:.{max(1, _decimals(pct))}f}%, not {pct}%.",
+                                       arithmetic=f"100 × {k} / {n} = {actual:.3f}.",
+                                       suggestion="Recompute from the count and the column n, or correct the n in "
+                                                  "the header."), unit, at, at + len(cell)))
             continue
         mm = CELL_MEAN_SD.match(cell)
         if mm and mean_sd and integer:
@@ -1141,7 +1202,7 @@ def _grim_table_row(unit: Unit, assume_integer: bool, grim: CheckSummary, grimme
                                                  reason="mean (SD) cell with no column n"))
                 continue
             items_m = ITEMS.search(context)
-            out += _grim_one(unit, 0, cell, 0, mm.group("mean"), mm.group("sd") or mm.group("sd2"), n,
+            out += _grim_one(unit, _cell_offset(unit, j), cell, 0, mm.group("mean"), mm.group("sd") or mm.group("sd2"), n,
                              int(items_m.group(1)) if items_m else 1, grim, grimmer,
                              where=f" ({table.label}, '{label}')")
     return out
@@ -1251,10 +1312,11 @@ def _table_totals(doc: Document, table: Table, header: list[str], data: list[Uni
         rounding = lambda v: _half_ulp(v) if "." in v else 0.0  # noqa: E731  (whole-number cells are exact counts)
         tolerance = sum(rounding(v) for v in literals)
         place = f"{table.label} ({table.ref_key})" if table.ref_key else table.label
-        claims = [(stated, f"the total row says {total_row.cells[j]} (L{total_row.line_at(0)})", total_row.line_at(0))
+        claims = [(stated, f"the total row says {total_row.cells[j]} (line {total_row.line_at(0)})",
+                   total_row.line_at(0), total_row, _cell_offset(total_row, j), len(total_row.cells[j]))
                   ] if stated is not None else []
-        claims += [(number, f"the text says {number} (L{unit.line_at(offset)})", unit.line_at(offset))
-                   for unit, offset, number in texts]
+        claims += [(number, f"the text says {number} (line {unit.line_at(offset)})", unit.line_at(offset), unit, offset,
+                    len(number)) for unit, offset, number in texts]
         wrong = [c for c in claims if abs(column - float(c[0].replace(",", ""))) > tolerance + rounding(c[0]) + 1e-9]
         summary.assessed += 1
         if not wrong:
@@ -1263,14 +1325,16 @@ def _table_totals(doc: Document, table: Table, header: list[str], data: list[Uni
         summary.candidates += 1
         in_row = stated is not None and wrong[0][2] == total_row.line_at(0)
         shown = f"{column:.{max(_decimals(v) for v in literals)}f}"
-        out.append(Finding(check="table-total", severity=Severity.major if in_row else Severity.minor,
-                           line=wrong[0][2], excerpt=f"{place}: {name}",
-                           message=f"{place}, column '{name}': the cells add up to {shown}, but "
-                                   + "; ".join(c[1] for c in wrong) + ".",
-                           arithmetic=" + ".join(literals) + f" = {shown}"
-                                      + (f" (± {tolerance:g} from the cells' rounding)." if tolerance >= 0.05 else "."),
-                           suggestion="Recount the column, or say what the total covers if it includes items the "
-                                      "table leaves out."))
+        out.append(_placed(Finding(check="table-total", severity=Severity.major if in_row else Severity.minor,
+                                   line=wrong[0][2], excerpt=f"{place}: {name}",
+                                   message=f"{place}, column '{name}': the cells add up to {shown}, but "
+                                           + "; ".join(c[1] for c in wrong) + ".",
+                                   arithmetic=" + ".join(literals) + f" = {shown}"
+                                              + (f" (± {tolerance:g} from the cells' rounding)." if tolerance >= 0.05
+                                                 else "."),
+                                   suggestion="Recount the column, or say what the total covers if it includes items "
+                                              "the table leaves out."),
+                           wrong[0][3], wrong[0][4], wrong[0][4] + wrong[0][5]))
     return out
 
 
@@ -1306,14 +1370,15 @@ def _table_sem(table: Table, header: list[str], data: list[Unit], summary: Check
             summary.consistent += 1
             continue
         summary.candidates += 1
-        out.append(Finding(check="sem-sd", severity=Severity.major, line=row.line_at(0), excerpt=f"{cells[0]}",
+        at = _cell_offset(row, sem_col)
+        out.append(_placed(Finding(check="sem-sd", severity=Severity.major, line=row.line_at(0), excerpt=f"{cells[0]}",
                            message=f"{table.label}, row '{cells[0]}': SEM {sem_lit} does not match SD {sd_lit} and "
                                    f"n = {n}.",
                            arithmetic=f"SD / √n = {sd_lit} / √{n} = {sd / math.sqrt(n):.{_decimals(sem_lit) + 2}f} "
                                       f"(between {lo:.{_decimals(sem_lit) + 2}f} and {hi:.{_decimals(sem_lit) + 2}f} "
                                       f"with the SD's rounding), not {sem_lit}.",
                            suggestion="Recompute the SEM from the SD and the number of runs, or check which n each "
-                                      "statistic was computed over."))
+                                      "statistic was computed over."), row, at, at + len(cells[sem_col])))
     return out
 
 
@@ -1429,7 +1494,7 @@ def check_statistics(doc: Document, alpha: float, summary: CheckSummary,
                 parsed_spans.append(m.span())
                 finding = _check_one(unit, s_off, sent, m, alpha, one_tailed_anywhere, summary, results)
                 if finding:
-                    findings.append(finding)
+                    findings.append(_placed(finding, unit, s_off + m.start(), s_off + m.end()))
             for m in LOOSE_STAT.finditer(sent):
                 if any(a <= m.start() < b for a, b in parsed_spans):
                     continue
@@ -1571,11 +1636,18 @@ def run(path: Path, alpha: Optional[float] = None, assume_integer: bool = False)
     stat_findings, lone_p, other_tests = check_statistics(doc, alpha, checks["statcheck"], statistics)
     findings += stat_findings
     if lone_p:
-        checks["statcheck"].not_assessed.append(Skipped(reason=f"{lone_p} p-value(s) with no test statistic beside "
-                                                               f"them: not recomputable"))
+        one = lone_p == 1
+        checks["statcheck"].not_assessed.append(Skipped(
+            reason=f"{lone_p} p-value{'' if one else 's'} {'stands' if one else 'stand'} without a test statistic beside "
+                   f"{'it' if one else 'them'}, so {'it' if one else 'they'} cannot be recomputed"))
     if other_tests:
-        checks["statcheck"].not_assessed.append(Skipped(reason=f"{other_tests} result(s) from tests this script does "
-                                                               f"not recompute (U, W, H, ...)"))
+        checks["statcheck"].not_assessed.append(Skipped(
+            reason=f"{other_tests} {'result comes' if other_tests == 1 else 'results come'} from tests this script does "
+                   f"not recompute (Mann-Whitney U, Wilcoxon W, Kruskal-Wallis H and others)"))
+    places = {number: _place_name(unit) for unit in doc.units for _, number in unit.starts}
+    for summary in checks.values():
+        for item in summary.not_assessed:
+            item.section = places.get(item.line) if item.line else None
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return NumbersReport(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest(), alpha=alpha,
@@ -1583,44 +1655,103 @@ def run(path: Path, alpha: Optional[float] = None, assume_integer: bool = False)
                          ledger=ledger)
 
 
-CHECK_TITLES = {"ledger": "Number ledger (same quantity, different values)", "grim": "GRIM (means of whole-number data)",
-                "grimmer": "GRIMMER (SDs of whole-number data)", "percent-of-n": "Percentages of n",
-                "table-total": "Table column totals (total row or text against the cells)",
-                "sem-sd": "Table SEM against SD / √n",
+CHECK_TITLES = {"ledger": "The same quantity stated with different values",
+                "grim": "Means of whole-number data (GRIM test)",
+                "grimmer": "Standard deviations of whole-number data (GRIMMER test)",
+                "percent-of-n": "Percentages of a stated n",
+                "table-total": "Table column totals against their cells",
+                "sem-sd": "Standard errors in a table against the SD and n",
                 "statcheck": "Test statistics against their p-values"}
+def _alpha_source(source: str) -> str:
+    several = re.search(r"states several: ([^;)]+)", source)
+    if several:
+        return (f"the usual default, because the text states several levels ({several.group(1)}); give the one that "
+                f"applies with --alpha")
+    return {"stated in the text": "as the text states", "--alpha": "as set with --alpha"}.get(
+        source, "the usual default, because the text states none")
+
+
+SEVERITY_LEAD = {Severity.blocker: "Serious", Severity.major: "Important", Severity.minor: "Minor",
+                 Severity.info: "To look at"}
+NUMBERED = re.compile(r"^(?P<number>(?:\d+(?:\.\d+)*|[IVX]+))[.)]?\s+(?P<title>\S.*)$")
+# Headings read naturally after "the" ("in the Methods"); any other heading is quoted ("in the section “Speed”").
+PLAIN_HEADINGS = re.compile(r"^(?:abstract|introduction|background|methods?|materials|results|discussion|conclusions?|"
+                            r"references|bibliography|acknowledge?ments|funding|supplementary|appendix|limitations|"
+                            r"data|code|availability|declarations?|author|competing|ethics)\b", re.IGNORECASE)
+
+
+def _where_in(section: Optional[str], line: Optional[int]) -> str:
+    """'In the Results (line 12)', 'In Table 1, row “Women” (line 30)', 'In section 2.1, Data (line 8)'."""
+    at = f" (line {line})" if line else ""
+    if not section:
+        return f"At line {line}" if line else "In the manuscript"
+    if section.lower().startswith(("table", "the table")):
+        return f"In {section}{at}"
+    numbered = NUMBERED.match(section.split(", ")[-1])
+    if numbered:
+        return f"In section {numbered.group('number')}, {numbered.group('title')}{at}"
+    return f"In the {section}{at}" if PLAIN_HEADINGS.match(section) else f"In the section “{section}”{at}"
+
+
+def _marked(quote: str, span: Optional[tuple[int, int]]) -> str:
+    quote = re.sub(r"\*\*|__|`", "", quote) if not span else quote
+    if span and span[1] > span[0]:
+        a, b = span
+        quote = re.sub(r"\*\*|__|`", "", quote[:a]) + "**" + re.sub(r"\*\*|__|`", "", quote[a:b]).strip() + "**" + \
+            re.sub(r"\*\*|__|`", "", quote[b:])
+    return f"“{quote}”"
+
+
+def _sentence(text: str) -> str:
+    text = " ".join(text.split())
+    return text if not text or text[-1] in ".!?”" else text + "."
+
+
+def _finding_line(f: Finding) -> str:
+    place = ""
+    if f.quote:
+        end = "" if f.quote[-1:] in ".!?" else "."
+        place = f"{_where_in(f.section, f.line)}, the manuscript reads {_marked(f.quote, f.quote_span)}{end}"
+    arithmetic = ("" if not f.arithmetic else _sentence(f.arithmetic) if f.check == "ledger"
+                  else f"The arithmetic: {_sentence(f.arithmetic)}")
+    parts = [_sentence(f.message), place, arithmetic, _sentence(f.suggestion)]
+    return f"- **{SEVERITY_LEAD[f.severity]}.** " + " ".join(p for p in parts if p)
 
 
 def to_markdown(report: NumbersReport) -> str:
-    out = [f"# Numbers and statistics: {report.path}", "",
-           "Candidates for the authors to check, with the arithmetic. A calculator cannot tell an exact value from a "
-           "rounded one, or know which n a value was computed over.", "",
-           f"Significance level for gross inconsistencies: α = {report.alpha:g} ({report.alpha_source}).", "",
-           "| check | assessed | consistent | candidates | not informative | not assessed |", "|---|---|---|---|---|---|"]
+    out = [f"# Numbers and statistics in {Path(report.path).name}", "",
+           "These are candidates for the authors to check, each with its arithmetic. A calculator cannot tell an exact "
+           "value from a rounded one, or know which n a value was computed over, so none of them is a verdict. "
+           f"Gross inconsistencies in test results are judged at a significance level of α = {report.alpha:g}, "
+           + _alpha_source(report.alpha_source) + ".", "",
+           "| What was checked | Statements checked | Consistent | To check | Too imprecise to tell | Could not be read |",
+           "|---|---|---|---|---|---|"]
     for name, s in report.checks.items():
         out.append(f"| {CHECK_TITLES[name]} | {s.assessed} | {s.consistent} | {s.candidates} | {s.not_informative} | "
                    f"{len(s.not_assessed)} |")
     out.append("")
     if report.findings:
-        out += ["## Candidates", ""]
-        for f in report.findings:
-            loc = f"L{f.line}" if f.line else "—"
-            out.append(f"- **{f.severity.value} / {f.check}** {loc}: {f.message}" + (f" `{f.excerpt}`" if f.excerpt else ""))
-            if f.arithmetic:
-                out.append(f"  - arithmetic: {f.arithmetic}")
-            if f.suggestion:
-                out.append(f"  - → {f.suggestion}")
+        out += ["## Fix now: the science and the evidence", "",
+                "Within this group the most serious findings come first: “Important” marks what an editor or referee "
+                "would object to, “Minor” a value that is off without changing a conclusion, and “To look at” what "
+                "may be fine.", ""]
+        out += [_finding_line(f) for f in report.findings]
         out.append("")
     else:
-        out += ["No candidate found by these checks. This does not establish that the numbers are right.", ""]
+        out += ["No candidate was found by these checks. This does not establish that the numbers are right.", ""]
     skipped = [(name, s) for name, s in report.checks.items() if s.not_assessed]
     if skipped:
-        out += ["## Not assessed", ""]
+        out += ["## What could not be checked", ""]
         for name, s in skipped:
+            out += [f"**{CHECK_TITLES[name]}.**", ""]
             for item in s.not_assessed:
-                loc = f"L{item.line} " if item.line else ""
-                out.append(f"- {CHECK_TITLES[name]}: {loc}{item.reason}" + (f" `{item.excerpt}`" if item.excerpt else ""))
-        out.append("")
-    return "\n".join(out)
+                if item.line:
+                    quoted = f", “{item.excerpt}”," if item.excerpt else ""
+                    out.append(f"- {_where_in(item.section, item.line)}{quoted} could not be checked ({item.reason}).")
+                else:
+                    out.append(f"- {_sentence(item.reason[:1].upper() + item.reason[1:])}")
+            out.append("")
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 @app.command()

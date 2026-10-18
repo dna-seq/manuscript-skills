@@ -191,7 +191,7 @@ be understandable by someone who did not write these skills, without opening ano
 - **Plain words.** No vocabulary internal to these skills (seat, adjudication, ledger field names,
   protected change, rung, route, hand-off codes, `not_assessed` or other bare status tokens). Say what
   happened: "could not be checked: the full text is paywalled". Describe a statistical or screening check
-  by what it tests, with its name in parentheses: "a mean of 3.47 is impossible for whole-number answers
+  by what it tests, with its name in parentheses: "a mean of 3.50 is impossible for whole-number answers
   from 19 people (GRIM test)".
 - **Acronyms.** Avoid acronyms the reader may not know; spell one out at first use in each report (article
   processing charge rather than APC). Never use abbreviations these skills invented.

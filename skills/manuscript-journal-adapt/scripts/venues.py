@@ -719,16 +719,27 @@ def _openalex(path: str, **params: Any) -> dict[str, Any]:
     return r.json()
 
 
-def _author_ids(name: str) -> tuple[list[str], list[str]]:
-    """The OpenAlex author record with this exact (folded) name and the most works, plus the other candidates."""
-    found = [a for a in _openalex("authors", search=name, **{"per-page": 25})["results"]
-             if _fold(a["display_name"]) == _fold(name)
-             or sorted(_fold(a["display_name"]).split()) == sorted(_fold(name).split())]
-    found.sort(key=lambda a: -a["works_count"])
-    lines = [f"{a['id'].rsplit('/', 1)[-1]} {a['display_name']} ({a['works_count']} works; "
-             f"{', '.join(i['display_name'] for i in (a.get('last_known_institutions') or [])[:2]) or 'no institution'})"
-             for a in found]
-    return [a["id"].rsplit("/", 1)[-1] for a in found[:1]], lines
+def _same_name(found: str, wanted: str) -> bool:
+    """The same name in any word order, also when one side adds middle initials: OpenAlex lists "Anton Y. Kulaga"
+    for a search on "Anton Kulaga". Without initials at least two full words must agree ("J. Smith" is not
+    "K. Smith")."""
+    a, b = _fold(found).split(), _fold(wanted).split()
+    full_a, full_b = sorted(t for t in a if len(t) > 1), sorted(t for t in b if len(t) > 1)
+    return sorted(a) == sorted(b) or (len(full_a) >= 2 and full_a == full_b)
+
+
+def _author_line(a: dict[str, Any]) -> str:
+    places = ", ".join(i["display_name"] for i in (a.get("last_known_institutions") or [])[:2])
+    return f"{a['id'].rsplit('/', 1)[-1]} {a['display_name']} ({a['works_count']} works; {places or 'no institution'})"
+
+
+def _author_ids(name: str) -> tuple[list[str], list[str], list[str]]:
+    """The OpenAlex author record with this (folded) name and the most works, every record with that name, and,
+    when none has it, the nearest records the search found, so that one can be passed with --author-id."""
+    results = _openalex("authors", search=name, **{"per-page": 25})["results"]
+    found = sorted((a for a in results if _same_name(a["display_name"], name)), key=lambda a: -a["works_count"])
+    nearest = [] if found else [_author_line(a) for a in results[:5]]
+    return [a["id"].rsplit("/", 1)[-1] for a in found[:1]], [_author_line(a) for a in found], nearest
 
 
 @app.command()
@@ -747,8 +758,13 @@ def peers(
             by_name.setdefault(_fold(n), k)
     ids: list[tuple[str, str]] = [(a, a) for a in (author_id or [])]
     for name in names if not author_id else []:
-        chosen, candidates = _author_ids(name)
-        typer.echo(f"{name}: " + ("; ".join(candidates) if candidates else "no OpenAlex author with this name"))
+        chosen, candidates, nearest = _author_ids(name)
+        if candidates:
+            typer.echo(f"{name}: " + "; ".join(candidates))
+        else:
+            typer.echo(f"{name}: OpenAlex has no author with this name." + (
+                f" The nearest names it found: {'; '.join(nearest)}. If one of them is this person, run the command "
+                "again with --author-id and the id before that name." if nearest else ""))
         if len(candidates) > 1:
             typer.echo(f"  using {chosen[0]}; pass --author-id for others that are the same person")
         ids += [(name, c) for c in chosen]
@@ -780,7 +796,7 @@ def peers(
             score, _ = friction(venues[key])
             matched.append(key)
             typer.echo(f"| {n} | {name} | {', '.join(sorted(who[(sid, name)]))} | `{key}` "
-                       f"| {'not known' if score is None else _points(score)} ({tier(score)}) "
+                       f"| {'not known' if score is None else f'{_points(score)} ({tier(score)})'} "
                        f"| {_sentence(WRITING_WORDS.get(venues[key].get('writing_help') or '', 'not researched'))} |")
         else:
             missing.append(name)

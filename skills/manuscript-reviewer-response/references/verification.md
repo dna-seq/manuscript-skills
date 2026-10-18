@@ -9,8 +9,8 @@ text that exists.
 
 The decision letter (reviews text), the original manuscript, the revised manuscript, and the response
 letter and the ledger if there are any. Supplementary files when the replies point into them. Without the original
-manuscript, regressions cannot be told from previously missed problems: say so and mark those
-attributions `not_assessed`.
+manuscript, regressions cannot be told from previously missed problems: say so, and say that those
+attributions could not be checked.
 
 ## Isolation
 
@@ -23,8 +23,11 @@ diversity is optional and never evidence of independence.
 **Without a letter** (the authors want to know whether their revision answers the reviews, or the comments
 are internal review notes or a blocker list), skip the subagent, step 3 and step 4, but still write the
 step 1 criteria before opening the revised manuscript: criteria written after reading the revision drift
-toward what it did. Labels you add to unnumbered notes are visibly the authors' (`E1`, `A1`); with no
-editor, `must_fix` marks objections to validity only.
+toward what it did. Reconcile the guard inventory with the items by hand in step 2, since the script's
+reconciliation needs a letter. When a notes file mixes resolved history with the live list, take the part
+the request names (usually the live list) and say in one sentence which part you took. Labels you add to
+unnumbered notes are visibly the authors' (`E1`, `A1`) and appear in the report only in parentheses after
+the quoted note; with no editor, `must_fix` marks objections to validity only.
 
 ## Step 1. Criteria, before reading the revision
 
@@ -63,7 +66,7 @@ manuscript) and one sentence on what changed against the original:
 | `partially addressed` | A real change that leaves part of the criterion unmet; name the missing part. |
 | `not addressed` | No change in the manuscript that meets any part of the criterion. |
 | `made worse` | The revision moved the item away from the criterion: the challenged claim is stronger, the requested information is gone, a new inconsistency touches it. |
-| `not_assessed` | The evidence is outside what was supplied (a supplementary file, a figure image, data); say what is missing. Never a pass. |
+| `could not be checked` | The evidence is outside what was supplied (a supplementary file, a figure image, data); say what is missing. Never a pass. |
 
 For items whose evidence type is `answer` or `acknowledge`, the answer itself is the evidence; judge it in
 step 3 and say so.
@@ -97,6 +100,8 @@ Now read the response letter. For each item:
   support a disagreement, but note that the next reader of the paper will not see it.
 - The letter never lowers the bar: "we feel this is outside the scope" without a design or scope reason
   leaves the state where step 2 put it.
+- An item the authors declined keeps the state step 2 gave it, and the report lists it among the authors'
+  decisions with their reason, not as a failure of the revision.
 - Do not add or change new issues after reading the letter; anything noticed only now goes in a separate
   "noticed after the letter" note.
 
@@ -115,15 +120,34 @@ lists changes in the guard inventory at locations no reply names. It cannot judg
 
 ## Report
 
-1. A table: item, must-fix, state, anchor (quote and location), what changed, letter consistent with the
-   manuscript (yes, no, with the discrepancy).
-2. Items not fully addressed, must-fix first, each with the smallest change that would meet the
-   criterion.
-3. New issues: regressions, then previously missed, each with location and evidence.
-4. Changes in the guard inventory that no item accounts for.
-5. Structural findings from the check, deduplicated against the above.
-6. What was `not_assessed`, and why.
+Write it for the authors, as
+[Writing for the authors](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+asks: quote each comment under the referee's own number (a label you added, such as `E1`, only in
+parentheses after the quote), quote the revised text that decides each verdict with its section and any line
+number in parentheses, and write each verdict as a sentence. The states are plain words; say "could not be
+checked" and why, never a status token.
 
-No acceptance probability, overall score or prediction of the referees' response. Must-fix items that are
-not addressed, made worse or `not_assessed` mean the revision is not ready to send; say which and leave the
-decision to the authors.
+1. A table in the referees' order: the comment (the referee's number, quoted, shortened with [...] when
+   long), whether it is essential, the state, the revised text that decides it with its section, what
+   changed, and whether the letter says the same as the manuscript (and if not, how they differ).
+2. The work that remains for the comments, with the regressions, grouped by
+   [when it can be done](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
+   "Fix now" (essential items not addressed or made worse, regressions in results, numbers or claims, missing
+   analyses), "Then the writing" (wording items, claims to reword, replies the manuscript does not bear out),
+   "Once you have chosen the journal" (format, length and reporting items), "Before submission, once the code
+   is final" (archive DOIs, availability statements, declarations, removing revision markers and TODO
+   comments). Give each the smallest change that would meet the criterion; within a group, essential items
+   and those that others depend on come first.
+3. Previously missed problems, in the same order, each marked as present before the revision.
+4. Changes in the guard inventory that no item accounts for, each with its sentence quoted.
+5. Decisions for the authors: items they declined, with their reason and its likely consequence said once
+   (the referee may raise it again; a declined condition of the editor may cost acceptance), and any
+   journal-policy conflict in one sentence. Neither is a failure of the revision.
+6. Structural findings from the check, deduplicated against the above, in the words of its Markdown report.
+7. What could not be checked, and why.
+
+No acceptance probability, overall score or prediction of the referees' response. When the revision is
+about to go back to the journal, essential items that are not addressed, made worse or could not be checked
+(other than those the authors declined) mean it is not ready to send: say which and leave the decision to
+the authors. When it is still work in progress (internal notes, a draft), the last group of step 2 is not
+counted in its readiness.

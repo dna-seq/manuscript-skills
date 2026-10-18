@@ -41,7 +41,13 @@ GUIDELINES_YAML = HERE.parent / "references" / "guidelines.yaml"
 RECORD_MD = HERE.parents[1] / "manuscript-integrity-check" / "references" / "manuscript-record.md"
 KINDS = {"reporting-guideline", "extension", "minimum-information", "venue-checklist"}
 STATUSES = {"verified", "unverified", "withdrawn"}
-STATES = "present | partial | missing | not_applicable | unclear (material not supplied)"
+STATES = "present, partial, missing, not applicable, or unclear (material not supplied)"
+# Where a missing item goes in the report (author-priorities.md, "Order the work by when it can be done").
+STAGE_RULE = ("A missing item belongs under \"Once you have chosen the journal\" in the report, unless its absence "
+              "shows missing science (an analysis, comparison, correction or method the conclusions need), "
+              "which belongs under \"Fix now\".")
+KIND_WORDS = {"reporting-guideline": "a reporting guideline", "minimum-information": "a minimum-information "
+              "standard", "venue-checklist": "the journal's own checklist"}
 
 
 def _availability_module() -> ModuleType:
@@ -85,9 +91,11 @@ def _label(g: dict[str, Any]) -> str:
 
 
 def _source(g: dict[str, Any]) -> str:
+    """The guideline's official pages as full URLs (a DOI as https://doi.org/...), for the authors to open."""
     s = g.get("sources") or {}
-    parts = [s.get("equator"), f"doi:{s['paper_doi']}" if s.get("paper_doi") else None, s.get("checklist_url")]
-    return "; ".join(p for p in parts if p) or "no source recorded"
+    parts = [s.get("equator"), f"https://doi.org/{s['paper_doi']}" if s.get("paper_doi") else None, s.get("checklist_url")]
+    urls = [p for p in parts if p]
+    return (urls[0] if len(urls) == 1 else ", ".join(urls[:-1]) + " and " + urls[-1]) if urls else "no source recorded"
 
 
 def _venue_checklist_matches(g: dict[str, Any], venue: Any) -> bool:
@@ -145,46 +153,64 @@ def _summary(g: dict[str, Any]) -> dict[str, Any]:
             "checked": str(g.get("checked")), "status": g.get("status"), "items": len(g.get("items") or [])}
 
 
+def _design_words(keys: list[str]) -> str:
+    """The designs as the shared table describes them, each key in parentheses."""
+    covers = dict(design_table()) if RECORD_MD.exists() else {}
+
+    def phrase(k: str) -> str:
+        text = covers.get(k, k).rstrip(".")
+        return text[:1].lower() + text[1:] if text[1:2].islower() else text
+
+    return "; ".join(f"{phrase(k)} ({k})" for k in keys)
+
+
+def _entry_markdown(e: dict[str, Any], index: dict[str, dict[str, Any]], applies: bool = False) -> str:
+    kind = (f"an extension of {_label(index[e['extends']])}" if e["kind"] == "extension" and e.get("extends") in index
+            else KIND_WORDS.get(e["kind"], e["kind"]))
+    why = (f" It comes in as the base of {_label(index[e['base_of']])}." if e.get("base_of") else
+           f" It {'applies' if applies else 'is a candidate'} because of the design: {_design_words(e['matched'])}."
+           if e.get("matched") else "")
+    cond = (f" It applies only if {e['applies_if'].rstrip('.')}." if e.get("applies_if") else "") + (
+        f" {e['note'].strip()}" if e.get("note") else "")
+    withdrawn = " It has been withdrawn, so the authors are not asked for it." if e.get("withdrawn") else ""
+    unverified = " Part of this entry could not be confirmed online." if e["status"] == "unverified" else ""
+    return (f"- **{e['name']}** ({e['id']}) is {kind}.{why}{cond}{withdrawn} The official text is at {e['source']}; "
+            f"its licence is recorded as “{e['licence']}”, checked on {e['checked']}.{unverified}")
+
+
 def selection_markdown(sel: dict[str, Any]) -> str:
-    out = [f"# Reporting guidelines for: {', '.join(sel['designs'])}", ""]
+    index = by_id(load())
+    out = ["# Reporting guidelines for this study", "", f"Study designs considered: {_design_words(sel['designs'])}.", ""]
     v = sel["venue"]
     if v:
+        page = f" ({v['url']})" if v.get("url") else ""
         if v["reporting_checklist"]:
-            out += [f"Venue: {v['name']} ({v['key']}). venues.yaml (checked {v['checked']}) records a reporting-checklist "
-                    "rule: " + "; ".join(f'"{r}"' for r in v["rules"]) + f". Verify it at {v['url']}; a missing item can "
-                    "then cost an editorial query or return.", ""]
+            out += [f"The rules recorded for {v['name']} on {v['checked']} ask for a reporting checklist: "
+                    + "; ".join(f"“{r}”" for r in v["rules"]) + f". Check this on the journal's page{page}; a missing "
+                    "item can then cost an editorial query or a return.", ""]
         else:
-            out += [f"Venue: {v['name']} ({v['key']}). venues.yaml (checked {v['checked']}) records no reporting-checklist "
-                    f"rule; read the live page ({v['url']}) before treating any guideline as required. Until then, "
-                    "missing items are optional advice.", ""]
+            out += [f"The rules recorded for {v['name']} on {v['checked']} name no reporting checklist. Read the "
+                    f"journal's page{page} before treating any guideline as required; until then, missing items are "
+                    "optional advice.", ""]
     else:
-        out += ["No venue given: missing items are optional advice until a venue's rule makes a guideline required.", ""]
+        out += ["No journal is chosen yet, so missing items are optional advice until a journal's rule makes a "
+                "guideline required.", ""]
+    out += [STAGE_RULE, ""]
 
-    def block(title: str, entries: list[dict[str, Any]]) -> None:
-        if not entries:
-            return
-        out.extend([f"## {title}", ""])
-        for e in entries:
-            why = (f"base of {e['base_of']}" if e.get("base_of") else
-                   f"design: {', '.join(e['matched'])}" if e.get("matched") else "")
-            cond = (f" Applies if {e['applies_if']}." if e.get("applies_if") else "") + (
-                f" {e['note']}" if e.get("note") else "")
-            withdrawn = " WITHDRAWN: do not ask the authors for it." if e.get("withdrawn") else ""
-            out.append(f"- **{e['name']}** (`{e['id']}`, {e['kind']}{', ' + why if why else ''}).{cond}{withdrawn} "
-                       f"Source: {e['source']}. Licence: {e['licence']}. Checked {e['checked']}"
-                       + (f"; status {e['status']}" if e["status"] != "verified" else "") + ".")
-        out.append("")
+    def block(title: str, entries: list[dict[str, Any]], applies: bool = False) -> None:
+        if entries:
+            out.extend([f"## {title}", "", *[_entry_markdown(e, index, applies) for e in entries], ""])
 
-    block("Apply", sel["apply"])
+    block("Apply", sel["apply"], applies=True)
     block("Confirm the condition first", sel["confirm_first"])
-    block("Venue checklists (this venue only)", sel["venue_checklists"])
+    block("The journal's own checklists", sel["venue_checklists"])
     if sel["notes"]:
         out += ["## Designs without a guideline of their own", ""]
-        out += [f"- **{k}**: {v}" for k, v in sel["notes"].items()]
+        out += [f"- {_design_words([k])}. {v.strip()}" for k, v in sel["notes"].items()]
         out.append("")
     if not (sel["apply"] or sel["confirm_first"]):
-        out += ["No reporting guideline in guidelines.yaml matches these designs. Do not invent one; apply the "
-                "availability and reproducibility checks.", ""]
+        out += ["No bundled reporting guideline matches these designs, and none is invented here: the availability "
+                "and reproducibility checks carry the weight instead.", ""]
     return "\n".join(out)
 
 
@@ -221,17 +247,20 @@ def items_markdown(gid: str, manuscript: Optional[Path]) -> str:
                  f"table generated {date.today().isoformat()}. ")
     out = [f"# Item audit: {_label(g)}" + (f" with {_label(index[g['extends']])}" if g.get("extends")
                                             and g.get("base_items") != "none" else ""), "",
-           ident + f"Items are paraphrased; the official checklist: {_source(g)} (licence: {g.get('licence')}). "
-           "When the venue asks for its form, give the authors the answers keyed by the official item numbers "
-           "(where in the manuscript, a short quote) to transfer; never reproduce the form's text.", "",
-           f"States: {STATES}. Location: section and line, or a short quote; for an absent item, where you looked.", "",
-           "| guideline | item | topic | what to report | state | location or quote | note |",
+           ident + f"The items are paraphrased in our own words; the official checklist is at {_source(g)} "
+           f"(its licence is recorded as “{g.get('licence')}”). When the journal asks for its form, give the authors "
+           "the answers keyed by the official item numbers (where in the manuscript, a short quote) to transfer; "
+           "never reproduce the form's text.", "",
+           f"Fill one row per item. Reported: {STATES}. Where: the section and a short quote of the sentence that "
+           "reports it, with the line only in parentheses; for a missing item, where you looked. When to fix: "
+           + STAGE_RULE[:1].lower() + STAGE_RULE[1:], "",
+           "| What to report | Guideline (item) | Topic | Reported | Where, with a short quote | When to fix | Note |",
            "|---|---|---|---|---|---|---|"]
     for r in rows:
-        out.append(f"| {r['guideline']} | {r['n']} | {r.get('topic', '')} | {r['text']} |  |  |  |")
+        out.append(f"| {r['text']} | {r['guideline']} (item {r['n']}) | {r.get('topic', '')} |  |  |  |  |")
     if not rows:
-        out.append(f"| {_label(g)} | - | - | No items are bundled: key the answers to the item numbers of the "
-                   f"official form at {_source(g)} |  |  |  |")
+        out.append(f"| No items are bundled: key the answers to the item numbers of the official form at {_source(g)} "
+                   f"| {_label(g)} |  |  |  |  |  |")
     return "\n".join(out) + "\n"
 
 

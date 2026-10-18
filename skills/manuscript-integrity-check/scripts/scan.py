@@ -13,6 +13,12 @@ reported?) are the skill's job, not this script's.
     uv run --script scan.py PAPER.md --online             # also resolve DOIs / PMIDs / arXiv ids
     uv run --script scan.py PAPER.md --online --json out.json --md out.md
     uv run --script scan.py PAPER.md --references-only --online  # focused citation check
+    uv run --script scan.py PAPER.md --final              # about to submit: end-stage items count too
+
+The Markdown report groups findings by when the authors can act on them (fix now, then the writing, once the journal
+is chosen, before submission) and quotes each one in its section. A draft's readiness and the exit code count only
+the current work unless --final says the authors are about to submit. The JSON keeps every field, line numbers and
+status codes included, for other tools.
 """
 
 from __future__ import annotations
@@ -65,6 +71,9 @@ class Finding(BaseModel):
     quote: str = ""  # the line or entry as written, shortened with [...] around the problem
     quote_span: Optional[tuple[int, int]] = None  # where the problem sits inside `quote`
     stage: str = ""  # a Stage value; filled from the check when not set where the finding is made
+    why: str = ""  # why it matters for the paper, in a sentence for the authors
+    # Set for a finding about a bibliography entry: `quote` is then the entry, not a line of the manuscript.
+    _entry: bool = PrivateAttr(default=False)
 
 
 class PublishedVersion(BaseModel):
@@ -115,6 +124,8 @@ class Reference(BaseModel):
     # For an entry read from a BibTeX file: the file's name and the entry's key (`line` is then the file's line).
     _bib_file: Optional[str] = PrivateAttr(default=None)
     _bib_key: Optional[str] = PrivateAttr(default=None)
+    # For an entry of a reference list in the manuscript: the section its list sits in ("References").
+    _list: Optional[str] = PrivateAttr(default=None)
 
 
 class ReferenceReport(BaseModel):
@@ -172,13 +183,13 @@ PLACEHOLDERS = [
     r"\bXXX\b",
     r"<<\s*REPLACE\s*>>",
     r"\bAUTHOR TODO\b",
-    r"\[citation needed\]",
-    r"\[ref(?:erence)?s?\??\]",
     r"\(\?\?\)|\?\?",
     r"\bto be (?:finalized|added|confirmed|completed)\b",
     r"\bFigure\s+X\b|\bTable\s+X\b",
     r"lorem ipsum",
 ]
+# A placeholder for a missing citation marks a claim without its source: work for now, not for the final pass.
+CITATION_PLACEHOLDERS = [r"\[citation needed\]", r"\[ref(?:erence)?s?\??\]"]
 
 # Overused vocabulary, by source. Corpus studies cannot identify an individual paper (Kobak; Liang), and
 # word lists also catch non-native writers and permitted language polishing, so this is a density report,
@@ -384,14 +395,17 @@ def _with_quote(finding: Finding, text: str, start: int = 0, end: int = 0) -> Fi
 
 def _ref_finding(ref: "Reference", finding: Finding) -> Finding:
     """A finding about one bibliography entry: the entry quoted as written, placed in its BibTeX file and key when it
-    came from one, else in the reference list."""
+    came from one, else in the section that holds its reference list."""
     finding.section = finding.section or (f"{ref._bib_file}, entry {ref._bib_key}" if ref._bib_file
-                                          else "References")
+                                          else ref._list or "References")
+    finding.line = finding.line or ref.line
+    finding._entry = True
     return _with_quote(finding, ref.text)
 
 
 def _scan_patterns(lines: list[str], patterns: list[str], check: str, severity: Severity, message: str,
-                   suggestion: str, flags: int = re.IGNORECASE, stop_line: Optional[int] = None) -> list[Finding]:
+                   suggestion: str, flags: int = re.IGNORECASE, stop_line: Optional[int] = None, why: str = "",
+                   stage: str = "") -> list[Finding]:
     compiled = [re.compile(p, flags) for p in patterns]
     out: list[Finding] = []
     for i, line in enumerate(lines, start=1):
@@ -402,8 +416,91 @@ def _scan_patterns(lines: list[str], patterns: list[str], check: str, severity: 
                 out.append(_with_quote(Finding(check=check, severity=severity, line=i,
                                                excerpt=_excerpt(line, m.start(), m.end()),
                                                message=message.format(match=m.group(0).strip()),
-                                               suggestion=suggestion), line, m.start(), m.end()))
+                                               suggestion=suggestion, why=why, stage=stage), line, m.start(), m.end()))
     return out
+
+
+# --- where a finding sits, and when the authors can act on it ---------------------------------------------------
+
+MD_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+TEX_SECTION = re.compile(r"^\s*\\(chapter|section|subsection|subsubsection)\*?\s*(?:\[[^\]]*\])?\s*"
+                         r"\{((?:[^{}]|\{[^{}]*\})*)\}")
+TEX_LEVELS = {"chapter": 0, "section": 1, "subsection": 2, "subsubsection": 3}
+BOLD_LABEL = re.compile(r"^\*\*([^*]{2,80}?)\*\*\s*:?\s*$")  # "**References for Table S7.**" on a line of its own
+FRONT_MATTER = "Front matter"
+WHOLE_MANUSCRIPT = "Whole manuscript"
+
+
+def _heading_text(text: str) -> str:
+    text = re.sub(r"\\label\{[^}]*\}", "", text)
+    text = re.sub(r"\\[A-Za-z]+\*?", "", text)  # \textit{x} -> {x}
+    text = " ".join(re.sub(r"[{}*_`]", "", text).split()).strip(" .:")
+    return text if len(text) <= 80 else text[:77].rsplit(" ", 1)[0] + " [...]"
+
+
+def section_index(lines: list[str]) -> list[str]:
+    """The section each line falls under (item i for line i + 1): its heading, with the top-level heading in front
+    when nested ("Results, Runtime"); "Abstract" inside a LaTeX abstract environment; "Front matter" before the
+    first heading. A lone top-level Markdown heading above all the others is the paper's title, not a section, and a
+    line that is only bold text ("**References for Table S7.**") counts as a heading below the current one."""
+    heads: dict[int, tuple[int, str]] = {}
+    markdown: set[int] = set()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if m := MD_HEADING.match(stripped):
+            heads[i] = (len(m.group(1)), _heading_text(m.group(2)))
+            markdown.add(i)
+        elif m := TEX_SECTION.match(line):
+            heads[i] = (TEX_LEVELS[m.group(1)], _heading_text(m.group(2)))
+        elif (m := BOLD_LABEL.match(stripped)) and len(m.group(1).split()) <= 8:
+            heads[i] = (7, _heading_text(m.group(1)))
+    levels = [level for level, _ in heads.values() if level < 7]
+    first = min(heads) if heads else None
+    title = first if (first in markdown and len(levels) > 1 and heads[first][0] == min(levels)
+                      and levels.count(min(levels)) == 1) else None  # LaTeX keeps its title in \title
+    out: list[str] = []
+    stack: list[tuple[int, str]] = []
+    in_abstract = False
+    for i, line in enumerate(lines):
+        if i in heads and i != title:
+            level, text = heads[i]
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            if text:
+                stack.append((level, text))
+        if re.search(r"\\begin\{abstract\}", line):
+            in_abstract = True
+        if re.search(r"\\begin\{thebibliography\}", line):
+            stack = [(1, "References")]
+        names = [text for _, text in stack]
+        if len(names) > 2:
+            names = [names[0], names[-1]]
+        out.append("Abstract" if in_abstract else ", ".join(names) or FRONT_MATTER)
+        if re.search(r"\\end\{abstract\}", line):
+            in_abstract = False
+    return out
+
+
+# When the authors can act on each check's findings (references/author-priorities.md, "Order the work by when it
+# can be done"). A finding whose stage depends on more than its check sets it where it is made.
+CHECK_STAGE: dict[str, Stage] = {
+    "numbers": Stage.now, "citations": Stage.now, "references": Stage.now, "validation": Stage.now,
+    "chatbot-leftover": Stage.writing, "stock-phrase": Stage.writing, "tortured-phrase": Stage.writing,
+    "first-person": Stage.writing, "overclaim": Stage.writing, "style": Stage.writing, "vocabulary": Stage.writing,
+    "abstract": Stage.writing,
+    "venue": Stage.journal,
+    "placeholder": Stage.final, "declarations": Stage.final, "ai-use": Stage.final, "availability": Stage.final,
+}
+
+
+def _place(findings: list[Finding], lines: list[str], sections: list[str]) -> None:
+    """Give each finding the section its line falls under, a quote of that line when it has none, and its stage."""
+    for f in findings:
+        if f.section is None:
+            f.section = sections[f.line - 1] if f.line and f.line <= len(sections) else WHOLE_MANUSCRIPT
+        if not f.quote and f.line and f.line <= len(lines) and lines[f.line - 1].strip():
+            _with_quote(f, lines[f.line - 1])
+        f.stage = f.stage or CHECK_STAGE.get(f.check, Stage.now).value
 
 
 def _reference_start(lines: list[str]) -> Optional[int]:
@@ -638,10 +735,11 @@ def _declaration_findings(text_lower: str) -> list[Finding]:
     out: list[Finding] = []
     for label, patterns, severity in DECLARATIONS:
         if not any(re.search(p, text_lower) for p in patterns):
-            out.append(Finding(check="declarations", severity=severity,
+            out.append(Finding(check="declarations", severity=severity, section=WHOLE_MANUSCRIPT,
                                message=f"No '{label}' statement was found in the manuscript.",
-                               suggestion=f"Add a '{label}' section in the form the chosen journal asks for, once "
-                                          f"the code, data and results are final."))
+                               why="Most journals require one.",
+                               suggestion=f"Add the '{label}' statement in the form the chosen journal asks for, "
+                                          f"once the code, data and results are final."))
     return out
 
 
@@ -668,7 +766,7 @@ def _ai_use_findings(lines: list[str], text_lower: str, ref_start: Optional[int]
     named = [f for f in mentions if re.search(r"claude|gpt|gemini|llama|mistral|copilot|cursor|deepseek|qwen|opus|sonnet",
                                               f.message, re.IGNORECASE)]
     if named and not MODEL_VERSION.search("\n".join(body)):
-        out.append(Finding(check="ai-use", severity=Severity.info,
+        out.append(Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                            message="AI tools are named, but no model version appears anywhere in the manuscript.",
                            suggestion="If these are tools the authors used, give a model identifier only where the "
                                       "journal or reproducibility needs it. Do not invent a version that is not "
@@ -708,6 +806,7 @@ def _percentages(lines: list[str]) -> list[Finding]:
                 out.append(_with_quote(Finding(
                     check="numbers", severity=Severity.major, line=i, excerpt=_excerpt(line, m.start(), m.end()),
                     message=f"{num} of {den} is {actual:.{max(decimals, 1)}f}%, not the {stated}% stated beside it.",
+                    why="A percentage that disagrees with its own counts makes readers doubt the other numbers.",
                     suggestion="Recompute the percentage from the counts, and check the counts against the data."),
                     line, m.start(), m.end()))
     return out
@@ -753,6 +852,7 @@ def _abstract_numbers(lines: list[str], ref_start: Optional[int]) -> list[Findin
                     check="numbers", severity=Severity.info, line=i + 1, excerpt=m.group(0), section="Abstract",
                     message=f"The Abstract states '{m.group(0)}', and this number does not appear again in the "
                             f"body.",
+                    why="Every number in the Abstract should come from a result the paper reports.",
                     suggestion="Confirm that it comes from a result reported in a table, a figure or the text, or "
                                "report that result."), lines[i], m.start(), m.end()))
     return out
@@ -792,6 +892,12 @@ def _acronym(entry: str) -> str:
     return "".join(w[0] for w in re.findall(r"[A-Z][^\W\d_]*", author))
 
 
+NARRATIVE_CITE_RE = re.compile(rf"({_PARTICLES}{_CAP})(?:\s+(?:et\s+al\.?|(?:and|&)\s+{_CAP}))?\s+"
+                               rf"\((?:19|20)\d{{2}}[a-z]?\)")
+# A table cell is read as a citation only with the marks of one: a comma before the year, "et al.", "and" or "&".
+TABLE_CITE_CUE = re.compile(r",\s*(?:19|20)\d{2}|\bet\s+al\b|&|\band\b")
+
+
 def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) -> list[Finding]:
     """In-text citations with no matching bibliography entry, and entries the text never cites."""
     if not refs:
@@ -800,7 +906,10 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
     ref_tokens = [(_entry_tokens(r.text), r.text, _acronym(r.text), r) for r in refs]
     numeric_max = 0
     cited_surnames: set[str] = set()
+    narrative: set[str] = set()  # "Shenhar et al. (2025)": counts as citing once the text cites by author and year
     for i, line in body:
+        for m in NARRATIVE_CITE_RE.finditer(line):
+            narrative |= set(_name_words(m.group(1)))
         for m in NUMERIC_CITE_RE.finditer(line):
             for part in re.split(r"[,\s]+", m.group(1)):
                 bounds = [int(x) for x in re.split(r"[-–]", part) if x.strip().isdigit()]
@@ -810,6 +919,8 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
             groups += [(c.group(1), c.start(), c.end(), True)
                        for c in re.finditer(r"\|([^|()]*(?:19|20)\d{2}[^|()]*)(?=\|)", line)]
         for group, start, end, whole in groups:
+            if whole and not TABLE_CITE_CUE.search(group):
+                continue  # "| Longevity Variants 2026 |" names a module; "| Wang et al., 2010 |" cites
             for name, year in _author_year_citations(group, whole=whole):
                 first = next((w for w in name.split() if w.lower() not in NAME_PARTICLES), name)
                 key = "".join(_fold(first).split())
@@ -820,24 +931,31 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
                 for r in found:
                     cited_surnames.update(_name_words(r.text[:120])[:1])
                 if not found:
+                    cited = re.search(rf"{re.escape(name)}.*?{year}", line[start:end])
+                    if cited:  # the one citation, not the whole parenthesis
+                        start, end = start + cited.start(), start + cited.end()
                     out.append(_with_quote(Finding(
                         check="citations", severity=Severity.major, line=i, excerpt=_excerpt(line, start, end),
                         message=f"The in-text citation '{name} {year}' has no bibliography entry with that surname "
                                 f"and year.",
+                        why="Readers cannot find the work it points to.",
                         suggestion="Add the entry, with its DOI, or correct the citation."), line, start, end))
     if numeric_max > len(refs):
         out.append(Finding(check="citations", severity=Severity.major,
                            message=f"The text cites reference [{numeric_max}], but the bibliography has only "
                                    f"{len(refs)} entries.",
+                           why="At least one numbered citation points to no entry, so readers cannot find its source.",
                            suggestion="Renumber the citations, or restore the missing entries."))
     if cited_surnames:
+        cited_surnames |= narrative
         for ref in refs:
             first_author = _name_words(ref.text[:120])[:1]
             if first_author and first_author[0] not in cited_surnames:
                 out.append(_ref_finding(ref, Finding(
                     check="citations", severity=Severity.minor, line=ref.line, excerpt=ref.text[:100],
                     stage=Stage.writing.value, message="This bibliography entry is never cited in the text.",
-                    suggestion="Cite it where it supports a claim, or remove it.")))
+                    why="Most journals list only works the text cites.",
+                    suggestion="Cite each such entry where it supports a claim, or remove it.")))
     return out
 
 
@@ -918,16 +1036,21 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
         # A cheap offline hint only: manuscript-reporting-check owns availability (what the venue requires,
         # whether accessions, DOIs and releases resolve), so the defect is graded there, once.
         out.append(Finding(check="availability", severity=Severity.info, stage=Stage.final.value,
+                           section=WHOLE_MANUSCRIPT,
                            message="No archived copy of the software or data is cited (for example on Zenodo, "
                                    "Software Heritage, figshare, Bioconductor or CRAN).",
-                           suggestion="An archive and its DOI come once the code is final. Whether the journal or the "
-                                      "paper's reproducibility needs one is checked separately "
-                                      "(manuscript-reporting-check)."))
+                           why="An archive and its DOI come once the code is final.",
+                           suggestion="Whether the journal or the paper's reproducibility needs an archive is checked "
+                                      "with the availability statement (manuscript-reporting-check)."))
     if re.search(r"leave[- ]one[- ]out", text_lower):
-        out.append(Finding(check="validation", severity=Severity.info,
+        first = next((i for i, l in enumerate(lines, start=1) if re.search(r"leave[- ]one[- ]out", l, re.IGNORECASE)),
+                     None)
+        out.append(Finding(check="validation", severity=Severity.info, line=first,
+                           section=None if first else WHOLE_MANUSCRIPT,
                            message="The manuscript mentions leave-one-out validation.",
-                           suggestion="Some journals reject machine-learning papers validated by leave-one-out alone, "
-                                      "so report the performance on an independent test set as well."))
+                           why="Some journals reject machine-learning papers validated by leave-one-out alone.",
+                           suggestion="If that is the only validation, report the performance on an independent test "
+                                      "set as well."))
     limits = load_venue_limits().get(venue or "")
     name, url = venue_name_and_url(venue) if venue else ("", None)
     guidelines = f" ({url})" if url else ""
@@ -937,7 +1060,7 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
         body_rule = (" The count runs from the start of the file to the reference list and includes the title, "
                      "headings, tables and back matter, so it is approximate.")
         if body_max is None:
-            out.append(Finding(check="venue", severity=Severity.info,
+            out.append(Finding(check="venue", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                                message=f"No body length limit is recorded for {name}, so the body length was not "
                                        f"checked.",
                                suggestion=f"Check the length or page limit in the journal's author "
@@ -953,18 +1076,18 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
         if body_max is None:
             pass
         elif returned_at and body_words > returned_at * body_max:
-            out.append(Finding(check="venue", severity=Severity.blocker,
+            out.append(Finding(check="venue", severity=Severity.blocker, section=WHOLE_MANUSCRIPT,
                                message=f"The body has about {body_words} words, more than "
                                        f"{round(100 * (returned_at - 1))}% over the limit of about {body_max} for "
                                        f"{name}, and the journal returns such manuscripts without review." + body_rule,
                                suggestion="Move material to the supplement."))
         elif body_words > body_max:
-            out.append(Finding(check="venue", severity=Severity.major,
+            out.append(Finding(check="venue", severity=Severity.major, section=WHOLE_MANUSCRIPT,
                                message=f"The body has about {body_words} words, over the limit of about {body_max} "
                                        f"for {name}." + body_rule,
                                suggestion=f"Trim it, or check the page count in the journal's template{guidelines}."))
     elif venue:
-        out.append(Finding(check="venue", severity=Severity.info,
+        out.append(Finding(check="venue", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                            message=f"No length limits are recorded for {name}, so the length was not checked.",
                            suggestion=f"Check the limits in the journal's author guidelines{guidelines}."))
     return out
@@ -975,10 +1098,12 @@ def _dashes(lines: list[str], stop_line: Optional[int]) -> list[Finding]:
     if count == 0:
         return []
     first = next(i for i, l in enumerate(lines, start=1) if "—" in l)
-    return [Finding(check="style", severity=Severity.minor, line=first,
-                    message=f"{count} em-dashes in the body.",
-                    suggestion="Readers and screeners treat dense em-dash use as an LLM tell; use commas, colons, "
-                               "parentheses or two sentences.")]
+    at = lines[first - 1].index("—")
+    return [_with_quote(Finding(
+        check="style", severity=Severity.minor, line=first,
+        message=f"The body uses {count} em dash{'es' if count > 1 else ''}; the first is quoted here.",
+        why="Readers and screeners treat dense em-dash use as a sign of text written by a language model.",
+        suggestion="Use commas, colons, parentheses or two sentences instead."), lines[first - 1], at, at + 1)]
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1128,6 +1253,13 @@ def _author_segment(entry: str, title: Optional[str]) -> Optional[str]:
     return None
 
 
+def _names_listed(names: list[str], most: int = 8) -> str:
+    """'A, B and C', or 'A, B, ... and 4 others' past `most` names."""
+    if len(names) > most:
+        return ", ".join(names[:most]) + f" and {len(names) - most} others"
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def _compare_authors(ref: Reference, source: str) -> None:
     """Compare the record's author list with the citation's, beyond the first author.
 
@@ -1182,11 +1314,12 @@ def _compare_authors(ref: Reference, source: str) -> None:
     last = max(matched)
     gaps = [people[i][0] for i in range(last + 1) if places[i] is None]
     if gaps:
-        notes.append(f"On the {source} record but not in the citation's list: {', '.join(gaps[:8])}"
-                     + (" …" if len(gaps) > 8 else "") + ".")
+        notes.append(f"{_names_listed(gaps)} {'is' if len(gaps) == 1 else 'are'} on the {source} record but not in "
+                     f"the entry's author list.")
         level = "differs"
     if not ET_AL_RE.search(segment) and last < len(people) - 1:
-        notes.append(f"The citation names {len(matched)} of the record's {len(people)} authors without 'et al.'")
+        notes.append(f"The entry names {len(matched)} of the record's {len(people)} authors and does not say "
+                     f"'et al.'")
         level = "differs" if level == "differs" else "omits"
     known: set[str] = set()
     for f, g in record:
@@ -1233,12 +1366,14 @@ def _compare_authors(ref: Reference, source: str) -> None:
                and len(f.replace(" ", "")) > 1 and f not in NAME_PARTICLES and "".join(f.split()) not in known
                and not set(f.split()) & known and _fold(t.translate(_UMLAUTS)) not in known]
     if unknown:
-        names = ", ".join(t for _, t in unknown[:8])
+        names = _names_listed([t for _, t in unknown])
         if len(matched) == len(people) and all(i > max(used) for i, _ in unknown):
-            notes.append(f"The {source} record lists {len(people)} author(s); the citation also names {names}. "
-                         f"Registry lists can stop short; check the publisher's page if it matters.")
+            notes.append(f"The {source} record lists {len(people)} author{'s' if len(people) > 1 else ''}, and the "
+                         f"entry also names {names}. Registry lists can stop short, so check the publisher's page if "
+                         f"it matters.")
         else:
-            notes.append(f"In the citation but not on the {source} record: {names}.")
+            notes.append(f"The entry's author list names {names}, {'who is' if len(unknown) == 1 else 'who are'} "
+                         f"not on the {source} record.")
             level = "differs"
     for (family, given), place in zip(people, places):
         if place is None or not runs.get(place):
@@ -1253,11 +1388,12 @@ def _compare_authors(ref: Reference, source: str) -> None:
             continue
         raw, cited = tokens[runs[place][0]]
         if cited[:1] != record_given[0][:1]:
-            notes.append(f"Initials differ for {who}: citation {cited[:1].upper()}, record {shown}.")
+            notes.append(f"For {who}, the entry gives the initial {cited[:1].upper()} and the record gives "
+                         f"{shown.rstrip('.')}.")
             level = level if level != "consistent" else "initials"
         elif len(cited) > 1 and len(record_given[0]) > 1 and not (len(raw) <= 3 and raw.isupper()) \
                 and not (cited.startswith(record_given[0]) or record_given[0].startswith(cited)):
-            notes.append(f"Given name differs for {who}: citation {raw}, record {shown}.")
+            notes.append(f"For {who}, the entry gives the given name {raw} and the record gives {shown.rstrip('.')}.")
             level = level if level != "consistent" else "initials"
     ref.author_check = {"consistent": "consistent", "omits": "differs", "initials": "differs"}.get(level, "differs")
     ref.author_notes = notes
@@ -1674,128 +1810,203 @@ def _record_source(ref: Reference) -> str:
     return "PubMed" if ref.pmid and not ref.arxiv else "arXiv"
 
 
+def doi_url(doi: str) -> str:
+    return f"https://doi.org/{doi}"
+
+
+def identifier_url(ref: Reference) -> Optional[str]:
+    """A link the authors can open for the entry's identifier: doi.org, PubMed or arXiv."""
+    if ref.doi and not ARXIV_DOI_RE.match(ref.doi):
+        return doi_url(ref.doi)
+    if ref.pmid:
+        return f"https://pubmed.ncbi.nlm.nih.gov/{ref.pmid}/"
+    if ref.arxiv:
+        return f"https://arxiv.org/abs/{ref.arxiv}"
+    return doi_url(ref.doi) if ref.doi else None
+
+
+def _identifier_phrase(ref: Reference) -> str:
+    kind = ("DOI" if ref.doi and not ARXIV_DOI_RE.match(ref.doi) else "PubMed ID" if ref.pmid
+            else "arXiv id" if ref.arxiv else "identifier")
+    url = identifier_url(ref)
+    return f"the {kind} {url}" if url else f"the {kind}"
+
+
+def _share(similarity: Optional[float]) -> str:
+    """How much of a record's title appears in the entry, in words."""
+    return f"{round(100 * (similarity or 0))}% of its title appears in the entry"
+
+
+SOURCE_WORDS = {"crossref": "Crossref", "crossref (retraction-watch)": "Crossref, from Retraction Watch's records",
+                "crossref (title)": "Crossref, from the title of the record", "europepmc": "Europe PMC",
+                "pubmed": "PubMed", "arxiv:comment": "arXiv's comment field", "biorxiv:details": "bioRxiv",
+                "medrxiv:details": "medRxiv", "crossref:is-preprint-of": "Crossref",
+                "biorxiv:published": "bioRxiv", "medrxiv:published": "medRxiv", "arxiv:doi": "arXiv",
+                "arxiv:journal_ref": "arXiv's journal reference", "crossref:title-search": "a Crossref title search"}
+
+
+def source_words(source: Optional[str]) -> str:
+    """'crossref+europepmc' as 'Crossref and Europe PMC'."""
+    names = [SOURCE_WORDS.get(part, part) for part in (source or "").split("+") if part]
+    return " and ".join(names) if names else "the registry"
+
+
+NO_IDENTIFIER = "The entry carries no DOI, PubMed ID or arXiv id."
+
+
 def _reference_findings(refs: list[Reference], online: bool = False) -> list[Finding]:
     out: list[Finding] = []
+
+    def add(ref: Reference, severity: Severity, message: str, suggestion: str, why: str = "",
+            stage: Stage = Stage.now) -> None:
+        out.append(_ref_finding(ref, Finding(check="references", severity=severity, line=ref.line,
+                                             excerpt=ref.text[:140], message=message, why=why,
+                                             suggestion=suggestion, stage=stage.value)))
+
     for ref in refs:
-        short = ref.text[:140]
+        ident = _identifier_phrase(ref)
         if ref.status == "unresolved":
-            ident, match = ref.doi or ref.pmid or ref.arxiv, ref._title_match
+            match = ref._title_match
             if match and match["strong"]:
-                out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
-                                   message=f"Identifier {ident} does not resolve. Crossref holds a record with this "
-                                           f"title: doi:{match['doi']} '{match['title']}' (title similarity "
-                                           f"{match['similarity']}, same first author).",
-                                   suggestion="A mistyped identifier is the usual cause: compare that record with the "
-                                              "entry (authors, year, journal), then correct the identifier."))
+                add(ref, Severity.major,
+                    f"{ident[0].upper()}{ident[1:]} does not resolve. Crossref holds a record with this title: "
+                    f"{doi_url(match['doi'])}, “{match['title']}”, with the same first author "
+                    f"({_share(match['similarity'])}).",
+                    why="Readers and editors who follow the identifier reach nothing.",
+                    suggestion="A mistyped identifier is the usual cause: compare that record with the entry (authors, "
+                               "year, journal), then correct the identifier.")
             else:
-                found = (f"; Crossref's closest title match differs: doi:{match['doi']} '{match['title']}' (title "
-                         f"similarity {match['similarity']}, first author shared: "
-                         f"{'yes' if match['first_author_shared'] else 'no'})" if match else
-                         "; the Crossref title search " + ("did not answer" if any(
-                             "title search did not answer" in n for n in ref.lookup_notes) else "found no close record"))
-                out.append(Finding(check="references", severity=Severity.blocker, line=ref.line, excerpt=short,
-                                   message=f"Identifier {ident} does not resolve{found}.",
-                                   suggestion="A typo in the identifier is the usual cause. Find the work by title, "
-                                              "journal, volume and pages and correct the entry; a reference that no "
-                                              "one can trace is a desk-reject trigger at several venues."))
+                if match:
+                    found = (f"; Crossref's closest title match is a different work: {doi_url(match['doi'])}, "
+                             f"“{match['title']}” ({_share(match['similarity'])}; its first author "
+                             f"{'is' if match['first_author_shared'] else 'is not'} in the entry)")
+                elif any("title search did not answer" in n for n in ref.lookup_notes):
+                    found = ", and the Crossref title search did not answer"
+                else:
+                    found = ", and the Crossref title search found no close record"
+                add(ref, Severity.blocker, f"{ident[0].upper()}{ident[1:]} does not resolve{found}.",
+                    why="A reference that no one can trace is grounds for a desk rejection at several journals.",
+                    suggestion="A typo in the identifier is the usual cause. Find the work by title, journal, volume "
+                               "and pages and correct the entry.")
         elif ref.status == "retracted":
-            out.append(Finding(check="references", severity=Severity.blocker, line=ref.line, excerpt=short,
-                               message="Cited work is marked as retracted"
-                                       + (f" (source: {ref.retraction_source}"
-                                          + (f"; notice {ref.retraction_notice}" if ref.retraction_notice else "")
-                                          + ")." if ref.retraction_source else "."),
-                               suggestion="Drop it, or cite it explicitly as retracted if the retraction is the point."))
+            notice = f", notice {doi_url(ref.retraction_notice)}" if ref.retraction_notice else ""
+            add(ref, Severity.blocker,
+                f"The cited work is marked as retracted (found by {source_words(ref.retraction_source)}{notice}).",
+                why="A retracted work cannot carry a claim as evidence.",
+                suggestion="Drop it, or cite it explicitly as retracted if the retraction is the point.")
         elif ref.status == "concern":
-            out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
-                               message="Cited work carries an expression of concern"
-                                       + (f" (source: {ref.retraction_source})." if ref.retraction_source else "."),
-                               suggestion="Say so where it is cited, or support the claim with other work."))
+            add(ref, Severity.major, f"The cited work carries an expression of concern (found by "
+                                     f"{source_words(ref.retraction_source)}).",
+                why="The publisher has flagged doubts about its results.",
+                suggestion="Say so where it is cited, or support the claim with other work.")
         elif ref.status == "mismatch":
-            notice = (f" The record it resolves to is marked {ref.retraction} ({ref.retraction_source})."
-                      if ref.retraction in ("retracted", "concern") else "")
-            out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
-                               message=f"Identifier resolves to '{ref.resolved_title}' by "
-                                       f"{ref.resolved_first_author or '?'} (title similarity {ref.title_similarity}, "
-                                       f"first author in citation: {ref.first_author_found}).{notice}",
-                               suggestion="Correct the identifier or the citation text; check authors and year too."))
+            details = []
+            if (ref.title_similarity or 0) < 0.6:
+                details.append(f"only {_share(ref.title_similarity)}")
+            if ref.first_author_found is False:
+                details.append("the record's first author is not in the entry")
+            notice = (f" That record is marked {'as retracted' if ref.retraction == 'retracted' else 'with an expression of concern'}"
+                      f" ({source_words(ref.retraction_source)})." if ref.retraction in ("retracted", "concern") else "")
+            add(ref, Severity.major,
+                f"{ident[0].upper()}{ident[1:]} leads to a different work: “{ref.resolved_title}” by "
+                f"{ref.resolved_first_author or 'an unnamed author'}"
+                + (f" ({' and '.join(details)})" if details else "") + "." + notice,
+                why="Readers who follow the identifier reach the wrong paper.",
+                suggestion="Correct the identifier or the citation text, and check the authors and year too.")
         elif ref.status == "lookup_failed":
-            out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
-                               message="Lookup did not answer; identity and retraction not assessed ("
-                                       + " ".join(ref.lookup_notes) + ")",
-                               suggestion="Re-run later or check the record by hand. A failed lookup is not evidence "
-                                          "that the reference is wrong."))
+            add(ref, Severity.info,
+                "This entry could not be checked: the registry did not answer, so neither its identity nor its "
+                "retraction status is known. " + " ".join(ref.lookup_notes),
+                suggestion="Run the check again later, or open the record by hand. A failed lookup is not evidence "
+                           "that the reference is wrong.")
         elif ref.status == "no_identifier":
             weak = (ref.title_similarity or 0) < 0.6
-            sev = Severity.major if weak and not ref.first_author_found else Severity.minor if weak else Severity.info
-            if weak and ref.first_author_found:
-                hint_author = " Same first author: the citation's title is probably shortened or altered; use the real one."
+            best = (f"Crossref's best match is {doi_url(ref.doi)}, “{ref.resolved_title}” ({_share(ref.title_similarity)})"
+                    if ref.resolved_title and ref.doi else "")
+            if weak and not ref.first_author_found:
+                add(ref, Severity.major,
+                    "The entry carries no DOI, PubMed ID or arXiv id, and Crossref holds no close match for it"
+                    + (f" (the best, {doi_url(ref.doi)}, “{ref.resolved_title}”, is a different work)"
+                       if best else "") + ". It is unverified, which is not evidence that the work does not exist.",
+                    why="Software, web pages, reports and new works are often missing from Crossref, but a reference "
+                        "nobody can find cannot support a claim.",
+                    suggestion="Search PubMed, the publisher or the project page by title, journal, volume and pages, "
+                               "and add the identifier if the work has one.")
+            elif weak:
+                add(ref, Severity.minor,
+                    f"The entry carries no DOI, PubMed ID or arXiv id. {best}, with the same first author, so the "
+                    f"entry's title is probably shortened or altered.",
+                    why="A title that differs from the published one makes the work hard to find.",
+                    suggestion="Use the title as published, and add the identifier.")
             else:
-                hint_author = ""
-            hint = (f" Best Crossref match: '{ref.resolved_title}' doi:{ref.doi} (similarity {ref.title_similarity})."
-                    if ref.resolved_title else " Crossref found no match.")
-            if (ref.title_similarity or 0) < 0.4 and not ref.first_author_found:
-                hint += (" No close match: unverified, which is not evidence that the work does not exist (software, "
-                         "web pages, reports and new works are often missing from Crossref). Search PubMed, the "
-                         "publisher or the project page by title, journal, volume and pages.")
-            out.append(Finding(check="references", severity=sev, line=ref.line, excerpt=short,
-                               message="Reference carries no DOI, PMID or arXiv id." + hint + hint_author,
-                               suggestion="Add the DOI (or PMID/arXiv id) after confirming title, authors, year."))
+                add(ref, Severity.info, "The entry carries no DOI, PubMed ID or arXiv id. "
+                                        + (f"{best}." if best else ""),
+                    why="An identifier lets readers find the work, and many journals' reference styles ask for one.",
+                    suggestion="Add the identifier after confirming the title, authors and year.", stage=Stage.journal)
         elif ref.status == "not_checked" and not (ref.doi or ref.pmid or ref.arxiv):
-            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
-                               message="Reference carries no DOI, PMID or arXiv id.",
-                               suggestion="Run with --online to search Crossref, then add the identifier."))
+            add(ref, Severity.minor, NO_IDENTIFIER,
+                why="An identifier lets readers find the work, and many journals' reference styles ask for one.",
+                suggestion="Run the scan with --online to search Crossref, then add the identifier the work has.",
+                stage=Stage.journal)
         if ref.withdrawn:
-            out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
-                               message=f"The cited preprint has been withdrawn by its authors ({ref.withdrawn_source}).",
-                               suggestion="Cite the version or work that replaces it; its authors no longer stand by "
-                                          "it. Keep it only to discuss the withdrawal."))
+            add(ref, Severity.major, f"The cited preprint has been withdrawn by its authors (recorded by "
+                                     f"{source_words(ref.withdrawn_source)}).",
+                why="Its authors no longer stand by it.",
+                suggestion="Cite the version or work that replaces it, and keep it only to discuss the withdrawal.")
         pv = ref.published_version
         if pv is not None and pv.source in ("arxiv:comment", "crossref:title-search") \
                 and ref.status not in ("unresolved", "mismatch"):
-            said = f"The arXiv comment says '{pv.comment}'. " if pv.comment else ""
-            found = (f"Crossref holds a record with the same title and a shared author: "
-                     f"{', '.join(x for x in (pv.venue, pv.year) if x)}, doi:{pv.doi} (title similarity "
-                     f"{pv.title_similarity})." if pv.doi else "No Crossref record with the same title was found.")
-            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
-                               message=f"The cited preprint may have been published. {said}{found} A candidate to "
-                                       f"confirm: neither arXiv nor Crossref links it to the preprint.",
-                               suggestion="Open the published record, check that it is the same work and still reports "
-                                          "what you cite, then cite it; keep the preprint if you need content the "
-                                          "published version dropped."))
+            said = f" The arXiv comment says “{pv.comment}”." if pv.comment else ""
+            found = (f" Crossref holds a record with the same title and a shared author: "
+                     f"{', '.join(x for x in (pv.venue, pv.year) if x)}, {doi_url(pv.doi)} "
+                     f"({round(100 * (pv.title_similarity or 0))}% of the titles match)." if pv.doi else
+                     " No Crossref record with the same title was found.")
+            add(ref, Severity.minor,
+                f"The cited preprint may have been published.{said}{found} A candidate to confirm: neither arXiv nor "
+                f"Crossref links it to the preprint.",
+                why="Numbers, methods and author lists can change between a preprint and its published version.",
+                suggestion="Open the published record, check that it is the same work and still reports what you "
+                           "cite, then cite it; keep the preprint if you need content the published version dropped.")
         elif pv is not None and ref.status not in ("unresolved", "mismatch"):
             where = ", ".join(x for x in (pv.venue, pv.year) if x) or "a journal"
             check = ""
             if pv.metadata_checked and (pv.title_similarity or 0) < 0.5 and not pv.shared_authors:
-                check = " Its title and authors differ from the preprint's: confirm the link before switching."
+                check = " Its title and authors differ from the preprint's, so confirm the link before switching."
             elif pv.metadata_checked:
-                check = (f" Title similarity {pv.title_similarity}, shared authors: {pv.shared_authors}.")
+                check = (f" {round(100 * (pv.title_similarity or 0))}% of the published title matches the "
+                         f"preprint's, and the two {'share' if pv.shared_authors else 'do not share'} authors.")
             if pv.retraction in ("retracted", "concern"):
-                check += f" The published version is marked {pv.retraction}."
-            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
-                               message=f"Cites a preprint that has been published in {where}"
-                                       + (f", doi:{pv.doi}" if pv.doi else "") + f" ({pv.source})." + check,
-                               suggestion="Cite the published version after confirming it still reports what you "
-                                          "cite: numbers, methods and author lists change between versions. Keep "
-                                          "the preprint only if you need content the published version dropped."))
+                check += (" The published version is marked as retracted." if pv.retraction == "retracted" else
+                          " The published version carries an expression of concern.")
+            add(ref, Severity.minor,
+                f"The cited preprint has been published in {where}" + (f", {doi_url(pv.doi)}" if pv.doi else "")
+                + f" (recorded by {source_words(pv.source)})." + check,
+                why="Numbers, methods and author lists can change between a preprint and its published version.",
+                suggestion="Cite the published version after confirming it still reports what you cite. Keep the "
+                           "preprint only if you need content the published version dropped.")
         if any(n.startswith("The entry names no author") for n in ref.lookup_notes):
-            out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
-                               message=f"The entry names no author (no author field could be read); the record "
-                                       f"lists {len(ref.resolved_authors)}. Authors were not compared.",
-                               suggestion="Add the author list from the record, or check the entry's author field."))
+            add(ref, Severity.info,
+                f"The entry names no author (no author field could be read), so its authors were not compared with "
+                f"the record, which lists {len(ref.resolved_authors)}.",
+                suggestion="Add the author list from the record, or check the entry's author field.")
         if ref.author_check == "differs" and ref.status not in ("unresolved", "mismatch"):
-            out.append(Finding(check="references", severity=Severity(ref.author_severity or "minor"), line=ref.line,
-                               excerpt=short, message="Author list differs from the record: " + " ".join(ref.author_notes),
-                               suggestion="Check against the publisher's page. Registries truncate lists and spell "
-                                          "names differently (initials, transliteration, particles); this is a "
-                                          "metadata difference to check, not evidence of fabrication."))
+            add(ref, Severity(ref.author_severity or "minor"),
+                f"The author list differs from the {_record_source(ref)} record. " + " ".join(ref.author_notes),
+                suggestion="Check it against the publisher's page. Registries cut lists short and spell names "
+                           "differently (initials, transliteration, particles), so this is a metadata difference to "
+                           "check, not evidence of fabrication.")
     if online:
         unchecked = [r for r in refs if r.retraction == "not_checked" and r.status not in ("unresolved", "not_checked")]
         if unchecked:
-            out.append(Finding(check="references", severity=Severity.info,
-                               message=f"Retraction status not checked for {len(unchecked)} reference(s) (lines "
-                                       f"{', '.join(str(r.line) for r in unchecked[:20])}): no registry that records "
-                                       "retractions covers them (arXiv, DataCite, no identifier) or the lookup failed. "
-                                       "They are not known to be clean.",
+            named = [f"“{_quote(r.text, width=60)[0]}” (line {r.line})" for r in unchecked[:12]]
+            more = f" and {len(unchecked) - 12} more" if len(unchecked) > 12 else ""
+            out.append(Finding(check="references", severity=Severity.info, section="References",
+                               message=f"The retraction status of {len(unchecked)} "
+                                       f"{'entry' if len(unchecked) == 1 else 'entries'} could not be checked, so "
+                                       f"{'it is' if len(unchecked) == 1 else 'they are'} not known to be clean: "
+                                       + ", ".join(named) + more + ".",
+                               why="No registry that records retractions covers them (arXiv, DataCite and entries "
+                                   "without an identifier are not covered), or the lookup failed.",
                                suggestion="For any that carry the argument, check the publisher's page or the "
                                           "Retraction Watch database by hand."))
     return out
@@ -1812,22 +2023,25 @@ def _git_findings(path: Path) -> list[Finding]:
     run = subprocess.run(["git", "-C", str(path.parent), "log", "--format=%H%x00%B%x01", "--", path.name],
                          capture_output=True, text=True)
     if run.returncode != 0:
-        return [Finding(check="ai-use", severity=Severity.info, message="--git: not a git repository, not checked.")]
+        return [Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
+                        message="The file is not in a git repository, so its commit messages were not checked.")]
     commits = [c for c in run.stdout.split("\x01") if c.strip()]
     ai = [c for c in commits if GIT_AI_TRAILER.search(c.split("\x00", 1)[-1])]
     if not ai:
         return []
-    return [Finding(check="ai-use", severity=Severity.info,
+    return [Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                     message=f"{len(ai)} of {len(commits)} commits touching this file have an AI co-author trailer. "
                             "A trailer can mark automation (syncing comments, formatting), not writing.",
                     suggestion="Ask the authors what those commits changed; the disclosure follows their account.")]
 
 
-def check_references(path: Path, online: bool, search_unidentified: bool) -> ReferenceReport:
+def check_references(path: Path, online: bool, search_unidentified: bool,
+                     sections: Optional[list[str]] = None) -> ReferenceReport:
     """Identity and citation consistency only, shared by focused checks and full audits."""
     raw = path.read_text(encoding="utf-8")
     text = _strip_comments(raw)
     lines = _lines(text)
+    sections = sections if sections is not None else section_index(lines)
     ref_start = _reference_start(lines)
     findings: list[Finding] = []
     refs: list[Reference] = []
@@ -1846,113 +2060,158 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
             split = _split_entries(entries)
             for line_no, count in Counter(n for n, _ in split).items():
                 if count > 1:
+                    starts = [f"“{' '.join(e.split()[:4])}”" for n, e in split if n == line_no]
                     findings.append(Finding(check="references", severity=Severity.info, line=line_no,
-                                            message=f"One paragraph holds {count} references; the scan split it at "
-                                                    f"reference starts. Check the split in the table below.",
-                                            suggestion="Put each reference on its own line, and move any lead-in "
-                                                       "('Added in the revision:') out of the list."))
+                                            message=f"One paragraph holds {count} references. The scan split it where "
+                                                    f"each reference starts, into entries beginning "
+                                                    f"{_names_listed(starts, 10)}.",
+                                            why="If the split is wrong, an entry can be reported as uncited, missing "
+                                                "or garbled.",
+                                            suggestion="Check that these are the references the paragraph holds, put "
+                                                       "each on its own line, and move any lead-in ('Added in the "
+                                                       "revision:') out of the list.", stage=Stage.writing.value))
             if number:
                 findings.append(Finding(check="references", severity=Severity.info, line=begin,
                                         excerpt=label.strip("*# "),
-                                        message=f"A further reference list ({len(split)} entries) was checked with "
-                                                f"the main one, and the text after the main list was read for "
-                                                f"citations.", suggestion=""))
+                                        message=f"A further reference list, “{label.strip('*# ')}” ({len(split)} "
+                                                f"entries), was checked with the main one, and the text after the main "
+                                                f"list was read for citations.",
+                                        suggestion="Nothing to change, unless this list should not be read as "
+                                                   "references.", stage=Stage.writing.value))
             for line_no, entry in split:
                 doi = DOI_RE.search(entry)
                 pmid = PMID_RE.search(entry)
                 arxiv = ARXIV_RE.search(entry)
-                refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                                      pmid=pmid.group(1) if pmid else None,
-                                      arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
+                ref = Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
+                                pmid=pmid.group(1) if pmid else None,
+                                arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None)
+                ref._list = sections[begin - 1] if begin <= len(sections) else None
+                refs.append(ref)
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)
     if ref_start is None and not bibs:
-        findings.append(Finding(check="references", severity=Severity.major,
-                                message="No references/bibliography heading found; references were not checked.",
-                                suggestion="Name the section 'References' or pass a .bib file separately."))
+        findings.append(Finding(check="references", severity=Severity.major, section=WHOLE_MANUSCRIPT,
+                                message="No references heading (References or Bibliography) was found, so the "
+                                        "references were not checked.",
+                                suggestion="Name the section 'References', or pass the .bib file separately."))
     elif not refs:
-        findings.append(Finding(check="references", severity=Severity.major,
-                                message="No bibliography entries could be parsed; references were not checked.",
-                                suggestion="Check the bibliography format and inspect the entries manually."))
+        findings.append(Finding(check="references", severity=Severity.major, section="References",
+                                message="No bibliography entries could be read, so the references were not checked.",
+                                suggestion="Check how the bibliography is written, and read the entries by hand."))
     if online and refs:
         resolve_references(refs, search_unidentified)
     findings += _reference_findings(refs, online)
+    _place(findings, lines, sections)
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return ReferenceReport(path=str(path), online=online, findings=findings, references=refs)
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
-         git: bool = False) -> Report:
+         git: bool = False, final: bool = False) -> Report:
     VOCAB_SOURCES.update({"kobak2025_r>=2": _kobak_words(), "juzek_ward2025": JUZEK_WARD,
                           "wikipedia_aivocab": WIKIPEDIA_AIVOCAB})
     raw = path.read_text(encoding="utf-8")
     text = _strip_comments(raw)
     lines = _lines(text)
+    sections = section_index(lines)
     text_lower = text.lower()
     ref_start = _reference_start(lines)
     body_lines = lines[: (ref_start or len(lines) + 1) - 1]
 
+    leftover_why = "Editors and screening tools search for such leftovers, and one can be enough for a desk rejection."
     findings: list[Finding] = []
     findings += _scan_patterns(lines, CHATBOT_LEFTOVERS, "chatbot-leftover", Severity.blocker,
-                               "Chat-interface text '{match}'.", "Delete it and re-read the surrounding passage.")
+                               "The phrase '{match}' is text a chat interface produces, not part of a paper.",
+                               "Delete the leftover text and re-read the passage around it.", why=leftover_why)
     # Placeholders are searched in the raw text too: an HTML-comment TODO still ships in the LaTeX.
-    findings += _scan_patterns(_lines(raw), PLACEHOLDERS, "placeholder", Severity.major, "Placeholder '{match}'.",
-                               "Resolve or remove before submission.", flags=0)
+    findings += _scan_patterns(_lines(raw), PLACEHOLDERS, "placeholder", Severity.major,
+                               "The placeholder '{match}' is still in the text.",
+                               "Resolve or remove placeholders before the files are uploaded.", flags=0,
+                               why="Placeholders belong in a draft, but an editor reads one in a submission as an "
+                                   "unfinished manuscript.")
+    findings += _scan_patterns(_lines(raw), CITATION_PLACEHOLDERS, "placeholder", Severity.major,
+                               "The placeholder '{match}' marks a claim that has no source yet.",
+                               "Find the source and cite it, or reword the claim so that it needs none.",
+                               why="A claim without its source cannot be checked by readers or referees.",
+                               stage=Stage.now.value)
     findings += _declaration_findings(text_lower)
     findings += _ai_use_findings(lines, text_lower, ref_start, bool(LEDGER_AI.search(raw)))
-    findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor, "Stock phrase '{match}'.",
-                               "Say the specific thing instead, or cut the phrase.")
+    findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor,
+                               "'{match}' is a stock phrase.", "Say the specific thing instead, or cut the phrase.",
+                               why="Such phrases say little, and readers and screeners associate them with text "
+                                   "written by a language model.")
     findings += _scan_patterns(lines, MARKUP_ARTIFACTS, "chatbot-leftover", Severity.blocker,
-                               "Chat-interface markup '{match}'.", "Delete it; check the citation it stood for.",
-                               flags=0)
+                               "'{match}' is markup a chat interface leaves in copied text; it usually stands where "
+                               "a citation was.", "Delete it, and find the source the citation should name.",
+                               flags=0, why=leftover_why, stage=Stage.now.value)
     findings += _scan_patterns(body_lines, TORTURED_PHRASES, "tortured-phrase", Severity.major,
-                               "Tortured phrase '{match}' (paraphrase-tool fingerprint).",
-                               "Use the standard term (see references/screening-signals.md §2.6).")
+                               "'{match}' is a garbled synonym of a standard term (a tortured phrase).",
+                               "Use the standard term.",
+                               why="Paraphrasing tools produce such phrases, and screeners search for them as a sign "
+                                   "of paper mills.")
     findings += _scan_patterns(body_lines, FIRST_PERSON_SINGULAR, "first-person", Severity.info,
-                               "First person singular '{match}'.",
-                               "Chat text addresses a reader; a paper reports. Rephrase unless sole-authored.",
-                               flags=0)
-    findings += _scan_patterns(body_lines, OVERCLAIM, "overclaim", Severity.info, "Claim word '{match}'.",
-                               "Keep only if the evidence in this paper supports it; prefer 'rediscovery' for "
-                               "known answers and drop 'first/novel' unless a search shows it.")
+                               "'{match}' addresses the reader in the first person singular, as a chat reply would.",
+                               "Rephrase, unless the paper has a single author.", flags=0,
+                               why="A paper reports its results; chat text speaks to one reader.")
+    findings += _scan_patterns(body_lines, OVERCLAIM, "overclaim", Severity.info,
+                               "The word '{match}' claims more than many results can show.",
+                               "Keep such a word only where the evidence in this paper supports it. Prefer "
+                               "'rediscovery' for known answers, and drop 'first' or 'novel' unless a literature "
+                               "search shows it.",
+                               why="Editors and referees read such words as hype unless the paper's own evidence "
+                                   "supports them.")
     findings += _dashes(lines, ref_start)
     findings += _abstract_numbers(lines, ref_start)
     findings += _abstract_metric_dump(lines)
     findings += _percentages(body_lines)
 
-    reference_report = check_references(path, online, search_unidentified)
+    reference_report = check_references(path, online, search_unidentified, sections)
     refs = reference_report.references
     findings += reference_report.findings
     if git:
         findings += _git_findings(path.resolve())
     ledger_ai = LEDGER_AI.findall(raw)
     if ledger_ai:
-        findings.append(Finding(check="ai-use", severity=Severity.info,
-                                message=f"{len(ledger_ai)} revision-ledger segments name an AI as reviser "
+        findings.append(Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
+                                message=f"{len(ledger_ai)} revision markers (comments of the form <!-- @rev ... -->) "
+                                        f"name an AI as the reviser of a passage "
                                         f"({', '.join(sorted(set(n.lower() for n in ledger_ai)))}).",
-                                suggestion="Markers do not establish the kind of help. Use existing author "
-                                           "context and the selected venue's rule and exemptions to determine "
-                                           "whether a disclosure needs updating."))
+                                suggestion="Markers do not establish the kind of help. Use what the authors say they "
+                                           "used and the chosen journal's rule and exemptions to decide whether a "
+                                           "statement about AI use needs updating."))
     densities, top, n_words = _vocabulary("\n".join(body_lines))
     ing_tails = len(ING_TAIL_RE.findall("\n".join(body_lines)))
     if n_words and 1000 * ing_tails / n_words > 1.0:
-        findings.append(Finding(check="style", severity=Severity.minor,
-                                message=f"{ing_tails} sentences end in a participle tail (', highlighting ...').",
-                                suggestion="State the consequence as its own claim with its evidence, or cut it."))
+        first_tail = next(((i, m) for i, l in enumerate(body_lines, start=1) if (m := ING_TAIL_RE.search(l))), None)
+        tail = Finding(check="style", severity=Severity.minor, line=first_tail[0] if first_tail else None,
+                       message=f"{ing_tails} sentences end in a clause that starts with a present participle "
+                               f"(“, highlighting ...”); the first is quoted here.",
+                       why="Language models write such tails several times as often as people do, and a tail "
+                           "usually adds a claim without its evidence.",
+                       suggestion="State the consequence as its own claim with its evidence, or cut it.")
+        findings.append(_with_quote(tail, body_lines[first_tail[0] - 1], first_tail[1].start(), first_tail[1].end())
+                        if first_tail else tail)
     span = _abstract_span(lines)
     abstract_words = (len(re.findall(r"[A-Za-z0-9][\w'-]*", "\n".join(lines[span[0]:span[1]]))) if span else None)
-    findings += _venue_findings(lines, n_words, abstract_words, venue, text_lower)
+    findings += _venue_findings(lines, n_words, abstract_words, venue, text_lower,
+                                _abstract_parts(lines[span[0]:span[1]]) if span else None)
     if densities["kobak2025_r>=2"] > 3.0:
-        findings.append(Finding(check="vocabulary", severity=Severity.minor,
-                                message=f"Kobak excess-style words at {densities['kobak2025_r>=2']} per 1000 words "
-                                        f"(top: {', '.join(f'{w}×{c}' for w, c in top[:6])}).",
-                                suggestion="Use the specific word or a number; a density, not proof of anything."))
-    seen: set[tuple[str, Optional[int]]] = set()
+        findings.append(Finding(check="vocabulary", severity=Severity.minor, section=WHOLE_MANUSCRIPT,
+                                message=f"Words whose use in papers rose sharply after chat assistants appeared "
+                                        f"(Kobak et al. 2025) occur {densities['kobak2025_r>=2']} times per 1,000 "
+                                        f"words; the most frequent are "
+                                        f"{_names_listed([f'{w} ({c})' for w, c in top[:6]])}.",
+                                why="It is a density, not proof of anything: writing in a second language and "
+                                    "permitted language polishing raise it too.",
+                                suggestion="Where one of these words stands in for a specific statement, use the "
+                                           "specific word or a number."))
+    seen: set[tuple[str, Optional[int], str]] = set()
     deduped: list[Finding] = []
+    _place(findings, lines, sections)
     for f in findings:  # overlapping patterns ("TODO" inside "AUTHOR TODO") report a line once
-        key = (f.check, f.line)
+        key = (f.check, f.line, f.stage)
         if f.check in ("chatbot-leftover", "placeholder") and key in seen:
             continue
         seen.add(key)
@@ -1961,81 +2220,312 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return Report(path=str(path), words=n_words, abstract_words=abstract_words, findings=findings, references=refs,
-                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails)
+                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails, final=final)
 
 
-def _verdict(counts: Counter[str]) -> str:
-    if counts.get("blocker"):
-        return f"not ready: {counts['blocker']} desk-reject trigger(s) to fix first"
-    if counts.get("major"):
-        return f"fix before submitting: {counts['major']} major finding(s), no desk-reject trigger"
-    return "no blocker or major finding from the mechanical checks; the judgement checks in the skill still apply"
+# --------------------------------------------------------------------------------------------------
+# Reports for the authors (references/author-priorities.md, "Writing for the authors"): grouped by when the work
+# can be done, each finding in sentences that name its section and quote its text. The JSON keeps the fields.
+# --------------------------------------------------------------------------------------------------
+
+STAGE_TITLES = {Stage.now: "Fix now: the science and the evidence", Stage.writing: "Then the writing",
+                Stage.journal: "Once you have chosen the journal",
+                Stage.final: "Before submission, once the code is final"}
+STAGE_INTROS = {Stage.final: "These are done once the code, data and results are final. They are not problems with "
+                             "the current draft."}
+SEVERITY_LEAD = {Severity.blocker: "Serious", Severity.major: "Important", Severity.minor: "Minor",
+                 Severity.info: "To look at"}
+SEVERITY_KEY = ("Within each group the most serious findings come first: “Serious” marks what could get the paper "
+                "returned without review, “Important” what an editor or referee would object to, “Minor” style and "
+                "calibration, and “To look at” what needs a human eye and may be fine.")
+GROUP_SHOWN = 12  # occurrences listed under a repeated finding; the rest are counted by section
+STATUS_WORDS = {
+    "resolved": "found, with the title and first author of the entry",
+    "mismatch": "the identifier leads to a different work",
+    "unresolved": "the identifier does not resolve", "retracted": "found, and marked as retracted",
+    "concern": "found, and it carries an expression of concern",
+    "lookup_failed": "could not be checked, because the registry did not answer",
+    "not_checked": "not looked up",
+}
+RETRACTION_WORDS = {"retracted": "marked as retracted", "concern": "an expression of concern",
+                    "none_found": "none found", "not_checked": "not checked, so not known to be clean"}
+
+
+def counted_findings(findings: list[Finding], final: bool) -> list[Finding]:
+    """The findings a readiness verdict counts: end-stage items only when the authors are about to submit."""
+    return [f for f in findings if final or f.stage != Stage.final.value]
+
+
+def _sentence(text: str) -> str:
+    text = " ".join(text.split())
+    return text if not text or text[-1] in ".!?”" else text + "."
+
+
+def _plural(n: int, one: str, many: Optional[str] = None) -> str:
+    return f"{n} {one if n == 1 else many or one + 's'}"
+
+
+# Emphasis and code marks of the manuscript's own Markdown: a quote cut short can leave one open, which would set the
+# rest of the report in bold or code.
+QUOTE_MARKUP = re.compile(r"\*\*|__|`|(?<![\w*])\*(?=[^\s*])|(?<=[^\s*])\*(?![\w*])")
+
+
+def _marked_quote(f: Finding) -> str:
+    """The quote in curly quotes without the manuscript's emphasis marks, with the part the finding is about in bold."""
+    quote = f.quote
+    a, b = f.quote_span or (0, 0)
+    part = quote[a:b]
+    a, b = a + len(part) - len(part.lstrip()), b - (len(part) - len(part.rstrip()))
+    clean = [QUOTE_MARKUP.sub("", piece) for piece in (quote[:a], quote[a:b], quote[b:])] if b > a else \
+        [QUOTE_MARKUP.sub("", quote), "", ""]
+    middle = f"**{clean[1].strip()}**" if clean[1].strip() else ""
+    return f"“{clean[0]}{middle}{clean[2]}”"
+
+
+NUMBERED = re.compile(r"^(?P<number>(?:\d+(?:\.\d+)*|[IVX]+))[.)]?\s+(?P<title>\S.*)$")
+
+
+# Headings read naturally after "the" ("in the Methods"); any other heading is quoted ("in the section “Speed”").
+PLAIN_HEADINGS = re.compile(r"^(?:abstract|introduction|background|methods?|materials|results|discussion|conclusions?|"
+                            r"references|bibliography|acknowledge?ments|funding|supplementary|appendix|limitations|"
+                            r"data|code|availability|declarations?|author|competing|ethics)\b", re.IGNORECASE)
+
+
+def _section_name(section: str) -> str:
+    """'the Methods'; a numbered heading as 'section 2.1, Annotation Pipeline' (its parent is in the number); any
+    other heading quoted, 'the section “Reproducing the analysis”'."""
+    numbered = NUMBERED.match(section.split(", ")[-1]) if section != WHOLE_MANUSCRIPT else None
+    if numbered:
+        return f"section {numbered.group('number')}, {numbered.group('title')}"
+    return f"the {section}" if PLAIN_HEADINGS.match(section) else f"the section “{section}”"
+
+
+def _where(f: Finding) -> str:
+    """'In the Methods (line 10)': the section, with the line in parentheses."""
+    at = f" (line {f.line})" if f.line else ""
+    section = f.section or WHOLE_MANUSCRIPT
+    if section == FRONT_MATTER:
+        return f"In the front matter, before the first heading{at}"
+    if ".bib, entry " in section:
+        bib, key = section.split(", entry ", 1)
+        return f"In {bib}, entry {key}{at}"
+    if section == WHOLE_MANUSCRIPT:
+        return f"In the manuscript{at}"
+    return f"In {_section_name(section)}{at}"
+
+
+def _place_sentence(f: Finding) -> str:
+    if not f.quote:
+        return f"{_where(f)}." if f.line and f.section != WHOLE_MANUSCRIPT else ""
+    quoted = _marked_quote(f)
+    end = "" if f.quote.rstrip("*")[-1:] in ".!?" else "."
+    if f.section and ".bib, entry " in f.section:
+        bib, key = f.section.split(", entry ", 1)
+        return f"The entry {key} in {bib}" + (f" (line {f.line})" if f.line else "") + f" gives {quoted}{end}"
+    what = "the entry reads" if f._entry else "the manuscript reads"
+    return f"{_where(f)}, {what} {quoted}{end}"
+
+
+def _finding_lines(f: Finding) -> list[str]:
+    parts = [_sentence(f.message), _place_sentence(f), _sentence(f.why), _sentence(f.suggestion)]
+    return [f"- **{SEVERITY_LEAD[f.severity]}.** " + " ".join(p for p in parts if p)]
+
+
+GROUP_MESSAGES = {
+    ("chatbot-leftover", Stage.writing.value): "Text left over from a chat interface appears in {n} places.",
+    ("chatbot-leftover", Stage.now.value): "Markup that chat interfaces leave in copied text appears in {n} places; "
+                                           "it usually stands where a citation was.",
+    ("placeholder", Stage.final.value): "Placeholders are still in the text in {n} places.",
+    ("placeholder", Stage.now.value): "Placeholders mark {n} claims that have no source yet.",
+    ("stock-phrase", Stage.writing.value): "Stock phrases appear in {n} places.",
+    ("tortured-phrase", Stage.writing.value): "Garbled synonyms of standard terms (tortured phrases) appear in {n} "
+                                              "places.",
+    ("first-person", Stage.writing.value): "The first person singular addresses the reader, as a chat reply would, "
+                                           "in {n} places.",
+    ("overclaim", Stage.writing.value): "Words that claim more than many results can show appear in {n} places.",
+    ("ai-use", Stage.final.value): "The text names AI tools or large language models in {n} places.",
+}
+
+
+def _group_message(f: Finding, n: int) -> Optional[str]:
+    """The headline for several findings of one kind, or None when they are reported one by one."""
+    if f.check == "citations" and "never cited" in f.message:
+        return f"{n} entries of the reference list are never cited in the text."
+    if f.check == "citations" and "has no bibliography entry" in f.message:
+        return f"{n} in-text citations have no entry in the reference list with that surname and year."
+    if f.check == "references" and f.message == NO_IDENTIFIER:
+        return f"{n} entries carry no DOI, PubMed ID or arXiv id."
+    if f.check == "citations" and "has no entry in the bibliography file" in f.message:
+        return f"{n} citation keys have no entry in the bibliography file, so those references will be missing."
+    template = GROUP_MESSAGES.get((f.check, f.stage))
+    return template.format(n=n) if template else None
+
+
+def _group_lines(group: list[Finding]) -> list[str]:
+    first = group[0]
+    parts = [_group_message(first, len(group)) or "", _sentence(first.why), _sentence(first.suggestion)]
+    out = [f"- **{SEVERITY_LEAD[first.severity]}.** " + " ".join(p for p in parts if p)]
+    for f in group[:GROUP_SHOWN]:
+        out.append(f"  - {_where(f)}: {_marked_quote(f)}" if f.quote else f"  - {_where(f)}: {_sentence(f.message)}")
+    rest = group[GROUP_SHOWN:]
+    if rest:
+        places = list(dict.fromkeys(_section_name((f.section or WHOLE_MANUSCRIPT).split(", ")[-1]) for f in rest))
+        out.append(f"  - {len(rest)} more, in {_names_listed(places)}.")
+    return out
+
+
+def _clusters(findings: list[Finding]) -> list[list[Finding]]:
+    """Findings in report order: by severity, then by place; repeats of one kind with one explanation together."""
+    order = {s: i for i, s in enumerate(Severity)}
+    clusters: dict[tuple, list[Finding]] = {}
+    for f in findings:
+        groupable = _group_message(f, 2) is not None
+        key = (f.severity, f.check, f.why, f.suggestion, _group_message(f, 0)) if groupable else (id(f),)
+        clusters.setdefault(key, []).append(f)
+    out = [sorted(members, key=lambda f: f.line or 0) for members in clusters.values()]
+    return sorted(out, key=lambda c: (order[c[0].severity], c[0].line or -1))  # whole-manuscript findings first
+
+
+def _stage_lines(findings: list[Finding]) -> list[str]:
+    out: list[str] = []
+    for stage in Stage:
+        members = [f for f in findings if (f.stage or Stage.now.value) == stage.value]
+        if not members:
+            continue
+        out += [f"## {STAGE_TITLES[stage]}", ""]
+        if stage in STAGE_INTROS:
+            out += [STAGE_INTROS[stage], ""]
+        for cluster in _clusters(members):
+            out += _group_lines(cluster) if len(cluster) > 1 else _finding_lines(cluster[0])
+        out.append("")
+    return out
+
+
+def _entry_place(ref: Reference) -> str:
+    return f"{ref._bib_file}, entry {ref._bib_key}" if ref._bib_file else f"line {ref.line}"
+
+
+def _reference_rows(refs: list[Reference]) -> list[str]:
+    out = ["| Entry | Where | Link | What the check found | Retraction notices |", "|---|---|---|---|---|"]
+    for ref in refs:
+        entry = _quote(ref.text, width=90)[0]
+        found = STATUS_WORDS.get(ref.status, ref.status)
+        if ref.status == "no_identifier":
+            found = ("no identifier, and Crossref's best match fits" if (ref.title_similarity or 0) >= 0.6 else
+                     "no identifier, and no close match in Crossref")
+        notes = []
+        if ref.published_version:
+            pv = ref.published_version
+            notes.append(f"published since, {doi_url(pv.doi)}" if pv.doi else f"published since, in {pv.venue}")
+        if ref.withdrawn:
+            notes.append("withdrawn by its authors")
+        if ref.author_check == "differs":
+            notes.append("the author list differs from the record")
+        found = "; ".join([found] + notes)
+        retraction = RETRACTION_WORDS.get(ref.retraction, ref.retraction)
+        if ref.retraction_source and ref.retraction != "not_checked":
+            retraction += f" ({source_words(ref.retraction_source)})"
+        cells = [entry, _entry_place(ref), identifier_url(ref) or "no identifier", found, retraction]
+        out.append("| " + " | ".join(c.replace("|", "\\|").replace("\n", " ") for c in cells) + " |")
+    return out
+
+
+def _retraction_coverage(refs: list[Reference]) -> str:
+    states = Counter(ref.retraction for ref in refs)
+    parts = [f"{_plural(states['retracted'], 'entry is', 'entries are')} marked as retracted" if states["retracted"]
+             else "", f"{_plural(states['concern'], 'entry carries', 'entries carry')} an expression of concern"
+             if states["concern"] else "",
+             f"{_plural(states['none_found'], 'entry has', 'entries have')} no notice in the registries asked"
+             if states["none_found"] else "",
+             f"{_plural(states['not_checked'], 'entry', 'entries')} could not be checked, so "
+             f"{'it is' if states['not_checked'] == 1 else 'they are'} not known to be clean"
+             if states["not_checked"] else ""]
+    parts = [p for p in parts if p]
+    return ("The retraction search asked Crossref, which carries Retraction Watch's records, and Europe PMC, or PubMed "
+            f"for an entry known only by its PubMed ID. Of the {_plural(len(refs), 'entry', 'entries')}, "
+            + _names_listed(parts, len(parts)) + ".")
 
 
 def references_to_markdown(report: ReferenceReport) -> str:
-    out = [f"# Reference check: {report.path}", "",
-           f"{len(report.references)} bibliography entries; {len(report.findings)} mechanical findings.", "",
-           "Source support requires reading the cited work; identifier resolution alone does not establish it."]
+    """The focused reference check: what manuscript-reference-check's Step 1 reports to the authors."""
+    out = [f"# Reference check of {Path(report.path).name}", "",
+           f"The reference list has {_plural(len(report.references), 'entry', 'entries')}. This check compares each "
+           "entry with its registry record (Crossref, DataCite, PubMed or arXiv) by title and authors, looks for "
+           "retractions, expressions of concern, withdrawals and published versions of preprints, and matches the "
+           "in-text citations against the list. Whether a source supports the sentence that cites it needs the "
+           "source to be read; this check does not establish it."]
     if not report.online:
-        out += ["Online source identity and retraction checks: not assessed (offline mode)."]
-    for finding in report.findings:
-        location = f"L{finding.line}" if finding.line else "—"
-        out += ["", f"- **{finding.severity.value} / {finding.check}** {location}: {finding.message}"
-                + (f" `{finding.excerpt}`" if finding.excerpt else "")
-                + (f"\n  → {finding.suggestion}" if finding.suggestion else "")]
+        out += ["", "It ran offline, so whether each entry is the work it names, and whether it was retracted, was "
+                    "not assessed (offline mode). Run it again with --online to look the identifiers up."]
+    out += ["", SEVERITY_KEY if report.findings else "The check found no problem in the entries and citations.", ""]
+    out += _stage_lines(report.findings)
     if report.online and report.references:
-        states = Counter(ref.retraction for ref in report.references)
-        out += ["", "Retraction check: " + ", ".join(f"{states[s]} {s}" for s in
-                                                    ("retracted", "concern", "none_found", "not_checked") if states[s])
-                + ". `not_checked` means no registry that records retractions answered for that entry; it is not "
-                  "known to be clean."]
+        out += ["## What the retraction search covered", "", _retraction_coverage(report.references), ""]
     if report.references:
-        out += ["", "## References", "", "| line | status | id | resolved title | retraction | notes |",
-                "|---|---|---|---|---|---|"]
-        for ref in report.references:
-            ident = ref.doi or (f"PMID {ref.pmid}" if ref.pmid else "") or (f"arXiv {ref.arxiv}" if ref.arxiv else "")
-            title = (ref.resolved_title or "").replace("|", "\\|").replace("\n", " ")
-            retraction = ref.retraction + (f" ({ref.retraction_source})" if ref.retraction_source else "")
-            notes = []
-            if ref.published_version:
-                notes.append(f"published: {ref.published_version.doi or ref.published_version.venue}")
-            if ref.withdrawn:
-                notes.append("withdrawn")
-            if ref.author_check == "differs":
-                notes.append("authors differ")
-            notes += [n for n in ref.author_notes if "stop short" in n]
-            cell = "; ".join(notes).replace("|", "\\|")
-            out.append(f"| {ref.line} | {ref.status} | {ident} | {title} | {retraction} | {cell} |")
-    return "\n".join(out) + "\n"
+        out += ["## Each entry as checked", ""] + _reference_rows(report.references)
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
+def _verdict(findings: list[Finding]) -> str:
+    counts = Counter(f.severity for f in findings)
+    serious, important = counts[Severity.blocker], counts[Severity.major]
+    if serious:
+        return (f"not ready. {_plural(serious, 'finding')} could get the paper returned without review (a desk "
+                f"rejection); {'it is' if serious == 1 else 'they are'} marked “Serious” below, so fix "
+                f"{'it' if serious == 1 else 'them'} first.")
+    if important:
+        return (f"not ready yet. {_plural(important, 'finding')} would draw an objection from an editor or referee, "
+                f"but none would by itself get the paper returned without review.")
+    return ("the mechanical checks found nothing serious or important. The judgement checks of the full review still "
+            "apply.")
+
+
+VOCAB_NAMES = {"kobak2025_r>=2": "the words whose use in papers rose most after chat assistants appeared (Kobak et al. "
+                                 "2025)",
+               "juzek_ward2025": "the focal words of Juzek and Ward (2025)",
+               "wikipedia_aivocab": "the words to watch in Wikipedia's “Signs of AI writing”"}
+
+
+def _vocabulary_sentence(report: Report) -> str:
+    rates = [f"{v} of {VOCAB_NAMES.get(k, k)}" for k, v in report.vocabulary_per_1000_words.items() if v]
+    if not rates:
+        text = "None of the words that screeners associate with AI writing appear in the body."
+    else:
+        text = "Per 1,000 words, the body uses " + _names_listed(rates, len(rates)) + "."
+    if report.top_vocabulary:
+        text += " The most frequent are " + _names_listed([f"{w} ({c})" for w, c in report.top_vocabulary[:8]]) + "."
+    if report.ing_tails:
+        text += (f" {_plural(report.ing_tails, 'sentence ends', 'sentences end')} in a participle tail such as “, "
+                 f"highlighting the importance of ...”.")
+    return text + (" These rates describe the text; they are not evidence of how it was written." if rates or
+                   report.ing_tails else "")
 
 
 def to_markdown(report: Report) -> str:
-    counts = Counter(f.severity.value for f in report.findings)
-    out = [f"# Mechanical scan: {report.path}", "",
-           f"**Readiness:** {_verdict(counts)}", "",
-           f"{report.words} words in the body, {report.abstract_words or '?'} in the abstract; findings: "
-           + ", ".join(f"{counts.get(s.value, 0)} {s.value}" for s in Severity), "",
-           "Listed vocabulary per 1000 words (density, not a verdict): "
-           + ", ".join(f"{k} {v}" for k, v in report.vocabulary_per_1000_words.items())
-           + f"; top: {', '.join(f'{w}×{c}' for w, c in report.top_vocabulary[:10]) or 'none'}; "
-           f"participle tails: {report.ing_tails}", ""]
-    for sev in Severity:
-        group = [f for f in report.findings if f.severity == sev]
-        if not group:
-            continue
-        out += [f"## {sev.value} ({len(group)})", ""]
-        for f in group:
-            loc = f"L{f.line}" if f.line else "—"
-            out.append(f"- **{f.check}** {loc}: {f.message}" + (f" `{f.excerpt}`" if f.excerpt else "")
-                       + (f"\n  → {f.suggestion}" if f.suggestion else ""))
-        out.append("")
-    checked = [r for r in report.references if r.status != "not_checked"]
-    if checked:
-        out += ["## References", "", "| line | status | id | resolved title | sim |", "|---|---|---|---|---|"]
-        for r in report.references:
-            ident = r.doi or (f"PMID {r.pmid}" if r.pmid else "") or (f"arXiv {r.arxiv}" if r.arxiv else "")
-            out.append(f"| {r.line} | {r.status} | {ident} | {(r.resolved_title or '')[:90]} | {r.title_similarity or ''} |")
-    return "\n".join(out) + "\n"
+    counted = counted_findings(report.findings, report.final)
+    later = _clusters([f for f in report.findings if f.stage == Stage.final.value])  # as listed: repeats are one item
+    if report.final:
+        mode = ("You are about to submit (the scan ran with --final), so the items under “Before submission, once the "
+                "code is final” count in the readiness too.")
+    else:
+        mode = ("The manuscript is treated as work in progress: items for the last step before submission are listed "
+                f"at the end and not counted in the readiness ({_plural(len(later), 'item')} this time). Run the scan "
+                "with --final when you are about to submit, and they count too.")
+    size = f"The body has about {report.words:,} words" + (f" and the Abstract {report.abstract_words:,}."
+                                                         if report.abstract_words is not None else
+                                                         "; no Abstract heading was found.")
+    out = [f"# Mechanical scan of {Path(report.path).name}", "",
+           "This scan checks what editors and screening tools can check mechanically: text left over from chat "
+           "interfaces, placeholders, required statements, numbers that disagree with their counts, citations and "
+           "references, length limits, and wording that screeners count. It reports and never rewrites. Whether a "
+           "claim is calibrated, or a denominator reported, is left to the full review.", "",
+           f"**Readiness:** {_verdict(counted)}", "", mode, "", size + " " + _vocabulary_sentence(report), ""]
+    if report.findings:
+        out += [SEVERITY_KEY, ""]
+    out += _stage_lines(report.findings)
+    if any(r.status != "not_checked" for r in report.references):
+        out += ["## Each reference as checked", ""] + _reference_rows(report.references)
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 @app.command()
@@ -2052,18 +2542,22 @@ def main(
     venue: Annotated[Optional[str], typer.Option(help="Venue key from references/venues.yaml")] = None,
     git: Annotated[bool, typer.Option(help="Only when the authors ask: count commits touching the file that carry an AI "
                                             "co-author trailer (informational; trailers often mark automation)")] = False,
+    final: Annotated[bool, typer.Option(help="The authors are about to submit: count the end-stage items (statements, "
+                                              "archives, placeholders) in the readiness and the exit code")] = False,
 ) -> None:
     if references_only:
         if venue or git:
             raise typer.BadParameter("--references-only cannot be combined with --venue or --git")
         report = check_references(path, online, search_unidentified)
         md = references_to_markdown(report)
+        counted = report.findings
     else:
         known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
         if venue and venue not in known:
             raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(known))}")
-        report = scan(path, online, search_unidentified, venue, git)
+        report = scan(path, online, search_unidentified, venue, git, final)
         md = to_markdown(report)
+        counted = counted_findings(report.findings, final)
     if json_out:
         json_out.write_text(report.model_dump_json(indent=2), encoding="utf-8")
     if md_out:
@@ -2071,7 +2565,7 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    raise typer.Exit(code=1 if any(f.severity == Severity.blocker for f in report.findings) else 0)
+    raise typer.Exit(code=1 if any(f.severity == Severity.blocker for f in counted) else 0)
 
 
 if __name__ == "__main__":

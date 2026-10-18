@@ -40,7 +40,9 @@ Hello-SimpleAI, RADAR, MAGE), which Park et al. found to flag most human academi
    and prints the link otherwise.
 3. `detect.py PAPER --detector modernbert --sample AUTHORS_EARLIER.md`: windows of 120 to 400 words,
    references and tables excluded, three states (flagged, not flagged, not assessed), the threshold set by
-   the authors' own writing.
+   the authors' own writing. Its Markdown report says what the score measures, names the detector, and gives
+   each passage's section with its opening words; pass results on in those words, not as bare scores or
+   states.
 4. A hosted detector runs only with `--allow-remote`, and only after the authors agreed to send this text.
 5. Flagged windows go to the critic in reflection mode as places to look. The fix is still a named smell or
    an unsupported claim; a window with neither stays as it is.

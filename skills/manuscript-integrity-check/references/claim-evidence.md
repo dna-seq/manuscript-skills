@@ -11,8 +11,10 @@ inference gaps. How strong a sentence is, its rung, is measured on the shared la
 - plus the markers for novelty and generality, scope (in this cohort, in mice), null results and evidence
   status (self-reported, predicted, measured).
 
-Name findings in those words ("Results L52: causation rung, association evidence") so that a later edit or a
-referee response can be checked against the same scale.
+Use those words in your working notes and the shared record, so that a later edit or a referee response can be
+checked against the same scale. In the report, describe the gap in plain words and let the ladder names follow
+in parentheses: "In the Results, 'higher numeracy caused better comprehension' states a cause, but the study
+measured a correlation in one sample (causation stated, association shown)".
 
 ## Claim types
 
@@ -78,16 +80,20 @@ pre-specified analysis or an independent replication; proof belongs to mathemati
 2. **Type and place each claim**: its claim type, its causal and evidential rungs, and its scope.
 3. **Find the evidence in the paper**: design, data, analysis and the location of the result. Name the
    highest rung that evidence supports.
-4. **Report only a gap**: location, the claim as written, the gap by name with both rungs, and the smallest
-   remedy. Offer narrower wording (a claim correction the authors decide) next to the evidence that would
-   support the original claim, with a rough sense of its cost. Where the claim needs work the authors cannot
+4. **Report only a gap**: the claim quoted with its section, what it asks of the reader against what the
+   evidence shows (the gap's name and both rungs in parentheses), and the smallest remedy. Offer narrower
+   wording (a claim correction the authors decide) next to the evidence that would support the original
+   claim, with a rough sense of its cost. Where the claim needs work the authors cannot
    afford, a venue that accepts the narrower claim is also a remedy (`manuscript-journal-select`).
 5. **Leave calibrated claims alone.** Do not lower a claim the evidence supports, ask for evidence beyond
    the claim, or treat a stated non-claim ("no clinical utility is claimed") as missing evidence.
 
-Example finding: *Results, L53: "Higher numeracy caused better comprehension, r(62) = .45". Causation rung
-on association evidence (a correlation in one sample). Remedy: "was associated with" (association rung), or a
-design that varies numeracy support, which this study does not have.*
+Example finding, as the authors would read it: *In the Results, "Higher numeracy caused better comprehension,
+r(62) = .45" (line 53) states that numeracy is a cause, but the evidence is a correlation in one sample of 64
+people, which cannot separate cause from association (association to causation). Either write "was associated
+with", or test it with a design that varies numeracy support, which this study does not have; the authors
+decide which.* Claim gaps belong to the report's "Fix now" group; rewording a claim to match its evidence is
+"Then the writing" once the authors have chosen the narrower claim.
 
 ## Sources
 

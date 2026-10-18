@@ -31,7 +31,7 @@ These are not referee concerns as stated. Drop them with the reason, or rewrite 
 that passes the gate:
 
 - "Not novel" or "already done" without a named prior work whose identifier was resolved (section 4),
-  or marked `unverified`, which the report shows as such.
+  or marked `unverified`, which the report then says in words ("its identifier could not be resolved").
 - "Not state of the art" when the paper does not claim superiority. A paper that claims to be better
   must show it against the obvious comparators; one that claims to be cheaper, faster or more
   transparent must show that instead.
@@ -125,7 +125,8 @@ reporting-guideline gap or manuscript-reference-check for a citation that does n
 sentence. A confirmed finding in another check's remit (the table in SKILL.md: a number that disagrees,
 an availability statement, a missing declaration, a TODO) keeps its route, takes that skill as `hand_to`
 and is listed under "Also found, belongs to other checks" in the output, not ranked as a referee
-concern.
+concern; one that waits until the code is final (stage `final`, section 8) is listed in the end-stage
+group instead.
 Where that check's recorded result judged the same point, agree with it or say why the panel differs.
 
 ## 8. Merging, triage and ranking
@@ -144,10 +145,27 @@ Set severity by the consequence for the claim, not by the seat's proposal: `majo
 support of a headline claim is at stake. A line of an availability statement (a platform list, a missing
 version number) is `optional` unless a headline claim depends on it.
 
-Rank confirmed concerns by consequence first: a threat to a headline claim before a secondary one,
-validity and support before scope and interpretation. Then by cost: `text` before `reanalysis` before
-`new-data`. State the cost in plain terms ("a sentence", "rerun the benchmark on a gene-disjoint split",
-"a replication cohort").
+Set `stage`, when the authors can act on the concern, as "Order the work by when it can be done" in the
+[author priorities](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)
+describes:
+
+- `now`: the science and the evidence, including new analysis a claim needs (the default for substance);
+- `writing`: a misread risk or polish (the default for those triage classes);
+- `journal`: depends on the chosen venue (the default for the `venue` route);
+- `final`: waits until the code, data and results are final: an archive record or release tag, version
+  numbers quoted in the text, the final availability statement, declarations, the AI-use statement.
+  A `final` concern is never a blocker for a draft, whatever the seat proposed, unless the authors say
+  they are about to submit.
+
+`check_findings.py --adjudicated` applies those defaults when `stage` is absent and sorts its groups by
+stage. Within a stage, rank confirmed concerns by consequence first: a threat to a headline claim before
+a secondary one, validity and support before scope and interpretation. Then by cost: `text` before
+`reanalysis` before `new-data`, and an item that depends on another after it. State the cost in plain
+terms ("a sentence", "rerun the benchmark on a gene-disjoint split", "a replication cohort").
+
+The field names and values in this file (verdicts, routes, triage classes, stages, `verified` and
+`unverified`) are the panel's working vocabulary. The report says what they mean in words
+([output-format.md](output-format.md#content-rules)).
 
 ## 9. Recheck
 

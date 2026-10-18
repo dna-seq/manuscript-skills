@@ -131,7 +131,9 @@ def test_software_note_for_bioinformatics_needs_an_archived_version() -> None:
     (finding,) = _checks(report, "no-archive")
     assert finding.severity == ca.Severity.major
     assert finding.line == _line_of(SOFTWARE, "https://github.com/varmerge-dev/varmerge")
-    assert "venues.yaml" in finding.rule
+    # The rule is quoted with its date in plain words; the authors are never sent to a file of these skills.
+    assert "“archived version (Zenodo, Software Heritage or Figshare)" in finding.rule
+    assert "venues.yaml" not in finding.rule and "recorded on" in finding.rule
     # The abstract names the repository, so the in-abstract rule itself is met.
     assert not _checks(report, "abstract-availability")
     assert report.venue.availability_years == 2 and report.venue.in_abstract and report.venue.wants_archive
@@ -685,7 +687,7 @@ def test_a_data_deposit_on_zenodo_is_not_the_code_archive(tmp_path: Path) -> Non
 def test_an_archive_named_without_an_identifier_is_not_assessed(tmp_path: Path) -> None:
     report = ca.check(_write(tmp_path, "# T\n\n## Data availability\n\nThe modules are published on Hugging Face.\n"))
     (finding,) = _checks(report, "archive-unidentified")
-    assert (finding.severity, finding.line) == (ca.Severity.uncertain, 5) and "not assessed" in finding.message
+    assert (finding.severity, finding.line) == (ca.Severity.uncertain, 5) and "could not be checked" in finding.message
 
 
 def test_anonymised_review_links_are_extracted_never_looked_up_and_need_an_archive_by_acceptance(
@@ -702,7 +704,8 @@ def test_anonymised_review_links_are_extracted_never_looked_up_and_need_an_archi
     assert not _checks(report, "code-unversioned") and not _checks(report, "no-archive")
     _venues(tmp_path, monkeypatch, {"software": ["archived version with DOI"]})
     (strict,) = _checks(ca.check(tex, venue="j"), "anonymised-code")
-    assert strict.severity == ca.Severity.major and "venues.yaml" in strict.rule
+    assert strict.severity == ca.Severity.major and "“archived version with DOI”" in strict.rule
+    assert "venues.yaml" not in strict.rule
 
 
 def test_the_anonymised_fixture_flags_only_the_anonymised_code() -> None:
@@ -778,7 +781,8 @@ def test_licence_and_release_checks_are_for_the_authors_own_code_only(
     report = ca.check(paper, online=True)
     own = {x.value for x in report.identifiers if x.kind == "github" and x.own}
     assert own == {"dna-seq/just-dna-lite", "dna-seq/just-prs", "dna-seq/just-prs-mcp"}
-    assert {f.message.split(" for ")[1].split(";")[0] for f in _checks(report, "no-licence")} == {"dna-seq/just-prs-mcp"}
+    assert {v for v in own if any(f"for {v} (" in f.message for f in _checks(report, "no-licence"))} == {
+        "dna-seq/just-prs-mcp"} and len(_checks(report, "no-licence")) == 1
     assert not _checks(report, "licence-unrecognised") and not _checks(report, "version-not-found")
     assert not [c for c in calls if "KarchinLab" in c and c.endswith("/releases?per_page=1")]
     assert not [c for c in calls if "oakvar" in c and "/git/ref/tags/" in c]
@@ -812,6 +816,155 @@ def test_a_hugging_face_repository_of_unstated_type_is_tried_as_dataset_model_an
     assert (got["org/found"].state, got["org/gone"].state, got["org/private"].state) == (
         ca.State.resolves, ca.State.not_found, ca.State.not_assessed)
     assert "Hugging Face model" in got["org/found"].detail
+
+
+# ------------------------------------------------------------------------------------- the order of work and the authors' report
+# author-priorities.md: findings are grouped by when the authors can act on them, quote the manuscript with its
+# section, and end-stage work never counts against a draft unless the authors are about to submit.
+
+STAGE_LABELS = ["Fix now", "Then the writing", "Once you have chosen the journal",
+                "Before submission, once the code is final"]
+
+
+def _all_fixture_reports() -> list:
+    return [ca.check(SEEDED, venue="bmj-open"), ca.check(CLEAN, venue="bmj-open"),
+            ca.check(SOFTWARE, venue="bioinformatics-note"), ca.check(ANONYMISED, venue="bioinformatics-note")]
+
+
+def test_every_finding_has_a_plain_title_a_stage_and_a_quoted_place() -> None:
+    findings = [f for report in _all_fixture_reports() for f in report.findings]
+    assert findings
+    for f in findings:
+        assert f.title and f.title != f.check, f
+        # Only the notes on what could not be checked have no stage; everything else says when to act.
+        assert (f.stage is None) == (f.check == "not-assessed"), f
+        if f.line is not None and f.check != "abstract-availability":
+            assert f.section and f.quote, f
+        if f.span:
+            assert f.span in f.quote, f
+
+
+@pytest.mark.parametrize("check,stage", [
+    ("malformed-identifier", ca.Stage.now),  # GSE1589O4: no reader can find the data
+    ("request-only", ca.Stage.final),  # the statement's wording and the deposit wait for the final data
+    ("code-unversioned", ca.Stage.final),  # release tags and archives come once the code is final
+])
+def test_seeded_findings_are_staged_by_when_they_can_be_fixed(check: str, stage: object) -> None:
+    assert [f.stage for f in _checks(ca.check(SEEDED, venue="bmj-open"), check)] == [stage]
+
+
+def test_a_repairable_accession_is_writing_and_an_unrepairable_one_is_fixed_now(tmp_path: Path) -> None:
+    report = ca.check(_write(tmp_path, "# T\n\n## Data availability\n\nReads are in GEO (GSE 12345) and the counts in "
+                                       "GSE1589O4.\n"))
+    stages = {f.span: (f.stage, f.severity) for f in _checks(report, "malformed-identifier")}
+    assert stages == {"GSE 12345": (ca.Stage.writing, ca.Severity.optional),
+                      "GSE1589O4": (ca.Stage.now, ca.Severity.major)}
+
+
+def test_venue_format_rules_wait_for_the_journal_and_archives_for_the_end(tmp_path: Path) -> None:
+    text = SOFTWARE.read_text(encoding="utf-8").replace(
+        "https://github.com/varmerge-dev/varmerge under the MIT licence", "our repository under the MIT licence")
+    text = text.replace("## Data availability", "## Code availability\n\nhttps://github.com/varmerge-dev/varmerge\n\n"
+                                                 "## Data availability")
+    report = ca.check(_write(tmp_path, text), venue="bioinformatics-note")
+    # The abstract's statement now names nothing either: its wording is end-stage work too.
+    assert {f.check: f.stage for f in report.findings if f.stage} == {
+        "abstract-availability": ca.Stage.journal, "no-archive": ca.Stage.final, "empty-statement": ca.Stage.final}
+
+
+def test_an_end_stage_major_does_not_fail_a_draft_unless_the_authors_are_about_to_submit(tmp_path: Path) -> None:
+    # The software note's only major finding is the missing archive: end-stage work.
+    runner = CliRunner()
+    draft = runner.invoke(ca.app, [str(SOFTWARE), "--venue", "bioinformatics-note", "--md", str(tmp_path / "d.md")])
+    final = runner.invoke(ca.app, [str(SOFTWARE), "--venue", "bioinformatics-note", "--final",
+                                   "--md", str(tmp_path / "f.md"), "--json", str(tmp_path / "f.json")])
+    assert (draft.exit_code, final.exit_code) == (0, 1), draft.output + final.output
+    assert "do not count against the draft" in (tmp_path / "d.md").read_text()
+    assert "do not count against the draft" not in (tmp_path / "f.md").read_text()
+    assert json.loads((tmp_path / "f.json").read_text())["final"] is True
+    # A current-work major (the malformed GEO accession) fails a draft either way.
+    assert runner.invoke(ca.app, [str(SEEDED), "--md", str(tmp_path / "s.md")]).exit_code == 1
+
+
+def test_the_markdown_report_is_grouped_by_stage_and_quotes_the_manuscript(tmp_path: Path) -> None:
+    md = ca.to_markdown(ca.check(SEEDED, venue="bmj-open"))
+    headings = [line[3:] for line in md.splitlines() if line.startswith("## ")]
+    staged = [h for h in headings if h in STAGE_LABELS]
+    assert staged == ["Fix now", "Before submission, once the code is final"]
+    assert headings.index("Fix now") < headings.index("Before submission, once the code is final")
+    # Each finding quotes its sentence under its section, with the line only in parentheses.
+    line = _line_of(SEEDED, "accession GSE1589O4")
+    assert f"In the section “Data availability” (line {line}), the manuscript says “" in md
+    assert "**GSE1589O4**" in md and "https://github.com/northfield-genetics/urate-assoc" in md
+    # No bare line references, check codes or status tokens.
+    assert not re.search(r"\bL\d+\b", md)
+    for token in ("not_assessed", "not_found", "request-only", "malformed-identifier", "code-unversioned",
+                  "venues.yaml", "→"):
+        assert token not in md, token
+
+
+def test_the_markdown_report_names_what_could_not_be_checked_in_words(
+        tmp_path: Path, mock_http: Callable[[Handler], list[str]]) -> None:
+    mock_http(lambda r: httpx.Response(401, json={"error": "x"}))
+    report = ca.check(_write(tmp_path, "# T\n\n## Data availability\n\nOn the Hugging Face dataset org/data.\n"),
+                      online=True)
+    md = ca.to_markdown(report)
+    section = md.split("## What this run could not check", 1)[1]
+    assert ("Hugging Face dataset org/data (https://huggingface.co/datasets/org/data), in the section “Data "
+            "availability” (line 5), could not be checked (Hugging Face gives the same answer") in section
+    assert "not_assessed" not in md
+
+
+def test_a_cited_version_of_the_authors_code_that_has_no_tag_is_found(
+        tmp_path: Path, mock_http: Callable[[Handler], list[str]]) -> None:
+    def handler(r: httpx.Request) -> httpx.Response:
+        if r.url.path == "/repos/lab/varmerge":
+            return httpx.Response(200, json={"full_name": "lab/varmerge", "license": {"spdx_id": "MIT"}})
+        if r.url.path.endswith("/git/ref/tags/v1.4.0"):
+            return httpx.Response(200, json={"ref": "refs/tags/v1.4.0"})
+        if r.url.path.endswith(("/releases", "/tags")):
+            return httpx.Response(200, json=[{"name": "v1.4.0"}])
+        return httpx.Response(404, json={"message": "Not Found"})
+
+    mock_http(handler)
+    paper = _write(tmp_path, "# T\n\n## Results\n\nWe timed varmerge 1.3.2 against bcftools. varmerge v1.4.0 adds "
+                             "streaming.\n\n## Code availability\n\nhttps://github.com/lab/varmerge\n")
+    report = ca.check(paper, online=True)
+    (finding,) = _checks(report, "version-not-found")
+    assert (finding.line, finding.section, finding.stage) == (5, "Results", ca.Stage.final)
+    assert finding.span == "varmerge 1.3.2" and finding.quote.startswith("We timed varmerge 1.3.2")
+    assert "1.3.2" in finding.title and "https://github.com/lab/varmerge" in finding.message
+
+
+@pytest.mark.parametrize("excluded,own_code,stage", [
+    (True, False, ca.Stage.writing),  # "excluding PGS000085": a word of explanation
+    (False, False, ca.Stage.now),  # a score the paper uses that does not exist: the evidence
+    (False, True, ca.Stage.final),  # the authors' own unpublished repository: published with the release
+])
+def test_a_record_that_does_not_exist_is_staged_by_whose_it_is(
+        tmp_path: Path, mock_http: Callable[[Handler], list[str]], excluded: bool, own_code: bool, stage: object) -> None:
+    mock_http(lambda r: httpx.Response(404, json={}))
+    text = ("# T\n\n## Code availability\n\nhttps://github.com/lab/unpublished\n" if own_code else
+            "# T\n\n## Methods\n\nWe used PGS000001 to PGS000009" + (", excluding PGS000085" if excluded else
+                                                                     " and PGS000085") + ".\n")
+    report = ca.check(_write(tmp_path, text), online=True)
+    target = "lab/unpublished" if own_code else "PGS000085"
+    (finding,) = [f for f in _checks(report, "not-found") if target in f.message]
+    assert finding.stage == stage and finding.quote and finding.section
+
+
+def test_a_latex_abstract_environment_is_named_as_the_abstract() -> None:
+    report = ca.check(ANONYMISED)
+    first = min(report.identifiers, key=lambda x: x.line)
+    assert first.kind == "anon-review" and first.section == "Abstract"
+
+
+def test_a_reasoned_request_refused_by_the_journal_is_not_called_unreasoned(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _venues(tmp_path, monkeypatch, {"other_desk_rules": ['data in a repository ("available upon request" not accepted)']})
+    p = _write(tmp_path, "# T\n\n## Data availability\n\nFor consent reasons, data are available on request.\n")
+    (finding,) = _checks(ca.check(p, venue="j"), "request-only")
+    assert "no reason" not in finding.title and "do not accept" in finding.title
 
 
 # ------------------------------------------------------------------------------------- guidelines.yaml
@@ -965,7 +1118,7 @@ def test_items_table_records_the_manuscript_hash(tmp_path: Path) -> None:
     result = CliRunner().invoke(gl.app, ["items", "strega", "--manuscript", str(SEEDED), "--md", str(out)])
     assert result.exit_code == 0, result.output
     text = out.read_text()
-    assert "sha256" in text and "| STREGA 2009 | 12h |" in text and "unclear (material not supplied)" in text
+    assert "sha256" in text and "| STREGA 2009 (item 12h) |" in text and "unclear (material not supplied)" in text
 
 
 def test_select_reads_designs_and_venue_from_the_record(tmp_path: Path) -> None:
@@ -976,3 +1129,36 @@ def test_select_reads_designs_and_venue_from_the_record(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     sel = json.loads(out.read_text())
     assert sel["venue"]["key"] == "bmj-open" and sel["venue"]["reporting_checklist"] is True
+
+
+# ------------------------------------------------------------------------------------- guideline output for the authors
+
+def test_the_selection_reads_in_plain_words_with_codes_only_in_parentheses() -> None:
+    md = gl.selection_markdown(gl.select_guidelines(["software-tool", "polygenic-score"], "nature-genetics"))
+    # Guideline ids and design keys follow a description in parentheses, never stand alone or in code spans.
+    assert "**PRS-RS 2021** (prs-rs) is a reporting guideline." in md
+    assert "development, validation or application of polygenic scores (polygenic-score)" in md
+    assert "`" not in md and "WITHDRAWN" not in md and "has been withdrawn" in md
+    # Sources are links the authors can open; nothing points at a file of these skills.
+    assert "doi:" not in md and "https://doi.org/10.1038/s41586-021-03243-6" in md
+    for internal in ("venues.yaml", "guidelines.yaml", "scripts/", "references/", ".md"):
+        assert internal not in md, internal
+    # Where a missing item goes in the stage-ordered report.
+    assert '"Once you have chosen the journal"' in md and '"Fix now"' in md
+
+
+def test_the_item_table_puts_the_item_first_and_its_number_in_parentheses() -> None:
+    text = gl.items_markdown("strega", None)
+    header = next(line for line in text.splitlines() if line.startswith("| "))
+    assert header.startswith("| What to report | Guideline (item) |") and "When to fix" in header
+    row = next(line for line in text.splitlines() if "(item 12h)" in line)
+    assert row.split("|")[2].strip() == "STREGA 2009 (item 12h)" and len(row.split("|")[1].split()) > 3
+    assert "not_applicable" not in text and "not applicable" in text
+    assert '"Once you have chosen the journal"' in text and '"Fix now"' in text
+
+
+def test_design_notes_send_the_authors_to_no_file_of_these_skills() -> None:
+    for key, note in gl.load()["design_notes"].items():
+        for internal in ("scripts/", "references/", ".md", "../", ".py"):
+            assert internal not in note, (key, internal)
+        assert not re.search(r"\bdoi 10\.", note), key  # a DOI is given as https://doi.org/...

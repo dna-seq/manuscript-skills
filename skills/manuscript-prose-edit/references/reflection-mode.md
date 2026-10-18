@@ -83,8 +83,8 @@ phrase, and one sentence on why it is a problem here. For claims, use these ids,
 Respect each entry's "Leave it when". Do not flag field terms in their technical sense, passive voice in
 Methods, "we", or a single connector. Never ask for a claim to be made stronger.
 
-{optional: "A third-party detector rated these paragraphs as most AI-like: L.., L.. . Treat this as a hint
-of where to look, not as a finding: report only what you can name with an id."}
+{optional: "A third-party detector rated the paragraphs that begin with these words as most AI-like: '...',
+'...'. Treat this as a hint of where to look, not as a finding: report only what you can name with an id."}
 
 Do not rewrite anything. Output JSON: [{"id": "...", "quote": "...", "why": "...",
 "severity": "high|medium|low"}]. "high" = a reviewer would comment on it; "low" = style only.
@@ -129,9 +129,11 @@ Section:
    applies, when it is a field convention, or when fixing it would change a claim (send that to the authors).
 3. After each writer pass, run `guard.py SECTION DRAFT` against the original section. Revert every protected
    change the authors did not ask for, and read every warning yourself.
-4. Merge the change tables into one summary grouped by finding ID, plus the flagged sentences. Apply
-   authorised copy edits and show a diff; ask the author only about unresolved facts or changes in
-   scientific meaning.
+4. Merge the change tables into one summary for the authors: the changes grouped by what they are, in plain
+   words with the finding IDs in parentheses (as under "Traceability" above), then the flagged sentences,
+   each quoted with its section and ordered by when the authors can act, claim questions first under "Fix
+   now" (`author-priorities.md`, "Order the work by when it can be done"). Apply authorised copy edits and
+   show a diff; ask the author only about unresolved facts or changes in scientific meaning.
 
 ## Optional detector notes
 

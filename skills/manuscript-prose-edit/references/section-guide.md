@@ -98,6 +98,8 @@ that belongs in Results.
 code, competing interests, funding, author contributions, AI use, ethics), in its wording.
 **Reads as AI:** promises instead of links ("will be made available upon publication" where the venue
 requires availability at submission); generic AI statements that name no tool or version.
+**When:** these are usually finished last, once the code, data and results are final. In a draft, list what is
+missing under "Before submission, once the code is final", not as a problem with the draft.
 
 ## Cover letter
 
@@ -114,8 +116,9 @@ the work [A1, A4].
 **Needs:** each comment quoted, then what changed and where (page, line, section), or why not, with the
 evidence.
 **Reads as AI:** thanking for every "excellent" comment [G3]; long agreement without a change; restating
-the reviewer's point back to them; defensive boilerplate. Some venues forbid AI-written responses; check
-`venues.py show`.
+the reviewer's point back to them; defensive boilerplate. If the venue restricts AI-written responses and the
+authors want this help, give it; one sentence naming the restriction is enough (`author-priorities.md`, "The
+author decides: authors first, journals second").
 
 ## Plain-language and lay summaries
 

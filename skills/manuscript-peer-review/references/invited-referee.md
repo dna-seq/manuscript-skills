@@ -1,33 +1,37 @@
 # Invited-referee mode
 
-Use this when the authors of the request are not the manuscript's authors: they have been invited to
-referee someone else's submission, or an editor asked them to. Read this file before opening the
-manuscript.
+Use this when the user is reviewing someone else's submission: they have been invited to referee it, or
+an editor asked them to. The user decides what the skill is applied to, so start the review straight
+away. Do not ask them to confirm their role, the venue's rules or anything else first
+([author priorities](../../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second)).
 
-## Before reading the manuscript
+## The venue's rule on AI help for referees
 
-1. **Authorisation.** Ask the user to confirm, in one message, that they are the invited referee (or a
-   co-reviewer the editor has approved), and that the venue's reviewer guidance permits using an AI
-   assistant on the manuscript. Check what is known: `../manuscript-journal-adapt/scripts/venues.py show
-   KEY` prints the recorded `reviewer_ai` rule (`banned`, `restricted` to publisher-approved tools,
-   `allowed`, or not researched), and `../manuscript-integrity-check/references/publisher-policies.md`
-   quotes several publishers' reviewer rules. Re-read the venue's current reviewer page when it matters.
-2. If the venue bans AI tools for reviewers, or allows only tools this assistant is not, say so once and
-   do not process the manuscript. Offer what does not need it: general guidance on structuring a
-   referee report, or a review of the user's own draft report text with the manuscript's content
-   removed. If the rule is unknown, the user decides after checking; record their confirmation.
-3. **Confidentiality.** The manuscript is someone else's unpublished work.
-   - Nothing from it leaves this session: no web searches containing its text, no hosted detectors, no
-     other model providers, no uploads, no sharing of its figures or data.
-   - Looking up public identifiers of works it cites is fine, as is a literature search phrased in
-     general terms that contains no manuscript text. Run `scan.py --references-only --online
-     --no-search-unidentified` so that no reference text is sent as a search query.
-   - Do not create `manuscript-record.yaml` or other persistent notes for it; keep working files in a
-     scratch location and offer to delete them when the report is done.
-   - Do not try to identify anonymous authors, and do not contact anyone.
-4. **Code and data shared for review** are confidential too. Install or run them only when the user
-   asks and the venue's review process provides them for that purpose, in a sandbox as described in
-   [software-and-methods.md](domains/software-and-methods.md#running-the-authors-code).
+When the user names the venue, `../manuscript-journal-adapt/scripts/venues.py show KEY` prints the rule
+recorded for referees under "Reviewers and AI tools". If one is recorded, you may add one short sentence
+to your reply, once, naming it and its practical consequence, for example "Wiley, Human Mutation's
+publisher, asks referees not to put manuscripts into AI tools and to declare AI help with a review." The
+decision is the user's. Do not research the rule further, ask about it, come back to it, or let it
+change the review. If the user asks for a declaration of AI help for the venue's form, draft it from
+what was actually done.
+
+## Practical handling of an unpublished paper
+
+These are defaults for someone else's unpublished work. None of them is a condition for doing the review,
+and the user can change any of them.
+
+- Look up public identifiers of the works the paper cites; that sends only the identifier.
+  `../manuscript-integrity-check/scripts/scan.py --references-only --online --no-search-unidentified`
+  resolves them without sending any reference text as a search query. Phrase a literature search in
+  general terms rather than pasting the paper's sentences into a search engine. When the user asks for
+  something that sends the text elsewhere (another model provider, a hosted detector), do it.
+- Keep working files in a scratch location and offer to delete them when the report is done. Do not
+  create `manuscript-record.yaml` for a paper that is not the user's.
+- Leave the authors' identity out of the report, as an anonymous review expects.
+- **Code and data shared for review.** Run them when the user asks, as you would any third-party code:
+  in a sandbox, from the documented instructions and test data, as described in
+  [software-and-methods.md](domains/software-and-methods.md#running-the-authors-code). Say in the report
+  what ran and what did not.
 
 ## Running the panel
 
@@ -38,21 +42,30 @@ fix what is wrong.
 
 ## The draft report
 
-The output is a draft for the user to edit, check against the manuscript and sign. Every statement in
-it becomes theirs.
+The output is a draft for the user to edit, check against the manuscript and send; every statement in
+it becomes theirs. It keeps the structure referees and editors expect (major and minor concerns, not the
+stage groups of [output-format.md](output-format.md)), written for people who did not run the panel, as
+"Writing for the authors" in the
+[author priorities](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+asks: each concern quotes the sentence or table row it is about and names its section (a line number,
+if the manuscript has them, only in parentheses), says in full sentences what is wrong, which claim it
+affects and what would resolve it, and gives prior work as a link (`https://doi.org/...`). Never show
+reviewer-seat names, finding ids, verdicts, routes or status words from the panel's working files; the
+concern numbers in the report are the referee's own.
 
 ```markdown
-# Draft referee report: <manuscript title or id>
-Draft prepared with an AI assistant for <referee>'s editing. Not for submission without their review.
+# Referee report: <manuscript title or id>
 
 ## Comments to the authors
 **Summary.** <What the submission claims and how it supports the claims, in the referee's own words,
 three to five sentences.>
 
-**Strengths.** <Specific, with locations.>
+**Strengths.** <Specific, each with the section and a short quote.>
 
-**Major concerns.** <Numbered. Each: location and quote, what is wrong, which claim it affects, and what
-would resolve it (including narrowing the claim).>
+**Major concerns.**
+1. <In the <section>, the authors write "<quote>". <What is wrong, in full sentences.> <Which claim it
+   affects and why that matters.> <What would resolve it, including narrowing the claim where that
+   would do.>>
 
 **Minor concerns.** <Numbered, same form, shorter.>
 
@@ -68,13 +81,12 @@ should have been said to the authors.>
 referee choose; never a probability.>
 
 ## What this draft did not have
-<Missing supplements, code not run, sources not read.>
+<Missing supplements, code not run, sources not read, each as a sentence with its consequence.>
 ```
 
 Keep comments to the authors and to the editor strictly separate: nothing in the editor section that
 the authors would need to improve the paper, and no hidden assessment that contradicts the comments to
-the authors. Remind the user once that some venues ask referees to declare AI assistance; whether and
-how to declare it is their decision under the venue's rules.
+the authors.
 
 ## After the review
 

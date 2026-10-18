@@ -5,6 +5,10 @@ Every concern a seat raises is written as one JSON finding. It is a proposal unt
 fails the contract is listed as a "not yet finding" with the reason; it is never dropped silently and
 never reaches the report as a concern.
 
+The field names, ids and values below are working vocabulary for the seats, the script and the
+adjudicator. The report for the authors says what they mean in words and quotes the manuscript
+([output-format.md](output-format.md#content-rules)); an id or value appears there only in parentheses.
+
 ## File layout
 
 A seat writes a JSON object with `findings` and `strengths`; a bare list of findings is also accepted.
@@ -94,6 +98,7 @@ The orchestrator merges the seats' files into one object, keeping each finding's
 | `verdict_evidence` | with every verdict | What settled it: the text that shows the problem or answers it, a recomputation from the paper's own numbers, a checked record. For a partly answered finding, the answering text and the part left open. |
 | `defence_quote` | with `refuted` | The verbatim text that answers the concern; for a premise the quoted text does not support, the finding's own quote or the passage that shows the premise wrong. `defence_source` names a supplementary file when needed. |
 | `triage` | with `confirmed` or `downgraded` | `substance`, `misread-risk` or `polish`. |
+| `stage` | no; set in adjudication | When the authors can act on it: `now` (the science and the evidence), `writing`, `journal` (depends on the chosen venue) or `final` (archive records, release tags, version numbers, declarations: once the code is final, never a blocker for a draft). Without it, the script takes `journal` for the `venue` route, else `writing` for a misread risk or polish, else `now`; a finding with a `hand_to` integrity, reference or reporting check is listed with the other checks unless its stage is `final` ([adjudication.md](adjudication.md#8-merging-triage-and-ranking)). |
 
 Strengths have `seat`, `location`, `quote` and `note`, all required; their quotes are checked the same
 way.
@@ -124,7 +129,8 @@ way.
   they share a `group` label, their concerns are near-duplicates (at least four shared content words
   and half the combined vocabulary), or they are absence findings at the same location. Each group
   reports its distinct seats. The count describes the panel; it is not evidence that the concern is
-  right.
+  right. To merge groups that share a root cause, give their findings one `group` label and rerun.
+  With `--adjudicated`, groups are listed by stage, then severity, then position in the manuscript.
 
 The script does not judge whether a concern is correct, fair or important, resolve identifiers, or
 score anything. Those are adjudication steps.

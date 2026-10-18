@@ -62,6 +62,31 @@ For a claim that needs source verification, use `manuscript-reference-check`. Us
 when an edit depends on clinical, ethics, privacy or regulatory applicability. Venue formatting and
 required AI-use statements belong to `manuscript-journal-adapt`; editing prose alone does not trigger them.
 
+If the chosen journal restricts AI drafting or editing, still make the edit the authors asked for, at full
+strength. Add at most one sentence naming the restriction and its practical consequence, and do not raise it
+again ([authors first, journals second](../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second)).
+The claim ceiling is not such a restriction: it protects the science and holds for every request.
+
+## What to show the authors
+
+Follow [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors).
+For each change or flagged sentence, quote the sentence as it stands (before and after, for a change) and name
+its section ("Discussion, Limitations"; "section 5.1, Limitations of Variant Annotation"). A line number may
+follow in parentheses; a bare "L318", a file:line or a revision-marker ID never stands in for the quote. Say
+what the guard found in its own plain words ("no number, citation or claim strength changed"; "the limiting
+word 'albeit' was dropped from the Conclusion"), not "protected change", "rung", "watched" or an exit code, and
+do not send the authors to `guard.json` or to this skill's reference files. A catalogue ID may follow a plain
+description in parentheses ("participle tails cut in four places (A9)"), never replace it.
+
+List what the edit could not settle by when it can be done
+([Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)),
+using that section's group labels and leaving out empty groups. A claim that outruns its evidence, a number or
+citation the sentence needs and the text does not give, or a qualifier that may be missing goes under "Fix now"
+with the question for the authors. The prose changes themselves, and choices of wording left to the authors,
+belong to "Then the writing". Word limits and required sections wait for "Once you have chosen the journal".
+Stripping revision markers, the declarations and the AI-use statement are end-stage work for "Before
+submission, once the code is final" and are never called blockers for a draft.
+
 ## Revision inventory
 
 When content changes are expected (a revision after review, a co-author's version, a venue adaptation, the
@@ -76,14 +101,18 @@ It reports every number, citation, identifier, claim-strength, scope, null-resul
 with section and line, in the same JSON fields as an edit (`sentence_changes`, `alignment`, `summary`), and
 always exits 0. `manuscript-reviewer-response` checks each listed change against the response letter;
 `manuscript-journal-adapt` and `manuscript-policy-fit` use it to show what their authorised edits changed.
-Present the changes; do not judge them as errors, since the authors chose them.
+Present the changes; do not judge them as errors, since the authors chose them. A whole-paper revision can
+list hundreds of changes: give the authors the claim changes first, each quoted with its section, then the
+number, citation and identifier changes grouped by section, and keep the full Markdown report as a file they can
+open. A count of changes alone tells them nothing they can check.
 
 ## Optional independent reflection
 
 Use [reflection-mode.md](references/reflection-mode.md) only when the user requests reflection mode or
 independent agents. A new critic subagent each round reads only the current text, never the authors'
 self-assessment, the writer's notes or what the last round fixed, and cites a catalogue ID for each finding
-so every fix is traceable without a log file. The guard runs after each writer pass. The loop stops after a
+so every fix is traceable without a log file. The summary for the authors describes each kind of change in
+plain words, with the ID only in parentheses. The guard runs after each writer pass. The loop stops after a
 round with no accepted finding, and after two rounds at most.
 
 ## Requested detector checks
@@ -97,8 +126,10 @@ it is sufficient.
 Then run `scripts/detect.py PAPER --detector <key> --sample AUTHORS.md`, omitting the sample if none is
 available. A hosted detector needs `--allow-remote` and the author's consent for this text. Read
 [detector-apis.md](references/detector-apis.md) for setup and output, and
-[detector-evidence.md](references/detector-evidence.md) for limitations. Treat flagged windows as places
-to reread; use them in a critic pass only if that mode was requested.
+[detector-evidence.md](references/detector-evidence.md) for limitations. Treat flagged passages as places
+to reread; use them in a critic pass only if that mode was requested. Tell the authors what a score measures,
+with the detector's name in parentheses ("the detector's estimate that a model wrote the passage was 0.91
+(ModernBERT detector)"), and quote each flagged passage's opening with its section.
 
 Edit for a concrete writing problem, never for a detector threshold. Do not insert errors, manufacture
 variation or change scientific meaning to influence a score. Leave a flagged passage unchanged when

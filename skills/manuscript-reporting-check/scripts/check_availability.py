@@ -12,6 +12,7 @@ judgement (manuscript-reporting-check/SKILL.md, references/availability.md).
     uv run --script check_availability.py PAPER.md --online               # also resolve every identifier
     uv run --script check_availability.py PAPER.md --venue bioinformatics-note --json out.json --md out.md
     uv run --script check_availability.py PAPER.md --record manuscript-record.yaml   # venue from the record
+    uv run --script check_availability.py PAPER.md --final     # the authors are about to submit
 
 Identifier states: resolves | not_found | restricted (controlled access or embargo: legitimate, not a
 defect) | not_assessed (with the reason). The reference list is left to manuscript-reference-check.
@@ -19,7 +20,14 @@ Licence, release and version checks run only on the authors' own code (named in 
 a statement names); a tool in a comparison table or cited software is checked for existence only. Anonymised
 review links (anonymous.4open.science) are never looked up.
 
-Exit codes: 0 no major finding; 1 at least one major finding; 2 usage error.
+Every finding carries the stage at which the authors can act on it (author-priorities.md, "Order the work by
+when it can be done"). Most availability work waits until the code, data and results are final (archives,
+release tags, licences, the statement's wording); a malformed accession or a dataset nobody can reach is a
+problem with the evidence now. The JSON keeps check codes, states and line numbers for other tools; the
+Markdown report is for the authors: grouped by stage, each finding quoting the manuscript with its section.
+
+Exit codes: 0 no major finding in the current work; 1 at least one (end-stage findings count only with
+--final); 2 usage error.
 """
 
 from __future__ import annotations
@@ -30,7 +38,6 @@ import os
 import re
 import sys
 import time
-from collections import Counter
 from enum import Enum
 from pathlib import Path
 from types import ModuleType
@@ -77,6 +84,7 @@ class Stage(str, Enum):
 STAGE_HEADING = {Stage.now: "Fix now", Stage.writing: "Then the writing",
                  Stage.journal: "Once you have chosen the journal",
                  Stage.final: "Before submission, once the code is final"}
+CURRENT_STAGES = (Stage.now, Stage.writing, Stage.journal)  # the draft's own work; Stage.final waits for the end
 
 
 class Mention(BaseModel):
@@ -163,10 +171,17 @@ class VenueRules(BaseModel):
 class Report(BaseModel):
     path: str
     online: bool
+    final: bool = False  # the authors are about to submit: end-stage findings count in the verdict
     venue: Optional[VenueRules] = None
     statements: list[Statement]
     identifiers: list[Identifier]
     findings: list[Finding]
+
+
+def counts_in_verdict(finding: Finding, final: bool) -> bool:
+    """Whether a finding counts in the draft's readiness: current work always, end-stage work only when the
+    authors are about to submit, notes on what could not be checked never."""
+    return finding.stage in CURRENT_STAGES or (final and finding.stage == Stage.final)
 
 
 # ------------------------------------------------------------------------------------------- text layout
@@ -263,6 +278,9 @@ def layout(lines: list[str]) -> tuple[list[str], list[bool], Optional[tuple[int,
             in_bib = False
     if abstract is None and abstract_start is not None:
         abstract = (abstract_start, len(lines))
+    if abstract and latex_abstract:  # an abstract environment before the first heading is the Abstract section
+        for k in range(abstract[0], min(abstract[1], len(sections))):
+            sections[k] = sections[k] or "Abstract"
     return sections, skip, abstract
 
 
@@ -1061,7 +1079,7 @@ def venue_rules(key: str) -> VenueRules:
     years = next((int(m.group(1)) for r in rules if re.search(r"availab", r, re.IGNORECASE)
                   for m in [re.search(r"(\d+)\s*years?", r)] if m), None)
     return VenueRules(
-        key=key, name=str(v.get("name", key)), publisher=str(v.get("publisher") or ""), url=str(v.get("url", "")),
+        key=key, name=str(v.get("name", key)), publisher=str(v.get("publisher") or ""), url=str(v.get("url") or ""),
         checked=str(v.get("checked") or checked),
         rules=rules,
         wants_archive=any(re.search(r"archiv|\bDOI\b|Zenodo|Software Heritage|figshare", r, re.IGNORECASE) for r in hard),
@@ -1191,7 +1209,7 @@ def _resolve_insdc(http: Http, ident: Identifier) -> None:
         elif status == "private":
             ident.state, ident.detail = State.restricted, "registered but not yet public (held until publication)"
         else:
-            ident.state, ident.detail = State.not_found, f"withdrawn at the archive (status: {status})"
+            ident.state, ident.detail = State.not_found, f"the archive lists it as withdrawn (status: {status})"
             ident.flags.append("withdrawn")
         return
     if r.status_code not in (200, 404):
@@ -1269,7 +1287,7 @@ def _resolve_pdb(http: Http, ident: Identifier) -> None:
     elif status == "UNRELEASED":
         ident.state, ident.detail = State.restricted, "deposited but on hold until publication"
     elif status == "OBSOLETE":
-        ident.state, ident.detail = State.not_found, "obsolete (withdrawn or superseded)"
+        ident.state, ident.detail = State.not_found, "the PDB lists the entry as obsolete (withdrawn or superseded)"
         ident.flags.append("withdrawn")
     else:
         _na(ident, f"unexpected holdings status {status or 'none'}")
@@ -1526,7 +1544,7 @@ def _resolve_cran(http: Http, ident: Identifier) -> None:
     ident.licence = str((versions.get(latest) or {}).get("License") or "")
     ident.detail = f"latest {latest}"
     if data.get("archived"):
-        ident.detail += "; archived (removed from CRAN, so install.packages() no longer finds it)"
+        ident.detail = f"removed from CRAN after version {latest} and archived, so install.packages() no longer finds it"
         ident.flags.append("withdrawn")
     if ident.version and ident.version not in versions:
         ident.flags.append("version-missing")
@@ -1539,7 +1557,7 @@ def _resolve_bioconductor(http: Http, ident: Identifier) -> None:
     where = r.headers.get("location", "")
     if r.status_code in (301, 302, 303, 307, 308) and "removed-packages" in where:
         ident.state = State.not_found
-        ident.detail = "not in the current Bioconductor release (removed, renamed or never accepted)"
+        ident.detail = "it is not in the current Bioconductor release (removed, renamed or never accepted)"
     elif (r.status_code in (301, 302, 303, 307, 308) and f"/{ident.value}.html" in where) or r.status_code == 200:
         ident.state, ident.detail = State.resolves, "in the current Bioconductor release"
     else:
@@ -1712,12 +1730,47 @@ def resolve_all(identifiers: list[Identifier], github_token: Optional[str] = Non
 
 
 # ------------------------------------------------------------------------------------------- findings
+# Every finding gets a title in plain words, the stage at which the authors can act on it, and the manuscript's
+# own sentence as its quote (author-priorities.md, "Order the work by when it can be done" and "Writing for the
+# authors"). A malformed accession, or a dataset the paper relies on that nobody can reach, is a problem with the
+# evidence now; the journal's format rules wait for the journal; the statement's wording, archives, release tags,
+# licences and final accessions wait until the code, data and results are final.
 
 def _rule_ref(venue: Optional[VenueRules], pattern: str) -> str:
     if not venue:
         return ""
     rule = next((r for r in venue.rules if re.search(pattern, r, re.IGNORECASE)), "")
-    return f"{venue.name}: \"{rule}\" (venues.yaml, checked {venue.checked}; verify at {venue.url})" if rule else ""
+    if not rule:
+        return ""
+    source = f" from {venue.url}" if venue.url else ""
+    return (f"The rule recorded for {venue.name} reads “{rule}” (recorded on {venue.checked}{source}; check the "
+            "journal's own page before treating it as binding).")
+
+
+def _at(x: Identifier) -> dict[str, Any]:
+    """A finding's place, from the identifier's first occurrence."""
+    return {"line": x.line, "excerpt": x.excerpt, "section": x.section, "quote": x.quote, "span": x.span}
+
+
+def _statement_at(s: Statement, lines: list[str], sections: list[str], tables: list[bool]) -> dict[str, Any]:
+    """A statement finding's place: the line the statement starts (its heading, or the paragraph that opens with
+    its label), its section, and its first sentence as the quote."""
+    first = next((n for n in range(s.start - 1, min(s.end, len(lines))) if lines[n].strip() and not _heading(lines[n])),
+                 None)
+    quote = _quote(lines, first, len(lines[first]) - len(lines[first].lstrip()), "", tables)[0] if first is not None else ""
+    return {"line": s.start, "excerpt": lines[s.start - 1].strip()[:90], "section": sections[s.start - 1] or s.label,
+            "quote": quote, "span": ""}
+
+
+def _lookup_stage(x: Identifier) -> Stage:
+    """When a record that does not exist, or no longer does, can be put right. An identifier the text excludes
+    needs a word of explanation; the authors' own code, packages, models and code archives are published with the
+    final release; a dataset or record the paper relies on that nobody can reach is a problem with the evidence."""
+    if x.excluded:
+        return Stage.writing
+    if x.own and (x.role in ("code", "package", "container", "model") or (x.role == "archive" and x.archives_code)):
+        return Stage.final
+    return Stage.now
 
 
 NAMED_ARCHIVES: list[tuple[str, str, set[str], tuple[str, ...]]] = [  # pattern, label, kinds, link hosts
@@ -1740,8 +1793,8 @@ NAMED_ARCHIVES: list[tuple[str, str, set[str], tuple[str, ...]]] = [  # pattern,
 ]
 
 
-def _unidentified_archives(statements: list[Statement], lines: list[str],
-                           identifiers: list[Identifier]) -> list[Finding]:
+def _unidentified_archives(statements: list[Statement], lines: list[str], identifiers: list[Identifier],
+                           sections: list[str], tables: list[bool]) -> list[Finding]:
     """A statement that names an archive or code host in prose but gives nothing the script can look up there."""
     out: list[Finding] = []
     for s in statements:
@@ -1750,28 +1803,39 @@ def _unidentified_archives(statements: list[Statement], lines: list[str],
             where = next((n for n in range(s.start, s.end + 1) if re.search(pattern, lines[n - 1])), None)
             if where is None or kinds & archive_kinds or any(h in u.lower() for u in s.links for h in hosts):
                 continue
-            out.append(Finding(check="archive-unidentified", severity=Severity.uncertain, line=where,
-                               excerpt=_excerpt(lines[where - 1], re.search(pattern, lines[where - 1]).start()),
-                               message=f"The '{s.label}' statement names {label} but gives no accession, DOI or link "
-                                       "there that the script could read, so nothing was checked (not assessed).",
-                               suggestion="Find the record and check it by hand, or ask the authors for its identifier: "
-                                          "readers find a deposit by its accession or DOI, not by the archive's name."))
+            m = re.search(pattern, lines[where - 1])
+            quote, span = _quote(lines, where - 1, m.start(), m.group(0), tables)
+            out.append(Finding(check="archive-unidentified", severity=Severity.uncertain, stage=Stage.final,
+                               line=where, excerpt=_excerpt(lines[where - 1], m.start()), section=sections[where - 1],
+                               quote=quote, span=span,
+                               title=f"The statement names {label} but no record there",
+                               message=f"The “{s.label}” statement names {label} but gives no accession, DOI or link "
+                                       "there that could be looked up, so the record could not be checked.",
+                               suggestion="Give the record's accession, DOI or link once the deposit is final: readers "
+                                          "find a deposit by its identifier, not by the archive's name."))
     return out
 
 
 def _anonymised_finding(links: list[Identifier], venue: Optional[VenueRules]) -> Finding:
     rule = _rule_ref(venue, r"archiv|DOI|Zenodo|Software Heritage") if venue and venue.wants_archive else ""
     return Finding(
-        check="anonymised-code", severity=Severity.major if rule else Severity.optional,
-        line=links[0].line, excerpt=links[0].excerpt,
-        message=f"The code is reachable only through anonymised review links ({', '.join(x.value for x in links)}), "
-                "with no version and no archived copy. That suits double-blind review, but the mirror is temporary "
-                "and hides the real repository, so it was not looked up (not assessed).",
+        check="anonymised-code", severity=Severity.major if rule else Severity.optional, stage=Stage.final,
+        **_at(links[0]), title="The code is reachable only through anonymised review links",
+        message=f"The code is linked only through anonymised review links ({', '.join(x.url or x.value for x in links)}), "
+                "with no version and no archived copy. That suits double-blind review, but such a mirror is temporary "
+                "and hides the real repository on purpose, so it was not looked up.",
         suggestion="By acceptance, replace each link with the public repository, the release tag the results came "
                    "from and an archived DOI (Zenodo or Software Heritage)."
-                   + (" The venue's recorded rule asks for an archived copy: check on its live page whether that "
-                      "applies at submission or at acceptance." if rule else ""),
+                   + (" The journal's recorded rule asks for an archived copy: its page says whether that applies at "
+                      "submission or at acceptance." if rule else ""),
         rule=rule)
+
+
+# Where a lookup went, for a finding's title ("PGS000085 was not found at the PGS Catalog").
+ARCHIVE_NAME = {"insdc": "ENA or NCBI", "pdb": "the PDB", "ega": "the EGA", "gwas-catalog": "the GWAS Catalog",
+                "pgs-catalog": "the PGS Catalog", "doi": "doi.org", "hf-dataset": "Hugging Face", "hf-model": "Hugging Face",
+                "hf-space": "Hugging Face", "hf-repo": "Hugging Face", "rrid": "the RRID resolver",
+                "code-other": "its code host", "container-other": "its registry"}
 
 
 def _context_only(x: Identifier) -> bool:
@@ -1780,59 +1844,84 @@ def _context_only(x: Identifier) -> bool:
     return not x.own and (x.in_table or x.excluded or x.role in ("code", "package", "container", "model"))
 
 
+def _request_finding(where: dict[str, Any], sentence: str, venue: Optional[VenueRules]) -> Finding:
+    rule = _rule_ref(venue, r"request") if venue and venue.request_refused else ""
+    reasoned = bool(RESTRICTION.search(sentence))
+    if reasoned and not rule:
+        return Finding(check="request-route", severity=Severity.optional, stage=Stage.final, **where,
+                       title="Access is by request, with a stated restriction",
+                       message="The text offers material on request and gives a reason it cannot be public, which is "
+                               "a legitimate route.",
+                       suggestion="Check that it names who decides on access (a data access committee or a named "
+                                  "office, not one author), on what terms, and what remains public.")
+    if reasoned:
+        return Finding(check="request-only", severity=Severity.major, stage=Stage.final, **where, rule=rule,
+                       title="Material is offered on request, which the journal's recorded rules do not accept",
+                       message="The text gives a reason the material cannot be public, but the journal's recorded "
+                               "rules do not accept material offered on request.",
+                       suggestion="Route access through a controlled-access archive or a data access committee and "
+                                  "give its accession, or deposit what can be public.")
+    return Finding(check="request-only", severity=Severity.major, stage=Stage.final, **where, rule=rule,
+                   title="Material is offered only on request, with no reason given",
+                   message="Readers cannot obtain material that is only available from the authors, and the text does "
+                           "not say why it cannot be deposited.",
+                   suggestion="Deposit it and give the accession or DOI; if it cannot be public, say why and route "
+                              "requests through a controlled-access archive or a data access committee.")
+
+
 def findings_for(lines: list[str], skip: list[bool], statements: list[Statement], identifiers: list[Identifier],
                  abstract: Optional[tuple[int, int]], venue: Optional[VenueRules], online: bool,
                  sections: Optional[list[str]] = None, tables: Optional[list[bool]] = None) -> list[Finding]:
+    sections = sections if sections is not None else layout(lines)[0]
+    tables = tables if tables is not None else table_mask(lines)
     out: list[Finding] = []
     if not statements:
-        out.append(Finding(check="no-statement", severity=Severity.major,
-                           message="No data or code availability statement was found.",
-                           suggestion="Add one that names each dataset and the code with its location (accession, "
-                                      "DOI or URL), or says why a dataset cannot be shared and how to apply for it."))
+        out.append(Finding(check="no-statement", severity=Severity.major, stage=Stage.final,
+                           title="There is no data or code availability statement",
+                           message="No section or paragraph is headed as a data or code availability statement, so "
+                                   "readers have no single place that says where the data and code are.",
+                           suggestion="Once the data and code are deposited, add a statement that names each dataset "
+                                      "and the code with its location (accession, DOI or URL), or says why a dataset "
+                                      "cannot be shared and how to apply for it."))
     for s in statements:
-        excerpt = lines[s.start - 1].strip()[:90]
+        where = _statement_at(s, lines, sections, tables)
+        in_article = Finding(check="in-article-only", severity=Severity.optional, stage=Stage.final, **where,
+                             title="The statement points only to the article and its supplement",
+                             message=f"The “{s.label}” statement places the data in the article or its "
+                                     "supplementary files and names no repository.",
+                             suggestion="Check that the underlying data, not only summaries, are in the supplement; "
+                                        "otherwise deposit them and give the accession.")
         if s.not_applicable or s.names or s.links or s.request_route:
             if s.in_article and not s.names and not s.links:
-                out.append(Finding(check="in-article-only", severity=Severity.optional, line=s.start, excerpt=excerpt,
-                                   message="The statement points only to the article or its supplement.",
-                                   suggestion="Check that the underlying data, not only summaries, are in the "
-                                              "supplement; otherwise deposit them and give the accession."))
+                out.append(in_article)
             continue
         if s.in_article:
-            out.append(Finding(check="in-article-only", severity=Severity.optional, line=s.start, excerpt=excerpt,
-                               message="The statement points only to the article or its supplement.",
-                               suggestion="Check that the underlying data, not only summaries, are in the supplement; "
-                                          "otherwise deposit them and give the accession."))
+            out.append(in_article)
             continue
-        out.append(Finding(check="empty-statement", severity=Severity.major, line=s.start, excerpt=excerpt,
-                           message=f"The '{s.label}' statement names no accession, DOI, link or location.",
-                           suggestion="Name where each dataset or the code is (accession, DOI or URL), or state "
-                                      "why it cannot be shared and how to apply for access."))
-    out += _unidentified_archives(statements, lines, identifiers)
+        out.append(Finding(check="empty-statement", severity=Severity.major, stage=Stage.final, **where,
+                           title=f"The “{s.label}” statement names nothing a reader could find",
+                           message="It gives no accession, DOI, link or other location, so a reader cannot find the "
+                                   "data or code it describes.",
+                           suggestion="Name where each dataset or the code is (accession, DOI or URL), or state why "
+                                      "it cannot be shared and how to apply for access."))
+    out += _unidentified_archives(statements, lines, identifiers, sections, tables)
     for line_no, sentence, phrase in request_sentences(lines, skip, sections, statements, tables):
-        rule = _rule_ref(venue, r"request") if venue and venue.request_refused else ""
         where = {"line": line_no, "excerpt": sentence[:120], "quote": sentence, "span": phrase,
-                 "section": sections[line_no - 1] if sections else ""}
-        if RESTRICTION.search(sentence) and not rule:
-            out.append(Finding(check="request-route", severity=Severity.optional, **where,
-                               message="Access is by request, with a stated restriction.",
-                               suggestion="Check that it names who decides on access (a data access committee or "
-                                          "named office, not one author), the criteria, and what remains public."))
-        else:
-            out.append(Finding(check="request-only", severity=Severity.major, **where,
-                               message="Material is offered only on request from the authors, with no stated reason.",
-                               suggestion="Deposit it and give the accession or DOI; if it cannot be public, say why "
-                                          "and route requests through a controlled-access archive or committee.",
-                               rule=rule))
+                 "section": sections[line_no - 1]}
+        out.append(_request_finding(where, sentence, venue))
     for x in identifiers:
         if not x.well_formed:
             fixable = bool(x.suggested)
-            out.append(Finding(check="malformed-identifier", severity=Severity.optional if fixable else Severity.major,
-                               line=x.line, excerpt=x.excerpt,
-                               message=f"{x.family} identifier '{x.value}' is malformed: {x.problem}.",
-                               suggestion=(f"Write it as {x.suggested}." if fixable else
-                                           "Copy the accession from the archive's confirmation; readers cannot "
-                                           "find a malformed one.")))
+            out.append(Finding(
+                check="malformed-identifier", severity=Severity.optional if fixable else Severity.major,
+                stage=Stage.writing if fixable else Stage.now, **_at(x),
+                title=(f"The {x.family} identifier “{x.value}” should be written {x.suggested}" if fixable else
+                       f"The {x.family} identifier “{x.value}” is malformed"),
+                message=(f"Readers will probably still find it, but {x.problem}." if fixable else
+                         f"It cannot be an accession, because {x.problem}, so readers cannot find the record and "
+                         "the data behind the results cannot be reached from the paper."),
+                suggestion=(f"Write it as {x.suggested}." if fixable else
+                            "Copy the accession from the archive's confirmation e-mail or record page.")))
     own_code = [x for x in identifiers if x.role == "code" and x.kind != "hf-space" and x.own]
     anonymised = [x for x in own_code if x.kind == "anon-review"]
     code = [x for x in own_code if x.kind != "anon-review"]
@@ -1843,49 +1932,67 @@ def findings_for(lines: list[str], skip: list[bool], statements: list[Statement]
     versioned_packages = any(x.role in ("package", "container") and x.version for x in identifiers if x.in_statement)
     if code and not archived and venue and venue.wants_archive:
         first = code[0]
-        out.append(Finding(check="no-archive", severity=Severity.major, line=first.line, excerpt=first.excerpt,
-                           message="The code is linked but no archived copy (Zenodo, Software Heritage, figshare or "
-                                   "another DOI-minting archive) is cited.",
-                           suggestion="Archive the version the results came from and cite its DOI where the venue "
-                                      "asks for it.", rule=_rule_ref(venue, r"archiv|DOI|Zenodo|Software Heritage")))
+        out.append(Finding(check="no-archive", severity=Severity.major, stage=Stage.final, **_at(first),
+                           title="The code has no archived copy",
+                           message=f"The code is linked ({first.url or first.value}), but no archived copy (Zenodo, "
+                                   "Software Heritage, figshare or another archive that issues a DOI) is cited, and "
+                                   "the journal's recorded rules ask for one.",
+                           suggestion="Once the code is final, archive the version the results came from and cite its "
+                                      "DOI where the journal asks for it.",
+                           rule=_rule_ref(venue, r"archiv|DOI|Zenodo|Software Heritage")))
     elif code and not archived and not versioned_packages:
         for x in code:
             if x.version:
                 continue
             extra = (" The repository has no release or tag at all." if "no-release" in x.flags else
-                     f" The repository has releases or tags, but the paper does not say which one was used."
+                     " The repository has releases or tags, but the paper does not say which one was used."
                      if {"has-release", "has-tag"} & set(x.flags) else "")
-            out.append(Finding(check="code-unversioned", severity=Severity.optional, line=x.line, excerpt=x.excerpt,
-                               message=f"{x.family} link {x.value} cites no release, tag or commit and no archived "
-                                       f"copy, so the code behind the results can change after publication.{extra}",
-                               suggestion="Tag a release for the version used, archive it (Zenodo or Software "
-                                          "Heritage) and cite the tag and the DOI."))
+            out.append(Finding(check="code-unversioned", severity=Severity.optional, stage=Stage.final, **_at(x),
+                               title=f"The repository {x.value} is cited without a release, tag or commit",
+                               message=f"The {x.family} repository {x.url or x.value} is cited without a release, tag "
+                                       "or commit and without an archived copy, so the code behind the results can "
+                                       f"change after publication.{extra}",
+                               suggestion="Once the code is final, tag a release for the version used, archive it "
+                                          "(Zenodo or Software Heritage) and cite the tag and the DOI."))
     if venue and venue.in_abstract and own_code:
+        rule = _rule_ref(venue, r"in the abstract")
         if abstract is None:
-            out.append(Finding(check="abstract-availability", severity=Severity.uncertain,
-                               message="The venue wants the software location in the abstract, but no abstract was "
-                                       "found to check.", rule=_rule_ref(venue, r"in the abstract")))
+            out.append(Finding(check="abstract-availability", severity=Severity.uncertain, stage=Stage.journal,
+                               title="Whether the abstract says where the software is could not be checked",
+                               message="The journal's recorded rules want the software's location in the abstract, "
+                                       "but no abstract was found to check.",
+                               suggestion="Check that the abstract names the software's location.", rule=rule))
         else:
             inside = [x for x in identifiers if x.role in ("code", "archive", "package")
                       and any(abstract[0] < n <= abstract[1] for n in x.lines)]
             if not inside:
-                out.append(Finding(check="abstract-availability", severity=Severity.major, line=abstract[0],
-                                   message="The venue wants the software (or its archived version) in the abstract; "
-                                           "the abstract names neither.", rule=_rule_ref(venue, r"in the abstract")))
+                out.append(Finding(check="abstract-availability", severity=Severity.major, stage=Stage.journal,
+                                   line=abstract[0], section="Abstract",
+                                   title="The abstract does not say where the software is",
+                                   message="The journal's recorded rules want the software, or its archived version, "
+                                           "named in the abstract, and the abstract names neither.",
+                                   suggestion="Add the repository's address to the abstract in the form the journal "
+                                              "asks for, and the archive's DOI once the code is final.", rule=rule))
     if online:
         for x in identifiers:
             out += _online_findings(x, venue, statements, lines)
         unassessed = [x for x in identifiers if x.well_formed and x.state == State.not_assessed]
-        if unassessed:
-            out.append(Finding(check="not-assessed", severity=Severity.uncertain,
-                               message=f"{len(unassessed)} identifier(s) could not be checked online: "
-                                       + "; ".join(f"{x.value} ({x.detail})" for x in unassessed[:8])
-                                       + ("; …" if len(unassessed) > 8 else ""),
-                               suggestion="Open these by hand or rerun later; they are not counted as resolving."))
+        versions = [x for x in identifiers if "version-not-assessed" in x.flags]
+        if unassessed or versions:
+            told = [f"{x.value} ({x.detail})" for x in unassessed[:8]] + (["and more"] if len(unassessed) > 8 else [])
+            message = (f"{len(unassessed)} identifier{'' if len(unassessed) == 1 else 's'} could not be looked up, so "
+                       "none is counted as found: " + "; ".join(told) + "." if unassessed else "")
+            if versions:
+                message += (" " if message else "") + ("Whether the cited release, tag or version exists could not be "
+                                                       "checked for " + ", ".join(x.value for x in versions) + ".")
+            out.append(Finding(check="not-assessed", severity=Severity.uncertain, title="What could not be checked",
+                               message=message, suggestion="Open these by hand or run the check again later; none of "
+                                                           "them is counted as found."))
     elif any(x.well_formed for x in identifiers):
-        out.append(Finding(check="not-assessed", severity=Severity.uncertain,
-                           message="Identifiers were not looked up (offline run); existence, licences and releases "
-                                   "are not assessed.", suggestion="Rerun with --online."))
+        out.append(Finding(check="not-assessed", severity=Severity.uncertain, title="Nothing was looked up",
+                           message="This was an offline run, so no identifier was looked up: whether each one exists, "
+                                   "and the licences and releases of the authors' code, are not assessed.",
+                           suggestion="Run the check again with network access (the --online option)."))
     seen: set[tuple[str, Optional[int], str]] = set()
     deduped = []
     for f in out:  # one finding per root cause and place: a sentence matched twice is reported once
@@ -1893,8 +2000,9 @@ def findings_for(lines: list[str], skip: list[bool], statements: list[Statement]
         if key not in seen:
             seen.add(key)
             deduped.append(f)
+    stage_order = {s: i for i, s in enumerate(Stage)}
     order = {s: i for i, s in enumerate(Severity)}
-    return sorted(deduped, key=lambda f: (order[f.severity], f.line or 0))
+    return sorted(deduped, key=lambda f: (stage_order.get(f.stage, len(stage_order)), order[f.severity], f.line or 0))
 
 
 def _online_findings(x: Identifier, venue: Optional[VenueRules], statements: list[Statement],
@@ -1902,62 +2010,96 @@ def _online_findings(x: Identifier, venue: Optional[VenueRules], statements: lis
     out: list[Finding] = []
     context = _context_only(x)
     severity = Severity.optional if context else Severity.major
-    note = (" The text excludes it, which this may explain." if x.excluded else
-            " It is cited as context (a table, or software the authors do not own), so only its existence was "
+    note = (" The text excludes it, which may be why." if x.excluded else
+            " It is cited as context (in a table, or as software the authors do not own), so only its existence was "
             "checked." if context else "")
+    link = f" ({x.url})" if x.url else ""
+    stage = _lookup_stage(x)
+    fix = {Stage.writing: "Say in a few words why it is excluded (for example, that the catalogue has no such "
+                          "record), so readers do not think a result was dropped.",
+           Stage.final: "Publish it, or correct the name, before submission, and cite the version that was used.",
+           Stage.now: "Check the identifier against the archive's record and correct it. If the record is private "
+                      "until publication, say so and give editors and reviewers access."}[stage]
+    withdrawn = "withdrawn" in x.flags
+    archive = ARCHIVE_NAME.get(x.kind, x.family)
     if x.state == State.not_found:
-        withdrawn = "withdrawn" in x.flags
-        out.append(Finding(check="withdrawn" if withdrawn else "not-found", severity=severity, line=x.line,
-                           excerpt=x.excerpt, message=f"{x.family}: {x.value}: {x.detail}.{note}",
-                           suggestion="Check the identifier against the archive's record. If it is private until "
-                                      "publication, say so and give editors and reviewers access."))
-    if "withdrawn" in x.flags and x.state != State.not_found:
-        out.append(Finding(check="withdrawn", severity=severity, line=x.line, excerpt=x.excerpt,
-                           message=f"{x.family}: {x.value}: {x.detail}.{note}",
+        out.append(Finding(check="withdrawn" if withdrawn else "not-found", severity=severity, stage=stage, **_at(x),
+                           title=(f"{x.value} has been withdrawn from {archive}" if withdrawn else
+                                  f"The page {x.url} does not exist" if x.kind == "web" else
+                                  f"{x.value} was not found at {archive}"),
+                           message=f"The {x.family} identifier {x.value}{link} was looked up, and {x.detail}.{note}",
+                           suggestion=fix))
+    if withdrawn and x.state != State.not_found:
+        out.append(Finding(check="withdrawn", severity=severity, stage=stage, **_at(x),
+                           title=f"{x.value} has been withdrawn from {archive}",
+                           message=f"{x.family} still lists {x.value}{link}, but it has been withdrawn ({x.detail}).{note}",
                            suggestion="Point to where the software or data can be obtained now, with its version."))
     if not x.own and x.role in ("code", "package", "container", "model"):
         return out  # licence, release and version checks are for the authors' own software
     if "version-missing" in x.flags:
-        out.append(Finding(check="version-not-found", severity=Severity.major, line=x.line, excerpt=x.excerpt,
-                           message=f"{x.family} {x.value} exists but has no version, tag or revision '{x.version}'.",
-                           suggestion="Cite a version that exists (or publish the tag before submission)."))
+        out.append(Finding(check="version-not-found", severity=Severity.major, stage=Stage.final, **_at(x),
+                           title=f"Version {x.version} of {x.value} does not exist",
+                           message=f"{x.family} has {x.value}{link}, but no version, tag or revision named {x.version}, "
+                                   "so readers cannot get the version the paper cites.",
+                           suggestion="Once the code is final, publish that version (a tag or a release) or cite one "
+                                      "that exists."))
+    name = x.value.split("/")[-1]
+    for m in x.mentions:
+        if m.exists is False:
+            out.append(Finding(check="version-not-found", severity=Severity.major, stage=Stage.final, line=m.line,
+                               excerpt=m.quote[:90], section=m.section, quote=m.quote, span=m.span,
+                               title=f"Version {m.version} of {name} has no release or tag",
+                               message=f"The text cites version {m.version} of the authors' own {name}, but the "
+                                       f"repository {x.url or x.value} has no tag, release or commit of that name "
+                                       "(also tried with and without a leading v), so readers cannot get the version "
+                                       "the results came from.",
+                               suggestion="Before submission, tag the commit that produced the results with this "
+                                          "version, or cite the release or commit that was used."))
     if "no-licence" in x.flags:
         sev = Severity.major if venue and venue.wants_licence else Severity.optional
-        out.append(Finding(check="no-licence", severity=sev, line=x.line, excerpt=x.excerpt,
-                           message=f"{x.family} reports no licence file for {x.value}; without one, nobody else may "
-                                   "legally reuse or redistribute the code.",
+        out.append(Finding(check="no-licence", severity=sev, stage=Stage.final, **_at(x),
+                           title=f"The repository {x.value} has no licence",
+                           message=f"{x.family} reports no licence file for {x.value}{link}. Without one, nobody else "
+                                   "may legally reuse or redistribute the code.",
                            suggestion="Add a LICENSE file with an open-source licence (for example MIT, BSD-3-Clause, "
                                       "Apache-2.0 or GPL-3.0) before submission.",
                            rule=_rule_ref(venue, r"licen|OSI|open source") if sev == Severity.major else ""))
     if "licence-unrecognised" in x.flags:
-        out.append(Finding(check="licence-unrecognised", severity=Severity.uncertain, line=x.line, excerpt=x.excerpt,
-                           message=f"{x.family} cannot classify the licence file of {x.value}.",
-                           suggestion="Read the LICENSE file: confirm it is an open-source licence that allows reuse."))
+        out.append(Finding(check="licence-unrecognised", severity=Severity.uncertain, stage=Stage.final, **_at(x),
+                           title=f"The licence of {x.value} could not be identified",
+                           message=f"{x.family} cannot tell which licence the licence file of {x.value}{link} grants.",
+                           suggestion="Read the licence file and confirm it is an open-source licence that allows "
+                                      "reuse."))
     if "concept-doi" in x.flags:
-        out.append(Finding(check="concept-doi", severity=Severity.optional, line=x.line, excerpt=x.excerpt,
-                           message=f"{x.value} is a Zenodo concept DOI: it always points at the newest version, not "
-                                   "necessarily the one the results came from.",
-                           suggestion="Cite the version DOI of the release used (the concept DOI can stay as well)."))
+        out.append(Finding(check="concept-doi", severity=Severity.optional, stage=Stage.final, **_at(x),
+                           title=f"{x.value} is a concept DOI, not the version used",
+                           message=f"The Zenodo DOI {x.value}{link} is a concept DOI: it always points at the newest "
+                                   "version, not necessarily the one the results came from.",
+                           suggestion="Once the code is final, cite the version DOI of the release used (the concept "
+                                      "DOI can stay as well)."))
     if "no-summary-statistics" in x.flags:
-        out.append(Finding(check="summary-statistics", severity=Severity.optional, line=x.line, excerpt=x.excerpt,
-                           message=f"The GWAS Catalog lists no full summary statistics for {x.value}.",
-                           suggestion="If the paper says summary statistics are available there, deposit them or "
-                                      "correct the statement."))
-    if x.state == State.restricted:
-        statement = next((s for s in statements if s.start <= x.line <= s.end), None)
-        text = "\n".join(lines[s.start - 1: s.end]) if statement else lines[x.line - 1]
-        if not ACCESS_ROUTE.search(text):
-            out.append(Finding(check="access-route", severity=Severity.optional, line=x.line, excerpt=x.excerpt,
-                               message=f"{x.family} {x.value}: {x.detail}. The text does not say how to obtain access.",
-                               suggestion="Add one sentence on the access route (who approves requests and where to "
-                                          "apply). Controlled access itself is legitimate."))
+        out.append(Finding(check="summary-statistics", severity=Severity.optional, stage=Stage.final, **_at(x),
+                           title=f"The GWAS Catalog has no full summary statistics for {x.value}",
+                           message=f"The GWAS Catalog lists the study {x.value}{link} but no full summary statistics "
+                                   "for it.",
+                           suggestion="If the paper says the summary statistics are available there, deposit them "
+                                      "before submission or correct the statement."))
+    statement = next((s for s in statements if s.start <= x.line <= s.end), None)
+    text = "\n".join(lines[statement.start - 1: statement.end]) if statement else lines[x.line - 1]
+    if x.state == State.restricted and not ACCESS_ROUTE.search(text):
+        out.append(Finding(check="access-route", severity=Severity.optional, stage=Stage.final, **_at(x),
+                           title=f"{x.value} is controlled access, but the text does not say how to apply",
+                           message=f"The {x.family} record {x.value}{link} exists with controlled access "
+                                   f"({x.detail}), and the text does not say how to obtain access.",
+                           suggestion="Add one sentence on the access route: who approves requests and where to "
+                                      "apply. Controlled access itself is legitimate."))
     return out
 
 
 # ------------------------------------------------------------------------------------------- driver
 
 def check(path: Path, online: bool = False, venue: Optional[str] = None,
-          github_token: Optional[str] = None) -> Report:
+          github_token: Optional[str] = None, final: bool = False) -> Report:
     raw = path.read_text(encoding="utf-8")
     lines = prepare(raw, latex=path.suffix.lower() in (".tex", ".ltx"))
     sections, skip, abstract = layout(lines)
@@ -1971,56 +2113,189 @@ def check(path: Path, online: bool = False, venue: Optional[str] = None,
     if online:
         resolve_all(identifiers, github_token)
     findings = findings_for(lines, skip, statements, identifiers, abstract, rules, online, sections, tables)
-    return Report(path=str(path), online=online, venue=rules, statements=statements, identifiers=identifiers,
-                  findings=findings)
+    return Report(path=str(path), online=online, final=final, venue=rules, statements=statements,
+                  identifiers=identifiers, findings=findings)
 
+
+# ------------------------------------------------------------------------------------------- Markdown
+# The Markdown report is for the authors (author-priorities.md, "Writing for the authors"): findings grouped
+# by when they can act on them, each quoting the manuscript with its section (the line only in parentheses),
+# links as full URLs, plain words. Check codes and states stay in the JSON.
 
 def _cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
 
+def _plural(n: int, one: str, many: str = "") -> str:
+    return f"{n} {one if n == 1 else many or one + 's'}"
+
+
+def _listed(items: list[str], word: str = "and") -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + f" {word} " + items[-1]
+
+
+def _quoted(text: str, span: str = "") -> str:
+    """A quotation in curly quotes, with the part a finding is about in bold, ending a sentence."""
+    text = " ".join(text.split())
+    if span and span in text and span != text:
+        text = text.replace(span, f"**{span}**", 1)
+    return f"“{text}”" + ("" if text.rstrip("*")[-1:] in ".!?" else ".")
+
+
+def _place(section: str, line: Optional[int]) -> str:
+    """Where in the manuscript, in words: the section by name, the line only in parentheses."""
+    at = f" (line {line})" if line else ""
+    if section:
+        return f"in the section “{section}”{at}"
+    return f"before the first heading{at}" if line else ""
+
+
+def _identifier_name(x: Identifier) -> str:
+    if x.kind == "web":
+        return f"the link {x.url}"
+    return f"{x.family} {x.value}" + (f" ({x.url})" if x.url else "")
+
+
+def _finding_markdown(n: int, f: Finding) -> list[str]:
+    parts: list[str] = []
+    place = _place(f.section, f.line)
+    if f.quote:
+        what = "a table row reads" if f.quote.lstrip().startswith("|") else "the manuscript says"
+        parts.append(f"{place[:1].upper() + place[1:]}, {what} {_quoted(f.quote, f.span)}" if place
+                     else f"The manuscript says {_quoted(f.quote, f.span)}")
+    elif place:
+        parts.append(f"This concerns the text {place}.")
+    parts += [p for p in (f.message, f.suggestion, f.rule) if p]
+    return [f"{n}. **{f.title or f.check}** ({f.severity.value}). " + " ".join(parts), ""]
+
+
+def _summary(report: Report) -> str:
+    venue = f", against the rules recorded for {report.venue.name}" if report.venue else ""
+    text = [f"This report checks where the data, code and software of {Path(report.path).name} can be found{venue}.",
+            "Identifiers were looked up in their public archives (malformed identifiers and anonymised review "
+            "links never are)." if report.online else
+            "This was an offline run, so nothing was looked up and no identifier is counted as found."]
+    current = [f for f in report.findings if f.stage in CURRENT_STAGES]
+    end = [f for f in report.findings if f.stage == Stage.final]
+    majors = sum(f.severity in (Severity.blocker, Severity.major) for f in current)
+    if not current:
+        text.append("Nothing in the current draft needs to change for availability.")
+    elif len(current) == 1:
+        text.append("One finding concerns the current draft" + (", and it is major." if majors else "."))
+    else:
+        text.append(f"{len(current)} findings concern the current draft"
+                    + (f", {majors} of them major." if majors else "; none is major."))
+    if end:
+        end_majors = sum(f.severity in (Severity.blocker, Severity.major) for f in end)
+        if report.final and len(end) == 1:
+            text.append("The authors are about to submit, so the item for the end counts as well"
+                        + (", and it is major." if end_majors else "."))
+        elif report.final:
+            text.append(f"The authors are about to submit, so the {len(end)} items for the end count as well"
+                        + (f", {end_majors} of them major." if end_majors else "; none is major."))
+        else:
+            text.append(f"{_plural(len(end), 'item')} for the end, once the code, data and results are final, "
+                        f"{'is' if len(end) == 1 else 'are'} listed last and {'does' if len(end) == 1 else 'do'} not "
+                        "count against the draft.")
+    if any(f.stage is None for f in report.findings):
+        text.append("What could not be checked is listed after the findings; none of it counts as passed.")
+    return " ".join(text)
+
+
+def _not_checked_markdown(report: Report) -> list[str]:
+    if not any(f.stage is None for f in report.findings):
+        return []
+    out = ["## What this run could not check", ""]
+    if not report.online:
+        return out + ["This was an offline run, so none of the identifiers listed at the end was looked up. Whether "
+                      "each one exists, and the licences and releases of the authors' code, are not assessed; a run "
+                      "with network access (the --online option) checks them.", ""]
+    unassessed = [x for x in report.identifiers if x.well_formed and x.state == State.not_assessed]
+    if unassessed:
+        out += ["These identifiers could not be looked up, so none of them is counted as found:", ""]
+        out += [f"- {_identifier_name(x)}, {_place(x.section, x.line)}, could not be checked ({x.detail})."
+                for x in unassessed]
+        out.append("")
+    for x in report.identifiers:
+        if "version-not-assessed" in x.flags:
+            out += [f"Whether the release, tag or version cited for {_identifier_name(x)} exists could not be checked.",
+                    ""]
+    return out
+
+
+def _venue_markdown(v: VenueRules) -> list[str]:
+    source = f" from {v.url}" if v.url else ""
+    out = ["## The journal's recorded rules", "",
+           f"These availability rules for {v.name} were recorded on {v.checked}{source}. Check them on the journal's "
+           "own page before treating any of them as binding.", ""]
+    out += [f"- “{r}”" for r in v.rules] or ["- No availability rule is recorded; read the journal's page."]
+    wants = [("an archived copy of the code", v.wants_archive), ("an open-source licence", v.wants_licence),
+             ("the software's location in the abstract", v.in_abstract), ("a reporting checklist", v.reporting_checklist)]
+    asked = [w for w, flag in wants if flag]
+    parts = ([f"they ask for {_listed(asked)}"] if asked else []) + (
+        ["they do not accept material offered on request"] if v.request_refused else []) + (
+        [f"they want the software to stay available for {v.availability_years} years"] if v.availability_years else [])
+    sentence = ("Read together, " + (parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + ", and " + parts[-1])
+                + "." if parts else "Read together, they ask for none of these: " + _listed([w for w, _ in wants]) + ".")
+    unasked = [w for w, flag in wants if not flag]
+    if parts and unasked:
+        sentence += f" They do not mention {_listed(unasked, 'or')}."
+    return out + ["", sentence, ""]
+
+
+def _whose(x: Identifier) -> str:
+    return ("named in an availability statement" if x.in_statement else "the authors' own" if x.own else
+            "cited as context: existence only" if _context_only(x) else "mentioned in the text")
+
+
+def _result(x: Identifier) -> str:
+    if not x.well_formed:
+        return f"malformed ({x.problem})"
+    extra = (f"; titled “{x.title[:60]}”" if x.title else "") + (f"; licence {x.licence}" if x.licence else "")
+    word = {State.resolves: "found", State.not_found: "not found", State.restricted: "exists, with controlled access",
+            State.not_assessed: "not checked"}[x.state]
+    return f"{word} ({x.detail}{extra})"
+
+
 def to_markdown(report: Report) -> str:
-    counts = Counter(f.severity.value for f in report.findings)
-    out = [f"# Availability check: {report.path}", "",
-           f"Online lookups: {'yes' if report.online else 'no (offline run)'}. Findings: "
-           + ", ".join(f"{counts.get(s.value, 0)} {s.value}" for s in Severity if s != Severity.blocker) + ".", ""]
-    if report.venue:
-        v = report.venue
-        out += [f"## Venue rules: {v.name} ({v.key})", "",
-                f"From venues.yaml, checked {v.checked}. Verify against the live page before treating any as binding: "
-                f"{v.url}", ""]
-        out += [f"- {r}" for r in v.rules] or ["- none recorded: read the live page"]
-        flags = [("archived copy asked for", v.wants_archive), ("licence asked for", v.wants_licence),
-                 ("'on request' refused", v.request_refused), ("location wanted in the abstract", v.in_abstract),
-                 ("reporting checklist asked for", v.reporting_checklist)]
-        out += ["", "Read from those rules: " + "; ".join(f"{k}: {'yes' if b else 'no'}" for k, b in flags)
-                + (f"; availability period: {v.availability_years} years" if v.availability_years else "") + ".", ""]
-    for sev in Severity:
-        group = [f for f in report.findings if f.severity == sev]
+    out = [f"# Availability check: {Path(report.path).name}", "", _summary(report), ""]
+    n = 0
+    for stage in Stage:
+        group = [f for f in report.findings if f.stage == stage]
         if not group:
             continue
-        out += [f"## {sev.value} ({len(group)})", ""]
+        out += [f"## {STAGE_HEADING[stage]}", ""]
+        if stage == Stage.final and not report.final:
+            out += ["None of these is a problem with the current draft. They are done once the code, data and "
+                    "results are final, and they do not count against the draft.", ""]
         for f in group:
-            loc = f"L{f.line}" if f.line else "-"
-            out.append(f"- **{f.check}** {loc}: {f.message}" + (f" `{f.excerpt}`" if f.excerpt else "")
-                       + (f"\n  → {f.suggestion}" if f.suggestion else "") + (f"\n  Rule: {f.rule}" if f.rule else ""))
-        out.append("")
+            n += 1
+            out += _finding_markdown(n, f)
+    out += _not_checked_markdown(report)
+    if report.venue:
+        out += _venue_markdown(report.venue)
     if report.statements:
-        out += ["## Availability statements", "", "| lines | label | covers | names | links | in article | request |",
-                "|---|---|---|---|---|---|---|"]
+        out += ["## Availability statements found", "",
+                "| Statement | Lines | Covers | What it names | Links | Notes |", "|---|---|---|---|---|---|"]
         for s in report.statements:
-            out.append(f"| {s.start}-{s.end} | {_cell(s.label)} | {', '.join(s.covers)} | {_cell(', '.join(s.names)) or '-'} "
-                       f"| {len(s.links)} | {'yes' if s.in_article else 'no'} | {'yes' if s.request_route else 'no'} |")
+            notes = (["points only to the article and its supplement"] if s.in_article else []) + (
+                ["offers material on request"] if s.request_route else []) + (
+                ["says nothing applies"] if s.not_applicable else [])
+            out.append(f"| “{_cell(s.label)}” | {s.start} to {s.end} | {' and '.join(s.covers)} | "
+                       f"{_cell(', '.join(s.names)) or 'nothing'} | {_cell(', '.join(s.links)) or 'none'} | "
+                       f"{'; '.join(notes) or 'none'} |")
         out.append("")
     if report.identifiers:
-        out += ["## Identifiers", "", "Where: `statement` (in an availability statement), `own` (the authors' code "
-                "elsewhere), `context` (a table, a third-party tool or an excluded ID: existence only), `text`.", "",
-                "| line | kind | identifier | where | version | state | detail |", "|---|---|---|---|---|---|---|"]
+        out += ["## Identifiers found", "",
+                "Each identifier outside the reference list, where it first appears and what the lookup found. "
+                "Licences, releases and versions are checked only for the authors' own code; an identifier cited as "
+                "context (a tool in a comparison table, software the paper only cites, an identifier the text "
+                "excludes) is checked only for existence.", "",
+                "| Identifier | Link | First appears | Whose | Version cited | Result |", "|---|---|---|---|---|---|"]
         for x in report.identifiers:
-            detail = x.detail + (f"; {x.title[:60]}" if x.title else "") + (f"; licence {x.licence}" if x.licence else "")
-            where = ("statement" if x.in_statement else "own" if x.own else "context" if _context_only(x) else "text")
-            out.append(f"| {x.line} | {x.family} | {_cell(x.value)} | {where} | "
-                       f"{_cell(x.version or '-')} | {x.state.value if x.well_formed else 'malformed'} | {_cell(detail)} |")
+            where = _place(x.section, x.line)
+            out.append(f"| {_cell(x.family + ' ' + x.value)} | {_cell(x.url) or 'none'} | {_cell(where)} | {_whose(x)} "
+                       f"| {_cell(x.version or 'none')} | {_cell(_result(x))} |")
     return "\n".join(out) + "\n"
 
 
@@ -2031,6 +2306,9 @@ def main(
     venue: Annotated[Optional[str], typer.Option(help="Venue key from venues.yaml (see venues.py rank)")] = None,
     record: Annotated[Optional[Path], typer.Option(exists=True, dir_okay=False,
                                                    help="manuscript-record.yaml: read the venue from it")] = None,
+    final: Annotated[bool, typer.Option("--final", help="The authors are about to submit: end-stage findings (archives, "
+                                                        "release tags, licences, the statement's wording) count in "
+                                                        "the summary and the exit code")] = False,
     github_auth: Annotated[bool, typer.Option(help="Send $GITHUB_TOKEN or $GH_TOKEN to api.github.com (raises the "
                                                    "unauthenticated limit of 60 requests an hour)")] = False,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
@@ -2039,7 +2317,7 @@ def main(
     if record and not venue:
         venue = venue_from_record(record)
     token = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")) if github_auth else None
-    report = check(path, online=online, venue=venue, github_token=token)
+    report = check(path, online=online, venue=venue, github_token=token, final=final)
     md = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(json.loads(report.model_dump_json()), indent=2), encoding="utf-8")
@@ -2048,7 +2326,9 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    raise typer.Exit(code=1 if any(f.severity in (Severity.blocker, Severity.major) for f in report.findings) else 0)
+    major = any(counts_in_verdict(f, report.final) and f.severity in (Severity.blocker, Severity.major)
+                for f in report.findings)
+    raise typer.Exit(code=1 if major else 0)
 
 
 if __name__ == "__main__":

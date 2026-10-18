@@ -14,15 +14,15 @@ requirements.
 
 | Your task | Skill | What you receive |
 |---|---|---|
-| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and remaining decisions or unresolved checks. |
+| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
-| Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A prioritised report of unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and applicable submission barriers, with suggested fixes. |
-| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | A simulated referee panel's judgement on the contribution, design, evidence and claims: strengths, quoted concerns ranked by consequence and cost, and the work only you can do. No scores or acceptance predictions. |
-| Choose where to submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | A shortlist based on scientific fit, validation requirements, publication costs, open-science preferences, review timing and AI policies. |
-| Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, plus submission materials and a concise AI-use disclosure where needed. |
-| Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, precise wording and drafts of scope clarifications or replies to policy questions. |
+| Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A report of unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and applicable submission requirements, with suggested fixes, grouped by when each can be done. |
+| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | A simulated referee panel's judgement on the contribution, design, evidence and claims: strengths, quoted concerns ranked by consequence and cost, and the work only you can do. No scores or acceptance predictions. It can also draft your report on a paper you were invited to referee. |
+| Choose where to submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | A shortlist based on scientific fit, validation requirements, publication costs, open-science preferences, review timing and AI policies, with the rules that decide each journal quoted and linked to their pages. |
+| Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, shown before and after, plus submission materials and a concise AI-use disclosure where needed. What waits until the code and results are final is listed separately. |
+| Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, with the policy text quoted and linked, precise wording and drafts of scope clarifications or replies to policy questions. |
 | Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A plan of the referees' comments in their own numbering with the decisions you need to make, a point-by-point response letter tied to the changes you made, and a check that the revision addresses each comment. |
 
 You can request any of these independently. Editing a paragraph does not require a full manuscript
@@ -64,10 +64,13 @@ A useful sequence is:
    Use your existing target if you have already chosen one.
 3. **Revise the paper.** Correct supported problems and improve the prose while preserving the results
    and their qualifications. Identify substantive claim changes separately from language edits.
-4. **Prepare the submission.** Apply the chosen journal's requirements and prepare the required statements
-   and submission materials.
+4. **Prepare for the chosen journal.** Apply its length, structure and section requirements and draft the
+   required statements and submission materials.
 5. **Check the changes.** Verify affected citations, claims and submission requirements, and report any
    unresolved issues.
+6. **Finish for submission.** Once the code, data and results are final, archive the release, complete the
+   declarations, the AI-use statement and the cover letter, and check the files you will upload. These
+   items wait until then and do not hold up work on a draft.
 
 The skills contribute to the same manuscript and share findings across these steps. Some tasks may
 already be complete or unnecessary for your study. By default, the assistant works across the whole
@@ -159,6 +162,16 @@ bioRxiv and medRxiv, and drafts factual clarifications based on the notices you 
 
 ## How to interpret the results
 
+Reports quote the passage each finding is about and name its section, link anything you need to open (a
+DOI, a database record, a journal's policy page), and are written in plain sentences. The work is grouped
+by when you can do it: first the science and the evidence, then the writing, then what depends on the
+chosen journal, and last what waits until the code, data and results are final, such as archive DOIs,
+declarations, the AI-use statement and the cover letter. Those last items are not problems with a draft.
+
+You decide how to handle a journal's policy. If something you ask for conflicts with a journal's rule,
+for example a ban on drafting text with AI, the assistant still does it, names the conflict once with its
+practical consequence and lists it with your other decisions.
+
 Prose editing aims to preserve your scientific meaning, including uncertainty and limitations. The
 assistant reviews the changes and uses checks that can flag altered numbers, citations and terminology,
 and claims that became stronger or lost a qualifier. These checks help catch mistakes; you should still
@@ -168,7 +181,8 @@ raising the certainty of a claim.
 The simulated referee panel is a way to find objections early, not a prediction. Every concern quotes
 the passage it is about and is checked against the rest of the paper before it reaches you, but the
 panel is not calibrated against real editorial decisions, so it gives no scores or acceptance odds; a
-spread of the seats' recommendations is available only if you ask, and is labelled uncalibrated.
+spread of the simulated reviewers' recommendations is available only if you ask, and is labelled
+uncalibrated.
 Concerns that need new analyses or data are listed for you to decide on; nothing is added to the paper
 on your behalf.
 

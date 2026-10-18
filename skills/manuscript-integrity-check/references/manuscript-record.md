@@ -108,3 +108,8 @@ Use the same words across skills so that results combine:
   Scripts also print `minor` and `info`; in a report to the authors, `minor` is optional and `info` is
   a note to read in context, never a finding by itself.
 - Issue status is `open`, `resolved` or `waived`. Only the authors waive.
+
+These words belong to the record and to script JSON. A report to the authors says the same thing in plain
+words ("could not be checked: the full text is paywalled"; "the authors chose to keep this wording"), quotes
+the passage an issue concerns, and groups issues by when they can be fixed
+([`author-priorities.md`](author-priorities.md#order-the-work-by-when-it-can-be-done)).

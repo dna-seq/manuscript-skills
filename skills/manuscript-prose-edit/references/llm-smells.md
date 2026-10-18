@@ -25,6 +25,14 @@ How to read it:
   example and when to leave it.
 - **Examples are invented**, and citations appear as `[n]`. Where an After holds a fact its Before lacks, it
   shows what the authors would write; in a copy edit, ask them for it (`prose-edit-contract.md` §1).
+- **The IDs are for the editor.** A1, C16 and the rest let a critic, an editor and a later reread point at the
+  same entry. When you tell the authors about a pattern, describe it in plain words and quote the sentence
+  with its section; the ID may follow in parentheses ("a participle tail that claims an importance the
+  sentence did not show (A9)"), never stand alone.
+- **Reports are prose too.** Other skills reread their reports to the authors against this catalogue before
+  handing them over (`../../manuscript-integrity-check/references/author-priorities.md`, "Writing for the
+  authors"). Fix what reads as notes or stock phrasing there in the same way, without changing a fact, quote or
+  number.
 
 ---
 
@@ -1002,7 +1010,8 @@ last update. **Desk-reject triggers**; the integrity scan finds them. (Placehold
 **Watch for:** We thank the reviewer for this excellent / insightful / valuable comment (on every point);
 We completely agree; This is a great point.
 
-**Why:** Editors read dozens of AI-written response letters. Some journals forbid AI-written responses.
+**Why:** Editors read dozens of AI-written response letters, and a thank-you on every point reads as one of
+them.
 
 **Fix:** one thank-you at the start; then, per point, what changed and where ("We added the GRCh37 runtime
 to Table 2, page 7").

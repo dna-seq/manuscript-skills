@@ -1024,12 +1024,15 @@ def exit_code(report: dict[str, object]) -> int:
 
 
 def _git_show(path: Path, ref: str) -> str:
-    rel = subprocess.run(["git", "-C", str(path.parent), "ls-files", "--full-name", path.name],
-                         capture_output=True, text=True, check=True).stdout.strip()
-    if not rel:
-        raise typer.BadParameter(f"{path} is not tracked by git")
-    return subprocess.run(["git", "-C", str(path.parent), "show", f"{ref}:{rel}"],
-                          capture_output=True, text=True, check=True).stdout
+    listed = subprocess.run(["git", "-C", str(path.parent), "ls-files", "--full-name", path.name],
+                            capture_output=True, text=True)
+    rel = listed.stdout.strip()
+    if listed.returncode != 0 or not rel:
+        raise typer.BadParameter(f"{path} is not tracked by git, so there is no earlier version to compare with.")
+    shown = subprocess.run(["git", "-C", str(path.parent), "show", f"{ref}:{rel}"], capture_output=True, text=True)
+    if shown.returncode != 0:
+        raise typer.BadParameter(f"git has no version of {rel} at {ref!r}: {shown.stderr.strip()}")
+    return shown.stdout
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -1061,12 +1064,28 @@ def _listed(items: list[str]) -> str:
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
 
 
+SMALL_NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+
+
+def _count_word(n: int, one: str, many: str) -> str:
+    """'one place', 'three places', '12 places': small counts in words, as in running prose."""
+    return f"{SMALL_NUMBERS[n] if n < len(SMALL_NUMBERS) else n} {one if n == 1 else many}"
+
+
 def _quoted_list(words: object) -> str:
     return _listed([_q(w) for w in words])  # type: ignore[union-attr]
 
 
+def _upper_first(sentence: str) -> str:
+    return sentence[:1].upper() + sentence[1:]
+
+
 def _lower_first(sentence: str) -> str:
-    return sentence[:1].lower() + sentence[1:] if sentence[:2] != sentence[:2].upper() else sentence
+    """'A negation changed' → 'a negation changed' after 'In the Results, '; 'APOE ...' and 'GRCh38 ...' stay."""
+    first = sentence.split(" ", 1)[0]
+    if len(first) > 1 and any(ch.isupper() or ch.isdigit() for ch in first[1:]):
+        return sentence
+    return sentence[:1].lower() + sentence[1:]
 
 
 def excerpt(text: object, marks: object = (), width: int = EXCERPT) -> str:
@@ -1101,20 +1120,36 @@ def excerpt(text: object, marks: object = (), width: int = EXCERPT) -> str:
     return _q(("…" if lo else "") + piece + ("…" if hi < len(body) else ""))
 
 
+# "6. Conclusion", "5.1 Limitations", "A.2 Extra runs"; a bare capital ("A Study of ...") is a word, not a number.
+NUMBERED_HEADING = re.compile(r"^(\d+(?:\.\d+)*|[A-Z](?:\.\d+)+|[A-Z](?=\.))\.?\s+(\S.*)$")
+
+
 def _section(c: dict[str, object], title: Optional[str]) -> str:
-    """'the Results, Performance': the heading path without the paper's title, ready to follow 'In'."""
+    """'the Results, Performance' or 'section 5.1, Limitations': the heading path without the paper's title,
+    ready to follow 'In'. A numbered heading names its parents already, so only the deepest one is given."""
     section = str(c["section"] or "")
     if title and section.startswith(title + " > "):
         section = section[len(title) + 3:]
     elif title and section == title:
         return "the text under the title"
-    return "the " + section.replace(" > ", ", ") if section else "the text before the first heading"
+    if not section:
+        return "the text before the first heading"
+    numbered = NUMBERED_HEADING.match(section.split(" > ")[-1])
+    if numbered:
+        return f"section {numbered.group(1)}, {numbered.group(2)}"
+    return "the " + section.replace(" > ", ", ")
+
+
+def _unit(text: object) -> str:
+    """What the guard aligned: a sentence, or a table row (Markdown or LaTeX), which is compared as one unit."""
+    return "table row" if TABLE_ROW.match(str(text or "")) else "sentence"
 
 
 def _where(c: dict[str, object], title: Optional[str]) -> str:
     b, a = c["before_line"], c["after_line"]
+    unit = _unit(c["after"] or c["before"])
     lines = (f"line {a}" if b == a else f"line {b} before the edit, line {a} after") if a and b else (
-        f"a new sentence, line {a}" if a else f"a deleted sentence, line {b} before the edit")
+        f"a new {unit}, line {a}" if a else f"a deleted {unit}, line {b} before the edit")
     return f"{_section(c, title)} ({lines})"
 
 
@@ -1138,9 +1173,9 @@ def describe(c: dict[str, object]) -> str:
         words = CAUSAL_WORDS if kind == "causal" else EVIDENTIAL_WORDS
         measure = "the relation it states" if kind == "causal" else "its certainty"
         if change == "removed":
-            return f"A sentence that claimed {_strength_words(c['strength_before'], words)} was deleted."
+            return f"A {_unit(c['before'])} that claimed {_strength_words(c['strength_before'], words)} was deleted."
         if change == "added":
-            return f"A new sentence claims {_strength_words(c['strength_after'], words)}."
+            return f"A new {_unit(c['after'])} claims {_strength_words(c['strength_after'], words)}."
         verdict = {"raised": "The claim became stronger", "lowered": "The claim became weaker",
                    "mixed": "The claim's strength changed in both directions"}[str(change)]
         moved = (f"{measure} went from {_strength_words(c['strength_before'], words)} to "
@@ -1166,7 +1201,7 @@ def describe(c: dict[str, object]) -> str:
         if change == "added":
             return f"The word {_quoted_list(added)}, which says how the finding was obtained, was added."
         if change == "replaced":
-            return f"{_became(removed, added)[:1].upper()}{_became(removed, added)[1:]}, which says how the finding was obtained."
+            return f"{_upper_first(_became(removed, added))}, which says how the finding was obtained."
         return f"The word {_quoted_list(removed)}, which said how the finding was obtained, was dropped."
     if kind == "negation":
         return f"A negation changed: {_became(removed, added)}."
@@ -1270,21 +1305,29 @@ def to_markdown(report: dict[str, object]) -> str:
         lines.append(f"This is a revision, so content changes are expected. The comparison lists {len(changes)} "
                      "changes, sentence by sentence; check each against the response letter or the authors' "
                      "instructions. Nothing here fails the run.")
-    elif open_changes or report["protected"]:
-        lines.append(f"The edit changed content in {len(open_changes) or 'the whole-text counts, not in any one'} "
-                     f"{'place' if len(open_changes) == 1 else 'places'}, listed below; revert each unless the authors "
-                     "asked for it." + (f" {len(shown)} other {'change needs' if len(shown) == 1 else 'changes need'} "
-                                        "only to be shown to the authors." if shown else ""))
+    elif open_changes:
+        one = len(open_changes) == 1
+        lines.append(f"The edit changed content in {_count_word(len(open_changes), 'place', 'places')}, listed below; "
+                     f"revert {'it' if one else 'each'} unless the authors asked for {'it' if one else 'them'}."
+                     + (f" {_upper_first(_count_word(len(shown), 'other change needs', 'other changes need'))} "
+                        "only to be shown to the authors." if shown else ""))
+    elif report["protected"]:
+        lines.append("The edit added or removed a number, citation, identifier, link, code span or technical term "
+                     "that no single sentence accounts for; the counts over the whole text below name it. Revert the "
+                     "change unless the authors asked for it."
+                     + (f" {_upper_first(_count_word(len(shown), 'other change needs', 'other changes need'))} "
+                        "only to be shown to the authors." if shown else ""))
     elif shown:
-        lines.append(f"The edit changed no content that must be reverted. {len(shown)} "
-                     f"{'change' if len(shown) == 1 else 'changes'} should be shown to the authors.")
+        lines.append(f"The edit changed no content that must be reverted. "
+                     f"{_upper_first(_count_word(len(shown), 'change', 'changes'))} should be shown to the authors.")
     else:
-        lines.append("The guard found no change of content. It cannot prove that the meaning is unchanged, so read "
-                     "the edited passages in context.")
+        lines.append("This comparison found no change of content. It cannot prove that the meaning is unchanged, so "
+                     "read the edited passages in context.")
     level = (" More than half the words changed, so check the meaning and that the edit stayed within the request."
              if rate > CHANGE_STOP else " More than a quarter of the words changed, so reread the text for meaning."
              if rate > CHANGE_WARN else "")
-    lines += ["", f"About {round(100 * rate)}% of the original words changed ({report['words_before']} words before, "
+    share = "Less than 1%" if 0 < rate < 0.005 else "None" if rate == 0 else f"About {round(100 * rate)}%"
+    lines += ["", f"{share} of the original words changed ({report['words_before']} words before, "
                   f"{report['words_after']} after).{level}", ""]
     lines.append("## Changes to what the claims say, sentence by sentence")
     lines += [""] + ([x for c in claims for x in _claim_lines(c, title, revision)] or  # type: ignore[arg-type]
@@ -1295,14 +1338,18 @@ def to_markdown(report: dict[str, object]) -> str:
     summary = report.get("summary", {})
     if summary.get("authorised"):  # type: ignore[union-attr]
         n = summary["authorised"]  # type: ignore[index]
-        lines += ["", f"The authors authorised {n} claim {'change' if n == 1 else 'changes'} (--allow-strengthening); "
-                      f"{'it is' if n == 1 else 'they are'} listed so the authors see {'it' if n == 1 else 'them'}."]
+        marked = _count_word(n, "claim change is", "claim changes are")
+        lines += ["", f"The authors asked for a claim correction, so {marked} marked as authorised. "
+                      f"{'It is' if n == 1 else 'They are'} still listed above so that the authors see "
+                      f"{'it' if n == 1 else 'each one'} in place."]
     lines += ["", "## Counts over the whole text", ""]
     lines += _count_lines(report["protected"]) or [  # type: ignore[arg-type]
         "No number, citation, identifier, link, code span or technical term was added or removed."]
     watched = _count_lines(report["watched"])  # type: ignore[arg-type]
-    lines += ["", "Hedges, negations and claim words change with ordinary editing; read each change below to see "
-                  "whether a claim changed." if watched else "No hedge, negation or claim word was added or removed."]
+    lines += ["", "Hedges, negations and claim words also change with ordinary editing, and these counts have no "
+                  "location. The sections above list each sentence in which the checks saw a claim change; for a "
+                  "word below that they do not explain, find it in the text and check its sentence." if watched else
+              "No hedge, negation or claim word was added or removed."]
     if watched:
         lines += [""] + watched
     rewritten = report["rewritten_paragraphs"]
@@ -1339,7 +1386,8 @@ def main(
     elif after is not None:
         before_text, after_text = before.read_text(encoding="utf-8"), after.read_text(encoding="utf-8")
     else:
-        raise typer.BadParameter("give AFTER, or --against REF")
+        raise typer.BadParameter("Give the edited file as the second argument, or name the git version to "
+                                 "compare with in --against.")
     report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening)
     markdown = to_markdown(report)
     if json_out:

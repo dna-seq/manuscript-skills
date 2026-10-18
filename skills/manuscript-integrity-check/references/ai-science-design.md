@@ -26,9 +26,11 @@ A paper that claims all three with evidence for none is the commonest failure. F
 ## Step 2: the checklist
 
 For each relevant claim, identify what evidence it actually needs and whether existing materials supply
-it. Omit inapplicable items. Mark a material unknown `not_assessed`; do not treat it as a failure. Prefer
-a clarification, narrower claim or suitable venue when that solves the problem. New experiments need a
-specific scientific justification, not just a missing checklist item.
+it. Omit inapplicable items. Say in the report that a material unknown could not be checked and why; do
+not treat it as a failure. Prefer a clarification, narrower claim or suitable venue when that solves the
+problem. New experiments need a specific scientific justification, not just a missing checklist item. The
+item numbers below are for this file only: in a report, describe the item in plain words ("the paper reports
+successes without saying how many runs were attempted") with the quoted claim and its section.
 
 | # | item | look for | suggest when missing |
 |---|---|---|---|

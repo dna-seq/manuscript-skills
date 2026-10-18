@@ -73,6 +73,9 @@ class Finding(BaseModel):
     excerpt: str = ""
     message: str
     suggestion: str = ""
+    section: Optional[str] = None  # the heading the line falls under, in a LaTeX, Markdown or HTML source
+    # Checking the upload files is the last step before submission (references/author-priorities.md).
+    stage: str = "final"
 
 
 class NotAssessed(BaseModel):
@@ -176,6 +179,58 @@ def _words(text: str) -> int:
     return len(re.findall(r"[A-Za-z]{2,}", text))
 
 
+_MD_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_TEX_SECTION = re.compile(r"^\s*\\(chapter|section|subsection|subsubsection)\*?\s*(?:\[[^\]]*\])?\s*"
+                          r"\{((?:[^{}]|\{[^{}]*\})*)\}")
+_TEX_LEVELS = {"chapter": 0, "section": 1, "subsection": 2, "subsubsection": 3}
+
+
+def section_index(text: str) -> list[str]:
+    """The heading each line falls under (item i for line i + 1), as scan.py names it: "Front matter" before the
+    first heading, "Abstract" in a LaTeX abstract, a lone top-level heading above the others taken as the title."""
+    lines = text.split("\n")
+    heads: dict[int, tuple[int, str]] = {}
+    markdown: set[int] = set()
+    for i, line in enumerate(lines):
+        m = _MD_HEADING.match(line.strip())
+        if m:
+            markdown.add(i)
+        t = None if m else _TEX_SECTION.match(line)
+        if m or t:
+            raw = m.group(2) if m else t.group(2)
+            title = " ".join(re.sub(r"[{}*_`]", "", re.sub(r"\\[A-Za-z]+\*?", "", raw)).split()).strip(" .:")
+            heads[i] = (len(m.group(1)) if m else _TEX_LEVELS[t.group(1)], title[:80])
+    levels = [level for level, _ in heads.values()]
+    first = min(heads) if heads else None
+    title_line = first if (first in markdown and len(levels) > 1 and heads[first][0] == min(levels)
+                           and levels.count(min(levels)) == 1) else None
+    out: list[str] = []
+    stack: list[tuple[int, str]] = []
+    in_abstract = False
+    for i, line in enumerate(lines):
+        if i in heads and i != title_line:
+            level, title = heads[i]
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            if title:
+                stack.append((level, title))
+        in_abstract = in_abstract or "\\begin{abstract}" in line
+        names = [t for _, t in stack]
+        out.append("Abstract" if in_abstract else ", ".join(names[:1] + names[-1:] if len(names) > 2 else names)
+                   or "Front matter")
+        in_abstract = in_abstract and "\\end{abstract}" not in line
+    return out
+
+
+def _with_sections(findings: list[Finding], text: str) -> list[Finding]:
+    """Name the heading each finding's line falls under."""
+    sections = section_index(text)
+    for f in findings:
+        if f.line and f.line <= len(sections):
+            f.section = f.section or sections[f.line - 1]
+    return findings
+
+
 def _classify_hidden(location: str, line: Optional[int], how: str, text: str, check: str = "hidden-text"
                      ) -> Optional[Finding]:
     """A finding for text a reader cannot see; None when it is too slight to matter (a \\phantom{00} spacer)."""
@@ -183,9 +238,9 @@ def _classify_hidden(location: str, line: Optional[int], how: str, text: str, ch
     if INJECTION.search(text):
         return Finding(check="injection", severity=Severity.blocker, location=location, line=line, excerpt=text,
                        message=f"Hidden text ({how}) addresses an AI reviewer.",
-                       suggestion="Remove it. Venues treat a hidden prompt to reviewers as misconduct (ICLR 2026: "
-                                  "an attempt at collusion under its Code of Ethics); see "
-                                  "references/submission-package.md.")
+                       suggestion="Remove it. Venues treat a hidden prompt to reviewers as misconduct (ICLR 2026 "
+                                  "calls it an attempt at collusion under its Code of Ethics), whatever the venue's "
+                                  "wording, because it misleads the review itself.")
     if _words(text) >= MIN_HIDDEN_WORDS:
         return Finding(check=check, severity=Severity.major, location=location, line=line, excerpt=text,
                        message=f"Text a reader cannot see ({how}).",
@@ -452,7 +507,7 @@ def tex_findings(location: str, text: str) -> list[Finding]:
             plain_comments.append((number, comment))
     if plain_comments:
         first = plain_comments[0][0]
-        shown = "; ".join(f"L{n}: %{_snippet(c, 50)}" for n, c in plain_comments[:4])
+        shown = "; ".join(f"“%{_snippet(c, 50)}” (line {n})" for n, c in plain_comments[:4])
         out.append(Finding(check="comments", severity=Severity.minor, location=f"{location}:{first}", line=first,
                            excerpt=shown,
                            message=f"{len(plain_comments)} comment line(s) with content will be published with the "
@@ -567,7 +622,7 @@ def markup_findings(location: str, text: str) -> list[Finding]:
         private = [c for c in comments if PRIVATE_NOTE.search(c[1])]
         out.append(Finding(check="comments", severity=Severity.minor if private else Severity.info,
                            location=f"{location}:{comments[0][0]}", line=comments[0][0],
-                           excerpt="; ".join(f"L{n}: {_snippet(b, 50)}" for n, b in (private or comments)[:4]),
+                           excerpt="; ".join(f"“{_snippet(b, 50)}” (line {n})" for n, b in (private or comments)[:4]),
                            message=f"{len(comments)} HTML comment(s) with content"
                                    + (f", {len(private)} reading as private notes" if private else "")
                                    + ". They do not appear in PDF or Word output but are visible to anyone who gets "
@@ -997,23 +1052,34 @@ def check_package(paths: list[Path], anonymous: bool = False, authors: Optional[
             kind = ("latex" if suffix in TEX_EXT else "latex support" if suffix in TEX_SUPPORT_EXT
                     else "markdown" if suffix in MD_EXT else "html" if suffix in HTML_EXT else "text")
             count(kind)
-            findings += text_findings(location, text)
+            found = text_findings(location, text)
             if suffix in TEX_EXT:
-                findings += tex_findings(location, text)
+                found += tex_findings(location, text)
             elif suffix in MD_EXT or suffix in HTML_EXT:
-                findings += markup_findings(location, text)
-            visible = text if suffix not in (".bib", ".bbl", ".bst") else ""
+                found += markup_findings(location, text)
+            if anonymous and suffix not in (".bib", ".bbl", ".bst"):
+                found += anonymity_findings(location, text, authors, affiliations)
+            findings += _with_sections(found, text) if suffix in TEX_EXT | MD_EXT | HTML_EXT else found
+            continue
         if anonymous and visible:
-            findings += anonymity_findings(location, visible, authors, affiliations,
-                                           with_lines=suffix not in (".docx", ".pdf"))
+            findings += anonymity_findings(location, visible, authors, affiliations, with_lines=False)
     if not files:
         skipped.append(NotAssessed(location=", ".join(map(str, paths)), check="all", reason="no files found"))
-    findings = _drop_shadowed(findings)
+    findings = _staged(_drop_shadowed(findings))
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.location, f.line or 0))
     digests = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()}
     return HygieneReport(inputs=[str(p) for p in paths], files=files, findings=findings, not_assessed=skipped,
                          sha256=digests)
+
+
+def _staged(findings: list[Finding]) -> list[Finding]:
+    """Checking the upload files is the last step, except for what cannot wait (author-priorities.md): text hidden for
+    AI reviewers misleads the review whenever it is found, and a key that has been in a shared file is exposed now."""
+    for f in findings:
+        if f.check == "secrets" or (f.check == "injection" and f.severity in (Severity.blocker, Severity.major)):
+            f.stage = "now"
+    return findings
 
 
 def offline_text_checks(path: Path) -> list[Finding]:
@@ -1025,29 +1091,85 @@ def offline_text_checks(path: Path) -> list[Finding]:
     elif path.suffix.lower() in MD_EXT | HTML_EXT:
         found += markup_findings(str(path), text)
     order = {s: i for i, s in enumerate(Severity)}
-    return sorted(_drop_shadowed(found), key=lambda f: (order[f.severity], f.line or 0))
+    return sorted(_staged(_drop_shadowed(_with_sections(found, text))), key=lambda f: (order[f.severity], f.line or 0))
+
+
+SEVERITY_LEAD = {Severity.blocker: "Serious", Severity.major: "Important", Severity.minor: "Minor",
+                 Severity.info: "To look at"}
+NUMBERED = re.compile(r"^(?P<number>(?:\d+(?:\.\d+)*|[IVX]+))[.)]?\s+(?P<title>\S.*)$")
+# Headings read naturally after "the" ("in the Methods"); any other heading is quoted ("in the section “Speed”").
+PLAIN_HEADINGS = re.compile(r"^(?:abstract|introduction|background|methods?|materials|results|discussion|conclusions?|"
+                            r"references|bibliography|acknowledge?ments|funding|supplementary|appendix|limitations|"
+                            r"data|code|availability|declarations?|author|competing|ethics)\b", re.IGNORECASE)
+WHAT_IS_QUOTED = {"comments": "the comment reads", "hidden-text": "the hidden text reads",
+                  "injection": "the text reads", "invisible-characters": "the hidden characters spell",
+                  "secrets": "the masked value is", "local-paths": "the path reads", "links": "the link is",
+                  "anonymity": "the text reads", "metadata": "the recorded value is", "word-review": "it reads"}
+
+
+def where(f: Finding) -> str:
+    """'In main.tex, under the Methods (line 31)': the file, the heading and the line, never a bare line number."""
+    file = f.location[: -len(f":{f.line}")] if f.line and f.location.endswith(f":{f.line}") else f.location
+    under = ""
+    if f.section == "Front matter":
+        under = ", before the first heading"
+    elif f.section:
+        numbered = NUMBERED.match(f.section.split(", ")[-1])
+        under = (f", under section {numbered.group('number')}, {numbered.group('title')}" if numbered
+                 else f", under the {f.section}" if PLAIN_HEADINGS.match(f.section)
+                 else f", under the heading “{f.section}”")
+    return f"In {file}{under}" + (f" (line {f.line})" if f.line else "")
+
+
+def _sentence(text: str) -> str:
+    text = " ".join(text.split())
+    return text if not text or text[-1] in ".!?”" else text + "."
+
+
+def finding_text(f: Finding) -> str:
+    """One finding as sentences: what is wrong, where it is with its text quoted, and what to do."""
+    place = where(f)
+    if f.excerpt and f.excerpt.startswith("“"):  # several comments, each quoted with its line
+        place += f", the first of them read {f.excerpt}."
+    elif f.excerpt:
+        place += f", {WHAT_IS_QUOTED.get(f.check, 'the text reads')} “{f.excerpt}”" + (
+            "" if f.excerpt.rstrip("…")[-1:] in ".!?" and not f.excerpt.endswith("…") else ".")
+    else:
+        place += "."
+    return " ".join(p for p in (_sentence(f.message), place, _sentence(f.suggestion)) if p)
 
 
 def to_markdown(report: HygieneReport) -> str:
     counts = {s: sum(f.severity == s for f in report.findings) for s in Severity}
-    out = [f"# Submission package: {', '.join(report.inputs)}", "",
-           "Files examined: " + (", ".join(f"{n} {k}" for k, n in sorted(report.files.items())) or "none") + ". "
-           "Findings: " + ", ".join(f"{counts[s]} {s.value}" for s in Severity) + ".", "",
-           "This report lists what to look at; it changes nothing. Secrets are masked.", ""]
-    for severity in Severity:
-        group = [f for f in report.findings if f.severity == severity]
-        if not group:
-            continue
-        out += [f"## {severity.value} ({len(group)})", ""]
-        for f in group:
-            out.append(f"- **{f.check}** {f.location}: {f.message}" + (f" `{f.excerpt}`" if f.excerpt else "")
-                       + (f"\n  → {f.suggestion}" if f.suggestion else ""))
+    examined = ", ".join(f"{n} {k}" for k, n in sorted(report.files.items())) or "no files"
+    found = ", ".join(f"{counts[s]} {SEVERITY_LEAD[s].lower()}" for s in Severity if counts[s]) or "nothing"
+    out = [f"# Submission files: {', '.join(Path(i).name for i in report.inputs)}", "",
+           f"Files examined: {examined}. This check lists what a journal or preprint server would publish or read "
+           "beyond the PDF: comments, hidden text, secrets, local paths, shared-document links and file metadata. It "
+           "changes nothing, and secrets are masked.", "",
+           f"Found: {found}. Within each group the most serious findings come first: “Serious” marks what misleads "
+           "the review or could get the paper returned, “Important” what should not be published with the files, "
+           "“Minor” what is worth cleaning, and “To look at” what may be fine.", ""]
+    urgent = [f for f in report.findings if f.stage == "now"]
+    later = [f for f in report.findings if f.stage != "now"]
+    if urgent:
+        out += ["## Fix now: the science and the evidence", "",
+                "These cannot wait for the last step before submission: text hidden for AI reviewers misleads the "
+                "review whoever reads the files, and a key that has been in a shared file should be treated as "
+                "exposed already.", ""]
+        out += [f"- **{SEVERITY_LEAD[f.severity]}.** {finding_text(f)}" for f in urgent]
+        out.append("")
+    if later:
+        out += ["## Before submission, once the code is final", "",
+                "All of these concern the files as they will be uploaded, so they are done in the last step before "
+                "submission. They are not problems with the draft while it is being written.", ""]
+        out += [f"- **{SEVERITY_LEAD[f.severity]}.** {finding_text(f)}" for f in later]
         out.append("")
     if report.not_assessed:
-        out += ["## Not assessed", ""]
-        out += [f"- {n.location} ({n.check}): {n.reason}" for n in report.not_assessed]
+        out += ["## What could not be checked", ""]
+        out += [f"- {n.location}: {_sentence(n.reason[:1].upper() + n.reason[1:])}" for n in report.not_assessed]
         out.append("")
-    return "\n".join(out)
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 @app.command()

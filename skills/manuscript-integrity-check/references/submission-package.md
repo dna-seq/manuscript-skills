@@ -59,10 +59,18 @@ arguments are not comments, and `%` inside `verbatim` environments is code. Revi
 
 ## Reporting
 
-Report blockers and majors with the file and line, mask nothing further than the script did, and give the
-smallest fix: delete the line, strip the metadata (`exiftool -all= FILE`), clean the source (a cleaner such
-as `arxiv_latex_cleaner` or ALC-NG, then rerun this check on its output), revoke a key. A key that was ever in a shared file should be revoked even
-after it is deleted. Do not delete or rewrite files yourself unless the authors ask.
+Report blockers and majors by quoting the line as the script shows it (masked secrets stay masked) and naming
+the file and the section or figure it sits in, with the line number only in parentheses. Give the smallest fix in
+a full sentence: delete the line, strip the metadata (`exiftool -all= FILE`), clean the source (a cleaner such as
+`arxiv_latex_cleaner` or ALC-NG, then rerun this check on its output), revoke a key. A key that was ever in a
+shared file should be revoked even after it is deleted. Do not delete or rewrite files yourself unless the
+authors ask.
+
+These findings go in the report's last group, "Before submission, once the code is final", because the upload
+files are cleaned once, after the last edit; for a draft they are not blockers. Two go under "Fix now" whatever
+the stage: hidden text addressed to an AI reviewer, and a leaked secret, whose key should be revoked now.
+Describe a check by what it found ("a LaTeX comment that reads as a note to a co-author"), not by the script's
+check name.
 
 ## Sources
 

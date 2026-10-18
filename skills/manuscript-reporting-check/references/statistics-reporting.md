@@ -91,9 +91,17 @@ does not, say nothing is required; do not ask a computational reanalysis to desc
 
 ## Reporting a gap
 
-Each finding: the analysis (figure, table or sentence), what is missing, and what to add. When the
-authors must supply a fact (the n, the test, the correction, a version), write `author input needed:
-<short question>`. Never invent a value, a test or a correction, and never propose wording that implies
+Write each finding as connected sentences ([writing for the authors](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)):
+quote the sentence, table row or legend it concerns and name its section or table (a line number in
+parentheses at most), say what is missing and why it matters for the claim, and what to add. Put it under
+the [stage](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) at which it can be fixed: **Fix now**
+when the analysis the claim needs is missing or unsound (no correction across 48 tests, technical
+replicates counted as independent units), **Then the writing** when what was done is only unclearly
+reported (an undefined ±, a test not named for its comparison, a missing version of a tool that was
+used). The version of the authors' own software quoted in the text becomes final with the code, so it
+belongs under **Before submission, once the code is final**. When the
+authors must supply a fact (the n, the test, the correction, a version), add it to the questions at the
+end of the report. Never invent a value, a test or a correction, and never propose wording that implies
 an analysis was done when the manuscript does not say it was.
 
 The design follows the statistics-reporting audit in Boom5426/Nature-Paper-Skills (stats-reporting-audit,

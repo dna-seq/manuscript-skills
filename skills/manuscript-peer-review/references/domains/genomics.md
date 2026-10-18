@@ -42,8 +42,7 @@ Record in the output why the module was loaded.
 - Strand and allele orientation, especially for palindromic (A/T, C/G) SNPs when summary statistics are
   combined.
 
-Lookups of public identifiers (dbSNP, HGNC, Ensembl) are allowed with the authors' agreement to go
-online; in invited-referee mode only the identifier leaves the session, never manuscript text.
+Lookups of public identifiers (dbSNP, HGNC, Ensembl) send only the identifier, never manuscript text.
 
 ## Reference and annotation versions
 

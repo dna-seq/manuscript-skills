@@ -587,11 +587,12 @@ DUNCAN = ("Analysis of polygenic risk score usage and performance in diverse hum
     ("Duncan, L., Shen, H., & Gelaye, B. et al. (2019).", "consistent", None, None),
     ("L. Duncan, H. Shen, B. Gelaye, J. Meijsen, K. Ressler, M. Feldman, R. Peterson and B. Domingue.",
      "consistent", None, None),
-    ("Duncan L, Gelaye B, Meijsen J, et al.", "differs", "minor", "but not in the citation's list: Shen"),
+    ("Duncan L, Gelaye B, Meijsen J, et al.", "differs", "minor",
+     "Shen is on the Crossref record but not in the entry's author list."),
     ("Duncan L, Smith J, Gelaye B, Meijsen J, Ressler K, Feldman M, Peterson R, Domingue B.", "differs", "minor",
-     "not on the Crossref record: Smith"),
-    ("Duncan K, Shen H, Gelaye B, et al.", "differs", "info", "Initials differ for Duncan"),
-    ("Duncan L, Shen H.", "differs", "info", "2 of the record's 8 authors without 'et al.'"),
+     "The entry's author list names Smith, who is not on the Crossref record."),
+    ("Duncan K, Shen H, Gelaye B, et al.", "differs", "info", "For Duncan, the entry gives the initial K"),
+    ("Duncan L, Shen H.", "differs", "info", "2 of the record's 8 authors and does not say 'et al.'"),
 ])
 def test_author_lists_beyond_the_first_author(tmp_path: Path, registry: Callable[..., Registry], authors: str,
                                               check: str, severity: Optional[str], note: Optional[str]) -> None:

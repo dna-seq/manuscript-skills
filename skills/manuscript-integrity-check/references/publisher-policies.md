@@ -413,7 +413,10 @@ AI policy ("Artificial intelligence: fair use and disclosure policy", same page)
 
 ## 6. Synthesis: checkable requirements for a manuscript checker
 
-Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
+Rule IDs are suggestions. "B" = *Bioinformatics*-specific. The IDs label these notes for the agent; a report
+states the rule in plain words with its page and read date (an ID at most in parentheses) and places each
+finding by when it can be fixed (`author-priorities.md`). Disclosure (D), availability and archiving (V1, V2,
+V4, V5) are end-stage work for a draft, not blockers; reference identity (R1 to R3) is current work.
 
 ### 6.1 Authorship and attribution (universal)
 - A1. No AI tool among authors or in the CRediT list (all bodies). *Bioinformatics*: "the Journal will screen for them in author lists".
@@ -437,7 +440,7 @@ Rule IDs are suggestions. "B" = *Bioinformatics*-specific.
 - D5. AI used for **code** that changes functionality, pipelines or models is described in Methods with model and version (Science, Wiley, Elsevier, ACM, ICMJE). Matters for a codebase built with coding agents.
 
 ### 6.3 Prohibited content
-- P1 (B). The dated Bioinformatics/ISCB notes restrict AI drafting. The current ISCB page fetched on 2026-10-15 refers to drafting paper sections. Verify the target journal's wording; style signals do not establish drafting history. Explain a material conflict neutrally and follow the author's decision rather than treating the external policy as an assistant prohibition.
+- P1 (B). The dated Bioinformatics/ISCB notes restrict AI drafting. The current ISCB page fetched on 2026-10-15 refers to drafting paper sections. Verify the target journal's wording; style signals do not establish drafting history. Name a material conflict once, in one sentence among the decisions for the authors, and follow their decision; it is never a required fix or a blocker, and the external policy is not an assistant prohibition.
 - P2. Leftover LLM residue: "Here is…", "Would you like me to…", "As an AI…", "[insert]", "illustrative data, replace with real numbers", unreplaced placeholders, TODOs. arXiv one-year-ban trigger; NeurIPS calls it "AI residue".
 - P3. AI-generated or AI-altered primary research images forbidden (OUP, Elsevier, Cell, Wiley, T&F, JAMA, Springer Nature opaque visuals). Science and eLife (striking image) forbid AI illustrative images too. General-purpose gen-AI graphical abstracts forbidden at Elsevier/Cell. AI-assisted data visualizations must be reproducible from data and code and disclosed in the legend.
 - P4. AI-generated data presented as real results (all). Synthetic data replacing missing data without methodology (T&F).

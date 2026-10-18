@@ -598,10 +598,33 @@ def test_statuses_are_plain_words_in_the_markdown(tmp_path: Path) -> None:
     report = cf.check(findings, SEEDED)
     md = cf.to_markdown(report)
     assert [f["contract"] for f in report["findings"]] == ["not_assessed", "fail"]  # the JSON keeps its tokens
-    assert "not_assessed" not in md and "**F2**, raised by evidence-statistics, could not be checked." in md
+    assert "not_assessed" not in md
+    assert "**F2**, raised by a simulated referee (evidence-statistics), could not be checked." in md
     assert "the file S1.md was not supplied" in md
-    assert '**F3**, raised by evidence-statistics, failed. It quotes "VarRank was validated in three cohorts"' in md
+    assert ('**F3**, raised by a simulated referee (evidence-statistics), failed. It quotes "VarRank was validated '
+            'in three cohorts"') in md
     _no_bare_locations(md)
+
+
+def test_seat_names_only_follow_a_plain_description_in_parentheses() -> None:
+    """A seat name is the panel's working vocabulary ("Writing for the authors"): in the Markdown it appears only
+    in parentheses after "simulated referee", in groups, not-yet findings, warnings and strengths alike."""
+    findings = [_finding(id="F1", seat="skeptic"),
+                _finding(id="F2", seat="champion", quote=CAUSAL, concern="The method is too simple for the claim."),
+                _finding(id="F3", seat="claims-novelty", quote="VarRank was validated in three cohorts")]
+    strengths = [{"seat": "reproducibility", "location": "Methods, Model", "note": "A clear model description.",
+                  "quote": "VarRank was validated in three cohorts"}]
+    report = cf.check({"findings": findings, "strengths": strengths}, SEEDED)
+    assert [f["contract"] for f in report["findings"]] == ["pass", "pass", "fail"] and report["findings"][1]["warnings"]
+    md = cf.to_markdown(report)
+    for seat in ("skeptic", "champion", "claims-novelty", "reproducibility"):
+        hits = [m.start() for m in re.finditer(re.escape(seat), md)]
+        assert hits, seat
+        for at in hits:
+            opening = md.rfind("(", 0, at)
+            context = md[max(0, opening - 60):at + len(seat) + 10]
+            assert opening > md.rfind(")", 0, at), context
+            assert md[:opening].rstrip().endswith(("simulated referee", "simulated referees")), context
 
 
 def _adjudicated(id: str, quote: str, **fields: Any) -> dict[str, Any]:
@@ -645,6 +668,23 @@ def test_end_stage_packaging_is_never_a_current_concern() -> None:
     md = cf.to_markdown(report)
     assert md.index("## Fix now") < md.index("## Before submission, once the code is final")
     assert "## Also found, belongs to other checks" not in md
+
+
+def test_points_for_other_checks_come_before_the_end_stage_group() -> None:
+    """A number that disagrees is current work for another check; an archive record waits for the end. The
+    current-work groups come first ("Order the work by when it can be done"), so the end-stage group is last."""
+    findings = [
+        _adjudicated("archive", "VarRank 1.2.0 is available at", stage="final", route="fixable-in-text"),
+        _adjudicated("count", "On 4,812 held-out ClinVar missense variants", hand_to="manuscript-integrity-check",
+                     route="fixable-in-text"),
+        _adjudicated("science", LEAK, route="author-required"),
+    ]
+    report = cf.check(findings, SEEDED, adjudicated=True)
+    assert [(g["findings"], g["stage"]) for g in report["groups"]] == [
+        (["science"], "now"), (["count"], "other-checks"), (["archive"], "final")]
+    md = cf.to_markdown(report)
+    assert md.index("## Fix now") < md.index("## Also found, belongs to other checks") < md.index(
+        "## Before submission, once the code is final")
 
 
 def test_a_latex_excerpt_reads_as_the_sentence_a_reader_sees(tmp_path: Path) -> None:
@@ -730,3 +770,44 @@ def test_eval_cases_are_well_formed() -> None:
     seeded_case = next(c for c in cases if c["files"] == ["fixtures/manuscript-peer-review/seeded.md"]
                        and c["skill"] == "manuscript-peer-review" and c["planted"])
     assert len(seeded_case["planted"]) == len(PLANTED)
+
+
+def test_the_report_template_uses_the_stage_groups_of_the_script_and_the_shared_rule() -> None:
+    """output-format.md's template, SKILL.md and check_findings.py name the four stage groups of "Order the work by
+    when it can be done" in the same words and order, so a report and the script's working file line up."""
+    rule = (ROOT / "skills" / "manuscript-integrity-check" / "references" / "author-priorities.md").read_text(
+        encoding="utf-8")
+    labels = re.findall(r'"([^"]+)"', " ".join(re.search(r"Label each group in the report \((.*?)\)", rule,
+                                                         re.S).group(1).split()))
+    titles = [title for key, title in cf.STAGES if key in cf.STAGE_KEYS]
+    assert len(labels) == len(titles) == 4
+    assert all(title.startswith(label) for label, title in zip(labels, titles)), (labels, titles)
+    template = re.search(r"## Template\n\n```markdown\n(.*?)\n```", (SKILL / "references" / "output-format.md")
+                         .read_text(encoding="utf-8"), re.S).group(1)
+    headings = re.findall(r"^## (.+)$", template, re.M)
+    assert [h for h in headings if h.startswith(tuple(labels))] == titles
+    script_order = [title for _, title in cf.STAGES]
+    assert [h for h in headings if h in script_order] == [t for t in script_order if t in headings]
+    assert headings.index(titles[0]) == headings.index("Main strengths") + 1  # current work right after strengths
+    skill = " ".join((SKILL / "SKILL.md").read_text(encoding="utf-8").split())
+    positions = [skill.find(f'"{title}"') for title in titles]
+    assert -1 not in positions and positions == sorted(positions), positions
+
+
+GATE = re.compile(r"ask(?:s)? the user to confirm|confirm that the user is|do not process the manuscript|"
+                  r"\bread\b.{0,80}before opening the manuscript|only when the venue'?s review process|"
+                  r"in invited-referee mode it is not allowed", re.IGNORECASE)
+
+
+def test_reviewing_someone_elses_paper_has_no_authorisation_gate() -> None:
+    """The user decides what the skill is applied to (author-priorities.md): no file of the skill asks them to
+    confirm their role or makes the venue's reviewer rules a condition, and the eval fails a run that does."""
+    for md in SKILL.rglob("*.md"):
+        text = " ".join(md.read_text(encoding="utf-8").split())
+        assert not GATE.search(text), f"{md.relative_to(ROOT)}: {GATE.search(text).group(0)!r}"
+    cases = yaml.safe_load((ROOT / "evals" / "manuscript-peer-review.yaml").read_text(encoding="utf-8"))
+    case = next(c for c in cases if c["id"] == "peer-review-invited-referee-01")
+    assert not any(re.search(r"\basks? the user to confirm\b", item, re.I) for item in case["rubric"])
+    assert any(re.search(r"\bwithout first asking\b", item) for item in case["rubric"])
+    assert any(re.search(r"\bAsks the user to confirm\b", item) for item in case["fail_if"])
+    assert any(re.search(r"\bat most one short sentence\b", item) for item in case["rubric"])

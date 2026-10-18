@@ -16,9 +16,13 @@ description: >-
 # Manuscript integrity check
 
 Help the authors publish a sound manuscript in a suitable journal with the least avoidable work. Read
-`references/author-priorities.md` for the shared priorities, scope and disclosure rules. This skill reports
-checkable problems; apply fixes too when the user's request already includes them. Referee judgement (is the
-contribution enough, which comparison would a referee demand) is `manuscript-peer-review`'s.
+`references/author-priorities.md` for the shared priorities, scope and disclosure rules, and in particular
+its sections on [authors first, journals second](references/author-priorities.md#the-author-decides-authors-first-journals-second),
+[ordering the work by stage](references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
+[writing for the authors](references/author-priorities.md#writing-for-the-authors): the report follows all
+three. This skill reports checkable problems; apply fixes too when the user's request already includes them.
+Referee judgement (is the contribution enough, which comparison would a referee demand) is
+`manuscript-peer-review`'s.
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](references/author-priorities.md#scope-iteration-and-review)
@@ -30,8 +34,9 @@ for requested section or stage review, before/after comparisons and optional int
    Style and detector signals do not establish authorship or misconduct. Do not invent compliance or
    suggest changing prose merely to obtain a detector score.
 2. **Keep review and editing distinct.** For a review-only request:
-   - findings say **where**, **what is wrong**, **which rule** (with source), and **what kind of change**
-     ("cut the phrase", "give the measured number from Table 2", "add the DOI 10.xxxx after checking");
+   - each finding quotes the passage it concerns with its section, says **what is wrong**, **which rule**
+     (with its page and the date it was read), and **what kind of change** ("cut the phrase", "give the
+     measured number from Table 2", "add the DOI after checking it at https://doi.org/10.xxxx");
    - mechanical fixes are fine to write out in full: a corrected DOI, a deleted chatbot leftover, a missing
      identifier, a reference entry rebuilt from Crossref metadata;
    - do not replace paragraphs unless editing is also requested. For authorised edits, use the prose-edit
@@ -41,10 +46,11 @@ for requested section or stage review, before/after comparisons and optional int
 3. **Never invent a source.** Verify suggested citations against authoritative records, using an available
    DOI, PMID, arXiv identifier or primary publisher/library record. Reuse a current verification of an
    unchanged reference; do not demand an identifier that the work does not have.
-   If you could not verify it, say "unverified". A failed lookup does not establish fabrication; try an
-   alternate authoritative record when the citation matters.
-4. **A check that could not run did not pass.** Mark it `not_assessed` with the reason (offline, paywalled,
-   no figures supplied). Detector-style signals (vocabulary density, em-dashes) are risk indicators, never
+   If you could not verify it, say so and what you tried. A failed lookup does not establish fabrication; try
+   an alternate authoritative record when the citation matters.
+4. **A check that could not run did not pass.** Say in the report that it could not be checked and why
+   (offline, paywalled, no figures supplied); `not_assessed` is the word for the shared record and script
+   JSON, not for the authors. Detector-style signals (vocabulary density, em-dashes) are risk indicators, never
    evidence of AI authorship; COPE and ICLR both warn against acting on them without proof.
 5. **Verify applicable policies.** The reference notes are dated research, not universal rules. Before
    treating an obligation as binding, verify the selected journal, article type and submission stage
@@ -54,7 +60,9 @@ for requested section or stage review, before/after comparisons and optional int
 6. **Separate rules from verifiability.** Use `references/requirement-checkability.md` for policy
    decisions. Check observable submission artifacts; distinguish them from author-reported process,
    editorial judgement and unknown enforcement. The author decides how to handle a policy conflict;
-   report their chosen disposition and continue without treating journal policy as an assistant veto.
+   report their chosen disposition and continue without treating journal policy as an assistant veto. In
+   the report, a conflict between what the authors did or asked for and a journal's policy (an AI-drafting
+   ban, for example) is one sentence among the decisions for the authors, never a required fix or a blocker.
 
 ## Inputs to use when relevant
 
@@ -77,7 +85,9 @@ Use existing context first. A focused check does not need every input below.
 ## Workflow
 
 Select the steps the request needs and run each once over unchanged material. Script outputs go to a scratch
-location (`/tmp` below), not beside the manuscript.
+location (`/tmp` below), not beside the manuscript. Paths are relative to this skill's directory: `scripts/`
+holds `scan.py`, `number_check.py`, `hygiene.py` and `precommit.py`; `venues.py` and `policy_watch.py` are in
+`../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.
 
 | Request | Steps |
 |---|---|
@@ -90,7 +100,9 @@ location (`/tmp` below), not beside the manuscript.
 
 A full audit runs at least Step 1 with `--online`, claim support for the load-bearing claims (Step 2),
 `../manuscript-reporting-check/scripts/check_availability.py PAPER --online` and `number_check.py`; whatever could
-not run goes under not assessed with what it leaves open. A narrower request runs only what it needs.
+not run goes in the report's list of what could not be checked, with what it leaves open. When the authors say
+they are about to submit, pass `--final` to both `scan.py` and `check_availability.py`, so the end-stage items
+count. A narrower request runs only what it needs.
 
 ### Step 1: mechanical scan
 
@@ -104,10 +116,27 @@ withdrawn (`../manuscript-reference-check/references/identity-checks.md`). `--ve
 `--git` only when the authors ask. It finds chatbot leftovers, placeholders (also in HTML comments), missing
 declarations, AI mentions without a disclosure, citation mismatches, overclaim words, stock and tortured phrases,
 vocabulary densities, percentages that disagree with their counts and Abstract figures that never reappear (a
-missing software archive is only a hint for `manuscript-reporting-check`). Exit code 1 means a blocker. Read every
-blocker and major finding in context and omit false positives (a module named "Superhuman", "discovery" as a
-software term). Severities are provisional; AI mentions, style counts and absent generic declarations are not by
-themselves a submission barrier.
+missing software archive is only a hint for `manuscript-reporting-check`). It reads Markdown, LaTeX (with the
+`.bib` it uses) and plain text. Its Markdown groups the findings under the four stage labels of The report and
+treats the paper as work in progress: the end-stage items (statements, archives, placeholders) are listed last
+and left out of its readiness line and exit code. Add `--final` only when the authors say they are about to
+submit, and those items count too. Exit code 1 means a blocker candidate among the counted findings. Read every
+serious and important finding in context and omit false positives (a module named "Superhuman", "discovery" as a
+software term). Severities, stages and the readiness line are provisional: the report judges readiness itself
+(see The report). AI mentions, style counts and absent generic declarations are not by themselves a submission
+barrier.
+
+Script line numbers count lines of the source file. In a file that keeps each paragraph on one line they name a
+paragraph, and in LaTeX a reference finding may point at a line of the `.bib`; either way, locate the finding by
+quoting the sentence (or naming the entry by first author, year and key) and give the line only in parentheses.
+
+Length against a venue limit is approximate. The abstract count takes every word from the Abstract heading to
+the next heading, so in a structured abstract it includes the part labels and the Availability, Contact and
+Supplementary lines (the scan also gives the words after each label, so leave out the parts the journal does not
+count); in LaTeX it also counts command names. The body count takes every word before the reference list, with
+the abstract, title, author block, headings, tables, captions and declarations included, HTML comments removed
+and separate supplementary files not read. Journals usually count less (many leave out tables, legends and
+references), so treat both as upper estimates and check the journal's own counting rule before asking for cuts.
 
 ### Step 2: references
 
@@ -124,11 +153,20 @@ uv run --script scripts/number_check.py PAPER.md --md /tmp/numbers.md --json /tm
 
 It finds one quantity stated with different values across sections (sample sizes, headline metrics), means and
 SDs impossible for whole-number data with their n (GRIM, GRIMMER, percentages of n), p-values that disagree with
-their t, F, χ², r or z and df ("gross" when significance at α flips), table column totals that disagree with their
-cells, and SEMs that disagree with SD/√n; unreadable results are not assessed. For software and benchmark papers,
-recompute ratios and derived columns by hand. Read `references/number-checks.md` first (coverage, legitimate
-explanations). Report candidates, with their arithmetic, as questions for the authors, never as errors or
-misconduct.
+their t, F, χ², r or z and df (the script calls it "gross" when significance at α flips), table column totals that
+disagree with their cells, and SEMs that disagree with SD/√n; results it cannot read are listed as not checked.
+Read `references/number-checks.md` first (coverage, legitimate explanations). Report candidates, with their
+arithmetic, as questions for the authors, never as errors or misconduct, and describe each check by what it
+tests, its name in parentheses ("a mean of 3.50 is impossible for whole-number answers from 19 people, since
+66/19 = 3.47 and 67/19 = 3.53 (GRIM test)").
+
+A software or benchmark paper often has nothing the script can test (no means of whole-number data, no test
+statistics, no SD column), and an empty result is then "nothing to test", not a clean result. Recompute by hand
+from the printed values, as [benchmark arithmetic](references/number-checks.md#benchmark-arithmetic-by-hand)
+describes: each ratio from the two numbers it divides (and whether it is a ratio of medians or of means), each
+mean, SD and SEM from the listed runs, stage times against the total, and counts against the rows they summarise.
+Put what disagrees under "Fix now" with its arithmetic, and say in one sentence what you recomputed and found
+consistent.
 
 ### Step 4: reporting, availability and venue requirements
 
@@ -139,23 +177,33 @@ Use `manuscript-reporting-check` for the reporting guidelines of the study desig
 (`../manuscript-reporting-check/scripts/guidelines.py`) and data, code and software availability
 (`../manuscript-reporting-check/scripts/check_availability.py --online`); keep only the venue's requirements here.
 
-Look the venue up with `../manuscript-journal-adapt/scripts/venues.py show KEY`, its notes in
-`references/journal-policies/` and `references/publisher-policies.md` (journals) or
-`references/venues-and-preprints.md` (arXiv, bioRxiv/medRxiv, ML conferences), then re-check the live page
-(ground rule 5; `../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY` shows whether its AI
-passages moved). Then check the items in `references/venue-requirements.md`: an AI-use statement in every place
-the venue asks, with only the fields it requires (report gaps; `manuscript-journal-adapt` drafts and places it),
-no AI author or AI output cited as a source, required availability statements, length and structure limits
-(`over_limit_return` in `venues.yaml`), costly validation requirements as an early venue no-go under the
-author's budget (`manuscript-journal-select` for alternatives), figure rules and preprint overlap.
+Look the venue up, with its notes in `references/journal-policies/` and `references/publisher-policies.md`
+(journals) or `references/venues-and-preprints.md` (arXiv, bioRxiv/medRxiv, ML conferences), then re-check the
+live page (ground rule 5; `policy_watch.py` shows whether its AI passages moved since they were last read):
+
+```bash
+uv run --script ../manuscript-journal-adapt/scripts/venues.py show KEY
+uv run --script ../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY
+```
+
+Then check the items in `references/venue-requirements.md`: an AI-use statement in every place the venue asks,
+with only the fields it requires (report gaps; `manuscript-journal-adapt` drafts and places it), no AI author
+or AI output cited as a source, required availability statements, length and structure limits
+(`over_limit_return` in `venues.yaml`), costly validation requirements as an early feasibility question for the
+authors under their budget (`manuscript-journal-select` for alternatives), figure rules and preprint overlap.
+Scope, length, structure and the abstract format go under "Once you have chosen the journal"; the AI-use
+statement, declarations, archives and the data availability statement go under "Before submission, once the
+code is final". Without a chosen venue, skip the venue lookup and say which checks wait for the choice.
 
 ### Step 5: claims and calibration
 
 This step owns claim calibration; `manuscript-peer-review` reuses its result. Use `references/claim-evidence.md`:
 list the load-bearing claims (reuse `claims:` in the record), give each its type and rungs, find its evidence,
-and report only claims above it, by gap name (association to causation, surrogate to outcome, sample to
-population) with the smallest remedy: narrower wording the authors decide, the supporting evidence, or a venue
-for the narrower claim. "First", "novel" and "only" follow
+and report only claims above it, with the smallest remedy: narrower wording the authors decide, the supporting
+evidence, or a venue for the narrower claim. Describe the gap in plain words ("the sentence says numeracy caused
+better comprehension; the study measured a correlation in one sample"); its name from the reference file
+(association to causation, surrogate to outcome, sample to population) may follow in parentheses. "First",
+"novel" and "only" follow
 [priority and absence claims](../manuscript-reference-check/references/claim-support.md#priority-and-absence-claims).
 Leave calibrated claims and stated non-claims alone. Limitations should name a risk and its consequence. Report
 stock phrases and vocabulary density only when they impair clarity or break the house style (CLAUDE.md /
@@ -180,29 +228,74 @@ comments and commented-out blocks with content, hidden text and prompts aimed at
 whoever added it), secrets (masked), local paths, editable Google Docs links, EXIF GPS and author tags in
 figures, and with `--anonymous --author NAME` self-identifying text. PDFs without poppler and figures without
 Pillow are not assessed. Read `references/submission-package.md`; report, and leave removal to the authors.
+These findings belong to "Before submission, once the code is final", with two exceptions that go under "Fix
+now" whatever the stage: hidden text addressed to AI reviewers, and a leaked secret (the key should be revoked
+now).
 
 ### Referee judgement and revisions
 
 For independent reviewer passes or a simulated referee review, use `manuscript-peer-review`: its quick pass
-runs a desk-editor and an evidence-and-statistics seat in isolation, each point quoting the manuscript and
-adjudicated before it is merged here, marked with its seat. For real referee reports, use
+runs a desk editor and a reviewer of evidence and statistics in isolation, each point quoting the manuscript and
+checked against it before it is merged here. In the report, say in plain words which reviewer raised a point
+("the statistics reviewer"), not the internal role name. For real referee reports, use
 `manuscript-reviewer-response`; rerun Steps 1, 3 and 7 on the revised files.
 
 ## The report
 
-Return a concise report; save a separate file when requested or established by the project. Lead with
-the paper's readiness and the smallest next steps, then:
+Return a concise report written for the authors; save a separate file when requested or established by the
+project. It follows [Writing for the authors](references/author-priorities.md#writing-for-the-authors) and
+[Order the work by when it can be done](references/author-priorities.md#order-the-work-by-when-it-can-be-done).
+The script reports are working material: their Markdown quotes the passages and groups them by stage, but check
+each placement against the paper and the request, rewrite rather than paste, and do not send the authors to a
+JSON file or to these reference files.
 
-1. **Blockers**: confirmed defects or verified applicable submission barriers.
-2. **Major**: concrete threats to validity or the paper's prospects.
-3. **Optional**: useful improvements, with their likely benefit and effort.
-4. **Uncertain / not assessed**: material checks that could not run, and their consequence.
+**Stage and readiness.** Judge the stage from the request and the manuscript: TODO markers, missing sections and
+"draft" banners mean work in progress; when unsure, assume work in progress. Open with a few sentences on where
+the paper stands and the smallest next steps. For a draft, readiness rests on the current-work groups only; the
+end-stage items are not counted and not called blockers unless the authors say they are about to submit.
 
-Each finding: location (`file:line` or section), what is wrong, the rule with its source and date, and the
-suggested change; a number candidate carries its arithmetic. Distinguish journal rules from methodological
-advice and preferences, name the skill behind a merged finding, group findings with one root cause and omit
-irrelevant checks. Add cover-letter points only when needed. With the shared record, update its `checks` and
-`open_issues` instead of adding a log.
+**The findings, in four groups**, each under its label and current work first:
+
+1. **Fix now**: the science and the evidence. Claims beyond the results (Step 5), numbers that disagree (Step 3),
+   wrong or unsupported citations (Step 2), missing methods or comparisons the conclusions need, chat markup or
+   a placeholder standing where a citation should be, and hidden text addressed to AI reviewers or a leaked
+   secret whenever they are found (Step 7).
+2. **Then the writing**: structure, clarity, terminology, claims reworded to match the evidence, text left over
+   from a chat interface.
+3. **Once you have chosen the journal**: scope and fit, length, required sections, the abstract format, the
+   journal's reporting checklist and reference style (Step 4).
+4. **Before submission, once the code is final**: archive DOIs and release tags, version numbers quoted in the
+   text, the data availability statement and other declarations, the AI-use statement, cover-letter points,
+   revision markers and TODO comments, and the upload check (Step 7). Keep this list short for a draft.
+
+Leave out a group with nothing in it. Within a group, put blockers (a confirmed scientific defect, or a verified
+submission barrier) first, then major findings, then optional ones with their benefit and effort, and put an item
+after the one it depends on ("after the benchmark is rerun, update the numbers in the Abstract"). Group findings
+with one root cause and omit irrelevant checks.
+
+**Each finding** is a short paragraph of full sentences: the quoted sentence, table row or line with its section
+(the line number, if any, in parentheses), what is wrong and why it matters for the paper, and what to do. Give a
+journal rule with what it says, its page as a URL and the date it was read, and keep journal rules apart from
+methodological advice and preferences. A source the authors need to open is a full URL (`https://doi.org/...`,
+`https://pubmed.ncbi.nlm.nih.gov/<PMID>/`, the journal's page). A number candidate shows its arithmetic. Script
+status words (`not_assessed`, `unverified`, `gross`), the scan's check names and the rule IDs in the reference
+files never stand alone; describe the problem in plain words, and name the skill behind a merged finding in
+parentheses.
+
+**After the groups:**
+
+- **Decisions for the authors**: choices only they can make, a sentence or two each (a narrower claim or more
+  evidence, a venue trade-off, how to read an unclear rule). A conflict between the authors' work or request and
+  a journal's policy goes here, once, in one sentence naming the conflict and its practical consequence
+  ("Bioinformatics asks authors not to have LLMs draft sections; if an editor asks, this would need
+  disclosure"). It is never a required fix or a blocker, and it is not repeated elsewhere in the report.
+- **What could not be checked**: each material check that could not run, why, and what it leaves open.
+- **Questions**, only for facts the next step needs.
+
+Before handing the report over, reread it against the prose-edit catalogue
+(`../manuscript-prose-edit/references/llm-smells.md`) and, when it is installed, the `humanizer` skill, and fix
+what reads as notes or stock phrasing without changing any fact, quote or number. With the shared record,
+update its `checks` and `open_issues` instead of adding a log.
 
 When fixes are authorised, use `manuscript-prose-edit` (its preservation contract and `guard.py`) for language,
 `manuscript-journal-adapt` for formatting and AI-use statements and `manuscript-reference-check` for reference

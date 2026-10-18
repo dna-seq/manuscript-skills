@@ -57,8 +57,8 @@ filler, hedge stacks and throat-clearing, put the result first, and keep each cl
 requested stylistic aim (punchier, shorter, more direct) by structure and word choice within the ceiling:
 lead with the result, shorten long sentences, cut repetition, give a pronoun its noun. The request itself
 justifies those edits; returning the passage nearly unchanged meets it only when the passage already does
-what was asked, and then say so. If the authors want a stronger claim, show the current wording, the rung
-they want and the evidence that would support it, and let them decide.
+what was asked, and then say so. If the authors want a stronger claim, show the current wording, the stronger
+wording they want and the evidence that wording would need, and let them decide.
 
 **Narrowing is a claim correction too.** Lowering a claim, adding a hedge, limitation or qualifier, or
 deleting a claim sentence changes the science. Do it only when asked, or propose it, and list it among the
@@ -91,9 +91,9 @@ and evidence; this is not a blanket prohibition on authorised reference or forma
   content question. Add a change table only when requested or needed to explain a consequential edit.
 - **File mode** (a path). Edit the file in place, prose only: never touch equations, code, tables of data,
   citation keys, labels, cross-references, URLs or front matter. Run the guard (section 5), then report a
-  summary: what kinds of change, how many, which sentences need the authors. Offer the full change table
-  rather than pasting it. If the author requests review before application, retain the working file and
-  prepare proposed text or a separate revision until accepted.
+  summary: what kinds of change, how many, and which sentences need the authors, each quoted with its section.
+  Offer the full change table rather than pasting it. If the author requests review before application,
+  retain the working file and prepare proposed text or a separate revision until accepted.
 - **Embedded mode** (e.g. adapting to a venue). Apply this contract to the requested prose changes and
   return the text and relevant verification, without a separate copy-edit report.
 
@@ -225,7 +225,8 @@ changes the authors must see when they stand; list them with the edit. When the 
 correction, rerun with `--allow-strengthening`: the claim changes are still listed, marked authorised, and
 numbers and citations still fail. A passing guard does not prove meaning stayed intact: it can miss swapped
 values and changed relationships that keep every marker. For a short pasted passage, a direct comparison
-against `claim-ladders.md` is sufficient.
+against `claim-ladders.md` is sufficient. Tell the authors what the guard found in its report's plain words
+("no number, citation or claim strength changed"), not as an exit code, a "protected change" or a rung.
 
 ### 5.4 Change rate
 
@@ -245,15 +246,22 @@ matches the request, especially for short passages where a small fix can change 
 ## 6. Output
 
 Default to the edited passage or a brief file-change summary, plus unresolved content questions. A diff
-is sufficient to review routine edits. When a detailed explanation is requested, use a table such as:
+is sufficient to review routine edits. Everything shown to the authors follows the shared rules on writing for
+them (`author-priorities.md`, "Writing for the authors"): quote the sentence and name its section, keep a line
+number in parentheses, and describe each change in plain words with any catalogue ID after it in parentheses.
+When a detailed explanation is requested, use a table such as:
 
-| # | original | revision | reason (smell id) |
-|---|---|---|---|
-| 1 | "These findings have important implications for personalized medicine." | (deleted) | A3 empty implication |
-| 2 | "…was significantly faster…" | proposed: "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | B3, E1: the number comes from Table 2, so it is a proposed clarification that goes in only when the authors confirm it (section 4, step 4) |
+| # | where | original | revision | why |
+|---|---|---|---|---|
+| 1 | Discussion, last paragraph | "These findings have important implications for personalized medicine." | (deleted) | It names no implication, so it says nothing specific to this study (A3) |
+| 2 | Results, Performance | "…was significantly faster…" | proposed: "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | "Significantly" stands where the number belongs (B3, E1). The number comes from Table 2, so it is a proposed clarification that goes in only when the authors confirm it |
 
-Then **Flagged for the authors**: each sentence that needs a fact only they have, with the question
-("Which cohort does 'larger cohorts' mean here, and is it planned?").
+Then **Flagged for the authors**: each sentence that needs a fact or a decision only they have, quoted with its
+section and followed by the question ("Which cohort does 'larger cohorts' mean here, and is it planned?").
+Order the list by when the authors can act (`author-priorities.md`, "Order the work by when it can be done"),
+with that section's group labels: a claim that outruns its evidence, or a number or qualifier the claim needs,
+under "Fix now"; wording choices under "Then the writing"; anything that depends on the journal or on final
+code, data and versions in the later groups, never as a blocker for a draft.
 
 Mention material verification results and limitations briefly. Omit empty sections and style-count logs.
 

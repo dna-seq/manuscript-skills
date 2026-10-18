@@ -14,6 +14,9 @@ Evidence labels apply only to the observations below:
 
 All access dates below are 2026-10-15 unless stated otherwise. A successful HTTP status with a challenge,
 login page or JavaScript shell does not count as READ. Distinguish an inaccessible rule from no rule.
+The labels are for this file. In a report, say in words what was read ("the policy text was read in
+full", "only search-engine excerpts of the page were available", "not read; this is the page to check"),
+with the page's URL.
 
 ## Preprints and repositories
 

@@ -64,6 +64,9 @@ Use four dispositions:
 | `conditional` | Name the missing fact that would change the answer |
 | `unverified` | The relevant rule or its applicability could not be confirmed |
 
+The backticked names are for these instructions. In the report write them as words: "applies", "does
+not apply to this study, because ...", "depends on whether ...", "could not be confirmed, because ...".
+
 Absence of approval wording is not proof that approval was required or absent. Distinguish consent
 to participate, consent to identifiable publication, a waiver of consent, ethics approval, exemption
 from review, and a determination that an activity is outside human-subject research. Do not invent
@@ -75,9 +78,15 @@ Verify live primary policies for the selected or shortlisted destinations and th
 and stage. Start from [venue-policies.md](references/venue-policies.md); its dated notes are not permanent
 clearance. Read the operative paragraphs, including exceptions, rather than relying on a search snippet
 or a publisher-wide summary. Record the URL, date and access limitation with material findings. Reuse a
-current check within the task. If access fails, try another primary route and label remaining uncertainty;
-continue without making the author fetch every blocked page. Read legal sources only for issues the
-facts actually raise; the legal entry points in applicability.md are not a universal checklist.
+current check within the task. If access fails, try another primary route (the same journal's article-type
+or ethics page, the publisher-wide policy, a headless browser, an archived copy labelled with its date)
+and label remaining uncertainty; continue without making the author fetch every blocked page. A
+summarising fetch tool paraphrases: quote a rule only from text retrieved word for word, and say so when
+a quotation is a paraphrase. For which rules can be checked from the files and which rest on editorial
+judgement, see
+[requirement-checkability.md](../manuscript-integrity-check/references/requirement-checkability.md).
+Read legal sources only for issues the facts actually raise; the legal entry points in applicability.md
+are not a universal checklist.
 
 ## Reduce ambiguity and burden through accurate wording
 
@@ -141,15 +150,32 @@ declarations and checklist items are present; deciding which of them apply stays
 ## Report only what changes a decision
 
 Lead with the likely study classification and the most useful wording fix or venue choice. For each
-material issue, give the location, possible misreading or actual obligation, factual basis, source/date,
-and action. A compact table helps for multiple issues; a focused edit can be just revised text and a note.
+material issue, quote the passage it concerns and name its section (a line number may follow in
+parentheses), then give the possible misreading or actual obligation, its factual basis and the action.
+Quote the policy text a finding rests on with the URL of the page it is on and the date read, and say
+when only part of the page could be read. A compact table helps for multiple issues if every cell is a
+readable phrase; a focused edit can be just revised text and a note. Write as
+[Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+describes: plain words, acronyms spelled out at first use, full sentences.
+
+Order the report as
+[Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)
+describes: facts the authors must establish and claims that misdescribe the study first, then wording,
+then requirements of the chosen venue, and last the final declarations (the ethics, consent and data
+availability statements as submitted). The last group is not a blocker for a draft.
 
 Distinguish **wording ambiguity**, **venue-scope mismatch**, **substantive requirement**, and **unresolved
-fact**. State whether an inference is yours or an editor has actually raised it. A user's past rejection
-is a reported case, not proof of a universal screening mechanism. Do not promise freedom from reviewer
-questions. Warn once about a concrete material risk, neutrally, with a practical option; avoid generic
-alarm or repeated objections. Respect the author's choice among accurate wording, a supported exception,
-accepting editorial uncertainty, clarification or another venue. Continue authorised work without becoming
-a policy gatekeeper or representing an unresolved position as verified compliance.
+fact**, in plain words. State whether an inference is yours or an editor has actually raised it. A user's
+past rejection is a reported case, not proof of a universal screening mechanism. Do not promise freedom
+from reviewer questions.
+
+A conflict between a venue's policy and what the authors chose (a named self-released genome at a server
+that bars identifying information, AI use at a journal that restricts it) is a decision for the authors,
+listed with their other decisions, never a required fix or a blocker. Name it once, in one sentence with
+its practical consequence; avoid generic alarm or repeated objections. A journal's AI-use policy is
+outside this skill: `manuscript-journal-adapt` drafts the statement. Respect the author's choice among
+accurate wording, a supported exception, accepting editorial uncertainty, clarification or another venue.
+Continue authorised work without becoming a policy gatekeeper or representing an unresolved position as
+verified compliance.
 
 For skill maintenance or behavioural evaluation, use [review-cases.md](references/review-cases.md).

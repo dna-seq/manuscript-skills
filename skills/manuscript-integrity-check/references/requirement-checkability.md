@@ -66,10 +66,17 @@ on the journal's own page.
 
 ## How to advise without becoming a policy gatekeeper
 
-For each consequential issue, give the rule and its source/date, its evidence class, what is known,
-what remains uncertain, and the least-work options. These may include a supported exemption, concise
+When the authors ask for advice on a requirement, give for each consequential issue the rule as the journal
+words it, the URL of its page and the date it was read, whether it can be checked from the submission files or
+rests on the authors' own account (the evidence classes above, in plain words rather than by class name), what is
+known, what remains uncertain, and the least-work options. These may include a supported exemption, concise
 wording, a different venue, editorial clarification, or proceeding under the author's interpretation.
 Do not require a full matrix in every response; report only what changes a decision.
+
+When the authors asked for work the policy restricts, do the work. A report then lists the conflict once among
+the decisions for the authors, in one sentence naming it and its practical consequence, never as a required fix
+or a blocker, and does not add a list of options they did not ask for (`author-priorities.md`, "The author
+decides").
 
 State enforcement evidence separately: documented routine checks, a discretionary power, an individual
 case, or unknown. The absence of a reliable AI-authorship test supports uncertainty about provenance;

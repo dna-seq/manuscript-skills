@@ -54,14 +54,18 @@ def windows(text: str, latex: bool, profile: ModuleType) -> list[dict[str, Any]]
     current: list[tuple[int, str]] = []
     count = 0
 
+    cleaned = profile.clean(text, latex)
+    heads = profile.headings(cleaned)
+
     def flush() -> None:
         nonlocal current, count
         if current:
             out.append({"line": current[0][0], "end_line": current[-1][0], "words": count,
+                        "section": profile.section_at(heads, current[0][0]),
                         "text": "\n\n".join(p for _, p in current)})
         current, count = [], 0
 
-    for line, para in profile.paragraphs(profile.clean(text, latex)):
+    for line, para in profile.paragraphs(cleaned):
         n = len(profile.WORD.findall(para))
         if count and count + n > MAX_WORDS:
             flush()
@@ -77,7 +81,7 @@ def score_windows(wins: list[dict[str, Any]], scorer: Callable[[str], float],
                   threshold: float, calibrated: bool) -> list[dict[str, Any]]:
     rows = []
     for w in wins:
-        row = {k: w[k] for k in ("line", "end_line", "words")}
+        row = {k: w[k] for k in ("line", "end_line", "words")} | {"section": w.get("section", "")}
         if w["words"] < 50:
             row.update(state="not assessed", score=None, reason="under 50 words")
         else:
@@ -169,7 +173,7 @@ def load_aiornot() -> Callable[[str], float]:
     """AI or Not v2 text endpoint (free tier); needs AIORNOT_API_KEY."""
     key = os.environ.get("AIORNOT_API_KEY")
     if not key:
-        raise typer.BadParameter("AIORNOT_API_KEY is not set; see `detector_setup.py check`")
+        raise typer.BadParameter("AIORNOT_API_KEY is not set. `detector_setup.py check` says where to get a key.")
     client = httpx.Client(timeout=60, headers={"Authorization": f"Bearer {key}"})
 
     def score(text: str) -> float:
@@ -185,20 +189,60 @@ def load_aiornot() -> Callable[[str], float]:
 LOADERS = {"modernbert": load_modernbert, "tropa": load_tropa, "aiornot": load_aiornot}
 
 
+DETECTOR_NAMES = {"modernbert": "the ModernBERT detector, rasbt/ai-text-detector-modernbert",
+                  "tropa": "tropa-mini, wasitaigeneratedcom/ai-text-detector-small",
+                  "aiornot": "AI or Not, a hosted service"}
+SMALL_NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f"{SMALL_NUMBERS[n] if n < len(SMALL_NUMBERS) else n} {one if n == 1 else many}"
+
+
+def _lines(r: dict[str, Any]) -> str:
+    return f"line {r['line']}" if r["line"] == r["end_line"] else f"lines {r['line']} to {r['end_line']}"
+
+
+def _why_not_scored(reason: str) -> str:
+    if reason.startswith("under "):
+        return f"the passage has fewer than {reason.split()[1]} words, too few to score"
+    return f"the detector failed on it ({reason})"
+
+
 def to_markdown(path: str, detector: str, rows: list[dict[str, Any]], threshold: float, calibrated: bool) -> str:
-    counts = {s: sum(r["state"] == s for r in rows) for s in ("flagged", "not flagged", "not assessed")}
-    out = [f"# Detector hints: {path}", "",
-           f"Detector `{detector}`; threshold {threshold:.4f} "
-           f"({'calibrated on the authors own writing' if calibrated else 'uncalibrated: the detector default'}).",
-           f"Windows: {counts['flagged']} flagged, {counts['not flagged']} not flagged, "
-           f"{counts['not assessed']} not assessed.", "",
-           "A flag means: reread this passage for the named smells in llm-smells.md and for unsupported claims. "
-           "If none is found, leave it. Never edit to lower the score.", "",
-           "| lines | words | score | state | excerpt |", "|---|---|---|---|---|"]
-    for r in rows:
-        score = "n/a" if r["score"] is None else f"{r['score']:.3f}"
-        state = r["state"] if r["state"] != "not assessed" else f"not assessed ({r.get('reason', '')})"
-        out.append(f"| {r['line']}–{r['end_line']} | {r['words']} | {score} | {state} | {r['excerpt'][:80]}… |")
+    profile = _load_profile()
+    name = DETECTOR_NAMES.get(detector, detector)
+    flagged = [r for r in rows if r["state"] == "flagged"]
+    unscored = [r for r in rows if r["state"] == "not assessed"]
+    below = [r for r in rows if r["state"] == "not flagged"]
+
+    def where(r: dict[str, Any]) -> str:
+        return profile.place(r.get("section", ""), _lines(r))
+
+    def opening(r: dict[str, Any]) -> str:
+        return "“" + " ".join(r["excerpt"].split())[:100] + "…”"
+
+    basis = (f"{threshold:.3f}, the highest score the detector gave to the authors' own earlier writing" if calibrated
+             else f"{threshold:.3f}, the threshold the detector's makers give. It was not calibrated on the authors' "
+                  "own writing, which makes a flag even weaker evidence")
+    out = [f"# Passages an AI-text detector flagged for rereading: {path}", "",
+           f"Each passage got a score from 0 to 1: the detector's estimate that a language model wrote it ({name}). "
+           f"A passage is flagged when its score is above {basis}.", "",
+           f"Of {_count(len(rows), 'passage', 'passages')}, {len(flagged)} {'was' if len(flagged) == 1 else 'were'} "
+           f"flagged, {len(below)} {'was' if len(below) == 1 else 'were'} below the threshold, and {len(unscored)} "
+           f"could not be scored.", "",
+           "A flag marks a passage to reread for stock phrasing and for claims the evidence does not carry. If the "
+           "passage has neither, leave it as it is. A detector score is not evidence of who wrote the text, and "
+           "editing only to lower it does not improve the paper.", "", "## Flagged passages", ""]
+    out += [f"- In {where(r)}, the score was {r['score']:.3f}. The passage begins {opening(r)}" for r in flagged] or [
+        "No passage was flagged."]
+    if unscored:
+        out += ["", "## Passages that could not be scored", ""]
+        out += [f"- In {where(r)}, {_why_not_scored(str(r.get('reason', '')))}. The passage begins {opening(r)}"
+                for r in unscored]
+    if below:
+        out += ["", "## Passages below the threshold", "", "| Where | Score | Begins |", "|---|---|---|"]
+        out += [f"| {where(r)[:1].upper()}{where(r)[1:]} | {r['score']:.3f} | {opening(r)} |" for r in below]
     return "\n".join(out) + "\n"
 
 
@@ -213,10 +257,11 @@ def main(
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here")] = None,
 ) -> None:
     if detector not in LOADERS:
-        raise typer.BadParameter(f"unknown detector {detector!r}; known: {', '.join(LOADERS)}")
+        raise typer.BadParameter(f"There is no detector called {detector!r}; the detectors are "
+                                 f"{', '.join(LOADERS)}.")
     if detector in REMOTE and not allow_remote:
-        raise typer.BadParameter(f"{detector} sends the manuscript to a third party; pass --allow-remote only "
-                                 f"with the authors' consent for this text")
+        raise typer.BadParameter(f"{DETECTOR_NAMES.get(detector, detector)} sends the manuscript to a third party. "
+                                 "Pass --allow-remote only when the authors agree to that for this text.")
     profile = _load_profile()
     scorer = LOADERS[detector]()
     wins = windows(path.read_text(encoding="utf-8"), path.suffix == ".tex", profile)
@@ -233,7 +278,7 @@ def main(
     md = to_markdown(str(path), detector, rows, threshold, calibrated)
     if md_out:
         md_out.write_text(md, encoding="utf-8")
-        typer.echo(f"wrote {md_out}")
+        typer.echo(f"Wrote the report to {md_out}.")
     else:
         typer.echo(md)
 

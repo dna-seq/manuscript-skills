@@ -284,7 +284,7 @@ def test_ledger_compares_headline_metrics_with_the_body(tmp_path: Path, abstract
     ledger = _of(report, "ledger")
     assert [f.message.split("'")[1] for f in ledger] == (["AUROC"] if flagged else [])
     if flagged:
-        assert ledger[0].line == 5 and "0.87: Results (L13)" in ledger[0].arithmetic
+        assert ledger[0].line == 5 and "0.87 in Results (line 13)" in ledger[0].arithmetic
     # accuracy 91% and 0.912 agree; "2020 patients" is a year; "or 3" is not an odds ratio; Smith et al. is skipped
     assert set(report.ledger) == {"AUROC", "accuracy", "patients"}
     assert [m.value for m in report.ledger["patients"]] == ["120", "120", "3"]
@@ -597,11 +597,29 @@ def test_precommit_hygiene_is_advisory() -> None:
     runner = CliRunner()
     plain = runner.invoke(precommit.app, [str(SEEDED / "main.tex")])
     with_hygiene = runner.invoke(precommit.app, [str(SEEDED / "main.tex"), "--hygiene"])
-    assert "hygiene" not in plain.output
-    assert "hygiene (advisory): 3 finding(s)" in with_hygiene.output and AWS_KEY not in with_hygiene.output
+    heading = "Comments, hidden text and secrets (advisory, never fails the commit"
+    assert heading not in plain.output
+    assert heading in with_hygiene.output and AWS_KEY not in with_hygiene.output
+    assert ("before submission): 3 findings, of which 2 cannot wait: a leaked key or text hidden for AI "
+            "reviewers.") in with_hygiene.output
     assert plain.exit_code == with_hygiene.exit_code == 0  # no scan blocker; a hidden prompt never fails the hook
     clean = runner.invoke(precommit.app, [str(CLEAN / "main.tex"), "--hygiene"])
-    assert "hygiene (advisory): 0 finding(s)" in clean.output
+    assert "before submission): 0 findings." in clean.output
+
+
+def test_a_hidden_prompt_and_a_leaked_key_are_fixed_now_while_the_rest_waits_for_upload() -> None:
+    """Upload hygiene is the last step, but a prompt hidden for AI reviewers misleads the review whenever it is found
+    and a key in a shared file is exposed already (author-priorities.md), so those two are listed under Fix now."""
+    report = hy.check_package([SEEDED], anonymous=False, authors=[], affiliations=[])
+    now = {f.check for f in report.findings if f.stage == "now"}
+    later = {f.check for f in report.findings if f.stage == "final"}
+    assert now == {"injection", "secrets"} and {"comments", "metadata"} <= later
+    md = hy.to_markdown(report)
+    fix_now, _, end = md.partition("## Before submission, once the code is final")
+    assert "## Fix now: the science and the evidence" in fix_now and "AWS access key" in fix_now
+    assert "Note for AI reviewers" in fix_now and "Note to Jana" in end and "Note to Jana" not in fix_now
+    clean = hy.check_package([CLEAN], anonymous=False, authors=[], affiliations=[])
+    assert "## Fix now" not in hy.to_markdown(clean)
 
 
 @pytest.mark.parametrize("heading", ["Data availability", "Data and code availability", "Data & code availability",
@@ -736,11 +754,12 @@ def test_a_garbled_bibtex_author_list_is_compared_with_the_record(tmp_path: Path
                                    search_unidentified=True).references[0]
     assert (ref.status, ref.first_author_found, ref.author_check) == ("resolved", True, "differs")
     notes = " ".join(ref.author_notes)
-    assert "not in the citation's list: Lewis" in notes  # the record's Elizabeth Lewis, cited as "John, Elizabeth"
+    # the record's Elizabeth Lewis, cited as "John, Elizabeth"
+    assert notes.startswith("Lewis, MacArthur, ") and "on the Crossref record but not in the entry's author list" in notes
     # Given names of authors missing from the record ("Rayner, Nigel W.") are not further authors.
-    assert ("not on the Crossref record: Naamati, Nicholson, Oyewole, Palumbo, Rayner, Sacramento, Trevanion, "
-            "Zaharia.") in notes
-    assert "Given name differs for Mosaku: citation Annalisa, record Abayomi." in notes
+    assert ("The entry's author list names Naamati, Nicholson, Oyewole, Palumbo, Rayner, Sacramento, Trevanion and "
+            "Zaharia, who are not on the Crossref record.") in notes
+    assert "For Mosaku, the entry gives the given name Annalisa and the record gives Abayomi." in notes
 
 
 def test_an_entry_without_authors_is_not_a_first_author_mismatch(tmp_path: Path, registries) -> None:
@@ -750,8 +769,9 @@ def test_an_entry_without_authors_is_not_a_first_author_mismatch(tmp_path: Path,
     report = scan_ic.check_references(_tex_with_bib(tmp_path, bib, "gwas"), online=True, search_unidentified=True)
     ref = report.references[0]
     assert (ref.status, ref.first_author_found, ref.author_check) == ("resolved", None, "not_compared")
-    assert [(f.severity.value, f.message.split(";")[0]) for f in _at(report, ref.line)] == [
-        ("info", "The entry names no author (no author field could be read)")]
+    assert [(f.severity.value, f.message) for f in _at(report, ref.line)] == [
+        ("info", "The entry names no author (no author field could be read), so its authors were not compared with "
+                 "the record, which lists 30.")]
 
 
 @pytest.mark.parametrize("entry", [
@@ -785,8 +805,8 @@ def test_swapped_initials_of_two_authors_who_share_a_surname_are_still_found(tmp
              "annotation using large language models. Nature Communications. doi:10.1038/s41467-026-76834-4")
     ref = scan_ic.check_references(_md_paper(tmp_path, "[1]", entry), online=True, search_unidentified=True).references[0]
     assert ref.author_check == "differs"
-    assert ref.author_notes == ["Initials differ for Wang: citation K, record Peng.",
-                                "Initials differ for Wang: citation P, record Kai."]
+    assert ref.author_notes == ["For Wang, the entry gives the initial K and the record gives Peng.",
+                                "For Wang, the entry gives the initial P and the record gives Kai."]
 
 
 TANDY_CONNOR = ("Tandy-Connor, S., Guiltinan, J., Krempely, K., et al. (2018). False-positive results released by "
@@ -795,7 +815,8 @@ TANDY_CONNOR = ("Tandy-Connor, S., Guiltinan, J., Krempely, K., et al. (2018). F
 
 
 @pytest.mark.parametrize("search, severity, says", [
-    (("crossref_tandy_connor.json",), "major", "Crossref holds a record with this title: doi:10.1038/gim.2018.38"),
+    (("crossref_tandy_connor.json",), "major",
+     "Crossref holds a record with this title: https://doi.org/10.1038/gim.2018.38"),
     ((), "blocker", "the Crossref title search found no close record"),
 ])
 def test_an_unresolved_doi_is_searched_by_title_and_never_called_fabricated(
@@ -924,10 +945,12 @@ BIB_TWO = ("@article{lambert2021,\n  author = {Lambert, Samuel A.},\n  title = {
            "@misc{tool2026,\n  author = {Doe, Jane},\n  title = {A tool nothing cites},\n  year = {2026}\n}\n")
 
 
-@pytest.mark.parametrize("source,section", [("markdown", "References"), ("bibtex", "refs.bib, entry tool2026")])
+@pytest.mark.parametrize("source,section", [("markdown", "Supplementary Material, References for Table S7"),
+                                            ("bibtex", "refs.bib, entry tool2026")])
 def test_a_never_cited_entry_is_quoted_as_written_and_placed(tmp_path: Path, source: str, section: str) -> None:
-    """The never-cited finding quotes the entry and names where it is: the reference list, or the BibTeX file and
-    key (the line number alone would point into a file the authors did not open)."""
+    """The never-cited finding quotes the entry and names where it is: the section holding its reference list (here a
+    supplement's list under a bold label), or the BibTeX file and key (the line number alone would point into a file
+    the authors did not open)."""
     if source == "markdown":
         path = tmp_path / "paper.md"
         path.write_text(SUPPLEMENT, encoding="utf-8")
@@ -953,6 +976,7 @@ def test_a_supplementary_reference_list_and_its_citations_are_checked(tmp_path: 
                        for f in report.findings if f.check == "citations")
     assert citations == ["Never", "The in-text citation 'Smith 2019' has no bibliography entry"]
     (note,) = [f for f in report.findings if "further reference list" in f.message]
+    assert note.stage == "writing"  # a note about the list's layout, never a reason to read the draft as needing a fix now
     assert note.line == SUPPLEMENT.splitlines().index("**References for Table S7.**") + 1 and "(4 entries)" in note.message
 
 
@@ -993,9 +1017,9 @@ Module sizes range from 2 to 474 variants.
 
 
 @pytest.mark.parametrize("text, row, expected", [
-    ("19", "19", [("major", "the total row says 19 versions (L23); the text says 19 (L5)")]),
+    ("19", "19", [("major", "the total row says 19 versions (line 23); the text says 19 (line 5)")]),
     ("13", "13", []),
-    ("19", "13", [("minor", "the text says 19 (L5)")]),
+    ("19", "13", [("minor", "the text says 19 (line 5)")]),
 ])
 def test_column_totals_are_checked_against_the_cells(tmp_path: Path, text: str, row: str, expected: list) -> None:
     report = _numbers(tmp_path, CATALOG.replace("TEXT", text).replace("ROW", row), suffix=".tex")
@@ -1067,3 +1091,229 @@ def test_unresolved_identifier_title_search_respects_no_search_unidentified(
                             doi="10.9999/none")
     scan_ic.resolve_references([ref], search_unidentified=search)
     assert bool(calls) is searched
+
+
+# --------------------------------------------------------------------------------------------------
+# Reports for the authors: findings grouped by when the work can be done, each placed in its section with its
+# text quoted, identifiers as links, no bare line codes (references/author-priorities.md)
+# --------------------------------------------------------------------------------------------------
+
+STAGED = """# A Tool for Annotating Genomes
+
+Jana Example, Tomas Example
+
+## Abstract
+
+We annotate a genome in 40 s.
+
+## Results
+
+### Runtime
+
+Certainly, here is the revised results section. Annotation took 40 s (Smith et al., 2019), as in earlier
+work (Lambert et al., 2021). TODO add the cold-start runs.
+
+It is important to note that runs varied. It is important to note that caches were warm.
+
+## Code availability
+
+https://github.com/example/tool
+
+## References
+
+Lambert, S. A., et al. (2021). The Polygenic Score Catalog. Nature Genetics. doi:10.1038/s41588-021-00783-5
+Torkamani, A., et al. (2018). The personal and clinical utility of polygenic risk scores. PMID: 29789686
+Gao, T., et al. (2023). Enabling Large Language Models to Generate Text with Citations. arXiv:2305.14627
+"""
+STAGE_HEADINGS = ["## Fix now: the science and the evidence", "## Then the writing",
+                  "## Once you have chosen the journal", "## Before submission, once the code is final"]
+BARE_TOKENS = re.compile(r"\bL\d+\b|\bnot_checked\b|\bnone_found\b|\bno_identifier\b|\blookup_failed\b|"
+                         r"\bnot_assessed\b|desk-reject trigger|→")
+
+
+def _staged(tmp_path: Path, text: str = STAGED, name: str = "paper.md") -> Path:
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _under(md: str) -> dict[str, str]:
+    """The Markdown under each level-2 heading."""
+    parts = re.split(r"^(## .+)$", md, flags=re.MULTILINE)
+    return {parts[i]: parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+
+
+def test_the_report_groups_findings_by_when_they_can_be_done(tmp_path: Path) -> None:
+    report = scan_ic.scan(_staged(tmp_path), online=False, search_unidentified=False, venue="genome-biology")
+    md = scan_ic.to_markdown(report)
+    headings = [h for h in re.findall(r"^## .+$", md, flags=re.MULTILINE) if h in STAGE_HEADINGS]
+    assert headings == STAGE_HEADINGS  # every stage present here, in the order the authors work
+    groups = _under(md)
+    expected = {"citation 'Smith 2019'": "now", "is text a chat interface produces": "writing",
+                "Stock phrases appear": "writing", "are never cited": "writing",
+                "No length limits are recorded": "journal", "The placeholder 'TODO'": "final",
+                "No 'Data availability'": "final"}
+    for needle, stage in expected.items():
+        heading = STAGE_HEADINGS[[s.value for s in scan_ic.Stage].index(stage)]
+        assert needle in groups[heading], (needle, heading)
+        assert all(needle not in body for h, body in groups.items() if h != heading), needle
+    # Each finding's stage in the JSON is the group it is printed under.
+    assert {f.stage for f in report.findings} == {"now", "writing", "journal", "final"}
+    # Two stock phrases with one explanation are one item listing both places.
+    stock = groups["## Then the writing"]
+    assert stock.count("Stock phrases appear in 2 places.") == 1 and stock.count("**It is important to note that**") == 2
+
+
+def test_readiness_counts_end_stage_items_only_when_the_authors_are_about_to_submit(tmp_path: Path) -> None:
+    text = ("# Paper\n\n## Results\n\nRuns took 40 s (Lambert et al., 2021). TODO add the cold-start runs.\n\n"
+            "## References\n\nLambert, S. A., et al. (2021). The Polygenic Score Catalog. Nature Genetics. "
+            "doi:10.1038/s41588-021-00783-5\n")
+    path = _staged(tmp_path, text)
+    draft = scan_ic.scan(path, online=False, search_unidentified=False)
+    late = [f for f in draft.findings if f.stage == "final" and f.severity == scan_ic.Severity.major]
+    assert late and not [f for f in draft.findings if f.stage != "final" and f.severity.value in ("blocker", "major")]
+    assert "**Readiness:** the mechanical checks found nothing serious or important" in scan_ic.to_markdown(draft)
+    assert "treated as work in progress" in scan_ic.to_markdown(draft)
+    final = scan_ic.scan(path, online=False, search_unidentified=False, final=True)
+    assert final.final and [f.model_dump() for f in final.findings] == [f.model_dump() for f in draft.findings]
+    assert f"**Readiness:** not ready yet. {len(late)} findings would draw an objection" in scan_ic.to_markdown(final)
+    assert "You are about to submit" in scan_ic.to_markdown(final)
+    cli = CliRunner().invoke(scan_ic.app, [str(path), "--final"])
+    assert cli.exit_code == 0 and f"not ready yet. {len(late)} findings" in cli.output
+
+
+def test_strict_precommit_fails_on_end_stage_items_only_with_final(tmp_path: Path) -> None:
+    precommit = _load("precommit", SCRIPTS / "precommit.py")
+    path = _staged(tmp_path, "# Paper\n\n## Results\n\nRuns took 40 s. TODO add the cold-start runs.\n\n"
+                             "## References\n\nLambert, S. A., et al. (2021). The Polygenic Score Catalog. "
+                             "doi:10.1038/s41588-021-00783-5\n")
+    runner = CliRunner()
+    draft = runner.invoke(precommit.app, [str(path), "--strict"])
+    final = runner.invoke(precommit.app, [str(path), "--strict", "--final"])
+    assert (draft.exit_code, final.exit_code) == (0, 1), (draft.output, final.output)
+    assert "not counted (run with --final" in draft.output
+    assert "Important (before submission, once the code is final): The placeholder 'TODO'" in final.output
+
+
+@pytest.mark.parametrize("name, text, needle, section", [
+    ("paper.md", STAGED, "Certainly, here is", "Results, Runtime"),  # nested under Results; the title is no section
+    ("paper.md", "# Paper\n\n## Abstract\n\nIt took 41 s.\n\n## Results\n\nIt took 40 s.\n", "41 s", "Abstract"),
+    ("paper.md", "Draft notes. TODO\n\n# Intro\n\nText.\n\n# Methods\n\nMore.\n", "TODO", "Front matter"),
+    ("paper.tex", "\\begin{abstract}\nWe ran it in 40 s. TODO\n\\end{abstract}\n\\section{Results}\nText.\n", "TODO",
+     "Abstract"),
+    ("paper.tex", "\\section{Results}\n\\subsection{Speed}\nIt is important to note that it ran.\n", "important",
+     "Results, Speed"),
+])
+def test_each_finding_names_the_section_its_line_falls_under(tmp_path: Path, name: str, text: str, needle: str,
+                                                             section: str) -> None:
+    report = scan_ic.scan(_staged(tmp_path, text, name), online=False, search_unidentified=False)
+    (finding,) = [f for f in report.findings if f.quote and needle in f.quote and needle in f.excerpt]
+    assert finding.section == section
+
+
+@pytest.mark.parametrize("path", [SEEDED / "main.tex", CLEAN / "main.tex", "staged"])
+def test_every_finding_has_a_section_a_stage_and_quotes_its_own_line(tmp_path: Path, path: object) -> None:
+    path = _staged(tmp_path) if path == "staged" else path
+    report = scan_ic.scan(path, online=False, search_unidentified=False)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert report.findings
+    for f in report.findings:
+        assert f.section and f.stage in {s.value for s in scan_ic.Stage}, f
+        if f.quote and not f._entry:
+            pieces = [p.strip() for p in f.quote.split("[...]") if p.strip()]
+            assert all(p in " ".join(lines[f.line - 1].split()) for p in pieces), (f.quote, lines[f.line - 1])
+            if f.quote_span:
+                a, b = f.quote_span
+                assert f.quote[a:b].strip() and f.quote[a:b].strip() in f.excerpt.replace("…", "")
+
+
+def test_markdown_reports_quote_and_place_without_bare_line_codes(tmp_path: Path) -> None:
+    precommit = _load("precommit", SCRIPTS / "precommit.py")
+    staged = _staged(tmp_path)
+    reports = {
+        "scan": scan_ic.to_markdown(scan_ic.scan(staged, online=False, search_unidentified=False)),
+        "references": scan_ic.references_to_markdown(scan_ic.check_references(staged, False, False)),
+        "numbers": nc.to_markdown(nc.run(SEEDED / "main.tex")),
+        "hygiene": hy.to_markdown(hy.check_package([SEEDED])),
+        "precommit": CliRunner().invoke(precommit.app, [str(staged), str(SEEDED / "main.tex"), "--hygiene",
+                                                        "--advisory"]).output,
+    }
+    for name, md in reports.items():
+        assert not BARE_TOKENS.search(md), (name, BARE_TOKENS.search(md).group(0))
+        assert re.search(r"\(line \d+\)", md), name
+    line = STAGED.splitlines().index(next(l for l in STAGED.splitlines() if l.startswith("Certainly"))) + 1
+    assert f"In the Results, Runtime (line {line}), the manuscript reads “**Certainly, here is** the revised" in \
+        reports["scan"]
+    assert "In the Results (line 47), the manuscript reads “[...] participants. Comprehension ratings" in \
+        reports["numbers"]
+    assert "under the heading “Reproducing the analysis” (line 101), the masked value is “AKIA…LE”" in \
+        reports["hygiene"]
+
+
+def test_identifiers_are_given_as_links_the_authors_can_open(tmp_path: Path) -> None:
+    refs = scan_ic.check_references(_staged(tmp_path), online=False, search_unidentified=False).references
+    assert [scan_ic.identifier_url(r) for r in refs] == [
+        "https://doi.org/10.1038/s41588-021-00783-5", "https://pubmed.ncbi.nlm.nih.gov/29789686/",
+        "https://arxiv.org/abs/2305.14627"]
+    arxiv_doi = scan_ic.Reference(line=1, text="x", doi="10.48550/arXiv.2305.14627", arxiv="2305.14627")
+    assert scan_ic.identifier_url(arxiv_doi) == "https://arxiv.org/abs/2305.14627"
+    table = scan_ic.references_to_markdown(scan_ic.check_references(_staged(tmp_path), False, False))
+    for url in ("https://doi.org/10.1038/s41588-021-00783-5", "https://pubmed.ncbi.nlm.nih.gov/29789686/",
+                "https://arxiv.org/abs/2305.14627"):
+        assert f"| {url} |" in table
+
+
+def test_number_and_package_findings_carry_their_place_and_stage() -> None:
+    numbers = nc.run(SEEDED / "main.tex")
+    assert {(f.check, f.section, f.stage) for f in numbers.findings} == {
+        ("grim", "Results", "now"), ("statcheck", "Results", "now"), ("ledger", "Table 1", "now")}
+    assert all(f.quote and f.quote_span for f in numbers.findings)
+    package = hy.check_package([SEEDED])
+    tex = {f.check: f.section for f in package.findings if f.line}
+    assert tex == {"injection": "Discussion", "secrets": "Reproducing the analysis", "comments": "Methods, Participants"}
+    # Upload hygiene waits for the last step, except a hidden prompt and a leaked key (see the test below).
+    assert {f.check for f in package.findings if f.stage == "now"} == {"injection", "secrets"}
+    assert {f.stage for f in package.findings if f.check not in ("injection", "secrets")} == {"final"}
+
+
+def test_precommit_names_writing_patterns_by_section_and_catalogue_name(tmp_path: Path) -> None:
+    precommit = _load("precommit", SCRIPTS / "precommit.py")
+    output = CliRunner().invoke(precommit.app, [str(_staged(tmp_path)), "--advisory"]).output
+    line = STAGED.splitlines().index(next(l for l in STAGED.splitlines() if l.startswith("Certainly"))) + 1
+    assert f"  - In the Results, Runtime (line {line}), a paragraph has " in output
+    assert re.search(r"chat leftover \(G1\), once", output), output
+    assert not re.search(r"\b[A-Z]\d+×\d", output)  # no "G1×1" shorthand
+
+
+# Paper 1 v0.3: "Shenhar et al. (2025)" cites by narrative form; a table cell names the module "Longevity Variants 2026".
+NARRATIVE = """# Paper
+
+## Introduction
+
+Lifespan heritability is about 50% (Kaplanis et al., 2018), as Shenhar et al. (2025) argue.
+
+| Module | Variants | Curator |
+|---|---|---|
+| **Longevity Variants 2026** | Familial longevity | AI-generated |
+| Annotation | ANNOVAR | Wang et al., 2010 |
+
+## References
+
+Kaplanis, J., et al. (2018). Quantitative analysis of population-scale family trees. Science, 360, 171.
+Shenhar, B., et al. (2025). Heritability of human lifespan is about 50%. Science.
+Wang, K., Li, M., & Hakonarson, H. (2010). ANNOVAR: functional annotation of genetic variants. NAR, 38, e164.
+"""
+
+
+def test_narrative_citations_count_and_module_names_in_tables_are_not_citations(tmp_path: Path) -> None:
+    report = scan_ic.check_references(_staged(tmp_path, NARRATIVE), online=False, search_unidentified=False)
+    assert [f.message for f in report.findings if f.check == "citations"] == []
+
+
+def test_an_overlong_structured_abstract_is_counted_by_part(tmp_path: Path) -> None:
+    parts = {"Motivation": 60, "Results": 70, "Availability": 25}
+    abstract = "\n\n".join(f"**{label}:** " + " ".join(["word"] * n) for label, n in parts.items())
+    path = _staged(tmp_path, f"# Paper\n\n## Abstract\n\n{abstract}\n\n## Introduction\n\nText.\n")
+    report = scan_ic.scan(path, online=False, search_unidentified=False, venue="bioinformatics")
+    (finding,) = [f for f in report.findings if f.check == "venue" and f.section == "Abstract"]
+    assert "By part, the words after each label are: Motivation 60, Results 70 and Availability 25." in finding.message

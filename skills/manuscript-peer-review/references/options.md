@@ -30,8 +30,8 @@ Never iterate rewrites against the panel to reduce its findings.
 
 Seats can run on different model families. It reduces shared blind spots somewhat; it does not make
 the seats independent, and the report never calls them independent on that basis. Record the model used
-for each seat. Sending the manuscript to another provider needs the authors' consent for that provider;
-in invited-referee mode it is not allowed.
+for each seat. Send the manuscript to another provider only when the user agrees to that provider, in
+either mode.
 
 ## Decision distribution (only on request)
 

@@ -7,13 +7,24 @@ What `scripts/check_availability.py` checks, how to read its states, and what re
 ```bash
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --md SCRATCH/avail.md --json SCRATCH/avail.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online   # look every identifier up
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```
 
 Offline it extracts and classifies; `--online` asks each public archive whether the record exists. Only
 public identifiers leave the machine (accessions, DOIs, repository and package names), never manuscript
 text. `--github-auth` sends `$GITHUB_TOKEN` to GitHub when the unauthenticated limit (60 requests an hour)
 runs out; ask before using it. `--record manuscript-record.yaml` reads the venue from the record. Exit
-code 1 means at least one major finding. Write the outputs to a scratch location, not beside the manuscript.
+code 1 means at least one major finding in the current work; end-stage findings count only with `--final`,
+when the authors say they are about to submit. Write the outputs to a scratch location, not beside the
+manuscript.
+
+The Markdown report is written for the authors under the shared rules for the
+[order of work](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
+[writing for the authors](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors): findings grouped under "Fix now", "Then the
+writing", "Once you have chosen the journal" and "Before submission, once the code is final", each with a
+plain title, the manuscript's sentence quoted under its section (the line in parentheses), links as full
+URLs and no check codes. The JSON keeps the check codes below, the states and the line numbers for other
+tools; each finding there also carries its `stage`, `section`, `quote` and `span`.
 
 ## What it extracts
 
@@ -44,17 +55,26 @@ your report when the guess is wrong.
 
 ## States
 
-| State | Meaning |
-|---|---|
-| `resolves` | The archive has a public record. The title is shown: check that it is the dataset the paper means. |
-| `not_found` | The archive answered that no such record exists (or it was withdrawn, suppressed or made obsolete). |
-| `restricted` | The record exists but access is controlled (dbGaP, EGA, a gated Hugging Face repository) or held until publication (a private GEO series, an unreleased PDB entry). Legitimate: not a defect. |
-| `not_assessed` | No verdict, with the reason: offline, rate-limited, a refused request, an anonymised review link (never looked up), or an archive that gives the same answer for private and missing records (Hugging Face, Quay). Never counted as resolving. |
+| State (JSON) | In the report | Meaning |
+|---|---|---|
+| `resolves` | found | The archive has a public record. The title is shown: check that it is the dataset the paper means. |
+| `not_found` | not found | The archive answered that no such record exists (or it was withdrawn, suppressed or made obsolete). |
+| `restricted` | exists, with controlled access | The record exists but access is controlled (dbGaP, EGA, a gated Hugging Face repository) or held until publication (a private GEO series, an unreleased PDB entry). Legitimate: not a defect. |
+| `not_assessed` | not checked, with the reason | No verdict: offline, rate-limited, a refused request, an anonymised review link (never looked up), or an archive that gives the same answer for private and missing records (Hugging Face, Quay). Never counted as resolving. |
 
 A malformed identifier is never looked up. One written with a separator ("GSE 12345") has an obvious
 repair and is optional; one that cannot be an accession ("GSE1589O4", with a letter O) is major.
 
 ## Findings and what to do with them
+
+Each finding below is named by its check code (the JSON's `check`; the report gives a plain title instead).
+Its stage says when the authors can act on it. A malformed accession with no obvious repair, and a dataset
+or record the paper relies on that does not exist, are **Fix now**: readers cannot reach the evidence. A
+repairable spelling and an identifier the text excludes are **Then the writing**. The journal's abstract
+format is **Once you have chosen the journal**. Everything else here (the statement and its wording,
+deposits, archives, release tags, cited versions, licences, access routes, and the authors' own code or
+packages not yet published) is **Before submission, once the code is final**: not a problem with a draft,
+and never a blocker until the authors say they are about to submit.
 
 - **`no-statement`, `empty-statement`**: no availability statement, or one that names nothing ("All data
   are publicly available."). Major: the reader cannot find anything.
@@ -64,12 +84,16 @@ repair and is optional; one that cannot be an accession ("GSE1589O4", with a let
   With a stated restriction (consent, third-party licence, a data access committee) it becomes
   `request-route` (optional): check that it says who decides, on what terms, and what remains public.
   Controlled access through dbGaP or the EGA is the standard route for individual-level human data and is
-  never a defect; consent and privacy questions go to `manuscript-policy-fit`.
+  never a defect; consent and privacy questions go to `manuscript-policy-fit`. When the journal refuses
+  material on request and the authors decide to keep it, that is their decision: name the consequence
+  once among their decisions, not as a finding to fix.
 - **`in-article-only`**: "within the article and its supplementary files". Check that the underlying data,
   not only summary tables, are there.
 - **`malformed-identifier`, `not-found`, `withdrawn`, `version-not-found`**: the identifier, record or cited
   version does not exist. Before reporting, check the spelling against the archive; a private record at
-  submission is fine if the paper says so and reviewers have access.
+  submission is fine if the paper says so and reviewers have access. `version-not-found` also covers a
+  version of the authors' own software cited by name in the text ("varmerge 1.3.2" in a benchmark table)
+  that the repository has no tag, release or commit for.
 - **`code-unversioned`** (optional) or **`no-archive`** (major when the venue asks for an archived copy):
   a repository link with no release, tag, commit or archived DOI. Online, the script adds whether the
   repository has any release or tag at all. The fix is a tagged release archived on Zenodo or Software
@@ -97,8 +121,9 @@ entries (in `../../manuscript-integrity-check/references/venues.yaml`) through
 what the script derived from them: whether an archived copy, a licence, the location in the abstract or a
 reporting checklist is asked for, whether "on request" is refused, and any availability period (the
 Bioinformatics Application Note records "software available for 2 years"). These are dated research
-notes: verify a rule on the live page before calling a finding a blocker, and record the date. Nothing
-about a venue is hard-coded in the script.
+notes: verify a rule on the live page before treating it as binding, and record the date. Nothing
+about a venue is hard-coded in the script. In the report, cite a rule with the journal page's URL and the
+date it was read, never the plugin's file.
 
 When the venue keeps software available for a period, check where the code lives: a personal or lab
 server and an unarchived web service are at risk; an archived release (Zenodo, Software Heritage) and a
@@ -115,6 +140,9 @@ registration where the venue says so.
   `manuscript-peer-review` and, for benchmark numbers, `manuscript-integrity-check`'s numbers check.
 - Install and run documentation, test data and per-figure instructions that a venue asks for: open the
   repository's README when the venue requires them.
+- Software named only in prose, without a link, an install command or its archive's name ("we used
+  just-dna-format 0.7.1"), is not extracted. When it is the authors' own, look the package up by hand and
+  report it like the script's findings.
 
 ## Boundaries
 
@@ -124,4 +152,4 @@ registration where the venue says so.
 - `manuscript-policy-fit` decides whether consent, privacy or ethics rules restrict sharing; this skill
   only checks that the statement gives the route the restriction implies.
 - Never invent an accession, DOI, tag, licence or access route. Where the statement needs one the authors
-  have not given, write `author input needed`.
+  have not given, ask for it among the questions at the end of the report.

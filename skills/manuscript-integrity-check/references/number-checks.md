@@ -70,6 +70,9 @@ fractional df) in Markdown, LaTeX and plain text, recomputes p over the rounding
 - **gross** (major): the reported p and the recomputed p fall on opposite sides of α;
 - **information**: the reported p is larger and the sentence names a multiplicity adjustment.
 
+These four words are the script's labels. In the report, say what they mean: "the reported p = .04 does not
+fit t(28) = 1.20, which gives p = .24, and the result would no longer be significant at .05 (statcheck)".
+
 α is the one the text states ("P < 0.05 was considered significant", "α = .01"), else 0.05; `--alpha`
 overrides. A one-tailed p counts as consistent only when the same sentence says the test was one-tailed; if
 the paper mentions one-tailed tests elsewhere the candidate carries a note asking the authors to say so beside
@@ -91,13 +94,33 @@ text may count something the table leaves out. For a "mean ± SEM" column beside
 √n (over the SD's rounding interval) must reach the reported SEM. The usual explanation is an n that differs between
 the statistics.
 
-Software and benchmark papers often give the script little else to read. Recompute by hand what it cannot: ratios
-and fold changes against their columns, medians against listed runs, and stage times against totals; report each
-with its arithmetic.
+## Benchmark arithmetic by hand
+
+Software and benchmark papers usually have no means of whole-number data, no test statistics and no SD column, so
+`number_check.py` often reports nothing to test. That is not a clean result. Recompute from the printed values:
+
+- **Ratios and fold changes**: divide the two numbers the ratio names and compare with the stated value at its
+  rounding (612.4 s / 3.4 s = 180.1, stated as 180x). Say whether the paper divides medians or means; when both
+  are printed and give different ratios (7x for the medians against 4x for the means), the text should say which
+  one it quotes.
+- **Means, SDs and SEMs from listed runs**: recompute the mean and SD from the individual runs when they are given;
+  SEM = SD / √n, with n the number of runs that went into the mean (not the number of inputs or of scores). With
+  n = 2 the SD is |a − b| / √2 and the SEM is |a − b| / 2.
+- **Few runs per arm**: with two or three runs per arm, give the range of the per-run ratios beside the ratio of
+  medians, from the fastest run of the slower tool divided by the slowest run of the faster one, to the slowest
+  divided by the fastest; a headline speed-up should not rest on a ratio the range does not support.
+- **Totals**: stage times against the total run time (a constant gap in every row is overhead the text should
+  name), peak values against the table they cite, counts in the text against the table rows they summarise
+  ("12 tools" against a table of 13 rows).
+
+Report each disagreement under "Fix now" with its arithmetic, and say in one sentence what you recomputed and found
+consistent, so the authors know what was covered.
 
 ## Reporting a candidate
 
-Quote the excerpt, give the location and the arithmetic line, and name the smallest check: "Recompute the
-mean of the layered group from the data; 5.64 is not possible for 32 whole-number ratings (180/32 = 5.625,
-181/32 = 5.656)." Group findings with one root cause (a wrong n explains a ledger conflict and the GRIM
-failures that use it). For a revision, rerun the script and compare.
+Quote the sentence or table row with its section, the line number only in parentheses, then the arithmetic and
+the smallest check, in full sentences: "In the Results, 'the layered group rated it 5.64 on average (n = 32)'
+cannot be right for whole-number ratings: 180/32 = 5.625 and 181/32 = 5.656, so no total gives 5.64 (GRIM test).
+Recompute the mean from the data." Name a check by what it tests, with its name in parentheses. Number
+candidates belong to the report's "Fix now" group. Group findings with one root cause (a wrong n explains a
+ledger conflict and the GRIM failures that use it). For a revision, rerun the script and compare.

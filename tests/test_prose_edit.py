@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -569,3 +571,115 @@ def test_dropping_the_article_adjective_reported_is_not_an_evidence_status_chang
         "The reported benchmarks ran on one laptop.\n", "The benchmarks ran on one laptop.\n")
     assert ("evidence_status", "protected") in kinds(
         "Participants reported less pain after treatment.\n", "Participants had less pain after treatment.\n")
+
+
+# --- the Markdown report reads as prose for the authors -----------------------------------------------------------
+
+def _markdown(before: str, after: str, **options: bool) -> str:
+    return guard.to_markdown(guard.compare(before, after, **options))
+
+
+def test_a_finding_continues_its_sentence_in_lower_case_but_keeps_acronyms() -> None:
+    """'In the Results (line 3), a negation changed', never 'In the Results (line 3), A negation changed'."""
+    report = _markdown("# Results\n\nThe tool does not need a GPU.\n", "# Results\n\nThe tool needs a GPU.\n")
+    assert "In the Results (line 3), a negation changed" in report
+    assert ", A " not in report
+    assert guard._lower_first("APOE carriers lived longer.") == "APOE carriers lived longer."
+    assert guard._lower_first("GRCh38 coordinates were used.") == "GRCh38 coordinates were used."
+    assert guard._lower_first("The number changed.") == "the number changed."
+
+
+@pytest.mark.parametrize("headings, place", [
+    ("## 5. Discussion\n\n### 5.1 Limitations\n\n", "In section 5.1, Limitations (line 5)"),
+    ("## 6. Conclusion\n\n", "In section 6, Conclusion (line 3)"),
+    ("## A.2 Extra runs\n\n", "In section A.2, Extra runs (line 3)"),
+    ("## Discussion\n\n### Limitations\n\n", "In the Discussion, Limitations (line 5)"),
+    ("## A Study of Mice\n\n", "In the A Study of Mice (line 3)"),  # a capital word, not a section number
+])
+def test_numbered_headings_are_named_by_their_number_and_title(headings: str, place: str) -> None:
+    report = _markdown(headings + "Only four genomes were tested.\n", headings + "Four genomes were tested.\n")
+    assert place in report
+    assert "the 5." not in report and "the 6." not in report
+
+
+def test_a_table_row_is_not_called_a_sentence() -> None:
+    table = "# Results\n\n| Module | Content |\n|---|---|\n| Athletes | Variants associated with sprint speed |\n"
+    report = _markdown(table, table.replace("| Athletes | Variants associated with sprint speed |\n", ""))
+    assert "(a deleted table row, line 5 before the edit), a table row that claimed an association" in report
+    assert "deleted sentence" not in report
+
+
+@pytest.mark.parametrize("words, share", [(300, "Less than 1%"), (10, "About 10%")])
+def test_the_change_rate_never_reads_as_zero_when_words_changed(words: int, share: str) -> None:
+    before = " ".join(f"word{i}" for i in range(words)) + ".\n"
+    report = _markdown(before, before.replace("word3 ", "other "))
+    assert f"{share} of the original words changed" in report and "About 0%" not in report
+    assert "None of the original words changed" in _markdown(before, before)
+
+
+def test_a_change_only_the_whole_text_counts_see_is_described_in_a_full_sentence() -> None:
+    """A technical term has no sentence-level check, so only the whole-text counts move."""
+    report = guard.compare("We stored the calls as VCF files.\n", "We stored the calls as BCF files.\n")
+    assert report["sentence_changes"] == [] and report["protected"]["terms"]
+    markdown = guard.to_markdown(report)
+    assert "not in any one" not in markdown
+    assert "no single sentence accounts for" in markdown and guard.exit_code(report) == 1
+
+
+def test_the_report_names_no_command_line_flags_or_internal_terms() -> None:
+    seeded = (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8")
+    for options in ({}, {"allow_strengthening": True}, {"revision": True}):
+        markdown = guard.to_markdown(guard.compare(ORIGINAL, seeded, **options))
+        for internal in ("--allow-strengthening", "--revision", "protected", "rung", "token_status", "severity",
+                         "moved_within_paragraph", "from_elsewhere", "evidential", "the guard"):
+            assert internal not in markdown, (options, internal)
+    authorised = guard.to_markdown(guard.compare(ORIGINAL, seeded, allow_strengthening=True))
+    assert "The authors asked for a claim correction, so nine claim changes are marked as authorised." in authorised
+
+
+def test_usage_errors_say_what_to_give(tmp_path: Path) -> None:
+    runner = CliRunner()
+    missing = runner.invoke(guard.app, [str(FIXTURES / "original.md")])
+    assert missing.exit_code == 2 and "second argument" in missing.output
+    paper = tmp_path / "paper.md"
+    paper.write_text(ORIGINAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
+    untracked = runner.invoke(guard.app, [str(paper), "--against", "HEAD"])
+    assert untracked.exit_code == 2 and "not tracked by git" in untracked.output
+    for args in (["config", "user.email", "t@example.invalid"], ["config", "user.name", "T"], ["add", "paper.md"],
+                 ["commit", "-q", "-m", "original"]):
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+    unknown = runner.invoke(guard.app, [str(paper), "--against", "no-such-version"])
+    assert unknown.exit_code == 2 and "git has no version of paper.md" in unknown.output
+
+
+# --- skill files and eval cases -----------------------------------------------------------------------------------
+
+SKILL = ROOT / "skills" / "manuscript-prose-edit"
+
+
+def _slug(heading: str) -> str:
+    return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
+
+
+def test_relative_links_in_the_skill_resolve_with_their_anchors() -> None:
+    for md in SKILL.rglob("*.md"):
+        for target in re.findall(r"\]\(([^)\s]+)\)", md.read_text(encoding="utf-8")):
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            path, _, anchor = target.partition("#")
+            dest = (md.parent / path).resolve() if path else md
+            assert dest.exists(), f"{md.relative_to(ROOT)} links to missing {target}"
+            if anchor and dest.suffix == ".md":
+                headings = re.findall(r"^#+\s+(.*)$", dest.read_text(encoding="utf-8"), re.M)
+                assert anchor in {_slug(h) for h in headings}, f"{md.relative_to(ROOT)}: no #{anchor} in {path}"
+
+
+def test_eval_cases_are_complete_and_their_files_exist() -> None:
+    cases = yaml.safe_load((ROOT / "evals" / "manuscript-prose-edit.yaml").read_text(encoding="utf-8"))
+    assert len({c["id"] for c in cases}) == len(cases)
+    for case in cases:
+        assert case["skill"] == "manuscript-prose-edit" and case["prompt"].strip(), case["id"]
+        assert case["rubric"] and case["fail_if"] and case["planted"], case["id"]
+        for name in case["files"]:
+            assert (ROOT / "evals" / name).is_file(), (case["id"], name)

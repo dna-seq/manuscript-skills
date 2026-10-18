@@ -22,7 +22,10 @@ when the Methods leave them genuinely open; do not interview them for what the p
   supervised model is trained or evaluated; PRS-RS only when a polygenic score is developed, validated or
   its predictive performance reported (a tool or report that applies published scores names their PGS
   Catalog IDs, build and missing-variant handling instead); MINSEQE only for sequencing data, MIAME only
-  for microarrays. Decide from the Methods and say which way you decided.
+  for microarrays. Decide from the Methods and say which way you decided, in one sentence with the reason
+  ("TRIPOD+AI does not apply: no model that predicts an individual's outcome is developed or validated").
+  A guideline that does not apply needs no item table; when the project keeps `manuscript-record.yaml`,
+  name it in the `checks` summary so a later run does not reconsider it.
 - **Minimum-information standards** (MINSEQE, MIAME, MIxS) describe what a deposited dataset must carry.
   Audit them against the deposition and its description in the paper, together with the archive's own
   submission rules (GEO, ArrayExpress and the INSDC archives enforce most of them at deposit).
@@ -37,7 +40,9 @@ for the model's validation; a tool paper that also reports an association study 
 part. `design_notes` in `guidelines.yaml` holds the per-design advice.
 
 Qualitative studies use SRQR or COREQ. Their texts are not bundled (no open licence was found), so audit
-against the official checklist linked in `design_notes`.
+against the official checklist linked in `design_notes`. For a study whose scientific content an AI system
+produced (`ai-generated-science`), the design questions are in
+`../../manuscript-integrity-check/references/ai-science-design.md`.
 
 ## The venue decides what is required
 
@@ -48,7 +53,9 @@ Separate three cases and say which one applies:
    rule venues.yaml records with its read date; verify it on the live page before calling it binding. Only
    then does a missing item have a cost: say whether it is likely a desk return (the form itself is
    missing), a query from the editorial office (an item marked present that is not), or a referee
-   question.
+   question. Completing the form is work for "Once you have chosen the journal" and counts against
+   readiness only when the authors are about to submit. If they decide not to provide it, note the
+   consequence once among their decisions and continue.
 2. **The venue endorses guidelines in general** ("we encourage EQUATOR guidelines"). Items are advice
    that makes review easier; report the gaps that affect validity or reproducibility first.
 3. **Nothing is required.** Report gaps as optional advice. Do not demand a checklist the venue does not

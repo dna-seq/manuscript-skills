@@ -40,10 +40,10 @@ checked: 2026-10-15
 # inventing a checklist; the availability and reproducibility checks then carry the weight.
 design_notes:
   software-tool: >-
-    No EQUATOR reporting guideline covers a software or web-service paper. Apply the availability and
-    reproducibility checks (scripts/check_availability.py, references/availability.md) and the venue's
-    software rules: source location, archived version, licence, install and run documentation, test data,
-    how each figure is reproduced. If the tool contains a trained model, DOME covers its validation.
+    No EQUATOR reporting guideline covers a software or web-service paper. The availability and
+    reproducibility checks carry the weight, with the journal's software rules: source location, archived
+    version, licence, install and run documentation, test data, how each figure is reproduced. If the tool
+    contains a trained model, DOME covers its validation.
   method-benchmark: >-
     No EQUATOR reporting guideline covers a computational method comparison. Report the availability of
     every dataset, the code and versions of every method compared, parameter choices and how they were
@@ -55,8 +55,8 @@ design_notes:
     the minimum-information standard of the data type it holds (MINSEQE, MIAME, MIxS).
   public-data-reanalysis: >-
     The guideline follows the design of the reanalysis (STROBE for an observational reanalysis, STREGA for a
-    genetic association, STROBE-MR for MR). Check that every dataset is cited with its accession and version
-    and that controlled-access data name their access route.
+    genetic association, STROBE-MR for Mendelian randomisation). Check that every dataset is cited with its
+    accession and version and that controlled-access data name their access route.
   omics-profiling: >-
     The minimum-information standard follows the assay (MINSEQE for sequencing, MIAME for microarrays) and
     the archive's own submission requirements; the study design adds its own guideline.
@@ -64,9 +64,9 @@ design_notes:
     MDAR is the cross-cutting framework for laboratory studies. Venues often ask for their own form built
     on it (EMBO Press, eLife); use the venue's form when it is the target.
   qualitative: >-
-    SRQR (O'Brien et al., Acad Med 2014, doi 10.1097/ACM.0000000000000388,
+    SRQR (O'Brien et al., Acad Med 2014, https://doi.org/10.1097/ACM.0000000000000388,
     https://www.equator-network.org/reporting-guidelines/srqr/) and COREQ for interviews and focus groups
-    (Tong et al., Int J Qual Health Care 2007, doi 10.1093/intqhc/mzm042,
+    (Tong et al., Int J Qual Health Care 2007, https://doi.org/10.1093/intqhc/mzm042,
     https://www.equator-network.org/reporting-guidelines/coreq/). Neither is bundled: no open licence was
     found for either text (Crossref has no licence field, Europe PMC no open copy; checked 2026-10-15).
     Audit from the official checklist.
@@ -74,8 +74,8 @@ design_notes:
     No reporting guideline. Report the model, parameter values and their sources, random seeds, software
     versions, and where the simulation code and outputs are available.
   ai-generated-science: >-
-    No reporting guideline yet. Use ../../manuscript-integrity-check/references/ai-science-design.md for the
-    design questions; the availability checks cover prompts, code and outputs where the claims depend on them.
+    No reporting guideline yet. Report which system produced the content, how its output was checked by
+    people, and where the prompts, code and outputs the claims depend on are available.
 
 guidelines:
   - id: strobe

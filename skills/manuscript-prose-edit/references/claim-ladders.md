@@ -89,7 +89,9 @@ authors asked for a claim correction. It never covers numbers, citations or iden
 
 ## Critic and editor vocabulary
 
-Name a claim problem by the catalogue entry in `llm-smells.md` where one exists, and by these ladders:
+Name a claim problem by the catalogue entry in `llm-smells.md` where one exists, and by these ladders. These
+names are for the critic and the editor; in anything the authors read, describe the problem first and put the
+ID in parentheses.
 
 - **I1** verbs not matched to the design (an association reported with a causal verb): give both rungs.
 - **I2** hedge strength not matched to the evidence; **I6** certainty or scope changed between sections or by
@@ -97,7 +99,10 @@ Name a claim problem by the catalogue entry in `llm-smells.md` where one exists,
 - **CLAIM** a claim with no number, citation or result behind it.
 
 A copy editor never moves a claim to fix such a finding: lowering a claim is a claim correction, so it goes
-to the authors with the current wording, the proposed rung and what evidence would support it.
+to the authors with the current wording quoted with its section, the proposed wording, and the evidence each
+would need, in plain words ("the sentence says the variant causes the effect; the study measured an
+association"). A claim that outruns its evidence is listed under "Fix now", ahead of the writing changes
+(`../../manuscript-integrity-check/references/author-priorities.md`, "Order the work by when it can be done").
 
 ## Limits
 

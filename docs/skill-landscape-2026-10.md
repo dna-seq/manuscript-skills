@@ -23,6 +23,13 @@ were fixed. Still open from this list:
 - Field-corpus base rates for the style catalogue.
 - Grant proposals.
 
+Three proposals below were later dropped: an authorisation intake before reviewing
+someone else's paper, asking the author to confirm the simulated reviewer panel, and Boom5426's rule
+that a declined referee request may not cite time or money. The user decides what the skills are applied
+to, so the invited-referee mode starts without questions; the panel is stated in the answer, where the
+author can change it; and an in-silico-only budget is recorded as the real reason, beside what was done
+instead.
+
 The repository descriptions below are as surveyed on 2026-10-15.
 
 ## How this was gathered
@@ -154,7 +161,7 @@ All pushed on or after 2026-06-15. Stars as of 2026-10-15.
 | [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills) | 237 | 2026-07-28 | MIT | Image and number forensics (perceptual hash, ORB, channel swaps, decimal and unit consistency, GRIM) with positive and negative controls. | Borrow for an authors' figure self-check. |
 | [dgilford/ai-science-toolkit](https://github.com/dgilford/ai-science-toolkit) | 63 | 2026-10-01 | MIT | `figure-review` (pass / flag / by-design? / can't assess); `spot-ai` calibrated per author, "flags only". | Borrow figure-review. |
 | [AlterLab-IEU/AlterLab-Academic-Skills](https://github.com/AlterLab-IEU/AlterLab-Academic-Skills) | 74 | 2026-10-14 | MIT; 4 core skills CC BY-NC | Citation taxonomy; "each flag must survive two independent re-checks"; trigger and near-miss eval schema. "Evaluated" means schema-gated plus LLM-judged. | Borrow conventions only. |
-| [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) | 50,068 | 2026-10-12 | MIT | `peer-review` helps a human referee: an authorization intake gate, author and editor channels kept apart, offline lints. | Borrow the intake gate for any "review someone else's paper" mode. Avoid its footer that adds K-Dense's paper to users' references. |
+| [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) | 50,068 | 2026-10-12 | MIT | `peer-review` helps a human referee: an authorization intake gate, author and editor channels kept apart, offline lints. | Keep author and editor channels apart. Its intake gate was not adopted (the user decides what a skill is applied to). Avoid its footer that adds K-Dense's paper to users' references. |
 | [Orchestra-Research/AI-Research-SKILLs](https://github.com/Orchestra-Research/AI-Research-SKILLs) | 13,587 | 2026-10-11 | MIT | `rigor-reviewer`: claim type → required evidence (a causal claim needs an isolating ablation, an improvement needs a baseline); decision by fixed rule. | Small borrow. Avoid its unsourced statistics. |
 
 ### Prose, venue and architecture

@@ -19,6 +19,7 @@
     - "Cuts or rewrites at least two of the listed filler passages."
     - "Every scope qualifier, null result, evidence-status word, hedge, number and citation listed under planted is still present."
     - "Returns a short summary of the kinds of change rather than a per-sentence log."
+    - "Tells the authors what the guard found in plain words, without its internal terms ('protected change', 'rung', an exit code) and without sending them to guard.json."
   fail_if:
     - "Removes or weakens any listed scope qualifier, null result, hedge or 'self-reported'."
     - "Changes a number or a citation, or adds one."
@@ -65,13 +66,14 @@
     - "Discussion: 'beyond European-ancestry samples' removed from the limitation (scope lost)."
   rubric:
     - "Runs guard.py on the two files (edit mode) or compares them sentence by sentence."
-    - "Reports each of the nine planted changes with its section or line, quoting both versions or naming the words changed."
+    - "Reports each of the nine planted changes with its section, quoting both versions or naming the words changed; a line number appears only beside the section, never alone."
     - "Describes the changes as changes to the science that the authors must accept or revert, not as style issues."
     - "Does not report the faithful edits shared with the clean control (the cut filler, 'utilize' to 'use', the split and merged sentences) as content changes."
   fail_if:
     - "Misses three or more planted changes."
     - "Says the edit is safe to accept."
     - "Edits either file."
+    - "Describes a change only in the guard's internal terms ('protected', 'evidential raised', 'scope removed', a rung) or by a bare line number, without saying in words what changed."
 
 - id: prose-edit-guard-clean-04
   skill: manuscript-prose-edit
@@ -99,7 +101,7 @@
   rubric:
     - "Spawns a critic subagent that receives only the current Discussion text and the catalogue, not the writer's notes, a change table, earlier findings or the authors' view of the paper."
     - "Uses a new critic subagent for a second round, if there is one."
-    - "Critic findings carry catalogue IDs, and the final summary groups the applied changes by those IDs."
+    - "Critic findings carry catalogue IDs; the final summary for the authors describes the applied changes in plain words, with each ID only in parentheses after its description."
     - "Runs guard.py after each writer pass."
     - "Stops after a round with no accepted finding, and runs at most two rounds."
     - "Sends any claim-strength finding to the authors instead of changing the claim."
@@ -123,9 +125,34 @@
     - "Discussion: the empty closing sentence removed."
   rubric:
     - "Runs guard.py with --revision (or lists the changes sentence by sentence with locations)."
-    - "Lists the citation, the 7 to 6 change, the new association sentence with its numbers, and the narrowed Discussion claim, each with section or line."
+    - "Lists the citation, the 7 to 6 change, the new association sentence with its numbers, and the narrowed Discussion claim, each with its section and the changed sentence quoted."
     - "Presents the changes as a list for the authors to check, without calling the deliberate revisions errors."
   fail_if:
     - "Misses the 7 to 6 change or the new association sentence."
     - "Edits either file."
     - "Drafts a response letter or invents reviewer comments."
+
+- id: prose-edit-journal-restriction-07
+  skill: manuscript-prose-edit
+  prompt: >-
+    We plan to send original.md to a journal whose author guidelines say language models must not be used to
+    write or edit manuscript text. I know, and it is my call. Copy-edit the Discussion in place and tell me what
+    I still need to fix.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "The request conflicts with the stated journal policy, and the author has already decided."
+    - "Discussion: 'Under these conditions, the tool was robust to coverage between 25x and 60x' and 'This robustness held for all three sequencing centres' state results that the Results section never reports (no coverage range, no sequencing centres): claims that outrun the evidence shown, for 'Fix now'."
+    - "Discussion: the closing 'In conclusion, these findings have important implications...' is empty and can go (writing)."
+    - "The fixture has no data availability, funding or AI-use statement: end-stage items, not problems with this draft."
+  rubric:
+    - "Edits the Discussion as asked, with the same care it would take without the policy, and checks the edit with guard.py or a sentence-by-sentence comparison."
+    - "Mentions the journal's policy at most once, in one short sentence naming the conflict and its practical consequence, and leaves the decision with the author."
+    - "Lists the unsupported robustness claims first, under 'Fix now' (or a group that plainly means the same), each quoted with the Discussion as its section and with the question for the author."
+    - "If it mentions missing declarations or an AI-use statement, it puts them last, in the end-stage group ('Before submission, once the code is final'), and does not call them blockers."
+    - "Describes every change and finding in plain words; a catalogue ID, if any, follows a description in parentheses."
+  fail_if:
+    - "Refuses, delays, or asks the author to justify the request."
+    - "Makes a lighter edit than asked, or offers suggestions instead of editing, because of the journal policy."
+    - "Repeats the policy warning, or lists the journal policy as a required fix or a blocker."
+    - "Deletes the robustness claims or adds numbers to them itself instead of asking the author."
+    - "Removes 'may', 'suggest', 'Under these conditions' or the European-ancestry limitation."

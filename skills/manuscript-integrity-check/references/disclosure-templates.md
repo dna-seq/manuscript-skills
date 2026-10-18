@@ -59,9 +59,10 @@ Acknowledgements / Methods:
 
 Add a negative assertion about AI drafting only when known and needed; do not volunteer an unverifiable
 authorship-history claim. Distinguish narrow correction from substantive drafting rather than treating
-all revision as exempt. If compatibility is uncertain, explain the interpretation and options briefly
-and follow the author's decision. A human editing pass does not establish that earlier drafting did not
-occur or guarantee acceptance under the rule.
+all revision as exempt. When the authors' use may conflict with the drafting rule, draft the statement they
+ask for from the facts and add at most one sentence naming the conflict and its practical consequence; the
+decision is theirs (`author-priorities.md`). A human editing pass does not establish that earlier drafting
+did not occur or guarantee acceptance under the rule.
 
 Supplementary Note: one short paragraph, not a log. Which tools and versions, the kind of help (language
 editing, revision of the authors' text, code assistance), which sections, and how the authors checked it.
@@ -131,7 +132,8 @@ permission, entering the manuscript into an LLM while revising, or the reviews w
 
 - **ICLR 2027**: a mandatory AI-use section in the paper.
 - **NeurIPS 2026**: per the checklist; the position-paper track screened with Pangram and asked some authors for
-  version history showing human authorship; keep that history.
+  version history showing human authorship. Version history the authors already keep can answer such a request;
+  do not ask them to start one for it.
 - **ICML / ACL / EMNLP / CVPR / AAAI**: disclosure per the call; hallucinated references and hidden prompts are
   desk-reject or sanction grounds.
 

@@ -72,13 +72,15 @@ FIELD_WORDS = {
 }
 CONTRACT_WORDS = {"pass": "ready", "fail": "failed", "not_assessed": "could not be checked"}
 # Where a confirmed concern sits in the order the authors work (author-priorities.md, "Order the work by
-# when it can be done"). Groups after adjudication are listed in this order.
+# when it can be done"). Groups after adjudication are listed in this order. Points for other checks are
+# current work (a number that disagrees, a citation's identity), so they come before the end-stage group;
+# an end-stage point for another check is listed in the end-stage group (finding_stage).
 STAGES = (
     ("now", "Fix now: the science and the evidence"),
     ("writing", "Then the writing"),
     ("journal", "Once you have chosen the journal"),
-    ("final", "Before submission, once the code is final"),
     ("other-checks", "Also found, belongs to other checks"),
+    ("final", "Before submission, once the code is final"),
     ("answered", "Answered by the paper (refuted by the defence pass)"),
     ("dropped", "Dropped"),
 )
@@ -762,6 +764,21 @@ def _plural(n: int, word: str, many: Optional[str] = None) -> str:
     return f"{n} {word if n == 1 else (many or word + 's')}"
 
 
+NUMBER_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+
+
+def _referees(seats: list[str], tail: str = "") -> str:
+    """'one simulated referee (skeptic)': the description first, the seat names only in parentheses."""
+    n = len(seats)
+    count = NUMBER_WORDS[n] if n < len(NUMBER_WORDS) else str(n)
+    names = _words_list(seats, "and") if seats else "not named"
+    return f"{count} simulated referee{'' if n == 1 else 's'} ({names}{tail})"
+
+
+def _raised_by(seat: Any) -> str:
+    return f"a simulated referee ({seat})" if _nonempty_str(seat) else "no named referee"
+
+
 def _trim(text: Any, width: int = EXCERPT_WIDTH) -> str:
     text = _squash(str(text or "")).strip()
     return text if len(text) <= width else text[:width].rsplit(" ", 1)[0] + " [...]"
@@ -811,9 +828,9 @@ def _group_markdown(n: int, g: dict[str, Any], report: dict[str, Any]) -> list[s
     head = (f"### {n}. {SEVERITY_WORDS.get(g['severity'], 'A concern')} raised by {g['n_seats']} of "
             f"{_plural(total, 'simulated referee')}")
     ids = "finding" if len(g["findings"]) == 1 else "findings"
-    referees = "simulated referee" if g["n_seats"] == 1 else "simulated referees"
-    body = [f"It comes from {ids} {_words_list(g['findings'], 'and')}, written by the {referees} "
-            f"{_words_list(g['seats'], 'and')} (group {g['group']})."]
+    group_tail = f"; group {g['group']}"
+    body = [f"It comes from {ids} {_words_list(g['findings'], 'and')}, written by "
+            f"{_referees(g['seats'], group_tail)}."]
     body += _passage_sentences(g, report["manuscript"])
     body.append(f"Finding {g['concern_from']} states the concern as follows. {_sentence(g['concern'])}")
     verdict = _verdict_sentence(g)
@@ -836,7 +853,8 @@ def to_markdown(report: dict[str, Any]) -> str:
     adjudicated = report["stage"] == "adjudicated"
     lines = [f"# Finding check: {report['manuscript']}", ""]
     intro = (f"This check read {_plural(s['findings'], 'finding')} from {_plural(s['seats'], 'simulated referee')}, "
-             f"{'after' if adjudicated else 'before'} the defence pass. ")
+             f"{'after' if adjudicated else 'before'} the defence pass, in which a separate reader checks each "
+             f"concern against the paper. ")
     if s["findings"]:
         go_on = "the report" if adjudicated else "the defence pass"
         intro += (f"{s['pass']} of them quote the manuscript word for word and give every required field, so "
@@ -882,7 +900,7 @@ def to_markdown(report: dict[str, Any]) -> str:
             quoted = (f" It quotes \"{_trim(f.get('quote_text'))}\""
                       + (f" from {f['location']}." if _nonempty_str(f.get("location")) else ".")
                       if _nonempty_str(f.get("quote_text")) else "")
-            who = f"raised by {f['seat']}" if _nonempty_str(f.get("seat")) else "with no referee named"
+            who = f"raised by {_raised_by(f.get('seat'))}"
             lines.append(f"- **{f['id']}**, {who}, {CONTRACT_WORDS[f['contract']]}.{quoted} "
                          + " ".join(_sentence(p) for p in f["problems"]))
         lines.append("")
@@ -891,7 +909,7 @@ def to_markdown(report: dict[str, Any]) -> str:
         lines += ["## Strengths without a verified quote", ""]
         for st in loose:
             where = f" in {st['location']}" if _nonempty_str(st.get("location")) else ""
-            who = f", noted by {st['seat']}{where}," if _nonempty_str(st.get("seat")) else where
+            who = f", noted by {_raised_by(st['seat'])}{where}," if _nonempty_str(st.get("seat")) else where
             quoted = f" quotes \"{_trim(st.get('quote_text'))}\"." if _nonempty_str(st.get("quote_text")) else \
                 " has no quote."
             lines.append(f"- Strength {st['index']}{who}{quoted} " + " ".join(_sentence(p) for p in st["problems"]))
@@ -901,7 +919,7 @@ def to_markdown(report: dict[str, Any]) -> str:
         lines += ["## Warnings for the adjudicator", "",
                   "These do not stop a finding; the adjudicator decides whether the concern is fair as written.", ""]
         for f in warned:
-            lines.append(f"- The concern of **{f['id']}** ({f['seat'] or 'no referee named'}) reads "
+            lines.append(f"- The concern of **{f['id']}**, raised by {_raised_by(f['seat'])}, reads "
                          f"\"{_trim(f['concern'])}\" " + " ".join(_sentence(w) for w in f["warnings"]))
         lines.append("")
     cited = [(f["id"], e) for f in report["findings"] for e in f["prior_work"] if isinstance(e, dict)]

@@ -8,6 +8,9 @@ starting a questionnaire. Only genuinely missing decision-changing facts need qu
 
 ## Questions and the flags they set
 
+Ask in plain words, as the first column does ("Would you rule out journals that ban AI drafting?"); the
+flags and `--refuse` values are for the command, not for the question.
+
 | ask | `venues.py rank` flag |
 |---|---|
 | field and kind of paper: research, methods, software or tool, database, data, review, perspective | `--field aging\|bioinformatics\|genomics\|genetics\|systems-biology\|clinical\|general\|data\|software`, `--type …` |
@@ -47,11 +50,15 @@ The score measures administrative burden for AI-assisted text, not the chance of
 Tiers: 0–1 light, 2–3 moderate, 4–5 heavy, 6 and more severe. AI image rules are listed by `show` but not
 scored. The "for this AI use" column states what the rule means for the authors' actual use, which matters
 more than the total: a drafting ban costs nothing for polish, and for an AI-drafted paper it is a policy
-conflict that the authors decide how to handle. Show it as CONDITIONAL with the rule and the options
-(another venue, a supported interpretation, accepting the editorial risk), never as an automatic NO-GO.
+conflict that the authors decide how to handle. Show that venue as "Depends", with the rule quoted, its
+page linked and one sentence on what it means for this manuscript, and list the conflict with the
+authors' other decisions; never exclude the venue for it.
 
 ## Report
 
-The shortlist with friction and fit kept apart, the burden each venue would put on this manuscript, the
-date each policy was read (`policy read` column), and a re-check of the two or three venues recommended
-(`policy_watch.py check --venue KEY`). Name any venue whose entry is PARTIAL, SECONDARY or not researched.
+Write the shortlist as the selection skill's delivery section describes: plain words, each rule quoted
+with the URL of its page, acronyms spelled out, full sentences. Keep friction and fit apart and give the
+burden each venue would put on this manuscript in words ("6 points, severe: the journal asks authors not
+to have AI draft text"), with the date each policy was read. Re-read the policy pages of the two or three
+venues you recommend (`policy_watch.py check --venue KEY`). Say which venues' entries were checked only in
+part, rest on secondary sources, or have not been researched.

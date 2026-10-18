@@ -123,7 +123,8 @@ and fairness filter as every other seat: hostile, never unfair.
 When manuscript-integrity-check or manuscript-improve asks for independent desk-editor and methods
 reviewer passes, run two seats: desk-editor and evidence-statistics. Isolation, the contract and
 adjudication apply unchanged; skip the panel question unless the authors want to choose. Merge the
-confirmed points into the calling report, each marked with the seat that raised it.
+confirmed points into the calling report, in its stage groups, each saying in words which simulated
+reviewer raised it ("the simulated desk editor"), quoting the manuscript with its section.
 
 ## Domain modules
 

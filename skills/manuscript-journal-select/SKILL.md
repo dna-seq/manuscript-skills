@@ -29,12 +29,13 @@ for requested section or stage review, before/after comparisons and optional int
 ## Establish constraints without creating an interview burden
 
 Use the manuscript and existing conversation first. Ask only missing facts that change the shortlist:
-subject and contribution, article type, research/validation already done or affordable, APC budget,
-deadline, licence/funder constraints, and priorities among speed, reach and editorial fit. Offer a fuller
-interview only if requested. Do not make the author supply a complete questionnaire. When the authors ask
-to be interviewed, follow `references/interview.md` for questions mapped to `rank` flags. For AI-policy
-rankings, reuse that reference's field mapping and score explanations without automatically starting an
-interview; use known facts and ask only questions that materially affect the comparison.
+subject and contribution, article type, research/validation already done or affordable, publication
+budget (article processing charges), deadline, licence/funder constraints, and priorities among speed,
+reach and editorial fit. Offer a fuller interview only if requested. Do not make the author supply a
+complete questionnaire. When the authors ask to be interviewed, follow `references/interview.md` for
+questions mapped to `rank` flags. For AI-policy rankings, reuse that reference's field mapping and score
+explanations without automatically starting an interview; use known facts and ask only questions that
+materially affect the comparison.
 
 Treat an author's in-silico-only budget as a real constraint. Distinguish existing/public independent
 validation data, collecting a new cohort, and laboratory work: computational replication may be affordable
@@ -67,8 +68,11 @@ For the shortlist, read current journal-specific author instructions, scope and 
 applicable publisher requirements. Search specifically for validation, computational/public-data/MR
 restrictions, code/licence/data rules, fees and turnaround metrics; an AI-policy page alone is insufficient.
 The existing `policy_watch.py` compares AI passages and does not establish that these other policies are
-unchanged. Whenever a selection task checks a decision-changing requirement, give its scope,
-alternatives, source and date in the result in the format of `references/selection-fields.md`; do not
+unchanged; still run it for the two or three venues you recommend
+(`uv run --script ../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY`) and read the
+live page for anything it could not reach. Whenever a selection task checks a decision-changing
+requirement, state in the result, in plain sentences, its scope, accepted alternatives, the URL of the
+page it is on and the date read; `references/selection-fields.md` lists what to capture. Do not
 leave an expensive validation condition buried in background notes. Write it into the plugin's
 `venues.yaml` only when the task is maintaining this repository; during an author's task the catalogue is
 read-only (it sits in the plugin cache). This does not require refreshing unrelated entries.
@@ -80,19 +84,22 @@ and exceptions. Distinguish explicit requirements, recommendations, published pr
 A publisher rule may apply only to one design, article type or journal. Check both what is required and
 what work the author actually has; do not equate a policy mentioning cohorts with compulsory recruitment.
 
-Give each candidate a practical disposition:
+Give each candidate a practical disposition. The report uses the plain label (the words `rank` prints in
+its validation column); the internal name may follow in parentheses:
 
-- **GO:** no known conflict with the author's constraints after relevant checks, including known costs
-  within the stated budget. This is not a guarantee of acceptance; label a helper's narrower
-  validation-only GO accordingly.
-- **CONDITIONAL:** a plausible affordable route exists, or applicability/waiver needs checking (for
-  example an APC above the budget unless a waiver or institutional agreement applies). State the exact
-  condition and who can resolve it. An AI-policy conflict with the authors' actual use is CONDITIONAL with
-  the rule and options stated: how to handle journal policy is the authors' decision.
-- **NO-GO under the stated constraints:** a confirmed scope restriction, expense or required validation
-  has no available route. Say why before ranking softer preferences. The author can still choose to try.
-- **UNKNOWN:** a material requirement or cost remains unresearched/unavailable. Keep this visible rather
-  than silently treating it as permissive.
+- **Fits** (GO): no known conflict with the author's constraints after relevant checks, including known
+  costs within the stated budget. This is not a guarantee of acceptance; say so when the helper's "Fits"
+  covers only the recorded validation rules.
+- **Depends** (CONDITIONAL): a plausible affordable route exists, or applicability/waiver needs checking
+  (for example a publication fee above the budget unless a waiver or institutional agreement applies).
+  State the exact condition and who can resolve it. An AI-policy conflict with the authors' actual use is
+  "Depends", with the rule quoted and its page linked: how to handle journal policy is the authors'
+  decision, listed with their other decisions.
+- **Does not fit the stated constraints** (NO-GO): a confirmed scope restriction, expense or required
+  validation has no available route. Say why before ranking softer preferences. The author can still
+  choose to try. A journal's AI policy never puts a venue here.
+- **Not known** (UNKNOWN): a material requirement or cost remains unresearched/unavailable. Keep this
+  visible, with the reason, rather than silently treating it as permissive.
 
 Do not let a favourable AI policy, JIF or claimed speed compensate for an infeasible validation requirement.
 Show infeasible candidates separately or explain their exclusion. Do not treat a second public dataset
@@ -123,7 +130,21 @@ deadline. Journal-level timing and editorial assessments must not be copied from
 Provide a concise comparison: venue/article type, disposition and decisive validation rule, scientific
 fit, open-science/source stance, editorial receptiveness, comparable review timing, cost, AI burden and
 sources/dates. Expand only the dimensions that affect the decision. Recommend a first choice and a
-sequential fallback where useful, with the main uncertainty and any remaining author decision.
+sequential fallback where useful, with the main uncertainty, then put the authors' decisions together
+(a fee route, a validation tradeoff, a journal policy that conflicts with their actual use, each named
+once with its practical consequence).
+
+Write it as [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
+describes. Quote the rule that decides each venue with the URL of the page it is on and the date it was
+read. Use plain words for the catalogue's terms: describe a study design ("a software paper", "a
+reanalysis of public data") and a policy rule ("asks authors not to have AI draft text") rather than
+showing a design key, field or flag name such as `public-data`, `banned_drafting` or `drafting-ban`; the
+name may follow in parentheses. Give the AI-policy burden as `rank` does, in points with the reason in
+words. Spell out acronyms at first use (article processing charge, journal impact factor) and write full
+sentences; a table is fine when every cell is a readable phrase. If the result also lists work on the
+manuscript (concerns the referees raised, a missing statement), group it under the four labels of
+[Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
+science fixes first, archiving and declarations last, and none of it an obstacle to choosing.
 
 Follow the author's priorities rather than assigning universal weights or a fake precision score.
 Do the lookups yourself; do not ask the author to research policy pages. Stop once there is a usable

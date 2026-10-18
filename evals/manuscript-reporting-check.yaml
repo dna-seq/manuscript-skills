@@ -26,8 +26,10 @@
     - "Reports the missing population-stratification method as a STREGA item gap (12h), quoting where it looked, and links it to the mixed-ancestry sample."
     - "Reports the missing multiple-testing correction for 48 tests as a major gap (STREGA 12i/16d and statistics reporting), with the 'P < 0.05' sentence quoted."
     - "Reports the request-only data sentence, the malformed GEO accession and the unversioned GitHub link, each at its location."
-    - "Says BMJ Open's checklist rule comes from venues.yaml with its date and should be verified on the live page, and only then describes what missing items may cost."
+    - "Says BMJ Open's checklist rule is a recorded note with its date and should be verified on the journal's page (given as its URL), and only then describes what missing items may cost."
     - "Treats the dbGaP data (phs000007.v35.p16, authorized access) as legitimate controlled access, not as a defect."
+    - "Groups the findings under 'Fix now', 'Then the writing', 'Once you have chosen the journal' and 'Before submission, once the code is final', in that order: the missing correction, the missing stratification method and the malformed GEO accession under 'Fix now'; the request-only data and the code's release tag and archive under the end-stage heading. Because the authors submit next week, the end-stage items count in its readiness verdict."
+    - "Quotes each finding's sentence with its section (a line number in parentheses at most) and gives the GitHub repository as its URL; no bare line references such as 'L101', check codes or status tokens such as not_assessed."
     - "Offers report-or-reanalyse options for the stratification and correction gaps (for example principal components from the genotypes already in hand, a correction applied to the P values already computed) rather than new data collection."
     - "States that identifiers were not resolved online (not assessed), rather than calling them valid."
   fail_if:
@@ -66,7 +68,7 @@
     - "Selects STROBE with STREGA and finds the population-stratification method (principal components, ancestry-stratified analysis) and the Bonferroni correction present, quoting them."
     - "Accepts the data access committee route for individual-level data as a legitimate restriction with a stated reason."
     - "Reads the release tag v1.2.0 and the Zenodo DOI as a versioned, archived code citation."
-    - "Any remaining findings are optional or not assessed, each with a location; it says identifiers were not resolved online."
+    - "Any remaining findings are optional or not assessed, each quoting its sentence with its section; it says identifiers were not resolved online."
   fail_if:
     - "Reports a missing multiple-testing correction, a missing stratification method, a request-only data statement, a malformed GEO accession or an unversioned code link."
     - "Reports controlled access as a defect."
@@ -84,7 +86,8 @@
     - "venues.yaml records 'software available for 2 years' for the Application Note."
   rubric:
     - "Says no EQUATOR reporting guideline covers a software tool paper and that DOME does not apply because no model is trained, then applies the availability and reproducibility checks instead."
-    - "Reports the missing archived version as a likely requirement, citing the venues.yaml rule with its date and asking for verification on the live Bioinformatics page."
+    - "Reports the missing archived version as a likely requirement, citing the recorded rule with its date and the Bioinformatics author-guidelines page as a URL, and asking for verification there."
+    - "Places the archived version under 'Before submission, once the code is final' and does not call it a blocker or count it against the current draft, since the authors have not said they are about to submit."
     - "Mentions the two-year availability rule and that a tagged release archived on Zenodo or Software Heritage meets it better than the GitHub link alone."
     - "Notes what it could not check offline (that the repository, licence, release and Bioconda package exist)."
   fail_if:
@@ -104,7 +107,8 @@
     - "Reports the missing multiple-testing correction as the main gap, quoting the threshold sentence."
     - "Credits what is reported (the model and covariates, effect sizes with confidence intervals, SD defined, PLINK and R versions) rather than flagging it."
     - "Points arithmetic checks (recomputed P values, GRIM) to manuscript-integrity-check's numbers check instead of recomputing them as findings."
-    - "Uses 'author input needed' for any fact only the authors have, such as how many tests were run in total if more than 48."
+    - "Asks for any fact only the authors have (such as how many tests were run in total, if more than 48) as a question at the end, rather than filling it in."
+    - "Places the missing correction under 'Fix now' as a gap in the analysis the claims need, quoting the threshold sentence with its section."
   fail_if:
     - "Runs a reporting-guideline item audit or an availability check that was not requested."
     - "Presents a corrected result (which SNPs survive correction) as though the authors had reported it."
@@ -130,3 +134,25 @@
     - "Claims the anonymised repositories, the Zenodo record or any licence were checked online."
     - "Invents a release tag, DOI or licence."
     - "Edits anonymised-tool.tex."
+
+- id: reporting-check-draft-authors-decide-01
+  skill: manuscript-reporting-check
+  prompt: >-
+    This is still a draft and it will probably go to Bioinformatics. We have decided to keep the
+    individual-level genotypes available on request rather than deposit them, even though the journal wants
+    the data public. Check the reporting and the availability. No network in this session.
+  files: [fixtures/manuscript-reporting-check/seeded-association.md]
+  planted:
+    - "Same planted defects as reporting-check-seeded-bmj-open-01."
+    - "The authors have decided to keep the request-only genotype route although Bioinformatics records that all data behind the conclusions must be in public repositories."
+  rubric:
+    - "Groups the findings by stage, current work first: the missing multiple-testing correction, the missing stratification method and the malformed GEO accession under 'Fix now'; the code's release tag and archive under 'Before submission, once the code is final', not counted against the draft."
+    - "Names the conflict between the request-only genotypes and the journal's data rule at most once, in one sentence with its practical consequence, as the authors' decision."
+    - "Quotes each finding's sentence with its section (a line number in parentheses at most); no bare line references, check codes or status tokens."
+    - "Still checks everything else that was asked (guidelines, the other availability items) in full."
+  fail_if:
+    - "Calls the request-only genotype data a blocker or a required fix, asks the authors to justify their decision, or repeats the warning."
+    - "Refuses, shortens or waters down part of the check because of the journal's policy."
+    - "Calls an end-stage item (an archive DOI, a release tag, the statement's wording) a blocker for this draft."
+    - "Invents an accession, DOI, release tag, number or rule."
+    - "Edits seeded-association.md."

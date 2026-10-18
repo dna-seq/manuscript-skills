@@ -108,9 +108,10 @@ def test_clean_letter_against_a_revision_that_lacks_the_changes() -> None:
     report = _run(revised=V2_SEEDED)
     assert set(_codes(report)) == {("REVISED_QUOTE_NOT_FOUND", "R1.3a"), ("NUMBER_NOT_IN_MANUSCRIPT", "R1.2"),
                                    ("NUMBER_NOT_IN_MANUSCRIPT", "R2.P1")}
-    numbers = {f.item: f.message for f in report.findings if f.code == "NUMBER_NOT_IN_MANUSCRIPT"}
-    assert "9.6" in numbers["R1.2"] and "10.1" in numbers["R1.2"]
-    assert "12.3" in numbers["R2.P1"] and "12.6" not in numbers["R2.P1"]
+    numbers = {f.item: [d["number"] for d in f.details] for f in report.findings
+               if f.code == "NUMBER_NOT_IN_MANUSCRIPT"}
+    assert {"9.6", "10.1"} <= set(numbers["R1.2"])
+    assert "12.3" in numbers["R2.P1"] and "12.6" not in numbers["R2.P1"]  # 12.6 is in the revised manuscript
 
 
 def test_tags_are_optional_when_quotes_are_verbatim(tmp_path: Path) -> None:
@@ -412,8 +413,11 @@ def test_guard_inventory_changes_are_reconciled_with_the_letters_locations(tmp_p
     report = _run(_write(tmp_path, "nosummary.md", text), guard_json=path)
     unmentioned = [f for f in report.findings if f.code == "UNMENTIONED_CHANGE"]
     assert unmentioned and all(not f.blocking for f in unmentioned)
-    assert any("line 7 (Abstract)" in f.message for f in unmentioned)
-    assert not any("line 5 " in f.message for f in unmentioned)  # line 5 is cited by R1.4a
+    places = {(d["section"], d["line"]) for f in unmentioned for d in f.details}
+    assert ("the Abstract", 7) in places
+    assert not any(line == 5 for _, line in places)  # line 5 is cited by R1.4a
+    assert ("In the Abstract (line 7 of the revised manuscript), the number \u201c12.6\u201d is new: "
+            "\u201cA long-read genome took 12.6 minutes.\u201d") in cr.to_markdown(report)
 
 
 def test_deleted_text_counts_as_mentioned_when_the_letter_cites_its_section(tmp_path: Path) -> None:
@@ -428,9 +432,14 @@ def test_deleted_text_counts_as_mentioned_when_the_letter_cites_its_section(tmp_
     assert _run(guard_json=path).findings == []
     text = re.sub(r";?\s*Discussion, lines \d+-\d+", "", CLEAN.read_text(encoding="utf-8"))
     assert "Discussion, lines" not in text
-    found = [f for f in _run(_write(tmp_path, "nodisc.md", text), guard_json=path).findings
-             if f.code == "UNMENTIONED_CHANGE"]
-    assert len(found) == 1 and "deleted from original line 52 (Discussion): limitation removed" in found[0].message
+    report = _run(_write(tmp_path, "nodisc.md", text), guard_json=path)
+    found = [f for f in report.findings if f.code == "UNMENTIONED_CHANGE"]
+    assert len(found) == 1 and len(found[0].details) == 1
+    change = found[0].details[0]
+    assert (change["section"], change["line"], change["original_line"], change["kind"]) == (
+        "the Discussion", None, 52, "limitation")
+    assert ("In the Discussion (a sentence deleted from line 52 of the original), a limiting statement was dropped: "
+            "\u201cA limitation is that we tested only two genomes.\u201d") in cr.to_markdown(report)
 
 
 def test_an_older_guard_report_is_reconciled_by_token(tmp_path: Path) -> None:
@@ -454,7 +463,8 @@ def test_cli_exit_codes_and_outputs(tmp_path: Path) -> None:
     assert "A clean run is not a good letter" in (tmp_path / "c.md").read_text(encoding="utf-8")
 
     seeded = runner.invoke(cr.app, [str(REVIEWS), str(LEDGER_SEEDED), str(SEEDED), "--revised", str(V2)])
-    assert seeded.exit_code == 1 and "QUOTE_NOT_VERBATIM" in seeded.output
+    assert seeded.exit_code == 1 and "which is not the referee's wording" in seeded.output
+    assert "QUOTE_NOT_VERBATIM" not in seeded.output  # the codes stay in the JSON
 
     missing_text = runner.invoke(cr.app, [str(REVIEWS), str(LEDGER), str(CLEAN), "--revised", str(V2_SEEDED)])
     assert missing_text.exit_code == 1  # the quoted revised sentence is missing: blocking
@@ -603,7 +613,8 @@ def test_a_plan_ledger_is_checked_alone_and_undecided_items_are_listed_not_faile
     assert {c["check"]: c["state"] for c in report.checks} == {"ledger": "pass", "decisions": "pass"}
     assert report.unassessed_checks == 0
     md = cr.to_markdown(report)
-    assert "ledger-only check (plan mode)" in md and "no reply, location or landed commitment of this round was checked" in md
+    assert "There is no response letter yet" in md
+    assert "no reply, no place in the manuscript and no change you committed to was checked" in md
 
 
 def test_a_plan_ledger_still_blocks_on_its_own_defects(tmp_path: Path) -> None:
@@ -644,7 +655,7 @@ def test_zero_reply_blocks_leave_every_reply_check_not_assessed(tmp_path: Path) 
     states = {c["check"]: c["state"] for c in report.checks}
     assert states["coverage"] == "fail"
     assert {k for k in REPLY_CHECKS if states[k] != "not_assessed"} == set()
-    assert any("no reply blocks" in n for n in report.not_assessed)
+    assert any("no replies the check could pair with a comment" in n for n in report.not_assessed)
 
 
 def test_without_revised_exit_zero_is_reported_as_not_a_clean_result(tmp_path: Path) -> None:
@@ -652,7 +663,8 @@ def test_without_revised_exit_zero_is_reported_as_not_a_clean_result(tmp_path: P
     result = runner.invoke(cr.app, [str(REVIEWS), str(LEDGER), str(CLEAN), "--json", str(tmp_path / "c.json")])
     assert result.exit_code == 0, result.output
     assert "landed in the manuscript" not in result.output
-    assert "| Every commitment has a landed location in the ledger | pass |" in result.output
+    assert ("| Is every change you committed to recorded in the ledger as made, with its place in the manuscript? "
+            "| Yes. |") in result.output
     assert "not a clean result" in result.output
     data = json.loads((tmp_path / "c.json").read_text(encoding="utf-8"))
     assert data["summary"]["not_assessed_checks"] == 4  # locations, revised quotes, numbers, guard
@@ -666,5 +678,193 @@ def test_cli_checks_a_plan_ledger_without_a_letter(tmp_path: Path) -> None:
     ok = runner.invoke(cr.app, [str(reviews), str(ledger), "--md", str(tmp_path / "plan.md")])
     assert ok.exit_code == 0, ok.output
     md = (tmp_path / "plan.md").read_text(encoding="utf-8")
-    assert "no response letter" in md and "## Undecided items" in md and "R3.W1a" in md
+    assert "no response letter" in md and "## Decisions still needed from you" in md and "R3.W1a" in md
     assert runner.invoke(cr.app, [str(reviews), str(ledger), "--revised", str(V2)]).exit_code == 2
+
+
+# --------------------------------------------------------------------------------------------------------
+# The report the authors read: quotes, plain words and the order of the work
+# --------------------------------------------------------------------------------------------------------
+
+def _outside_quotes_and_parentheses(md: str) -> str:
+    """The report with quotations and parenthesised asides removed: what is left must not point by line alone."""
+    text = re.sub("“[^”]*”", "", md)
+    while True:
+        stripped = re.sub(r"\([^()]*\)", "", text)
+        if stripped == text:
+            return text
+        text = stripped
+
+
+def test_the_markdown_report_quotes_each_comment_and_shows_no_codes() -> None:
+    report = _run(SEEDED, LEDGER_SEEDED)
+    md = cr.to_markdown(report)
+    # codes, ledger field names and state words stay in the JSON
+    for code in {f.code for f in report.findings}:
+        assert code not in md, code
+    for token in ("not_assessed", "must_fix", "hand_to", "same_as", "undecided", "(resolved)", "| pass |", "| fail |",
+                  "letter line"):
+        assert token not in _outside_quotes_and_parentheses(md), token
+    # a line number only ever follows a description, in parentheses
+    assert not re.search(r"\blines? \d|\bL\d+\b", _outside_quotes_and_parentheses(md))
+    # each comment is named by the referee's own number and quoted
+    assert ("**Reviewer 2** (R2.P4): “I also wonder whether the peak memory of 6.1 GB includes the module tables "
+            "loaded into memory.” The response letter has no reply to this comment.") in md
+    assert "**Reviewer 1, comment 4b** (R1.4b): “Please state the version of the module tables" in md
+    # a misquoted comment is set against the reviews as written, not their case-folded text
+    assert ("The closest passage in the reviews reads “2. Table 1 reports medians of 3 runs. Please report the "
+            "spread across runs as well.”") in md
+    # the reply sentence that carries a wrong number is quoted
+    number = next(f for f in report.findings if f.code == "NUMBER_NOT_IN_MANUSCRIPT")
+    assert "It reads “VEP took 41.2 and 44.8 minutes, against 9.8 and 10.4 minutes for VarLens" in number.message
+    assert [d["number"] for d in number.details] == ["98.6"]
+    # an out-of-order reply says which reply it stands after
+    order = next(f for f in report.findings if f.code == "ORDER_MISMATCH")
+    assert "stands after the reply to Reviewer 1, comment 4b, which comes later in the reviews" in order.message
+
+
+def test_a_reply_moved_up_names_the_reply_it_now_precedes(tmp_path: Path) -> None:
+    text = CLEAN.read_text(encoding="utf-8")
+    start, end = text.index("<!-- item: R2.P3 -->"), text.index("<!-- item: R2.P4 -->")
+    block = text[start:end]
+    text = text[:start] + text[end:]
+    text = text.replace("<!-- item: R1.1 -->", block + "<!-- item: R1.1 -->")
+    order = [f for f in _run(_write(tmp_path, "m.md", text)).findings if f.code == "ORDER_MISMATCH"]
+    assert len(order) == 1 and "stands before the reply to Reviewer 1, comment 1, which comes earlier in the reviews" \
+        in order[0].message
+
+
+def _landed(ledger: str, item: str, landed: str) -> str:
+    """The ledger text with the first commitment of one item set to a landed value."""
+    head = ledger.index(f"- id: {item}\n")
+    k = ledger.index("landed:", head)
+    eol = ledger.index("\n", k)
+    return ledger[:k] + f"landed: '{landed}'" + ledger[eol:]
+
+
+def test_findings_are_grouped_by_when_the_work_can_be_done(tmp_path: Path) -> None:
+    stages = {(f.code, f.item): f.stage for f in _run(SEEDED, LEDGER_SEEDED).findings}
+    assert stages == {("PROMISE_NOT_LANDED", "R2.P1"): "now", ("NUMBER_NOT_IN_MANUSCRIPT", "R1.1"): "now",
+                      ("QUOTE_NOT_VERBATIM", "R1.2"): "writing", ("ORDER_MISMATCH", "R1.4a"): "writing",
+                      ("MISSING_REPLY", "R2.P4"): "writing", ("BLANKET_REPLY", "R1.4b"): "writing"}
+    # a change still to make takes the stage of the evidence it needs: new analysis now, wording with the writing,
+    # an availability statement at the end; a venue's length limit once the venue is chosen
+    text = LEDGER.read_text(encoding="utf-8")
+    for item in ("Ed.P1", "R1.4a", "R2.P1"):
+        text = _landed(text, item, "promised")
+    report = cr.run(REVIEWS, _write(tmp_path, "l.yaml", text), CLEAN, mode="rebuttal", max_chars=1500)
+    by_item = {f.item: f.stage for f in report.findings}
+    assert by_item == {"R2.P1": "now", "R1.4a": "writing", "Reviewer 1": "journal", "Reviewer 2": "journal",
+                       "Ed.P1": "final"}
+    md = cr.to_markdown(report)
+    heads = [md.index(f"## {title}") for _, title in cr.STAGES]
+    assert heads == sorted(heads)
+    final = md[heads[-1]:md.index("\n## ", heads[-1] + 1)]
+    assert "Code availability statement" in final and "comment 4a" not in final
+
+
+def test_the_plan_report_asks_for_decisions_in_plain_words_by_stage(tmp_path: Path) -> None:
+    reviews, ledger = _contest(tmp_path)
+    md = cr.to_markdown(cr.run(reviews, ledger))
+    for token in ("must_fix", "hand_to", "same_as", "undecided", "new-analysis", "discussion-text", "R2.S2a (",
+                  "## Undecided items"):
+        assert token not in md, token
+    decisions = md[md.index("## Decisions still needed from you"):]
+    now = decisions.index("### Fix now: the science and the evidence")
+    writing = decisions.index("### Then the writing")
+    final = decisions.index("### Before submission, once the code is final")
+    assert now < writing < final
+    assert now < decisions.index("**Reviewer 2, Suggestions 2** (R2.S2a): “Report the spread over five runs”."
+                                 " It asks for a new or changed table.") < writing
+    essential = decisions.index("**Reviewer 3** (R3.W1a): “The report lists variants with possible clinical")
+    assert writing < essential < final
+    assert "Draft its reply with manuscript-policy-fit." in decisions[essential:final]
+    assert final < decisions.index("(R2.S2c): “and publish the timing scripts.”")
+
+
+def test_unresolved_places_are_named_in_a_sentence(tmp_path: Path) -> None:
+    text = CLEAN.read_text(encoding="utf-8").replace("(Code availability, lines 95-96)",
+                                                     "(Code availability, lines 950-960)")
+    text = text.replace('(Methods, "Implementation",\nline 21)', '(Methods, "Software design", line 21)')
+    report = _run(_write(tmp_path, "l.md", text))
+    unresolved = {f.item: f.message for f in report.findings if f.code == "LOCATION_UNRESOLVED"}
+    last = len(V2.read_text(encoding="utf-8").splitlines())
+    assert unresolved["Ed.P1"] == ("The reply in the response letter (line 13) names lines 950-960, but the line "
+                                   f"numbers of the revised manuscript (paper-v2.md) run from 1 to {last}.")
+    assert ("names “Software design”, but no heading of the revised manuscript contains these words"
+            in unresolved["R1.4b"])
+
+
+def test_checks_that_did_not_run_are_told_once_per_reason(tmp_path: Path) -> None:
+    empty = _run(_write(tmp_path, "empty.md", "# Response\n\nWe thank the reviewers and have revised the paper.\n"))
+    no_blocks = [n for n in empty.not_assessed if "no replies the check could pair" in n]
+    assert len(no_blocks) == 1
+    assert "the order of the replies" in no_blocks[0] and "the numbers in the replies" in no_blocks[0]
+    # without a revised manuscript, one sentence says so; no place is listed on its own
+    journal = cr.run(REVIEWS, LEDGER, CLEAN)
+    assert journal.not_assessed[0].startswith("No revised manuscript was given")
+    assert not any(n.startswith("The reply to") for n in journal.not_assessed)
+    # a place that could not be checked for another reason is listed by its reply
+    off = _run(line_check=False)
+    assert any(n.startswith("The reply to the editor's request beginning") and "lines 95-96" in n
+               and "the line check was switched off" in n for n in off.not_assessed)
+
+
+def test_a_guard_report_that_cannot_be_matched_to_printed_lines_is_not_assessed(tmp_path: Path) -> None:
+    lines = V2.read_text(encoding="utf-8").splitlines()
+    revised = _write(tmp_path, "revised.txt", "\n".join(f"{i + 101} {line}" if line.strip() else ""
+                                                        for i, line in enumerate(lines)))
+    inventory = guard.compare(V1.read_text(encoding="utf-8"), V2.read_text(encoding="utf-8"), revision=True)
+    path = _write(tmp_path, "guard.json", json.dumps(inventory))
+    report = cr.run(REVIEWS, LEDGER, CLEAN, revised=revised, line_check=False, guard_json=path)
+    state = next(c for c in report.checks if c["check"] == "guard")
+    assert state["state"] == "not_assessed" and "printed line numbers" in str(state["detail"])
+    assert "not a clean result" in cr.to_markdown(report)
+
+
+def test_input_errors_read_as_sentences(tmp_path: Path) -> None:
+    with pytest.raises(cr.InputError, match=r"^The ledger .*l\.yaml is not valid YAML \(.*\)\.$"):
+        cr.load_ledger(_write(tmp_path, "l.yaml", "items: ["))
+    with pytest.raises(cr.InputError, match=r"^In the ledger .*, item 1 of round 1 \(R1\.1\) has no `comment:` text\.$"):
+        cr.load_ledger(_write(tmp_path, "m.yaml", "items:\n  - id: R1.1\n"))
+
+
+@pytest.mark.parametrize("section", [
+    "VarLens: fast annotation of personal genomes on a laptop > Results > Performance",
+    "VarLens: fast annotation of personal genomes on a laptop > 5. Discussion > 5.1 Limitations of Variant Annotation",
+    "VarLens: fast annotation of personal genomes on a laptop > Appendix > A.2 Extra runs",
+    "VarLens: fast annotation of personal genomes on a laptop",
+    "Results > Performance",
+])
+def test_changes_are_placed_in_guards_own_words(section: str) -> None:
+    """The letter check names the place of a change exactly as guard.py's revision report does."""
+    title = "VarLens: fast annotation of personal genomes on a laptop"
+    assert cr._section_words(section, title) == guard._section({"section": section}, title)
+
+
+def test_an_unmentioned_change_under_a_numbered_heading_names_the_section_by_number(tmp_path: Path) -> None:
+    title = "VarLens: fast annotation of personal genomes on a laptop"
+    change = {"severity": "protected", "kind": "number", "change": "added", "token": "4.2", "before_line": None,
+              "after_line": 2, "authorised": False, "before": "",
+              "section": f"{title} > 5. Discussion > 5.1 Limitations of Variant Annotation",
+              "after": "Runtime grew by 4.2 minutes on the slower disk."}
+    path = _write(tmp_path, "guard.json", json.dumps({"title": title, "protected": {}, "sentence_changes": [change]}))
+    report = _run(guard_json=path)
+    assert [d["section"] for f in report.findings for d in f.details] == [
+        "section 5.1, Limitations of Variant Annotation"]
+    assert ("In section 5.1, Limitations of Variant Annotation (line 2 of the revised manuscript), the number "
+            "\u201c4.2\u201d is new: \u201cRuntime grew by 4.2 minutes on the slower disk.\u201d") in cr.to_markdown(report)
+
+
+def test_a_long_list_of_unmentioned_changes_is_cut_and_says_how_many_more(tmp_path: Path) -> None:
+    changes = [{"severity": "protected", "kind": "number", "change": "added", "token": f"{n}.5", "before_line": None,
+                "after_line": 2, "authorised": False, "before": "", "section": "Results",
+                "after": f"Run {n} took {n}.5 minutes."} for n in range(cr.SHOWN_CHANGES + 2)]
+    path = _write(tmp_path, "guard.json", json.dumps({"protected": {}, "sentence_changes": changes}))
+    report = _run(guard_json=path)
+    found = [f for f in report.findings if f.code == "UNMENTIONED_CHANGE"]
+    assert len(found) == 1 and len(found[0].details) == cr.SHOWN_CHANGES + 2
+    md = cr.to_markdown(report)
+    assert found[0].message.startswith("17 changes to a number, citation or identifier sit where no reply")
+    assert md.count("  - In the Results (line 2 of the revised manuscript), the number") == cr.SHOWN_CHANGES
+    assert "  - Two more changes of this kind are listed in the comparison of the two versions" in md

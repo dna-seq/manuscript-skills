@@ -17,8 +17,11 @@ description: >-
 
 Help the authors give readers, editors and referees what they need to judge and reuse the work, with
 the least avoidable effort. Read the shared
-[author priorities](../manuscript-integrity-check/references/author-priorities.md). This skill reports;
-it edits only when the request includes edits, and then through `manuscript-prose-edit`'s
+[author priorities](../manuscript-integrity-check/references/author-priorities.md), in particular
+[authors first, journals second](../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second),
+[the order of work](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
+[writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors).
+This skill reports; it edits only when the request includes edits, and then through `manuscript-prose-edit`'s
 [contract](../manuscript-prose-edit/references/prose-edit-contract.md#1-the-contract). A reporting gap
 is filled only with facts the authors give (an n, a version, the correction used), inserted under that
 contract's author-supplied content rule; never with a value inferred here. Working files (audit tables,
@@ -37,21 +40,26 @@ one does not trigger the others.
 
 1. **Report what the authors did not report; never invent it.** No accession, DOI, tag, licence, n,
    test, correction, software version or access route that the manuscript or the authors did not give.
-   Where a fact is needed, write `author input needed` and ask.
+   Where a fact is needed, ask for it among the questions at the end of the report.
 2. **A reporting gap is not a new experiment.** Ask the authors to report what they did. If they did not
    do it, offer the options (report it as a limitation, run an analysis the existing data allow, narrow
    the claim) and leave the choice to them. An unaffordable venue requirement is a venue question for
    `manuscript-journal-select`.
-3. **The venue decides what is required.** Report what a missing item costs (a return, an office query,
-   a referee question) only when the target venue requires the guideline or its form, verified on its
-   live page. Otherwise a gap is advice, ranked by what it does to the reader's ability to judge the
-   result. Never demand a checklist the venue does not ask for.
-4. **A check that could not run did not pass.** Use the shared words in
-   [manuscript-record.md](../manuscript-integrity-check/references/manuscript-record.md#shared-outcome-words):
-   `not_assessed` with the reason, `unverified` for a fact that could not be confirmed. A supplement you
-   did not receive makes an item `unclear (material not supplied)`, not `missing`.
+3. **The venue decides what is required; the authors decide what to do about it.** Report what a missing
+   item costs (a return, an office query, a referee question) only when the target venue requires the
+   guideline or its form, verified on its live page. Otherwise a gap is advice, ranked by what it does to
+   the reader's ability to judge the result. Never demand a checklist the venue does not ask for. When the
+   authors choose not to meet a journal rule (data kept on request, a form left out), do the rest of the
+   work, name the conflict once in one sentence with its practical consequence among their decisions, and
+   never list it as a blocker or a required fix.
+4. **A check that could not run did not pass.** The record and the JSON use the shared words of
+   [manuscript-record.md](../manuscript-integrity-check/references/manuscript-record.md#shared-outcome-words)
+   (`not_assessed` with the reason, `unverified` for a fact that could not be confirmed); the report says
+   what happened in plain words ("could not be checked: Hugging Face gives the same answer for a private
+   and a missing repository"). A supplement you did not receive makes an item unclear (material not
+   supplied), not missing.
 5. **Controlled access is legitimate.** dbGaP, the EGA, a gated dataset or a GEO series private until
-   publication is `restricted`, not a defect. Whether consent or privacy rules restrict sharing is
+   publication is restricted access, not a defect. Whether consent or privacy rules restrict sharing is
    `manuscript-policy-fit`'s call; this skill checks that the statement gives the route.
 6. **Network lookups send only public identifiers** (accessions, DOIs, repository and package names),
    behind `--online`. Manuscript text never leaves the machine.
@@ -91,19 +99,23 @@ licences.
 uv run --script scripts/guidelines.py items strega --manuscript PAPER.md --md SCRATCH/strega-audit.md
 ```
 
-The table lists every item to check (an extension with its base's items) with empty state and location
-columns. Give each item one state: `present`, `partial`, `missing`, `not_applicable` or `unclear`
-(material not supplied), with a verbatim quote and location, or where you looked for an absent item.
-Read [item-audit.md](references/item-audit.md) for evidence rules, severity and the report. Items in
-`guidelines.yaml` are paraphrases. When a venue wants its official form, prepare the answers keyed by the
-form's item numbers (where in the manuscript, a short quote) for the authors to transfer; never reproduce
-the form's text.
+The table lists every item to check (an extension with its base's items, each number in parentheses after
+the item) with empty columns to fill. Give each item one state: present, partial, missing, not applicable
+or unclear (material not supplied), with a verbatim quote and its section, or where you looked for an
+absent item, and say when it can be fixed: a missing item that shows missing science (an analysis,
+comparison, correction or method the conclusions need) is for now; the rest of a checklist waits until
+the journal is chosen. A guideline you considered and found not to apply needs no table: say so in one
+sentence with the reason. Read [item-audit.md](references/item-audit.md) for evidence rules, severity and
+the report. Items in `guidelines.yaml` are paraphrases. When a venue wants its official form, prepare the
+answers keyed by the form's item numbers (where in the manuscript, a short quote) for the authors to
+transfer; never reproduce the form's text.
 
 ## 3. Check availability
 
 ```bash
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --md SCRATCH/avail.md --json SCRATCH/avail.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```
 
 It finds the availability statements, extracts and classifies every accession, DOI, repository, package,
@@ -115,9 +127,12 @@ venue's recorded rules (read from `../manuscript-integrity-check/references/venu
 against its archive: `resolves`, `not_found`, `restricted` or `not_assessed`, plus missing licences,
 missing releases and cited versions that do not exist, for the authors' own code only; a tool the paper
 compares or cites is checked for existence. Anonymised review links are never looked up: do not infer the
-repository behind them. Read every finding in context and discard false positives. Then do what the
-script cannot: check that every dataset behind a result has a location, that a resolving accession is the
-right dataset, and what the venue's live page asks. Read [availability.md](references/availability.md).
+repository behind them. Its Markdown report is written for the authors: findings grouped by when they
+can be fixed and quoted with their section, end-stage findings (archives, release tags, licences, the
+statement's wording) not counted against a draft unless `--final` says the authors are about to submit.
+Read every finding in context and discard false positives. Then do what the script cannot: check that
+every dataset behind a result has a location, that a resolving accession is the right dataset, and what
+the venue's live page asks. Read [availability.md](references/availability.md).
 
 ## 4. Check statistics reporting
 
@@ -130,11 +145,33 @@ between sections) is **manuscript-integrity-check's numbers check**
 
 ## The report
 
-Lead with the readiness of reporting and availability for the target venue and the smallest next steps.
-Then findings by the shared severities (blocker only for a verified venue requirement; major; optional;
-uncertain or not assessed), each with location, what is missing or wrong, the rule and its source with
-its date (guideline item, venue page), and the change to make. Group by root cause, not by checklist
-row. End with `author input needed` questions and what was not assessed. Give the full item table when the
+Lead with one paragraph on readiness (for the target venue when there is one; for a draft, what the current
+work needs) and the smallest next steps. Then the findings under these headings, in this order, leaving
+out empty ones (the [order of work](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)):
+
+1. **Fix now**: what the conclusions need and the paper lacks (a missing analysis, method, correction or
+   comparison, from the item audit or the statistics check) and data the results rest on that nobody can
+   reach (a malformed or non-existent accession, a dataset deposited nowhere).
+2. **Then the writing**: what was done but is reported unclearly (an undefined error bar, a test not named
+   for its comparison, an accession written with a stray space).
+3. **Once you have chosen the journal**: the journal's reporting checklist and its form, and its own
+   availability format (the software's location in the abstract).
+4. **Before submission, once the code is final**: archive DOIs and release tags, versions quoted in the
+   text, licence files, final accession numbers and the wording of the availability statement.
+
+Within a group, order by the shared severities and put an item after the one it depends on. An end-stage
+item is not a blocker and does not count in a draft's readiness unless the authors say they are about to
+submit. A blocker is a confirmed scientific defect, or a submission barrier verified on the journal's live
+page when the authors are about to submit; a journal rule the authors have chosen not to follow is one
+sentence among their decisions, not a finding.
+
+Write each finding as the shared rules for
+[writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors) ask: quote the sentence or table row it concerns and name its section (a line number in parentheses at most),
+say what is missing or wrong and why it matters for the paper, cite the rule with its source as a URL and
+the date it was read (a guideline item, a journal page), and give the change to make. Accessions, DOIs,
+repositories and releases are full URLs. Item numbers, check codes and state words follow a plain
+description in parentheses at most. Group by root cause, not by checklist row. End with the questions only
+the authors can answer and what was not assessed, with the reason. Give the full item table when the
 authors or the venue want it; otherwise offer it.
 
 When the project keeps `manuscript-record.yaml`, add a `checks` entry for this skill (scope, manuscript
@@ -158,7 +195,8 @@ or `policy`.
 ## Files
 
 - `scripts/guidelines.py`: `select`, `items`, `designs`, `list`, `validate` (PEP 723; `uv run --script`).
-- `scripts/check_availability.py`: extraction, offline flags, `--online` resolution, venue rules.
+- `scripts/check_availability.py`: extraction, offline flags, `--online` resolution, venue rules, a stage
+  for every finding and a Markdown report for the authors (`--final` when they are about to submit).
 - `references/guidelines.yaml`: 16 guidelines and standards plus 5 venue checklists, each with version,
   design keys, condition, EQUATOR page or defining DOI, licence and the date it was checked
   (2026-10-15), items paraphrased with their official numbers.

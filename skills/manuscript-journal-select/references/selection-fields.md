@@ -1,8 +1,10 @@
 # Recording selection evidence in the shared venue database
 
 This file guides maintenance of the plugin's catalogue,
-`../../manuscript-integrity-check/references/venues.yaml`. During an author's task, put newly researched
-facts in the result in this format (and in the shared manuscript record's `venue` entry when one exists);
+`../../manuscript-integrity-check/references/venues.yaml`. During an author's task, report newly
+researched facts in the result as plain sentences that cover the points below, each with the URL of its
+page and the date read (the field names are for the catalogue, not for the authors), and in the shared
+manuscript record's `venue` entry when one exists;
 write them into `venues.yaml` only when the task is maintaining this repository, following
 `../../manuscript-journal-adapt/references/policy-maintenance.md`. In an installed plugin the catalogue
 sits in a cache that an update replaces. Preserve existing fields; research only decision-changing gaps
