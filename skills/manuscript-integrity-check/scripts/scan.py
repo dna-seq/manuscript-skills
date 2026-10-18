@@ -1517,6 +1517,15 @@ def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, s
     return "pubmed", "retracted" if retracted else "none", None
 
 
+def _arxiv_error(entry: str, title: str) -> bool:
+    """arXiv answers a malformed id with an entry whose id is under /api/errors, titled Error, and a
+    well-formed id that does not exist with no entry. A paper whose title merely contains "Error" is a paper."""
+    entry_id = re.search(r"<id>(.*?)</id>", entry, re.DOTALL)
+    if entry_id and "/api/errors" in entry_id.group(1):
+        return True
+    return " ".join(title.split()) == "Error" and not (entry_id and "/abs/" in entry_id.group(1))
+
+
 def _resolve_arxiv(client: httpx.Client, ref: Reference) -> None:
     wait = 3.1 - (time.monotonic() - _ARXIV_LAST[0])  # arXiv asks for 3 s between calls
     if wait > 0:
@@ -1529,7 +1538,7 @@ def _resolve_arxiv(client: httpx.Client, ref: Reference) -> None:
         return
     entry = re.search(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
     m = re.search(r"<title>(.*?)</title>", entry.group(1), re.DOTALL) if entry else None
-    if not m or "Error" in m.group(1):
+    if not m or _arxiv_error(entry.group(1), m.group(1)):
         ref.status = "unresolved"
         return
     body = entry.group(1)

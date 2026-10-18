@@ -637,3 +637,26 @@ def test_reference_json_keeps_every_earlier_field() -> None:
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
     assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added
+
+
+def test_an_arxiv_paper_whose_title_contains_error_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
+    feed = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/abs/2101.00001v1</id>'
+            "<title>Error bounds for deep networks</title><published>2021-01-01T00:00:00Z</published>"
+            "<author><name>Ada Lovelace</name></author></entry></feed>")
+    errors = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/api/errors#incorrect_id_format'
+              "</id><title>Error</title></entry></feed>")
+    pages = {"2101.00001": feed, "bad-id": errors, "2101.99999": '<feed xmlns="http://www.w3.org/2005/Atom"></feed>'}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "export.arxiv.org":
+            return httpx.Response(200, text=pages[request.url.params.get("id_list", "")])
+        return httpx.Response(404)
+
+    original = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(scan.time, "sleep", lambda _: None)
+    refs = [scan.Reference(line=1, text="Lovelace, A. (2021). Error bounds for deep networks. arXiv.", arxiv=aid)
+            for aid in ("2101.00001", "bad-id", "2101.99999")]
+    scan.resolve_references(refs, search_unidentified=False)
+    assert [r.status for r in refs] == ["resolved", "unresolved", "unresolved"]
+    assert refs[0].resolved_title == "Error bounds for deep networks"
