@@ -557,7 +557,7 @@ def test_cli_against_a_git_ref(tmp_path: Path) -> None:
     git("commit", "-q", "-m", "original")
     paper.write_text((FIXTURES / "edited-seeded.md").read_text(encoding="utf-8"), encoding="utf-8")
     result = CliRunner().invoke(guard.app, [str(paper), "--against", "HEAD", "--revision"])
-    assert result.exit_code == 0 and "scope removed" in result.output
+    assert result.exit_code == 0 and "the scope qualifier \u201cIn mice\u201d was dropped" in result.output
 
 
 def test_dropping_the_article_adjective_reported_is_not_an_evidence_status_change() -> None:

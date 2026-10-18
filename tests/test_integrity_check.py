@@ -919,14 +919,39 @@ Never, C. (2026). An entry that nothing cites [software]. https://github.com/exa
 """
 
 
+BIB_TWO = ("@article{lambert2021,\n  author = {Lambert, Samuel A.},\n  title = {The Polygenic Score Catalog},\n"
+           "  journal = {Nature Genetics},\n  year = {2021}\n}\n"
+           "@misc{tool2026,\n  author = {Doe, Jane},\n  title = {A tool nothing cites},\n  year = {2026}\n}\n")
+
+
+@pytest.mark.parametrize("source,section", [("markdown", "References"), ("bibtex", "refs.bib, entry tool2026")])
+def test_a_never_cited_entry_is_quoted_as_written_and_placed(tmp_path: Path, source: str, section: str) -> None:
+    """The never-cited finding quotes the entry and names where it is: the reference list, or the BibTeX file and
+    key (the line number alone would point into a file the authors did not open)."""
+    if source == "markdown":
+        path = tmp_path / "paper.md"
+        path.write_text(SUPPLEMENT, encoding="utf-8")
+        uncited = "Never"
+    else:
+        (tmp_path / "refs.bib").write_text(BIB_TWO, encoding="utf-8")
+        path = tmp_path / "paper.tex"
+        path.write_text("\\section{Intro}\nScores are catalogued (Lambert, 2021).\n\\bibliography{refs}\n",
+                        encoding="utf-8")
+        uncited = "Doe"
+    report = scan_ic.check_references(path, online=False, search_unidentified=False)
+    (never,) = [f for f in report.findings if "never cited" in f.message]
+    entry = next(r.text for r in report.references if r.text.startswith(uncited))
+    assert (never.quote, never.section, never.stage) == (entry, section, "writing")
+
+
 def test_a_supplementary_reference_list_and_its_citations_are_checked(tmp_path: Path) -> None:
     path = tmp_path / "paper.md"
     path.write_text(SUPPLEMENT, encoding="utf-8")
     report = scan_ic.check_references(path, online=False, search_unidentified=False)
     assert [r.text.split(",")[0] for r in report.references] == ["McLaren", "Wang", "Cingolani", "Cingolani", "Never"]
-    citations = sorted(f.message.split(" with ")[0] if f.message.startswith("In-text") else f.excerpt.split(",")[0]
+    citations = sorted(f.message.split(" with ")[0] if f.message.startswith("The in-text") else f.excerpt.split(",")[0]
                        for f in report.findings if f.check == "citations")
-    assert citations == ["In-text citation 'Smith 2019' has no bibliography entry", "Never"]
+    assert citations == ["Never", "The in-text citation 'Smith 2019' has no bibliography entry"]
     (note,) = [f for f in report.findings if "further reference list" in f.message]
     assert note.line == SUPPLEMENT.splitlines().index("**References for Table S7.**") + 1 and "(4 entries)" in note.message
 

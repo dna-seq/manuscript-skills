@@ -142,7 +142,7 @@ def test_latex_bibtex_references_and_cite_keys(tmp_path: Path) -> None:
                    "\\bibliography{refs}\n", encoding="utf-8")
     report = scan.scan(tex, online=False, search_unidentified=False)
     assert [(r.doi, r.arxiv) for r in report.references] == [("10.1038/s41588-021-00783-5", None), (None, "2403.19087")]
-    assert [f.excerpt for f in _checks(report, "citations") if "not in the bibliography" in f.message] == ["missing2020"]
+    assert [f.excerpt for f in _checks(report, "citations") if "has no entry in the bibliography file" in f.message] == ["missing2020"]
     assert not [f for f in _checks(report, "references") if "No references" in f.message]
 
 

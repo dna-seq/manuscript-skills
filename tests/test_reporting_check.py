@@ -743,6 +743,11 @@ def test_a_table_cell_offering_another_tool_by_request_is_not_read(tmp_path: Pat
 def test_a_request_is_reported_at_the_line_of_its_phrase(tmp_path: Path, text: str, name: str, line: int) -> None:
     (finding,) = _checks(ca.check(_write(tmp_path, text, name)), "request-only")
     assert finding.line == line
+    # The finding quotes the whole sentence across its line breaks, without markup, and marks the request phrase.
+    assert finding.quote.startswith(("Data. Genotypes are available", "Genotype data for the 412"))
+    assert finding.quote.endswith("request.") and "\\" not in finding.quote and "\n" not in finding.quote
+    assert finding.span == "available from the corresponding author" and finding.span in finding.quote
+    assert finding.section == "Data availability"
 
 
 def test_licence_and_release_checks_are_for_the_authors_own_code_only(

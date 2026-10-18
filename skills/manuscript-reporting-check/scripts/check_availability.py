@@ -1809,15 +1809,17 @@ def findings_for(lines: list[str], skip: list[bool], statements: list[Statement]
                            suggestion="Name where each dataset or the code is (accession, DOI or URL), or state "
                                       "why it cannot be shared and how to apply for access."))
     out += _unidentified_archives(statements, lines, identifiers)
-    for line_no, sentence in request_sentences(lines, skip, sections, statements, tables):
+    for line_no, sentence, phrase in request_sentences(lines, skip, sections, statements, tables):
         rule = _rule_ref(venue, r"request") if venue and venue.request_refused else ""
+        where = {"line": line_no, "excerpt": sentence[:120], "quote": sentence, "span": phrase,
+                 "section": sections[line_no - 1] if sections else ""}
         if RESTRICTION.search(sentence) and not rule:
-            out.append(Finding(check="request-route", severity=Severity.optional, line=line_no, excerpt=sentence[:120],
+            out.append(Finding(check="request-route", severity=Severity.optional, **where,
                                message="Access is by request, with a stated restriction.",
                                suggestion="Check that it names who decides on access (a data access committee or "
                                           "named office, not one author), the criteria, and what remains public."))
         else:
-            out.append(Finding(check="request-only", severity=Severity.major, line=line_no, excerpt=sentence[:120],
+            out.append(Finding(check="request-only", severity=Severity.major, **where,
                                message="Material is offered only on request from the authors, with no stated reason.",
                                suggestion="Deposit it and give the accession or DOI; if it cannot be public, say why "
                                           "and route requests through a controlled-access archive or committee.",
