@@ -382,6 +382,16 @@ def _with_quote(finding: Finding, text: str, start: int = 0, end: int = 0) -> Fi
     return finding
 
 
+def _ref_finding(ref: "Reference", finding: Finding) -> Finding:
+    """A finding about one bibliography entry: its section names the BibTeX file and key, or the reference
+    list, and its quote is the entry as read."""
+    if finding.section is None:
+        finding.section = f"{ref._bib_file}, entry {ref._bib_key}" if ref._bib_file else "References"
+    if not finding.quote:
+        finding.quote, finding.quote_span = _quote(ref.text)
+    return finding
+
+
 def _scan_patterns(lines: list[str], patterns: list[str], check: str, severity: Severity, message: str,
                    suggestion: str, flags: int = re.IGNORECASE, stop_line: Optional[int] = None) -> list[Finding]:
     compiled = [re.compile(p, flags) for p in patterns]
@@ -604,9 +614,10 @@ def _bib_references(bib: Path) -> list[tuple[str, "Reference"]]:
         arxiv = ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note", "url")))
         eprint = fields.get("eprint") if fields.get("archiveprefix", "").lower() == "arxiv" else None
         doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", fields.get("doi", ""), flags=re.IGNORECASE)
-        out.append((m.group(2), Reference(line=line, text=entry, doi=doi or None,
-                                          pmid=fields.get("pmid") or None,
-                                          arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))))
+        ref = Reference(line=line, text=entry, doi=doi or None, pmid=fields.get("pmid") or None,
+                        arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))
+        ref._bib_file, ref._bib_key = bib.name, m.group(2)
+        out.append((m.group(2), ref))
     return out
 
 
