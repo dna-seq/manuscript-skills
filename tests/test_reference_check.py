@@ -13,6 +13,7 @@ import importlib.util
 import json
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from types import ModuleType
 from typing import Callable, Optional
@@ -636,7 +637,7 @@ def test_reference_json_keeps_every_earlier_field() -> None:
                "first_author_found", "title_similarity", "status"}
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
-    from_cite_check = {"url", "other_ids", "cited_title"}
+    from_cite_check = {"url", "other_ids", "cited_title", "other_id_checks", "url_status"}
     assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check
 
 
@@ -704,3 +705,93 @@ def test_a_bibtex_entry_that_does_not_parse_is_a_finding_not_a_silent_drop(tmp_p
 def test_short_pmids_and_old_arxiv_ids_are_read(text: str, expected: str) -> None:
     pmid, arxiv = scan.PMID_RE.search(text), scan._arxiv_id(scan.ARXIV_RE.search(text))
     assert (pmid.group(1) if pmid else arxiv) == expected
+
+
+class Wire:
+    """A MockTransport for the cite-check merge: doi.org CSL records, PubMed, arXiv and web pages; every request
+    recorded."""
+
+    CSL = {"10.9999/medra.1": {"title": "Deep <i>Learning</i> for Müller–Škoda Graphs", "issued": {"date-parts": [[2020]]},
+                               "author": [{"family": "Müller", "given": "Ana"}]},
+           "10.9999/norecord": None}
+    PUBMED = {"111": "Deep learning for Müller–Škoda graphs.", "222": "Something else entirely about mice."}
+
+    def __init__(self) -> None:
+        self.seen: list[httpx.Request] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.seen.append(request)
+        url = request.url
+        if url.host in ("api.crossref.org", "api.datacite.org", "www.ebi.ac.uk"):
+            return httpx.Response(404)
+        if url.host == "doi.org":
+            doi = urllib.parse.unquote(url.path[1:])
+            if doi not in self.CSL:
+                return httpx.Response(404)
+            rec = self.CSL[doi]
+            return httpx.Response(406) if rec is None else httpx.Response(200, json=rec)
+        if url.host == "eutils.ncbi.nlm.nih.gov":
+            pmid = url.params.get("id", "")
+            if not pmid.isdigit():
+                return httpx.Response(400)
+            doc = {"uid": pmid, "title": self.PUBMED[pmid]} if pmid in self.PUBMED else {"error": "cannot get"}
+            return httpx.Response(200, json={"result": {"uids": [pmid], pmid: doc}})
+        if url.host == "example.org":
+            pages = {"/page": 200, "/nohead": 200, "/gone": 404, "/private": 403, "/broken": 503}
+            if url.path == "/nohead" and request.method == "HEAD":
+                return httpx.Response(405)
+            return httpx.Response(pages.get(url.path, 404))
+        return httpx.Response(404)
+
+
+@pytest.fixture()
+def wire(monkeypatch: pytest.MonkeyPatch) -> Wire:
+    handler = Wire()
+    original = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(scan.time, "sleep", lambda _: None)
+    return handler
+
+
+def _resolved(**kw: object) -> "scan.Reference":
+    ref = scan.Reference(line=1, text=str(kw.pop("text", "Müller, A. (2020). Deep learning for Müller–Škoda graphs.")),
+                         **kw)  # type: ignore[arg-type]
+    scan.resolve_references([ref], search_unidentified=False)
+    return ref
+
+
+def test_a_doi_of_another_agency_gets_its_title_from_doi_org(wire: Wire) -> None:
+    ref = _resolved(doi="10.9999/medra.1")
+    assert ref.status == "resolved" and ref.resolved_title == "Deep Learning for Müller–Škoda Graphs"
+    assert ref.resolved_authors == ["Müller, Ana"]
+    asked = [r for r in wire.seen if r.url.host == "doi.org"]
+    assert asked[0].headers["accept"] == scan.CSL and asked[0].method == "GET"
+    assert _resolved(doi="10.9999/norecord").status == "lookup_failed"  # 406: the agency gives no record
+    assert _resolved(doi="10.9999/nothing").status == "unresolved"
+
+
+def test_each_identifier_is_asked_once_per_run_and_pubmed_names_the_tool(wire: Wire) -> None:
+    refs = [scan.Reference(line=n, text="Deep learning for Müller–Škoda graphs", pmid="111") for n in (1, 2, 3)]
+    scan.resolve_references(refs, search_unidentified=False)
+    pubmed = [r for r in wire.seen if r.url.host == "eutils.ncbi.nlm.nih.gov"]
+    assert len(pubmed) == 1 and pubmed[0].url.params["tool"] == "manuscript-skills"
+    assert "email" not in str(pubmed[0].url) and "mailto" not in str(pubmed[0].url)
+
+
+def test_every_identifier_of_an_entry_is_followed(wire: Wire) -> None:
+    ref = _resolved(doi="10.9999/medra.1", other_ids=["pmid:111", "pmid:222", "pmid:99999999", "pmid:abc"])
+    states = [(c["id"], c["state"], c["same_work"]) for c in ref.other_id_checks]
+    assert states == [("pmid:111", "ok", "true"), ("pmid:222", "ok", "false"), ("pmid:99999999", "dead", None),
+                      ("pmid:abc", "dead", None)]
+    messages = [f.message for f in scan._reference_findings([ref], online=True)]
+    assert any("point to different works: pmid 222" in m for m in messages)
+    assert sum("does not resolve" in m for m in messages) == 2
+
+
+@pytest.mark.parametrize("path, severity, words", [
+    ("/page", None, ""), ("/nohead", None, ""), ("/gone", scan.Severity.major, "does not answer (HTTP 404)"),
+    ("/private", scan.Severity.info, "refuses automated access"), ("/broken", scan.Severity.info, "could not be checked")])
+def test_a_url_field_is_checked_by_its_status(wire: Wire, path: str, severity: object, words: str) -> None:
+    ref = _resolved(doi="10.9999/medra.1", url=f"https://example.org{path}")
+    found = [f for f in scan._reference_findings([ref], online=True) if "url" in f.message]
+    assert ([(f.severity, words in f.message) for f in found] == [(severity, True)]) if severity else not found

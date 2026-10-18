@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import csv
 import fnmatch
+import html
 import json
 import re
 import subprocess
@@ -95,6 +96,8 @@ class Reference(BaseModel):
     url: Optional[str] = None  # a BibTeX url field that is not a DOI, arXiv or PubMed link
     other_ids: list[str] = []  # further identifiers the entry carries ("doi:10...", "pmid:123"), each checked too
     cited_title: Optional[str] = None  # the title as cited, when the entry has a title field (BibTeX)
+    other_id_checks: list[dict[str, Optional[str]]] = []  # one per other_ids: id, state, title, why, same_work
+    url_status: Optional[str] = None  # the url field's answer: "ok HTTP 200", "dead HTTP 404", "blocked ...", "unknown ..."
     resolved_title: Optional[str] = None
     resolved_year: Optional[str] = None
     resolved_first_author: Optional[str] = None
@@ -1132,6 +1135,31 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9 ]", " ", s.lower())
 
 
+GREEK = ("alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi pi rho sigma tau upsilon phi "
+         "chi psi omega").split()
+TEX_SPECIAL = {"ss": "ß", "o": "ø", "O": "Ø", "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ", "aa": "å", "AA": "Å",
+               "l": "ł", "L": "Ł", "i": "i", "j": "j", **dict(zip(GREEK, "αβγδεζηθικλμνξπρστυφχψω")),
+               **dict(zip((g.capitalize() for g in GREEK), "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΠΡΣΤΥΦΧΨΩ"))}
+
+
+def _delatex(s: str) -> str:
+    """LaTeX accents, commands, braces and math dollars out of a title (cite-check's reading)."""
+    s = s.replace("\\\\", " ")
+    s = re.sub(r"\\([`'^\"~=.])\s*", "", s)
+    s = re.sub(r"\\[uvHtcdbkr](?![A-Za-z])\s*", "", s)
+    s = re.sub(r"\\([&%$#_{}])", r"\1", s)
+    s = re.sub(r"\\([A-Za-z]+)\s*", lambda m: TEX_SPECIAL.get(m.group(1), " "), s)
+    return s.replace("~", " ").replace("{", "").replace("}", "").replace("$", "")
+
+
+def _strict_title(s: str) -> str:
+    """A title compared strictly: LaTeX and HTML out, NFKD with accents dropped, casefolded, every character that
+    is not a letter or digit a space."""
+    s = unicodedata.normalize("NFKD", _fetched(_delatex(s)))
+    s = "".join(c for c in s if not unicodedata.combining(c)).casefold()
+    return " ".join("".join(c if c.isalnum() else " " for c in s).split())
+
+
 def _similarity(title: str, entry: str) -> float:
     """How much of the resolved title appears in the citation text (0..1)."""
     t, e = _norm(title).split(), set(_norm(entry).split())
@@ -1141,25 +1169,59 @@ def _similarity(title: str, entry: str) -> float:
     return max(token, SequenceMatcher(None, _norm(title), _norm(entry)).find_longest_match().size / max(len(_norm(title)), 1))
 
 
-def _get(client: httpx.Client, url: str, **params: str) -> Optional[httpx.Response]:
-    """GET with retries on 429 and 5xx. None means the service did not answer, never "not found"."""
+# One run asks each URL once, and spaces its requests to one host: doi.org 1 s, NCBI 0.4 s (under its three a
+# second without a key), a web page's host 0.5 s. The registries' own pacing (arXiv 3 s, the per-reference pause)
+# stays where it is.
+HOST_GAP = {"doi.org": 1.0, "eutils.ncbi.nlm.nih.gov": 0.4}
+API_HOSTS = {"api.crossref.org", "api.datacite.org", "export.arxiv.org", "www.ebi.ac.uk", "api.biorxiv.org",
+             "www.medrxiv.org", "www.biorxiv.org", "arxiv.org"}
+_ASKED: dict[tuple, Optional[httpx.Response]] = {}
+_LAST_ASK: dict[str, float] = {}
+
+
+def _space(url: str) -> None:
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    gap = HOST_GAP.get(host, 0.0 if host in API_HOSTS else 0.5)
+    last = _LAST_ASK.get(host)
+    if gap and last is not None and time.monotonic() - last < gap:
+        time.sleep(gap - (time.monotonic() - last))
+    _LAST_ASK[host] = time.monotonic()
+
+
+def _get(client: httpx.Client, url: str, accept: Optional[str] = None, follow: bool = False,
+         **params: str) -> Optional[httpx.Response]:
+    """GET with retries on 429 and 5xx, asked once per run. None means the service did not answer, never "not
+    found"."""
+    key = ("GET", url, accept, follow, tuple(sorted(params.items())))
+    if key in _ASKED:
+        return _ASKED[key]
+    r = None
     for attempt in range(3):
+        _space(url)
         try:
-            r = client.get(url, params=params or None)
+            r = client.get(url, params=params or None, headers={"Accept": accept} if accept else None,
+                           follow_redirects=follow)
         except httpx.HTTPError:
-            return None
+            r = None
+            break
         if r.status_code == 429 or r.status_code >= 500:
             time.sleep(2 ** attempt)
+            r = None
             continue
-        return r
-    return None
+        break
+    _ASKED[key] = r
+    return r
 
 
-def _head(client: httpx.Client, url: str) -> Optional[httpx.Response]:
-    try:
-        return client.head(url, follow_redirects=False)
-    except httpx.HTTPError:
-        return None
+def _head(client: httpx.Client, url: str, follow: bool = False) -> Optional[httpx.Response]:
+    key = ("HEAD", url, None, follow, ())
+    if key not in _ASKED:
+        _space(url)
+        try:
+            _ASKED[key] = client.head(url, follow_redirects=follow)
+        except httpx.HTTPError:
+            _ASKED[key] = None
+    return _ASKED[key]
 
 
 def _json_message(r: Optional[httpx.Response]) -> Optional[dict]:
@@ -1577,16 +1639,60 @@ def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, st
         return source, state, notice
     if r is not None and r.status_code == 404 and _resolve_datacite(client, ref):
         return None
-    head = _head(client, f"https://doi.org/{ref.doi}")
-    if head is not None and head.status_code in (301, 302, 303, 307, 308):
-        ref.status = "resolved"
-        ref.lookup_notes.append("The DOI exists (doi.org) but no Crossref or DataCite metadata was read.")
-    elif head is not None and head.status_code == 404:
-        ref.status = "unresolved"
-    else:
-        ref.status = "lookup_failed"
-        ref.lookup_notes.append("Crossref and doi.org did not answer.")
+    _resolve_csl(client, ref)
     return None
+
+
+CSL = "application/vnd.citationstyles.csl+json"
+
+
+def _csl_record(client: httpx.Client, doi: str) -> tuple[str, Optional[dict], str]:
+    """("ok" | "dead" | "unknown", the CSL record, why): doi.org hands the request to whichever agency
+    registered the DOI (Crossref, DataCite, mEDRA, JaLC, ...)."""
+    r = _get(client, f"https://doi.org/{urllib.parse.quote(doi, safe='/()._;:-')}", accept=CSL, follow=True)
+    if r is None:
+        return "unknown", None, "doi.org did not answer"
+    if r.status_code == 406:
+        return "unknown", None, "the DOI's registration agency gives no record to compare"
+    if r.status_code in (404, 410) or 400 <= r.status_code < 500 and r.status_code != 429:
+        return "dead", None, f"doi.org answered HTTP {r.status_code}"
+    if r.status_code != 200:
+        return "unknown", None, f"doi.org answered HTTP {r.status_code}"
+    try:
+        rec = r.json()
+    except ValueError:
+        return "unknown", None, "doi.org's answer is not a CSL record"
+    return ("ok", rec, "") if isinstance(rec, dict) else ("unknown", None, "doi.org's answer is not a CSL record")
+
+
+def _csl_title(rec: dict) -> Optional[str]:
+    title = rec.get("title")
+    title = title[0] if isinstance(title, list) and title else title
+    return _fetched(title) if isinstance(title, str) and title.strip() else None
+
+
+def _resolve_csl(client: httpx.Client, ref: Reference) -> None:
+    """Neither Crossref nor DataCite has the DOI: ask doi.org for its agency's CSL record, so its title is still
+    compared. A DOI doi.org does not know is unresolved; an agency that gives no record is not assessed."""
+    state, rec, why = _csl_record(client, ref.doi or "")
+    if state == "dead":
+        ref.status = "unresolved"
+        return
+    if state == "unknown" or rec is None or not _csl_title(rec):
+        ref.status = "lookup_failed"
+        ref.lookup_notes.append(f"Crossref and DataCite hold no record and {why or 'the record has no title'}; "
+                                "the title was not compared.")
+        return
+    ref.resolved_title = _csl_title(rec)
+    parts = ((rec.get("issued") or {}).get("date-parts") or [[None]])
+    ref.resolved_year = str(parts[0][0]) if parts and parts[0] and parts[0][0] else None
+    names = [f"{a['family']}, {a['given']}" if a.get("family") and a.get("given") else a.get("family") or
+             a.get("literal") or "" for a in rec.get("author") or [] if isinstance(a, dict)]
+    ref.resolved_authors = [n for n in names if n][:200]
+    ref.resolved_first_author = _split_author(ref.resolved_authors[0])[0] if ref.resolved_authors else None
+    ref.status = "resolved"
+    ref.lookup_notes.append("doi.org gave the record (the DOI is registered with neither Crossref nor DataCite); "
+                            "no retraction registry covers it.")
 
 
 def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
@@ -1612,9 +1718,15 @@ def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
     return True
 
 
+EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
+NCBI_TOOL = "manuscript-skills"  # NCBI's `tool=`: names the software, never a person
+
+
 def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, str, Optional[str]]]:
-    r = _get(client, "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi", db="pubmed", id=ref.pmid or "",
-             retmode="json")
+    r = _get(client, EUTILS, db="pubmed", id=ref.pmid or "", retmode="json", tool=NCBI_TOOL)
+    if r is not None and 400 <= r.status_code < 500:
+        ref.status = "unresolved"
+        return None
     if r is None or r.status_code != 200:
         ref.status = "lookup_failed"
         ref.lookup_notes.append("PubMed did not answer.")
@@ -1782,6 +1894,7 @@ def _first_author_keys(ref: Reference) -> set[str]:
 
 
 def resolve_references(refs: list[Reference], search_unidentified: bool) -> None:
+    _ASKED.clear()
     with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
         for ref in refs:
             arxiv_doi = ARXIV_DOI_RE.match(ref.doi or "")
@@ -1817,7 +1930,76 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
                     ref.status = "mismatch"
                 if ref.status in ("resolved", "retracted", "concern") and ref.resolved_authors and names_authors:
                     _compare_authors(ref, _record_source(ref))
+            ref.other_id_checks = [_check_other_id(client, ref, other) for other in ref.other_ids]
+            if ref.url:
+                ref.url_status = _url_status(client, ref.url)
             time.sleep(0.35)  # NCBI allows 3 req/s without a key; Crossref asks for politeness
+
+
+def _fetched(title: str) -> str:
+    """A title as a source returned it: HTML entities and tags (Crossref's <i>, MathML) removed."""
+    return " ".join(re.sub(r"<[^>]+>", "", html.unescape(html.unescape(title))).split())
+
+
+def _title_of(client: httpx.Client, kind: str, value: str) -> tuple[str, Optional[str], str]:
+    """("ok" | "dead" | "unknown", the title, why) for one identifier, by its own registry."""
+    if kind == "doi":
+        msg = _json_message(_get(client, f"https://api.crossref.org/works/{value}"))
+        if msg is not None and (msg.get("title") or [""])[0]:
+            return "ok", _fetched(msg["title"][0]), ""
+        state, rec, why = _csl_record(client, value)
+        return (state, _csl_title(rec) if rec else None, why) if state != "ok" or (rec and _csl_title(rec)) else \
+            ("unknown", None, "the record has no title")
+    if kind == "pmid":
+        r = _get(client, EUTILS, db="pubmed", id=value, retmode="json", tool=NCBI_TOOL)
+        if r is None or r.status_code != 200:
+            return ("dead", None, f"PubMed answered HTTP {r.status_code}") if r is not None and \
+                400 <= r.status_code < 500 else ("unknown", None, "PubMed did not answer")
+        try:
+            doc = r.json()["result"].get(value) or {}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return "unknown", None, "PubMed's answer does not parse"
+        return ("ok", _fetched(doc["title"]), "") if doc.get("title") and "error" not in doc else \
+            ("dead", None, "no such PMID")
+    if kind == "arxiv":
+        r = _get(client, "https://export.arxiv.org/api/query", id_list=value)
+        if r is None or r.status_code != 200:
+            return "unknown", None, "arXiv did not answer"
+        entry = re.search(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
+        m = re.search(r"<title>(.*?)</title>", entry.group(1), re.DOTALL) if entry else None
+        if not m or _arxiv_error(entry.group(1), m.group(1)):
+            return "dead", None, "no such arXiv id"
+        return "ok", " ".join(m.group(1).split()), ""
+    return "unknown", None, f"no registry for {kind}"
+
+
+def _check_other_id(client: httpx.Client, ref: Reference, other: str) -> dict[str, Optional[str]]:
+    """A further identifier of the same entry: does it resolve, and to the same work as the first?"""
+    kind, _, value = other.partition(":")
+    state, title, why = _title_of(client, kind, value)
+    same = None
+    if state == "ok" and title:
+        against = ref.resolved_title or ref.cited_title
+        same = None if not against else str(_strict_title(title) == _strict_title(against)
+                                            or _similarity(title, against) >= 0.6).lower()
+    return {"id": other, "state": state, "title": title, "why": why, "same_work": same}
+
+
+def _url_status(client: httpx.Client, url: str) -> str:
+    """"ok HTTP n", "dead HTTP n", "blocked HTTP 403" or "unknown ...": HEAD, then GET when HEAD does not answer
+    2xx or 3xx; the status only, redirects followed."""
+    r = _head(client, url, follow=True)
+    if r is None or not 200 <= r.status_code < 400:
+        r = _get(client, url, follow=True)
+    if r is None:
+        return "unknown: no answer"
+    if 200 <= r.status_code < 400:
+        return f"ok HTTP {r.status_code}"
+    if r.status_code in (401, 403):
+        return f"blocked HTTP {r.status_code}"
+    if r.status_code == 429 or r.status_code >= 500:
+        return f"unknown: HTTP {r.status_code}"
+    return f"dead HTTP {r.status_code}"
 
 
 def _record_source(ref: Reference) -> str:
@@ -1929,6 +2111,33 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
                                suggestion="Cite the published version after confirming it still reports what you "
                                           "cite: numbers, methods and author lists change between versions. Keep "
                                           "the preprint only if you need content the published version dropped."))
+        for other in ref.other_id_checks:
+            kind_id = other["id"].replace(":", " ", 1)
+            if other["state"] == "dead":
+                out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
+                                   message=f"The entry also gives {kind_id}, which does not resolve ({other['why']}).",
+                                   suggestion="Correct it or drop it; every identifier an entry carries is followed."))
+            elif other["state"] == "unknown":
+                out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
+                                   message=f"The entry also gives {kind_id}, which could not be checked "
+                                           f"({other['why']}).", suggestion="Re-run later or check it by hand."))
+            elif other["same_work"] == "false":
+                out.append(Finding(check="references", severity=Severity.major, line=ref.line, excerpt=short,
+                                   message=f"The entry's identifiers point to different works: {kind_id} is "
+                                           f"'{other['title']}', the entry's first identifier "
+                                           f"'{ref.resolved_title or ref.cited_title}'.",
+                                   suggestion="Keep the identifier of the work you cite and remove the other."))
+        if ref.url_status and not ref.url_status.startswith("ok"):
+            dead = ref.url_status.startswith("dead")
+            out.append(Finding(check="references", severity=Severity.major if dead else Severity.info, line=ref.line,
+                               excerpt=short,
+                               message=f"The entry's url {ref.url} " + (
+                                   f"does not answer ({ref.url_status[5:]})." if dead else
+                                   f"refuses automated access ({ref.url_status[8:]}); open it by hand."
+                                   if ref.url_status.startswith("blocked") else
+                                   f"could not be checked ({ref.url_status[9:]})."),
+                               suggestion="Replace a dead link with an archived or current one (a DOI, a Software "
+                                          "Heritage or Wayback Machine snapshot)." if dead else ""))
         if any(n.startswith("The entry names no author") for n in ref.lookup_notes):
             out.append(Finding(check="references", severity=Severity.info, line=ref.line, excerpt=short,
                                message=f"The entry names no author (no author field could be read); the record "
