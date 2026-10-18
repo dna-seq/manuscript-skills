@@ -82,3 +82,8 @@ doi:10.3389/fgene.2022.1000667) and Lambert et al. 2020 (medRxiv, doi:10.1101/20
 licensed CC BY 4.0, with attribution and the changes made recorded in each file's header.
 evals/fixtures/manuscript-reference-check/recorded/ holds trimmed public metadata responses from Crossref,
 Europe PMC, PubMed, arXiv, DataCite and medRxiv, recorded on 2026-10-15 for offline tests.
+
+skills/manuscript-revision-marks keeps the revision-mark format (`<!-- @rev ID rounds=N by=name:date -->`)
+and the clean-twin, blind-spot and heat-map design of the manuscript ledger in dna-seq/just-dna-lite,
+https://github.com/dna-seq/just-dna-lite (same authors), reimplemented on the standard library with LaTeX
+support and review-ledger ids.

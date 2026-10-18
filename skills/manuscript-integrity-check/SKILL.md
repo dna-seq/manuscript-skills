@@ -36,7 +36,8 @@ for requested section or stage review, before/after comparisons and optional int
      identifier, a reference entry rebuilt from Crossref metadata;
    - do not replace paragraphs unless editing is also requested. For authorised edits, use the prose-edit
      skill's content-preservation contract and apply the selected venue's disclosure exemptions;
-   - preserve existing revision markers, but do not audit provenance or create a ledger unless requested.
+   - preserve existing revision markers, but do not audit provenance or create a ledger unless requested;
+     `manuscript-revision-marks` lints them and lists the prose no review round has touched.
      A later human edit does not automatically resolve a journal's restriction on earlier AI drafting.
 3. **Never invent a source.** Verify suggested citations against authoritative records, using an available
    DOI, PMID, arXiv identifier or primary publisher/library record. Reuse a current verification of an

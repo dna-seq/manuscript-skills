@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript revision marks"
+  short_description: "Who revised which passage, the clean copy builds read, blind spots and a revision heat map"
+  default_prompt: "Use $manuscript-revision-marks to lint the revision marks in this manuscript, refresh its clean copy, and list the passages no review round has touched."
