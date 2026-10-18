@@ -283,3 +283,67 @@ def test_usage_and_an_unreadable_file(T):
     assert r.rc == 3 and "cannot read" in r.out
     assert T.ts("pdf", T.dir / "a.md", "--template", T.dir / "none.latex").rc == 2
     assert T.ts().rc == 2
+
+
+# --- the draft: unreviewed segments shaded --------------------------------------------------------------
+
+DRAFTED = ("# A title\n\n"
+           "<!-- @rev C1 rounds=2 by=claude:2026-10-01,anna:2026-10-02 -->\nAnna reviewed this.\n<!-- @/rev C1 -->\n\n"
+           "<!-- @rev C2 rounds=1 by=grok:2026-10-03 -->\nAn agent paragraph.\n<!-- @/rev C2 -->\n\n"
+           "Hand text with <!-- @rev C3 rounds=1 by=sol:2026-10-03 -->an agent phrase<!-- @/rev C3 --> inside.\n")
+
+
+def test_a_markdown_draft_shades_only_the_unreviewed_and_leaves_the_submission_build(T):
+    (T.dir / ".git").mkdir()
+    (T.dir / "rev-marks.toml").write_text('humans = ["anna"]\n')
+    src = T.dir / "paper.md"
+    src.write_text(DRAFTED)
+    (T.dir / "paper.pdf").write_text("the submission build")
+    r = T.ts("pdf", src, "--draft")
+    assert r.rc == 0 and "2 of 3 segments shaded as unreviewed (C2, C3)" in r.out, r.out
+    (pandoc,) = T.calls("pandoc")
+    assert any(a.startswith("--lua-filter=") and a.endswith("unreviewed.lua") for a in pandoc["args"])
+    assert any(a.startswith("--include-in-header=") and a.endswith("unreviewed-preamble.tex") for a in pandoc["args"])
+    sent = pandoc["stdin"]
+    assert "::: unreviewed\nAn agent paragraph.\n:::\n" in sent and "[an agent phrase]{.unreviewed}" in sent
+    assert "Anna reviewed this.\n" in sent and "@rev" not in sent and sent.count("unreviewed") == 2
+    assert (T.dir / "paper.draft.pdf").exists() and (T.dir / "paper.pdf").read_text() == "the submission build"
+    assert not (T.dir / "paper.clean.md").exists()  # the draft reads the master, not a twin
+
+
+def test_unknown_human_and_a_config_path_change_what_is_shaded(T):
+    (T.dir / ".git").mkdir()
+    src = T.dir / "paper.md"
+    src.write_text(DRAFTED)
+    r = T.ts("pdf", src, "--draft")
+    assert "3 of 3 segments shaded" in r.out, r.out  # no config: anna is unlisted, so an agent
+    other = T.dir / "people.toml"
+    other.write_text('humans = ["anna"]\n')
+    assert "2 of 3 segments shaded" in T.ts("pdf", src, "--draft", "--config", other).out
+    r = T.ts("pdf", src, "--draft", "--unknown", "human")  # anna counts as a person; grok and sol are listed agents
+    assert "2 of 3 segments shaded as unreviewed (C2, C3)" in r.out, r.out
+
+
+def test_a_latex_draft_puts_the_preamble_before_the_document_and_takes_no_cap(T):
+    (T.dir / ".git").mkdir()
+    src = T.dir / "paper.tex"
+    src.write_text("\\documentclass{article}\n\\begin{document}\n% @rev C1 rounds=1 by=gpt-6:2026-10-01\n"
+                   "Agent text.\n% @/rev C1\n\n\\end{document}\n")
+    r = T.ts("pdf", src, "--draft")
+    assert r.rc == 0, r.out
+    draft = (T.dir / "paper.draft.tex").read_text()
+    assert draft.startswith("% typeset: generated from paper.tex;")
+    assert draft.index("\\newtcolorbox{unreviewed}") < draft.index("\\begin{document}")
+    assert "\\begin{unreviewed}\nAgent text.\n\\end{unreviewed}\n" in draft
+    assert [c["args"][-1] for c in T.calls("tectonic")] == ["paper.draft.tex"] and not T.calls("pandoc")
+    assert T.ts("pdf", src, "--draft", "--cap", "3").rc == 2
+
+
+def test_a_draft_says_what_it_could_not_shade_and_refuses_marks_that_do_not_lint(T):
+    (T.dir / ".git").mkdir()
+    src = T.dir / "paper.md"
+    src.write_text("A <!-- @rev C1 rounds=1 by=grok:2026-10-01 -->start.\n\nnext paragraph<!-- @/rev C1 --> end.\n")
+    r = T.ts("pdf", src, "--draft")
+    assert r.rc == 0 and "C1 is not shaded" in r.out and "0 of 1 segments shaded" in r.out, r.out
+    src.write_text("Text.\n<!-- @rev C1 rounds=1 by=grok:2026-10-01 -->\nMore.\n")
+    assert T.ts("pdf", src, "--draft").rc == 1

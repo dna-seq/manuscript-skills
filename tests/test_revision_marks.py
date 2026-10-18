@@ -740,3 +740,15 @@ def test_scan_names_the_ai_in_marks_from_the_same_list():
            "<!-- @rev C2 rounds=1 by=anna:2026-10-01 -->\nY.\n<!-- @/rev C2 -->\n"
            "% @rev C3 rounds=1 by=sol:2026-10-03\nZ.\n% @/rev C3\n")
     assert scan.ledger_ai(raw) == ["grok-4.7", "sol"]  # anna is unlisted: never counted as an AI here
+
+
+def test_draft_text_shades_blocks_and_runs_and_covers_a_nested_segment_once():
+    text = ("Intro.\n\n<!-- @rev C1 rounds=1 by=grok:2026-10-01 -->\nOuter <!-- @rev C2 rounds=1 by=sol:2026-10-01 -->"
+            "inner<!-- @/rev C2 --> text.\n<!-- @/rev C1 -->\n\nTail <!-- @rev C3 rounds=1 by=anna:2026-10-01 -->"
+            "kept<!-- @/rev C3 -->.\n")
+    found = rm.parse(text)
+    out, skipped = rm.draft_text(found, {"C1", "C2"})
+    assert out == "Intro.\n\n::: unreviewed\nOuter inner text.\n:::\n\nTail kept.\n" and skipped == []
+    assert rm.draft_text(found, set())[0] == found.clean_text()
+    tex = rm.parse("Hand,\n% @rev C1 rounds=1 by=grok:2026-10-01\nagent line,\n% @/rev C1\nhand.\n", rm.Syntax.TEX)
+    assert rm.draft_text(tex, {"C1"})[0] == "Hand,\n\\begingroup\\unrevtext%\nagent line,\n\\endgroup%\nhand.\n"

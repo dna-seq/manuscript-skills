@@ -7,6 +7,7 @@ reading twin through pandoc. Standard library only; pandoc and tectonic are its 
 does not install.
 
     uv run --script typeset.py pdf FILE.md|FILE.tex [--cap N] [--out PDF] [--strict] [--template TEMPLATE]
+    uv run --script typeset.py pdf FILE.md|FILE.tex --draft [--config TOML] [--unknown agent|human]
     uv run --script typeset.py md FILE.tex [--out MD]
 
 `pdf` from Markdown runs pandoc (--standalone --wrap=preserve --shift-heading-level-by=-1: the one `#`
@@ -27,6 +28,12 @@ is refused with a .tex source.
 - Each glyph the fonts lack is a warning line with its code point; the exit stays 0 unless --strict.
 - Pages come from the log's "Output written on … (N pages" line. Over --cap is exit 1 with the
   count; no such line under --cap is unknown, exit 3.
+- `pdf --draft` builds a review copy, `<stem>.draft.pdf`, from the marked master itself: every segment
+  whose latest round is not a person's (rev_marks.py's rule and rev-marks.toml) is shaded, a whole
+  paragraph as a box, a run inside a paragraph highlighted (or coloured, where it carries commands).
+  Markdown goes through unreviewed.lua and LaTeX gets unreviewed-preamble.tex before \begin{document}
+  (the LaTeX intermediate is `<stem>.draft.tex`). It never writes the submission PDF, and it takes no
+  --cap: the boxes change the length, so the submission build is the one measured.
 - `md` writes the reading twin, pandoc's GitHub Markdown of FILE, to `<stem>.md` beside it, the
   abstract (which pandoc keeps only as metadata) put first under "## Abstract". LaTeX comments, the
   revision marks among them, do not reach it.
@@ -53,7 +60,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-REV_MARKS = Path(__file__).resolve().parent / "rev_marks.py"
+HERE = Path(__file__).resolve().parent
+REV_MARKS = HERE / "rev_marks.py"
+DRAFT_FILTER = HERE / "unreviewed.lua"
+DRAFT_PREAMBLE = HERE / "unreviewed-preamble.tex"
+BEGIN_DOCUMENT_RE = re.compile(r"^[ \t]*\\begin\{document\}", re.MULTILINE)
 PANDOC_ARGS = ("--standalone", "--wrap=preserve", "--shift-heading-level-by=-1")
 _DEJAVU_FACES = "Extension=.ttf, UprightFont=*, BoldFont=*-Bold, ItalicFont=*-Italic, BoldItalicFont=*-BoldItalic"
 FONT_VARIABLES = (
@@ -166,12 +177,15 @@ def missing_glyphs(log: str) -> dict[str, int]:
     return counts
 
 
-def to_latex(pandoc: str, source: Path, master: Path, tex: Path, template: Path | None) -> None:
+def to_latex(pandoc: str, source: Path, master: Path, tex: Path, template: Path | None,
+             extra: tuple[str, ...] = (), text: str | None = None) -> None:
+    """Markdown to LaTeX; from *text* on stdin instead of *source* when given (run beside *source*)."""
     writable(tex)
-    cmd = [pandoc, "--from=markdown", "--to=latex", *PANDOC_ARGS, *(f"--variable={v}" for v in FONT_VARIABLES)]
+    cmd = [pandoc, "--from=markdown", "--to=latex", *PANDOC_ARGS, *(f"--variable={v}" for v in FONT_VARIABLES),
+           *extra]
     if template is not None:
         cmd.append(f"--template={template.resolve()}")
-    proc = run([*cmd, str(source.resolve())], source.parent)
+    proc = run([*cmd, *([] if text is not None else [str(source.resolve())])], source.parent, stdin=text)
     if proc.returncode != 0:
         raise RenderFailed(f"pandoc failed on {source.name} (exit {proc.returncode})\n{tail(proc.stderr)}")
     tex.write_text(f"% {GENERATED} {master.name}; edits here are overwritten\n{proc.stdout}", encoding="utf-8")
@@ -197,11 +211,73 @@ def to_pdf(tectonic: str, tex: Path, pdf: Path) -> str:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def glyph_warnings(pdf: Path, log: str) -> bool:
+    """Warn of each glyph the fonts lacked; whether any was."""
+    glyphs = missing_glyphs(log)
+    for key, count in glyphs.items():
+        say(f"warning: {pdf.name}: missing glyph {key} ({count} time{'s' if count > 1 else ''}): XeTeX left a"
+            " gap there; use a font that has it")
+    return bool(glyphs)
+
+
+def cmd_draft(args, path: Path, kind: str) -> int:
+    """The review copy: the marked master with its unreviewed segments shaded."""
+    if args.cap is not None:
+        raise Stop(2, "--draft takes no --cap: its boxes change the length; measure the build without --draft")
+    tools = binaries(*(("pandoc", "tectonic") if kind == ".md" else ("tectonic",)))
+    rm = rev_marks()
+    found = rm.parse(rm.read_source(path), rm.syntax_for(path))
+    if found.errors:
+        rm.print_issues(path, found.errors)
+        raise Stop(1, f"{path} has revision marks that do not lint; fix them (rev_marks.py lint {path})")
+    try:
+        people = rm.load_people(path, args.config, args.unknown)
+    except rm.ConfigError as exc:
+        raise Stop(2, str(exc)) from None
+    spots = rm.unreviewed(found, people)
+    text, skipped = rm.draft_text(found, {s.id for s in spots})
+    for sid in skipped:
+        say(f"warning: {sid} is not shaded: its inline marks enclose more than one paragraph; put them on lines"
+            " of their own")
+    stem = f"{path.stem}.draft"
+    pdf = args.out if args.out is not None else path.with_name(f"{stem}.pdf")
+    tex = path.with_name(f"{stem}.tex")
+    try:
+        if kind == ".md":
+            to_latex(tools["pandoc"], path, path, tex, args.template,
+                     (f"--lua-filter={DRAFT_FILTER}", f"--include-in-header={DRAFT_PREAMBLE}"), text)
+        else:
+            begin = BEGIN_DOCUMENT_RE.search(text)
+            if begin is None:
+                raise Stop(1, f"{path} has no \\begin{{document}} to put the draft's preamble before")
+            writable(tex)
+            preamble = DRAFT_PREAMBLE.read_text(encoding="utf-8")
+            tex.write_text(f"% {GENERATED} {path.name}; edits here are overwritten\n{text[:begin.start()]}{preamble}"
+                           f"{text[begin.start():]}", encoding="utf-8")
+            print(f"wrote {tex} from {path.name}")
+        log = to_pdf(tools["tectonic"], tex, pdf)
+    except RenderFailed as exc:
+        say(str(exc))
+        drop_stale(pdf)
+        return 1
+    lacking = glyph_warnings(pdf, log)
+    pages = PAGES_RE.search(log)
+    n = f"{pages.group('pages')} page{'s' if pages.group('pages') != '1' else ''}" if pages else "pages unknown"
+    shaded = [s.id for s in spots if s.id not in skipped]
+    print(f"wrote {pdf}: {n}; {len(shaded)} of {len(found.segments)} segments shaded as unreviewed"
+          + (f" ({', '.join(shaded)})" if shaded else ""))
+    return 1 if lacking and args.strict else 0
+
+
 def cmd_pdf(args) -> int:
     path: Path = args.file
     kind = path.suffix.lower()
     if kind not in (".md", ".tex"):
         raise Stop(2, f"{path}: pdf takes a .md or a .tex file")
+    if args.draft:
+        if args.template is not None and kind == ".tex":
+            raise Stop(2, "--template is a pandoc template, for a .md source; a .tex source carries its own preamble")
+        return cmd_draft(args, path, kind)
     if args.template is not None and kind == ".tex":
         raise Stop(2, "--template is a pandoc template, for a .md source; a .tex source carries its own preamble")
     if args.template is not None and not args.template.is_file():
@@ -228,11 +304,7 @@ def cmd_pdf(args) -> int:
         drop_stale(pdf)
         return 1
     findings = unknown = False
-    glyphs = missing_glyphs(log)
-    for key, count in glyphs.items():
-        say(f"warning: {pdf.name}: missing glyph {key} ({count} time{'s' if count > 1 else ''}): XeTeX left a"
-            " gap there; use a font that has it")
-    if glyphs and args.strict:
+    if glyph_warnings(pdf, log) and args.strict:
         findings = True
     pages = PAGES_RE.search(log)
     if pages is None:
@@ -284,6 +356,9 @@ def main(argv: list[str]) -> int:
     p.add_argument("--out", type=Path, help="the PDF; default <stem>.pdf beside FILE")
     p.add_argument("--strict", action="store_true", help="a missing glyph is exit 1")
     p.add_argument("--template", type=Path, help="a pandoc LaTeX template, for a Markdown source")
+    p.add_argument("--draft", action="store_true", help="a review copy with unreviewed segments shaded")
+    p.add_argument("--config", type=Path, help="rev-marks.toml for --draft (default: found from FILE up)")
+    p.add_argument("--unknown", choices=["agent", "human"], help="for --draft: what an unlisted name counts as")
     p.set_defaults(run=cmd_pdf)
     p = sub.add_parser("md", help="LaTeX to its Markdown reading twin")
     p.add_argument("file", type=Path)

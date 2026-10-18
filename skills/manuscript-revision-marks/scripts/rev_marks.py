@@ -689,6 +689,57 @@ def unclassified(found: Marks, people: People) -> list[Issue]:
             for name, at in lines.items()]
 
 
+# How a draft build shades a segment: (opening, closing) put where its marks were. A block segment
+# (whole paragraphs) becomes a box; a run inside a paragraph becomes a span (Markdown, highlighted by
+# the draft's Lua filter) or a coloured group (LaTeX). An own-line mark took its line ending with it.
+DRAFT_TOKENS = {
+    (Syntax.MARKDOWN, True): ("::: unreviewed\n", ":::\n"),
+    (Syntax.MARKDOWN, False): ("[", "]{.unreviewed}"),
+    (Syntax.TEX, True): ("\\begin{unreviewed}\n", "\\end{unreviewed}\n"),
+    (Syntax.TEX, False): ("\\begingroup\\unrevtext%\n", "\\endgroup%\n"),
+}
+
+
+def is_block(found: Marks, s: Segment) -> bool:
+    """Whole paragraphs: both marks on lines of their own, a blank line (or the file's edge) outside each."""
+    if not (s.open.own_line and s.close.own_line):
+        return False
+    text = found.text
+    before = text[: line_bounds(text, s.open.start)[0]]
+    after = text[line_bounds(text, s.close.start)[2]:]
+    edge_before = before == "" or before.endswith(("\n\n", "\n\r\n")) or before.strip() == "" or \
+        (found.syntax == Syntax.TEX and before.rstrip().endswith("\\begin{document}"))
+    edge_after = after == "" or after.startswith(("\n", "\r\n")) or after.strip() == "" or \
+        (found.syntax == Syntax.TEX and after.lstrip().startswith("\\end{document}"))
+    return edge_before and edge_after
+
+
+def draft_text(found: Marks, ids: set[str]) -> tuple[str, list[str]]:
+    """The clean text with the segments in *ids* shaded for a draft build, and the ids it could not shade
+    (inline marks around more than one paragraph in Markdown). A segment inside one already shaded is
+    covered by it."""
+    targets = [s for s in found.segments if s.id in ids]
+    skipped = [s.id for s in targets if found.syntax == Syntax.MARKDOWN and not is_block(found, s)
+               and "\n\n" in s.text.replace("\r\n", "\n")]
+    outer = [s for s in targets if s.id not in skipped]
+    shaded = {s.id: s for s in outer if not any(o is not s and o.open.start < s.open.start and s.close.end < o.close.end
+                                                 for o in outer)}
+    tokens = {s.id: DRAFT_TOKENS[(found.syntax, is_block(found, s))] for s in shaded.values()}
+    pieces: list[str] = []
+    cursor = 0
+    for start, end in found.removals:
+        pieces.append(found.text[cursor:start])
+        for m in found.marks:
+            if start <= m.start < end and m.id in shaded:
+                token = tokens[m.id][0 if m.opens else 1]
+                if m.own_line and not token.endswith("\n") and not m.opens:
+                    token += "\n"
+                pieces.append(token)
+        cursor = end
+    pieces.append(found.text[cursor:])
+    return "".join(pieces), skipped
+
+
 def agent_harness() -> str | None:
     """The environment variable that shows an agent harness runs this command, if any."""
     return next((v for v in AGENT_ENV if os.environ.get(v)), None)

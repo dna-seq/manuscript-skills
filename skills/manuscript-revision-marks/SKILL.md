@@ -123,6 +123,14 @@ uv run --script scripts/typeset.py md PAPER.tex                 # LaTeX to a Mar
   master is expected to have one `#` title heading and `##` sections (the build shifts headings up one
   level); with several `#` headings, a level is lost.
 
+**The review draft.** `typeset.py pdf PAPER.md --draft` (or `.tex`) builds `PAPER.draft.pdf` from the
+marked master with every unreviewed segment shaded, by the same rule and `rev-marks.toml` as `report
+--unreviewed` (`--config`, `--unknown` work here too): a whole paragraph in a shaded box with a side
+rule, a run inside a paragraph highlighted, or coloured where it carries math, citations or other
+commands (and always coloured inside a LaTeX paragraph). Give it to the person reviewing: what is
+shaded is what no person has accepted since an agent wrote it. It never writes the submission PDF and
+takes no `--cap`; inline marks that enclose more than one paragraph are not shaded, and it says so.
+
 The build needs `pandoc` and `tectonic` on PATH (or `TYPESET_PANDOC` and `TYPESET_TECTONIC` naming them);
 uv does not install them, and without them the build exits 3 naming what is missing. Tectonic downloads
 its TeX bundle on first use and caches it where `TECTONIC_CACHE_DIR` says.
@@ -145,7 +153,8 @@ its TeX bundle on first use and caches it where `TECTONIC_CACHE_DIR` says.
    check, or a co-author reads the clean copy, as an editor would.
 5. **Close the pass** with `report --blind --unreviewed`: the segments touched, the paragraphs no
    round has read, and the agent-written passages no person has accepted since. Both lists are where
-   an unchecked claim can still hide; give them to the authors as one state line.
+   an unchecked claim can still hide; give them to the authors as one state line, with the heat map
+   or the review draft (`typeset.py pdf --draft`) when they will read the paper to sign off.
 6. **For upload**, the files the venue receives are the twins or a build from them. The
    submission-package check (`manuscript-integrity-check`) deliberately ignores marks, so confirm with
    `report UPLOAD_FILE` that the uploaded file carries no segment.
@@ -156,7 +165,8 @@ authors ask to retire them.
 ## Files
 
 - `scripts/rev_marks.py`: lint, strip, report and bump.
-- `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, and the LaTeX
-  reading copy.
+- `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, the review
+  draft, and the LaTeX reading copy.
+- `scripts/unreviewed.lua`, `scripts/unreviewed-preamble.tex`: how the draft shades a segment.
 - `references/agent-names.toml`: the AI model and agent names, shared with `manuscript-mark-people` and
   `manuscript-integrity-check`'s scan.
