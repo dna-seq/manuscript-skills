@@ -25,6 +25,7 @@ import subprocess
 import time
 import tomllib
 import unicodedata
+import urllib.parse
 from collections import Counter
 from difflib import SequenceMatcher
 from enum import Enum
@@ -91,6 +92,9 @@ class Reference(BaseModel):
     doi: Optional[str] = None
     pmid: Optional[str] = None
     arxiv: Optional[str] = None
+    url: Optional[str] = None  # a BibTeX url field that is not a DOI, arXiv or PubMed link
+    other_ids: list[str] = []  # further identifiers the entry carries ("doi:10...", "pmid:123"), each checked too
+    cited_title: Optional[str] = None  # the title as cited, when the entry has a title field (BibTeX)
     resolved_title: Optional[str] = None
     resolved_year: Optional[str] = None
     resolved_first_author: Optional[str] = None
@@ -330,8 +334,14 @@ MODEL_VERSION = re.compile(
 )
 
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>)\],;]+)", re.IGNORECASE)
-PMID_RE = re.compile(r"\bPMID:?\s*(\d{5,9})\b", re.IGNORECASE)
-ARXIV_RE = re.compile(r"\barXiv\W{0,3}(\d{4}\.\d{4,5})(?:v\d+)?\b|arxiv\.org/abs/(\d{4}\.\d{4,5})", re.IGNORECASE)
+PMID_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
+# New-style ids (2101.00001), and old-style ones (hep-th/9901001, math.GT/0309136) after "arXiv:".
+ARXIV_RE = re.compile(r"\barXiv\W{0,3}(\d{4}\.\d{4,5})(?:v\d+)?\b|arxiv\.org/abs/(\d{4}\.\d{4,5})|"
+                      r"\barXiv:\s*([a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v\d+)?\b", re.IGNORECASE)
+
+
+def _arxiv_id(m: Optional[re.Match[str]]) -> Optional[str]:
+    return next((g for g in m.groups() if g), None) if m else None
 _CAP = r"[A-ZÀ-ÖØ-Þ][^\W\d_]*(?:['’\-][^\W\d_]+)*"  # a capitalised name word, any script with Latin capitals
 _PARTICLES = r"(?:(?:van|von|de|der|den|del|della|di|da|du|la|le|ter|ten)\s+)*"
 # Author-year citations in a parenthesis: "(Lambert et al., 2021)", "(Illumina, 2023; Ultima Genomics, 2025)".
@@ -522,9 +532,6 @@ def _split_entries(entries: list[tuple[int, str]]) -> list[tuple[int, str]]:
 
 LATEX_BIB = re.compile(r"\\(?:bibliography|addbibresource)\{([^}]+)\}")
 LATEX_CITE_KEYS = re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
-BIB_ENTRY = re.compile(r"@(\w+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\}", re.DOTALL)
-BIB_FIELD_NAME = re.compile(r"[\s,]*([A-Za-z][\w-]*)\s*=\s*")
-BIB_BARE = re.compile(r"[^,#\s}]+")
 # LaTeX accents and letters as BibTeX writes them: {\"u}, \"{u}, {\c{s}}, \'{\i}, {\o}, \ss.
 _ACCENTS = {'"': "\u0308", "'": "\u0301", "`": "\u0300", "^": "\u0302", "~": "\u0303", "=": "\u0304", ".": "\u0307",
             "u": "\u0306", "v": "\u030c", "H": "\u030b", "c": "\u0327", "k": "\u0328", "r": "\u030a", "d": "\u0323",
@@ -536,63 +543,172 @@ LATEX_ACCENT = re.compile(r"\\([\"'`^~=.])\s*\{?\s*(\\[ij](?![A-Za-z])|[A-Za-z])
 LATEX_LETTER = re.compile(r"\\(ss|aa|AA|ae|AE|oe|OE|o|O|l|L|i|j)(?![A-Za-z])\s?")
 
 
-def _bib_value(body: str, i: int) -> tuple[str, int]:
-    """One field value from position i: braces balanced at any depth, a quoted string or a bare word, joined by #."""
-    parts: list[str] = []
-    n = len(body)
-    while i < n:
-        while i < n and body[i].isspace():
+class BibError(Exception):
+    """A BibTeX entry that does not parse."""
+
+
+BIB_HEAD = re.compile(r"@\s*([A-Za-z]+)\s*([{(])")
+BIB_NAME = re.compile(r"[A-Za-z][\w\-:.+]*")
+BIB_WORD = re.compile(r"[^\s,#{}()\"=]+")
+
+
+def _bib_balanced(text: str, i: int, open_: str, close: str) -> int:
+    """The index just past the `close` that matches the `open_` at text[i]."""
+    depth, j = 0, i
+    while j < len(text):
+        c = text[j]
+        if c == "\\":
+            j += 2
+            continue
+        if c == open_:
+            depth += 1
+        elif c == close:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    raise BibError(f"no closing {close}")
+
+
+def _bib_value(text: str, i: int, strings: dict[str, str]) -> tuple[str, int]:
+    """One field value from position i: braces balanced at any depth, a quoted string, a number or an
+    @string macro, joined by #."""
+    pieces = []
+    while True:
+        while i < len(text) and text[i].isspace():
             i += 1
-        if i >= n:
-            break
-        if body[i] in "{\"":
-            close, depth, j = body[i], 0, i + (body[i] == "\"")
-            while j < n:
-                c = body[j]
-                if c == "\\":
-                    j += 2
-                    continue
-                if c == "{":
-                    depth += 1
-                elif c == "}":
-                    depth -= 1
-                    if close == "{" and depth == 0:
-                        break
-                elif c == "\"" and close == "\"" and depth == 0:
-                    break
+        if i >= len(text):
+            raise BibError("a value runs off the end")
+        c = text[i]
+        if c == "{":
+            j = _bib_balanced(text, i, "{", "}")
+            pieces.append(text[i + 1:j - 1])
+        elif c == '"':
+            j, depth = i + 1, 0
+            while j < len(text) and not (text[j] == '"' and depth == 0 and text[j - 1] != "\\"):
+                depth += {"{": 1, "}": -1}.get(text[j], 0)
                 j += 1
-            parts.append(body[i + 1:j])
-            i = j + 1
+            if j >= len(text):
+                raise BibError('no closing "')
+            pieces.append(text[i + 1:j])
+            j += 1
         else:
-            m = BIB_BARE.match(body, i)
+            m = BIB_WORD.match(text, i)
             if not m:
-                break
-            parts.append(m.group(0))
-            i = m.end()
-        while i < n and body[i].isspace():
+                raise BibError(f"no value at {c!r}")
+            pieces.append(strings.get(m.group(0).lower(), m.group(0)))
+            j = m.end()
+        i = j
+        while i < len(text) and text[i].isspace():
             i += 1
-        if i < n and body[i] == "#":
+        if i < len(text) and text[i] == "#":
             i += 1
             continue
-        break
-    return "".join(parts), i
+        return "".join(pieces), i
 
 
-def _bib_fields(body: str) -> dict[str, str]:
-    """The fields of one BibTeX entry, read with a brace-balancing scanner (a regex stops at a fixed depth)."""
-    fields: dict[str, str] = {}
+def _parse_bib(text: str) -> tuple[list[tuple[str, int, dict[str, str]]], list[tuple[int, str]]]:
+    """(key, line, raw fields) for each entry, and (line, why) for each that does not parse. @string macros are
+    substituted, @comment and @preamble skipped, and an entry may close with } or )."""
+    entries, errors, strings = [], [], {}
     i = 0
-    while i < len(body):
-        m = BIB_FIELD_NAME.match(body, i)
+    while True:
+        at = text.find("@", i)
+        if at == -1:
+            break
+        m = BIB_HEAD.match(text, at)
         if not m:
-            comma = body.find(",", i)
-            if comma < 0:
-                break
-            i = comma + 1
+            i = at + 1
             continue
-        value, i = _bib_value(body, m.end())
-        fields[m.group(1).lower()] = value
-    return fields
+        line = text.count("\n", 0, at) + 1
+        kind, opener = m.group(1).lower(), m.group(2)
+        try:
+            end = _bib_balanced(text, m.end() - 1, opener, "}" if opener == "{" else ")")
+        except BibError as exc:
+            errors.append((line, str(exc)))
+            break
+        i = end
+        if kind in ("comment", "preamble"):
+            continue
+        body = text[m.end():end - 1]
+        try:
+            if kind == "string":
+                name = BIB_NAME.match(body.lstrip())
+                if not name:
+                    raise BibError("@string without a name")
+                rest = body.lstrip()[name.end():].lstrip()
+                if not rest.startswith("="):
+                    raise BibError("@string without =")
+                strings[name.group(0).lower()] = _bib_value(rest, 1, strings)[0]
+                continue
+            key = re.match(r"\s*([^,\s]*)\s*(,|$)", body)
+            if not key or not key.group(1):
+                raise BibError("no key")
+            fields: dict[str, str] = {}
+            j = key.end()
+            while True:
+                while j < len(body) and (body[j].isspace() or body[j] == ","):
+                    j += 1
+                if j >= len(body):
+                    break
+                name = BIB_NAME.match(body, j)
+                if not name:
+                    raise BibError(f"no field name at {body[j:j + 20]!r}")
+                j = name.end()
+                while j < len(body) and body[j].isspace():
+                    j += 1
+                if j >= len(body) or body[j] != "=":
+                    raise BibError(f"field {name.group(0)} has no =")
+                value, j = _bib_value(body, j + 1, strings)
+                fields[name.group(0).lower()] = value
+            entries.append((key.group(1), line, fields))
+        except BibError as exc:
+            errors.append((line, str(exc)))
+    return entries, errors
+
+
+def _bib_plain(value: str) -> str:
+    """An identifier field as written: braces gone, LaTeX escapes of URL characters undone."""
+    return re.sub(r"\\([_%&#~$])", r"\1", value).replace("{", "").replace("}", "").strip()
+
+
+def classify_url(url: str) -> tuple[str, str]:
+    """("doi" | "arxiv" | "pmid" | "url", value): a URL on doi.org, arxiv.org or PubMed is that identifier."""
+    u = urllib.parse.urlsplit(url)
+    host, path = (u.hostname or "").lower(), urllib.parse.unquote(u.path)
+    if host in ("doi.org", "dx.doi.org", "www.doi.org") and path.startswith("/10."):
+        return "doi", path[1:]
+    if host in ("arxiv.org", "www.arxiv.org"):
+        m = re.fullmatch(r"/(?:abs|pdf)/(.+?)(?:v\d+)?(?:\.pdf)?/?", path)
+        if m:
+            return "arxiv", m.group(1)
+    if host == "pubmed.ncbi.nlm.nih.gov" or (host in ("www.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov")
+                                              and path.startswith("/pubmed/")):
+        m = re.fullmatch(r"(?:/pubmed)?/(\d{1,9})/?", path)
+        if m:
+            return "pmid", m.group(1)
+    return "url", url
+
+
+def _bib_ids(fields: dict[str, str]) -> list[tuple[str, str]]:
+    """Every identifier a BibTeX entry carries: doi, pmid, an arXiv eprint (archivePrefix or eprinttype arxiv),
+    an arXiv id written into eprint, journal or note, and url (classified by its host)."""
+    ids: list[tuple[str, str]] = []
+    if fields.get("doi"):
+        doi = _bib_plain(fields["doi"])
+        ids.append(classify_url(doi) if doi.lower().startswith("http") else
+                   ("doi", re.sub(r"(?i)^doi:\s*", "", doi)))
+    if fields.get("pmid"):
+        ids.append(("pmid", _bib_plain(fields["pmid"])))
+    prefix = _bib_plain(fields.get("archiveprefix") or fields.get("eprinttype") or "").lower()
+    if fields.get("eprint") and prefix == "arxiv":
+        ids.append(("arxiv", re.sub(r"(?i)^arxiv:\s*", "", _bib_plain(fields["eprint"]))))
+    written = _arxiv_id(ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note"))))
+    if written:
+        ids.append(("arxiv", written))
+    if fields.get("url"):
+        ids.append(classify_url(_bib_plain(fields["url"])))
+    return list(dict.fromkeys(ids))
 
 
 def _latex_text(value: str) -> str:
@@ -622,24 +738,27 @@ def _bib_files(tex: str, base: Path) -> list[Path]:
     return out
 
 
-def _bib_references(bib: Path) -> list[tuple[str, "Reference"]]:
-    """(cite key, Reference) for each BibTeX entry; text is "author (year). title. venue" for matching."""
+def _bib_references(bib: Path, errors: Optional[list[tuple[int, str]]] = None) -> list[tuple[str, "Reference"]]:
+    """(cite key, Reference) for each BibTeX entry; text is "author (year). title. venue" for matching. Entries
+    that do not parse are appended to *errors* as (line, why)."""
     text = bib.read_text(encoding="utf-8")
+    entries, failed = _parse_bib(text)
+    if errors is not None:
+        errors += failed
     out: list[tuple[str, Reference]] = []
-    for m in BIB_ENTRY.finditer(text):
-        fields = {k: _latex_text(v) for k, v in _bib_fields(m.group(3)).items()}
-        line = text[: m.start()].count("\n") + 1
+    for key, line, raw in entries:
+        fields = {k: _latex_text(v) for k, v in raw.items()}
         venue = fields.get("journal") or fields.get("booktitle") or fields.get("publisher") or ""
         # An entry with no author starts with its year, so the online check knows there is no list to compare.
         entry = " ".join(f"{fields.get('author', '')} ({fields.get('year', '')}). {fields.get('title', '')}. "
                          f"{venue}".split())
-        arxiv = ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note", "url")))
-        eprint = fields.get("eprint") if fields.get("archiveprefix", "").lower() == "arxiv" else None
-        doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", fields.get("doi", ""), flags=re.IGNORECASE)
-        ref = Reference(line=line, text=entry, doi=doi or None, pmid=fields.get("pmid") or None,
-                        arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))
-        ref._bib_file, ref._bib_key = bib.name, m.group(2)
-        out.append((m.group(2), ref))
+        ids = _bib_ids(raw)
+        first = {kind: value for kind, value in reversed(ids)}  # the first of each kind
+        ref = Reference(line=line, text=entry, doi=first.get("doi"), pmid=first.get("pmid"), arxiv=first.get("arxiv"),
+                        cited_title=fields.get("title") or None, url=first.get("url"),
+                        other_ids=[f"{k}:{v}" for k, v in ids if first.get(k) != v])
+        ref._bib_file, ref._bib_key = bib.name, key
+        out.append((key, ref))
     return out
 
 
@@ -1867,7 +1986,16 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
     bibliography_only = path.suffix.lower() == ".bib"
     bibs = [path] if bibliography_only else _bib_files(text, path.parent) if path.suffix.lower() == ".tex" else []
     if bibs:
-        keyed = [kr for bib in bibs for kr in _bib_references(bib)]
+        keyed = []
+        for bib in bibs:
+            errors: list[tuple[int, str]] = []
+            keyed += _bib_references(bib, errors)
+            for line_no, why in errors:
+                findings.append(Finding(check="references", severity=Severity.major, line=line_no,
+                                        section=bib.name, stage=Stage.writing.value,
+                                        message=f"A BibTeX entry in {bib.name} does not parse ({why}), so it was not "
+                                                f"read or checked; the entries after it may be missing too.",
+                                        suggestion="Fix the entry's braces, quotes or commas, then run the check again."))
         refs = [r for _, r in keyed]
         if not bibliography_only:
             findings += _cite_key_findings(lines, {k for k, _ in keyed})
@@ -1895,8 +2023,7 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
                 pmid = PMID_RE.search(entry)
                 arxiv = ARXIV_RE.search(entry)
                 refs.append(Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                                      pmid=pmid.group(1) if pmid else None,
-                                      arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None))
+                                      pmid=pmid.group(1) if pmid else None, arxiv=_arxiv_id(arxiv)))
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)

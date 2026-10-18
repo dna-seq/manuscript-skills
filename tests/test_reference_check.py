@@ -636,7 +636,8 @@ def test_reference_json_keeps_every_earlier_field() -> None:
                "first_author_found", "title_similarity", "status"}
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
-    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added
+    from_cite_check = {"url", "other_ids", "cited_title"}
+    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check
 
 
 def test_an_arxiv_paper_whose_title_contains_error_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -660,3 +661,46 @@ def test_an_arxiv_paper_whose_title_contains_error_resolves(monkeypatch: pytest.
     scan.resolve_references(refs, search_unidentified=False)
     assert [r.status for r in refs] == ["resolved", "unresolved", "unresolved"]
     assert refs[0].resolved_title == "Error bounds for deep networks"
+
+
+BIB = r"""@string{natgen = "Nature Genetics"}
+@comment{this is not an entry}
+@article(paren2021, author = {Lambert, Samuel A.}, title = "The {Polygenic} Score Catalog", journal = natgen,
+  year = 2021, doi = {https://doi.org/10.1038/s41588-021-00783-5}, pmid = {33692568})
+@misc{old1999, author = {Witten, E.}, title = {A paper}, eprint = {hep-th/9901001}, eprinttype = {arxiv}}
+@misc{linked, author = {Doe, J.}, title = {Linked}, url = {https://arxiv.org/abs/2403.19087v2}}
+@misc{site, author = {Doe, J.}, title = {A site}, url = {https://example.org/tool\_page}}
+@article{broken, title = {No closing brace}
+@article{after, title = {Never read}}
+"""
+
+
+def test_bibtex_reader_takes_macros_parentheses_and_every_identifier(tmp_path: Path) -> None:
+    bib = tmp_path / "refs.bib"
+    bib.write_text(BIB, encoding="utf-8")
+    errors: list[tuple[int, str]] = []
+    refs = dict(scan._bib_references(bib, errors))
+    assert list(refs) == ["paren2021", "old1999", "linked", "site"]
+    paren = refs["paren2021"]
+    assert (paren.doi, paren.pmid, paren.cited_title) == ("10.1038/s41588-021-00783-5", "33692568",
+                                                         "The Polygenic Score Catalog")
+    assert "Nature Genetics" in paren.text
+    assert refs["old1999"].arxiv == "hep-th/9901001" and refs["linked"].arxiv == "2403.19087"
+    assert refs["site"].url == "https://example.org/tool_page" and refs["site"].doi is None
+    assert errors and errors[0][0] == BIB.splitlines().index("@article{broken, title = {No closing brace}") + 1
+
+
+def test_a_bibtex_entry_that_does_not_parse_is_a_finding_not_a_silent_drop(tmp_path: Path) -> None:
+    bib = tmp_path / "refs.bib"
+    bib.write_text(BIB, encoding="utf-8")
+    report = scan.check_references(bib, online=False, search_unidentified=False)
+    malformed = [f for f in report.findings if "does not parse" in f.message]
+    assert len(malformed) == 1 and malformed[0].severity == scan.Severity.major and malformed[0].section == "refs.bib"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("PMID: 123", "123"), ("PMID 33692568", "33692568"), ("arXiv:hep-th/9901001v2", "hep-th/9901001"),
+    ("arXiv:2101.00001", "2101.00001"), ("https://arxiv.org/abs/2101.00001", "2101.00001")])
+def test_short_pmids_and_old_arxiv_ids_are_read(text: str, expected: str) -> None:
+    pmid, arxiv = scan.PMID_RE.search(text), scan._arxiv_id(scan.ARXIV_RE.search(text))
+    assert (pmid.group(1) if pmid else arxiv) == expected
