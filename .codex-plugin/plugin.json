@@ -1,7 +1,7 @@
 {
   "name": "manuscript-skills",
   "version": "0.3.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification preserve meaning while editing, and track which AI edits await a person's review.",
+  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, and track which AI edits await a person's review.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"

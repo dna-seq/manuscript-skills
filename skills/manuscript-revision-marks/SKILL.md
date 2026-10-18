@@ -59,7 +59,6 @@ manuscript up to the git root). Every key is optional:
 humans = ["anna", "tom"]   # people; outranks the agent list (a co-author named Claude or Luna)
 agents = ["lab-bot"]       # more agent names or fnmatch patterns
 unknown = "agent"          # what a name in neither list counts as; "human" to flip
-signoff = "explicit"       # who may sign a person's name with bump: "explicit", "person" or "any"
 ```
 
 The shipped [agent list](references/agent-names.toml) names AI model families (from the Artificial
@@ -69,17 +68,10 @@ by a model the list does not know yet still shows as unreviewed rather than pass
 `lint` warns once per such name. Build or extend `humans` with `manuscript-mark-people`, which proposes
 the people it finds in the repository for the authors to confirm.
 
-**Sign-off.** A person's name in `by=` is the record that they reviewed the passage, so it is signed
-only on their word:
-
-- `signoff = "explicit"` (default): `bump ... --by anna --approved "her words"` needs the person's own
-  words approving *this item*, quoted from the conversation. A bulk "accept all", silence, or a
-  summary of a list is not an approval of each item; ask, or leave the segment unreviewed.
-- `signoff = "person"`: only the person signs, from their own terminal; the tool refuses when an
-  agent harness runs it. The agent proposes the command and the person runs it.
-- `signoff = "any"`: no check (for a project whose marks record authorship only).
-
-Never write a person's name into a `by=` entry by editing the file directly; that bypasses the policy.
+**A person's round.** When the authors say a person has reviewed or approved passages, including a
+bulk "accept all" relayed from a co-author, record it with `bump --by <their handle>`. How co-authors
+discuss and agree on the text happens outside these skills; the marks only record what the authors
+report.
 
 ## Commands
 
@@ -91,13 +83,13 @@ uv run --script scripts/rev_marks.py strip PAPER.md                 # write PAPE
 uv run --script scripts/rev_marks.py strip PAPER.md --check         # exit 1 if the twin is missing or stale
 uv run --script scripts/rev_marks.py report PAPER.md --blind --unreviewed --html $SCRATCH/heatmap.html
 uv run --script scripts/rev_marks.py bump PAPER.md C3 --by claude   # an agent's round, dated today
-uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna --approved "C3 reads right now"
+uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna    # anna reviewed it, as the authors say
 ```
 
-`lint`, `report` and `bump` take `--config PATH` and `--unknown agent|human`. The heat map shades each
+`lint` and `report` take `--config PATH` and `--unknown agent|human`. The heat map shades each
 segment by its rounds and outlines and hatches the unreviewed ones. Exit codes: 0 clean, 1 errors (a
-malformed or unpaired mark, a stale twin, an unknown id), 2 usage, a malformed `rev-marks.toml` or a
-sign-off the policy refuses, 3 could not run. `strip` and `bump` refuse a file whose marks do not lint, so a half-recognised mark
+malformed or unpaired mark, a stale twin, an unknown id), 2 usage or a malformed `rev-marks.toml`, 3
+could not run. `strip` and `bump` refuse a file whose marks do not lint, so a half-recognised mark
 never reaches the twin.
 
 ## Build the PDF and measure it
@@ -147,8 +139,8 @@ its TeX bundle on first use and caches it where `TECTONIC_CACHE_DIR` says.
    outside any segment is still a revision: mark it or say why not.
 3. **Name who did it.** The `by=` entry names who made this round's text: the author's handle, or the
    agent's name when an agent wrote it (your model's name, such as `claude`). Never sign an agent's
-   round with a person's name; when the person then approves the passage, sign their round as the
-   sign-off policy says.
+   round with a person's name; when the authors say the person approved the passage, add the person's
+   round with `bump`.
 4. **Hand reviews the twin.** A simulated referee (`manuscript-peer-review`), a reference or number
    check, or a co-author reads the clean copy, as an editor would.
 5. **Close the pass** with `report --blind --unreviewed`: the segments touched, the paragraphs no

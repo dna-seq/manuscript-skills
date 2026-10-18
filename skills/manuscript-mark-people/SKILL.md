@@ -51,9 +51,8 @@ confirm, and only the confirmed names are written.
    the confirmed names, and `report --unreviewed` now shows only the passages whose latest round is an
    agent's or an unconfirmed name's.
 
-Mention the other `rev-marks.toml` keys once, without deciding them: `unknown` (whether an unlisted
-name counts as an agent, the default, or a person) and `signoff` (who may sign a person's name; see
-`manuscript-revision-marks`).
+Mention the other `rev-marks.toml` key once, without deciding it: `unknown` (whether an unlisted name
+counts as an agent, the default, or a person).
 
 ## Files
 

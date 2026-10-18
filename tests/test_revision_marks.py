@@ -612,7 +612,7 @@ def test_ledger_items_split_by_letter_group_under_one_comment():
     assert rm.totals(found)["comments"] == 2
 
 
-# --- who reviewed: people, agents and the sign-off policy ------------------------------------------------
+# --- who reviewed: people and agents --------------------------------------------------------------------
 
 UNREVIEWED_DOC = (
     "# Draft\n\n"
@@ -687,36 +687,23 @@ def test_report_lists_the_unreviewed_and_the_heatmap_hatches_them(project, tmp_p
     assert 'id="seg-C1" class="h2" data-id="C1" data-rounds="2" data-reviewed="true"' in page
 
 
-def test_explicit_signoff_needs_the_persons_words(project):
+def test_a_persons_round_is_recorded_as_the_authors_report_it(project):
     root, doc = project
     config(root, humans=["anna"])
-    r = py(RM, "bump", doc, "C2", "--by", "anna")
-    assert r.rc == 2 and "--approved" in r.out and "@rev C2 rounds=1" in doc.read_text()
-    r = py(RM, "bump", doc, "C2", "--by", "anna", "--approved", "C2 is fine as written")
-    assert r.rc == 0 and "who approved it: 'C2 is fine as written'" in r.out
+    r = py(RM, "bump", doc, "C2", "--by", "anna")  # e.g. a co-author's "accept all", relayed by the authors
+    assert r.rc == 0 and "@rev C2 rounds=2 by=claude-opus-5-5:2026-10-03,anna:" in doc.read_text(), r.out
     assert "C2" not in unrev_ids(doc)
-    assert py(RM, "bump", doc, "C3", "--by", "claude").rc == 0  # an agent's round needs no approval
+    assert py(RM, "bump", doc, "C3", "--by", "claude").rc == 0 and "C3" in unrev_ids(doc)
 
 
-def test_person_signoff_refuses_inside_an_agent_harness(project, monkeypatch):
+def test_a_bad_config_is_refused(project):
     root, doc = project
-    config(root, humans=["anna"], signoff="person")
-    for var in rm.AGENT_ENV:
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("CLAUDECODE", "1")
-    r = py(RM, "bump", doc, "C2", "--by", "anna", "--approved", "fine")
-    assert r.rc == 2 and "CLAUDECODE is set" in r.out
-    monkeypatch.delenv("CLAUDECODE")
-    assert py(RM, "bump", doc, "C2", "--by", "anna").rc == 0
-
-
-def test_any_signoff_checks_nothing_and_a_bad_config_is_refused(project):
-    root, doc = project
-    config(root, humans=["anna"], signoff="any")
-    assert py(RM, "bump", doc, "C2", "--by", "anna").rc == 0
-    config(root, humans=["anna"], signoff="whenever")
+    config(root, humans=["anna"], unknown="whenever")
     r = py(RM, "report", doc)
-    assert r.rc == 2 and "signoff = 'whenever'" in r.out
+    assert r.rc == 2 and "unknown = 'whenever'" in r.out, r.out
+    config(root, humans=["anna"], signoff="explicit")  # the sign-off policy is gone: an unknown key
+    r = py(RM, "report", doc)
+    assert r.rc == 2 and "unknown key(s) signoff" in r.out, r.out
     (root / "rev-marks.toml").write_text("humans = [\n", encoding="utf-8")
     assert py(RM, "lint", doc).rc == 2
 

@@ -77,12 +77,12 @@ def test_the_report_proposes_and_writes_nothing(repo: Path) -> None:
 def test_write_needs_confirmed_names_and_merges_without_dropping(repo: Path) -> None:
     assert run(str(repo), "--write").returncode == 2
     assert run(str(repo), "--write", "--confirm", "anah").returncode == 2  # a typo is not written
-    (repo / "rev-marks.toml").write_text('# ours\nunknown = "agent"\nhumans = [\n  "zed",\n]\nsignoff = "any"\n')
+    (repo / "rev-marks.toml").write_text('# ours\nunknown = "agent"\nhumans = [\n  "zed",\n]\nagents = ["lab-bot"]\n')
     r = run(str(repo / "evals"), "--write", "--confirm", "anna,Tom")
     assert r.returncode == 0, r.stderr
     text = (repo / "rev-marks.toml").read_text()
     data = tomllib.loads(text)
-    assert data == {"unknown": "agent", "humans": ["zed", "anna", "tom"], "signoff": "any"}
+    assert data == {"unknown": "agent", "humans": ["zed", "anna", "tom"], "agents": ["lab-bot"]}
     assert text.startswith("# ours\n")
     assert run(str(repo), "--write", "--confirm", "robi", "--force-name").returncode == 0
     assert tomllib.loads((repo / "rev-marks.toml").read_text())["humans"][-1] == "robi"

@@ -8,9 +8,9 @@ rounds, by whom; and the blind spots, prose no round has read.
     uv run --script rev_marks.py lint [--strict] FILE...          exit 1 on any error (or warning, with --strict)
     uv run --script rev_marks.py strip FILE [--out OUT] [--check]  write the clean twin, FILE minus its marks
     uv run --script rev_marks.py report FILE [--blind] [--unreviewed] [--html OUT]
-    uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD] [--approved "THEIR WORDS"]
+    uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD]
 
-lint, report and bump also take --config PATH (default: rev-marks.toml, found from FILE up to the git
+lint and report also take --config PATH (default: rev-marks.toml, found from FILE up to the git
 root) and --unknown agent|human (overrides the config's `unknown`).
 
 A rewritten segment sits between two HTML comments, which renderers and pandoc drop:
@@ -34,17 +34,12 @@ A rewritten segment sits between two HTML comments, which renderers and pandoc d
   rev-marks.toml lists in `agents`, or one matching ../references/agent-names.toml, or (with the default
   `unknown = "agent"`) one it lists nowhere. `humans` in rev-marks.toml outranks the agent list. lint
   warns once per name that is in neither list.
-- Signing a person's name with `bump` follows the config's `signoff`: "explicit" (the default) needs
-  --approved with that person's own words of approval for this item; "person" refuses when an agent
-  harness runs the command (its environment says so), so the person runs it themselves; "any" checks
-  nothing.
 
 rev-marks.toml (all keys optional):
 
     humans = ["anna", "tom"]       # people; outranks the agent list
     agents = ["lab-bot"]           # more agent names or fnmatch patterns
     unknown = "agent"              # or "human": what a name in neither list counts as
-    signoff = "explicit"           # or "person", "any"
 
 A `.tex` file carries its marks as LaTeX comments, each on a line of its own, and its twin is
 `<stem>.clean.tex`; every other file is Markdown:
@@ -64,8 +59,8 @@ A `.tex` file carries its marks as LaTeX comments, each on a line of its own, an
 
 Standard library only. The mark format comes from the manuscript ledger of dna-seq/just-dna-lite.
 
-EXIT STATUS  0 clean · 1 errors found, a stale twin, an unknown id · 2 usage, a malformed rev-marks.toml,
-             a sign-off the policy refuses · 3 could not run
+EXIT STATUS  0 clean · 1 errors found, a stale twin, an unknown id · 2 usage, a malformed rev-marks.toml
+             · 3 could not run
 """
 from __future__ import annotations
 
@@ -73,7 +68,6 @@ import argparse
 import dataclasses
 import fnmatch
 import html
-import os
 import re
 import sys
 import tomllib
@@ -92,9 +86,6 @@ HEAT_LEVELS = 5
 FIRST_WORDS = 8
 CONFIG_NAME = "rev-marks.toml"
 AGENT_NAMES = Path(__file__).resolve().parent.parent / "references" / "agent-names.toml"
-# Set by an agent harness in the shell it runs commands in: `signoff = "person"` refuses a person's name there.
-AGENT_ENV = ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED",
-             "CODEX_MANAGED_BY_NPM", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "AIDER_MODEL", "CLINE_ACTIVE")
 
 ID_RE = re.compile(rf"^{ID_PATTERN}$")
 NAME_RE = re.compile(rf"^{NAME_PATTERN}$")
@@ -582,12 +573,6 @@ class Kind(StrEnum):
     AGENT = "agent"
 
 
-class Signoff(StrEnum):
-    EXPLICIT = "explicit"
-    PERSON = "person"
-    ANY = "any"
-
-
 class ConfigError(Exception):
     """rev-marks.toml (or the agent list) does not say what it must."""
 
@@ -599,7 +584,6 @@ class People:
     humans: frozenset[str] = frozenset()
     agents: tuple[str, ...] = ()  # exact names and fnmatch patterns, lowercased
     unknown: Kind = Kind.AGENT
-    signoff: Signoff = Signoff.EXPLICIT
     config: Path | None = None
 
     def known(self, name: str) -> Kind | None:
@@ -660,13 +644,12 @@ def load_people(start: Path, config: Path | None = None, unknown: str | None = N
     path = config if config is not None else find_config(start)
     data = _read_toml(path) if path is not None else {}
     where = path or Path(CONFIG_NAME)
-    unexpected = set(data) - {"humans", "agents", "unknown", "signoff"}
+    unexpected = set(data) - {"humans", "agents", "unknown"}
     if unexpected:
         raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(unexpected))}")
     people = People(humans=frozenset(_strings(data, "humans", where)),
                     agents=agent_list() + tuple(_strings(data, "agents", where)),
-                    unknown=_choice(data, "unknown", Kind, Kind.AGENT, where),
-                    signoff=_choice(data, "signoff", Signoff, Signoff.EXPLICIT, where), config=path)
+                    unknown=_choice(data, "unknown", Kind, Kind.AGENT, where), config=path)
     return dataclasses.replace(people, unknown=Kind(unknown)) if unknown is not None else people
 
 
@@ -738,11 +721,6 @@ def draft_text(found: Marks, ids: set[str]) -> tuple[str, list[str]]:
         cursor = end
     pieces.append(found.text[cursor:])
     return "".join(pieces), skipped
-
-
-def agent_harness() -> str | None:
-    """The environment variable that shows an agent harness runs this command, if any."""
-    return next((v for v in AGENT_ENV if os.environ.get(v)), None)
 
 
 # --- operations ------------------------------------------------------------------------------
@@ -1106,31 +1084,12 @@ def cmd_report(args) -> int:
     return 0
 
 
-def signoff_refusal(people: People, name: str, approved: str | None) -> str | None:
-    """Why the config's sign-off policy refuses to sign *name*, a person's name; None when it allows it."""
-    where = people.config or f"the default (no {CONFIG_NAME})"
-    if people.signoff == Signoff.EXPLICIT and not (approved and approved.strip()):
-        return (f"{name} is a person: signing their round needs --approved with their own words approving this"
-                f" item (signoff = explicit, {where}). A bulk 'accept all' is not an approval of this item.")
-    harness = agent_harness()
-    if people.signoff == Signoff.PERSON and harness is not None:
-        return (f"{name} is a person and signoff = person ({where}): only they sign, from their own shell;"
-                f" this one is an agent harness's ({harness} is set)")
-    return None
-
-
 def cmd_bump(args) -> int:
     try:
         entry = parse_entry(args.by, datetime.now().astimezone().date())
     except ValueError as exc:
         print(f"rev_marks.py: --by: {exc}", file=sys.stderr)
         return 2
-    people = people_for(args.file, args)
-    if people.kind(entry.name) == Kind.HUMAN:
-        refusal = signoff_refusal(people, entry.name, args.approved)
-        if refusal is not None:
-            print(f"rev_marks.py: {refusal}", file=sys.stderr)
-            return 2
     found = load(args.file)
     if found is None:
         return 1
@@ -1141,8 +1100,6 @@ def cmd_bump(args) -> int:
         return 1
     args.file.write_bytes(updated.encode("utf-8"))
     print(f"{args.id}: rounds={parse(updated, found.syntax).segment(args.id).rounds}")
-    if args.approved:
-        print(f"{args.id}: signed by {entry.name}, who approved it: {args.approved!r}")
     return 0
 
 
@@ -1167,11 +1124,10 @@ def main(argv: list[str]) -> int:
     p.add_argument("--unreviewed", action="store_true", help="also list segments whose latest round is not a person's")
     p.add_argument("--html", type=Path, help="also write a self-contained heat map")
     p.set_defaults(run=cmd_report)
-    p = sub.add_parser("bump", help="add one round to a segment", parents=[common])
+    p = sub.add_parser("bump", help="add one round to a segment")
     p.add_argument("file", type=Path)
     p.add_argument("id", metavar="ID")
     p.add_argument("--by", required=True, help="NAME or NAME:YYYY-MM-DD (default date: today)")
-    p.add_argument("--approved", metavar="WORDS", help="a person's own words approving this item (signoff = explicit)")
     p.set_defaults(run=cmd_bump)
     args = ap.parse_args(argv)
     for path in getattr(args, "files", None) or [args.file]:
