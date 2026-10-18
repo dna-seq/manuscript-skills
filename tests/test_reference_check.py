@@ -637,7 +637,7 @@ def test_reference_json_keeps_every_earlier_field() -> None:
                "first_author_found", "title_similarity", "status"}
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
-    from_cite_check = {"url", "other_ids", "cited_title", "other_id_checks", "url_status"}
+    from_cite_check = {"url", "other_ids", "cited_title", "other_id_checks", "url_status", "title_check"}
     assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check
 
 
@@ -795,3 +795,21 @@ def test_a_url_field_is_checked_by_its_status(wire: Wire, path: str, severity: o
     ref = _resolved(doi="10.9999/medra.1", url=f"https://example.org{path}")
     found = [f for f in scan._reference_findings([ref], online=True) if "url" in f.message]
     assert ([(f.severity, words in f.message) for f in found] == [(severity, True)]) if severity else not found
+
+
+@pytest.mark.parametrize("cited, check, words", [
+    ("Deep Learning for M{\\\"u}ller--{\\v{S}}koda Graphs", "same", None),
+    ("Deep learning for Muller-Skoda graphs: a survey", "differs", "plus a tail"),
+    ("Deep learning for Muller-Skoda graph", "differs", "differs from the record's"),
+    (None, "no_title", "has no title")])
+def test_titles_are_compared_strictly_after_the_fuzzy_match(wire: Wire, cited: Optional[str], check: str,
+                                                           words: Optional[str]) -> None:
+    ref = scan.Reference(line=1, text="Müller, A. (2020). " + (cited or "") + ". Journal.", doi="10.9999/medra.1",
+                         cited_title=cited)
+    ref._bib_file = "refs.bib"
+    scan.resolve_references([ref], search_unidentified=False)
+    assert ref.status == "resolved" and ref.title_check == check, (ref.status, ref.title_check, ref.title_similarity)
+    found = [f for f in scan._reference_findings([ref], online=True) if "title" in f.message.lower()]
+    assert ([words in f.message for f in found] == [True]) if words else not found
+    if found:
+        assert found[0].severity == scan.Severity.minor

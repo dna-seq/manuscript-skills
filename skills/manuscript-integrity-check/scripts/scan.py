@@ -96,6 +96,9 @@ class Reference(BaseModel):
     url: Optional[str] = None  # a BibTeX url field that is not a DOI, arXiv or PubMed link
     other_ids: list[str] = []  # further identifiers the entry carries ("doi:10...", "pmid:123"), each checked too
     cited_title: Optional[str] = None  # the title as cited, when the entry has a title field (BibTeX)
+    # Strictly normalised cited title against the record's: same | differs (a fuzzy match that is not exact) |
+    # no_title (a BibTeX entry with no title field) | not_compared
+    title_check: str = "not_compared"
     other_id_checks: list[dict[str, Optional[str]]] = []  # one per other_ids: id, state, title, why, same_work
     url_status: Optional[str] = None  # the url field's answer: "ok HTTP 200", "dead HTTP 404", "blocked ...", "unknown ..."
     resolved_title: Optional[str] = None
@@ -1925,9 +1928,15 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
                 # A title that does not match is a different work; a first author that does not match, with
                 # the title right, is usually a wrong author list (RefChecker flags both). A mismatch outranks a
                 # retraction notice, which then belongs to the work the identifier points to, not the one cited.
+                untitled = ref._bib_file is not None and not ref.cited_title  # nothing to compare the title with
                 if ref.status in ("resolved", "retracted", "concern") and (
-                        ref.title_similarity < 0.6 or ref.first_author_found is False):
+                        (ref.title_similarity < 0.6 and not untitled) or ref.first_author_found is False):
                     ref.status = "mismatch"
+                if untitled:
+                    ref.title_check = "no_title"
+                elif ref.cited_title and ref.status in ("resolved", "retracted", "concern"):
+                    same = _strict_title(ref.cited_title) == _strict_title(ref.resolved_title)
+                    ref.title_check = "same" if same else "differs"
                 if ref.status in ("resolved", "retracted", "concern") and ref.resolved_authors and names_authors:
                     _compare_authors(ref, _record_source(ref))
             ref.other_id_checks = [_check_other_id(client, ref, other) for other in ref.other_ids]
@@ -2111,6 +2120,20 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
                                suggestion="Cite the published version after confirming it still reports what you "
                                           "cite: numbers, methods and author lists change between versions. Keep "
                                           "the preprint only if you need content the published version dropped."))
+        if ref.title_check == "differs" and ref.status not in ("unresolved", "mismatch"):
+            a, b = _strict_title(ref.cited_title or ""), _strict_title(ref.resolved_title or "")
+            tail = " One is the other plus a tail: a subtitle, cited or dropped?" if \
+                a.startswith(b + " ") or b.startswith(a + " ") else ""
+            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
+                               stage=Stage.journal.value,
+                               message=f"The cited title differs from the record's: cited '{_fetched(_delatex(ref.cited_title or ''))}', "
+                                       f"record '{ref.resolved_title}'.{tail}",
+                               suggestion="Copy the title from the record, keeping the venue's capitalisation style."))
+        elif ref.title_check == "no_title" and ref.resolved_title:
+            out.append(Finding(check="references", severity=Severity.minor, line=ref.line, excerpt=short,
+                               message=f"The entry has no title, so the work its identifier names, "
+                                       f"'{ref.resolved_title}', could not be compared with what is cited.",
+                               suggestion="Add the title field from the record after checking it is the work you cite."))
         for other in ref.other_id_checks:
             kind_id = other["id"].replace(":", " ", 1)
             if other["state"] == "dead":
