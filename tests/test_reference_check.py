@@ -119,6 +119,8 @@ class Registry:
                 200, text="<feed><entry><title>Error</title></entry></feed>")
         if url.host == "arxiv.org":
             return httpx.Response(404)
+        if url.host == "github.com":  # the fixtures' code repository, which the papers' text links
+            return httpx.Response(200)
         if url.host == "api.datacite.org":
             name = DATACITE.get(path[len("/dois/"):].lower())
             return self._json(name) if name else httpx.Response(404)
@@ -813,3 +815,44 @@ def test_titles_are_compared_strictly_after_the_fuzzy_match(wire: Wire, cited: O
     assert ([words in f.message for f in found] == [True]) if words else not found
     if found:
         assert found[0].severity == scan.Severity.minor
+
+
+PROSE = """# Paper
+
+## Results
+
+Scores came from the catalog (doi:10.9999/medra.1), see also PMID: 222 and https://example.org/gone.
+The service currently holds 4,500 scores. As of 2026, it holds 5,000. It now covers 12 traits.
+
+```
+doi:10.9999/in-code-is-an-example and currently 7 examples
+```
+
+<!-- A comment with https://example.org/private is not read -->
+
+## References
+
+1. Müller, A. (2020). Deep learning for Müller–Škoda graphs. doi:10.9999/medra.1
+"""
+
+
+def test_identifiers_in_the_text_are_resolved_and_shown_for_a_person_to_read(wire: Wire, tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(PROSE, encoding="utf-8")
+    report = scan.check_references(paper, online=True, search_unidentified=False)
+    items = [(i.line, i.kind, i.id, i.state) for i in report.inline_ids]
+    assert items == [(5, "url", "https://example.org/gone", "dead"), (5, "doi", "10.9999/medra.1", "ok"),
+                     (5, "pmid", "222", "ok")]
+    assert report.inline_ids[1].title == "Deep Learning for Müller–Škoda Graphs"
+    md = scan.references_to_markdown(report)
+    assert "## Identifiers in the text" in md and "Something else entirely about mice." in md
+    assert any("https://example.org/gone in the text does not resolve" in f.message for f in report.findings)
+
+
+def test_live_figures_without_a_year_are_flagged_offline(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(PROSE, encoding="utf-8")
+    report = scan.check_references(paper, online=False, search_unidentified=False)
+    undated = [(f.line, f.excerpt) for f in report.findings if f.check == "undated"]
+    assert undated == [(6, "The service currently holds 4,500 scores."), (6, "It now covers 12 traits.")]
+    assert all(i.state == "not_checked" for i in report.inline_ids)

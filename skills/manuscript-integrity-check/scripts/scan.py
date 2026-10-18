@@ -129,11 +129,23 @@ class Reference(BaseModel):
     _bib_key: Optional[str] = PrivateAttr(default=None)
 
 
+class InlineId(BaseModel):
+    """An identifier written in the text (doi:, a doi.org or arXiv link, PMID, arXiv:, a bare URL), outside the
+    reference list: resolved online, its title shown for a person to read; no match is attempted."""
+    line: int
+    kind: str  # doi | pmid | arxiv | url
+    id: str
+    state: str = "not_checked"  # ok | dead | blocked | unknown | not_checked
+    title: Optional[str] = None
+    detail: str = ""
+
+
 class ReferenceReport(BaseModel):
     path: str
     online: bool
     findings: list[Finding]
     references: list[Reference]
+    inline_ids: list[InlineId] = []
 
 
 class Report(BaseModel):
@@ -146,6 +158,7 @@ class Report(BaseModel):
     top_vocabulary: list[tuple[str, int]]
     ing_tails: int = 0
     final: bool = False  # the authors are about to submit: final-stage findings count in the verdict
+    inline_ids: list[InlineId] = []
 
 
 # --------------------------------------------------------------------------------------------------
@@ -2207,6 +2220,140 @@ def _git_findings(path: Path) -> list[Finding]:
                     suggestion="Ask the authors what those commits changed; the disclosure follows their account.")]
 
 
+# --- identifiers in the text and live figures (from cite-check) ----------------------------------------------
+
+INLINE_URL_RE = re.compile(r"https?://[^\s<>\"'`{}\\|^]+")
+INLINE_DOI_RE = re.compile(r"\bdoi:\s*(10\.\d{4,9}/[^\s\"<>{}`]+)", re.IGNORECASE)
+INLINE_ARXIV_RE = re.compile(r"\barXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?/\d{7}(?:v\d+)?)",
+                             re.IGNORECASE)
+CLOSERS = {")": "(", "]": "[", "}": "{", ">": "<"}
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
+VERBATIM_RE = re.compile(r"\\(begin|end)\{(verbatim|Verbatim|lstlisting|minted|comment)\*?\}")
+NEW_BLOCK_RE = re.compile(r"^\s*(#|[-*+]\s|\d+[.)]\s|\||>|\\item|\\(sub)*section|\\paragraph)")
+LIVE_NUMBER_RE = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)*(?:%|[kM])?(?!\w)")
+LIVE_CUE_RE = re.compile(r"\b(currently|as of|to date|so far|now|at present|at the time of writing)\b", re.IGNORECASE)
+YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
+
+
+def _trim_id(s: str) -> str:
+    """Strip trailing punctuation, and closers the identifier does not open itself."""
+    while s:
+        c = s[-1]
+        if c in ".,;:!?'\"*_":
+            s = s[:-1]
+        elif c in CLOSERS and s.count(c) > s.count(CLOSERS[c]):
+            s = s[:-1]
+        else:
+            break
+    return s
+
+
+def _inline_ids(line: str) -> list[tuple[str, str]]:
+    found = [classify_url(_trim_id(m.group(0))) for m in INLINE_URL_RE.finditer(line)]
+    found += [("doi", _trim_id(m.group(1))) for m in INLINE_DOI_RE.finditer(line)]
+    found += [("pmid", m.group(1)) for m in PMID_RE.finditer(line)]
+    found += [("arxiv", m.group(1)) for m in INLINE_ARXIV_RE.finditer(line)]
+    return list(dict.fromkeys(found))
+
+
+def _prose_lines(path: Path, text: str) -> list[tuple[int, str]]:
+    """(line number, text) with code and comments blanked: what a reader reads as prose."""
+    out, in_code, tex = [], False, path.suffix.lower() == ".tex"
+    for n, line in enumerate(text.splitlines(), 1):
+        if tex:
+            v = VERBATIM_RE.search(line)
+            if v:
+                in_code = v.group(1) == "begin"
+                out.append((n, ""))
+                continue
+            if in_code:
+                out.append((n, ""))
+                continue
+            line = re.sub(r"\\verb\*?(\S)(.*?)\1", " ", line)
+            line = re.sub(r"(?<!\\)%.*", "", line)
+        else:
+            if FENCE_RE.match(line):
+                in_code = not in_code
+                out.append((n, ""))
+                continue
+            if in_code:
+                out.append((n, ""))
+                continue
+            line = re.sub(r"(`+)(.+?)\1", " ", re.sub(r"<!--.*?-->", " ", line))
+        out.append((n, line))
+    return out
+
+
+def _undated(lines: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """(line, sentence head) for each sentence with a number and a live cue ("currently", "as of", "to date",
+    "so far", "now", "at present", "at the time of writing") but no year: a live figure must say when."""
+    blocks: list[list[tuple[int, str]]] = []
+    cur: list[tuple[int, str]] = []
+    for n, line in lines:
+        if not line.strip() or NEW_BLOCK_RE.match(line):
+            if cur:
+                blocks.append(cur)
+            cur = [(n, line)] if line.strip() else []
+        else:
+            cur.append((n, line))
+    if cur:
+        blocks.append(cur)
+    hits = []
+    for block in blocks:
+        text, starts = "", []
+        for n, line in block:
+            starts.append((len(text), n))
+            text += line.strip() + " "
+        pos = 0
+        for m in [*SENTENCE_END_RE.finditer(text), None]:
+            end = m.end() if m else len(text)
+            s = text[pos:end].strip()
+            if s:
+                body = INLINE_URL_RE.sub(" ", s)
+                if LIVE_NUMBER_RE.search(body) and LIVE_CUE_RE.search(body) and not YEAR_RE.search(body):
+                    lead = len(text[pos:end]) - len(text[pos:end].lstrip())
+                    at = max(ln for off, ln in starts if off <= pos + lead)
+                    head = " ".join(s.split())
+                    hits.append((at, head if len(head) <= 80 else head[:79] + "…"))
+            pos = end
+    return hits
+
+
+def resolve_inline(items: list[InlineId]) -> None:
+    """Resolve each identifier in the text once; a URL by its status only."""
+    with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
+        for item in items:
+            if item.kind == "url":
+                status = _url_status(client, item.id)
+                item.state = status.split(" ")[0].rstrip(":")
+                item.detail = status.split(" ", 1)[1] if " " in status else ""
+            else:
+                item.state, item.title, item.detail = _title_of(client, item.kind, item.id)
+
+
+def _inline_findings(items: list[InlineId]) -> list[Finding]:
+    out = []
+    for item in items:
+        where = f"{item.kind} {item.id}" if item.kind != "url" else item.id
+        if item.state == "dead":
+            out.append(Finding(check="references", severity=Severity.major, line=item.line, excerpt=item.id,
+                               message=f"The identifier {where} in the text does not resolve ({item.detail}).",
+                               suggestion="Correct it, or replace a dead link with an archived or current one."))
+        elif item.state in ("unknown", "blocked"):
+            out.append(Finding(check="references", severity=Severity.info, line=item.line, excerpt=item.id,
+                               message=f"The identifier {where} in the text could not be checked ({item.detail}).",
+                               suggestion="Open it by hand."))
+    return out
+
+
+def _undated_findings(prose: list[tuple[int, str]]) -> list[Finding]:
+    return [Finding(check="undated", severity=Severity.minor, line=n, excerpt=head, stage=Stage.writing.value,
+                    message=f"A figure said to be current carries no date: '{head}'.",
+                    suggestion="Say when it was true ('as of October 2026'), or drop the 'currently'.")
+            for n, head in _undated(prose)]
+
+
 def check_references(path: Path, online: bool, search_unidentified: bool) -> ReferenceReport:
     """Identity and citation consistency only, shared by focused checks and full audits."""
     raw = path.read_text(encoding="utf-8")
@@ -2259,6 +2406,9 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)
+        prose = [(n, line) for n, line in _prose_lines(path, raw) if n not in in_lists]
+        inline = [InlineId(line=n, kind=kind, id=ident) for n, line in prose for kind, ident in _inline_ids(line)]
+        findings += _undated_findings(prose)
     if ref_start is None and not bibs:
         findings.append(Finding(check="references", severity=Severity.major,
                                 message="No references/bibliography heading found; references were not checked.",
@@ -2270,9 +2420,14 @@ def check_references(path: Path, online: bool, search_unidentified: bool) -> Ref
     if online and refs:
         resolve_references(refs, search_unidentified)
     findings += _reference_findings(refs, online)
+    if bibliography_only:
+        inline = []
+    elif online and inline:
+        resolve_inline(inline)
+        findings += _inline_findings(inline)
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
-    return ReferenceReport(path=str(path), online=online, findings=findings, references=refs)
+    return ReferenceReport(path=str(path), online=online, findings=findings, references=refs, inline_ids=inline)
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
@@ -2353,7 +2508,8 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return Report(path=str(path), words=n_words, abstract_words=abstract_words, findings=findings, references=refs,
-                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails)
+                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails,
+                  inline_ids=reference_report.inline_ids)
 
 
 def _verdict(counts: Counter[str]) -> str:
@@ -2362,6 +2518,20 @@ def _verdict(counts: Counter[str]) -> str:
     if counts.get("major"):
         return f"fix before submitting: {counts['major']} major finding(s), no desk-reject trigger"
     return "no blocker or major finding from the mechanical checks; the judgement checks in the skill still apply"
+
+
+def _inline_section(items: list[InlineId]) -> list[str]:
+    """The identifiers in the text, each with the title it resolved to, for a person to read against the
+    sentence; nothing is matched automatically."""
+    checked = [i for i in items if i.state != "not_checked"]
+    if not checked:
+        return []
+    out = ["", "## Identifiers in the text", "", "Read each title against the sentence that cites it.", "",
+           "| line | identifier | answer | title |", "|---|---|---|---|"]
+    for i in checked:
+        title = (i.title or "").replace("|", "\\|")
+        out.append(f"| {i.line} | {i.kind} {i.id} | {i.state}{f' ({i.detail})' if i.detail else ''} | {title} |")
+    return out
 
 
 def references_to_markdown(report: ReferenceReport) -> str:
@@ -2398,6 +2568,7 @@ def references_to_markdown(report: ReferenceReport) -> str:
             notes += [n for n in ref.author_notes if "stop short" in n]
             cell = "; ".join(notes).replace("|", "\\|")
             out.append(f"| {ref.line} | {ref.status} | {ident} | {title} | {retraction} | {cell} |")
+    out += _inline_section(report.inline_ids)
     return "\n".join(out) + "\n"
 
 
@@ -2427,6 +2598,7 @@ def to_markdown(report: Report) -> str:
         for r in report.references:
             ident = r.doi or (f"PMID {r.pmid}" if r.pmid else "") or (f"arXiv {r.arxiv}" if r.arxiv else "")
             out.append(f"| {r.line} | {r.status} | {ident} | {(r.resolved_title or '')[:90]} | {r.title_similarity or ''} |")
+    out += _inline_section(report.inline_ids)
     return "\n".join(out) + "\n"
 
 
