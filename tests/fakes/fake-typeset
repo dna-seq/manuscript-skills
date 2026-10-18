@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""A fake pandoc and tectonic for typeset.py's tests (manuscript-revision-marks): no TeX, no fonts.
+A test writes a wrapper named pandoc or tectonic that runs `PY fake-typeset "$0" ARG...`; the wrapper's
+name picks the role, so PATH can hold the wrappers and nothing else.
+
+Every call is logged to $FAKE_TYPESET/calls.log, one JSON object per line: role, args, cwd, stdin (or
+null) and the TECTONIC_CACHE_DIR it was given (or null).
+
+pandoc   reads its input (the last argument that is not an option, else stdin) and writes
+         "% fake <from> to <to>" and then the input, to stdout. FAKE_PANDOC_RC=N: a line on stderr and
+         exit N, writing nothing.
+tectonic `--keep-logs --outdir DIR NAME`, NAME read from the working directory: writes DIR/<stem>.pdf
+         ("%PDF fake" and then NAME's text) and DIR/<stem>.log. The log says "Output written on
+         <stem>.xdv (N pages, 1 bytes)." with N from FAKE_TECTONIC_PAGES (default 1; "none" leaves the
+         line out), and one "Missing character" line per character of FAKE_TECTONIC_MISSING, the code
+         point in brackets unless FAKE_TECTONIC_OLD_LOG=1, as older XeTeX writes it.
+         FAKE_TECTONIC_RC=N: a log with an error, no PDF, exit N. FAKE_TECTONIC_NOPDF=1: exit 0, no PDF.
+"""
+import json
+import os
+import sys
+
+role, args = os.path.basename(sys.argv[1]), sys.argv[2:]
+env = os.environ.get
+stdin = None
+if role == "pandoc" and not [a for a in args if not a.startswith("-")]:
+    stdin = sys.stdin.read()
+with open(os.path.join(env("FAKE_TYPESET"), "calls.log"), "a", encoding="utf-8") as f:
+    f.write(json.dumps({"role": role, "args": args, "cwd": os.getcwd(), "stdin": stdin,
+                        "cache": env("TECTONIC_CACHE_DIR")}) + "\n")
+
+if role == "pandoc":
+    if env("FAKE_PANDOC_RC"):
+        sys.stderr.write("pandoc: fake failure\n")
+        sys.exit(int(env("FAKE_PANDOC_RC")))
+    opts = dict(a[2:].split("=", 1) for a in args if a.startswith("--") and "=" in a)
+    inputs = [a for a in args if not a.startswith("-")]
+    text = stdin if stdin is not None else open(inputs[-1], encoding="utf-8").read()
+    sys.stdout.write(f"% fake {opts.get('from')} to {opts.get('to')}\n{text}")
+    sys.exit(0)
+
+if role == "tectonic":
+    outdir, name = args[args.index("--outdir") + 1], args[-1]
+    stem = os.path.splitext(name)[0]
+    log = [f"This is a fake XeTeX, compiling {name}"]
+    for ch in env("FAKE_TECTONIC_MISSING", ""):
+        code = "" if env("FAKE_TECTONIC_OLD_LOG") else f" (U+{ord(ch):04X})"
+        log.append(f"Missing character: There is no {ch}{code} in font [lmroman10-regular]:mapping=tex-text;!")
+    if env("FAKE_TECTONIC_RC"):
+        log += ["! Undefined control sequence.", "l.3 \\nosuchcommand"]
+        with open(os.path.join(outdir, f"{stem}.log"), "w", encoding="utf-8") as f:
+            f.write("\n".join(log) + "\n")
+        sys.stderr.write("error: something bad happened\n")
+        sys.exit(int(env("FAKE_TECTONIC_RC")))
+    pages = env("FAKE_TECTONIC_PAGES", "1")
+    if pages != "none":
+        log.append(f"Output written on {stem}.xdv ({pages} page{'' if pages == '1' else 's'}, 1 bytes).")
+    with open(os.path.join(outdir, f"{stem}.log"), "w", encoding="utf-8") as f:
+        f.write("\n".join(log) + "\n")
+    if not env("FAKE_TECTONIC_NOPDF"):
+        with open(os.path.join(outdir, f"{stem}.pdf"), "w", encoding="utf-8") as f:
+            f.write("%PDF fake\n" + open(name, encoding="utf-8").read())
+    sys.exit(0)
+
+sys.exit(f"fake-typeset: no role {role!r}")

@@ -41,7 +41,8 @@ for requested section or stage review, before/after comparisons and optional int
      identifier, a reference entry rebuilt from Crossref metadata;
    - do not replace paragraphs unless editing is also requested. For authorised edits, use the prose-edit
      skill's content-preservation contract and apply the selected venue's disclosure exemptions;
-   - preserve existing revision markers, but do not audit provenance or create a ledger unless requested.
+   - preserve existing revision markers, but do not audit provenance or create a ledger unless requested;
+     `manuscript-revision-marks` lints them and lists the prose no review round has touched.
      A later human edit does not automatically resolve a journal's restriction on earlier AI drafting.
 3. **Never invent a source.** Verify suggested citations against authoritative records, using an available
    DOI, PMID, arXiv identifier or primary publisher/library record. Reuse a current verification of an
@@ -120,7 +121,8 @@ missing software archive is only a hint for `manuscript-reporting-check`). It re
 `.bib` it uses) and plain text. Its Markdown groups the findings under the four stage labels of The report and
 treats the paper as work in progress: the end-stage items (statements, archives, placeholders) are listed last
 and left out of its readiness line and exit code. Add `--final` only when the authors say they are about to
-submit, and those items count too. Exit code 1 means a blocker candidate among the counted findings. Read every
+submit, and those items count too. Exit code 1 means a blocker candidate among the counted findings; with
+`--online`, 3 means none, but a lookup did not answer, so the run cannot be called clean. Read every
 serious and important finding in context and omit false positives (a module named "Superhuman", "discovery" as a
 software term). Severities, stages and the readiness line are provisional: the report judges readiness itself
 (see The report). AI mentions, style counts and absent generic declarations are not by themselves a submission

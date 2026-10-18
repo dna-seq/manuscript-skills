@@ -1,9 +1,10 @@
 # Manuscript Skills
 
 Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of nine focused skills to check references,
+`manuscript-improve` for the full workflow, or choose one of eleven focused skills to check references,
 reporting and statistics, anticipate referees, improve prose, select a journal, prepare a submission
-or answer referees after a decision. They work with manuscripts written with or without AI assistance.
+answer referees after a decision, or keep track of who revised each passage and which AI edits no
+person has reviewed yet. They work with manuscripts written with or without AI assistance.
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. Journal
 recommendations take account of the research you have done, the validation you can afford and your
@@ -24,6 +25,8 @@ requirements.
 | Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, shown before and after, plus submission materials and a concise AI-use disclosure where needed. What waits until the code and results are final is listed separately. |
 | Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, with the policy text quoted and linked, precise wording and drafts of scope clarifications or replies to policy questions. |
 | Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A plan of the referees' comments in their own numbering with the decisions you need to make, a point-by-point response letter tied to the changes you made, and a check that the revision addresses each comment. |
+| See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | Revision marks in a Markdown or LaTeX manuscript checked and reported: the passages each review comment changed, in how many rounds and by whom, the prose no round has read, the AI edits no person has reviewed since, a heat map and a review PDF with those edits shaded, and a PDF build from the clean copy measured against a page limit. |
+| List the people behind the marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots, proposed for you to confirm, so that an unlisted name never counts as a person's review. |
 
 You can request any of these independently. Editing a paragraph does not require a full manuscript
 review. A full submission review includes reference checks where relevant.
@@ -152,6 +155,11 @@ For a response to referees:
 > list the decisions we need to make. Later, draft the response letter and check it against the revised
 > manuscript.
 
+For revision marks, where the manuscript keeps them:
+
+> Which passages has no one checked since the AI rewrote them? Give Anna a PDF with those passages
+> highlighted, and list the paragraphs no review round has touched.
+
 For a scope or ethics question:
 
 > This paper evaluates an annotation tool using my own publicly released genome. Check which
@@ -188,9 +196,9 @@ on your behalf.
 
 Reporting guidelines are checked when they fit your study design; a missing checklist item is a
 requirement only when your target journal asks for that guideline. Reference and availability checks
-look up public identifiers online (DOIs, PMIDs, accessions, package names); for a reference without a
-working identifier, the reference's own text is searched in Crossref. The rest of the manuscript is not
-sent anywhere. Controlled access, such as dbGaP or EGA, is a legitimate route, not a defect.
+look up public identifiers online (DOIs, PMIDs, accessions, package names, and links written in the
+text); for a reference without a working identifier, the reference's own text is searched in Crossref,
+and a match stays a candidate for you to confirm. The rest of the manuscript is not sent anywhere. Controlled access, such as dbGaP or EGA, is a legitimate route, not a defect.
 
 Reference checking distinguishes a source's identity from its support for a particular sentence. A DOI
 that resolves to the right paper does not establish that the paper supports your claim. The assistant
@@ -215,7 +223,7 @@ agreement before the manuscript is sent to that service.
 
 ## Installation
 
-Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all ten skills.
+Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all twelve skills.
 
 In **Codex**, install it from the **DNA Seq Genomics** marketplace.
 
@@ -239,7 +247,9 @@ claude plugin install manuscript-skills@manuscript-skills
 </details>
 
 The automated checks require [uv](https://docs.astral.sh/uv/) on the computer running the assistant;
-their dependencies install on first use. Ask the assistant to check the setup if needed. Looking up
+their dependencies install on first use. Building a PDF from a marked manuscript also needs
+[pandoc](https://pandoc.org/) and [tectonic](https://tectonic-typesetting.github.io/), which uv does not
+install. Ask the assistant to check the setup if needed. Looking up
 references and current journal policies requires internet access.
 
 ## Development

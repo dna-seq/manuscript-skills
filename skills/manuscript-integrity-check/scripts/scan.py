@@ -24,11 +24,16 @@ status codes included, for other tools.
 from __future__ import annotations
 
 import csv
+import fnmatch
+import html
+import ipaddress
 import json
 import re
 import subprocess
 import time
+import tomllib
 import unicodedata
+import urllib.parse
 from collections import Counter
 from difflib import SequenceMatcher
 from enum import Enum
@@ -98,6 +103,14 @@ class Reference(BaseModel):
     doi: Optional[str] = None
     pmid: Optional[str] = None
     arxiv: Optional[str] = None
+    url: Optional[str] = None  # a BibTeX url field that is not a DOI, arXiv or PubMed link
+    other_ids: list[str] = []  # further identifiers the entry carries ("doi:10...", "pmid:123"), each checked too
+    cited_title: Optional[str] = None  # the title as cited, when the entry has a title field (BibTeX)
+    # Strictly normalised cited title against the record's: same | differs (a fuzzy match that is not exact) |
+    # no_title (a BibTeX entry with no title field) | not_compared
+    title_check: str = "not_compared"
+    other_id_checks: list[dict[str, Optional[str]]] = []  # one per other_ids: id, state, title, why, same_work
+    url_status: Optional[str] = None  # the url field's answer: "ok HTTP 200", "dead HTTP 404", "blocked ...", "unknown ..."
     resolved_title: Optional[str] = None
     resolved_year: Optional[str] = None
     resolved_first_author: Optional[str] = None
@@ -128,11 +141,24 @@ class Reference(BaseModel):
     _list: Optional[str] = PrivateAttr(default=None)
 
 
+class InlineId(BaseModel):
+    """An identifier written in the text (doi:, a doi.org or arXiv link, PMID, arXiv:, a bare URL), outside the
+    reference list: resolved online, its title shown for a person to read; no match is attempted."""
+    line: int
+    kind: str  # doi | pmid | arxiv | url
+    id: str
+    section: str = ""  # the heading the line falls under
+    state: str = "not_checked"  # ok | dead | blocked | unknown | not_checked
+    title: Optional[str] = None
+    detail: str = ""
+
+
 class ReferenceReport(BaseModel):
     path: str
     online: bool
     findings: list[Finding]
     references: list[Reference]
+    inline_ids: list[InlineId] = []
 
 
 class Report(BaseModel):
@@ -145,6 +171,7 @@ class Report(BaseModel):
     top_vocabulary: list[tuple[str, int]]
     ing_tails: int = 0
     final: bool = False  # the authors are about to submit: final-stage findings count in the verdict
+    inline_ids: list[InlineId] = []
 
 
 # --------------------------------------------------------------------------------------------------
@@ -309,9 +336,35 @@ AI_TOOL_MENTIONS = [
     r"\blarge language models?\b", r"\bllms?\b", r"\bai agents?\b", r"\bagentic\b", r"\bai assistants?\b",
     r"\bchatbots?\b", r"\bgenerative ai\b", r"\bai[- ]generated\b", r"\bai[- ]assisted\b",
 ]
-# HTML-comment revision markers that name an AI as the reviser of a segment
-# (`<!-- @rev ID rounds=N by=name:date,... -->`, the format of the manuscript ledger in dna-seq/just-dna-lite).
-LEDGER_AI = re.compile(r"<!--\s*@rev\b[^>]*\bby=[^>]*\b(claude|gpt|chatgpt|gemini|copilot|ai|llm)\b", re.IGNORECASE)
+# Revision marks (`<!-- @rev ID rounds=N by=name:date,... -->`, or `% @rev ...` in LaTeX; the format of
+# manuscript-revision-marks) and the agent names they may carry, shared with that skill.
+LEDGER_BY = re.compile(r"(?:<!--|%)[ \t]*@rev\b[^\n>]*?\bby=([^\s>]+)")
+AGENT_NAMES = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "references" / "agent-names.toml"
+
+
+# The names the scan recognised before the shared list existed, for an install without manuscript-revision-marks.
+FALLBACK_AGENT_PATTERNS = ["claude", "claude-*", "gpt", "gpt-*", "chatgpt", "gemini", "gemini-*", "copilot", "ai", "llm"]
+
+
+def _agent_patterns() -> list[str]:
+    if not AGENT_NAMES.is_file():
+        return FALLBACK_AGENT_PATTERNS
+    data = tomllib.loads(AGENT_NAMES.read_text(encoding="utf-8"))
+    return [n.lower() for n in data["names"] + data["patterns"]]
+
+
+def ledger_ai(raw: str) -> list[str]:
+    """For each revision mark that names a known AI model or agent in `by=`, the first such name."""
+    patterns = _agent_patterns()
+    out = []
+    for m in LEDGER_BY.finditer(raw):
+        names = [item.partition(":")[0].lower() for item in m.group(1).split(",")]
+        ai = next((n for n in names if any(fnmatch.fnmatchcase(n, p) for p in patterns)), None)
+        if ai is not None:
+            out.append(ai)
+    return out
+
+
 MODEL_VERSION = re.compile(
     r"(?:claude[- ](?:opus|sonnet|haiku|fable)?[- ]?\d|gpt-?\d(?:\.\d)?(?:-\w+)?|gemini[- ]\d(?:\.\d)?|"
     r"llama[- ]?\d|qwen\d?|deepseek-\w+|claude-[a-z]+-\d)",
@@ -319,8 +372,14 @@ MODEL_VERSION = re.compile(
 )
 
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>)\],;]+)", re.IGNORECASE)
-PMID_RE = re.compile(r"\bPMID:?\s*(\d{5,9})\b", re.IGNORECASE)
-ARXIV_RE = re.compile(r"\barXiv\W{0,3}(\d{4}\.\d{4,5})(?:v\d+)?\b|arxiv\.org/abs/(\d{4}\.\d{4,5})", re.IGNORECASE)
+PMID_RE = re.compile(r"\bPMID:?\s*(\d{1,9})\b", re.IGNORECASE)
+# New-style ids (2101.00001), and old-style ones (hep-th/9901001, math.GT/0309136) after "arXiv:".
+ARXIV_RE = re.compile(r"\barXiv\W{0,3}(\d{4}\.\d{4,5})(?:v\d+)?\b|arxiv\.org/abs/(\d{4}\.\d{4,5})|"
+                      r"\barXiv:\s*([a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v\d+)?\b", re.IGNORECASE)
+
+
+def _arxiv_id(m: Optional[re.Match[str]]) -> Optional[str]:
+    return next((g for g in m.groups() if g), None) if m else None
 _CAP = r"[A-ZÀ-ÖØ-Þ][^\W\d_]*(?:['’\-][^\W\d_]+)*"  # a capitalised name word, any script with Latin capitals
 _PARTICLES = r"(?:(?:van|von|de|der|den|del|della|di|da|du|la|le|ter|ten)\s+)*"
 # Author-year citations in a parenthesis: "(Lambert et al., 2021)", "(Illumina, 2023; Ultima Genomics, 2025)".
@@ -595,9 +654,6 @@ def _split_entries(entries: list[tuple[int, str]]) -> list[tuple[int, str]]:
 
 LATEX_BIB = re.compile(r"\\(?:bibliography|addbibresource)\{([^}]+)\}")
 LATEX_CITE_KEYS = re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
-BIB_ENTRY = re.compile(r"@(\w+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\}", re.DOTALL)
-BIB_FIELD_NAME = re.compile(r"[\s,]*([A-Za-z][\w-]*)\s*=\s*")
-BIB_BARE = re.compile(r"[^,#\s}]+")
 # LaTeX accents and letters as BibTeX writes them: {\"u}, \"{u}, {\c{s}}, \'{\i}, {\o}, \ss.
 _ACCENTS = {'"': "\u0308", "'": "\u0301", "`": "\u0300", "^": "\u0302", "~": "\u0303", "=": "\u0304", ".": "\u0307",
             "u": "\u0306", "v": "\u030c", "H": "\u030b", "c": "\u0327", "k": "\u0328", "r": "\u030a", "d": "\u0323",
@@ -609,63 +665,199 @@ LATEX_ACCENT = re.compile(r"\\([\"'`^~=.])\s*\{?\s*(\\[ij](?![A-Za-z])|[A-Za-z])
 LATEX_LETTER = re.compile(r"\\(ss|aa|AA|ae|AE|oe|OE|o|O|l|L|i|j)(?![A-Za-z])\s?")
 
 
-def _bib_value(body: str, i: int) -> tuple[str, int]:
-    """One field value from position i: braces balanced at any depth, a quoted string or a bare word, joined by #."""
-    parts: list[str] = []
-    n = len(body)
-    while i < n:
-        while i < n and body[i].isspace():
+class BibError(Exception):
+    """A BibTeX entry that does not parse."""
+
+
+BIB_HEAD = re.compile(r"@\s*([A-Za-z]+)\s*([{(])")
+BIB_NAME = re.compile(r"[A-Za-z][\w\-:.+]*")
+BIB_WORD = re.compile(r"[^\s,#{}()\"=]+")
+
+
+def _bib_balanced(text: str, i: int, open_: str, close: str) -> int:
+    """The index just past the `close` that matches the `open_` at text[i]."""
+    depth, j = 0, i
+    while j < len(text):
+        c = text[j]
+        if c == "\\":
+            j += 2
+            continue
+        if c == open_:
+            depth += 1
+        elif c == close:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    raise BibError(f"no closing {close}")
+
+
+def _bib_value(text: str, i: int, strings: dict[str, str]) -> tuple[str, int]:
+    """One field value from position i: braces balanced at any depth, a quoted string, a number or an
+    @string macro, joined by #."""
+    pieces = []
+    while True:
+        while i < len(text) and text[i].isspace():
             i += 1
-        if i >= n:
-            break
-        if body[i] in "{\"":
-            close, depth, j = body[i], 0, i + (body[i] == "\"")
-            while j < n:
-                c = body[j]
-                if c == "\\":
-                    j += 2
-                    continue
-                if c == "{":
-                    depth += 1
-                elif c == "}":
-                    depth -= 1
-                    if close == "{" and depth == 0:
-                        break
-                elif c == "\"" and close == "\"" and depth == 0:
-                    break
+        if i >= len(text):
+            raise BibError("a value runs off the end")
+        c = text[i]
+        if c == "{":
+            j = _bib_balanced(text, i, "{", "}")
+            pieces.append(text[i + 1:j - 1])
+        elif c == '"':
+            j, depth = i + 1, 0
+            while j < len(text) and not (text[j] == '"' and depth == 0 and text[j - 1] != "\\"):
+                depth += {"{": 1, "}": -1}.get(text[j], 0)
                 j += 1
-            parts.append(body[i + 1:j])
-            i = j + 1
+            if j >= len(text):
+                raise BibError('no closing "')
+            pieces.append(text[i + 1:j])
+            j += 1
         else:
-            m = BIB_BARE.match(body, i)
+            m = BIB_WORD.match(text, i)
             if not m:
-                break
-            parts.append(m.group(0))
-            i = m.end()
-        while i < n and body[i].isspace():
+                raise BibError(f"no value at {c!r}")
+            pieces.append(strings.get(m.group(0).lower(), m.group(0)))
+            j = m.end()
+        i = j
+        while i < len(text) and text[i].isspace():
             i += 1
-        if i < n and body[i] == "#":
+        if i < len(text) and text[i] == "#":
             i += 1
             continue
-        break
-    return "".join(parts), i
+        return "".join(pieces), i
 
 
-def _bib_fields(body: str) -> dict[str, str]:
-    """The fields of one BibTeX entry, read with a brace-balancing scanner (a regex stops at a fixed depth)."""
-    fields: dict[str, str] = {}
+def _parse_bib(text: str) -> tuple[list[tuple[str, int, dict[str, str]]], list[tuple[int, str, bool]]]:
+    """(key, line, raw fields) for each entry, and (line, why, kept) for each that does not parse. @string macros
+    are substituted, @comment and @preamble skipped, and an entry may close with } or ). An entry whose key was
+    read but whose fields stop parsing is kept with the fields before the problem (kept=True), as BibTeX keeps it."""
+    entries, errors, strings = [], [], {}
     i = 0
-    while i < len(body):
-        m = BIB_FIELD_NAME.match(body, i)
+    while True:
+        at = text.find("@", i)
+        if at == -1:
+            break
+        m = BIB_HEAD.match(text, at)
         if not m:
-            comma = body.find(",", i)
-            if comma < 0:
-                break
-            i = comma + 1
+            i = at + 1
             continue
-        value, i = _bib_value(body, m.end())
-        fields[m.group(1).lower()] = value
-    return fields
+        line = text.count("\n", 0, at) + 1
+        kind, opener = m.group(1).lower(), m.group(2)
+        try:
+            end = _bib_balanced(text, m.end() - 1, opener, "}" if opener == "{" else ")")
+        except BibError as exc:
+            errors.append((line, str(exc), False))
+            break
+        i = end
+        if kind in ("comment", "preamble"):
+            continue
+        body = text[m.end():end - 1]
+        key, fields = None, {}
+        try:
+            if kind == "string":
+                name = BIB_NAME.match(body.lstrip())
+                if not name:
+                    raise BibError("@string without a name")
+                rest = body.lstrip()[name.end():].lstrip()
+                if not rest.startswith("="):
+                    raise BibError("@string without =")
+                strings[name.group(0).lower()] = _bib_value(rest, 1, strings)[0]
+                continue
+            key = re.match(r"\s*([^,\s]*)\s*(,|$)", body)
+            if not key or not key.group(1):
+                raise BibError("no key")
+            j = key.end()
+            while True:
+                while j < len(body) and (body[j].isspace() or body[j] == ","):
+                    j += 1
+                if j >= len(body):
+                    break
+                name = BIB_NAME.match(body, j)
+                if not name:
+                    raise BibError(f"no field name at {body[j:j + 20]!r}")
+                j = name.end()
+                while j < len(body) and body[j].isspace():
+                    j += 1
+                if j >= len(body) or body[j] != "=":
+                    raise BibError(f"field {name.group(0)} has no =")
+                value, j = _bib_value(body, j + 1, strings)
+                fields[name.group(0).lower()] = value
+            entries.append((key.group(1), line, fields))
+        except BibError as exc:
+            kept = kind != "string" and bool(key and key.group(1))
+            if kept:
+                entries.append((key.group(1), line, fields))
+            errors.append((line, str(exc), kept))
+    return entries, errors
+
+
+def _bib_plain(value: str) -> str:
+    """An identifier field as written: braces gone, LaTeX escapes of URL characters undone."""
+    return re.sub(r"\\([_%&#~$])", r"\1", value).replace("{", "").replace("}", "").strip()
+
+
+LOCAL_SUFFIXES = (".localhost", ".local", ".internal", ".lan", ".home.arpa", ".test", ".invalid")
+
+
+def _local_host(host: str) -> bool:
+    """A host no reader of the paper can open: localhost, a private, loopback or link-local address, a name with no
+    dot ("your-server"), or a reserved local suffix. Such a link is an example or a placeholder."""
+    if not host or host == "localhost" or host.endswith(LOCAL_SUFFIXES):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return "." not in host
+    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_reserved
+
+
+def classify_url(url: str) -> tuple[str, str]:
+    """("doi" | "arxiv" | "pmid" | "url" | "placeholder" | "local", value): a URL on doi.org, arxiv.org or PubMed is
+    that identifier; a bracketed host ("https://[anonymized-for-review]") is a placeholder and a local or private
+    host is an example, neither of which is ever looked up."""
+    try:
+        u = urllib.parse.urlsplit(url)
+        host = (u.hostname or "").lower()
+    except ValueError:  # urllib reads a bracketed host as an IPv6 address
+        return "placeholder", url
+    if _local_host(host):
+        return "local", url
+    path = urllib.parse.unquote(u.path)
+    if host in ("doi.org", "dx.doi.org", "www.doi.org") and path.startswith("/10."):
+        return "doi", path[1:]
+    if host in ("arxiv.org", "www.arxiv.org"):
+        m = re.fullmatch(r"/(?:abs|pdf)/(.+?)(?:v\d+)?(?:\.pdf)?/?", path)
+        if m:
+            return "arxiv", m.group(1)
+    if host == "pubmed.ncbi.nlm.nih.gov" or (host in ("www.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov")
+                                              and path.startswith("/pubmed/")):
+        m = re.fullmatch(r"(?:/pubmed)?/(\d{1,9})/?", path)
+        if m:
+            return "pmid", m.group(1)
+    return "url", url
+
+
+def _bib_ids(fields: dict[str, str]) -> list[tuple[str, str]]:
+    """Every identifier a BibTeX entry carries: doi, pmid, an arXiv eprint (archivePrefix or eprinttype arxiv),
+    an arXiv id written into eprint, journal or note, and url (classified by its host)."""
+    ids: list[tuple[str, str]] = []
+    if fields.get("doi"):
+        doi = _bib_plain(fields["doi"])
+        ids.append(classify_url(doi) if doi.lower().startswith("http") else
+                   ("doi", re.sub(r"(?i)^doi:\s*", "", doi)))
+    if fields.get("pmid"):
+        ids.append(("pmid", _bib_plain(fields["pmid"])))
+    prefix = _bib_plain(fields.get("archiveprefix") or fields.get("eprinttype") or "").lower()
+    if fields.get("eprint") and prefix == "arxiv":
+        ids.append(("arxiv", re.sub(r"(?i)^arxiv:\s*", "", _bib_plain(fields["eprint"]))))
+    written = _arxiv_id(ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note"))))
+    if written:
+        ids.append(("arxiv", written))
+    if fields.get("url"):
+        ids.append(classify_url(_bib_plain(fields["url"])))
+    return [i for i in dict.fromkeys(ids) if i[0] not in ("placeholder", "local")]
 
 
 def _latex_text(value: str) -> str:
@@ -695,24 +887,27 @@ def _bib_files(tex: str, base: Path) -> list[Path]:
     return out
 
 
-def _bib_references(bib: Path) -> list[tuple[str, "Reference"]]:
-    """(cite key, Reference) for each BibTeX entry; text is "author (year). title. venue" for matching."""
+def _bib_references(bib: Path, errors: Optional[list[tuple[int, str, bool]]] = None) -> list[tuple[str, "Reference"]]:
+    """(cite key, Reference) for each BibTeX entry; text is "author (year). title. venue" for matching. Entries
+    that do not parse are appended to *errors* as (line, why, kept)."""
     text = bib.read_text(encoding="utf-8")
+    entries, failed = _parse_bib(text)
+    if errors is not None:
+        errors += failed
     out: list[tuple[str, Reference]] = []
-    for m in BIB_ENTRY.finditer(text):
-        fields = {k: _latex_text(v) for k, v in _bib_fields(m.group(3)).items()}
-        line = text[: m.start()].count("\n") + 1
+    for key, line, raw in entries:
+        fields = {k: _latex_text(v) for k, v in raw.items()}
         venue = fields.get("journal") or fields.get("booktitle") or fields.get("publisher") or ""
         # An entry with no author starts with its year, so the online check knows there is no list to compare.
         entry = " ".join(f"{fields.get('author', '')} ({fields.get('year', '')}). {fields.get('title', '')}. "
                          f"{venue}".split())
-        arxiv = ARXIV_RE.search(" ".join(fields.get(k, "") for k in ("eprint", "journal", "note", "url")))
-        eprint = fields.get("eprint") if fields.get("archiveprefix", "").lower() == "arxiv" else None
-        doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", fields.get("doi", ""), flags=re.IGNORECASE)
-        ref = Reference(line=line, text=entry, doi=doi or None, pmid=fields.get("pmid") or None,
-                        arxiv=eprint or ((arxiv.group(1) or arxiv.group(2)) if arxiv else None))
-        ref._bib_file, ref._bib_key = bib.name, m.group(2)
-        out.append((m.group(2), ref))
+        ids = _bib_ids(raw)
+        first = {kind: value for kind, value in reversed(ids)}  # the first of each kind
+        ref = Reference(line=line, text=entry, doi=first.get("doi"), pmid=first.get("pmid"), arxiv=first.get("arxiv"),
+                        cited_title=fields.get("title") or None, url=first.get("url"),
+                        other_ids=[f"{k}:{v}" for k, v in ids if first.get(k) != v])
+        ref._bib_file, ref._bib_key = bib.name, key
+        out.append((key, ref))
     return out
 
 
@@ -1114,6 +1309,31 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9 ]", " ", s.lower())
 
 
+GREEK = ("alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi pi rho sigma tau upsilon phi "
+         "chi psi omega").split()
+TEX_SPECIAL = {"ss": "ß", "o": "ø", "O": "Ø", "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ", "aa": "å", "AA": "Å",
+               "l": "ł", "L": "Ł", "i": "i", "j": "j", **dict(zip(GREEK, "αβγδεζηθικλμνξπρστυφχψω")),
+               **dict(zip((g.capitalize() for g in GREEK), "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΠΡΣΤΥΦΧΨΩ"))}
+
+
+def _delatex(s: str) -> str:
+    """LaTeX accents, commands, braces and math dollars out of a title (cite-check's reading)."""
+    s = s.replace("\\\\", " ")
+    s = re.sub(r"\\([`'^\"~=.])\s*", "", s)
+    s = re.sub(r"\\[uvHtcdbkr](?![A-Za-z])\s*", "", s)
+    s = re.sub(r"\\([&%$#_{}])", r"\1", s)
+    s = re.sub(r"\\([A-Za-z]+)\s*", lambda m: TEX_SPECIAL.get(m.group(1), " "), s)
+    return s.replace("~", " ").replace("{", "").replace("}", "").replace("$", "")
+
+
+def _strict_title(s: str) -> str:
+    """A title compared strictly: LaTeX and HTML out, NFKD with accents dropped, casefolded, every character that
+    is not a letter or digit a space."""
+    s = unicodedata.normalize("NFKD", _fetched(_delatex(s)))
+    s = "".join(c for c in s if not unicodedata.combining(c)).casefold()
+    return " ".join("".join(c if c.isalnum() else " " for c in s).split())
+
+
 def _similarity(title: str, entry: str) -> float:
     """How much of the resolved title appears in the citation text (0..1)."""
     t, e = _norm(title).split(), set(_norm(entry).split())
@@ -1123,25 +1343,59 @@ def _similarity(title: str, entry: str) -> float:
     return max(token, SequenceMatcher(None, _norm(title), _norm(entry)).find_longest_match().size / max(len(_norm(title)), 1))
 
 
-def _get(client: httpx.Client, url: str, **params: str) -> Optional[httpx.Response]:
-    """GET with retries on 429 and 5xx. None means the service did not answer, never "not found"."""
+# One run asks each URL once, and spaces its requests to one host: doi.org 1 s, NCBI 0.4 s (under its three a
+# second without a key), a web page's host 0.5 s. The registries' own pacing (arXiv 3 s, the per-reference pause)
+# stays where it is.
+HOST_GAP = {"doi.org": 1.0, "eutils.ncbi.nlm.nih.gov": 0.4}
+API_HOSTS = {"api.crossref.org", "api.datacite.org", "export.arxiv.org", "www.ebi.ac.uk", "api.biorxiv.org",
+             "www.medrxiv.org", "www.biorxiv.org", "arxiv.org"}
+_ASKED: dict[tuple, Optional[httpx.Response]] = {}
+_LAST_ASK: dict[str, float] = {}
+
+
+def _space(url: str) -> None:
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    gap = HOST_GAP.get(host, 0.0 if host in API_HOSTS else 0.5)
+    last = _LAST_ASK.get(host)
+    if gap and last is not None and time.monotonic() - last < gap:
+        time.sleep(gap - (time.monotonic() - last))
+    _LAST_ASK[host] = time.monotonic()
+
+
+def _get(client: httpx.Client, url: str, accept: Optional[str] = None, follow: bool = False,
+         **params: str) -> Optional[httpx.Response]:
+    """GET with retries on 429 and 5xx, asked once per run. None means the service did not answer, never "not
+    found"."""
+    key = ("GET", url, accept, follow, tuple(sorted(params.items())))
+    if key in _ASKED:
+        return _ASKED[key]
+    r = None
     for attempt in range(3):
+        _space(url)
         try:
-            r = client.get(url, params=params or None)
+            r = client.get(url, params=params or None, headers={"Accept": accept} if accept else None,
+                           follow_redirects=follow)
         except httpx.HTTPError:
-            return None
+            r = None
+            break
         if r.status_code == 429 or r.status_code >= 500:
             time.sleep(2 ** attempt)
+            r = None
             continue
-        return r
-    return None
+        break
+    _ASKED[key] = r
+    return r
 
 
-def _head(client: httpx.Client, url: str) -> Optional[httpx.Response]:
-    try:
-        return client.head(url, follow_redirects=False)
-    except httpx.HTTPError:
-        return None
+def _head(client: httpx.Client, url: str, follow: bool = False) -> Optional[httpx.Response]:
+    key = ("HEAD", url, None, follow, ())
+    if key not in _ASKED:
+        _space(url)
+        try:
+            _ASKED[key] = client.head(url, follow_redirects=follow)
+        except httpx.HTTPError:
+            _ASKED[key] = None
+    return _ASKED[key]
 
 
 def _json_message(r: Optional[httpx.Response]) -> Optional[dict]:
@@ -1570,16 +1824,60 @@ def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, st
         return source, state, notice
     if r is not None and r.status_code == 404 and _resolve_datacite(client, ref):
         return None
-    head = _head(client, f"https://doi.org/{ref.doi}")
-    if head is not None and head.status_code in (301, 302, 303, 307, 308):
-        ref.status = "resolved"
-        ref.lookup_notes.append("The DOI exists (doi.org) but no Crossref or DataCite metadata was read.")
-    elif head is not None and head.status_code == 404:
-        ref.status = "unresolved"
-    else:
-        ref.status = "lookup_failed"
-        ref.lookup_notes.append("Crossref and doi.org did not answer.")
+    _resolve_csl(client, ref)
     return None
+
+
+CSL = "application/vnd.citationstyles.csl+json"
+
+
+def _csl_record(client: httpx.Client, doi: str) -> tuple[str, Optional[dict], str]:
+    """("ok" | "dead" | "unknown", the CSL record, why): doi.org hands the request to whichever agency
+    registered the DOI (Crossref, DataCite, mEDRA, JaLC, ...)."""
+    r = _get(client, f"https://doi.org/{urllib.parse.quote(doi, safe='/()._;:-')}", accept=CSL, follow=True)
+    if r is None:
+        return "unknown", None, "doi.org did not answer"
+    if r.status_code == 406:
+        return "unknown", None, "the DOI's registration agency gives no record to compare"
+    if r.status_code in (404, 410) or 400 <= r.status_code < 500 and r.status_code != 429:
+        return "dead", None, f"doi.org answered HTTP {r.status_code}"
+    if r.status_code != 200:
+        return "unknown", None, f"doi.org answered HTTP {r.status_code}"
+    try:
+        rec = r.json()
+    except ValueError:
+        return "unknown", None, "doi.org's answer is not a CSL record"
+    return ("ok", rec, "") if isinstance(rec, dict) else ("unknown", None, "doi.org's answer is not a CSL record")
+
+
+def _csl_title(rec: dict) -> Optional[str]:
+    title = rec.get("title")
+    title = title[0] if isinstance(title, list) and title else title
+    return _fetched(title) if isinstance(title, str) and title.strip() else None
+
+
+def _resolve_csl(client: httpx.Client, ref: Reference) -> None:
+    """Neither Crossref nor DataCite has the DOI: ask doi.org for its agency's CSL record, so its title is still
+    compared. A DOI doi.org does not know is unresolved; an agency that gives no record is not assessed."""
+    state, rec, why = _csl_record(client, ref.doi or "")
+    if state == "dead":
+        ref.status = "unresolved"
+        return
+    if state == "unknown" or rec is None or not _csl_title(rec):
+        ref.status = "lookup_failed"
+        ref.lookup_notes.append(f"Crossref and DataCite hold no record and {why or 'the record has no title'}; "
+                                "the title was not compared.")
+        return
+    ref.resolved_title = _csl_title(rec)
+    parts = ((rec.get("issued") or {}).get("date-parts") or [[None]])
+    ref.resolved_year = str(parts[0][0]) if parts and parts[0] and parts[0][0] else None
+    names = [f"{a['family']}, {a['given']}" if a.get("family") and a.get("given") else a.get("family") or
+             a.get("literal") or "" for a in rec.get("author") or [] if isinstance(a, dict)]
+    ref.resolved_authors = [n for n in names if n][:200]
+    ref.resolved_first_author = _split_author(ref.resolved_authors[0])[0] if ref.resolved_authors else None
+    ref.status = "resolved"
+    ref.lookup_notes.append("doi.org gave the record (the DOI is registered with neither Crossref nor DataCite); "
+                            "no retraction registry covers it.")
 
 
 def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
@@ -1605,9 +1903,15 @@ def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
     return True
 
 
+EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
+NCBI_TOOL = "manuscript-skills"  # NCBI's `tool=`: names the software, never a person
+
+
 def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, str, Optional[str]]]:
-    r = _get(client, "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi", db="pubmed", id=ref.pmid or "",
-             retmode="json")
+    r = _get(client, EUTILS, db="pubmed", id=ref.pmid or "", retmode="json", tool=NCBI_TOOL)
+    if r is not None and 400 <= r.status_code < 500:
+        ref.status = "unresolved"
+        return None
     if r is None or r.status_code != 200:
         ref.status = "lookup_failed"
         ref.lookup_notes.append("PubMed did not answer.")
@@ -1629,6 +1933,15 @@ def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, s
     return "pubmed", "retracted" if retracted else "none", None
 
 
+def _arxiv_error(entry: str, title: str) -> bool:
+    """arXiv answers a malformed id with an entry whose id is under /api/errors, titled Error, and a
+    well-formed id that does not exist with no entry. A paper whose title merely contains "Error" is a paper."""
+    entry_id = re.search(r"<id>(.*?)</id>", entry, re.DOTALL)
+    if entry_id and "/api/errors" in entry_id.group(1):
+        return True
+    return " ".join(title.split()) == "Error" and not (entry_id and "/abs/" in entry_id.group(1))
+
+
 def _resolve_arxiv(client: httpx.Client, ref: Reference) -> None:
     wait = 3.1 - (time.monotonic() - _ARXIV_LAST[0])  # arXiv asks for 3 s between calls
     if wait > 0:
@@ -1641,7 +1954,7 @@ def _resolve_arxiv(client: httpx.Client, ref: Reference) -> None:
         return
     entry = re.search(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
     m = re.search(r"<title>(.*?)</title>", entry.group(1), re.DOTALL) if entry else None
-    if not m or "Error" in m.group(1):
+    if not m or _arxiv_error(entry.group(1), m.group(1)):
         ref.status = "unresolved"
         return
     body = entry.group(1)
@@ -1766,6 +2079,7 @@ def _first_author_keys(ref: Reference) -> set[str]:
 
 
 def resolve_references(refs: list[Reference], search_unidentified: bool) -> None:
+    _ASKED.clear()
     with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
         for ref in refs:
             arxiv_doi = ARXIV_DOI_RE.match(ref.doi or "")
@@ -1796,12 +2110,87 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
                 # A title that does not match is a different work; a first author that does not match, with
                 # the title right, is usually a wrong author list (RefChecker flags both). A mismatch outranks a
                 # retraction notice, which then belongs to the work the identifier points to, not the one cited.
+                untitled = ref._bib_file is not None and not ref.cited_title  # nothing to compare the title with
                 if ref.status in ("resolved", "retracted", "concern") and (
-                        ref.title_similarity < 0.6 or ref.first_author_found is False):
+                        (ref.title_similarity < 0.6 and not untitled) or ref.first_author_found is False):
                     ref.status = "mismatch"
+                if untitled:
+                    ref.title_check = "no_title"
+                elif ref.cited_title and ref.status in ("resolved", "retracted", "concern"):
+                    same = _strict_title(ref.cited_title) == _strict_title(ref.resolved_title)
+                    ref.title_check = "same" if same else "differs"
                 if ref.status in ("resolved", "retracted", "concern") and ref.resolved_authors and names_authors:
                     _compare_authors(ref, _record_source(ref))
+            ref.other_id_checks = [_check_other_id(client, ref, other) for other in ref.other_ids]
+            if ref.url:
+                ref.url_status = _url_status(client, ref.url)
             time.sleep(0.35)  # NCBI allows 3 req/s without a key; Crossref asks for politeness
+
+
+def _fetched(title: str) -> str:
+    """A title as a source returned it: HTML entities and tags (Crossref's <i>, MathML) removed."""
+    return " ".join(re.sub(r"<[^>]+>", "", html.unescape(html.unescape(title))).split())
+
+
+def _title_of(client: httpx.Client, kind: str, value: str) -> tuple[str, Optional[str], str]:
+    """("ok" | "dead" | "unknown", the title, why) for one identifier, by its own registry."""
+    if kind == "doi":
+        msg = _json_message(_get(client, f"https://api.crossref.org/works/{value}"))
+        if msg is not None and (msg.get("title") or [""])[0]:
+            return "ok", _fetched(msg["title"][0]), ""
+        state, rec, why = _csl_record(client, value)
+        return (state, _csl_title(rec) if rec else None, why) if state != "ok" or (rec and _csl_title(rec)) else \
+            ("unknown", None, "the record has no title")
+    if kind == "pmid":
+        r = _get(client, EUTILS, db="pubmed", id=value, retmode="json", tool=NCBI_TOOL)
+        if r is None or r.status_code != 200:
+            return ("dead", None, f"PubMed answered HTTP {r.status_code}") if r is not None and \
+                400 <= r.status_code < 500 else ("unknown", None, "PubMed did not answer")
+        try:
+            doc = r.json()["result"].get(value) or {}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return "unknown", None, "PubMed's answer does not parse"
+        return ("ok", _fetched(doc["title"]), "") if doc.get("title") and "error" not in doc else \
+            ("dead", None, "no such PMID")
+    if kind == "arxiv":
+        r = _get(client, "https://export.arxiv.org/api/query", id_list=value)
+        if r is None or r.status_code != 200:
+            return "unknown", None, "arXiv did not answer"
+        entry = re.search(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
+        m = re.search(r"<title>(.*?)</title>", entry.group(1), re.DOTALL) if entry else None
+        if not m or _arxiv_error(entry.group(1), m.group(1)):
+            return "dead", None, "no such arXiv id"
+        return "ok", " ".join(m.group(1).split()), ""
+    return "unknown", None, f"no registry for {kind}"
+
+
+def _check_other_id(client: httpx.Client, ref: Reference, other: str) -> dict[str, Optional[str]]:
+    """A further identifier of the same entry: does it resolve, and to the same work as the first?"""
+    kind, _, value = other.partition(":")
+    state, title, why = _title_of(client, kind, value)
+    same = None
+    if state == "ok" and title:
+        against = ref.resolved_title or ref.cited_title
+        same = None if not against else str(_strict_title(title) == _strict_title(against)
+                                            or _similarity(title, against) >= 0.6).lower()
+    return {"id": other, "state": state, "title": title, "why": why, "same_work": same}
+
+
+def _url_status(client: httpx.Client, url: str) -> str:
+    """"ok HTTP n", "dead HTTP n", "blocked HTTP 403" or "unknown ...": HEAD, then GET when HEAD does not answer
+    2xx or 3xx; the status only, redirects followed."""
+    r = _head(client, url, follow=True)
+    if r is None or not 200 <= r.status_code < 400:
+        r = _get(client, url, follow=True)
+    if r is None:
+        return "unknown: no answer"
+    if 200 <= r.status_code < 400:
+        return f"ok HTTP {r.status_code}"
+    if r.status_code in (401, 403):
+        return f"blocked HTTP {r.status_code}"
+    if r.status_code == 429 or r.status_code >= 500:
+        return f"unknown: HTTP {r.status_code}"
+    return f"dead HTTP {r.status_code}"
 
 
 def _record_source(ref: Reference) -> str:
@@ -1852,9 +2241,18 @@ def source_words(source: Optional[str]) -> str:
 
 
 NO_IDENTIFIER = "The entry carries no DOI, PubMed ID or arXiv id."
+ID_KIND_WORDS = {"doi": "the DOI", "pmid": "the PubMed ID", "arxiv": "the arXiv id"}
 
 
-def _reference_findings(refs: list[Reference], online: bool = False) -> list[Finding]:
+def id_url(kind: str, value: str) -> str:
+    """A link the authors can open for one identifier ("doi", "pmid", "arxiv"; anything else is its own URL)."""
+    return {"doi": doi_url(value), "pmid": f"https://pubmed.ncbi.nlm.nih.gov/{value}/",
+            "arxiv": f"https://arxiv.org/abs/{value}"}.get(kind, value)
+
+
+def _reference_findings(refs: list[Reference], online: bool = False, unidentified: str = "strict") -> list[Finding]:
+    """Findings per reference. `unidentified="strict"` (the default) never lets an entry with no identifier pass:
+    a Crossref match is a candidate to confirm, at least minor; "lax" lets a close match fall to info."""
     out: list[Finding] = []
 
     def add(ref: Reference, severity: Severity, message: str, suggestion: str, why: str = "",
@@ -1939,8 +2337,11 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
                     why="A title that differs from the published one makes the work hard to find.",
                     suggestion="Use the title as published, and add the identifier.")
             else:
-                add(ref, Severity.info, "The entry carries no DOI, PubMed ID or arXiv id. "
-                                        + (f"{best}." if best else ""),
+                strict = unidentified == "strict"
+                candidate = (" It stays a candidate until someone confirms it is the work cited: a search match is "
+                             "not a verification." if strict and best else "")
+                add(ref, Severity.minor if strict else Severity.info,
+                    "The entry carries no DOI, PubMed ID or arXiv id. " + (f"{best}." if best else "") + candidate,
                     why="An identifier lets readers find the work, and many journals' reference styles ask for one.",
                     suggestion="Add the identifier after confirming the title, authors and year.", stage=Stage.journal)
         elif ref.status == "not_checked" and not (ref.doi or ref.pmid or ref.arxiv):
@@ -1984,6 +2385,58 @@ def _reference_findings(refs: list[Reference], online: bool = False) -> list[Fin
                 why="Numbers, methods and author lists can change between a preprint and its published version.",
                 suggestion="Cite the published version after confirming it still reports what you cite. Keep the "
                            "preprint only if you need content the published version dropped.")
+        if ref.title_check == "differs" and ref.status not in ("unresolved", "mismatch"):
+            a, b = _strict_title(ref.cited_title or ""), _strict_title(ref.resolved_title or "")
+            tail = (" One is the other with a subtitle added or dropped." if a.startswith(b + " ")
+                    or b.startswith(a + " ") else "")
+            add(ref, Severity.minor,
+                f"The cited title, “{_fetched(_delatex(ref.cited_title or ''))}”, is close to the record's but not "
+                f"the same: “{ref.resolved_title}”.{tail}",
+                why="A title that differs from the published one makes the work harder to find.",
+                suggestion="Copy the title from the record, keeping the journal's capitalisation style.",
+                stage=Stage.journal)
+        elif ref.title_check == "no_title" and ref.resolved_title:
+            add(ref, Severity.minor,
+                f"The entry has no title, so it could not be compared with the work its identifier names, "
+                f"“{ref.resolved_title}”.",
+                why="Without a title, nobody can tell from the entry whether the identifier names the work meant.",
+                suggestion="Add the title from the record after checking it is the work you cite.")
+        for other in ref.other_id_checks:
+            kind, _, value = (other["id"] or "").partition(":")
+            named = f"{ID_KIND_WORDS.get(kind, kind)} {id_url(kind, value)}"
+            if other["state"] == "dead":
+                add(ref, Severity.major, f"The entry also gives {named}, which does not resolve ({other['why']}).",
+                    why="Readers who follow it reach nothing.",
+                    suggestion="Correct it or remove it: every identifier an entry carries is followed.")
+            elif other["state"] == "unknown":
+                add(ref, Severity.info, f"The entry also gives {named}, which could not be checked ({other['why']}).",
+                    suggestion="Run the check again later, or open it by hand.")
+            elif other["same_work"] == "false":
+                # A preprint and its published version often carry different titles.
+                preprint = kind == "arxiv" or bool(ref.arxiv) or value.startswith("10.1101/") \
+                    or (ref.doi or "").startswith("10.1101/")
+                add(ref, Severity.minor if preprint else Severity.major,
+                    f"The entry's identifiers name works with different titles: {named} is “{other['title']}”, and "
+                    f"its first identifier is “{ref.resolved_title or ref.cited_title}”."
+                    + (" They may be a preprint and its published version." if preprint else ""),
+                    why="Readers who follow one of them may reach a different paper from the one cited.",
+                    suggestion="Keep the identifier of the work you cite and remove the other, unless the two are "
+                               "versions of one work and the entry means both.")
+        if ref.url_status and not ref.url_status.startswith("ok"):
+            state, _, detail = ref.url_status.partition(" ")
+            state = state.rstrip(":")
+            if state == "dead":
+                add(ref, Severity.major, f"The entry's link {ref.url} does not answer ({detail}).",
+                    why="Readers who follow it reach nothing.",
+                    suggestion="Replace it with an archived or current link: a DOI, or a Software Heritage or Wayback "
+                               "Machine snapshot.")
+            elif state == "blocked":
+                add(ref, Severity.info, f"The entry's link {ref.url} refuses automated access ({detail}), so it was "
+                                        f"not checked.",
+                    suggestion="Open it by hand to confirm that it still works.")
+            else:
+                add(ref, Severity.info, f"The entry's link {ref.url} could not be checked ({detail}).",
+                    suggestion="Run the check again later, or open it by hand.")
         if any(n.startswith("The entry names no author") for n in ref.lookup_notes):
             add(ref, Severity.info,
                 f"The entry names no author (no author field could be read), so its authors were not compared with "
@@ -2035,9 +2488,150 @@ def _git_findings(path: Path) -> list[Finding]:
                     suggestion="Ask the authors what those commits changed; the disclosure follows their account.")]
 
 
+# --- identifiers in the text and live figures (from cite-check) ----------------------------------------------
+
+# A URL ends at whitespace, quotes (straight or curly), dashes and characters a URL never carries unencoded.
+INLINE_URL_RE = re.compile(r"https?://[^\s<>\"'`{}\\|^“”‘’«»—–]+")
+INLINE_DOI_RE = re.compile(r"\bdoi:\s*(10\.\d{4,9}/[^\s\"<>{}`]+)", re.IGNORECASE)
+INLINE_ARXIV_RE = re.compile(r"\barXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?/\d{7}(?:v\d+)?)",
+                             re.IGNORECASE)
+CLOSERS = {")": "(", "]": "[", "}": "{", ">": "<"}
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
+VERBATIM_RE = re.compile(r"\\(begin|end)\{(verbatim|Verbatim|lstlisting|minted|comment)\*?\}")
+NEW_BLOCK_RE = re.compile(r"^\s*(#|[-*+]\s|\d+[.)]\s|\||>|\\item|\\(sub)*section|\\paragraph)")
+LIVE_NUMBER_RE = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)*(?:%|[kM])?(?!\w)")
+LIVE_CUE_RE = re.compile(r"\b(currently|as of|to date|so far|now|at present|at the time of writing)\b", re.IGNORECASE)
+YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
+
+
+def _trim_id(s: str) -> str:
+    """Strip trailing punctuation, and closers the identifier does not open itself."""
+    while s:
+        c = s[-1]
+        if c in ".,;:!?'\"*_":
+            s = s[:-1]
+        elif c in CLOSERS and s.count(c) > s.count(CLOSERS[c]):
+            s = s[:-1]
+        else:
+            break
+    return s
+
+
+def _inline_ids(line: str) -> list[tuple[str, str]]:
+    # "[https://a](https://a)": a Markdown link whose text is its own URL ends where the text does.
+    found = [classify_url(_trim_id(m.group(0).split("](", 1)[0])) for m in INLINE_URL_RE.finditer(line)]
+    found += [("doi", _trim_id(m.group(1))) for m in INLINE_DOI_RE.finditer(line)]
+    found += [("pmid", m.group(1)) for m in PMID_RE.finditer(line)]
+    found += [("arxiv", m.group(1)) for m in INLINE_ARXIV_RE.finditer(line)]
+    return [i for i in dict.fromkeys(found) if i[0] not in ("placeholder", "local")]
+
+
+def _prose_lines(path: Path, text: str) -> list[tuple[int, str]]:
+    """(line number, text) with code and comments blanked: what a reader reads as prose."""
+    out, in_code, tex = [], False, path.suffix.lower() == ".tex"
+    for n, line in enumerate((text if tex else _strip_comments(text)).splitlines(), 1):
+        if tex:
+            v = list(VERBATIM_RE.finditer(line))
+            if v:
+                in_code = v[-1].group(1) == "begin"  # a one-line \begin{verbatim}...\end{verbatim} closes itself
+                out.append((n, ""))
+                continue
+            if in_code:
+                out.append((n, ""))
+                continue
+            line = re.sub(r"\\verb\*?(\S)(.*?)\1", " ", line)
+            line = re.sub(r"(?<!\\)%.*", "", line)
+            line = re.sub(r"\\([_%&#~$])", r"\1", line)  # \url{a\_b}: the URL as the reader sees it
+        else:
+            if FENCE_RE.match(line):
+                in_code = not in_code
+                out.append((n, ""))
+                continue
+            if in_code:
+                out.append((n, ""))
+                continue
+            line = re.sub(r"(`+)(.+?)\1", " ", re.sub(r"<!--.*?-->", " ", line))
+        out.append((n, line))
+    return out
+
+
+def _undated(lines: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """(line, sentence head) for each sentence with a number and a live cue ("currently", "as of", "to date",
+    "so far", "now", "at present", "at the time of writing") but no year: a live figure must say when."""
+    blocks: list[list[tuple[int, str]]] = []
+    cur: list[tuple[int, str]] = []
+    for n, line in lines:
+        if not line.strip() or NEW_BLOCK_RE.match(line):
+            if cur:
+                blocks.append(cur)
+            cur = [(n, line)] if line.strip() else []
+        else:
+            cur.append((n, line))
+    if cur:
+        blocks.append(cur)
+    hits = []
+    for block in blocks:
+        text, starts = "", []
+        for n, line in block:
+            starts.append((len(text), n))
+            text += line.strip() + " "
+        pos = 0
+        for m in [*SENTENCE_END_RE.finditer(text), None]:
+            end = m.end() if m else len(text)
+            s = text[pos:end].strip()
+            if s:
+                body = INLINE_URL_RE.sub(" ", s)
+                if LIVE_NUMBER_RE.search(body) and LIVE_CUE_RE.search(body) and not YEAR_RE.search(body):
+                    lead = len(text[pos:end]) - len(text[pos:end].lstrip())
+                    at = max(ln for off, ln in starts if off <= pos + lead)
+                    head = " ".join(s.split())
+                    hits.append((at, head if len(head) <= 80 else head[:79] + "…"))
+            pos = end
+    return hits
+
+
+def resolve_inline(items: list[InlineId]) -> None:
+    """Resolve each identifier in the text once; a URL by its status only."""
+    with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
+        for item in items:
+            if item.kind == "url":
+                status = _url_status(client, item.id)
+                item.state = status.split(" ")[0].rstrip(":")
+                item.detail = status.split(" ", 1)[1] if " " in status else ""
+            else:
+                item.state, item.title, item.detail = _title_of(client, item.kind, item.id)
+
+
+def _inline_findings(items: list[InlineId]) -> list[Finding]:
+    out = []
+    for item in items:
+        link = id_url(item.kind, item.id)
+        named = f"the link {link}" if item.kind == "url" else f"{ID_KIND_WORDS[item.kind]} {link}"
+        if item.state == "dead":
+            out.append(Finding(check="references", severity=Severity.major, line=item.line, excerpt=item.id,
+                               message=f"The text gives {named}, which does not resolve ({item.detail}).",
+                               why="Readers who follow it reach nothing.",
+                               suggestion="Correct it, or replace a dead link with an archived or current one."))
+        elif item.state in ("unknown", "blocked"):
+            out.append(Finding(check="references", severity=Severity.info, line=item.line, excerpt=item.id,
+                               message=f"The text gives {named}, which could not be checked ({item.detail}).",
+                               suggestion="Open it by hand to confirm that it works."))
+    return out
+
+
+def _undated_findings(prose: list[tuple[int, str]]) -> list[Finding]:
+    return [Finding(check="undated", severity=Severity.minor, line=n, excerpt=head, stage=Stage.writing.value,
+                    message=f"A figure said to be current carries no date: “{head}”.",
+                    why="Counts like this change, and without a date a reader cannot tell when it was true.",
+                    suggestion="Say when it was true (“as of October 2026”), or drop the “currently”.")
+            for n, head in _undated(prose)]
+
+
 def check_references(path: Path, online: bool, search_unidentified: bool,
-                     sections: Optional[list[str]] = None) -> ReferenceReport:
+                     sections: Optional[list[str]] = None, unidentified: str = "strict") -> ReferenceReport:
     """Identity and citation consistency only, shared by focused checks and full audits."""
+    _ASKED.clear()  # one run, one cache: never an answer from an earlier run in the same process
     raw = path.read_text(encoding="utf-8")
     text = _strip_comments(raw)
     lines = _lines(text)
@@ -2045,10 +2639,32 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
     ref_start = _reference_start(lines)
     findings: list[Finding] = []
     refs: list[Reference] = []
+    inline: list[InlineId] = []
     bibliography_only = path.suffix.lower() == ".bib"
     bibs = [path] if bibliography_only else _bib_files(text, path.parent) if path.suffix.lower() == ".tex" else []
     if bibs:
-        keyed = [kr for bib in bibs for kr in _bib_references(bib)]
+        keyed = []
+        for bib in bibs:
+            errors: list[tuple[int, str, bool]] = []
+            keyed += _bib_references(bib, errors)
+            for line_no, why, kept in errors:
+                if kept:
+                    findings.append(Finding(check="references", severity=Severity.minor, line=line_no,
+                                            section=bib.name, stage=Stage.writing.value,
+                                            message=f"A BibTeX entry in {bib.name} stops parsing partway ({why}). The "
+                                                    f"fields before that point were read and checked; the rest of the "
+                                                    f"entry was not.",
+                                            why="BibTeX skips the same fields, so they may be missing from the PDF "
+                                                "too. A line starting with % inside an entry is not a comment there.",
+                                            suggestion="Fix or remove the field it names, then run the check again."))
+                    continue
+                findings.append(Finding(check="references", severity=Severity.major, line=line_no,
+                                        section=bib.name, stage=Stage.writing.value,
+                                        message=f"A BibTeX entry in {bib.name} does not parse ({why}), so it was not "
+                                                f"read or checked; the entries after it may be missing too.",
+                                        why="An entry that cannot be read cannot be checked, and BibTeX may drop it "
+                                            "from the PDF.",
+                                        suggestion="Fix the entry's braces, quotes or commas, then run the check again."))
         refs = [r for _, r in keyed]
         if not bibliography_only:
             findings += _cite_key_findings(lines, {k for k, _ in keyed})
@@ -2083,13 +2699,16 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
                 pmid = PMID_RE.search(entry)
                 arxiv = ARXIV_RE.search(entry)
                 ref = Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                                pmid=pmid.group(1) if pmid else None,
-                                arxiv=(arxiv.group(1) or arxiv.group(2)) if arxiv else None)
+                                pmid=pmid.group(1) if pmid else None, arxiv=_arxiv_id(arxiv))
                 ref._list = sections[begin - 1] if begin <= len(sections) else None
                 refs.append(ref)
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)
+        prose = [(n, line) for n, line in _prose_lines(path, raw) if n not in in_lists]
+        inline = [InlineId(line=n, kind=kind, id=ident, section=sections[n - 1] if n <= len(sections) else "")
+                  for n, line in prose for kind, ident in _inline_ids(line)]
+        findings += _undated_findings(prose)
     if ref_start is None and not bibs:
         findings.append(Finding(check="references", severity=Severity.major, section=WHOLE_MANUSCRIPT,
                                 message="No references heading (References or Bibliography) was found, so the "
@@ -2101,15 +2720,18 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
                                 suggestion="Check how the bibliography is written, and read the entries by hand."))
     if online and refs:
         resolve_references(refs, search_unidentified)
-    findings += _reference_findings(refs, online)
+    findings += _reference_findings(refs, online, unidentified)
+    if online and inline:
+        resolve_inline(inline)
+        findings += _inline_findings(inline)
     _place(findings, lines, sections)
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
-    return ReferenceReport(path=str(path), online=online, findings=findings, references=refs)
+    return ReferenceReport(path=str(path), online=online, findings=findings, references=refs, inline_ids=inline)
 
 
 def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[str] = None,
-         git: bool = False, final: bool = False) -> Report:
+         git: bool = False, final: bool = False, unidentified: str = "strict") -> Report:
     VOCAB_SOURCES.update({"kobak2025_r>=2": _kobak_words(), "juzek_ward2025": JUZEK_WARD,
                           "wikipedia_aivocab": WIKIPEDIA_AIVOCAB})
     raw = path.read_text(encoding="utf-8")
@@ -2137,7 +2759,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                why="A claim without its source cannot be checked by readers or referees.",
                                stage=Stage.now.value)
     findings += _declaration_findings(text_lower)
-    findings += _ai_use_findings(lines, text_lower, ref_start, bool(LEDGER_AI.search(raw)))
+    findings += _ai_use_findings(lines, text_lower, ref_start, bool(ledger_ai(raw)))
     findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor,
                                "'{match}' is a stock phrase.", "Say the specific thing instead, or cut the phrase.",
                                why="Such phrases say little, and readers and screeners associate them with text "
@@ -2167,17 +2789,16 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += _abstract_metric_dump(lines)
     findings += _percentages(body_lines)
 
-    reference_report = check_references(path, online, search_unidentified, sections)
+    reference_report = check_references(path, online, search_unidentified, sections, unidentified)
     refs = reference_report.references
     findings += reference_report.findings
     if git:
         findings += _git_findings(path.resolve())
-    ledger_ai = LEDGER_AI.findall(raw)
-    if ledger_ai:
+    ai_marks = ledger_ai(raw)
+    if ai_marks:
         findings.append(Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
-                                message=f"{len(ledger_ai)} revision markers (comments of the form <!-- @rev ... -->) "
-                                        f"name an AI as the reviser of a passage "
-                                        f"({', '.join(sorted(set(n.lower() for n in ledger_ai)))}).",
+                                message=f"{len(ai_marks)} revision markers (comments such as <!-- @rev ... -->) "
+                                        f"name an AI as the reviser of a passage ({', '.join(sorted(set(ai_marks)))}).",
                                 suggestion="Markers do not establish the kind of help. Use what the authors say they "
                                            "used and the chosen journal's rule and exemptions to decide whether a "
                                            "statement about AI use needs updating."))
@@ -2220,7 +2841,17 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     order = {s: i for i, s in enumerate(Severity)}
     findings.sort(key=lambda f: (order[f.severity], f.line or 0))
     return Report(path=str(path), words=n_words, abstract_words=abstract_words, findings=findings, references=refs,
-                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails, final=final)
+                  vocabulary_per_1000_words=densities, top_vocabulary=top, ing_tails=ing_tails, final=final,
+                  inline_ids=reference_report.inline_ids)
+
+
+def unchecked_lookups(references: list[Reference], inline: list[InlineId]) -> int:
+    """Online lookups that did not answer: references, their further identifiers and url fields, and identifiers
+    in the text. Any of them makes a run with no blocker exit 3, never 0."""
+    return (sum(r.status == "lookup_failed" for r in references)
+            + sum(c["state"] == "unknown" for r in references for c in r.other_id_checks)
+            + sum(bool(r.url_status) and r.url_status.startswith("unknown") for r in references)
+            + sum(i.state == "unknown" for i in inline))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -2446,6 +3077,28 @@ def _retraction_coverage(refs: list[Reference]) -> str:
             + _names_listed(parts, len(parts)) + ".")
 
 
+INLINE_STATE_WORDS = {"ok": "resolves", "dead": "does not resolve", "blocked": "refuses automated access",
+                      "unknown": "did not answer"}
+
+
+def _inline_section(items: list[InlineId]) -> list[str]:
+    """The identifiers in the text, each with the title it resolved to, for a person to read against the
+    sentence; nothing is matched automatically."""
+    checked = [i for i in items if i.state != "not_checked"]
+    if not checked:
+        return []
+    out = ["", "## Identifiers and links in the text", "",
+           "Each identifier or link written in the text was looked up. Read each title against the sentence that "
+           "gives it: nothing here was matched automatically.", "",
+           "| Identifier or link | Where | What it answered | Title |", "|---|---|---|---|"]
+    for i in checked:
+        answer = INLINE_STATE_WORDS.get(i.state, i.state) + (f" ({i.detail})" if i.detail else "")
+        cells = [id_url(i.kind, i.id), f"{i.section} (line {i.line})" if i.section else f"(line {i.line})", answer,
+                 f"“{i.title}”" if i.title else ""]
+        out.append("| " + " | ".join(c.replace("|", "\\|").replace("\n", " ") for c in cells) + " |")
+    return out
+
+
 def references_to_markdown(report: ReferenceReport) -> str:
     """The focused reference check: what manuscript-reference-check's Step 1 reports to the authors."""
     out = [f"# Reference check of {Path(report.path).name}", "",
@@ -2463,6 +3116,7 @@ def references_to_markdown(report: ReferenceReport) -> str:
         out += ["## What the retraction search covered", "", _retraction_coverage(report.references), ""]
     if report.references:
         out += ["## Each entry as checked", ""] + _reference_rows(report.references)
+    out += _inline_section(report.inline_ids)
     return "\n".join(out).rstrip("\n") + "\n"
 
 
@@ -2525,6 +3179,7 @@ def to_markdown(report: Report) -> str:
     out += _stage_lines(report.findings)
     if any(r.status != "not_checked" for r in report.references):
         out += ["## Each reference as checked", ""] + _reference_rows(report.references)
+    out += _inline_section(report.inline_ids)
     return "\n".join(out).rstrip("\n") + "\n"
 
 
@@ -2544,18 +3199,25 @@ def main(
                                             "co-author trailer (informational; trailers often mark automation)")] = False,
     final: Annotated[bool, typer.Option(help="The authors are about to submit: count the end-stage items (statements, "
                                               "archives, placeholders) in the readiness and the exit code")] = False,
+    unidentified: Annotated[str, typer.Option(help="strict: an entry with no identifier never passes, a Crossref "
+                                                   "match is a candidate to confirm (at least minor); lax: a close "
+                                                   "match falls to info")] = "strict",
 ) -> None:
+    """Exit 0 clean, 1 a blocker, 3 (with --online) no blocker but a lookup that did not answer, so the run
+    cannot be called clean; 2 usage."""
+    if unidentified not in ("strict", "lax"):
+        raise typer.BadParameter("--unidentified takes strict or lax")
     if references_only:
         if venue or git:
             raise typer.BadParameter("--references-only cannot be combined with --venue or --git")
-        report = check_references(path, online, search_unidentified)
+        report = check_references(path, online, search_unidentified, unidentified=unidentified)
         md = references_to_markdown(report)
         counted = report.findings
     else:
         known = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
         if venue and venue not in known:
             raise typer.BadParameter(f"unknown venue {venue!r}; known: {', '.join(sorted(known))}")
-        report = scan(path, online, search_unidentified, venue, git, final)
+        report = scan(path, online, search_unidentified, venue, git, final, unidentified)
         md = to_markdown(report)
         counted = counted_findings(report.findings, final)
     if json_out:
@@ -2565,7 +3227,13 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    raise typer.Exit(code=1 if any(f.severity == Severity.blocker for f in counted) else 0)
+    if any(f.severity == Severity.blocker for f in counted):
+        raise typer.Exit(code=1)
+    unchecked = unchecked_lookups(report.references, report.inline_ids) if online else 0
+    if unchecked:
+        typer.echo(f"{_plural(unchecked, 'online lookup')} did not answer, so the run cannot be called clean "
+                   f"(exit code 3).", err=True)
+    raise typer.Exit(code=3 if unchecked else 0)
 
 
 if __name__ == "__main__":

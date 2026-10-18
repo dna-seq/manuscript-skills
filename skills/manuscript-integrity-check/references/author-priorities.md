@@ -99,8 +99,9 @@ Whole-paper work proceeds through the authorised task without section or stage a
 the author asks for them. Preserve existing revision conventions; an iterative workflow does not require
 a new ledger, transcript, marker scheme or per-pass report. Revision markers already in the text (for
 example `<!-- @rev ... -->` comments) stay where they are; add or update them only as the project's own
-written rules say, and strip them only when preparing the files for upload, if the authors want that.
-Reviewer and checking passes read the text with such comments removed, as an editor would see it.
+written rules say or the authors ask, and strip them only when preparing the files for upload, if the
+authors want that. Reviewer and checking passes read the text with such comments removed, as an editor
+would see it. `manuscript-revision-marks` lints, bumps and strips them and writes that clean copy.
 
 ## Minimum useful work
 

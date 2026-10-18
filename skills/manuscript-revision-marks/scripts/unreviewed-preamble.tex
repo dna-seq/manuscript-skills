@@ -1,0 +1,14 @@
+% typeset.py --draft: how a segment no person has reviewed since an agent wrote it is shown.
+% A whole paragraph sits in a shaded box; a run inside a paragraph is highlighted (plain text) or
+% coloured (text with commands, which the highlighter cannot take).
+\usepackage{xcolor}
+\usepackage{soul}
+\usepackage[most]{tcolorbox}
+\definecolor{unrevbg}{HTML}{E9DDF7}
+\definecolor{unrevrule}{HTML}{7A3FC4}
+\definecolor{unrevfg}{HTML}{5B2A99}
+\sethlcolor{unrevbg}
+\newtcolorbox{unreviewed}{breakable, enhanced, colback=unrevbg, colframe=unrevrule, boxrule=0pt,
+  leftrule=2.5pt, arc=0pt, outer arc=0pt, left=4pt, right=4pt, top=2pt, bottom=2pt, before skip=4pt,
+  after skip=4pt}
+\newcommand{\unrevtext}{\color{unrevfg}}

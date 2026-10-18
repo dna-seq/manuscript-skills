@@ -13,6 +13,7 @@ import importlib.util
 import json
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from types import ModuleType
 from typing import Callable, Optional
@@ -118,6 +119,8 @@ class Registry:
                 200, text="<feed><entry><title>Error</title></entry></feed>")
         if url.host == "arxiv.org":
             return httpx.Response(404)
+        if url.host == "github.com":  # the fixtures' code repository, which the papers' text links
+            return httpx.Response(200)
         if url.host == "api.datacite.org":
             name = DATACITE.get(path[len("/dois/"):].lower())
             return self._json(name) if name else httpx.Response(404)
@@ -637,4 +640,333 @@ def test_reference_json_keeps_every_earlier_field() -> None:
                "first_author_found", "title_similarity", "status"}
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
-    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added
+    from_cite_check = {"url", "other_ids", "cited_title", "other_id_checks", "url_status", "title_check"}
+    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check
+
+
+def test_an_arxiv_paper_whose_title_contains_error_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
+    feed = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/abs/2101.00001v1</id>'
+            "<title>Error bounds for deep networks</title><published>2021-01-01T00:00:00Z</published>"
+            "<author><name>Ada Lovelace</name></author></entry></feed>")
+    errors = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/api/errors#incorrect_id_format'
+              "</id><title>Error</title></entry></feed>")
+    pages = {"2101.00001": feed, "bad-id": errors, "2101.99999": '<feed xmlns="http://www.w3.org/2005/Atom"></feed>'}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "export.arxiv.org":
+            return httpx.Response(200, text=pages[request.url.params.get("id_list", "")])
+        return httpx.Response(404)
+
+    original = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(scan.time, "sleep", lambda _: None)
+    refs = [scan.Reference(line=1, text="Lovelace, A. (2021). Error bounds for deep networks. arXiv.", arxiv=aid)
+            for aid in ("2101.00001", "bad-id", "2101.99999")]
+    scan.resolve_references(refs, search_unidentified=False)
+    assert [r.status for r in refs] == ["resolved", "unresolved", "unresolved"]
+    assert refs[0].resolved_title == "Error bounds for deep networks"
+
+
+BIB = r"""@string{natgen = "Nature Genetics"}
+@comment{this is not an entry}
+@article(paren2021, author = {Lambert, Samuel A.}, title = "The {Polygenic} Score Catalog", journal = natgen,
+  year = 2021, doi = {https://doi.org/10.1038/s41588-021-00783-5}, pmid = {33692568})
+@misc{old1999, author = {Witten, E.}, title = {A paper}, eprint = {hep-th/9901001}, eprinttype = {arxiv}}
+@misc{linked, author = {Doe, J.}, title = {Linked}, url = {https://arxiv.org/abs/2403.19087v2}}
+@misc{site, author = {Doe, J.}, title = {A site}, url = {https://example.org/tool\_page}}
+@article{broken, title = {No closing brace}
+@article{after, title = {Never read}}
+"""
+
+
+def test_bibtex_reader_takes_macros_parentheses_and_every_identifier(tmp_path: Path) -> None:
+    bib = tmp_path / "refs.bib"
+    bib.write_text(BIB, encoding="utf-8")
+    errors: list[tuple[int, str]] = []
+    refs = dict(scan._bib_references(bib, errors))
+    assert list(refs) == ["paren2021", "old1999", "linked", "site"]
+    paren = refs["paren2021"]
+    assert (paren.doi, paren.pmid, paren.cited_title) == ("10.1038/s41588-021-00783-5", "33692568",
+                                                         "The Polygenic Score Catalog")
+    assert "Nature Genetics" in paren.text
+    assert refs["old1999"].arxiv == "hep-th/9901001" and refs["linked"].arxiv == "2403.19087"
+    assert refs["site"].url == "https://example.org/tool_page" and refs["site"].doi is None
+    assert errors and errors[0][0] == BIB.splitlines().index("@article{broken, title = {No closing brace}") + 1
+
+
+def test_a_bibtex_entry_that_does_not_parse_is_a_finding_not_a_silent_drop(tmp_path: Path) -> None:
+    bib = tmp_path / "refs.bib"
+    bib.write_text(BIB, encoding="utf-8")
+    report = scan.check_references(bib, online=False, search_unidentified=False)
+    malformed = [f for f in report.findings if "does not parse" in f.message]
+    assert len(malformed) == 1 and malformed[0].severity == scan.Severity.major and malformed[0].section == "refs.bib"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("PMID: 123", "123"), ("PMID 33692568", "33692568"), ("arXiv:hep-th/9901001v2", "hep-th/9901001"),
+    ("arXiv:2101.00001", "2101.00001"), ("https://arxiv.org/abs/2101.00001", "2101.00001")])
+def test_short_pmids_and_old_arxiv_ids_are_read(text: str, expected: str) -> None:
+    pmid, arxiv = scan.PMID_RE.search(text), scan._arxiv_id(scan.ARXIV_RE.search(text))
+    assert (pmid.group(1) if pmid else arxiv) == expected
+
+
+class Wire:
+    """A MockTransport for the cite-check merge: doi.org CSL records, PubMed, arXiv and web pages; every request
+    recorded."""
+
+    CSL = {"10.9999/medra.1": {"title": "Deep <i>Learning</i> for Müller–Škoda Graphs", "issued": {"date-parts": [[2020]]},
+                               "author": [{"family": "Müller", "given": "Ana"}]},
+           "10.9999/norecord": None}
+    PUBMED = {"111": "Deep learning for Müller–Škoda graphs.", "222": "Something else entirely about mice."}
+
+    def __init__(self) -> None:
+        self.seen: list[httpx.Request] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.seen.append(request)
+        url = request.url
+        if url.host in ("api.crossref.org", "api.datacite.org", "www.ebi.ac.uk"):
+            return httpx.Response(404)
+        if url.host == "doi.org":
+            doi = urllib.parse.unquote(url.path[1:])
+            if doi not in self.CSL:
+                return httpx.Response(404)
+            rec = self.CSL[doi]
+            return httpx.Response(406) if rec is None else httpx.Response(200, json=rec)
+        if url.host == "eutils.ncbi.nlm.nih.gov":
+            pmid = url.params.get("id", "")
+            if not pmid.isdigit():
+                return httpx.Response(400)
+            doc = {"uid": pmid, "title": self.PUBMED[pmid]} if pmid in self.PUBMED else {"error": "cannot get"}
+            return httpx.Response(200, json={"result": {"uids": [pmid], pmid: doc}})
+        if url.host == "example.org":
+            pages = {"/page": 200, "/nohead": 200, "/gone": 404, "/private": 403, "/broken": 503}
+            if url.path == "/nohead" and request.method == "HEAD":
+                return httpx.Response(405)
+            return httpx.Response(pages.get(url.path, 404))
+        return httpx.Response(404)
+
+
+@pytest.fixture()
+def wire(monkeypatch: pytest.MonkeyPatch) -> Wire:
+    handler = Wire()
+    original = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(scan.time, "sleep", lambda _: None)
+    return handler
+
+
+def _resolved(**kw: object) -> "scan.Reference":
+    ref = scan.Reference(line=1, text=str(kw.pop("text", "Müller, A. (2020). Deep learning for Müller–Škoda graphs.")),
+                         **kw)  # type: ignore[arg-type]
+    scan.resolve_references([ref], search_unidentified=False)
+    return ref
+
+
+def test_a_doi_of_another_agency_gets_its_title_from_doi_org(wire: Wire) -> None:
+    ref = _resolved(doi="10.9999/medra.1")
+    assert ref.status == "resolved" and ref.resolved_title == "Deep Learning for Müller–Škoda Graphs"
+    assert ref.resolved_authors == ["Müller, Ana"]
+    asked = [r for r in wire.seen if r.url.host == "doi.org"]
+    assert asked[0].headers["accept"] == scan.CSL and asked[0].method == "GET"
+    assert _resolved(doi="10.9999/norecord").status == "lookup_failed"  # 406: the agency gives no record
+    assert _resolved(doi="10.9999/nothing").status == "unresolved"
+
+
+def test_each_identifier_is_asked_once_per_run_and_pubmed_names_the_tool(wire: Wire) -> None:
+    refs = [scan.Reference(line=n, text="Deep learning for Müller–Škoda graphs", pmid="111") for n in (1, 2, 3)]
+    scan.resolve_references(refs, search_unidentified=False)
+    pubmed = [r for r in wire.seen if r.url.host == "eutils.ncbi.nlm.nih.gov"]
+    assert len(pubmed) == 1 and pubmed[0].url.params["tool"] == "manuscript-skills"
+    assert "email" not in str(pubmed[0].url) and "mailto" not in str(pubmed[0].url)
+
+
+def test_every_identifier_of_an_entry_is_followed(wire: Wire) -> None:
+    ref = _resolved(doi="10.9999/medra.1", other_ids=["pmid:111", "pmid:222", "pmid:99999999", "pmid:abc"])
+    states = [(c["id"], c["state"], c["same_work"]) for c in ref.other_id_checks]
+    assert states == [("pmid:111", "ok", "true"), ("pmid:222", "ok", "false"), ("pmid:99999999", "dead", None),
+                      ("pmid:abc", "dead", None)]
+    messages = [f.message for f in scan._reference_findings([ref], online=True)]
+    assert any("name works with different titles: the PubMed ID https://pubmed.ncbi.nlm.nih.gov/222/" in m
+               for m in messages)
+    assert sum("does not resolve" in m for m in messages) == 2
+
+
+@pytest.mark.parametrize("path, severity, words", [
+    ("/page", None, ""), ("/nohead", None, ""), ("/gone", scan.Severity.major, "does not answer (HTTP 404)"),
+    ("/private", scan.Severity.info, "refuses automated access"), ("/broken", scan.Severity.info, "could not be checked")])
+def test_a_url_field_is_checked_by_its_status(wire: Wire, path: str, severity: object, words: str) -> None:
+    ref = _resolved(doi="10.9999/medra.1", url=f"https://example.org{path}")
+    found = [f for f in scan._reference_findings([ref], online=True) if "link" in f.message]
+    assert ([(f.severity, words in f.message) for f in found] == [(severity, True)]) if severity else not found
+
+
+@pytest.mark.parametrize("cited, check, words", [
+    ("Deep Learning for M{\\\"u}ller--{\\v{S}}koda Graphs", "same", None),
+    ("Deep learning for Muller-Skoda graphs: a survey", "differs", "with a subtitle added or dropped"),
+    ("Deep learning for Muller-Skoda graph", "differs", "is close to the record's but not the same"),
+    (None, "no_title", "has no title")])
+def test_titles_are_compared_strictly_after_the_fuzzy_match(wire: Wire, cited: Optional[str], check: str,
+                                                           words: Optional[str]) -> None:
+    ref = scan.Reference(line=1, text="Müller, A. (2020). " + (cited or "") + ". Journal.", doi="10.9999/medra.1",
+                         cited_title=cited)
+    ref._bib_file = "refs.bib"
+    scan.resolve_references([ref], search_unidentified=False)
+    assert ref.status == "resolved" and ref.title_check == check, (ref.status, ref.title_check, ref.title_similarity)
+    found = [f for f in scan._reference_findings([ref], online=True) if "title" in f.message.lower()]
+    assert ([words in f.message for f in found] == [True]) if words else not found
+    if found:
+        assert found[0].severity == scan.Severity.minor
+
+
+PROSE = """# Paper
+
+## Results
+
+Scores came from the catalog (doi:10.9999/medra.1), see also PMID: 222 and https://example.org/gone.
+The service currently holds 4,500 scores. As of 2026, it holds 5,000. It now covers 12 traits.
+
+```
+doi:10.9999/in-code-is-an-example and currently 7 examples
+```
+
+<!-- A comment with https://example.org/private is not read -->
+
+## References
+
+1. Müller, A. (2020). Deep learning for Müller–Škoda graphs. doi:10.9999/medra.1
+"""
+
+
+def test_identifiers_in_the_text_are_resolved_and_shown_for_a_person_to_read(wire: Wire, tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(PROSE, encoding="utf-8")
+    report = scan.check_references(paper, online=True, search_unidentified=False)
+    items = [(i.line, i.kind, i.id, i.state) for i in report.inline_ids]
+    assert items == [(5, "url", "https://example.org/gone", "dead"), (5, "doi", "10.9999/medra.1", "ok"),
+                     (5, "pmid", "222", "ok")]
+    assert report.inline_ids[1].title == "Deep Learning for Müller–Škoda Graphs"
+    md = scan.references_to_markdown(report)
+    assert "## Identifiers and links in the text" in md and "Something else entirely about mice." in md
+    assert any("the link https://example.org/gone, which does not resolve" in f.message for f in report.findings)
+
+
+def test_live_figures_without_a_year_are_flagged_offline(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(PROSE, encoding="utf-8")
+    report = scan.check_references(paper, online=False, search_unidentified=False)
+    undated = [(f.line, f.excerpt) for f in report.findings if f.check == "undated"]
+    assert undated == [(6, "The service currently holds 4,500 scores."), (6, "It now covers 12 traits.")]
+    assert all(i.state == "not_checked" for i in report.inline_ids)
+
+
+def _one_reference_paper(tmp_path: Path, entry: str) -> Path:
+    paper = tmp_path / "paper.md"
+    paper.write_text(f"# Paper\n\nAs shown by Müller (2020).\n\n## References\n\n{entry}\n", encoding="utf-8")
+    return paper
+
+
+@pytest.mark.parametrize("doi, code", [("10.9999/medra.1", 0), ("10.9999/norecord", 3), ("10.9999/nothing", 1)])
+def test_online_exit_codes_say_clean_blocked_or_not_checked(wire: Wire, tmp_path: Path, doi: str, code: int) -> None:
+    paper = _one_reference_paper(tmp_path, f"Müller, A. (2020). Deep learning for Müller–Škoda graphs. doi:{doi}")
+    result = CliRunner().invoke(scan.app, [str(paper), "--references-only", "--online", "--no-search-unidentified"])
+    assert result.exit_code == code, result.output
+    offline = CliRunner().invoke(scan.app, [str(paper), "--references-only"])
+    assert offline.exit_code == 0  # offline nothing was looked up, so nothing is unknown
+
+
+@pytest.mark.parametrize("mode, severity", [("strict", scan.Severity.minor), ("lax", scan.Severity.info)])
+def test_a_reference_with_no_identifier_never_passes_unless_lax(mode: str, severity: object) -> None:
+    ref = scan.Reference(line=1, text="Müller, A. (2020). Deep learning for Müller–Škoda graphs.", status="no_identifier",
+                         resolved_title="Deep learning for Müller–Škoda graphs", doi="10.9999/medra.1",
+                         title_similarity=1.0, first_author_found=True)
+    (finding,) = [f for f in scan._reference_findings([ref], online=True, unidentified=mode) if "no DOI" in f.message]
+    assert finding.severity == severity
+    assert ("a search match is not a verification" in finding.message) == (mode == "strict")
+
+
+def test_a_new_run_never_reuses_an_earlier_runs_answers(wire: Wire, tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text("# Paper\n\nSee https://example.org/page for the tool.\n", encoding="utf-8")
+    scan.check_references(paper, online=True, search_unidentified=False)
+    scan.check_references(paper, online=True, search_unidentified=False)
+    assert sum(r.url.host == "example.org" for r in wire.seen) == 2
+
+
+# --- Defects found while merging the cite-check work into the stage-ordered reports -------------------------------
+
+@pytest.mark.parametrize("line, expected", [
+    ("Code: [https://github.com/a/b](https://github.com/a/b).", [("url", "https://github.com/a/b")]),
+    ("The tool (“https://github.com/a/b”) is open.", [("url", "https://github.com/a/b")]),
+    ("See https://github.com/a/b—the main repository.", [("url", "https://github.com/a/b")]),
+    ("Code is available at https://[anonymized-for-review].", []),
+    ("Run it at http://localhost:3000 or http://127.0.0.1:8000/ui.", []),
+    ("The MCP endpoint is https://your-server:8080/mcp.", []),
+    ("A lab share at http://192.168.1.20/data or https://wiki.internal/page.", []),
+])
+def test_a_link_in_the_text_ends_where_the_link_does_and_placeholders_are_never_looked_up(
+        line: str, expected: list[tuple[str, str]]) -> None:
+    assert scan._inline_ids(line) == expected
+
+
+def test_an_anonymised_link_never_crashes_the_scan(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text("# Paper\n\n## Availability\n\nCode is available at https://[anonymized-for-review].\n\n"
+                     "## References\n\n1. Smith J. A paper about scores. Nature. 2020.\n", encoding="utf-8")
+    for args in ([str(paper)], [str(paper), "--references-only"]):
+        result = CliRunner().invoke(scan.app, args)
+        assert result.exit_code == 0, (result.output, result.exception)
+    assert scan._bib_ids({"url": "https://[anonymized]"}) == []
+
+
+def test_a_comment_over_several_lines_is_not_read_as_prose(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text("# Paper\n\n## Results\n\nThe catalogue held 4,500 scores in 2026.\n\n<!-- Note to self:\n"
+                     "check https://[internal-wiki]/page and https://example.org/draft;\ncurrently 4500 scores -->\n",
+                     encoding="utf-8")
+    report = scan.check_references(paper, online=False, search_unidentified=False)
+    assert report.inline_ids == []
+    assert not [f for f in report.findings if f.check == "undated"]
+
+
+def test_a_latex_link_is_read_as_the_reader_sees_it(tmp_path: Path) -> None:
+    tex = tmp_path / "paper.tex"
+    tex.write_text("\\section{Data}\nFiles: \\url{https://x.org/data\\_v2.csv}.\n% https://x.org/commented-out\n"
+                   "\\begin{verbatim}https://x.org/example\\end{verbatim}\nSee https://x.org/after.\n", encoding="utf-8")
+    prose = scan._prose_lines(tex, tex.read_text(encoding="utf-8"))
+    assert [i for _, line in prose for i in scan._inline_ids(line)] == [("url", "https://x.org/data_v2.csv"),
+                                                                       ("url", "https://x.org/after")]
+
+
+def test_a_bibtex_entry_that_stops_parsing_partway_is_kept(tmp_path: Path) -> None:
+    (tmp_path / "refs.bib").write_text("@article{lambert2021,\n  author = {Lambert, Samuel A.},\n"
+                                       "  title = {The Polygenic Score Catalog},\n  % journal = {Nature Genetics},\n"
+                                       "  year = {2021}\n}\n", encoding="utf-8")
+    tex = tmp_path / "paper.tex"
+    tex.write_text("\\section{Intro}\nScores come from the catalogue \\cite{lambert2021}.\n\\bibliography{refs}\n",
+                   encoding="utf-8")
+    report = scan.check_references(tex, online=False, search_unidentified=False)
+    assert [r.cited_title for r in report.references] == ["The Polygenic Score Catalog"]
+    (partial,) = [f for f in report.findings if "parsing partway" in f.message]
+    assert partial.severity == scan.Severity.minor
+    assert not [f for f in report.findings if f.severity in (scan.Severity.major, scan.Severity.blocker)]
+
+
+def test_the_scan_runs_without_the_revision_marks_skill(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(scan, "AGENT_NAMES", tmp_path / "missing.toml")
+    assert scan.ledger_ai("<!-- @rev C1 rounds=1 by=anna:2026-10-01,claude-opus:2026-10-18 -->") == ["claude-opus"]
+
+
+@pytest.mark.parametrize("other, severity", [("doi:10.1101/2022.07.20.500902", scan.Severity.minor),
+                                             ("doi:10.1038/s41586-021-03819-2", scan.Severity.major)])
+def test_a_preprint_and_its_published_version_are_not_called_different_works(other: str, severity: object) -> None:
+    ref = scan.Reference(line=1, text="Lin, Z. (2023). Evolutionary-scale prediction of atomic-level protein structure.",
+                         doi="10.1126/science.ade2574", status="resolved", other_ids=[other],
+                         resolved_title="Evolutionary-scale prediction of atomic-level protein structure with a "
+                                        "language model",
+                         other_id_checks=[{"id": other, "state": "ok", "same_work": "false", "why": "",
+                                           "title": "Language models of protein sequences at the scale of evolution "
+                                                    "enable accurate structure prediction"}])
+    (finding,) = [f for f in scan._reference_findings([ref], online=True) if "different titles" in f.message]
+    assert finding.severity == severity
+    assert ("preprint" in finding.message) == (severity == scan.Severity.minor)

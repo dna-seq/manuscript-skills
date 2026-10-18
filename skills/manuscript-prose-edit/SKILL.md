@@ -55,7 +55,8 @@ prove semantic equivalence. Resolve false positives yourself when meaning is unc
 affected by the edit. Revision markers
 (`<!-- @rev ... -->`) stay where they are and are added or updated only as the project's written rules say
 ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review));
-the guard ignores them. Return the edited text or a concise file-change summary, the warnings that stand and
+the guard ignores them. Where the project keeps them, an applied edit bumps or opens its segment through
+`manuscript-revision-marks`, signed with the name of whoever wrote the round. Return the edited text or a concise file-change summary, the warnings that stand and
 unresolved content questions; detailed change tables are on request.
 
 For a claim that needs source verification, use `manuscript-reference-check`. Use `manuscript-policy-fit`

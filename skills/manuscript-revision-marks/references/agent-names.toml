@@ -1,0 +1,55 @@
+# Names that sign a revision mark's `by=` entry for an AI model or an agent harness, not a person.
+# Read by scripts/rev_marks.py (who has reviewed a passage), ../manuscript-mark-people/scripts/people.py
+# (which names in a repository are people) and ../manuscript-integrity-check/scripts/scan.py (marks that
+# name an AI). Matching is case-insensitive.
+#
+# A project's rev-marks.toml decides over this list: a name in its `humans` is a person even when it
+# matches here (a co-author called Claude, Luna or Nova), and its `agents` adds names. A name that is in
+# neither counts as an agent unless the project sets `unknown = "human"`, so an unlisted model never
+# reads as a reviewed passage.
+#
+# Model families: the Artificial Analysis Intelligence Index leaderboard
+# (https://artificialanalysis.ai/leaderboards/models), every lab and family on it, read 2026-10-18.
+# Harnesses and coding agents: the CLI, IDE and hosted agents that commit or edit text, as of the same
+# date. Add a name here when a new one turns up in a by= entry; `unknown = "agent"` covers it until then.
+
+checked = "2026-10-18"
+source = "https://artificialanalysis.ai/leaderboards/models"
+
+# Exact names, after lowercasing.
+names = [
+  # generic
+  "ai", "llm", "agent", "agents", "bot", "assistant", "model", "copilot", "chatbot",
+  # Anthropic
+  "claude", "anthropic", "opus", "sonnet", "haiku", "fable",
+  # OpenAI
+  "openai", "gpt", "chatgpt", "codex", "o1", "o3", "o4", "gpt-oss", "astra", "sol", "luna", "terra",
+  # Google
+  "gemini", "gemma", "bard", "argon", "jules",
+  # Meta
+  "llama", "meta-ai", "muse", "wonder", "spark", "glimmer",
+  # xAI / SpaceXAI
+  "grok", "xai", "spacexai",
+  # other labs on the index
+  "deepseek", "qwen", "qwq", "alibaba", "kimi", "moonshot", "glm", "zhipu", "chatglm", "z-ai", "minimax",
+  "mimo", "xiaomi", "step", "stepfun", "command", "command-r", "cohere", "granite", "nemotron", "mistral",
+  "mixtral", "magistral", "devstral", "codestral", "le-chat", "mercury", "ling", "ring", "k2", "inkling",
+  "solar", "upstage", "hunyuan", "hy3", "nova", "longcat", "ernie", "exaone", "phi", "hermes", "olmo",
+  "sarvam", "jamba", "trinity", "reka", "falcon", "minicpm", "lfm", "celeris", "beam", "quasar", "agnes",
+  "doubao", "seed", "yi", "perplexity", "sonar",
+  # harnesses and coding agents
+  "claude-code", "cursor", "cursor-agent", "codex-cli", "gemini-cli", "qwen-code", "aider", "cline", "roo",
+  "roo-code", "kilo", "kilocode", "windsurf", "cascade", "devin", "openhands", "opendevin", "swe-agent",
+  "amp", "kiro", "zed", "goose", "tabnine", "cody", "augment", "junie", "factory", "droid", "opencode",
+  "crush", "trae", "manus", "warp", "replit", "bolt", "lovable", "v0", "continue", "sweep", "coderabbit",
+  "dependabot", "renovate", "github-actions",
+]
+
+# Shell-style patterns (fnmatch), after lowercasing: versioned model names, seat names, bot accounts.
+patterns = [
+  "claude-*", "claude.*", "opus-*", "sonnet-*", "haiku-*", "fable-*",
+  "gpt-*", "gpt[0-9]*", "o[0-9]", "o[0-9]-*", "codex-*", "chatgpt-*",
+  "gemini-*", "gemma-*", "llama-*", "llama[0-9]*", "muse-*", "grok-*",
+  "deepseek-*", "qwen-*", "qwen[0-9]*", "kimi-*", "glm-*", "minimax-*", "mistral-*",
+  "nemotron-*", "granite-*", "phi-*", "*-bot", "*_bot", "*-agent", "*_agent", "seat-*", "seat[0-9]*",
+]
