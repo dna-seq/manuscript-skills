@@ -3,10 +3,11 @@ name: manuscript-revision-marks
 description: >-
   Keep and use revision marks inside a Markdown or LaTeX manuscript: which passages were rewritten, in
   how many rounds and by whom (`<!-- @rev ID rounds=N by=name:date -->` or `% @rev` comment lines),
-  the clean copy without them that reviews and builds read, the blind spots no round has touched, and a
-  heat map of the revision. Use when a manuscript already carries @rev marks, when the authors ask to
+  the clean copy without them that reviews and builds read, the blind spots no round has touched,
+  the passages an AI or agent wrote that no person has reviewed since, and a heat map of the revision. Use when a manuscript already carries @rev marks, when the authors ask to
   record who revised what (accountability or traceability of AI-assisted edits), to lint, strip, bump
-  or report marks, or to list the prose nobody has reviewed. Use manuscript-reviewer-response for the
+  or report marks, to list the prose nobody has reviewed, or to see which AI edits still await a
+  person. Use manuscript-mark-people to build the project's list of people. Use manuscript-reviewer-response for the
   review ledger and the response letter (a mark can carry a ledger item's id), manuscript-prose-edit for
   the edits themselves, and manuscript-integrity-check before upload.
 ---
@@ -44,6 +45,40 @@ In a `.tex` file each mark is a comment line of its own: `% @rev C3 rounds=2 by=
   was before any mark went in, byte for byte. Reviews, checks and builds read the twin, never the marked
   master; only the master is edited.
 - **A blind spot** is a prose line (paragraph, list item, table row) that no segment overlaps.
+- **An unreviewed segment** is one whose latest `by=` name is not a person's: an AI model or agent
+  harness, or a name nobody has classified. Its text has not been read and accepted by a person since
+  the agent wrote it.
+
+## Who is a person: rev-marks.toml
+
+The project lists its people in `rev-marks.toml` at the repository root (the tool looks from the
+manuscript up to the git root). Every key is optional:
+
+```toml
+humans = ["anna", "tom"]   # people; outranks the agent list (a co-author named Claude or Luna)
+agents = ["lab-bot"]       # more agent names or fnmatch patterns
+unknown = "agent"          # what a name in neither list counts as; "human" to flip
+signoff = "explicit"       # who may sign a person's name with bump: "explicit", "person" or "any"
+```
+
+The shipped [agent list](references/agent-names.toml) names AI model families (from the Artificial
+Analysis Intelligence Index) and coding harnesses, with patterns for versioned names (`claude-*`,
+`gpt-*`, `seat-*`, `*-bot`). **A name on neither list counts as an agent by default**, so an edit signed
+by a model the list does not know yet still shows as unreviewed rather than passing as a person's;
+`lint` warns once per such name. Build or extend `humans` with `manuscript-mark-people`, which proposes
+the people it finds in the repository for the authors to confirm.
+
+**Sign-off.** A person's name in `by=` is the record that they reviewed the passage, so it is signed
+only on their word:
+
+- `signoff = "explicit"` (default): `bump ... --by anna --approved "her words"` needs the person's own
+  words approving *this item*, quoted from the conversation. A bulk "accept all", silence, or a
+  summary of a list is not an approval of each item; ask, or leave the segment unreviewed.
+- `signoff = "person"`: only the person signs, from their own terminal; the tool refuses when an
+  agent harness runs it. The agent proposes the command and the person runs it.
+- `signoff = "any"`: no check (for a project whose marks record authorship only).
+
+Never write a person's name into a `by=` entry by editing the file directly; that bypasses the policy.
 
 ## Commands
 
@@ -53,12 +88,15 @@ Relative to this skill directory; standard library only (`uv run --script`, no d
 uv run --script scripts/rev_marks.py lint PAPER.md [--strict]       # exit 1 on an error (or warning)
 uv run --script scripts/rev_marks.py strip PAPER.md                 # write PAPER.clean.md
 uv run --script scripts/rev_marks.py strip PAPER.md --check         # exit 1 if the twin is missing or stale
-uv run --script scripts/rev_marks.py report PAPER.md --blind --html $SCRATCH/heatmap.html
-uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna     # one more round, dated today
+uv run --script scripts/rev_marks.py report PAPER.md --blind --unreviewed --html $SCRATCH/heatmap.html
+uv run --script scripts/rev_marks.py bump PAPER.md C3 --by claude   # an agent's round, dated today
+uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna --approved "C3 reads right now"
 ```
 
-Exit codes: 0 clean, 1 errors (a malformed or unpaired mark, a stale twin, an unknown id), 2 usage,
-3 could not run. `strip` and `bump` refuse a file whose marks do not lint, so a half-recognised mark
+`lint`, `report` and `bump` take `--config PATH` and `--unknown agent|human`. The heat map shades each
+segment by its rounds and outlines and hatches the unreviewed ones. Exit codes: 0 clean, 1 errors (a
+malformed or unpaired mark, a stale twin, an unknown id), 2 usage, a malformed `rev-marks.toml` or a
+sign-off the policy refuses, 3 could not run. `strip` and `bump` refuse a file whose marks do not lint, so a half-recognised mark
 never reaches the twin.
 
 ## How to work with marks
@@ -70,11 +108,14 @@ never reaches the twin.
    refresh the twin, and the record's status (the review ledger, when there is one). A wording edit
    outside any segment is still a revision: mark it or say why not.
 3. **Name who did it.** The `by=` entry names who made this round's text: the author's handle, or the
-   agent's name when an agent wrote it. Never sign an agent's round with a person's name.
+   agent's name when an agent wrote it (your model's name, such as `claude`). Never sign an agent's
+   round with a person's name; when the person then approves the passage, sign their round as the
+   sign-off policy says.
 4. **Hand reviews the twin.** A simulated referee (`manuscript-peer-review`), a reference or number
    check, or a co-author reads the clean copy, as an editor would.
-5. **Close the pass** with `report --blind`: the segments touched, and the paragraphs no round has read.
-   The blind spots are where an unreviewed claim can still hide.
+5. **Close the pass** with `report --blind --unreviewed`: the segments touched, the paragraphs no
+   round has read, and the agent-written passages no person has accepted since. Both lists are where
+   an unchecked claim can still hide; give them to the authors as one state line.
 6. **For upload**, the files the venue receives are the twins or a build from them. The
    submission-package check (`manuscript-integrity-check`) deliberately ignores marks, so confirm with
    `report UPLOAD_FILE` that the uploaded file carries no segment.
@@ -85,3 +126,5 @@ authors ask to retire them.
 ## Files
 
 - `scripts/rev_marks.py`: lint, strip, report and bump.
+- `references/agent-names.toml`: the AI model and agent names, shared with `manuscript-mark-people` and
+  `manuscript-integrity-check`'s scan.

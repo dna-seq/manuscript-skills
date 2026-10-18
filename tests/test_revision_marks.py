@@ -610,3 +610,133 @@ def test_ledger_items_split_by_letter_group_under_one_comment():
     found = rm.parse(text)
     assert {s.attributes.comment_id for s in found.segments} == {"R1.4", "R2.W1"}
     assert rm.totals(found)["comments"] == 2
+
+
+# --- who reviewed: people, agents and the sign-off policy ------------------------------------------------
+
+UNREVIEWED_DOC = (
+    "# Draft\n\n"
+    "<!-- @rev C1 rounds=2 by=claude:2026-10-01,anna:2026-10-02 -->\nAnna read this after Claude.\n<!-- @/rev C1 -->\n\n"
+    "<!-- @rev C2 rounds=1 by=claude-opus-5-5:2026-10-03 -->\nAn agent wrote this.\n<!-- @/rev C2 -->\n\n"
+    "<!-- @rev C3 rounds=1 by=grok:2026-10-03 -->\nAn unlisted-looking model.\n<!-- @/rev C3 -->\n\n"
+    "<!-- @rev C4 rounds=1 by=seat-09:2026-10-04 -->\nA seat.\n<!-- @/rev C4 -->\n\n"
+    "<!-- @rev C5 rounds=1 by=zork:2026-10-04 -->\nA name nobody listed.\n<!-- @/rev C5 -->\n\n"
+    "<!-- @rev C6 rounds=1 by=claude:2026-10-05 -->\nA co-author called Claude.\n<!-- @/rev C6 -->\n")
+
+
+@pytest.fixture
+def project(tmp_path):
+    """A repository root (a .git marker bounds the config search) with the document in a subfolder."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "paper").mkdir()
+    doc = tmp_path / "paper" / "draft.md"
+    doc.write_text(UNREVIEWED_DOC, encoding="utf-8")
+    return tmp_path, doc
+
+
+def config(root, **values):
+    lines = [f"{k} = {v!r}" if isinstance(v, str) else f"{k} = {list(v)!r}" for k, v in values.items()]
+    (root / "rev-marks.toml").write_text("\n".join(lines).replace("'", '"') + "\n", encoding="utf-8")
+
+
+def unrev_ids(doc, **kw):
+    return [s.id for s in rm.unreviewed(rm.parse(rm.read_source(doc)), rm.load_people(doc, **kw))]
+
+
+def test_without_a_config_every_name_counts_as_an_agent(project):
+    root, doc = project
+    assert rm.find_config(doc) is None
+    assert unrev_ids(doc) == ["C1", "C2", "C3", "C4", "C5", "C6"]  # even anna: nobody listed her
+
+
+def test_a_listed_human_last_is_reviewed_and_humans_outrank_the_agent_list(project):
+    root, doc = project
+    config(root, humans=["Anna"])
+    assert unrev_ids(doc) == ["C2", "C3", "C4", "C5", "C6"]
+    config(root, humans=["anna", "claude"])  # a co-author called Claude
+    assert unrev_ids(doc) == ["C2", "C3", "C4", "C5"]  # claude-opus-5-5 still matches claude-*
+
+
+def test_unknown_human_flips_only_the_unlisted_names(project):
+    root, doc = project
+    config(root, humans=["anna"], unknown="human")
+    assert unrev_ids(doc) == ["C2", "C3", "C4", "C6"]  # grok, seat-09 and claude are on the agent list
+    config(root, humans=["anna"])
+    assert unrev_ids(doc, unknown="human") == ["C2", "C3", "C4", "C6"]  # the flag overrides the file
+
+
+def test_lint_warns_once_per_unclassified_name_and_strict_fails(project):
+    root, doc = project
+    config(root, humans=["anna"])
+    r = py(RM, "lint", doc)
+    assert r.rc == 0 and r.out.count("unclassified-name") == 1 and "'zork'" in r.out, r.out
+    assert py(RM, "lint", "--strict", doc).rc == 1
+    config(root, humans=["anna"], agents=["zork"])
+    assert "unclassified-name" not in py(RM, "lint", "--strict", doc).out
+
+
+def test_report_lists_the_unreviewed_and_the_heatmap_hatches_them(project, tmp_path):
+    root, doc = project
+    config(root, humans=["anna"])
+    heat = tmp_path / "map.html"
+    r = py(RM, "report", doc, "--unreviewed", "--html", heat)
+    assert r.rc == 0 and "UNREVIEWED (5 of 6 segments" in r.out, r.out
+    assert "zork (unlisted, counted as agent)" in r.out and "grok (agent)" in r.out
+    page = heat.read_text()
+    assert len(re.findall(r'<mark id="seg-C\d" class="h\d unrev"', page)) == 5
+    assert 'id="seg-C1" class="h2" data-id="C1" data-rounds="2" data-reviewed="true"' in page
+
+
+def test_explicit_signoff_needs_the_persons_words(project):
+    root, doc = project
+    config(root, humans=["anna"])
+    r = py(RM, "bump", doc, "C2", "--by", "anna")
+    assert r.rc == 2 and "--approved" in r.out and "@rev C2 rounds=1" in doc.read_text()
+    r = py(RM, "bump", doc, "C2", "--by", "anna", "--approved", "C2 is fine as written")
+    assert r.rc == 0 and "who approved it: 'C2 is fine as written'" in r.out
+    assert "C2" not in unrev_ids(doc)
+    assert py(RM, "bump", doc, "C3", "--by", "claude").rc == 0  # an agent's round needs no approval
+
+
+def test_person_signoff_refuses_inside_an_agent_harness(project, monkeypatch):
+    root, doc = project
+    config(root, humans=["anna"], signoff="person")
+    for var in rm.AGENT_ENV:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("CLAUDECODE", "1")
+    r = py(RM, "bump", doc, "C2", "--by", "anna", "--approved", "fine")
+    assert r.rc == 2 and "CLAUDECODE is set" in r.out
+    monkeypatch.delenv("CLAUDECODE")
+    assert py(RM, "bump", doc, "C2", "--by", "anna").rc == 0
+
+
+def test_any_signoff_checks_nothing_and_a_bad_config_is_refused(project):
+    root, doc = project
+    config(root, humans=["anna"], signoff="any")
+    assert py(RM, "bump", doc, "C2", "--by", "anna").rc == 0
+    config(root, humans=["anna"], signoff="whenever")
+    r = py(RM, "report", doc)
+    assert r.rc == 2 and "signoff = 'whenever'" in r.out
+    (root / "rev-marks.toml").write_text("humans = [\n", encoding="utf-8")
+    assert py(RM, "lint", doc).rc == 2
+
+
+def test_the_shipped_agent_list_names_the_reviewed_models_and_parses():
+    agents = rm.agent_list()
+    people = rm.People(agents=agents)
+    for name in ("claude", "Claude-Opus-5-5", "gpt-6.1", "sol", "argon", "grok", "grok-4.7", "cursor", "codex",
+                 "gemini-4", "deepseek-v4", "kimi", "o3", "seat-09", "renovate-bot", "fable"):
+        assert people.known(name) == rm.Kind.AGENT, name
+    for name in ("anna", "tom", "owner", "x", "cursory", "solomon", "argonaut"):
+        assert people.known(name) is None, name
+
+
+def test_scan_names_the_ai_in_marks_from_the_same_list():
+    spec = importlib.util.spec_from_file_location("scan_for_marks", ROOT / "skills" / "manuscript-integrity-check"
+                                                  / "scripts" / "scan.py")
+    scan = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(scan)
+    raw = ("<!-- @rev C1 rounds=2 by=anna:2026-10-01,grok-4.7:2026-10-02 -->\nX.\n<!-- @/rev C1 -->\n"
+           "<!-- @rev C2 rounds=1 by=anna:2026-10-01 -->\nY.\n<!-- @/rev C2 -->\n"
+           "% @rev C3 rounds=1 by=sol:2026-10-03\nZ.\n% @/rev C3\n")
+    assert scan.ledger_ai(raw) == ["grok-4.7", "sol"]  # anna is unlisted: never counted as an AI here

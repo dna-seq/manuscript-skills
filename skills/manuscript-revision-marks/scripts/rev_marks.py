@@ -7,8 +7,11 @@ rounds, by whom; and the blind spots, prose no round has read.
 
     uv run --script rev_marks.py lint [--strict] FILE...          exit 1 on any error (or warning, with --strict)
     uv run --script rev_marks.py strip FILE [--out OUT] [--check]  write the clean twin, FILE minus its marks
-    uv run --script rev_marks.py report FILE [--blind] [--html OUT]
-    uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD]
+    uv run --script rev_marks.py report FILE [--blind] [--unreviewed] [--html OUT]
+    uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD] [--approved "THEIR WORDS"]
+
+lint, report and bump also take --config PATH (default: rev-marks.toml, found from FILE up to the git
+root) and --unknown agent|human (overrides the config's `unknown`).
 
 A rewritten segment sits between two HTML comments, which renderers and pandoc drop:
 
@@ -27,6 +30,21 @@ A rewritten segment sits between two HTML comments, which renderers and pandoc d
   went in, byte for byte, CRLF and other comments included.
 - The twin is `<stem>.clean.md` beside FILE; a build reads the twin, never the marked source.
 - A blind spot is a prose line (a paragraph, a list item, a table row) no segment overlaps.
+- A segment is unreviewed when the last name in its `by=` is not a person: a name the project's
+  rev-marks.toml lists in `agents`, or one matching ../references/agent-names.toml, or (with the default
+  `unknown = "agent"`) one it lists nowhere. `humans` in rev-marks.toml outranks the agent list. lint
+  warns once per name that is in neither list.
+- Signing a person's name with `bump` follows the config's `signoff`: "explicit" (the default) needs
+  --approved with that person's own words of approval for this item; "person" refuses when an agent
+  harness runs the command (its environment says so), so the person runs it themselves; "any" checks
+  nothing.
+
+rev-marks.toml (all keys optional):
+
+    humans = ["anna", "tom"]       # people; outranks the agent list
+    agents = ["lab-bot"]           # more agent names or fnmatch patterns
+    unknown = "agent"              # or "human": what a name in neither list counts as
+    signoff = "explicit"           # or "person", "any"
 
 A `.tex` file carries its marks as LaTeX comments, each on a line of its own, and its twin is
 `<stem>.clean.tex`; every other file is Markdown:
@@ -46,15 +64,19 @@ A `.tex` file carries its marks as LaTeX comments, each on a line of its own, an
 
 Standard library only. The mark format comes from the manuscript ledger of dna-seq/just-dna-lite.
 
-EXIT STATUS  0 clean · 1 errors found, a stale twin, an unknown id · 2 usage · 3 could not run
+EXIT STATUS  0 clean · 1 errors found, a stale twin, an unknown id · 2 usage, a malformed rev-marks.toml,
+             a sign-off the policy refuses · 3 could not run
 """
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import fnmatch
 import html
+import os
 import re
 import sys
+import tomllib
 from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -68,6 +90,11 @@ CLEAN_SUFFIX = ".clean.md"
 TEX_CLEAN_SUFFIX = ".clean.tex"
 HEAT_LEVELS = 5
 FIRST_WORDS = 8
+CONFIG_NAME = "rev-marks.toml"
+AGENT_NAMES = Path(__file__).resolve().parent.parent / "references" / "agent-names.toml"
+# Set by an agent harness in the shell it runs commands in: `signoff = "person"` refuses a person's name there.
+AGENT_ENV = ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED",
+             "CODEX_MANAGED_BY_NPM", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "AIDER_MODEL", "CLINE_ACTIVE")
 
 ID_RE = re.compile(rf"^{ID_PATTERN}$")
 NAME_RE = re.compile(rf"^{NAME_PATTERN}$")
@@ -128,6 +155,7 @@ class Code(StrEnum):
     AMBIGUOUS_SPACE = "ambiguous-space"
     INLINE_AT_LINE_START = "inline-at-line-start"
     INLINE_MARK = "inline-mark"
+    UNCLASSIFIED_NAME = "unclassified-name"
 
 
 @dataclass(frozen=True)
@@ -195,6 +223,11 @@ class Segment:
     @property
     def rounds(self) -> int:
         return self.attributes.rounds
+
+    @property
+    def last(self) -> str:
+        """Who wrote the latest round."""
+        return self.attributes.by[-1].name
 
 
 @dataclass(frozen=True)
@@ -541,6 +574,126 @@ def parse(text: str, syntax: Syntax = Syntax.MARKDOWN) -> Marks:
     return Marks(text, tuple(marks), tuple(segments), tuple(issues), tuple(removals), syntax)
 
 
+# --- people ----------------------------------------------------------------------------------
+
+
+class Kind(StrEnum):
+    HUMAN = "human"
+    AGENT = "agent"
+
+
+class Signoff(StrEnum):
+    EXPLICIT = "explicit"
+    PERSON = "person"
+    ANY = "any"
+
+
+class ConfigError(Exception):
+    """rev-marks.toml (or the agent list) does not say what it must."""
+
+
+@dataclass(frozen=True)
+class People:
+    """Who is a person and who is an agent, for one document."""
+
+    humans: frozenset[str] = frozenset()
+    agents: tuple[str, ...] = ()  # exact names and fnmatch patterns, lowercased
+    unknown: Kind = Kind.AGENT
+    signoff: Signoff = Signoff.EXPLICIT
+    config: Path | None = None
+
+    def known(self, name: str) -> Kind | None:
+        """HUMAN or AGENT when a list names *name*; None when neither does."""
+        key = name.lower()
+        if key in self.humans:
+            return Kind.HUMAN
+        if any(fnmatch.fnmatchcase(key, pattern) for pattern in self.agents):
+            return Kind.AGENT
+        return None
+
+    def kind(self, name: str) -> Kind:
+        return self.known(name) or self.unknown
+
+
+def _strings(data: dict, key: str, where: Path) -> list[str]:
+    value = data.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
+        raise ConfigError(f"{where}: {key} must be a list of names")
+    return [v.strip().lower() for v in value]
+
+
+def _choice(data: dict, key: str, enum, default, where: Path):
+    value = data.get(key, default.value)
+    try:
+        return enum(value)
+    except ValueError:
+        raise ConfigError(f"{where}: {key} = {value!r}; one of {', '.join(e.value for e in enum)}") from None
+
+
+def _read_toml(path: Path) -> dict:
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: not TOML: {exc}") from None
+
+
+def agent_list() -> tuple[str, ...]:
+    """The shipped agent names and patterns, lowercased."""
+    data = _read_toml(AGENT_NAMES)
+    return tuple(_strings(data, "names", AGENT_NAMES) + _strings(data, "patterns", AGENT_NAMES))
+
+
+def find_config(start: Path) -> Path | None:
+    """rev-marks.toml in *start*'s directory or above it, up to and including the git root."""
+    here = start.resolve()
+    for folder in (here, *here.parents) if here.is_dir() else here.parents:
+        candidate = folder / CONFIG_NAME
+        if candidate.is_file():
+            return candidate
+        if (folder / ".git").exists():
+            return None
+    return None
+
+
+def load_people(start: Path, config: Path | None = None, unknown: str | None = None) -> People:
+    """The people for a document at *start*: the shipped agent list, then the project's config."""
+    path = config if config is not None else find_config(start)
+    data = _read_toml(path) if path is not None else {}
+    where = path or Path(CONFIG_NAME)
+    unexpected = set(data) - {"humans", "agents", "unknown", "signoff"}
+    if unexpected:
+        raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(unexpected))}")
+    people = People(humans=frozenset(_strings(data, "humans", where)),
+                    agents=agent_list() + tuple(_strings(data, "agents", where)),
+                    unknown=_choice(data, "unknown", Kind, Kind.AGENT, where),
+                    signoff=_choice(data, "signoff", Signoff, Signoff.EXPLICIT, where), config=path)
+    return dataclasses.replace(people, unknown=Kind(unknown)) if unknown is not None else people
+
+
+def unreviewed(found: Marks, people: People) -> list[Segment]:
+    """Segments whose latest round no person wrote."""
+    return [s for s in found.segments if people.kind(s.last) == Kind.AGENT]
+
+
+def unclassified(found: Marks, people: People) -> list[Issue]:
+    """One warning per `by=` name that neither list names, at its first line."""
+    lines: dict[str, list[int]] = {}
+    for m in found.marks:
+        if m.attributes is not None:
+            for e in m.attributes.by:
+                if people.known(e.name) is None and m.line not in lines.setdefault(e.name, []):
+                    lines[e.name].append(m.line)
+    return [warning(Code.UNCLASSIFIED_NAME, at[0],
+                    f"{name!r} (line{'s' if len(at) > 1 else ''} {', '.join(map(str, at))}) is in neither"
+                    f" {CONFIG_NAME}'s humans nor the agent list; counted as {people.unknown}")
+            for name, at in lines.items()]
+
+
+def agent_harness() -> str | None:
+    """The environment variable that shows an agent harness runs this command, if any."""
+    return next((v for v in AGENT_ENV if os.environ.get(v)), None)
+
+
 # --- operations ------------------------------------------------------------------------------
 
 
@@ -730,6 +883,17 @@ def format_report(found: Marks) -> str:
     return "\n".join(lines) + "\n"
 
 
+def format_unreviewed(found: Marks, people: People) -> str:
+    spots = unreviewed(found, people)
+    lines = [f"UNREVIEWED ({len(spots)} of {len(found.segments)} segments: the latest round is not a person's)"]
+    width = max((len(s.id) for s in spots), default=2)
+    for s in spots:
+        known = people.known(s.last)
+        why = "agent" if known == Kind.AGENT else f"unlisted, counted as {people.unknown}"
+        lines.append(f"{s.id.ljust(width)}  line {s.open.line}  {s.last} ({why})  {first_words(s.text)}")
+    return "\n".join(lines) + "\n"
+
+
 def format_blind_spots(found: Marks) -> str:
     spots = blind_spots(found)
     lines = [f"BLIND SPOTS ({len(spots)} of {len(paragraphs(found))} paragraphs no review round has touched)"]
@@ -739,10 +903,10 @@ def format_blind_spots(found: Marks) -> str:
 
 
 HEATMAP_CSS = """
-:root { --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --rule: #dedad2;
+:root { --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --rule: #dedad2; --unrev: #7a3fc4; --unrev-hatch: #7a3fc433;
   --h1: #fdf1c7; --h2: #fbdc8e; --h3: #f6b866; --h4: #ee8d4f; --h5: #dd5f3f; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #1a1917; --fg: #ece9e2; --muted: #a39e94; --rule: #3a3833;
+  :root { --bg: #1a1917; --fg: #ece9e2; --muted: #a39e94; --rule: #3a3833; --unrev: #c49cf5; --unrev-hatch: #c49cf544;
     --h1: #3d3520; --h2: #5a4520; --h3: #77501f; --h4: #94511f; --h5: #b0472a; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 Georgia, "Times New Roman", serif; }
@@ -759,12 +923,17 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 mark { color: inherit; border-radius: 2px; }
 .h1 { background: var(--h1); } .h2 { background: var(--h2); } .h3 { background: var(--h3); }
 .h4 { background: var(--h4); } .h5 { background: var(--h5); }
+mark.unrev { outline: 2px dashed var(--unrev); outline-offset: 1px;
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--unrev-hatch) 6px 8px); }
+.legend .unrev { outline: 2px dashed var(--unrev); }
 a { color: inherit; }
 """
 
 
-def render_heatmap(found: Marks, title: str) -> str:
-    """One self-contained page: the clean text, each segment shaded by its rounds."""
+def render_heatmap(found: Marks, title: str, people: People | None = None) -> str:
+    """One self-contained page: the clean text, each segment shaded by its rounds, and outlined and hatched
+    when its latest round is not a person's (with *people*)."""
+    unrev = {s.id for s in unreviewed(found, people)} if people is not None else set()
     opening = {s.open.start: s for s in found.segments}
     closing = {s.close.start for s in found.segments}
     body: list[str] = []
@@ -777,8 +946,12 @@ def render_heatmap(found: Marks, title: str) -> str:
             if m.start in opening:
                 s = opening[m.start]
                 tip = f"{s.id}: {s.rounds} round(s); " + ", ".join(f"{e.name} {e.on.isoformat()}" for e in s.attributes.by)
-                body.append(f'<mark id="seg-{s.id}" class="h{min(s.rounds, HEAT_LEVELS)}" data-id="{s.id}"'
-                            f' data-rounds="{s.rounds}" title="{html.escape(tip)}">')
+                if s.id in unrev:
+                    tip += f"; unreviewed: the latest round is {s.last}'s"
+                extra = " unrev" if s.id in unrev else ""
+                body.append(f'<mark id="seg-{s.id}" class="h{min(s.rounds, HEAT_LEVELS)}{extra}" data-id="{s.id}"'
+                            f' data-rounds="{s.rounds}" data-reviewed="{str(s.id not in unrev).lower()}"'
+                            f' title="{html.escape(tip)}">')
             elif m.start in closing:
                 body.append("</mark>")
         cursor = end
@@ -786,13 +959,16 @@ def render_heatmap(found: Marks, title: str) -> str:
     rows = "\n".join(
         f'<tr><td><a href="#seg-{html.escape(r["id"])}">{html.escape(r["id"])}</a></td>'
         f'<td class="num">{r["rounds"]}</td><td>{html.escape(r["reviewers"])}</td>'
-        f'<td class="num">{r["line"]}</td><td>{html.escape(r["first words"])}</td></tr>'
+        f'<td class="num">{r["line"]}</td><td>{"no" if r["id"] in unrev else "yes" if people else ""}</td>'
+        f'<td>{html.escape(r["first words"])}</td></tr>'
         for r in report_rows(found))
     blind = "\n".join(f'<tr><td class="num">{p.line}</td><td>{html.escape(first_words(p.text))}</td></tr>'
                       for p in blind_spots(found))
     summary = ", ".join(f"{k}: {v}" for k, v in totals(found).items())
     legend = "".join(f'<span class="h{n}">{n}{"+" if n == HEAT_LEVELS else ""} round{"s" if n > 1 else ""}</span>'
                      for n in range(1, HEAT_LEVELS + 1))
+    if people is not None:
+        legend += f'<span class="unrev">unreviewed: latest round not a person\'s ({len(unrev)})</span>'
     return (
         '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -800,7 +976,7 @@ def render_heatmap(found: Marks, title: str) -> str:
         f'<header>\n<h1>Revision heat map</h1>\n<p class="meta">{html.escape(title)} · {summary}</p>\n'
         f'<div class="legend">{legend}</div>\n'
         '<div class="table-wrap"><table>\n<thead><tr><th>ID</th><th>Rounds</th><th>Reviewers</th>'
-        f"<th>Line</th><th>First words</th></tr></thead>\n<tbody>\n{rows}\n</tbody>\n</table></div>\n"
+        f"<th>Line</th><th>Reviewed</th><th>First words</th></tr></thead>\n<tbody>\n{rows}\n</tbody>\n</table></div>\n"
         '<h2>Blind spots</h2>\n<p class="meta">Paragraphs no review round has touched; unshaded below.</p>\n'
         '<div class="table-wrap"><table class="blind">\n<thead><tr><th>Line</th><th>First words</th></tr></thead>\n'
         f"<tbody>\n{blind}\n</tbody>\n</table></div>\n"
@@ -822,14 +998,21 @@ def load(path: Path) -> Marks | None:
     return None if found.errors else found
 
 
+def people_for(path: Path, args) -> People:
+    return load_people(path, args.config, args.unknown)
+
+
 def cmd_lint(args) -> int:
     failed = False
     for path in args.files:
         found = parse(read_source(path), syntax_for(path))
-        print_issues(path, found.issues)
-        failed = failed or bool(found.errors) or (args.strict and bool(found.warnings))
+        issues = sorted([*found.issues, *unclassified(found, people_for(path, args))],
+                        key=lambda i: (i.line, i.severity != Severity.ERROR))
+        warnings = [i for i in issues if i.severity == Severity.WARNING]
+        print_issues(path, issues)
+        failed = failed or bool(found.errors) or (args.strict and bool(warnings))
         print(f"{path}: {len(found.segments)} segment(s), {len(found.errors)} error(s),"
-              f" {len(found.warnings)} warning(s)")
+              f" {len(warnings)} warning(s)")
     return 1 if failed else 0
 
 
@@ -857,16 +1040,32 @@ def cmd_strip(args) -> int:
 
 
 def cmd_report(args) -> int:
+    people = people_for(args.file, args)
     found = load(args.file)
     if found is None:
         return 1
     sys.stdout.write(format_report(found))
     if args.blind:
         sys.stdout.write("\n" + format_blind_spots(found))
+    if args.unreviewed:
+        sys.stdout.write("\n" + format_unreviewed(found, people))
     if args.html is not None:
-        args.html.write_bytes(render_heatmap(found, args.file.name).encode("utf-8"))
+        args.html.write_bytes(render_heatmap(found, args.file.name, people).encode("utf-8"))
         print(f"wrote {args.html}")
     return 0
+
+
+def signoff_refusal(people: People, name: str, approved: str | None) -> str | None:
+    """Why the config's sign-off policy refuses to sign *name*, a person's name; None when it allows it."""
+    where = people.config or f"the default (no {CONFIG_NAME})"
+    if people.signoff == Signoff.EXPLICIT and not (approved and approved.strip()):
+        return (f"{name} is a person: signing their round needs --approved with their own words approving this"
+                f" item (signoff = explicit, {where}). A bulk 'accept all' is not an approval of this item.")
+    harness = agent_harness()
+    if people.signoff == Signoff.PERSON and harness is not None:
+        return (f"{name} is a person and signoff = person ({where}): only they sign, from their own shell;"
+                f" this one is an agent harness's ({harness} is set)")
+    return None
 
 
 def cmd_bump(args) -> int:
@@ -875,6 +1074,12 @@ def cmd_bump(args) -> int:
     except ValueError as exc:
         print(f"rev_marks.py: --by: {exc}", file=sys.stderr)
         return 2
+    people = people_for(args.file, args)
+    if people.kind(entry.name) == Kind.HUMAN:
+        refusal = signoff_refusal(people, entry.name, args.approved)
+        if refusal is not None:
+            print(f"rev_marks.py: {refusal}", file=sys.stderr)
+            return 2
     found = load(args.file)
     if found is None:
         return 1
@@ -885,13 +1090,18 @@ def cmd_bump(args) -> int:
         return 1
     args.file.write_bytes(updated.encode("utf-8"))
     print(f"{args.id}: rounds={parse(updated, found.syntax).segment(args.id).rounds}")
+    if args.approved:
+        print(f"{args.id}: signed by {entry.name}, who approved it: {args.approved!r}")
     return 0
 
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="rev_marks.py", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("lint", help="check marks; exit 1 on any error")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", type=Path, help=f"default: {CONFIG_NAME} from FILE up to the git root")
+    common.add_argument("--unknown", choices=[k.value for k in Kind], help="what a name in neither list counts as")
+    p = sub.add_parser("lint", help="check marks; exit 1 on any error", parents=[common])
     p.add_argument("files", nargs="+", type=Path)
     p.add_argument("--strict", action="store_true", help="warnings fail too")
     p.set_defaults(run=cmd_lint)
@@ -900,15 +1110,17 @@ def main(argv: list[str]) -> int:
     p.add_argument("--out", "-o", type=Path, help="default: <stem>.clean.md (.clean.tex for a .tex) beside FILE")
     p.add_argument("--check", action="store_true", help="write nothing; exit 1 if the twin is missing or stale")
     p.set_defaults(run=cmd_strip)
-    p = sub.add_parser("report", help="segments, rounds, reviewers and totals")
+    p = sub.add_parser("report", help="segments, rounds, reviewers and totals", parents=[common])
     p.add_argument("file", type=Path)
     p.add_argument("--blind", action="store_true", help="also list the blind spots")
+    p.add_argument("--unreviewed", action="store_true", help="also list segments whose latest round is not a person's")
     p.add_argument("--html", type=Path, help="also write a self-contained heat map")
     p.set_defaults(run=cmd_report)
-    p = sub.add_parser("bump", help="add one round to a segment")
+    p = sub.add_parser("bump", help="add one round to a segment", parents=[common])
     p.add_argument("file", type=Path)
     p.add_argument("id", metavar="ID")
     p.add_argument("--by", required=True, help="NAME or NAME:YYYY-MM-DD (default date: today)")
+    p.add_argument("--approved", metavar="WORDS", help="a person's own words approving this item (signoff = explicit)")
     p.set_defaults(run=cmd_bump)
     args = ap.parse_args(argv)
     for path in getattr(args, "files", None) or [args.file]:
@@ -917,6 +1129,9 @@ def main(argv: list[str]) -> int:
             return 3
     try:
         return args.run(args)
+    except ConfigError as exc:
+        print(f"rev_marks.py: {exc}", file=sys.stderr)
+        return 2
     except (OSError, UnicodeDecodeError) as exc:
         print(f"rev_marks.py: {exc}", file=sys.stderr)
         return 3

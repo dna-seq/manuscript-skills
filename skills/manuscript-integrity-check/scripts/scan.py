@@ -18,10 +18,12 @@ reported?) are the skill's job, not this script's.
 from __future__ import annotations
 
 import csv
+import fnmatch
 import json
 import re
 import subprocess
 import time
+import tomllib
 import unicodedata
 from collections import Counter
 from difflib import SequenceMatcher
@@ -298,9 +300,29 @@ AI_TOOL_MENTIONS = [
     r"\blarge language models?\b", r"\bllms?\b", r"\bai agents?\b", r"\bagentic\b", r"\bai assistants?\b",
     r"\bchatbots?\b", r"\bgenerative ai\b", r"\bai[- ]generated\b", r"\bai[- ]assisted\b",
 ]
-# HTML-comment revision markers that name an AI as the reviser of a segment
-# (`<!-- @rev ID rounds=N by=name:date,... -->`, the format of the manuscript ledger in dna-seq/just-dna-lite).
-LEDGER_AI = re.compile(r"<!--\s*@rev\b[^>]*\bby=[^>]*\b(claude|gpt|chatgpt|gemini|copilot|ai|llm)\b", re.IGNORECASE)
+# Revision marks (`<!-- @rev ID rounds=N by=name:date,... -->`, or `% @rev ...` in LaTeX; the format of
+# manuscript-revision-marks) and the agent names they may carry, shared with that skill.
+LEDGER_BY = re.compile(r"(?:<!--|%)[ \t]*@rev\b[^\n>]*?\bby=([^\s>]+)")
+AGENT_NAMES = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "references" / "agent-names.toml"
+
+
+def _agent_patterns() -> list[str]:
+    data = tomllib.loads(AGENT_NAMES.read_text(encoding="utf-8"))
+    return [n.lower() for n in data["names"] + data["patterns"]]
+
+
+def ledger_ai(raw: str) -> list[str]:
+    """For each revision mark that names a known AI model or agent in `by=`, the first such name."""
+    patterns = _agent_patterns()
+    out = []
+    for m in LEDGER_BY.finditer(raw):
+        names = [item.partition(":")[0].lower() for item in m.group(1).split(",")]
+        ai = next((n for n in names if any(fnmatch.fnmatchcase(n, p) for p in patterns)), None)
+        if ai is not None:
+            out.append(ai)
+    return out
+
+
 MODEL_VERSION = re.compile(
     r"(?:claude[- ](?:opus|sonnet|haiku|fable)?[- ]?\d|gpt-?\d(?:\.\d)?(?:-\w+)?|gemini[- ]\d(?:\.\d)?|"
     r"llama[- ]?\d|qwen\d?|deepseek-\w+|claude-[a-z]+-\d)",
@@ -1903,7 +1925,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += _scan_patterns(_lines(raw), PLACEHOLDERS, "placeholder", Severity.major, "Placeholder '{match}'.",
                                "Resolve or remove before submission.", flags=0)
     findings += _declaration_findings(text_lower)
-    findings += _ai_use_findings(lines, text_lower, ref_start, bool(LEDGER_AI.search(raw)))
+    findings += _ai_use_findings(lines, text_lower, ref_start, bool(ledger_ai(raw)))
     findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor, "Stock phrase '{match}'.",
                                "Say the specific thing instead, or cut the phrase.")
     findings += _scan_patterns(lines, MARKUP_ARTIFACTS, "chatbot-leftover", Severity.blocker,
@@ -1929,11 +1951,11 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += reference_report.findings
     if git:
         findings += _git_findings(path.resolve())
-    ledger_ai = LEDGER_AI.findall(raw)
-    if ledger_ai:
+    ai_marks = ledger_ai(raw)
+    if ai_marks:
         findings.append(Finding(check="ai-use", severity=Severity.info,
-                                message=f"{len(ledger_ai)} revision-ledger segments name an AI as reviser "
-                                        f"({', '.join(sorted(set(n.lower() for n in ledger_ai)))}).",
+                                message=f"{len(ai_marks)} revision-ledger segments name an AI as reviser "
+                                        f"({', '.join(sorted(set(ai_marks)))}).",
                                 suggestion="Markers do not establish the kind of help. Use existing author "
                                            "context and the selected venue's rule and exemptions to determine "
                                            "whether a disclosure needs updating."))
