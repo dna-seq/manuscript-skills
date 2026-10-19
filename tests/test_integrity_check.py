@@ -662,7 +662,8 @@ def test_a_missing_archive_is_a_hint_for_reporting_check_not_a_second_grading(tm
 
 REC = FIXTURES / "recorded"
 CROSSREF_WORKS = {"10.1093/nar/gkac1010": "crossref_sollis.json", "10.1038/s41467-026-76834-4": "crossref_pubmind.json",
-                  "10.1038/ng.3774": "crossref_civic.json", "10.1093/nar/gkq603": "crossref_annovar.json"}
+                  "10.1038/ng.3774": "crossref_civic.json", "10.1093/nar/gkq603": "crossref_annovar.json",
+                  "10.1002/cpt.1568": "crossref_pharmcat.json"}
 
 
 class Registries:
@@ -828,6 +829,42 @@ def test_an_unresolved_doi_is_searched_by_title_and_never_called_fabricated(
     assert ref.status == "unresolved" and finding.severity.value == severity and says in finding.message
     assert "fabricat" not in (finding.message + finding.suggestion).lower()
     assert handler.queries and not any("gim201838" in q for q in handler.queries)
+
+
+# Paper 1 (2026-10-19 smoke run): Crossref's title for PharmCAT carries Wiley's JATS small caps, pretty-printed,
+# "Pharm\n    <scp>CAT</scp>\n    )", and the DOI was reported as leading to a different work (50% title match).
+PHARMCAT = ("Sangkuhl, K., Whirl-Carrillo, M., Whaley, R. M., et al. (2020). Pharmacogenomics Clinical Annotation Tool "
+            "(PharmCAT). *Clinical Pharmacology & Therapeutics*, 107(1), 203–210. doi:10.1002/cpt.1568.")
+
+
+def test_jats_markup_in_a_crossref_title_does_not_make_it_a_different_work(tmp_path: Path, registries) -> None:
+    registries()
+    report = scan_ic.check_references(_md_paper(tmp_path, "[1]", PHARMCAT), online=True, search_unidentified=True)
+    ref = report.references[0]
+    assert ref.status == "resolved" and ref.title_similarity == 1.0
+    assert ref.resolved_title == "Pharmacogenomics Clinical Annotation Tool (Pharm CAT)"
+    assert not [f for f in _at(report, ref.line) if "different work" in f.message or "<scp>" in f.message]
+
+
+@pytest.mark.parametrize("fetched, clean", [
+    ("Pharmacogenomics Clinical Annotation Tool (Pharm\n      <scp>CAT</scp>\n      )",
+     "Pharmacogenomics Clinical Annotation Tool (Pharm CAT)"),
+    ("Clinical Pharmacology &amp; Therapeutics", "Clinical Pharmacology & Therapeutics"),
+    ("Receptor (\n  <scp>CPIC</scp>\n  ) Guideline for\n  <i>CYP2D6</i>\n  and 5\u2010\n  <scp>\n    HT\n    <sub>3</sub>\n"
+     "  </scp>\n  Antagonists", "Receptor (CPIC) Guideline for CYP2D6 and 5\u2010 HT 3 Antagonists"),
+    ("A &lt;i&gt;Drosophila&lt;/i&gt; atlas", "A Drosophila atlas"),
+])
+def test_a_registry_title_loses_its_markup_and_entities(fetched: str, clean: str) -> None:
+    assert scan_ic._fetched(fetched) == clean
+
+
+@pytest.mark.parametrize("title, entry, share", [
+    ("Pharmacogenomics Clinical Annotation Tool (Pharm CAT)", PHARMCAT, 1.0),  # a split the markup left
+    ("Receptor Antagonists 5-HT 3 guideline", "CPIC guideline for 5-HT3 receptor antagonists", 1.0),
+    ("Polygenic risk scores for longevity", "Pharmacogenomics Clinical Annotation Tool (PharmCAT)", 0.0),
+])
+def test_title_words_split_by_markup_still_match_the_entry(title: str, entry: str, share: float) -> None:
+    assert scan_ic._similarity(title, entry) == pytest.approx(share, abs=0.25 if share == 0.0 else 0.0)
 
 
 @pytest.mark.parametrize("search, source, doi", [
@@ -1317,3 +1354,109 @@ def test_an_overlong_structured_abstract_is_counted_by_part(tmp_path: Path) -> N
     report = scan_ic.scan(path, online=False, search_unidentified=False, venue="bioinformatics")
     (finding,) = [f for f in report.findings if f.check == "venue" and f.section == "Abstract"]
     assert "By part, the words after each label are: Motivation 60, Results 70 and Availability 25." in finding.message
+
+
+# --------------------------------------------------------------------------------------------------
+# Regressions from the 2026-10-19 smoke runs (Paper 1 adapted for Bioinformatics).
+# --------------------------------------------------------------------------------------------------
+
+# Data Availability and Ethics as the adaptation left them, with the author-facing fill-ins it put in.
+FILL_INS = """# Paper
+
+## Data availability
+
+The HG002 VCF is the public output of the DeepVariant case study ([URL of the output VCF]). The calibration genome \
+is not public [reason, and whether it can be shared on request].
+
+## Ethics statement
+
+[Calibration genome: whose genome it is and on what basis it was used.] The committee determined that this work \
+does not require approval (letter [reference number], [date]).
+
+Funding came from the Health Program [PS/272/PS_P5/OP1/RSO1.1/PS_P5_RSO1.1_A9–ROGEN Project, MySMIS 324809, to A.K. \
+and R.T.] and the Romanian Academy [to R.T.]. Signed: [   ]
+
+The runtimes are plotted in [Insert Figure 2 here].
+"""
+NOT_FILL_INS = r"""# Paper
+
+## Results
+
+As shown before [1], [12-15] and [3, 4], and in [the tool's documentation](https://example.org/docs) and [its README][readme].
+A quote: "the cohort [sic] was small [...] and [the participants] agreed" (Smith, 2020).[^1] See [@smith2020; @lee2021].
+
+- [ ] rerun the cold-start benchmark
+- [x] rerun the warm benchmark
+
+| Item | Done |
+|---|---|
+| Consent | [ ] |
+
+Use `--out [name]` to name the output.
+
+```
+tool --date [date] --name [name]
+```
+
+\begin{figure}[htbp]
+\documentclass[12pt]{article}
+\section[Short]{Long title}
+\item [Date] the day of the run
+
+## References
+
+[readme]: https://example.org/readme
+[^1]: A footnote.
+Kulaga, A. (2026). Whole-genome VCF [dataset]. Zenodo. https://doi.org/10.5281/zenodo.18370498
+Wang, K. (2024). just-prs [software]. Version 0.10.5 [version 2; peer review: 2 approved]. [Internet]. [cited 2024 Oct 10].
+"""
+
+
+def _placeholders(tmp_path: Path, text: str) -> list:
+    report = scan_ic.scan(_staged(tmp_path, text), online=False, search_unidentified=False)
+    return [f for f in report.findings if f.check == "placeholder"]
+
+
+def test_bracketed_fill_ins_are_placeholders_for_the_end_stage(tmp_path: Path) -> None:
+    found = _placeholders(tmp_path, FILL_INS)
+    lines = FILL_INS.splitlines()
+    by_line = {f.line: f for f in found}
+    assert set(by_line) == {i for i, line in enumerate(lines, 1) if "[" in line}
+    assert all((f.severity.value, f.stage) == ("major", "final") for f in found)
+    assert by_line[5].message == ("The placeholders '[URL of the output VCF]' and '[reason, and whether it can be "
+                                  "shared on request]' are still in the text.")
+    assert by_line[9].message == ("The placeholders '[Calibration genome: whose genome it is and on what basis it "
+                                  "was used.]', '[reference number]' and '[date]' are still in the text.")
+    assert by_line[11].message == "The placeholder '[   ]' is still in the text."  # the grant brackets are not
+    assert by_line[13].message == "The placeholder '[Insert Figure 2 here]' is still in the text."  # a digit, yet one
+    md = scan_ic.to_markdown(scan_ic.scan(_staged(tmp_path, FILL_INS), online=False, search_unidentified=False))
+    assert "Placeholders are still in the text in 4 places." in md
+
+
+def test_citations_links_tags_task_boxes_ellipses_and_latex_are_not_placeholders(tmp_path: Path) -> None:
+    assert _placeholders(tmp_path, NOT_FILL_INS) == []
+
+
+LINKED_ABSTRACT = ("The code is at https://github.com/dna-seq/just-dna-lite and www.example.org/tool, with data at "
+                   "doi:10.5281/zenodo.18370498. Write to fuellen@uni-rostock.de or robi.tacutu@gmail.com for help.")
+
+
+def test_a_url_an_email_address_and_a_doi_count_as_one_word_each(tmp_path: Path) -> None:
+    text = f"# Paper\n\n## Abstract\n\n{LINKED_ABSTRACT}\n\n## Introduction\n\nText follows here.\n"
+    report = scan_ic.scan(_staged(tmp_path, text), online=False, search_unidentified=False)
+    assert report.abstract_words == len(LINKED_ABSTRACT.split())
+    plain = re.sub(r"\S*(?:https?://|www\.|@|doi:)\S*", "link", text)
+    assert report.words == scan_ic.scan(_staged(tmp_path, plain), online=False, search_unidentified=False).words
+    labelled = (f"# Paper\n\n## Abstract\n\n**Availability:** {LINKED_ABSTRACT}\n\n**Contact:** fuellen@uni-rostock.de"
+                "\n\n## Introduction\n\nText.\n")
+    assert scan_ic._abstract_parts(labelled.splitlines()[4:7]) == [
+        ("Availability", len(LINKED_ABSTRACT.split())), ("Contact", 1)]
+
+
+def test_a_keyword_placeholder_and_a_bracketed_one_on_one_line_are_both_named(tmp_path: Path) -> None:
+    text = ("# Paper\n\n## Data\n\nThe scripts are archived [and in the archived release, DOI to be added] at "
+            "[URL]. TODO check the AUTHOR TODO list.\n")
+    (finding,) = _placeholders(tmp_path, text)
+    # in the order they stand; "to be added" inside the bracket and "TODO" inside "AUTHOR TODO" are named once
+    assert finding.message == ("The placeholders '[and in the archived release, DOI to be added]', '[URL]', 'TODO' "
+                               "and 'AUTHOR TODO' are still in the text.")

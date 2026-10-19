@@ -218,6 +218,77 @@ PLACEHOLDERS = [
 # A placeholder for a missing citation marks a claim without its source: work for now, not for the final pass.
 CITATION_PLACEHOLDERS = [r"\[citation needed\]", r"\[ref(?:erence)?s?\??\]"]
 
+# An author-facing fill-in in square brackets: "[URL of the output VCF]", "[reference number]", "[date]",
+# "[reason, and whether ...]", "[Calibration genome: whose genome it is ...]", "[   ]". The bracket is not one
+# when a word, backslash command, brace, "]", "!" or "^" comes right before it (an index, a LaTeX optional
+# argument, a link's second half, an image), or "(", "[", "{" or ":" right after it (a link or its definition).
+BRACKET = re.compile(r"(?<![\w\\\]}!^])\[([^\[\]\n]{0,200})\](?![(\[{:])")
+# The fill-in's first or last word says what is to be filled. A bracket with a digit in it is a citation, a grant
+# number or a reference-format note ("[version 2; peer review: 2 approved]", "[cited 2024 Oct 10]"), and a tag
+# such as "[dataset]", "[software]" or "[Internet]" names no such word, so neither is one.
+FILL_IN_WORD = (r"(?:url|link|doi|pmid|accession|number|date|year|name|names|initials|reason|details|insert|add|"
+                r"fill|placeholder|tbc|tba|todo|tbd|author|authors|affiliation|e-?mail|address|grant|value|values|"
+                r"citation|page|pages|here)")
+FILL_IN = re.compile(rf"^{FILL_IN_WORD}\b|\b{FILL_IN_WORD}$", re.IGNORECASE)
+FILL_IN_ORDER = re.compile(r"^(?:insert|add|fill in|placeholder|todo|tbd|tbc|tba)\b", re.IGNORECASE)  # "[Insert Fig 2]"
+COLON_INSTRUCTION = re.compile(r"^[A-Z][\w'’ -]{1,40}:\s+\S")  # "[Calibration genome: whose genome it is ...]"
+TASK_BOX = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+\[[ xX]?\]")
+TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$")
+FENCE = re.compile(r"^\s{0,3}(?:`{3,}|~{3,})")
+
+
+def _bracket_fill_ins(line: str) -> list[tuple[int, int]]:
+    """Spans of the square-bracket fill-ins on one line (see BRACKET and FILL_IN)."""
+    code = [m.span() for m in re.finditer(r"`[^`]*`", line)]
+    out = []
+    for m in BRACKET.finditer(line):
+        body = m.group(1)
+        if any(a <= m.start() < b for a, b in code) or re.search(r"\\[A-Za-z]+\*?\s*$", line[:m.start()]):
+            continue
+        if not body.strip():
+            if not body or TASK_BOX.match(line) and line.index("[") == m.start() or TABLE_LINE.match(line):
+                continue
+            out.append(m.span())
+            continue
+        text = body.strip()
+        if FILL_IN_ORDER.match(text) or any(re.search(p, text) for p in PLACEHOLDERS):
+            out.append(m.span())
+            continue
+        if re.search(r"\d", text) or text[0] in "^@-" or re.fullmatch(r"(?:\.\s*){3}|…|sic", text, re.IGNORECASE):
+            continue
+        if FILL_IN.search(text) or COLON_INSTRUCTION.match(text):
+            out.append(m.span())
+    return out
+
+
+def _placeholder_findings(lines: list[str], why: str) -> list[Finding]:
+    """One finding per line naming every placeholder on it, in the order they stand: the PLACEHOLDERS words and the
+    bracketed fill-ins. A match inside another ("TODO" in "AUTHOR TODO", "to be added" inside a bracket) is named
+    once."""
+    compiled = [re.compile(p) for p in PLACEHOLDERS]
+    out: list[Finding] = []
+    in_fence = False
+    for i, line in enumerate(lines, start=1):
+        spans = [m.span() for rx in compiled for m in rx.finditer(line)]
+        if FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            spans += _bracket_fill_ins(line)
+        spans = sorted({s for s in spans if not any(o != s and o[0] <= s[0] and s[1] <= o[1] for o in spans)})
+        if not spans:
+            continue
+        names = [line[a:b].strip() for a, b in spans]
+        shown = [n if len(n) <= 90 else n[:85].rstrip() + "…]" for n in names]
+        quoted = _names_listed([f"'{n}'" for n in shown], most=10)
+        message = (f"The placeholder {quoted} is still in the text." if len(spans) == 1 else
+                   f"The placeholders {quoted} are still in the text.")
+        a, b = spans[0]
+        out.append(_with_quote(Finding(check="placeholder", severity=Severity.major, line=i,
+                                       excerpt=_excerpt(line, a, b), message=message,
+                                       suggestion="Resolve or remove placeholders before the files are uploaded.",
+                                       why=why), line, a, b))
+    return out
+
 # Overused vocabulary, by source. Corpus studies cannot identify an individual paper (Kobak; Liang), and
 # word lists also catch non-native writers and permitted language polishing, so this is a density report,
 # never a verdict. See references/screening-signals.md §2.
@@ -972,7 +1043,7 @@ def _ai_use_findings(lines: list[str], text_lower: str, ref_start: Optional[int]
 
 def _vocabulary(body_text: str) -> tuple[dict[str, float], list[tuple[str, int]], int]:
     """Hits per 1000 words for each source list, and the most frequent listed words."""
-    words = re.findall(r"[A-Za-z][A-Za-z'-]+", body_text)
+    words = re.findall(r"[A-Za-z][A-Za-z'-]+", _one_word_links(body_text))
     lower = Counter(w.lower() for w in words)
     n = max(len(words), 1)
     densities = {name: round(1000 * sum(lower[w] for w in vocab) / n, 2) for name, vocab in VOCAB_SOURCES.items()}
@@ -1203,6 +1274,18 @@ def _abstract_span(lines: list[str]) -> Optional[tuple[int, int]]:
 ABSTRACT_PART = re.compile(r"^\s*(?:\*\*|__|\\textbf\s*\{)?\s*(?P<label>[A-Z][A-Za-z ,&/-]{2,40}?)\s*"
                            r"(?::\s*(?:\*\*|__|\})|(?:\*\*|__|\})\s*:|:)\s*")
 WORD_RE = re.compile(r"[A-Za-z0-9][\w'-]*")
+# A URL, an e-mail address or a DOI is one word, as a reader (and a count by spaces) sees it; split at its dots,
+# slashes and @ it counted as five.
+LINK_WORD_RE = re.compile(r"(?:\bhttps?://|\bwww\.)\S+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\b(?:doi:\s*)?10\.\d{4,9}/\S+",
+                          re.IGNORECASE)
+
+
+def _one_word_links(text: str) -> str:
+    return LINK_WORD_RE.sub(" URL ", text)
+
+
+def _count_words(text: str) -> int:
+    return len(WORD_RE.findall(_one_word_links(text)))
 
 
 def _abstract_parts(lines: list[str]) -> list[tuple[str, int]]:
@@ -1212,9 +1295,9 @@ def _abstract_parts(lines: list[str]) -> list[tuple[str, int]]:
     for line in lines:
         m = ABSTRACT_PART.match(line)
         if m:
-            parts.append((m.group("label").strip(), len(WORD_RE.findall(line[m.end():]))))
+            parts.append((m.group("label").strip(), _count_words(line[m.end():])))
         elif parts:
-            parts[-1] = (parts[-1][0], parts[-1][1] + len(WORD_RE.findall(line)))
+            parts[-1] = (parts[-1][0], parts[-1][1] + _count_words(line))
     return parts if len(parts) >= 2 else []
 
 
@@ -1261,13 +1344,17 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
                                suggestion=f"Check the length or page limit in the journal's author "
                                           f"guidelines{guidelines}."))
         if abstract_max is not None and abstract_words is not None and abstract_words > abstract_max:
+            # A page that recommends a length and allows flexibility (`abstract_words_kind: recommended`) is quoted
+            # as a recommendation, never turned into a requirement.
+            recommended = limits.get("abstract_words_kind") == "recommended"
             out.append(Finding(check="venue", severity=Severity.major, section="Abstract",
-                               message=f"The Abstract has {abstract_words} words, and {name} asks for at most "
-                                       f"{abstract_max}. The count includes everything between the Abstract heading "
-                                       f"and the next heading, labels included."
-                                       + (_counted_parts(abstract_parts) if abstract_parts else ""),
-                               suggestion=f"Cut it to the limit, after checking in the author guidelines{guidelines} "
-                                          f"which parts of a structured abstract count."))
+                               message=f"The Abstract has {abstract_words} words, and {name} "
+                                       f"{'recommends' if recommended else 'asks for'} at most {abstract_max}. The "
+                                       f"count includes everything between the Abstract heading and the next heading, "
+                                       f"labels included." + (_counted_parts(abstract_parts) if abstract_parts else ""),
+                               suggestion=f"Cut it to the {'recommended length' if recommended else 'limit'}, after "
+                                          f"checking in the author guidelines{guidelines} which parts of a structured "
+                                          f"abstract count."))
         if body_max is None:
             pass
         elif returned_at and body_words > returned_at * body_max:
@@ -1339,7 +1426,11 @@ def _similarity(title: str, entry: str) -> float:
     t, e = _norm(title).split(), set(_norm(entry).split())
     if not t:
         return 0.0
-    token = sum(1 for w in t if w in e) / len(t)
+    found = [w in e for w in t]
+    for i in range(len(t) - 1):  # a word that markup split in two ("Pharm<scp>CAT</scp>" read "Pharm CAT")
+        if not (found[i] and found[i + 1]) and t[i] + t[i + 1] in e:
+            found[i] = found[i + 1] = True
+    token = sum(found) / len(t)
     return max(token, SequenceMatcher(None, _norm(title), _norm(entry)).find_longest_match().size / max(len(_norm(title)), 1))
 
 
@@ -1685,7 +1776,7 @@ def _crossref_notice(msg: dict) -> tuple[str, str, Optional[str]]:
             if test(str(u.get("type", "")).lower()):
                 origin = u.get("source")
                 return state, "crossref" + (f" ({origin})" if origin else ""), u.get("DOI")
-    title = (msg.get("title") or [""])[0]
+    title = _fetched((msg.get("title") or [""])[0])
     if re.match(r"\s*(?:retracted|withdrawn)\b", title, re.IGNORECASE):
         return "retracted", "crossref (title)", None
     return "none", "crossref", None
@@ -1763,8 +1854,9 @@ def _published_version(client: httpx.Client, ref: Reference, doi: Optional[str],
         if msg is None:
             ref.lookup_notes.append(f"Crossref did not return the published version {doi}; compare it by hand.")
         else:
-            pv.title = (msg.get("title") or [""])[0]
+            pv.title = _fetched((msg.get("title") or [""])[0])
             pv.venue = (msg.get("container-title") or [venue])[0]
+            pv.venue = _fetched(pv.venue) if pv.venue else pv.venue
             parts = (msg.get("issued") or {}).get("date-parts") or [[None]]
             pv.year = str(parts[0][0]) if parts[0][0] else None
             pv.title_similarity = round(_similarity(pv.title, ref.resolved_title or ref.text), 2) if pv.title else None
@@ -1806,7 +1898,7 @@ def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, st
     r = _get(client, f"https://api.crossref.org/works/{ref.doi}")
     msg = _json_message(r)
     if msg is not None:
-        ref.resolved_title = (msg.get("title") or [""])[0]
+        ref.resolved_title = _fetched((msg.get("title") or [""])[0])
         parts = (msg.get("issued") or {}).get("date-parts") or [[None]]
         ref.resolved_year = str(parts[0][0]) if parts[0][0] else None
         authors = msg.get("author") or []
@@ -1888,7 +1980,8 @@ def _resolve_datacite(client: httpx.Client, ref: Reference) -> bool:
         attrs = r.json()["data"]["attributes"]
     except (ValueError, KeyError, TypeError):
         return False
-    ref.resolved_title = ((attrs.get("titles") or [{}])[0]).get("title")
+    title = ((attrs.get("titles") or [{}])[0]).get("title")
+    ref.resolved_title = _fetched(title) if isinstance(title, str) else title
     ref.resolved_year = str(attrs["publicationYear"]) if attrs.get("publicationYear") else None
     names = []
     for c in attrs.get("creators") or []:
@@ -1923,7 +2016,7 @@ def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, s
     if not doc or "error" in doc:
         ref.status = "unresolved"
         return None
-    ref.resolved_title = doc.get("title", "")
+    ref.resolved_title = _fetched(doc.get("title", ""))
     ref.resolved_year = (doc.get("pubdate") or "")[:4] or None
     authors = doc.get("authors") or []
     ref.resolved_first_author = authors[0]["name"] if authors else None  # "Lambert SA"
@@ -2005,15 +2098,16 @@ def _published_by_title(client: httpx.Client, ref: Reference, comment: Optional[
         ref.lookup_notes.append("Crossref did not answer the search for a published version.")
     ours = {k for a in ref.resolved_authors for part in _split_author(a) for k in _surname_keys(part)}
     for item in items or []:
-        doi, title = str(item.get("DOI") or ""), (item.get("title") or [""])[0]
+        doi, title = str(item.get("DOI") or ""), _fetched((item.get("title") or [""])[0])
         if not doi or not title or item.get("type") == "posted-content" or doi.lower().startswith("10.48550/"):
             continue
         similarity = min(_similarity(title, ref.resolved_title or ""), _similarity(ref.resolved_title or "", title))
         theirs = {k for a in _crossref_authors(item) for k in _surname_keys(_split_author(a)[0])}
         if similarity >= 0.95 and theirs & ours:
             parts = (item.get("issued") or {}).get("date-parts") or [[None]]
+            venue = (item.get("container-title") or [hint])[0]
             ref.published_version = PublishedVersion(
-                doi=doi.lower(), title=title, venue=(item.get("container-title") or [hint])[0],
+                doi=doi.lower(), title=title, venue=_fetched(venue) if venue else venue,
                 year=str(parts[0][0]) if parts[0][0] else None, source="crossref:title-search",
                 title_similarity=round(similarity, 2), shared_authors=True, comment=comment if hint else None,
                 retraction={"none": "none_found"}.get(_crossref_notice(item)[0], _crossref_notice(item)[0]),
@@ -2034,7 +2128,7 @@ def _title_candidate(client: httpx.Client, ref: Reference) -> None:
     names_authors = not re.match(r"\(?(?:19|20)\d{2}", ref.text.strip())
     best: Optional[dict] = None
     for item in items:
-        title = (item.get("title") or [""])[0]
+        title = _fetched((item.get("title") or [""])[0])
         if not item.get("DOI") or not title:
             continue
         authors = _crossref_authors(item)
@@ -2059,7 +2153,7 @@ def _search_crossref(client: httpx.Client, ref: Reference) -> None:
     """No identifier: ask Crossref for the best bibliographic match and report how well it fits."""
     items = _crossref_title_search(client, ref.text, rows=1)
     if items:
-        ref.resolved_title = (items[0].get("title") or [""])[0]
+        ref.resolved_title = _fetched((items[0].get("title") or [""])[0])
         ref.doi = items[0].get("DOI")
         authors = items[0].get("author") or []
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
@@ -2128,8 +2222,12 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
 
 
 def _fetched(title: str) -> str:
-    """A title as a source returned it: HTML entities and tags (Crossref's <i>, MathML) removed."""
-    return " ".join(re.sub(r"<[^>]+>", "", html.unescape(html.unescape(title))).split())
+    """A title as a source returned it: HTML entities (`&amp;`) and HTML or JATS tags (Crossref's <i>, Wiley's
+    <scp> small caps, MathML) removed. A publisher's pretty-printed XML puts line breaks around a tag, so
+    "(Pharm\\n <scp>CAT</scp>\\n )" reads "(Pharm CAT)": the space inside brackets goes, and a word the markup split
+    is matched by `_similarity`."""
+    text = " ".join(re.sub(r"<[^>]+>", "", html.unescape(html.unescape(title))).split())
+    return re.sub(r"\s+([)\]},.;:!?])", r"\1", re.sub(r"([(\[{])\s+", r"\1", text))
 
 
 def _title_of(client: httpx.Client, kind: str, value: str) -> tuple[str, Optional[str], str]:
@@ -2748,11 +2846,8 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                "The phrase '{match}' is text a chat interface produces, not part of a paper.",
                                "Delete the leftover text and re-read the passage around it.", why=leftover_why)
     # Placeholders are searched in the raw text too: an HTML-comment TODO still ships in the LaTeX.
-    findings += _scan_patterns(_lines(raw), PLACEHOLDERS, "placeholder", Severity.major,
-                               "The placeholder '{match}' is still in the text.",
-                               "Resolve or remove placeholders before the files are uploaded.", flags=0,
-                               why="Placeholders belong in a draft, but an editor reads one in a submission as an "
-                                   "unfinished manuscript.")
+    findings += _placeholder_findings(_lines(raw), why="Placeholders belong in a draft, but an editor reads one in a "
+                                                       "submission as an unfinished manuscript.")
     findings += _scan_patterns(_lines(raw), CITATION_PLACEHOLDERS, "placeholder", Severity.major,
                                "The placeholder '{match}' marks a claim that has no source yet.",
                                "Find the source and cite it, or reword the claim so that it needs none.",
@@ -2815,7 +2910,7 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
         findings.append(_with_quote(tail, body_lines[first_tail[0] - 1], first_tail[1].start(), first_tail[1].end())
                         if first_tail else tail)
     span = _abstract_span(lines)
-    abstract_words = (len(re.findall(r"[A-Za-z0-9][\w'-]*", "\n".join(lines[span[0]:span[1]]))) if span else None)
+    abstract_words = _count_words("\n".join(lines[span[0]:span[1]])) if span else None
     findings += _venue_findings(lines, n_words, abstract_words, venue, text_lower,
                                 _abstract_parts(lines[span[0]:span[1]]) if span else None)
     if densities["kobak2025_r>=2"] > 3.0:

@@ -23,7 +23,9 @@ which for a draft are not blockers. Quote the venue's rule with the URL of its p
   stage; whether they resolve is `manuscript-reporting-check`'s. Do not demand a DOI, repository deposit or new
   test dataset when neither the paper's reproducibility nor the venue requires it.
 - **Limits and structure**: abstract and body length, abstract headings, article-type rules. A return rule for
-  overlength papers applies only when the venue entry records one from the current page (`over_limit_return`).
+  overlength papers applies when the venue entry records one (`over_limit_return`), from the current page or,
+  when the live page cannot be read to that section, from the most recent complete copy (`quoted_from` says
+  which); say which in the report.
 - **Validation and affordability**: record actual independent-cohort, biological-validation or other
   expensive study requirements, including scope and permitted computational alternatives. Surface an
   unmet requirement early, as a question for the authors of whether this venue is worth its cost to them, and

@@ -56,7 +56,7 @@ see. For file edits:
 
 ```bash
 uv run --script scripts/style_profile.py BEFORE.md                    # before editing: where the patterns are
-uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md]
+uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
 uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
 ```
 
@@ -113,6 +113,7 @@ contract's author-supplied content), list them instead of failing on them:
 ```bash
 uv run --script scripts/guard.py ORIGINAL.md REVISED.md --revision --json inventory.json
 uv run --script scripts/guard.py REVISED.md --against v1-submitted --revision
+uv run --script scripts/guard.py ORIGINAL.md MAIN.md --revision --moved-to SUPPLEMENT.md  # text moved to another file is moved, not removed; repeat --moved-to per file
 ```
 
 It reports every number, citation, identifier, claim-strength, scope, null-result and evidence-status change

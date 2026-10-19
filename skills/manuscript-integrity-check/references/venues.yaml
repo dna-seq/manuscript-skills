@@ -39,6 +39,21 @@
 #                               deposited outputs, kept versions); venues.py rank leaves these out by default
 #                  recommended  the policy says authors should keep records and may be asked for them
 #
+# Length limits and the page's own words (venues.py show prints the quotes; scan.py --venue reads `limits`)
+#   limits:        abstract_words and body_words (words); over_limit_return, the multiple of the body limit
+#                  past which the venue says it returns papers without review (1.2 = more than 20% over);
+#                  abstract_words_kind: required (the default when absent) | recommended (the page recommends
+#                  the length and allows some flexibility; scan.py says "recommends", not "asks for")
+#   limit_quotes:  per limit, the sentences of the page it rests on, verbatim
+#   submission_rules: rules of the author guidelines that venues.py show lists with the current-draft items,
+#                  each {when, rule, quote}: when is `submission` (needed for the first submission) or
+#                  `after_review` (needed only after the first review, such as a reference style); rule is in
+#                  plain words; quote is the page's sentences, verbatim
+#   quoted_from:   the copy of the page that limit_quotes and submission_rules quote, when it is not the live
+#                  page read on `checked`: {source (an Internet Archive URL), copy_date (the capture), checked
+#                  (when it was read), note (why that copy)}
+#   limit_quotes, submission_rules and quoted_from describe one journal's page and are never inherited.
+#
 # Selection fields: validation_requirements, excluded_study_designs, open_science, editorial_profile,
 # review_speed, publication_costs. See manuscript-journal-select/references/selection-fields.md.
 # Each fact has its own source/read date. Missing fields are unknown; timing and editorial assessments
@@ -66,8 +81,47 @@ venues:
     screening_note: ISCB "does not intend to systematically detect usage"; investigates reported cases
     penalties: [rejection for non-disclosure (OUP), correction or retraction]
     extra_burden: [supplementary documentation of any LLM help that produced part of the content]
-    limits: {abstract_words: 150, body_words: 5000, over_limit_return: null} # the live page (2026-10-15) states no
-      # return rule for overlength papers; "approx. 5,000 words, excluding figures" (7 template pages)
+    oa: full # "Bioinformatics is a peer-reviewed fully open access journal" (quoted_from)
+    # Original Papers "describe new research developments in computational molecular biology, for example: models,
+    # algorithms, software involving new methods, biological databases and network information services"
+    article_types: [research, methods, software, database]
+    limits: {abstract_words: 150, abstract_words_kind: recommended, body_words: 5000, over_limit_return: 1.2}
+    limit_quotes:
+      abstract_words: ["A maximum of 150 words is recommended.", "In cases where authors feel the headings inappropriate, some flexibility is allowed."]
+      body_words: ["Original papers: up to 7 pages, this is approx. 5000 words, not including figures,"]
+      over_limit_return: ["The journal strongly discourages authors from exceeding stated page limits. Manuscripts exceeding the recommended limits may be rejected without review - for example manuscripts that exceed the limit by 20% or more are usually returned by the Editorial Office immediately."]
+    quoted_from:
+      source: https://web.archive.org/web/20260817204053/https://academic.oup.com/bioinformatics/pages/author-guidelines
+      copy_date: 2026-08-17
+      checked: 2026-10-19
+      note: the live page could not be read past its open-access charges section on 2026-10-19, so its later sections were read on this copy
+      # The catalogue's earlier over_limit_return: null ("the live page states no return rule") came from such a
+      # cut-off reading; the rule is in the "Format-Free Submission" section of this copy.
+    submission_rules:
+      - when: submission
+        rule: "the sections of an Original Paper in this order: Title page, Structured Abstract, Introduction, System and methods, Algorithm, Implementation, Discussion, References"
+        quote: ["Please subdivide manuscripts into the following sequence of sections, according to the type of paper:", "Original papers: Title page, Structured Abstract, Introduction, System and methods, Algorithm, Implementation, Discussion, References."]
+      - when: submission
+        rule: alt text for every image and figure of the main article, in the manuscript file directly under its legend
+        quote: ["When submitting your manuscript, we require you to provide alt text (alternative text) descriptions for all images, figures, illustrations, and photographs included in the main article.", "Please include each alt text description in your main manuscript file, directly under the figure legend for the relevant figure, preceded by ‘Alt text:’."]
+      - when: submission
+        rule: Supplementary Data submitted for review apart from the manuscript, with all its text, figures and tables in a single file, and referred to in the main text
+        quote: ["Supplementary Data should be submitted for review, in a separate file or files from the manuscript. Authors should make sure that all additional text, figures and tables are presented in a single file.", "Authors should ensure that the Supplementary Data is referred to in the main manuscript at an appropriate point in the text."]
+      - when: submission
+        rule: the funding in a section titled Funding, first in the Acknowledgements, as a sentence that begins "This work was supported by", with the full agency names and the grant numbers in square brackets
+        quote: ["Details of all funding sources for the work in question should be given in a separate section entitled 'Funding'. This should appear first in the 'Acknowledgements' section.", "The sentence should begin: ‘This work was supported by …’", "Grant numbers should be given in brackets as follows: ‘[grant number xxxx]’"]
+      - when: submission
+        rule: every public dataset cited in the reference list with its identifier, the citation beginning with the tag [dataset]
+        quote: ["requires that all publicly available datasets be fully referenced in the reference list with an accession number or unique identifier such as a digital object identifier (DOI).", "[dataset]* Authors, Year, Title, Publisher (repository or archive name), Identifier"]
+      - when: submission
+        rule: a cover letter that explains why the paper suits the journal, and why the manuscript departs from the instructions wherever it does
+        quote: ["All submissions must be accompanied by a cover letter explaining the suitability of the paper for", "Submissions omitting a cover letter may be editorially rejected.", "If the submitted manuscript deviates from the requirements listed in the Instructions to Authors, the reasons for this must be clearly explained."]
+      - when: submission
+        rule: a declaration, at the first submission, of any author or contributor who is the journal's Editor-in-Chief, an editor or an editorial board member
+        quote: ["At initial submission, the corresponding author must declare if the Editor-in-Chief, an editor, or an editorial board member of the Journal is an author of or contributor to the manuscript."]
+      - when: after_review
+        rule: the reference style, Oxford SCIMED
+        quote: ["The journal follows Oxford SCIMED style. Please refer to Oxford SCIMED requirements when preparing your manuscript after initial review."]
     abstract_headings: [Motivation, Results, Availability and Implementation, Contact, Supplementary Information]
     required_sections: [Data availability, Availability and Implementation (in the abstract)]
     software: [source at a stable URL at submission, "archived version (Zenodo, Software Heritage or Figshare) URL in the abstract", test data, install and run documentation, instructions to reproduce each figure]
@@ -77,7 +131,18 @@ venues:
   bioinformatics-note:
     name: Bioinformatics (Application Note)
     inherits: bioinformatics
-    limits: {abstract_words: 150, body_words: 2600, over_limit_return: null}
+    # Application Notes "are short descriptions of novel software or new algorithm implementations, databases and
+    # network services (web servers, and interfaces)"
+    article_types: [software, database]
+    limits: {abstract_words: 150, body_words: 2600, over_limit_return: 1.2}
+    limit_quotes:
+      body_words: ["Application notes: up to 4 pages; this is approx. 2600 words or 2000 words plus one figure."]
+      over_limit_return: ["The journal strongly discourages authors from exceeding stated page limits. Manuscripts exceeding the recommended limits may be rejected without review - for example manuscripts that exceed the limit by 20% or more are usually returned by the Editorial Office immediately."]
+    quoted_from:
+      source: https://web.archive.org/web/20260817204053/https://academic.oup.com/bioinformatics/pages/author-guidelines
+      copy_date: 2026-08-17
+      checked: 2026-10-19
+      note: the live page could not be read past its open-access charges section on 2026-10-19, so its later sections were read on this copy; that copy gives no word limit for the abstract of an Application Note
     abstract_headings: [Summary, Availability and Implementation, Contact, Supplementary Information]
     other_desk_rules: [application name in the title, software available for 2 years, web services without mandatory registration, ML papers validated by leave-one-out are editorially rejected, pre-screen returns papers of less significance]
 
@@ -93,6 +158,8 @@ venues:
     limits: null
     abstract_headings: null
     software_article: false
+    oa: null # Bioinformatics's own access and article types are not this journal's
+    article_types: null
 
   nar:
     name: Nucleic Acids Research

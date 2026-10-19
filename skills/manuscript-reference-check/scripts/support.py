@@ -253,6 +253,20 @@ SECONDARY_RE = re.compile(
     r"\baccording to\b|"
     r"\bas (?:shown|reported|described|found) (?:by|in)\b|\bprevious(?:ly)? (?:studies|work|reports?)\b|"
     r"\bha(?:s|ve) been (?:shown|reported|demonstrated|documented)\b|\bstudies have\b|\bwas reported\b")
+# A date in parentheses ("Build 3 (24 June 2017) of LongevityMap", "(June 2017)", "(accessed 10 October 2026)")
+# dates a release or a visit; it cites nothing, so it is no sign of a borrowed number.
+MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+         r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?")
+DATE_IN_PARENTHESES = re.compile(
+    rf"\(\s*(?:(?:accessed|retrieved|updated|released|published|as of|on|in)\s+)?(?:"
+    rf"(?:\d{{1,2}}(?:st|nd|rd|th)?\s+)?{MONTH},?\s+(?:\d{{1,2}}(?:st|nd|rd|th)?,?\s+)?(?:19|20)\d{{2}}|"
+    rf"(?:19|20)\d{{2}}-\d{{1,2}}(?:-\d{{1,2}})?)\s*\)", re.IGNORECASE)
+
+
+def secondary_markers(context: str) -> list[str]:
+    """The words around a quote that cite or report other work, without dates in parentheses."""
+    return list(dict.fromkeys(m.group(0) for m in SECONDARY_RE.finditer(context)
+                              if not DATE_IN_PARENTHESES.fullmatch(m.group(0))))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -767,7 +781,7 @@ def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> Clai
     start, end, kind = found
     result.match = kind
     result.context = sentence_context(norm_source, start, end)
-    result.secondary_markers = list(dict.fromkeys(m.group(0) for m in SECONDARY_RE.finditer(result.context)))
+    result.secondary_markers = secondary_markers(result.context)
     if len(normalise(claim.quote)) < MIN_QUOTE_CHARS:
         result.notes.append("The quote is short; a short string can occur by chance. Read the passage around it.")
     if source.scope == "abstract":

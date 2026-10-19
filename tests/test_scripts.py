@@ -243,7 +243,9 @@ def test_online_reference_resolution_is_shared_by_focused_checks_and_audits(
 
 
 @pytest.mark.parametrize("venue, words, expected", [
-    ("bioinformatics", 6100, scan.Severity.major),  # over the limit; the live page states no return rule
+    # more than 20% over: the return rule of the guidelines' Internet Archive copy of 2026-08-17 (the live page was
+    # read cut off before it, which the catalogue had taken for no rule)
+    ("bioinformatics", 6100, scan.Severity.blocker),
     ("bioinformatics", 5500, scan.Severity.major),
     ("bioinformatics", 4000, None),
     ("bioinformatics-note", 2700, scan.Severity.major),  # own limit 2600
@@ -264,6 +266,21 @@ def test_a_recorded_return_rule_makes_overlength_a_blocker(
     monkeypatch.setattr(scan, "load_venue_limits", lambda: limits)
     found = [f for f in scan._venue_findings([], words, 100, "synthetic", "zenodo") if f.check == "venue"]
     assert [f.severity for f in found] == ([expected] if expected else [])
+
+
+@pytest.mark.parametrize("kind, says", [("recommended", "recommends at most 150"), (None, "asks for at most 150")])
+def test_a_recommended_abstract_length_is_called_a_recommendation(
+        monkeypatch: pytest.MonkeyPatch, kind: str | None, says: str) -> None:
+    limits = {"abstract_words": 150, "body_words": 5000, **({"abstract_words_kind": kind} if kind else {})}
+    monkeypatch.setattr(scan, "load_venue_limits", lambda: {"synthetic": limits})
+    (finding,) = [f for f in scan._venue_findings([], 4000, 261, "synthetic", "zenodo") if f.check == "venue"]
+    assert says in finding.message and finding.severity == scan.Severity.major
+
+
+def test_bioinformatics_recommends_its_abstract_length() -> None:
+    (finding,) = [f for f in scan._venue_findings([], 4000, 261, "bioinformatics", "zenodo") if f.check == "venue"]
+    assert "Bioinformatics (Original Paper) recommends at most 150" in finding.message
+    assert "asks for" not in finding.message
 
 
 def test_unrecorded_venue_limits_are_not_assessed_not_passed() -> None:
@@ -1124,6 +1141,45 @@ def test_show_orders_the_checklist_by_when_the_work_can_be_done(synthetic_venues
     assert out.index("## At the end") < out.index("The AI-use statement goes in:")
     assert all(f'(AI use "{use.value}")' in out for use in venues.AiUse)  # every kind of use, when none is given
     assert not [t for t in INTERNAL_TOKENS if t in out]
+
+
+def test_show_bioinformatics_gives_the_rules_of_the_first_submission_with_their_source() -> None:
+    """Smoke run 2026-10-19: show omitted the page's initial-submission rules, filed the cover letter at the end,
+    called a recommended abstract length a limit, and printed "not recorded" for access and article types."""
+    from typer.testing import CliRunner
+    result = CliRunner().invoke(venues.app, ["show", "bioinformatics"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "- **Access:** full open access" in out and "- **Article types:** not recorded" not in out
+    assert ("Length: the abstract at most 150 words (recommended, not required), the body about 5000 words and papers "
+            "more than 20% over the limit are returned without review.") in out
+    assert "“A maximum of 150 words is recommended.”" in out and "20% or more are usually returned" in out
+    first, end = out.index("## Now that the journal is chosen"), out.index("## At the end, once the code")
+    now = out[first:end]
+    for needle in ("Introduction, System and methods, Algorithm, Implementation, Discussion", "alt text",
+                   "single file", "This work was supported by", "[dataset]", "cover letter",
+                   "an editor, or an editorial board member", "Oxford SCIMED"):
+        assert needle in now, needle
+    assert now.index("Not needed until after the first review:") < now.index("Oxford SCIMED")
+    assert "the Internet Archive's copy of 2026-08-17" in now
+    assert "https://web.archive.org/web/20260817204053/https://academic.oup.com/bioinformatics/pages/author-guidelines" \
+        in now
+    assert not [t for t in INTERNAL_TOKENS if t in out]
+
+
+def test_quoted_page_rules_are_complete_and_not_inherited_by_another_journal() -> None:
+    _, resolved = venues.load_venues()
+    bio = resolved["bioinformatics"]
+    assert bio["limits"]["over_limit_return"] == 1.2 and bio["limits"]["abstract_words_kind"] == "recommended"
+    origin = bio["quoted_from"]
+    assert origin["source"].startswith("https://web.archive.org/web/20260817")
+    assert str(origin["copy_date"]) == "2026-08-17" and origin["checked"]
+    assert set(bio["limit_quotes"]) <= set(bio["limits"]) and all(bio["limit_quotes"].values())
+    for rule in bio["submission_rules"]:
+        assert rule["when"] in venues.WHEN_WORDS and rule["rule"] and rule["quote"], rule
+    briefings = resolved["briefings-bioinformatics"]  # inherits the ISCB policy, not the Bioinformatics page
+    assert not any(briefings.get(k) for k in ("submission_rules", "limit_quotes", "quoted_from", "oa",
+                                                "article_types"))
 
 
 def test_show_takes_the_ai_use_like_rank(synthetic_venues: Path) -> None:

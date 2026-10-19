@@ -1,0 +1,65 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message": {
+  "DOI": "10.1002/cpt.1568",
+  "type": "journal-article",
+  "title": [
+   "Pharmacogenomics Clinical Annotation Tool (Pharm\n                    <scp>CAT</scp>\n                    )"
+  ],
+  "container-title": [
+   "Clinical Pharmacology &amp; Therapeutics"
+  ],
+  "issued": {
+   "date-parts": [
+    [
+     2019,
+     9,
+     17
+    ]
+   ]
+  },
+  "author": [
+   {
+    "given": "Katrin",
+    "family": "Sangkuhl"
+   },
+   {
+    "given": "Michelle",
+    "family": "Whirl‐Carrillo"
+   },
+   {
+    "given": "Ryan M.",
+    "family": "Whaley"
+   },
+   {
+    "given": "Mark",
+    "family": "Woon"
+   },
+   {
+    "given": "Adam",
+    "family": "Lavertu"
+   },
+   {
+    "given": "Russ B.",
+    "family": "Altman"
+   },
+   {
+    "given": "Lester",
+    "family": "Carter"
+   },
+   {
+    "given": "Anurag",
+    "family": "Verma"
+   },
+   {
+    "given": "Marylyn D.",
+    "family": "Ritchie"
+   },
+   {
+    "given": "Teri E.",
+    "family": "Klein"
+   }
+  ]
+ }
+}

@@ -20,6 +20,7 @@ from typing import Callable, Optional
 
 import httpx
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -248,6 +249,38 @@ def test_seeded_claims_flag_each_planted_mechanical_defect_once(tmp_path: Path) 
     assert {r.id for r in report.results if r.secondary_markers} == {"C4"}
     assert any("duncan et al" in m for m in by_id["C4"].secondary_markers)
     assert support.exit_code(report) == 1
+
+
+# Paper 1 (2026-10-19 smoke run): Tacutu et al. date a database build in parentheses, and support.py took
+# "(24 June 2017)" for a citation of other work and asked for "the primary study".
+DATED_PASSAGES = {
+    "day month year": "Build 3 (24 June 2017) of LongevityMap holds 3,144 variants.",
+    "month year": "The release (June 2017) of LongevityMap holds 3,144 variants.",
+    "month day, year": "The release (June 24, 2017) of LongevityMap holds 3,144 variants.",
+    "abbreviated month": "The release (Sept. 2017) of LongevityMap holds 3,144 variants.",
+    "access date": "The page (accessed 10 October 2026) of LongevityMap holds 3,144 variants.",
+    "ISO date": "The release (2017-06-24) of LongevityMap holds 3,144 variants.",
+}
+CITED_PASSAGES = {
+    "author-year": "LongevityMap holds 3,144 variants (Smith et al., 2017).",
+    "single author": "LongevityMap holds 3,144 variants (Smith 2017).",
+}
+
+
+def test_a_date_in_parentheses_is_not_a_citation_of_other_work(tmp_path: Path) -> None:
+    passages = {**DATED_PASSAGES, **CITED_PASSAGES}
+    sources = tmp_path / "sources"
+    sources.mkdir()
+    claims = []
+    for n, (name, passage) in enumerate(passages.items()):
+        (sources / f"s{n}.txt").write_text(f"Introduction.\n\n{passage}\n\nDiscussion follows.\n", encoding="utf-8")
+        claims.append({"id": name, "location": "paper.md:1", "claim": "LongevityMap holds 3,144 variants [1].",
+                       "reference": "1", "quote": "LongevityMap holds 3,144 variants", "source": f"s{n}.txt"})
+    path = tmp_path / "claims.yaml"
+    path.write_text(yaml.safe_dump({"sources_dir": "sources", "claims": claims}), encoding="utf-8")
+    report = support.run(path, online=False, cache_dir=tmp_path / "cache")
+    assert {r.id for r in report.results if r.status == "quote_located"} == set(passages)
+    assert {r.id for r in report.results if r.secondary_markers} == set(CITED_PASSAGES)
 
 
 def test_clean_control_raises_no_mechanical_flag(tmp_path: Path) -> None:

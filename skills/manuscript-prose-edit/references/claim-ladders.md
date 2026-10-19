@@ -82,6 +82,8 @@ external validation; a sample-specific observation and a population-level statem
 | Fell on a ladder, or a qualifier or limiting word added | warning: a claim correction the authors must see | listed |
 | Any ladder change in a negated sentence | protected: a weaker verb under "not" can make the claim stronger | listed |
 | A sentence with a claim deleted, or a new sentence with one | warning, or protected for a new claim at rung 1 or above | listed |
+| Any other sentence deleted (a plain statement is a claim too) | warning, unless it reads as a stock phrase an edit may cut | listed |
+| Any other new sentence, or a rewritten one that lost or gained words | not listed (the checks above still apply) | listed |
 | Negation count changed | warning | listed |
 
 `--allow-strengthening` marks the protected claim changes as authorised (the guard still lists them) when the

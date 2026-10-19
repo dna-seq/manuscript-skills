@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["typer>=0.12"]
+# dependencies = ["typer>=0.12", "pyyaml>=6"]
 # ///
 """Flag content changes after a manuscript edit, or list them between two versions of a manuscript.
 
@@ -12,9 +12,10 @@ A copy-editing pass may change wording, never content. The guard compares the te
   merged and moved sentences, and reports for each aligned pair a claim that moved on the causal or evidential
   ladder, novelty or generality wording that appeared or went, a scope qualifier ("in this cohort", "in mice"),
   limiting or concessive word ("only", "albeit", "despite"), null-result marker ("did not differ") or
-  evidence-status word ("self-reported", "predicted") that disappeared or appeared, a changed negation, and every
-  number, citation or identifier that one sentence has and its counterpart lacks, with section and line. The
-  ladders are in references/claim-ladders.md.
+  evidence-status word ("self-reported", "predicted") that disappeared or appeared, a changed negation, a deleted
+  sentence, and every number, citation or identifier that one sentence has and its counterpart lacks, with
+  section and line. A sentence counts as merged into another only when it lends it some of its words; one that
+  shares nothing with its neighbours was deleted. The ladders are in references/claim-ladders.md.
 
 It cannot prove semantic equivalence: swapped values and changed relationships can pass every check. Read the
 diff in context.
@@ -24,17 +25,26 @@ diff in context.
     uv run --script guard.py BEFORE.md AFTER.md --json report.json --md report.md
     uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # an authorised claim correction
     uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json
+    uv run --script guard.py BEFORE.md AFTER.md --moved-to SUPPLEMENT.md  # text moved to another file (repeatable)
 
 Edit mode (default). Exit code 1 when a protected item changed: a count of numbers, citations, identifiers,
 terms, URLs or code; a claim that rose on a ladder or gained novelty or generality wording; a scope,
 null-result or evidence-status marker that disappeared, or a limiting or concessive word that left a surviving
 sentence; or a number, citation or identifier that is new to its sentence and its paragraph, or left them.
 `--allow-strengthening` exempts the claim changes (never the counts or the tokens) when the authors authorised a
-claim correction. Lowered claims, added qualifiers, negation changes and tokens moved within a paragraph are
-warnings: read each one.
+claim correction. Lowered claims, added qualifiers, negation changes, deleted sentences and tokens moved within a
+paragraph are warnings: read each one. A deleted sentence that reads as a stock phrase the contract lets an edit
+cut (an empty implication, a mini-conclusion, a filler phrase, signposting; references/smell-patterns.yaml) is
+not listed.
 
 Revision mode (`--revision`): for an original and a revised manuscript where content changes are expected.
-Lists every change of the kinds above with section and line, in the same fields, and always exits 0.
+Lists every change of the kinds above with section and line, in the same fields, and always exits 0. It also
+lists every deleted and new sentence and, for each rewritten sentence with no other change, the words it lost
+and gained (kind "wording"), so each change can be shown before and after.
+
+Moved text (`--moved-to FILE`, once per file): a sentence of BEFORE found in FILE is moved, not deleted (alignment
+`moved_to_other_file`); one changed on the way is compared with its copy there (`after_file`, with `after_line` in
+that file), and the whole-text counts do not report as removed what FILE holds (`moved_to`).
 
 Exit codes: 0 no protected change (always with --revision), 1 a protected change, 2 usage error.
 """
@@ -42,6 +52,7 @@ Exit codes: 0 no protected change (always with --revision), 1 a protected change
 from __future__ import annotations
 
 import bisect
+import functools
 import json
 import re
 import subprocess
@@ -52,8 +63,11 @@ from pathlib import Path
 from typing import Annotated, Callable, Optional
 
 import typer
+import yaml
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+SMELL_PATTERNS = Path(__file__).resolve().parent.parent / "references" / "smell-patterns.yaml"
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 LATEX_COMMENT = re.compile(r"(?<!\\)%.*$", re.MULTILINE)
@@ -112,25 +126,80 @@ def _paragraphs(text: str) -> list[str]:
     return [" ".join(p.split()) for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
-def _diff(before: Counter[str], after: Counter[str]) -> dict[str, dict[str, int]]:
-    removed = {k: before[k] - after[k] for k in before if before[k] > after[k]}
+def _diff(before: Counter[str], after: Counter[str], moved: Counter[str] | None = None) -> dict[str, dict[str, int]]:
+    """Items lost and gained. With `moved` (the counts in the files text was moved to), an item lost here but
+    present there is not counted as removed."""
+    gone = before - after
+    removed = dict(gone - moved) if moved is not None else dict(gone)
     added = {k: after[k] - before[k] for k in after if after[k] > before[k]}
     return {"removed": removed, "added": added}
 
 
-def _rewritten_paragraphs(before: str, after: str, threshold: float) -> list[dict[str, object]]:
-    """Paragraphs whose aligned counterpart shares less than `threshold` of its characters."""
+def _moved_items(before: Counter[str], after: Counter[str], moved: Counter[str]) -> dict[str, int]:
+    """Items lost from the text that a file it was moved to accounts for."""
+    return dict((before - after) & moved)
+
+
+PAIR_LIMIT = 250_000  # paragraph pairs above which a changed run is paired by position, as a fallback
+
+
+def _pair_paragraphs(a: list[str], b: list[str]) -> list[tuple[Optional[int], Optional[int]]]:
+    """Pair the paragraphs of a changed run by their words, in order; an unpaired one was removed or added.
+    Pairing by position matched a deleted table caption with the unchanged paragraph after it, and reported that
+    paragraph as removed."""
+    n, m = len(a), len(b)
+    if n * m > PAIR_LIMIT:
+        return [(k if k < n else None, k if k < m else None) for k in range(max(n, m))]
+    wa, wb = [_content_words(p) for p in a], [_content_words(p) for p in b]
+    neg = float("-inf")
+    best = [[neg] * (m + 1) for _ in range(n + 1)]
+    back: list[list[tuple[int, int] | None]] = [[None] * (m + 1) for _ in range(n + 1)]
+    best[0][0] = 0.0
+    for i in range(n + 1):
+        for j in range(m + 1):
+            if best[i][j] == neg:
+                continue
+            steps = [(i + 1, j, 0.0), (i, j + 1, 0.0)]
+            if i < n and j < m:
+                sim = _dice(wa[i], wb[j])
+                if sim >= MIN_SIMILARITY:
+                    steps.append((i + 1, j + 1, sim * (len(wa[i]) + len(wb[j]) + 1)))
+            for ni, nj, score in steps:
+                if ni <= n and nj <= m and best[i][j] + score > best[ni][nj]:
+                    best[ni][nj] = best[i][j] + score
+                    back[ni][nj] = (i, j)
+    pairs: list[tuple[Optional[int], Optional[int]]] = []
+    i, j = n, m
+    while (i, j) != (0, 0):
+        pi, pj = back[i][j]  # type: ignore[misc]
+        pairs.append((pi if pi < i else None, pj if pj < j else None))
+        i, j = pi, pj
+    return pairs[::-1]
+
+
+def _rewritten_paragraphs(before: str, after: str, threshold: float,
+                          moved: list[tuple[str, str]] | tuple[()] = ()) -> list[dict[str, object]]:
+    """Paragraphs whose counterpart shares less than `threshold` of its characters. A removed paragraph whose
+    copy is in a file the text was moved to is listed only when the copy kept less than `threshold`."""
     a, b = _paragraphs(before), _paragraphs(after)
+    elsewhere = [(name, p, _content_words(p)) for name, text in moved for p in _paragraphs(text)]
     out: list[dict[str, object]] = []
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
-        if tag != "replace":
+        if tag == "equal":
             continue
-        for k in range(max(i2 - i1, j2 - j1)):
-            old = a[i1 + k] if i1 + k < i2 else ""
-            new = b[j1 + k] if j1 + k < j2 else ""
+        for i, j in _pair_paragraphs(a[i1:i2], b[j1:j2]):
+            old = a[i1 + i] if i is not None else ""
+            new = b[j1 + j] if j is not None else ""
+            target = None
+            if old and not new and elsewhere:
+                words = _content_words(old)
+                sim, name, copy = max(((_dice(words, w), name, p) for name, p, w in elsewhere), key=lambda x: x[0])
+                if sim >= MOVE_SIMILARITY:
+                    target, new = name, copy
             ratio = SequenceMatcher(None, old, new, autojunk=False).ratio()
             if ratio < threshold:
-                out.append({"similarity": round(ratio, 2), "before": old[:160], "after": new[:160]})
+                out.append({"similarity": round(ratio, 2), "before": old[:160], "after": new[:160],
+                            "moved_to": target})
     return out
 
 
@@ -186,6 +255,7 @@ class Sentence:
     block: int         # paragraph index (blank lines and headings separate paragraphs)
     section: str       # heading path, e.g. "Results > Performance"
     words: frozenset[str]
+    file: Optional[str] = None  # set for a sentence of a file the text was moved to (--moved-to)
 
 
 HIDDEN = "\x00"  # an inline comment: removed from the sentence text, but keeps every offset
@@ -226,8 +296,9 @@ def _is_abbreviation(chunk: str, dot: int) -> bool:
             or bool(re.fullmatch(r"[A-Z]", word)))
 
 
-def segment(text: str) -> list[Sentence]:
-    """Split a Markdown or LaTeX manuscript into sentences with line, paragraph and section."""
+def segment(text: str, file: Optional[str] = None, block_base: int = 0) -> list[Sentence]:
+    """Split a Markdown or LaTeX manuscript into sentences with line, paragraph and section. A file the text was
+    moved to is segmented with its name and a paragraph numbering of its own (`block_base`)."""
     latex = _is_latex(text)
     masked = _mask(text, latex)
     line_starts = [0] + [m.end() for m in re.finditer(r"\n", text)]
@@ -251,7 +322,8 @@ def segment(text: str) -> list[Sentence]:
             if not re.search(r"[A-Za-z]", body):
                 continue
             offset = start + a + (len(piece[a:b]) - len(piece[a:b].lstrip(" \t\n\r" + HIDDEN)))
-            out.append(Sentence(body, bisect.bisect_right(line_starts, offset), block, section(), _content_words(body)))
+            out.append(Sentence(body, bisect.bisect_right(line_starts, offset), block_base + block, section(),
+                                _content_words(body), file))
 
     def flush() -> None:
         if chunk:
@@ -307,13 +379,20 @@ def segment(text: str) -> list[Sentence]:
 # ---------------------------------------------------------------------------------------------------------------
 
 MIN_SIMILARITY, MOVE_SIMILARITY = 0.3, 0.5
+# Each sentence of a split or merge must lend the other side at least this share of its content words. Without
+# it, a dropped sentence next to a rewritten one rode along in a 2:1 "merge" on its neighbour's similarity and was
+# never reported.
+MIN_CONTRIBUTION = 0.3
+# A deleted sentence most of whose words (this share) sit in one sentence of the edited text was probably merged
+# into it across a paragraph boundary; the report says where.
+MERGED_ELSEWHERE = 0.6
 
 
 @dataclass
 class Group:
     before: list[int]
     after: list[int]
-    kind: str  # equal | changed | split | merged | moved | deleted | inserted
+    kind: str  # equal | changed | split | merged | moved | moved_out | deleted | inserted
 
 
 def _dice(a: frozenset[str], b: frozenset[str]) -> float:
@@ -322,8 +401,14 @@ def _dice(a: frozenset[str], b: frozenset[str]) -> float:
     return 2 * len(a & b) / (len(a) + len(b)) if a and b else 0.0
 
 
-def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int, m: int) -> list[Group]:
+def _contributes(members: list[frozenset[str]], other: frozenset[str]) -> bool:
+    """Every sentence of the larger side of a split or merge shares some of its words with the other side."""
+    return all(not w or len(w & other) / len(w) >= MIN_CONTRIBUTION for w in members)
+
+
+def _align_run(bs: list[Sentence], as_: list[Sentence], ib: list[int], ia: list[int]) -> list[Group]:
     """Best monotone alignment of a run of changed sentences (dynamic programming over group shapes)."""
+    n, m = len(ib), len(ia)
     shapes = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2), (3, 1), (1, 3))
     band = (15 + abs(n - m)) if n * m > 2500 else None
     neg = float("-inf")
@@ -333,9 +418,9 @@ def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int
     union_b: dict[tuple[int, int], frozenset[str]] = {}
     union_a: dict[tuple[int, int], frozenset[str]] = {}
 
-    def words(cache: dict[tuple[int, int], frozenset[str]], seq: list[Sentence], base: int, a: int, b: int):
+    def words(cache: dict[tuple[int, int], frozenset[str]], seq: list[Sentence], idx: list[int], a: int, b: int):
         if (a, b) not in cache:
-            cache[(a, b)] = frozenset().union(*(seq[base + k].words for k in range(a, b)))
+            cache[(a, b)] = frozenset().union(*(seq[idx[k]].words for k in range(a, b)))
         return cache[(a, b)]
 
     for i in range(n + 1):
@@ -349,9 +434,13 @@ def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int
                     continue
                 score = 0.0
                 if di and dj:
-                    wb, wa = words(union_b, bs, i0, i, ni), words(union_a, as_, j0, j, nj)
+                    wb, wa = words(union_b, bs, ib, i, ni), words(union_a, as_, ia, j, nj)
                     sim = _dice(wb, wa)
                     if sim < MIN_SIMILARITY:
+                        continue
+                    if di > 1 and not _contributes([bs[ib[k]].words for k in range(i, ni)], wa):
+                        continue
+                    if dj > 1 and not _contributes([as_[ia[k]].words for k in range(j, nj)], wb):
                         continue
                     score = sim * (len(wb) + len(wa) + 1)
                 if current + score > best[ni][nj]:
@@ -361,7 +450,7 @@ def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int
     i, j = n, m
     while (i, j) != (0, 0):
         pi, pj = back[i][j]  # type: ignore[misc]
-        before, after = list(range(i0 + pi, i0 + i)), list(range(j0 + pj, j0 + j))
+        before, after = ib[pi:i], ia[pj:j]
         kind = ("deleted" if not after else "inserted" if not before else "changed" if len(before) == len(after)
                 else "split" if len(after) > len(before) else "merged")
         groups.append(Group(before, after, kind))
@@ -369,30 +458,60 @@ def _align_run(bs: list[Sentence], as_: list[Sentence], i0: int, j0: int, n: int
     return groups[::-1]
 
 
-def align(bs: list[Sentence], as_: list[Sentence]) -> list[Group]:
+def _pair_best_first(pairs: list[tuple[float, int, int]], floor: float) -> list[tuple[int, int]]:
+    """Greedy one-to-one pairing, most similar first, of (similarity, left, right) candidates at or above floor."""
+    used_l: set[int] = set()
+    used_r: set[int] = set()
+    out = []
+    for sim, left, right in sorted(pairs, reverse=True):
+        if sim < floor:
+            break
+        if left in used_l or right in used_r:
+            continue
+        used_l.add(left)
+        used_r.add(right)
+        out.append((left, right))
+    return out
+
+
+def align(bs: list[Sentence], as_: list[Sentence], external: list[Sentence] | tuple[Sentence, ...] = ()) -> list[Group]:
+    """Align the sentences of two versions. `external` holds the sentences of files the text was moved to; a
+    group of kind "moved_out" points into them, at index len(as_) + k."""
     groups: list[Group] = []
     keys_b, keys_a = [s.text for s in bs], [s.text for s in as_]
+    # A sentence copied word for word into a file the text was moved to has left; it does not enter the alignment
+    # of what stayed, where it could be paired with an unrelated new sentence.
+    verbatim: dict[str, list[int]] = {}
+    for k, s in enumerate(external):
+        verbatim.setdefault(s.text, []).append(len(as_) + k)
+    taken: set[int] = set()
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, keys_b, keys_a, autojunk=False).get_opcodes():
         if tag == "equal":
             groups += [Group([i1 + k], [j1 + k], "equal") for k in range(i2 - i1)]
-        else:
-            groups += _align_run(bs, as_, i1, j1, i2 - i1, j2 - j1)
+            continue
+        staying = []
+        run_after = set(keys_a[j1:j2])
+        for i in range(i1, i2):
+            free = [k for k in verbatim.get(bs[i].text, []) if k not in taken]
+            if free and bs[i].text not in run_after:
+                taken.add(free[0])
+                groups.append(Group([i], [free[0]], "moved_out"))
+            else:
+                staying.append(i)
+        groups += _align_run(bs, as_, staying, list(range(j1, j2)))
     # A sentence moved out of its run: pair leftover deletions and insertions by similarity, best first.
     deleted = [g for g in groups if g.kind == "deleted"]
     inserted = [g for g in groups if g.kind == "inserted"]
-    pairs = sorted(((_dice(bs[d.before[0]].words, as_[a.after[0]].words), di, ai)
-                    for di, d in enumerate(deleted) for ai, a in enumerate(inserted)), reverse=True)
-    used_d: set[int] = set()
-    used_a: set[int] = set()
-    for sim, di, ai in pairs:
-        if sim < MOVE_SIMILARITY:
-            break
-        if di in used_d or ai in used_a:
-            continue
-        used_d.add(di)
-        used_a.add(ai)
+    for di, ai in _pair_best_first([(_dice(bs[d.before[0]].words, as_[a.after[0]].words), di, ai)
+                                    for di, d in enumerate(deleted) for ai, a in enumerate(inserted)], MOVE_SIMILARITY):
         inserted[ai].before, inserted[ai].kind = deleted[di].before, "moved"
         deleted[di].kind = "absorbed"
+    # A sentence moved to another file with changes: pair what is still deleted with that file's sentences.
+    deleted = [g for g in groups if g.kind == "deleted"]
+    free = [k for k in range(len(external)) if len(as_) + k not in taken]
+    for di, k in _pair_best_first([(_dice(bs[d.before[0]].words, external[k].words), di, k)
+                                   for di, d in enumerate(deleted) for k in free], MOVE_SIMILARITY):
+        deleted[di].after, deleted[di].kind = [len(as_) + k], "moved_out"
     return [g for g in groups if g.kind != "absorbed"]
 
 
@@ -771,17 +890,97 @@ def _finding(kind: str, change: str, severity: str, g: Group, bs: list[Sentence]
              **extra: object) -> dict[str, object]:
     before = " ".join(bs[i].text for i in g.before)
     after = " ".join(as_[j].text for j in g.after)
+    elsewhere = as_[g.after[0]].file if g.after else None  # moved to another file: placed by where it was
     out: dict[str, object] = {
         "id": 0, "kind": kind, "change": change, "severity": severity, "authorised": False,
-        "section": as_[g.after[0]].section if g.after else bs[g.before[0]].section,
+        "section": as_[g.after[0]].section if g.after and not elsewhere else bs[g.before[0]].section,
         "before_line": bs[g.before[0]].line if g.before else None,
         "after_line": as_[g.after[0]].line if g.after else None,
+        "after_file": elsewhere,
         "alignment": g.kind, "before": before, "after": after,
         "removed": [], "added": [], "strength_before": None, "strength_after": None,
-        "token": None, "token_status": None, "note": "",
+        "token": None, "token_status": None, "token_file": None, "note": "",
     }
     out.update(extra)
     return out
+
+
+def _letter_words(words: frozenset[str]) -> set[str]:
+    """Content words with a letter in them: numbers are compared as numbers, not as wording."""
+    return {w for w in words if re.search(r"[^\W\d_]", w)}
+
+
+def _surface(words: set[str], text: str) -> list[str]:
+    """The words as the sentence spells them ('PRS', not 'prs'), sorted."""
+    out = []
+    for w in words:
+        m = re.search(rf"(?<!\w){re.escape(w)}(?!\w)", text, re.IGNORECASE)
+        out.append(m.group(0) if m else w)
+    return sorted(out, key=str.lower)
+
+
+# The smells the prose-edit contract names as whole sentences that carry nothing, which an edit may cut: empty
+# implication (A3), mini-conclusion (A8), filler phrase (B5), signposting (C4), slogan (H1), landing phrase (H10).
+STOCK_SENTENCE_SMELLS = ("A3", "A8", "B5", "C4", "H1", "H10")
+
+
+@functools.cache
+def _stock_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
+    smells = yaml.safe_load(SMELL_PATTERNS.read_text(encoding="utf-8"))["smells"] if SMELL_PATTERNS.is_file() else {}
+    return tuple((str(smells[sid].get("scope", "any")), re.compile(p, re.IGNORECASE))
+                 for sid in STOCK_SENTENCE_SMELLS if sid in smells for p in smells[sid]["patterns"])
+
+
+def _stock_sentence(text: str, last_in_paragraph: bool) -> bool:
+    """A sentence that reads as a stock phrase from the smell catalogue (references/smell-patterns.yaml)."""
+    target = text.lstrip("\"“(*_")
+    for scope, rx in _stock_patterns():
+        if scope == "end" and not last_in_paragraph:
+            continue
+        m = rx.search(target)
+        if m and (scope != "start" or m.start() == 0):
+            return True
+    return False
+
+
+def _sentence_findings(g: Group, bs: list[Sentence], as_: list[Sentence], ctx: dict[str, object],
+                       revision: bool) -> list[dict[str, object]]:
+    """A deleted sentence with no other claim finding (both modes; an edit may cut a stock phrase unreported). In
+    a revision inventory also a new sentence and the words a rewritten sentence lost or gained, so every change is
+    shown before and after."""
+    if not g.after:
+        i = g.before[0]
+        own = bs[i].words
+        last = i + 1 == len(bs) or bs[i + 1].block != bs[i].block
+        if not revision and _stock_sentence(bs[i].text, last):
+            return []
+        unit = _unit(bs[i].text)
+        note = f"Deleting a {unit} removes what it said, so the authors must see it."
+        main = ctx["main_after"]  # type: ignore[assignment]
+        if own and unit == "sentence":
+            share, line = max(((len(own & s.words) / len(own), s.line) for s in main), default=(0.0, 0))  # type: ignore[union-attr]
+            if share >= MERGED_ELSEWHERE:
+                note = (f"Most of its words are in the sentence at line {line} of the edited text, so it may have "
+                        "been merged there; check that nothing it said was lost.")
+        return [_finding("sentence", "removed", "warning", g, bs, as_, note=note)]
+    if not revision:
+        return []
+    if not g.before:
+        return [_finding("sentence", "added", "warning", g, bs, as_, note="A new sentence adds content, so check "
+                         "it against the authors' instructions.")]
+    words_b, words_a = ctx["words_b"], ctx["words_a"]  # type: ignore[assignment]
+    b_blocks = {bs[i].block for i in g.before}
+    a_blocks = {as_[j].block for j in g.after}
+    near_b = set().union(*(words_b.get(b, set()) for b in b_blocks))  # type: ignore[union-attr]
+    near_a = set().union(*(words_a.get(a, set()) for a in a_blocks))  # type: ignore[union-attr]
+    own_b = _letter_words(frozenset().union(*(bs[i].words for i in g.before)))
+    own_a = _letter_words(frozenset().union(*(as_[j].words for j in g.after)))
+    text_b, text_a = " ".join(bs[i].text for i in g.before), " ".join(as_[j].text for j in g.after)
+    dropped, gained = _surface(own_b - near_a, text_b), _surface(own_a - near_b, text_a)
+    if not dropped and not gained:
+        return []
+    return [_finding("wording", "changed", "warning", g, bs, as_, removed=dropped, added=gained,
+                     note="Check that the rewording kept what the sentence said.")]
 
 
 def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[dict[str, object]]:
@@ -919,21 +1118,36 @@ def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: li
                                         "moved_within_paragraph": "It moved here from another sentence of the same "
                                         "paragraph."}[status]))
         for token in sorted(cb - ca):
-            in_paragraph = any(token in ctx["block_a"][a][kind] for a in near_a)  # type: ignore[index]
-            status = ("moved_within_paragraph" if in_paragraph else
-                      "moved_elsewhere" if token in ctx["doc_a"][kind] else "removed")  # type: ignore[index]
-            found.append(_finding(kind, "removed", "warning" if in_paragraph else "protected", g, bs, as_,
-                                  removed=[token], token=token, token_status=status,
+            in_paragraph = any(token in ctx["block_a"].get(a, {}).get(kind, ()) for a in near_a)  # type: ignore[union-attr]
+            other_file = None if in_paragraph or token in ctx["doc_a"][kind] else (  # type: ignore[index]
+                ctx["doc_ext"][kind].get(token))  # type: ignore[index]
+            status = ("moved_within_paragraph" if in_paragraph else "moved_elsewhere" if token in ctx["doc_a"][kind]
+                      else "in_other_file" if other_file else "removed")  # type: ignore[index]
+            found.append(_finding(kind, "removed", "protected" if status == "removed" or status == "moved_elsewhere"
+                                  else "warning", g, bs, as_, removed=[token], token=token, token_status=status,
+                                  token_file=other_file,
                                   note={"removed": "It is not in the edited text.", "moved_elsewhere": "It is now "
                                         "only in another paragraph.", "moved_within_paragraph": "It moved to another "
-                                        "sentence of the same paragraph."}[status]))
+                                        "sentence of the same paragraph.", "in_other_file": f"It is now only in "
+                                        f"{other_file}, a file the text was moved to."}[status]))
     return found
 
 
-def sentence_changes(before_text: str, after_text: str) -> tuple[list[dict[str, object]], dict[str, int]]:
-    """Align the sentences of two versions and list claim, scope and token changes with their locations."""
-    bs, as_ = segment(before_text), segment(after_text)
-    groups = align(bs, as_)
+EXTERNAL_BLOCKS = 1_000_000  # paragraph numbers of a moved-to file start at (its position + 1) times this
+
+
+def sentence_changes(before_text: str, after_text: str, moved: list[tuple[str, str]] | tuple[()] = (), *,
+                     revision: bool = False) -> tuple[list[dict[str, object]], dict[str, int]]:
+    """Align the sentences of two versions and list claim, scope and token changes with their locations.
+
+    `moved` lists (name, text) of the files part of the text was moved to: a sentence found there is moved, not
+    deleted, and a changed one is compared with its copy there. `revision` adds the inventory's new sentences and
+    rewordings."""
+    bs, main = segment(before_text), segment(after_text)
+    external = [s for n, (name, text) in enumerate(moved)
+                for s in segment(text, file=name, block_base=(n + 1) * EXTERNAL_BLOCKS)]
+    groups = align(bs, main, external)
+    as_ = main + external
     tok_b = [sentence_tokens(s.text) for s in bs]
     tok_a = [sentence_tokens(s.text) for s in as_]
 
@@ -945,6 +1159,12 @@ def sentence_changes(before_text: str, after_text: str) -> tuple[list[dict[str, 
                 slot[k].update(t[k])
         return out
 
+    def words_by_block(sents: list[Sentence]) -> dict[int, set[str]]:
+        out: dict[int, set[str]] = {}
+        for s in sents:
+            out.setdefault(s.block, set()).update(s.words)
+        return out
+
     b2a: dict[int, set[int]] = {}
     a2b: dict[int, set[int]] = {}
     for g in groups:
@@ -952,25 +1172,37 @@ def sentence_changes(before_text: str, after_text: str) -> tuple[list[dict[str, 
             for j in g.after:
                 b2a.setdefault(bs[i].block, set()).add(as_[j].block)
                 a2b.setdefault(as_[j].block, set()).add(bs[i].block)
+    doc_ext: dict[str, dict[str, str]] = {k: {} for k in TOKEN_KINDS}
+    for s, t in zip(external, tok_a[len(main):]):
+        for k in TOKEN_KINDS:
+            for token in t[k]:
+                doc_ext[k].setdefault(token, str(s.file))
     ctx: dict[str, object] = {
         "b2a": b2a, "a2b": a2b, "block_b": by_block(bs, tok_b), "block_a": by_block(as_, tok_a),
         "doc_b": {k: set().union(*(t[k] for t in tok_b)) for k in TOKEN_KINDS},
-        "doc_a": {k: set().union(*(t[k] for t in tok_a)) for k in TOKEN_KINDS},
+        "doc_a": {k: set().union(*(t[k] for t in tok_a[:len(main)])) for k in TOKEN_KINDS},
+        "doc_ext": doc_ext, "main_after": main, "words_b": words_by_block(bs), "words_a": words_by_block(as_),
     }
     changes: list[dict[str, object]] = []
     for g in groups:
         if g.kind == "equal":
             continue
-        changes += _claim_findings(g, bs, as_)
+        claims = _claim_findings(g, bs, as_)
+        if not claims:
+            claims = _sentence_findings(g, bs, as_, ctx, revision)
+        changes += claims
         changes += _token_findings(g, bs, as_, tok_b, tok_a, ctx)
-    changes.sort(key=lambda c: (c["after_line"] if c["after_line"] is not None else c["before_line"] or 0,
-                                c["before_line"] or 0))
+    changes.sort(key=lambda c: (c["after_line"] if c["after_line"] is not None and not c["after_file"]
+                                else c["before_line"] or 0, c["before_line"] or 0))
     for n, c in enumerate(changes, 1):
         c["id"] = n
     counts = Counter(g.kind for g in groups)
-    alignment = {"sentences_before": len(bs), "sentences_after": len(as_), "unchanged": counts["equal"],
+    alignment = {"sentences_before": len(bs), "sentences_after": len(main), "unchanged": counts["equal"],
                  "changed": counts["changed"], "split": counts["split"], "merged": counts["merged"],
-                 "moved": counts["moved"], "deleted": counts["deleted"], "inserted": counts["inserted"]}
+                 "moved": counts["moved"], "moved_to_other_file": counts["moved_out"],
+                 "moved_to_other_file_changed": sum(1 for g in groups if g.kind == "moved_out"
+                                                    and bs[g.before[0]].text != as_[g.after[0]].text),
+                 "deleted": counts["deleted"], "inserted": counts["inserted"]}
     return changes, alignment
 
 
@@ -984,12 +1216,22 @@ def document_title(text: str) -> Optional[str]:
 
 
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
-            allow_strengthening: bool = False) -> dict[str, object]:
+            allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = ()) -> dict[str, object]:
+    """Compare two versions. `moved` lists (name, text) of the files part of the text was moved to (a
+    supplement, say): what is found there counts as moved, not removed."""
     latex = _is_latex(before_text) or _is_latex(after_text)
     before, after = _prose(before_text, latex), _prose(after_text, latex)
-    protected = {name: _diff(_items(before, rx), _items(after, rx)) for name, rx in PROTECTED.items()}
-    watched = {name: _diff(_items(before, rx), _items(after, rx)) for name, rx in WATCHED.items()}
-    changes, alignment = sentence_changes(before_text, after_text)
+    elsewhere = "\n\n".join(_prose(text, _is_latex(text)) for _, text in moved)
+    moved_counts: dict[str, dict[str, int]] = {}
+    protected, watched = {}, {}
+    for patterns, out in ((PROTECTED, protected), (WATCHED, watched)):
+        for name, rx in patterns.items():
+            ib, ia = _items(before, rx), _items(after, rx)
+            im = _items(elsewhere, rx) if moved else None
+            out[name] = _diff(ib, ia, im)
+            if im is not None and patterns is PROTECTED and _moved_items(ib, ia, im):
+                moved_counts[name] = _moved_items(ib, ia, im)
+    changes, alignment = sentence_changes(before_text, after_text, moved, revision=revision)
     if allow_strengthening:
         for c in changes:
             if c["kind"] in CLAIM_KINDS and c["severity"] == "protected":
@@ -1001,7 +1243,11 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
         "allow_strengthening": allow_strengthening,
         "protected": {k: v for k, v in protected.items() if v["removed"] or v["added"]},
         "watched": {k: v for k, v in watched.items() if v["removed"] or v["added"]},
-        "rewritten_paragraphs": _rewritten_paragraphs(before, after, threshold),
+        "moved_to": {"files": [name for name, _ in moved], "sentences": alignment["moved_to_other_file"],
+                     "sentences_changed": alignment["moved_to_other_file_changed"],
+                     "counts": moved_counts} if moved else None,
+        "rewritten_paragraphs": _rewritten_paragraphs(before, after, threshold, [(n, _prose(t, _is_latex(t)))
+                                                                                  for n, t in moved]),
         "words_before": len(before.split()),
         "words_after": len(after.split()),
         "change_rate": change_rate(before, after),
@@ -1148,6 +1394,8 @@ def _unit(text: object) -> str:
 def _where(c: dict[str, object], title: Optional[str]) -> str:
     b, a = c["before_line"], c["after_line"]
     unit = _unit(c["after"] or c["before"])
+    if c.get("after_file"):
+        return f"{_section(c, title)} (line {b} before the edit, now in {c['after_file']}, line {a})"
     lines = (f"line {a}" if b == a else f"line {b} before the edit, line {a} after") if a and b else (
         f"a new {unit}, line {a}" if a else f"a deleted {unit}, line {b} before the edit")
     return f"{_section(c, title)} ({lines})"
@@ -1205,6 +1453,14 @@ def describe(c: dict[str, object]) -> str:
         return f"The word {_quoted_list(removed)}, which said how the finding was obtained, was dropped."
     if kind == "negation":
         return f"A negation changed: {_became(removed, added)}."
+    if kind == "sentence":
+        unit = _unit(c["before"] if change == "removed" else c["after"])
+        return f"The {unit} is gone from the edited text." if change == "removed" else f"The {unit} is new."
+    if kind == "wording":
+        r, a = list(removed or []), list(added or [])  # type: ignore[call-overload]
+        parts = ([f"{_quoted_list(r)} {'was' if len(r) == 1 else 'were'} dropped"] if r else []) + (
+            [f"{_quoted_list(a)} {'was' if len(a) == 1 else 'were'} added"] if a else [])
+        return f"The wording changed: {', and '.join(parts)}."
     return f"The {kind} changed: {_became(removed, added)}."
 
 
@@ -1239,15 +1495,17 @@ TOKEN_SENTENCES = {
                 "Restore {them} unless the authors asked for the change."),
     "moved_elsewhere": ("{items} {was} removed from this sentence and {is} now only in another paragraph.",
                         "Check that {they} still {belong} to the right claim."),
+    "in_other_file": ("{items} {was} removed here and {is} now only in {file}, a file the text was moved to.",
+                      "Check that {they} still {belong} to the right claim there."),
 }
 
 
-def _token_sentence(kind: str, status: str, tokens: list[str], revision: bool) -> str:
+def _token_sentence(kind: str, status: str, tokens: list[str], revision: bool, file: Optional[str] = None) -> str:
     one = len(tokens) == 1
     noun = TOKEN_NOUNS.get(kind, (kind, kind + "s"))[0 if one else 1]
     fill = {"items": f"The {noun} {_quoted_list(tokens)}", "is": "is" if one else "are", "was": "was" if one else "were",
             "they": "it" if one else "they", "them": "it" if one else "them", "appear": "appears" if one else "appear",
-            "belong": "belongs" if one else "belong"}
+            "belong": "belongs" if one else "belong", "file": file or ""}
     what, action = TOKEN_SENTENCES[status]
     return what.format(**fill) + ("" if revision else " " + action.format(**fill))
 
@@ -1259,10 +1517,12 @@ def _token_lines(tokens: list[dict[str, object]], title: Optional[str], revision
         pairs.setdefault((c["before_line"], c["after_line"], c["before"], c["after"]), []).append(c)
     out = []
     for (_, _, before, after), items in pairs.items():
-        groups: dict[tuple[str, str], list[str]] = {}
+        groups: dict[tuple[str, str, Optional[str]], list[str]] = {}
         for c in items:
-            groups.setdefault((str(c["kind"]), str(c["token_status"])), []).append(str(c["token"]))
-        sentences = [_token_sentence(kind, status, toks, revision) for (kind, status), toks in groups.items()]
+            groups.setdefault((str(c["kind"]), str(c["token_status"]), c.get("token_file")),  # type: ignore[arg-type]
+                              []).append(str(c["token"]))
+        sentences = [_token_sentence(kind, status, toks, revision, file)
+                     for (kind, status, file), toks in groups.items()]
         sentences[0] = f"In {_where(items[0], title)}, {_lower_first(sentences[0])}"
         out.append("- " + " ".join(sentences))
         marks = [str(c["token"]) for c in items]
@@ -1294,7 +1554,8 @@ def to_markdown(report: dict[str, object]) -> str:
     revision = report.get("mode") == "revision"
     title = report.get("title")  # type: ignore[assignment]
     changes = report.get("sentence_changes", [])
-    claims = [c for c in changes if c["token"] is None]  # type: ignore[union-attr]
+    claims = [c for c in changes if c["token"] is None and c["kind"] != "wording"]  # type: ignore[union-attr]
+    wording = [c for c in changes if c["kind"] == "wording"]  # type: ignore[union-attr]
     tokens = [c for c in changes if c["token"] is not None]  # type: ignore[union-attr]
     open_changes = [c for c in changes if c["severity"] == "protected" and not c["authorised"]]  # type: ignore[union-attr]
     shown = [c for c in changes if c["severity"] != "protected" or c["authorised"]]  # type: ignore[union-attr]
@@ -1329,12 +1590,24 @@ def to_markdown(report: dict[str, object]) -> str:
     share = "Less than 1%" if 0 < rate < 0.005 else "None" if rate == 0 else f"About {round(100 * rate)}%"
     lines += ["", f"{share} of the original words changed ({report['words_before']} words before, "
                   f"{report['words_after']} after).{level}", ""]
+    moved = report.get("moved_to")
+    if moved:
+        files = _listed([str(f) for f in moved["files"]])  # type: ignore[index]
+        n, changed = int(moved["sentences"]), int(moved["sentences_changed"])  # type: ignore[index]
+        lines += [f"{_upper_first(_count_word(n, 'sentence', 'sentences'))} moved from this text to {files}"
+                  + (f"; {_count_word(changed, 'of them was', 'of them were')} changed on the way, and the changes "
+                     "below compare each with its copy there." if changed else
+                     (", word for word." if n else ".")), ""]
     lines.append("## Changes to what the claims say, sentence by sentence")
     lines += [""] + ([x for c in claims for x in _claim_lines(c, title, revision)] or  # type: ignore[arg-type]
                      ["No sentence changed how strong, how general or how qualified its claim is."])
     lines += ["", "## Numbers, citations and identifiers, sentence by sentence", ""]
     lines += _token_lines(tokens, title, revision) or [  # type: ignore[arg-type]
         "No sentence gained or lost a number, citation or identifier."]
+    if revision:
+        lines += ["", "## Other sentences that were reworded", ""]
+        lines += [x for c in wording for x in _claim_lines(c, title, revision)] or [  # type: ignore[arg-type]
+            "No other sentence lost or gained a word."]
     summary = report.get("summary", {})
     if summary.get("authorised"):  # type: ignore[union-attr]
         n = summary["authorised"]  # type: ignore[index]
@@ -1356,7 +1629,10 @@ def to_markdown(report: dict[str, object]) -> str:
     lines += ["", "## Paragraphs that were largely rewritten", ""]
     for p in rewritten:  # type: ignore[union-attr]
         kept = round(100 * float(p["similarity"]))
-        if p["before"] and p["after"]:
+        if p.get("moved_to"):
+            lines.append(f"- A paragraph that began {_q(str(p['before']) + '…')} moved to {p['moved_to']} and kept "
+                         f"about {kept}% of its wording there.")
+        elif p["before"] and p["after"]:
             lines.append(f"- A paragraph kept about {kept}% of its wording. It began {_q(str(p['before']) + '…')} "
                          f"and now begins {_q(str(p['after']) + '…')}.")
         elif p["after"]:
@@ -1380,6 +1656,9 @@ def main(
                                            "content change with section and line; always exit 0")] = False,
     allow_strengthening: Annotated[bool, typer.Option("--allow-strengthening", help="The authors authorised a claim "
                                                       "correction: report claim changes without failing on them")] = False,
+    moved_to: Annotated[Optional[list[Path]], typer.Option(
+        "--moved-to", exists=True, dir_okay=False, help="A file part of the text was moved to (a supplement, say); "
+        "repeat for several. Text found there counts as moved, not removed")] = None,
 ) -> None:
     if against:
         before_text, after_text = _git_show(before.resolve(), against), before.read_text(encoding="utf-8")
@@ -1388,7 +1667,9 @@ def main(
     else:
         raise typer.BadParameter("Give the edited file as the second argument, or name the git version to "
                                  "compare with in --against.")
-    report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening)
+    moved = [(path.name, path.read_text(encoding="utf-8")) for path in moved_to or []]
+    report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening,
+                     moved=moved)
     markdown = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")

@@ -85,6 +85,10 @@ DESIGN_WORDS = {"software": "software or resource", "public-data": "public-data 
                 "bioinformatics": "bioinformatics-finding", "mr": "Mendelian randomisation",
                 "bibliometric": "bibliometric", "public-health-database": "public health-database", "other": "other"}
 FIT_WORDS = {"go": "Fits", "conditional": "Depends", "unknown": "Not known", "no-go": "Does not fit"}
+# When a quoted rule of the author guidelines applies (`submission_rules` in venues.yaml).
+WHEN_WORDS = {"submission": "Rules of the author guidelines for the first submission:",
+              "after_review": "Not needed until after the first review:"}
+LIMIT_WORDS = {"abstract_words": "the abstract", "body_words": "the body", "over_limit_return": "overlength papers"}
 ROUTE_WORDS = {"httpx": "a plain download", "chrome": "a headless browser", "browser": "a copy saved from a browser",
                "webfetch": "a web-fetch tool"}
 LEGACY_ROUTE_PREFIX = re.compile(r"\b(httpx|chrome|wayback): ")
@@ -125,6 +129,11 @@ def _sentence(text: str) -> str:
 
 def _and(items: list[str]) -> str:
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _quoted(quote: Any) -> str:
+    """The page's sentences, each in quotation marks: one string or a list of them."""
+    return " ".join(f"“{q}”" for q in ([quote] if isinstance(quote, str) else quote or []))
 
 
 def _or(items: list[str]) -> str:
@@ -201,8 +210,9 @@ def _resolve(key: str, venues: dict[str, dict[str, Any]], seen: set[str]) -> dic
     entry = venues[key]
     parent = entry.get("inherits")
     base = dict(_resolve(parent, venues, seen | {key})) if parent else {}
-    # Timelines and editorial assessments describe a journal, not its parent or sibling.
-    for journal_specific in ("review_speed", "editorial_profile"):
+    # Timelines, editorial assessments and the quoted rules of one journal's page describe that journal, not its
+    # parent or sibling.
+    for journal_specific in ("review_speed", "editorial_profile", "submission_rules", "limit_quotes", "quoted_from"):
         base.pop(journal_specific, None)
     if base.get("kind") == "publisher":
         base.pop("kind")
@@ -582,12 +592,34 @@ def show(
         return ", ".join(v.get(field) or []) or "not recorded"
 
     limits = v.get("limits") or {}
-    parts = [f"the abstract at most {limits['abstract_words']} words" if limits.get("abstract_words") else None,
+    recommended = " (recommended, not required)" if limits.get("abstract_words_kind") == "recommended" else ""
+    parts = [f"the abstract at most {limits['abstract_words']} words{recommended}" if limits.get("abstract_words")
+             else None,
              f"the body about {limits['body_words']} words" if limits.get("body_words") else None,
              f"papers more than {round(100 * (limits['over_limit_return'] - 1))}% over the limit are returned "
              "without review" if limits.get("over_limit_return") else None]
     parts = [x for x in parts if x]
     limit_text = f"{_and(parts)}." if parts else "not researched; read the live page."
+    limit_quotes = [f"  - On {LIMIT_WORDS.get(k, k.replace('_', ' '))}, the page says: {_quoted(q)}"
+                    for k, q in (v.get("limit_quotes") or {}).items() if q]
+    origin = v.get("quoted_from")
+    origin_line = ([f"The page's words above are quoted from the Internet Archive's copy of {origin['copy_date']}, "
+                    f"{origin['source']}, read on {origin['checked']}"
+                    + (f": {origin['note']}." if origin.get("note") else ".")]
+                   if origin else [])
+
+    def rules(when: str) -> list[str]:
+        found = [r for r in v.get("submission_rules") or [] if r.get("when") == when]
+        box = "[ ] " if when == "submission" else ""
+        return [f"  - {box}{_sentence(r['rule'])} The page: {_quoted(r['quote'])}" for r in found]
+
+    first_submission = rules("submission")
+    after_review = rules("after_review")
+    rule_lines = ([f"- {WHEN_WORDS['submission']}", *first_submission] if first_submission else
+                  [f"- {WHEN_WORDS['submission'][:-1]}: not researched; read the live page."]
+                  if v.get("submission_rules") is None else [])
+    if after_review:
+        rule_lines += [f"- {WHEN_WORDS['after_review']}", *after_review]
     exemptions = ("not researched, so read the live page" if v.get("exempt") is None
                   else ", ".join(v["exempt"]) or "none listed in the recorded policy")
     neutral = v.get("disclosure_neutral")
@@ -644,12 +676,15 @@ def show(
         "These can be done on the current draft.",
         "",
         f"- [ ] Length: {limit_text}",
+        *limit_quotes,
         "- Abstract headings:",
         *items("abstract_headings"),
         "- Required sections (add the headings now; their final contents may wait for the last stage):",
         *items("required_sections"),
         "- Other rules the editors check on arrival:",
         *items("other_desk_rules"),
+        *rule_lines,
+        *([""] + origin_line if origin_line else []),
         "",
         "## At the end, once the code, data and results are final",
         "",

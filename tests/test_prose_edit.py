@@ -653,6 +653,171 @@ def test_usage_errors_say_what_to_give(tmp_path: Path) -> None:
     assert unknown.exit_code == 2 and "git has no version of paper.md" in unknown.output
 
 
+# --- a dropped sentence, paragraph pairing and text moved to another file -----------------------------------------
+
+# An abstract rewritten for a journal: the Results paragraph is condensed, a plain claim sentence with no hedge,
+# number or citation is dropped, and so are "declarative", "downloadable" and "local". Revision markers wrap the
+# paragraphs as in the paper the smoke run edited.
+ABSTRACT_BEFORE = """## Abstract
+
+<!-- @rev C2b rounds=3 by=robi:2026-09-25,claude:2026-10-13 -->
+**Results:** We present TeloKit, an open-source platform that combines local variant annotation and polygenic risk \
+score (PRS) computation in a web interface. Annotation modules are declarative, versioned packages of variant-trait \
+tables and their sources, allowing researchers to extend the catalogue without writing code. A registry distributes \
+modules, and the platform applies them to the user's genome to produce downloadable reports. The scoring library \
+provides scoring through web, command-line, Python, and Model Context Protocol interfaces.
+<!-- @/rev C2b -->
+<!-- @rev C2c rounds=2 by=robi:2026-09-25,claude:2026-10-10 -->
+Reports list each matched variant with its reported effect and sources. Polygenic scores are shown as percentiles \
+within a reference population matched to the genome's inferred ancestry, with all models for a trait shown together. \
+New modules can also be drafted with general-purpose AI assistants through a plugin, and pass the same validation as \
+hand-written ones.
+<!-- @/rev C2c -->
+"""
+ABSTRACT_AFTER = """## Abstract
+
+<!-- @rev C2b rounds=4 by=robi:2026-09-25,claude:2026-10-13,claude:2026-10-19 -->
+**Results:** TeloKit is an open-source platform for variant annotation and polygenic risk scoring with a web \
+interface. Annotation modules are versioned packages of variant-trait tables and their sources, added without code \
+and distributed through a registry.
+<!-- @/rev C2b -->
+<!-- @rev C2c rounds=3 by=robi:2026-09-25,claude:2026-10-10,claude:2026-10-19 -->
+Reports list each matched variant with its reported effect and sources. The scoring library scores through web, \
+command-line, Python and Model Context Protocol interfaces and shows percentiles within a reference population \
+matched to the genome's inferred ancestry, with all models for a trait together.
+<!-- @/rev C2c -->
+"""
+DROPPED = "New modules can also be drafted with general-purpose AI assistants"
+
+
+@pytest.mark.parametrize("revision", [False, True])
+def test_a_dropped_claim_sentence_is_reported_in_both_modes(revision: bool) -> None:
+    report = guard.compare(ABSTRACT_BEFORE, ABSTRACT_AFTER, revision=revision)
+    dropped = [c for c in report["sentence_changes"] if DROPPED in c["before"]]
+    assert [(c["kind"], c["change"], c["after"], c["severity"]) for c in dropped] == [
+        ("sentence", "removed", "", "warning")]
+    registry = [c for c in report["sentence_changes"] if c["before"].startswith("A registry distributes")]
+    assert [(c["kind"], c["change"]) for c in registry] == [("sentence", "removed")]
+    markdown = guard.to_markdown(report)
+    assert "In the Abstract (a deleted sentence, line 7 before the edit), the sentence is gone" in markdown
+    assert f"Before the edit: “{DROPPED}" in markdown
+
+
+@pytest.mark.parametrize("revision", [False, True])
+def test_a_plain_statement_deleted_on_its_own_is_reported(revision: bool) -> None:
+    """No hedge, number or citation: before the fix a deleted plain statement produced no finding at all."""
+    before = (f"Telomeres shorten with age in this cohort.\n\n{DROPPED} through a plugin.\n\n"
+              "Reports list each matched variant.\n")
+    after = "Telomeres shorten with age in this cohort.\n\nReports list each matched variant.\n"
+    changes = guard.compare(before, after, revision=revision)["sentence_changes"]
+    assert [(c["kind"], c["change"], c["before_line"], c["alignment"]) for c in changes] == [
+        ("sentence", "removed", 3, "deleted")]
+
+
+def test_an_edit_may_cut_a_stock_sentence_unreported_and_the_inventory_still_lists_it() -> None:
+    """The contract lets an edit cut a mini-conclusion; a revision inventory lists every deleted sentence."""
+    before = ("Telomeres shorten with age in this cohort. In conclusion, these findings have important implications "
+              "for ageing research.\n")
+    after = "Telomeres shorten with age in this cohort.\n"
+    assert guard.compare(before, after)["sentence_changes"] == []
+    listed = guard.compare(before, after, revision=True)["sentence_changes"]
+    assert [(c["kind"], c["change"]) for c in listed] == [("sentence", "removed")]
+
+
+def test_a_sentence_merged_into_another_is_one_only_when_it_lends_it_words() -> None:
+    """A 2:1 merge must not swallow a sentence that shares nothing with the merged one."""
+    bs, as_ = guard.segment(ABSTRACT_BEFORE), guard.segment(ABSTRACT_AFTER)
+    for g in guard.align(bs, as_):
+        for i in g.before:
+            if DROPPED in bs[i].text:
+                assert g.kind == "deleted" and g.after == []
+
+
+def test_the_revision_inventory_names_words_a_rewritten_sentence_dropped() -> None:
+    report = guard.compare(ABSTRACT_BEFORE, ABSTRACT_AFTER, revision=True)
+    dropped = {w for c in report["sentence_changes"] if c["kind"] == "wording" for w in c["removed"]}
+    assert {"declarative", "local"} <= dropped
+    first = [c for c in report["sentence_changes"] if c["before"].startswith("**Results:** We present")]
+    assert first and "local" in first[0]["removed"] and "We present TeloKit" in first[0]["before"]
+    markdown = guard.to_markdown(report)
+    assert "“local”" in markdown and "“declarative”" in markdown
+    # an edit is a copy edit: rewording is its job, so only the deleted sentences are listed
+    edit = guard.compare(ABSTRACT_BEFORE, ABSTRACT_AFTER)
+    assert not [c for c in edit["sentence_changes"] if c["kind"] == "wording"]
+
+
+def test_a_kept_paragraph_next_to_a_removed_one_is_not_reported_as_removed() -> None:
+    """Paragraphs of a changed run are paired by their words, not by position."""
+    kept = ("On the primary genome, the median full run took 33.2 s against 6,005.4 s for the old pipeline, an "
+            "approximately 181-fold speedup. Peak memory was 2,054 MB (Table 3).")
+    caption = ("**Table 3.** Stage times and resources of the full runs (medians unless stated). Peak RAM is the "
+               "resident memory summed over the whole process tree.")
+    before = f"## Results\n\n{caption}\n\n| Stage | Time |\n|---|---|\n| Load | 4 s |\n\n{kept}\n"
+    after = f"## Results\n\n{kept.replace('(Table 3)', '(Supplementary Table S10)')}\n"
+    report = guard.compare(before, after, revision=True)
+    starts = [(p["before"][:20], p["after"][:20]) for p in report["rewritten_paragraphs"]]
+    assert ("On the primary genom", "") not in starts
+    assert (caption[:20], "") in starts and ("| Stage | Time | |--", "") in starts
+    assert "was removed" in guard.to_markdown(report)
+    assert "On the primary genome, the median full run took 33.2 s against 6,005.4 s for the old pipeline, an " \
+           "approximately 181-fold speedup. Peak memory was 2,054 MB (Table 3).…” was removed" not in \
+           guard.to_markdown(report)
+
+
+MOVED_SECTION = """## S9. Sex chromosomes
+
+On chromosome X, both engines count a male's call as one copy and treat a heterozygous call as a no-call, \
+since a single X cannot be heterozygous. The pseudoautosomal regions count as two copies in either sex.
+
+The sample was marked male in PLINK2, and the engine inferred it as male (XY) from 1,204 chromosome X calls.
+"""
+MAIN_BEFORE = ("# Paper\n\n## Results\n\nScores were computed for 6,991 PGS IDs on GRCh38. The median run took "
+               "12.5 s.\n\n" + MOVED_SECTION)
+MAIN_AFTER = ("# Paper\n\n## Results\n\nScores were computed for 6,991 PGS IDs on GRCh38. The median run took "
+              "12.5 s. Sex chromosomes are handled as described in Supplementary S9.\n")
+
+
+def test_text_moved_verbatim_to_another_file_is_moved_not_removed(tmp_path: Path) -> None:
+    supplement = "# Supplementary material\n\n" + MOVED_SECTION
+    without = guard.compare(MAIN_BEFORE, MAIN_AFTER)
+    assert {c["token_status"] for c in without["sentence_changes"] if c["token"]} == {"removed"}
+    assert guard.exit_code(without) == 1
+    report = guard.compare(MAIN_BEFORE, MAIN_AFTER, moved=[("supplementary.md", supplement)])
+    assert not [c for c in report["sentence_changes"] if c["change"] == "removed"]
+    assert report["protected"].get("numbers", {}).get("removed", {}) == {}
+    assert report["alignment"]["moved_to_other_file"] == 3
+    assert report["moved_to"]["files"] == ["supplementary.md"]
+    assert not [p for p in report["rewritten_paragraphs"] if not p["after"]]
+    assert guard.exit_code(report) == 0
+    markdown = guard.to_markdown(report)
+    assert "Restore" not in markdown and "supplementary.md" in markdown
+    # the command line takes the files the text went to, as often as needed
+    files = {name: tmp_path / name for name in ("before.md", "after.md", "supplementary.md", "notes.md")}
+    for (name, path), text in zip(files.items(), (MAIN_BEFORE, MAIN_AFTER, supplement, "Notes.\n")):
+        path.write_text(text, encoding="utf-8")
+    runner = CliRunner()
+    assert runner.invoke(guard.app, [str(files["before.md"]), str(files["after.md"])]).exit_code == 1
+    moved = runner.invoke(guard.app, [str(files["before.md"]), str(files["after.md"]), "--moved-to",
+                                      str(files["supplementary.md"]), "--moved-to", str(files["notes.md"])])
+    assert moved.exit_code == 0 and "Restore" not in moved.output
+
+
+def test_a_number_changed_on_the_way_to_another_file_is_still_reported() -> None:
+    supplement = "# Supplementary material\n\n" + MOVED_SECTION.replace("1,204 chromosome X calls", "1,240 chromosome "
+                                                                         "X calls")
+    report = guard.compare(MAIN_BEFORE, MAIN_AFTER, moved=[("supplementary.md", supplement)])
+    numbers = {(c["token"], c["change"], c["after_file"]) for c in report["sentence_changes"] if c["kind"] == "number"}
+    assert numbers == {("1204", "removed", "supplementary.md"), ("1240", "added", "supplementary.md")}
+    assert guard.exit_code(report) == 1
+    assert "now in supplementary.md" in guard.to_markdown(report)
+
+
+def test_a_deleted_passage_is_not_hidden_by_naming_a_file_it_did_not_go_to() -> None:
+    report = guard.compare(MAIN_BEFORE, MAIN_AFTER, moved=[("notes.md", "# Notes\n\nUnrelated text about lab work.\n")])
+    assert {c["kind"] for c in report["sentence_changes"] if c["change"] == "removed"} >= {"sentence", "number"}
+    assert guard.exit_code(report) == 1
+
+
 # --- skill files and eval cases -----------------------------------------------------------------------------------
 
 SKILL = ROOT / "skills" / "manuscript-prose-edit"
