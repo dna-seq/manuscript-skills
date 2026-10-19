@@ -110,7 +110,32 @@ writing samples or a new study. A reference check does not need a style pass. A 
 automatically authorise new experiments or repository maintenance.
 
 Use the manuscript and conversation before asking questions. Ask only for information that changes the
-answer and cannot be obtained from available material; batch remaining questions. Continue independent work
+answer and cannot be obtained from available material; batch remaining questions.
+
+**Check the project before asking.** When the manuscript sits in, or names, a repository with its code,
+benchmark outputs, result tables, logs or configuration, read those (read-only) before reporting a number,
+version or software behaviour as unexplained. Where a printed value comes from, which runs a figure covers,
+which release is current and what the software outputs are questions the files usually answer. Report what
+the files settled ("the 2,054 MB is the primary genome over warm, full and cold runs in
+`benchmarks/a3/tables.md`, while Table 3 lists full runs only, so say so in the sentence") and ask only what
+they leave open. Quoting the project to the authors is fine; sending them to look it up is not.
+
+**Do not ask about what needs no decision.** A correction that a registry or the project's own files
+settle, with one right answer, is not a finding for the authors: a preprint cited after its journal
+version appeared (title, year, DOI), a shortened title, a missing DOI, a print-versus-online year, a
+miscounted table, a name spelled two ways, a scan alarm you cleared. With edit permission, apply them; in
+a review-only request, prepare them as one patch the authors accept or not. Either way, report them as a
+count and a severity, not item by item: "12 references corrected (4 missing DOIs, 3 shortened titles,
+2 print-versus-online years, 1 preprint now published in *Science*, 2 page ranges); none changes what a
+sentence claims." The itemised list is the diff or the patch, shown when the authors ask. Never put these in
+"Fix now", never phrase them as questions, and leave cleared false alarms out entirely.
+
+A reference that cannot be found in any registry or by search, or whose identifiers belong to another work,
+is not in this class. It may be fabricated, and some journals reject a paper or open an integrity inquiry
+for a single invented reference. Report each one under "Fix now" with what was searched, even when it is
+uncited or the fix is simply to delete it, and say plainly how serious it is.
+
+The body of the report is for what needs the authors' judgement or facts only they have. Continue independent work
 when an answer is missing. Existing author permission to edit covers routine edits and formatting within
 that scope: make them reviewable through a diff, rather than asking for approval sentence by sentence.
 Flag decisions that would change scientific meaning or require facts only the authors know.

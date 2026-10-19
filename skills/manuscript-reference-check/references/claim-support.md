@@ -88,6 +88,10 @@ publisher page; a paywalled source comes back `source_unavailable`, with any fre
 `secondary_markers` lists citation markers and phrases ("et al.", "[12]", "as reported by") in the sentence
 around a located quote: the number may belong to a primary study the source is reporting.
 
+`support.py` exits 1 when any claim comes back `numbers_missing`, `polarity_mismatch` or `quote_not_found`, 3
+when none does but a source was unavailable, and 0 otherwise; a nonzero exit is a prompt to read, not a failure. Its JSON is an object with `summary` (counts by status) and `results`
+(one entry per claim, in the order of the claims file).
+
 ## The reading, and a skeptic for what matters
 
 Read each claim against its source and give it an outcome (the table above). The bias that matters sits with
@@ -96,7 +100,8 @@ two outcomes, so the extra reading is proportionate to them:
 - **`confirmed` on a load-bearing claim** (priority `load-bearing`, `abstract`, `borrowed-number` or
   `first-only`): whoever chose the passage is inclined to see support in it. Send all of these, in one batch,
   to a skeptic subagent in a fresh context that has not seen why each passage was chosen. Give it, per claim,
-  the claim sentence, the full source text (or the located passage with at least a paragraph either side) and
+  the claim sentence, the full source text (always, when it is a short page or an abstract with its introduction;
+  otherwise the located passage with at least a paragraph either side, cut at sentence ends) and
   the instructions below. Where it returns a stricter outcome, report that outcome unless a passage it missed
   settles the claim. A `confirmed` with priority `other` needs no skeptic read.
 - **`rejected`**: stands only after a second independent search of the source (below).

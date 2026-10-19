@@ -123,7 +123,16 @@ Write for the authors as [Writing for the authors](../manuscript-integrity-check
 by [when each fix can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done). Fix now: claims a source does not
 support or only partly supports, borrowed numbers that differ from the source, retracted works used as
 evidence, references that point to another work or do not resolve, and a published preprint whose numbers
-the manuscript borrows. Once the journal is chosen: missing identifiers and reference style.
+the manuscript borrows. Once the journal is chosen: reference style.
+
+Registry-settled repairs need no decision: a preprint cited after its journal version appeared (once its
+numbers still hold), a shortened title, a missing DOI, an online-versus-issue year, page numbers, a cleared
+false alarm. Apply them when edits are authorised, otherwise prepare them as one patch, and report them as a
+count by kind with whether any changes what a sentence claims; the itemised list is the diff, shown on
+request, never findings or questions. A reference found in no registry or search, or whose identifiers belong
+to another work, may be fabricated: it always goes under "Fix now" with what was searched and how serious it
+is, since some journals reject for one (see
+[what needs no decision](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)).
 
 Write each finding as a short paragraph. Quote the manuscript sentence, or the reference-list entry, as it
 stands and name its section. Give the cited work as a link (`https://doi.org/...`,

@@ -114,7 +114,9 @@ uv run --script scripts/scan.py PAPER.md --venue <venue-key> --md /tmp/scan.md -
 Add `--online` only when the request covers references (a full audit, a citation check): it resolves every DOI,
 PMID and arXiv id, compares titles and authors, records retraction status and flags preprints since published or
 withdrawn (`../manuscript-reference-check/references/identity-checks.md`). `--venue KEY` checks length limits;
-`--git` only when the authors ask. It finds chatbot leftovers, placeholders (also in HTML comments), missing
+`--git` only when the authors ask. With `--online`, unidentified reference entries are searched by their text
+(`--search-unidentified`, on by default); that sends bibliographic strings, not the manuscript, to Crossref.
+Turn it off with `--no-search-unidentified` only when the authors ask. It finds chatbot leftovers, placeholders (also in HTML comments), missing
 declarations, AI mentions without a disclosure, citation mismatches, overclaim words, stock and tortured phrases,
 vocabulary densities, percentages that disagree with their counts and Abstract figures that never reappear (a
 missing software archive is only a hint for `manuscript-reporting-check`). It reads Markdown, LaTeX (with the
@@ -170,6 +172,13 @@ mean, SD and SEM from the listed runs, stage times against the total, and counts
 Put what disagrees under "Fix now" with its arithmetic, and say in one sentence what you recomputed and found
 consistent.
 
+Before reporting a number that matches no table, or a quoted version or software behaviour, look in the
+project's own files when the paper has a repository: benchmark result tables, run logs, `pyproject.toml` or
+release tags, the code that writes the output. Report what they settle and why the text differs (a figure
+from a wider set of runs than the table it cites, a version later superseded), as the
+[project check](references/author-priorities.md#minimum-useful-work) describes. Ask the authors only what the
+files leave open.
+
 ### Step 4: reporting, availability and venue requirements
 
 Ethics, privacy, clinical-scope and regulatory applicability (including authors' own public genomes) are
@@ -192,7 +201,12 @@ Then check the items in `references/venue-requirements.md`: an AI-use statement 
 with only the fields it requires (report gaps; `manuscript-journal-adapt` drafts and places it), no AI author
 or AI output cited as a source, required availability statements, length and structure limits
 (`over_limit_return` in `venues.yaml`), costly validation requirements as an early feasibility question for the
-authors under their budget (`manuscript-journal-select` for alternatives), figure rules and preprint overlap.
+authors under their budget (`manuscript-journal-select` for alternatives), figure rules and preprint overlap. A
+required comparison with existing methods is judged by what every benchmark in the paper actually compares
+against (`references/claim-evidence.md`, improvement over existing methods), never by whether the baseline was
+the authors' own earlier system. When `policy_watch.py` cannot reach the page, read it with a web-fetch tool;
+when that stops short of the section you need, use the latest complete Internet Archive copy, and say which copy
+each quoted rule rests on.
 Scope, length, structure and the abstract format go under "Once you have chosen the journal"; the AI-use
 statement, declarations, archives and the data availability statement go under "Before submission, once the
 code is final". Without a chosen venue, skip the venue lookup and say which checks wait for the choice.
@@ -225,7 +239,9 @@ as additional work. Ask authors for new analyses only when the missing evidence 
 uv run --script scripts/hygiene.py submission/ --md /tmp/hygiene.md --json /tmp/hygiene.json
 ```
 
-Run it on the files that will be uploaded (directory, archive or files) after the last edit. It finds LaTeX
+Run it on the files that will be uploaded (directory, archive or files) after the last edit. On a draft with no
+upload files yet, run it once on the current source and supplementary folder for the two findings that are
+urgent at any stage (below), and say it must run again on the final files. It finds LaTeX
 comments and commented-out blocks with content, hidden text and prompts aimed at AI reviewers (a blocker,
 whoever added it), secrets (masked), local paths, editable Google Docs links, EXIF GPS and author tags in
 figures, and with `--anonymous --author NAME` self-identifying text. PDFs without poppler and figures without
@@ -292,7 +308,14 @@ parentheses.
   ("Bioinformatics asks authors not to have LLMs draft sections; if an editor asks, this would need
   disclosure"). It is never a required fix or a blocker, and it is not repeated elsewhere in the report.
 - **What could not be checked**: each material check that could not run, why, and what it leaves open.
-- **Questions**, only for facts the next step needs.
+- **Corrected, or ready to apply**: corrections a registry or the project's files settle (published version
+  of a preprint, a title, a year, a DOI, a miscount), given as one or two sentences of counts by kind and
+  whether any changes what a sentence claims; the itemised list is the patch or diff, shown on request. They
+  never appear in the groups above or as questions. A reference that cannot be found anywhere, or whose
+  identifiers belong to another work, is not in this class: it goes under "Fix now" with how serious it is
+  (see [what needs no decision](references/author-priorities.md#minimum-useful-work)).
+- **Questions**, only for facts the next step needs that neither the manuscript, the conversation nor the
+  project's files answer.
 
 Before handing the report over, reread it against the prose-edit catalogue
 (`../manuscript-prose-edit/references/llm-smells.md`) and, when it is installed, the `humanizer` skill, and fix

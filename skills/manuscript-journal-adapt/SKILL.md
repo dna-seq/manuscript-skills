@@ -25,7 +25,12 @@ Use `manuscript-integrity-check` for an audit when requested or a concrete conce
 For edits intended to reduce clinical, ethics, privacy or regulatory misclassification, use
 `manuscript-policy-fit` to establish which conditions actually apply, then preserve those facts during
 adaptation. An author's deliberately public personal genome is a distinct case from recruited patient
-data; neither human origin nor voluntary release alone settles every venue requirement.
+data; neither human origin nor voluntary release alone settles every venue requirement. When the request
+names an ethics, consent or data statement, read policy-fit's instructions and apply them inside this pass;
+it is not a second pass for the authors to start. Draft an ethics statement from the committee's letter in
+the letter's own words (what it determined, its reference number and date, what it covers). Where the paper
+uses data or reports results the letter does not name, say so once among the decisions; the statement
+describes what the paper did, and the determination stands.
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
@@ -61,8 +66,9 @@ uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --venue <
 ```
 
 Apply the relevant checklist items within the authorised task: abstract restructured to the venue's headings and
-length; body length (a return rule for overlength papers applies only when the venue entry records one
-from the current page); required sections (data and code availability, archived software DOI, competing
+length; body length (a return rule for overlength papers applies when the venue entry records one from the
+current page, or from the most recent complete copy when the live page could not be read to that section;
+say which); required sections (data and code availability, archived software DOI, competing
 interests, author contributions); the venue's reference style (identity and support stay with
 `manuscript-reference-check`); AI disclosure in **every** place the venue names with the fields it asks
 for, drafted from `../manuscript-integrity-check/references/disclosure-templates.md` with what the authors
@@ -72,6 +78,23 @@ the venue's page does not say what counts toward a word limit (abstract headings
 tables, figure legends), give the count both ways and say which one the page leaves open. This
 skill owns drafting and placing AI-use statements; `manuscript-integrity-check` only checks that they are
 present.
+
+**Fill what the material settles; ask only for the rest.** A venue rule often turns on a fact about the
+work: whether a component is a trained classifier and on what data (a machine-learning subsection), where a
+dataset came from (its URL or accession for the data availability statement), what format the software
+writes, which runs a number covers. When the paper has a repository, read its code, configuration and
+result files (read-only) and fill the statement or subsection from them, saying which file settled it;
+see [check the project before asking](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work).
+Datasets and software the paper uses without a citation, under a data-citation or prior-work rule, are
+added within the adaptation once `manuscript-reference-check`'s identity check confirms each record, and
+reported as a count, not as a task for the authors.
+
+**Compare like with like before calling a comparison missing.** When the venue asks that new methods be
+compared with existing ones, identify what every benchmark in the paper is compared against before judging
+any of them. A baseline that is an established tool counts as a comparison with existing methods even when
+the authors built on it or ran their earlier system through it (an earlier pipeline running as OakVar
+plugins is a comparison with OakVar). Hold every benchmark to the same standard: do not accept one
+established tool as the state of the art and call another "only your own earlier version".
 
 Fitting the abstract or body to a limit shortens and restructures; it never adds a result, number or
 claim that the abstract did not already make, and it keeps qualifiers such as "in these configurations"
@@ -95,7 +118,11 @@ For content-preserving edits, consult the shared
 `../manuscript-prose-edit/scripts/guard.py BEFORE AFTER` flags selected changes to numbers, citations,
 identifiers, terms and wording, and claims that an edit strengthened; it does not prove semantic
 equivalence. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
-lists each change with its section and line. Revision markers in the text stay as they are; strip them
+lists each change with its section and line. When text moves to another file (a supplement split off,
+a section moved there), pass that file as well so moved text is not reported as removed, and still read
+the diff yourself: a guard that passes does not prove nothing was dropped. Revision markers in the text
+stay as they are; when the edits add or bump markers, follow the project's written rules for them (its
+manuscript README or CLAUDE.md) and run its marker lint if it has one. Strip them
 only for the upload files when the authors want that (see author-priorities; `manuscript-revision-marks`
 writes the clean copy and builds the PDF from it, measured against a page limit). Resolve false positives in context
 and rerun only checks affected by the adaptation. Use `manuscript-prose-edit` for broader language editing
@@ -118,6 +145,14 @@ page, and list it with the authors' other decisions. Do not put it first, offer 
 for, or come back to it. The statement describes the use that happened: rewriting AI-drafted passages by
 hand afterwards does not undo that use, so never present a rewrite as a way to satisfy the ban.
 
+Text this skill drafts during the adaptation (a shortened abstract, a data availability or ethics
+statement, pointer sentences for moved material) is AI use too. Do the drafting the request covers, then
+name it once among the uses in the statement's draft, alongside what the authors say their tools did.
+
+When the authors give the tools they used, fill them in the statement at once (tool, developer, the model
+versions they name, how one tool checked another) and leave in brackets only what they have not said, such
+as which parts of the work each tool was used for.
+
 ## Report the adaptation
 
 Write the report as [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
@@ -132,7 +167,9 @@ under its four labels. `show` already separates what can be done once the journa
 waits until the code, data and results are final: the archived release and its DOI, versions quoted in the
 text, the final placement of the AI-use statement, the cover letter, removing revision markers and the
 upload check. Those last items are not blockers for the current draft. Put the authors' decisions,
-including any policy conflict, together in one place.
+including any policy conflict, together in one place. Questions come last and only for facts that neither
+the manuscript, the conversation nor the project's files hold. When the authors answer, apply the answers
+to the manuscript and the report in the same turn and drop the questions they settle; do not ask again.
 
 ## Shared resources and maintenance
 
