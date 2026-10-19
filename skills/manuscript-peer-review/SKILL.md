@@ -1,10 +1,12 @@
 ---
 name: manuscript-peer-review
 description: >-
-  Simulate a panel of journal referees ("Reviewer 2") to red-team the authors' own draft before
-  submission: whether the contribution is clear and new, the design answers the question, the results
-  support the claims, and which alternative explanations and missing comparisons referees would raise.
-  Every concern quotes the manuscript and survives a defence pass before it is reported. Also drafts a
+  Simulate the referee reports a real journal would send back on the authors' own draft ("Reviewer 2"),
+  then turn them into what to fix. Three referees review for the target journal (or each of the top
+  three journals on the authors' ladder) and each writes a report as referees do: a recommendation
+  (accept, minor revision, major revision or reject), a summary, strengths, major and minor concerns.
+  Every concern quotes the manuscript and survives a defence pass before it is reported; the concerns
+  are then merged into the authors' list of what to fix, in the order they can act on it. Also drafts a
   referee report when the user is reviewing someone else's paper. Use for
   pre-submission red-teaming, simulated or "Reviewer 2" reviews, and desk-editor or methods-reviewer
   passes. Use manuscript-integrity-check for checkable submission problems (references, leftovers,
@@ -16,15 +18,16 @@ description: >-
 
 # Simulated peer review
 
-Give the authors the referee judgement they would otherwise meet after submission, while they can still
-act on it. Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md)
+Give the authors the referee reports they would otherwise receive after submission, while they can
+still act on them, and the list of what to fix that those reports imply. Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md)
 and, when it exists, the
 [manuscript record](../manuscript-integrity-check/references/manuscript-record.md).
 
-This is a simulation of what careful referees could raise, not a prediction of the editor's decision.
-Never give scores, ratings or an acceptance probability. A decision distribution only when the authors
-ask for one, labelled uncalibrated ([options.md](references/options.md)). This skill reports; it never
-edits the manuscript.
+This is a simulation of what careful referees at a named journal could raise, not a prediction of the
+editor's decision. Each simulated referee gives the recommendation a referee gives (accept, minor
+revision, major revision or reject) with the concerns it rests on. Never give scores, ratings, an
+acceptance probability, an average of the recommendations or a predicted editorial decision. This skill
+reports; it never edits the manuscript.
 
 Apply the review to the whole paper unless the authors name a narrower scope, and follow the shared
 [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review).
@@ -51,15 +54,17 @@ changed sections lie outside its scope), or its findings are in the conversation
 referee would raise the same point, and say why where the panel judges it differently. Whether the
 results support the claims stays referee judgement, with integrity's Step 5 as its starting point. A
 confirmed point in another check's remit (a number that disagrees, a missing statement or archive, a
-TODO, a citation's identity) goes in a short "Also found, belongs to other checks" list naming its
-skill (or, when it waits for the end, such as a declaration or an archive record, in the end-stage
-group), never among the ranked concerns. When a check has not run, say so under "What this review did
-not have" and offer it; do not run it here. The one check this skill runs is resolving prior-work
-identifiers (step 4).
+TODO, a citation's identity) goes in Part 2 of the result, in a short "Also found, belongs to other
+checks" list naming its skill (or, when it waits for the end, such as a declaration or an archive
+record, in the end-stage group), never among the ranked items; a referee's report may still mention it,
+as real referees do. When a check has not run, say so under "What this review did not have" and offer
+it; do not run it here. The one check this skill runs is resolving prior-work identifiers (step 4);
+the editor's desk screen (step 2) only reads the draft against the journal's recorded rules.
 
 ## Choose the mode
 
-- **Own draft** (default): red-team the authors' manuscript before submission.
+- **Own draft** (default): simulate submitting the authors' manuscript to a journal, and give them the
+  referees' reports and their list of what to fix ([output-format.md](references/output-format.md)).
 - **Invited referee**: the user is reviewing someone else's submission. Start the review without asking
   them to confirm anything, and follow [invited-referee.md](references/invited-referee.md): a draft
   referee report for the user to edit, with comments to the authors and to the editor kept apart, no
@@ -81,9 +86,39 @@ with `pandoc -t gfm`). Read `manuscript-record.yaml` when it exists. Write down,
 This claim map is for adjudication. It is never given to the seats, and its ids never stand alone in the
 report: name the claim in words, with its id in parentheses if at all.
 
-## Step 2: choose the panel
+For the editor's desk screen (step 2), also note the length of the body and the abstract, counted as the
+journal counts them, from a current integrity-check or journal-adapt result when one exists.
 
-By default run **three seats plus the defender**, chosen from the study design with
+## Step 2: choose the journal and the panel
+
+**The journal.** Referees judge against a journal's scope, bar and article type, so simulate a
+submission to a real one. Take the first that applies, without asking:
+
+1. the journal the authors name in the request;
+2. `venue` in `manuscript-record.yaml`, or the chosen journal in the project's own planning document;
+3. the journal ladder (`ladders.journals` in the record, or the project's equivalent): the **top three
+   rungs**;
+4. otherwise a generic journal in the paper's field, for the article type the manuscript reads as. Say
+   so at the top of the result and offer to rerun for a named journal or for the top of a ladder from
+   manuscript-journal-select.
+
+For each journal, write the referees' `venue.md` (one file; one section per journal). Take its facts from
+`../manuscript-journal-adapt/scripts/venues.py show KEY`: the journal's name and the article type, its
+fields and article types, its editorial profile, the rules its editors check on arrival, its validation
+and software requirements, and its length limits. Add what the journal asks its referees when its
+guidelines for reviewers can be read (a page among the entry's `sources`, or the publisher's guidelines
+for reviewers): the questions on its form and its recommendation options, quoted. For a journal not in
+the catalogue, read its author guidelines and guidelines for reviewers. Leave out the authors'
+priorities and why they chose or ranked the journal. Record what each brief was read from and when; the
+result says so, or that the guidelines for reviewers could not be found.
+
+**The editor's desk screen.** Before the referees, read the draft against the journal's checkable desk
+rules: article type, length (a current recorded result, or the word count from step 1), required
+abstract headings, an excluded study design, a required item such as a cover letter. A rule the draft
+fails is reported first in Part 1 of the result, quoted with its page. A rule that needs judgement
+("papers of less significance") is left to the referees.
+
+**The panel.** By default run **three seats plus the defender**, chosen from the study design with
 [seats.md](references/seats.md#choosing-the-panel): the design's main seat, the skeptic and the champion.
 Add the domain modules whose trigger cues match and whose exclusion cues do not:
 
@@ -92,18 +127,25 @@ Add the domain modules whose trigger cues match and whose exclusion cues do not:
 - [domains/human-data-and-clinical.md](references/domains/human-data-and-clinical.md)
 - [domains/ai-systems.md](references/domains/ai-systems.md)
 
-Run it without asking, state the panel at the top of the output, and offer the five-seat panel (two more
-whole-paper reads). Ask first only when the authors want to choose the panel: then one short message
-with the seats, the modules and why, and the cost (each seat reads the whole paper).
+When the simulation covers three journals, the same three seats each read the paper once and give a
+recommendation for each journal: the science they judge does not change between journals; the bar, the
+scope and the article type do. A separate panel per journal is the fuller option
+([options.md](references/options.md#a-separate-panel-for-each-journal)).
+
+Run it without asking, state the journal and the panel at the top of the output, and offer the
+five-seat panel (two more whole-paper reads). Ask first only when the authors want to choose the panel:
+then one short message with the journal, the seats, the modules and why, and the cost (each seat reads
+the whole paper).
 
 ## Step 3: run the seats in isolation
 
 - Working files (seat workspaces, the merged findings, the check output) go in a scratch directory
-  (`$WORK` below), not beside the manuscript, unless the project already keeps such files.
+  (`$WORK` below): only the agent reads them. The review itself goes where the plugin-wide `reports`
+  setting says (step 7).
 - Give each seat its own workspace holding only: a reading copy of the manuscript with HTML comments,
   LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; a
-  copy of [finding-schema.md](references/finding-schema.md); and the questions of any domain module
-  loaded for that seat, as `domain-questions.md` (no other seat sees them). Nothing else: no
+  copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
+  of any domain module loaded for that seat, as `domain-questions.md` (no other seat sees them). Nothing else: no
   `manuscript-record.yaml`, no other seat's output, no cover letter, earlier reviews, notes or the
   authors' view of their paper. Quotes are still checked against the original, where comments are not
   quotable either.
@@ -112,7 +154,8 @@ with the seats, the modules and why, and the cost (each seat reads the whole pap
   in one message as blocking (foreground) calls, so that they run in parallel and you receive every
   result (in Claude Code, `run_in_background: false`). Never start them in the background, and never end
   your turn while a seat is running. Retry a seat that fails to start (for example at a concurrency
-  limit). Before merging, check that each seat's `findings.json` exists and parses.
+  limit). Before merging, check that each seat's `findings.json` exists, parses and ends with its
+  `report`; ask a seat that left the report out to add it, and never write one for it.
 - **Fallback.** When the host cannot start subagents, or a seat still fails after a retry, run that seat
   (or every seat) as a sequential pass: write its criteria first, then one pass from the reading copy,
   without rereading earlier passes until all are done. Label those seats "sequential pass by one agent,
@@ -120,7 +163,8 @@ with the seats, the modules and why, and the cost (each seat reads the whole pap
 
 ## Step 4: check the finding contract and resolve prior work
 
-Merge the seats' JSON into one file, keeping each finding's `seat`, and run (from this skill directory):
+Merge the seats' JSON into one file, keeping each finding's `seat` and putting each seat's `report`,
+with its `seat`, in `reports`, and run (from this skill directory):
 
 ```bash
 uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.md --supplement SUPPLEMENT.md \
@@ -136,8 +180,9 @@ PDF) is refused, and the report names it.
 Each finding needs a seat, a location, a verbatim quote (or, for something missing, where the seat
 looked), the concern, the claim it affects and how (validity, support, scope, reproducibility or
 interpretation), a severity, what would change the seat's mind, and a proposed route. A finding that
-cannot quote is not a finding. The script lists failures as "not yet findings"; correct a misquote from
-the manuscript or return it to the seat, and never drop one silently.
+cannot quote is not a finding. Each report needs a summary and, per journal, a recommendation with its
+reason and the seat's own findings it rests on. The script lists failures as "not yet findings";
+correct a misquote from the manuscript or return it to the seat, and never drop one silently.
 
 Then resolve every prior work the findings name, including works the manuscript itself cites with an
 identifier. This is the one check this skill runs
@@ -152,8 +197,8 @@ Follow [adjudication.md](references/adjudication.md):
 1. Apply the claim-consequence gate and the fairness filter (no "not novel" without a named, resolved
    prior work; no "run experiment X" unless the claim needs it; no "not state of the art" as such).
 2. Run a defence pass: a fresh blocking subagent with the reading copy and the findings, stripped of seat
-   names and counts. It first tests each finding's premise against its quote, then looks for where the
-   paper already answers it.
+   names and counts, and without the referees' reports or `venue.md`. It first tests each finding's
+   premise against its quote, then looks for where the paper already answers it.
 3. Set a verdict with `verdict_evidence` on every finding. A premise the quoted text does not support is
    refuted. A partly answered finding is narrowed to the part left open, then confirmed, or downgraded
    when that part no longer threatens the claim. Agreement between seats is not confirmation.
@@ -164,7 +209,11 @@ Follow [adjudication.md](references/adjudication.md):
    authors can act on it ([adjudication.md](references/adjudication.md#8-merging-triage-and-ranking)):
    archive records, release tags and declarations wait until the code is final and are never blockers
    for a draft.
-5. Rerun `check_findings.py --adjudicated`; every reported finding must pass.
+5. Read each referee's recommendation against the verdicts
+   ([adjudication.md](references/adjudication.md#9-the-referees-recommendations)): when the defence
+   refuted or narrowed what it rests on, its report says so in one sentence; the recommendation stays as
+   the referee gave it.
+6. Rerun `check_findings.py --adjudicated`; every reported finding and report must pass.
 
 ## Step 6 (optional): robustness and model diversity
 
@@ -175,24 +224,42 @@ with consent to send the manuscript to another provider.
 
 ## Step 7: give the result
 
-Follow [output-format.md](references/output-format.md). When the authors asked which concerns they can
-fix in the text and which need new work, open with that split. Then the overall picture, the panel in
-plain words (offering the five-seat panel after a three-seat run) and the main strengths with quotes.
-Give the confirmed concerns in the order the authors can act on them, under the headings of the
+Follow [output-format.md](references/output-format.md). Open with where the paper lands (each
+referee's recommendation, per journal), the overall picture, and the journal and panel in plain words
+(offering the five-seat panel after a three-seat run).
+
+**Part 1, the referees' reports**, as the journal would send them: the editor's desk screen when one of
+its rules stops or risks the draft, then one report per referee in the form referees write: the
+recommendation with its reason, a summary of the paper and the referee's view, strengths, major
+concerns, minor concerns and questions for the authors. Only concerns confirmed or narrowed in
+adjudication appear, in the referee's voice, each quoting the manuscript with its section (a line number
+only in parentheses).
+
+**Part 2, what to fix, in order**: the concerns of all the referees merged by root cause, under the
+headings of the
 [author priorities](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
 "Fix now: the science and the evidence", "Then the writing", "Once you have chosen the journal", then
 "Also found, belongs to other checks" for current points another skill handles, and last "Before
 submission, once the code is final", ranked within each by consequence for the claims and then by cost.
-Each concern quotes the manuscript with its section (a line number only in parentheses), says in full
-sentences what is wrong and why it matters, and ends with what to do: a text fix, or new work with the
-cheaper alternative of narrowing the claim. Close with "What this review did not have" (supplementary
-data not supplied, paywalled sources, code not run, sequential passes, prior work that could not be
-resolved). Write it as
+Each item says the problem in a sentence, names the referees and concern numbers that raised it, and
+ends with what to do: a text fix, or new work with the cheaper alternative of narrowing the claim. When
+the authors asked which concerns they can fix in the text and which need new work, open Part 2 with
+that split.
+
+Close with "What this review did not have" (supplementary data not supplied, paywalled sources, the
+journal's guidelines for reviewers not found, code not run, sequential passes, prior work that could not
+be resolved). Write it as
 [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
 asks: the panel's working vocabulary (seat names, finding and claim ids, verdicts, routes, status
-tokens) appears only in parentheses after a plain description. Keep it proportionate: a page or two, one
-concern per root cause. The full record of every finding is available on request, in the same plain
-form.
+tokens) appears only in parentheses after a plain description. Keep it proportionate: each referee
+report about a page, Part 2 a page or two with one item per root cause. The full record of every finding
+is available on request, in the same plain form.
+
+**Where the review goes** follows the plugin-wide `reports` setting, asked once for every skill
+([author priorities](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)). With `file`, the default, save it beside the manuscript or in the folder the
+authors name, as `paper.peer-review.md`; the reply gives its path, where the paper lands at each journal
+and the "Fix now" items in a sentence each. With `chat`, give the whole review in the reply and save no
+file; with `both`, do both ([output-format.md](references/output-format.md#saving-and-the-shared-record)).
 
 ## Hand-offs
 
@@ -210,13 +277,19 @@ form.
 
 ## Files
 
-- `scripts/check_findings.py`: verifies quotes, required fields, allowed values and prior-work
-  identifiers; groups findings and counts seats; Markdown and JSON output; no scores.
-- `references/seats.md`: panel choice by study design, seat remits, the quick pass, the seat brief.
-- `references/finding-schema.md`: the finding fields, the contract and the script's checks.
-- `references/adjudication.md`: gates, fairness filter, defence pass, verdicts, routes, triage.
-- `references/output-format.md`: the output for the authors' own draft and the record update.
+- `scripts/check_findings.py`: verifies quotes, required fields, allowed values, prior-work identifiers
+  and each referee's report; groups findings and counts seats; after adjudication, flags recommendations
+  whose findings the defence refuted or narrowed and sorts each referee's findings into its report's
+  sections; Markdown and JSON output; no scores.
+- `references/seats.md`: panel choice by study design, seat remits, the quick pass, the seat brief (with
+  `venue.md` and the referee's report).
+- `references/finding-schema.md`: the finding fields, the referee's report, the contract and the script's
+  checks.
+- `references/adjudication.md`: gates, fairness filter, defence pass, verdicts, routes, triage, the
+  referees' recommendations.
+- `references/output-format.md`: the two-part output for the authors' own draft (the referees' reports,
+  then what to fix) and the record update.
 - `references/invited-referee.md`: reviewing someone else's paper: the draft referee report and practical
   handling of an unpublished paper and its code.
-- `references/options.md`: robustness check, model diversity, decision distribution.
+- `references/options.md`: robustness check, model diversity, a separate panel per journal.
 - `references/domains/`: genomics, software and methods, human data and clinical claims, AI systems.

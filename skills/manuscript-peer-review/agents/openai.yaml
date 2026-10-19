@@ -1,4 +1,4 @@
 interface:
   display_name: "Manuscript peer review"
-  short_description: "Red-team a draft with a simulated referee panel"
-  default_prompt: "Use $manuscript-peer-review to red-team this draft with a simulated referee panel before we submit it. Run the default three-seat panel chosen from the design and tell us who was on it, quote the manuscript for every concern, order the concerns by when we can act on them, and separate what we can fix in the text from what needs new analysis."
+  short_description: "Simulate the referee reports a journal would send"
+  default_prompt: "Use $manuscript-peer-review to simulate submitting this draft to our target journal before we submit it. Give us the three referees' reports as the journal would send them, each with its recommendation, strengths, and major and minor concerns that quote the manuscript; then our list of what to fix, ordered by when we can act on it, separating what we can fix in the text from what needs new analysis."

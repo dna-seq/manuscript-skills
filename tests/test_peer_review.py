@@ -555,6 +555,143 @@ def test_cli_rejects_a_manuscript_that_is_not_text_and_reads_any_that_is(tmp_pat
     assert runner.invoke(cf.app, [str(_write_json(tmp_path, [_finding()])), str(odd)]).exit_code == 0
 
 
+# --- the referees' reports: a summary and a recommendation per journal, resting on the referee's own findings ---
+
+def _report(seat: str = "evidence-statistics", **rec: Any) -> dict[str, Any]:
+    recommendation = {"venue": "bioinformatics", "recommendation": "major-revision",
+                      "reason": "The held-out accuracy rests on a split that can leak gene identity.", "rests_on": ["F1"]}
+    recommendation.update(rec)
+    return {"seat": seat, "summary": "VarRank ranks missense variants; the benchmark does not yet support its claim.",
+            "recommendations": [{k: v for k, v in recommendation.items() if v is not None}]}
+
+
+def _only_report(report: dict[str, Any]) -> dict[str, Any]:
+    assert len(report["reports"]) == 1
+    return report["reports"][0]
+
+
+def test_a_report_resting_on_its_own_findings_passes_and_reads_in_plain_words() -> None:
+    report = cf.check({"findings": [_finding()], "reports": [_report()]}, SEEDED)
+    assert report["summary"]["reports"] == 1 and report["summary"]["reports_failed"] == 0
+    assert report["reports_missing"] == [] and report["venues"] == ["bioinformatics"]
+    md = cf.to_markdown(report)
+    assert "for bioinformatics: major revision." in md and "major-revision" not in md
+
+
+@pytest.mark.parametrize("rec, problem", [
+    ({"recommendation": "weak accept"}, "not one of accept, minor-revision, major-revision or reject"),
+    ({"recommendation": None}, "'None', not one of"),
+    ({"reason": None}, "gives no reason"),
+    ({"rests_on": []}, "names none of the referee's findings it rests on"),
+    ({"rests_on": "F1"}, "must list the ids of the findings it rests on"),
+    ({"rests_on": ["F9"]}, "F9, which is not a finding in this file"),
+    ({"venue": None}, "does not name the journal it is for"),
+])
+def test_a_recommendation_without_its_grounds_fails(rec: dict[str, Any], problem: str) -> None:
+    r = _only_report(cf.check({"findings": [_finding()], "reports": [_report(**rec)]}, SEEDED))
+    assert r["contract"] == "fail" and any(problem in p for p in r["problems"]), r["problems"]
+
+
+def test_a_recommendation_cannot_rest_on_another_referees_finding() -> None:
+    data = {"findings": [_finding(), _finding(id="SK-1", seat="skeptic", quote=CAUSAL,
+                                              concern="Causal wording for a cross-sectional association.")],
+            "reports": [_report(rests_on=["SK-1"])]}
+    r = _only_report(cf.check(data, SEEDED))
+    assert r["contract"] == "fail" and any("another referee (skeptic)" in p for p in r["problems"])
+
+
+def test_accept_needs_no_finding_to_rest_on() -> None:
+    r = _only_report(cf.check({"findings": [], "reports": [_report(recommendation="accept", rests_on=None)]}, SEEDED))
+    assert r["contract"] == "pass", r["problems"]
+
+
+def test_a_seats_own_file_gives_one_report_without_naming_the_seat() -> None:
+    own = {k: v for k, v in _report().items() if k != "seat"}
+    r = _only_report(cf.check({"findings": [_finding()], "report": own}, SEEDED))
+    assert (r["seat"], r["contract"]) == ("evidence-statistics", "pass")
+    mixed = {"findings": [_finding(), _finding(id="SK-1", seat="skeptic", quote=CAUSAL, concern="Causal wording.")],
+             "report": own}
+    assert any("which simulated referee wrote it" in p for p in _only_report(cf.check(mixed, SEEDED))["problems"])
+    with pytest.raises(ValueError):
+        cf.check({"findings": [], "report": own, "reports": [own]}, SEEDED)
+
+
+def test_one_recommendation_per_journal_and_one_report_per_referee() -> None:
+    twice = _report()
+    twice["recommendations"] *= 2
+    assert any("two recommendations for bioinformatics" in p
+               for p in _only_report(cf.check({"findings": [_finding()], "reports": [twice]}, SEEDED))["problems"])
+    report = cf.check({"findings": [_finding()], "reports": [_report(), _report()]}, SEEDED)
+    assert [r["contract"] for r in report["reports"]] == ["pass", "fail"]
+    assert report["summary"]["reports_failed"] == 1
+
+
+def test_a_referee_without_a_report_is_named_and_none_is_written_for_it() -> None:
+    data = {"findings": [_finding(), _finding(id="SK-1", seat="skeptic", quote=CAUSAL, concern="Causal wording.")],
+            "reports": [_report()]}
+    report = cf.check(data, SEEDED)
+    assert report["reports_missing"] == ["skeptic"] and report["summary"]["reports_failed"] == 0
+    assert "never write one for them" in cf.to_markdown(report)
+    quick = cf.check({"findings": data["findings"]}, SEEDED)  # a quick pass writes no reports: nothing is missing
+    assert quick["reports_missing"] == [] and quick["summary"]["reports"] == 0
+    assert "holds no referee reports" in cf.to_markdown(quick)
+
+
+def test_a_ladder_names_the_journal_a_referee_left_out() -> None:
+    both = _report()
+    both["recommendations"].append({"venue": "bmc-bioinformatics", "recommendation": "minor-revision",
+                                    "reason": "The split matters less for a resource paper.", "rests_on": ["F1"]})
+    data = {"findings": [_finding(), _finding(id="SK-1", seat="skeptic", quote=CAUSAL, concern="Causal wording.")],
+            "reports": [both, _report(seat="skeptic", rests_on=["SK-1"])]}
+    report = cf.check(data, SEEDED)
+    assert report["venues"] == ["bioinformatics", "bmc-bioinformatics"]
+    assert report["venues_missing"] == {"skeptic": ["bmc-bioinformatics"]}
+    assert "gave no recommendation for bmc-bioinformatics" in cf.to_markdown(report)
+
+
+def test_after_adjudication_a_recommendation_resting_on_a_refuted_finding_is_flagged() -> None:
+    findings = [_adjudicated("F1", LEAK),
+                _adjudicated("F2", "Features were standardised on the training set.", verdict="refuted",
+                             defence_quote=DEFENCE, triage=None),
+                _adjudicated("F3", CAUSAL, verdict="downgraded", severity="optional")]
+    report = cf.check({"findings": findings, "reports": [_report(rests_on=["F1", "F2", "F3"])]}, SEEDED,
+                      adjudicated=True)
+    rec = _only_report(report)["recommendations"][0]
+    assert rec["challenged"] == {"F2": "refuted", "F3": "downgraded"}
+    md = cf.to_markdown(report)
+    assert "the defence refuted F2" in md and "leave the recommendation as the referee gave it" in md
+    before = cf.check({"findings": [_finding()], "reports": [_report()]}, SEEDED)  # nothing to flag before the defence
+    assert _only_report(before)["recommendations"][0]["challenged"] == {}
+
+
+def test_after_adjudication_each_referees_findings_fill_the_sections_of_its_report() -> None:
+    findings = [
+        _adjudicated("science", LEAK),
+        _adjudicated("wording", CAUSAL, severity="optional", triage="misread-risk", route="fixable-in-text"),
+        _adjudicated("unsure", "the ClinVar release of 6 January 2025", severity="uncertain"),
+        _adjudicated("archive", "VarRank 1.2.0 is available at", stage="final", route="fixable-in-text"),
+        _adjudicated("answered", "Features were standardised on the training set.", verdict="refuted",
+                     defence_quote=DEFENCE, triage=None),
+        _adjudicated("other", "On 4,812 held-out ClinVar missense variants", seat="skeptic"),
+    ]
+    report = cf.check(findings, SEEDED, adjudicated=True)
+    assert report["summary"]["fail"] == 0
+    assert report["by_referee"] == {
+        "evidence-statistics": {"major": ["science"], "minor": ["wording", "archive"], "questions": ["unsure"]},
+        "skeptic": {"major": ["other"], "minor": [], "questions": []},
+    }
+    assert cf.check(findings, SEEDED)["by_referee"] is None  # only after adjudication
+    assert "## What each referee's report contains" in cf.to_markdown(report)
+
+
+def test_cli_exits_one_when_a_report_fails_its_contract(tmp_path: Path) -> None:
+    data = {"findings": [_finding()], "reports": [_report(recommendation="weak accept")]}
+    result = runner.invoke(cf.app, [str(_write_json(tmp_path, data)), str(SEEDED)])
+    assert result.exit_code == 1 and "Reports that do not meet the contract" in result.output
+    data["reports"] = [_report()]
+    assert runner.invoke(cf.app, [str(_write_json(tmp_path, data)), str(SEEDED)]).exit_code == 0
+
+
 # --- the Markdown report: quoted passages, URLs and plain words, never bare line references -----------------
 
 def _no_bare_locations(md: str) -> None:
@@ -679,7 +816,8 @@ def test_after_adjudication_groups_follow_the_order_the_authors_work_in() -> Non
     headings = [line for line in md.splitlines() if line.startswith("## ")]
     assert headings == ["## Fix now: the science and the evidence", "## Then the writing",
                         "## Once you have chosen the journal", "## Also found, belongs to other checks",
-                        "## Answered by the paper (refuted by the defence pass)"]
+                        "## Answered by the paper (refuted by the defence pass)",
+                        "## What each referee's report contains"]
     assert "As proposed, it needs new work from the authors, at the cost of a reanalysis of existing data." in md
     assert "It belongs to manuscript-integrity-check; mention it there rather than as a referee concern." in md
     _no_bare_locations(md)
@@ -728,7 +866,8 @@ def test_the_schema_example_passes_against_the_seeded_fixture() -> None:
     example = json.loads(re.search(r"```json\n(.*?)\n```", text, re.S).group(1))
     report = cf.check(example, SEEDED)
     assert report["summary"]["fail"] == report["summary"]["not_assessed"] == 0
-    assert report["summary"]["strengths_not_anchored"] == 0
+    assert report["summary"]["strengths_not_anchored"] == report["summary"]["reports_failed"] == 0
+    assert report["summary"]["reports"] == 1
 
 
 # --- skill files, fixtures and eval cases ---------------------------------------------------------------------
@@ -759,11 +898,24 @@ def test_the_fixture_pair_is_one_paper_with_the_planted_text_repaired() -> None:
         assert quote in seeded_flat and quote not in clean_flat, key
 
 
-def test_the_record_fixture_matches_the_seeded_manuscript() -> None:
-    record = yaml.safe_load((FIXTURES / "manuscript-record.yaml").read_text(encoding="utf-8"))
+@pytest.mark.parametrize("path", ["manuscript-record.yaml", "ladder/manuscript-record.yaml"])
+def test_the_record_fixtures_match_the_seeded_manuscript(path: str) -> None:
+    record = yaml.safe_load((FIXTURES / path).read_text(encoding="utf-8"))
     digest = hashlib.sha256(SEEDED.read_bytes()).hexdigest()
     assert record["manuscript"] == SEEDED.name
     assert {c["manuscript_sha256"] for c in record["checks"]} == {digest}
+
+
+def test_the_ladder_fixture_has_no_chosen_venue_and_more_rungs_than_the_panel_reviews_for() -> None:
+    """The ladder case expects the top three rungs and not the fourth, each a key the venue catalogue knows."""
+    record = yaml.safe_load((FIXTURES / "ladder" / "manuscript-record.yaml").read_text(encoding="utf-8"))
+    known = yaml.safe_load((ROOT / "skills" / "manuscript-integrity-check" / "references" / "venues.yaml")
+                           .read_text(encoding="utf-8"))["venues"]
+    rungs = record["ladders"]["journals"]
+    assert "venue" not in record and len(rungs) > 3 and set(rungs) <= set(known)
+    with_venue = yaml.safe_load((FIXTURES / "manuscript-record.yaml").read_text(encoding="utf-8"))
+    assert {k: v for k, v in with_venue.items() if k != "venue"} == \
+        {k: v for k, v in record.items() if k not in ("priorities", "ladders")}  # otherwise the same record
 
 
 def test_the_adjudication_fixture_quotes_the_seeded_manuscript() -> None:
@@ -787,7 +939,7 @@ def test_the_adjudication_fixture_quotes_the_seeded_manuscript() -> None:
 
 def test_eval_cases_are_well_formed() -> None:
     cases = yaml.safe_load((ROOT / "evals" / "manuscript-peer-review.yaml").read_text(encoding="utf-8"))
-    assert 3 <= len(cases) <= 6
+    assert 3 <= len(cases) <= 7
     assert len({c["id"] for c in cases}) == len(cases)
     for case in cases:
         assert {"id", "skill", "prompt", "files", "rubric", "fail_if"} <= set(case), case["id"]
@@ -813,11 +965,15 @@ def test_the_report_template_uses_the_stage_groups_of_the_script_and_the_shared_
     assert all(title.startswith(label) for label, title in zip(labels, titles)), (labels, titles)
     template = re.search(r"## Template\n\n```markdown\n(.*?)\n```", (SKILL / "references" / "output-format.md")
                          .read_text(encoding="utf-8"), re.S).group(1)
-    headings = re.findall(r"^## (.+)$", template, re.M)
+    headings = re.findall(r"^#{2,3} (.+)$", template, re.M)
     assert [h for h in headings if h.startswith(tuple(labels))] == titles
     script_order = [title for _, title in cf.STAGES]
     assert [h for h in headings if h in script_order] == [t for t in script_order if t in headings]
-    assert headings.index(titles[0]) == headings.index("Main strengths") + 1  # current work right after strengths
+    # The referees' reports come first; the authors' list of what to fix opens with current work.
+    part1, part2 = headings.index("Part 1: the referees' reports"), headings.index("Part 2: what to fix, in order")
+    assert part1 < part2 and headings.index(titles[0]) == part2 + 1
+    referees = [h for h in headings if h.startswith("Referee ")]
+    assert len(referees) == 3 and all(part1 < headings.index(h) < part2 for h in referees)
     skill = " ".join((SKILL / "SKILL.md").read_text(encoding="utf-8").split())
     positions = [skill.find(f'"{title}"') for title in titles]
     assert -1 not in positions and positions == sorted(positions), positions

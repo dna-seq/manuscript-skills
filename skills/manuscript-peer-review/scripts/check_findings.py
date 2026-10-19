@@ -13,6 +13,12 @@ that point at the same text, carry the same group label or raise a near-identica
 with the number of distinct seats in each group. That count says how many seats raised a concern, not
 whether it is right. The script gives no scores. Schema: ../references/finding-schema.md.
 
+Each referee's report (its summary and one recommendation per journal) is checked too: the recommendation
+is one of accept, minor revision, major revision or reject, gives a reason, and names the referee's own
+findings it rests on. After adjudication the check says which recommendations rest on a finding the
+defence refuted or narrowed, and sorts each referee's confirmed findings into the major concerns, minor
+concerns and questions of its report. A file without reports (a quick pass) is not an error.
+
 The Markdown report is written for people who did not write these skills: each group quotes the passage it
 concerns with its section (the line number only in parentheses), statuses are plain words, prior-work
 identifiers are full URLs, and after adjudication the groups are sorted by when the authors can act on
@@ -55,7 +61,10 @@ HAND_TO = ("manuscript-prose-edit", "manuscript-reference-check", "manuscript-re
            "manuscript-integrity-check", "manuscript-policy-fit", "manuscript-journal-adapt",
            "manuscript-journal-select")
 PRIOR_STATUS = ("verified", "unverified")
-REQUIRED = ("id", "seat", "location", "concern", "claim", "consequence", "severity", "change_my_mind", "route")
+RECOMMENDATIONS = ("accept", "minor-revision", "major-revision", "reject")
+RECOMMENDATION_WORDS = {"accept": "accept", "minor-revision": "minor revision", "major-revision": "major revision",
+                        "reject": "reject"}
+REQUIRED =("id", "seat", "location", "concern", "claim", "consequence", "severity", "change_my_mind", "route")
 
 MIN_QUOTE_WORDS = 3  # shorter quotes must reach MIN_QUOTE_CHARS to anchor a finding
 MIN_QUOTE_CHARS = 12
@@ -595,6 +604,97 @@ def _check_strength(raw: Any, position: int, sources: Sources) -> dict[str, Any]
             "quote_text": raw.get("quote")}
 
 
+def _challenge(f: dict[str, Any]) -> Optional[str]:
+    """Why a finding a recommendation rests on no longer stands as the referee raised it, or None."""
+    if f["contract"] != "pass":
+        return "not-yet-a-finding"
+    if f.get("verdict") == "refuted":
+        return "refuted"
+    if f.get("route") == "dropped":
+        return "dropped"
+    if f.get("verdict") == "downgraded":
+        return "downgraded"
+    return None
+
+
+def _check_report(raw: Any, position: int, findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """One referee's report: a summary and, for each journal, a recommendation resting on its own findings."""
+    if not isinstance(raw, dict):
+        return {"index": position + 1, "seat": None, "summary": None, "recommendations": [], "contract": "fail",
+                "problems": ["This entry is not a JSON object, so it cannot be read as a referee's report."]}
+    problems: list[str] = []
+    seat = raw.get("seat")
+    if not _nonempty_str(seat):  # a seat's own file: the report belongs to the one referee who wrote the findings
+        seats = {f["seat"] for f in findings if _nonempty_str(f.get("seat"))}
+        seat = seats.pop() if len(seats) == 1 else None
+        if seat is None:
+            problems.append("It does not say which simulated referee wrote it (seat is missing or empty).")
+    if not _nonempty_str(raw.get("summary")):
+        problems.append("It has no summary of the paper and the referee's overall view (summary is missing or "
+                        "empty).")
+    by_id = {f["id"]: f for f in findings}
+    raw_recs = raw.get("recommendations")
+    if not (isinstance(raw_recs, list) and raw_recs):
+        problems.append("It gives no recommendation (recommendations must be a list with one entry per journal).")
+        raw_recs = []
+    recs, venues = [], set()
+    for i, r in enumerate(raw_recs, 1):
+        if not isinstance(r, dict):
+            problems.append(f"Recommendation {i} is not a JSON object.")
+            continue
+        venue, rec = r.get("venue"), r.get("recommendation")
+        what = f"The recommendation for {venue}" if _nonempty_str(venue) else f"Recommendation {i}"
+        if not _nonempty_str(venue):
+            problems.append(f"Recommendation {i} does not name the journal it is for (venue).")
+        elif venue in venues:
+            problems.append(f"It gives two recommendations for {venue}.")
+        else:
+            venues.add(venue)
+        if rec not in RECOMMENDATIONS:
+            problems.append(f"{what} is '{rec}', not one of {_words_list(RECOMMENDATIONS)}.")
+        if not _nonempty_str(r.get("reason")):
+            problems.append(f"{what} gives no reason.")
+        rests_on = r.get("rests_on", [])
+        if not (isinstance(rests_on, list) and all(_nonempty_str(x) for x in rests_on)):
+            problems.append(f"{what} must list the ids of the findings it rests on (rests_on).")
+            rests_on = []
+        if not rests_on and rec in RECOMMENDATIONS and rec != "accept":
+            problems.append(f"{what} ({RECOMMENDATION_WORDS[rec]}) names none of the referee's findings it rests on "
+                            f"(rests_on).")
+        challenged = {}
+        for fid in rests_on:
+            f = by_id.get(fid)
+            if f is None:
+                problems.append(f"{what} rests on {fid}, which is not a finding in this file.")
+            elif seat and f.get("seat") != seat:
+                problems.append(f"{what} rests on {fid}, which another referee ({f.get('seat')}) raised.")
+            elif _challenge(f):
+                challenged[fid] = _challenge(f)
+        recs.append({"venue": venue, "recommendation": rec, "form_wording": r.get("form_wording"),
+                     "reason": r.get("reason"), "fit": r.get("fit"), "rests_on": rests_on, "challenged": challenged})
+    return {"index": position + 1, "seat": seat, "summary": raw.get("summary"), "recommendations": recs,
+            "contract": "fail" if problems else "pass", "problems": problems}
+
+
+def _by_referee(findings: list[dict[str, Any]], groups: list[dict[str, Any]]) -> dict[str, dict[str, list[str]]]:
+    """Each referee's confirmed and downgraded findings, as the sections of its report: major concerns, minor
+    concerns and questions for the authors. Refuted and dropped findings are not in a report. A finding that
+    waits until the code is final is at most a minor concern, whatever its severity."""
+    order = {fid: n for n, g in enumerate(groups) for fid in g["findings"]}
+    out: dict[str, dict[str, list[str]]] = {}
+    for f in sorted(findings, key=lambda f: order.get(f["id"], 10**6)):
+        if f["contract"] != "pass" or f.get("verdict") not in ("confirmed", "downgraded") or f.get("route") == "dropped":
+            continue
+        if f.get("severity") == "uncertain":
+            section = "questions"
+        elif f.get("severity") in ("blocker", "major") and f.get("stage") != "final":
+            section = "major"
+        else:
+            section = "minor"
+        out.setdefault(f["seat"], {"major": [], "minor": [], "questions": []})[section].append(f["id"])
+    return out
+
+
 def finding_stage(f: dict[str, Any]) -> str:
     """When the authors can act on an adjudicated finding (a key of STAGES)."""
     if f.get("verdict") == "refuted":
@@ -723,12 +823,22 @@ def _load_sources(manuscript: Path, supplements: list[Path]) -> Sources:
 
 def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
           adjudicated: bool = False) -> dict[str, Any]:
-    """Check parsed findings JSON (a list of findings, or an object with findings and strengths)."""
+    """Check parsed findings JSON: a list of findings, or an object with findings, strengths and the referees'
+    reports (`reports`, a list, in a merged file; `report`, one object, in a seat's own file)."""
+    raw_reports: list[Any] = []
     if isinstance(data, list):
         raw_findings, raw_strengths = data, []
     elif isinstance(data, dict) and isinstance(data.get("findings", []), list) and \
             isinstance(data.get("strengths", []), list):
         raw_findings, raw_strengths = data.get("findings", []), data.get("strengths", [])
+        if "reports" in data and "report" in data:
+            raise ValueError("give either 'report' (a seat's own file) or 'reports' (a merged file), not both")
+        if "reports" in data:
+            if not isinstance(data["reports"], list):
+                raise ValueError("'reports' must be a list of referee reports")
+            raw_reports = data["reports"]
+        elif "report" in data:
+            raw_reports = [data["report"]]
     else:
         raise ValueError("expected a JSON list of findings, or an object with a 'findings' list")
     sources = _load_sources(manuscript, list(supplements or []))
@@ -744,6 +854,21 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
     groups = _group(findings, adjudicated)
     counts = {k: sum(f["contract"] == k for f in findings) for k in ("pass", "fail", "not_assessed")}
     panel = sorted({f["seat"] for f in findings if _nonempty_str(f.get("seat"))})
+    reports = [_check_report(r, i, findings) for i, r in enumerate(raw_reports)]
+    written: set[str] = set()
+    for r in reports:
+        if r["seat"] in written:
+            r["problems"].append(f"Another report in this file is also by {r['seat']}.")
+            r["contract"] = "fail"
+        if r["seat"]:
+            written.add(r["seat"])
+    # Seats that wrote findings or strengths but no report. Only meaningful once any referee wrote one: a quick
+    # pass, or a file from before referees gave recommendations, has none at all.
+    writers = sorted(set(panel) | {s["seat"] for s in strengths if _nonempty_str(s.get("seat"))})
+    missing = [s for s in writers if s not in written] if reports else []
+    venues = sorted({rec["venue"] for r in reports for rec in r["recommendations"] if _nonempty_str(rec["venue"])})
+    partial = {r["seat"]: [v for v in venues if v not in {rec["venue"] for rec in r["recommendations"]}]
+               for r in reports if r["seat"]}
     return {
         "manuscript": manuscript.name,
         "supplements": [d.path.name for d in sources.supplements],
@@ -751,8 +876,12 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
         "stage": "adjudicated" if adjudicated else "seat findings",
         "summary": {"findings": len(findings), **counts, "groups": len(groups), "seats": len(panel),
                     "strengths": len(strengths),
-                    "strengths_not_anchored": sum(s["contract"] != "pass" for s in strengths)},
+                    "strengths_not_anchored": sum(s["contract"] != "pass" for s in strengths),
+                    "reports": len(reports), "reports_failed": sum(r["contract"] != "pass" for r in reports)},
         "panel": panel, "findings": findings, "groups": groups, "strengths": strengths,
+        "reports": reports, "venues": venues, "reports_missing": missing,
+        "venues_missing": {seat: vs for seat, vs in partial.items() if vs},
+        "by_referee": _by_referee(findings, groups) if adjudicated else None,
     }
 
 
@@ -792,6 +921,10 @@ def _referees(seats: list[str], tail: str = "") -> str:
 
 def _raised_by(seat: Any) -> str:
     return f"a simulated referee ({seat})" if _nonempty_str(seat) else "no named referee"
+
+
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:]
 
 
 def _trim(text: Any, width: int = EXCERPT_WIDTH) -> str:
@@ -863,6 +996,71 @@ def _group_markdown(n: int, g: dict[str, Any], report: dict[str, Any]) -> list[s
     return [head, "", *[f"{line}" for line in body], ""]
 
 
+CHALLENGE_WORDS = {"refuted": "the defence refuted", "dropped": "adjudication dropped",
+                   "downgraded": "adjudication narrowed or downgraded",
+                   "not-yet-a-finding": "has not yet met the contract"}
+
+
+def _recommendation_lines(report: dict[str, Any]) -> list[str]:
+    """The referees' recommendations, and what adjudication did to the findings each one rests on."""
+    if not report["reports"]:
+        return ["This file holds no referee reports, so it has no recommendations (a quick pass writes none). Never "
+                "write a recommendation for a referee who did not give one.", ""]
+    lines = ["## The referees' recommendations", ""]
+    for r in report["reports"]:
+        if r["contract"] != "pass":
+            continue
+        for rec in r["recommendations"]:
+            form = f" (on the journal's form: \"{rec['form_wording']}\")" if _nonempty_str(rec["form_wording"]) else ""
+            rests = (f" It rests on {_words_list(rec['rests_on'], 'and')}." if rec["rests_on"] else "")
+            line = (f"- {_cap(_raised_by(r['seat']))}, for {rec['venue']}: "
+                    f"{RECOMMENDATION_WORDS[rec['recommendation']]}{form}. {_sentence(rec['reason'])}{rests}")
+            by_kind: dict[str, list[str]] = {}
+            for fid, why in rec["challenged"].items():
+                by_kind.setdefault(why, []).append(fid)
+            if by_kind:
+                parts = [f"{CHALLENGE_WORDS[k]} {_words_list(ids, 'and')}" for k, ids in by_kind.items()]
+                line += (f" Of those, {_words_list(parts, 'and')}: say so in one sentence after this recommendation in "
+                         f"the referee's report, and leave the recommendation as the referee gave it.")
+            lines.append(line)
+    lines.append("")
+    if report["reports_missing"]:
+        lines += [f"These simulated referees wrote findings but no report, so they have no recommendation: "
+                  f"{_words_list(report['reports_missing'], 'and')}. Ask them for it, or say in the result that "
+                  f"they gave none; never write one for them.", ""]
+    for seat, vs in report["venues_missing"].items():
+        lines += [f"The simulated referee ({seat}) gave no recommendation for {_words_list(vs, 'and')}, which "
+                  f"another referee was asked about.", ""]
+    bad = [r for r in report["reports"] if r["contract"] != "pass"]
+    if bad:
+        lines += ["### Reports that do not meet the contract", ""]
+        for r in bad:
+            who = f"by {_raised_by(r['seat'])}" if r["seat"] else f"number {r['index']}"
+            lines.append(f"- The report {who}. " + " ".join(_sentence(p) for p in r["problems"]))
+        lines.append("")
+    return lines
+
+
+SECTION_WORDS = (("major", "major concerns"), ("minor", "minor concerns"), ("questions", "questions for the authors"))
+
+
+def _by_referee_lines(report: dict[str, Any]) -> list[str]:
+    if not report["by_referee"]:
+        return []
+    number = {fid: n for n, g in enumerate(report["groups"], 1) for fid in g["findings"]}
+    lines = ["## What each referee's report contains", "",
+             "Each referee's confirmed and narrowed findings, sorted into the sections of its report. The number "
+             "after each finding is its concern above, where the passage and the verdict are.", ""]
+    for seat, sections in sorted(report["by_referee"].items()):
+        parts = []
+        for key, words in SECTION_WORDS:
+            ids = sections[key]
+            listed = _words_list([f"{fid} (concern {number[fid]})" for fid in ids], "and") if ids else "none"
+            parts.append(f"{words}: {listed}")
+        lines.append(f"- {_cap(_raised_by(seat))}: " + "; ".join(parts) + ".")
+    return lines + [""]
+
+
 def to_markdown(report: dict[str, Any]) -> str:
     s = report["summary"]
     adjudicated = report["stage"] == "adjudicated"
@@ -891,6 +1089,7 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines += [intro.strip(), "",
               "A group's count says how many simulated referees raised the concern. Agreement between referees "
               "is not evidence that the concern is right.", ""]
+    lines += _recommendation_lines(report)
     if adjudicated and report["groups"]:
         lines += ["The groups are sorted by when the authors can act on them, then by severity. When writing the "
                   "report, put work that another fix depends on first, and merge groups that share a root cause "
@@ -908,6 +1107,7 @@ def to_markdown(report: dict[str, Any]) -> str:
         lines += ["## Groups", ""]
         for n, g in enumerate(report["groups"], 1):
             lines += _group_markdown(n, g, report)
+    lines += _by_referee_lines(report)
     bad = [f for f in report["findings"] if f["contract"] != "pass"]
     if bad:
         lines += ["## Not yet findings", "",
@@ -988,7 +1188,8 @@ def main(
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     s = report["summary"]
-    raise typer.Exit(code=0 if s["pass"] == s["findings"] and s["strengths_not_anchored"] == 0 else 1)
+    ok = s["pass"] == s["findings"] and s["strengths_not_anchored"] == 0 and s["reports_failed"] == 0
+    raise typer.Exit(code=0 if ok else 1)
 
 
 if __name__ == "__main__":

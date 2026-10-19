@@ -20,7 +20,7 @@
     - "Reports the priority claim and names at least one earlier tool that combines conservation and allele frequency, with an identifier it resolved (marked unverified only if the lookup failed or could not run)."
     - "Reports that the comparison omits widely used predictors while the Abstract claims to outperform existing ones."
     - "Reports the variant-level random split as a leakage risk (same genes on both sides, gene-level features)."
-    - "Reports the 4,812 versus 4,182 mismatch with both locations, listed for manuscript-integrity-check outside the ranked referee concerns."
+    - "Reports the 4,812 versus 4,182 mismatch with both locations; in the list of what to fix it is a point for manuscript-integrity-check, not a ranked item (a referee's report may mention it)."
     - "Reports the rs429358 position as inconsistent with the stated GRCh38 build, quoting both the build statement and the table row."
     - "Reports the causal sentence in the Application section as unsupported by a cross-sectional association."
     - "Every concern quotes the manuscript verbatim, or names where it looked for an absent item."
@@ -28,10 +28,15 @@
     - "Separates author-required work (for example rerunning the benchmark on a gene-disjoint split) from text fixes, and offers narrowing the claim as an alternative to new work."
     - "Runs without asking, states the panel at the top (three seats plus a defender by default, chosen from the design) and whether the seats ran as independent subagents or as sequential passes, and offers the five-seat panel."
     - "Ends with what the review did not have, including the missing Supplementary Table S1 and that the code was not run."
-    - "Groups the concerns by when the authors can act on them: the science and the evidence first, then the writing, then what depends on the journal, then anything that waits until the code is final (an archive record, declarations), listed last."
+    - "Simulates a submission to Bioinformatics: says what the referees were told about the journal (its scope, article type, editors' rules or guidelines for reviewers) and where that was read, or that the guidelines for reviewers could not be found."
+    - "Gives three referee reports in the form referees write: each with a recommendation (accept, minor revision, major revision or reject) and its reason, a summary of the paper, strengths, and numbered major and minor concerns, in the referee's voice."
+    - "Follows the reports with a list of what to fix, merged across referees and grouped by when the authors can act: the science and the evidence first, then the writing, then what depends on the journal, then anything that waits until the code is final (an archive record, declarations), listed last; each item names the referees and concern numbers that raised it."
     - "Writes each concern in full sentences that quote the manuscript and name its section, with any line number only in parentheses, and shows simulated-referee names, finding ids or status words only in parentheses after a plain description."
+    - "Writes the review to a file beside seeded.md named after it (for example seeded.peer-review.md), and the reply gives that path, where the paper lands and the most urgent fixes, not the whole review."
   fail_if:
-    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Gives a score, rating or acceptance probability, averages the recommendations, or predicts the editor's decision."
+    - "A referee report contains a concern the defence refuted, or a recommendation the referee did not give."
+    - "Points the authors to the review at a temporary or scratch path."
     - "Edits seeded.md or writes into the manuscript."
     - "Invents a number, result, citation, identifier or reviewer comment."
     - "Calls the work not novel, or says prior work is missing, without naming the work."
@@ -41,7 +46,8 @@
   skill: manuscript-peer-review
   prompt: >-
     We plan to submit this to Bioinformatics next week. Red-team it the way Reviewer 2 would. Use
-    whatever panel you think fits; no need to check it with us first.
+    whatever panel you think fits; no need to check it with us first. Just show the review here in the
+    chat, we don't want any files.
   files: [fixtures/manuscript-peer-review/clean.md]
   planted: []
   rubric:
@@ -49,10 +55,14 @@
     - "Every confirmed concern quotes text present in clean.md and names the claim it affects."
     - "Lists strengths with quotes, including the gene-disjoint split or the comparison with REVEL and AlphaMissense."
     - "Ends with what the review did not have."
+    - "Each referee's recommendation is in proportion to its confirmed concerns, and says what it rests on."
+    - "Gives the whole review in the reply, as asked."
   fail_if:
     - "Reports a concern whose quotation does not occur in clean.md."
     - "Presents a polish point as a blocker or major concern."
-    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "A referee recommends reject or major revision resting only on polish, wording or end-stage packaging."
+    - "Writes a review file beside clean.md, or anywhere the authors would be pointed to."
+    - "Gives a score, rating or acceptance probability, averages the recommendations, or predicts the editor's decision."
     - "Invents a number, result, citation, identifier or reviewer comment."
 
 - id: peer-review-reuse-record-01
@@ -66,14 +76,14 @@
     - "The record's designs are software-tool, method-benchmark and genetic-association; domain genomics."
     - "The six planted defects of peer-review-seeded-01."
   rubric:
-    - "Chooses a panel that fits the recorded designs: a software or methods seat (or module) and the genomics module, and says why."
+    - "Simulates the journal the record names (Bioinformatics, Original Paper) without asking, and chooses a panel that fits the recorded designs: a software or methods seat (or module) and the genomics module, and says why."
     - "Reuses the recorded integrity and reference checks (citing their date or summary) instead of running scan.py again, and lists the missing competing-interests, funding and author-contributions statements and the missing software archive, if it mentions them, outside the ranked referee concerns with the recorded result and after the concerns about the science and the writing."
-    - "Does not give manuscript-record.yaml, its claims or the earlier check summaries to the reviewer seats."
+    - "Does not give manuscript-record.yaml, its claims or the earlier check summaries to the reviewer seats; the seats get the journal's facts in a venue brief instead."
     - "Relates confirmed concerns to the recorded claims, naming each claim in words with its record id at most in parentheses (for example 'the accuracy claim of the benchmark (C2)', 'the cohort association (C3)')."
     - "If it updates manuscript-record.yaml, it only adds open_issues from manuscript-peer-review and a checks entry, leaving existing entries unchanged."
   fail_if:
     - "Reruns the full integrity or reference scan without saying why the recorded check could not be reused."
-    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Gives a score, rating or acceptance probability, averages the recommendations, or predicts the editor's decision."
     - "Edits seeded.md."
 
 - id: peer-review-panel-confirm-01
@@ -84,12 +94,34 @@
   planted: []
   rubric:
     - "Proposes the default three seats suited to a software and benchmark paper with a cohort analysis (a main seat, a champion and a skeptic, plus a defender), and mentions the five-seat option."
+    - "Names the journal it would simulate the submission to, or asks for it within the same short question."
     - "Names the domain modules it would load (genomics; software and methods; human data and clinical) and why."
     - "Mentions the cost (each seat reads the whole paper)."
     - "Asks one short question to confirm or change the panel and stops there."
   fail_if:
     - "Runs the seats or reports concerns before the authors confirm the panel."
     - "Asks a long questionnaire instead of one short question."
+
+- id: peer-review-ladder-01
+  skill: manuscript-peer-review
+  prompt: >-
+    We have not settled on a journal yet; our ladder is in the record. Show us what referees would say
+    and what we need to fix. Just run it.
+  files: [fixtures/manuscript-peer-review/seeded.md, fixtures/manuscript-peer-review/ladder/manuscript-record.yaml]
+  planted:
+    - "The record has no chosen venue and a journal ladder of four rungs: bmc-bioinformatics, bioinformatics, genome-biology, nar."
+    - "The six planted defects of peer-review-seeded-01."
+  rubric:
+    - "Simulates the top three rungs of the ladder (BMC Bioinformatics, Bioinformatics, Genome Biology) without asking, and does not simulate the fourth."
+    - "Each referee report gives one recommendation per journal with its reason, and the result opens with where the paper lands at each of the three journals."
+    - "Where a referee's recommendation differs between journals, the reason names the journal's scope, article type or bar, as read from the journal's own pages."
+    - "The concerns about the science appear once per referee, not once per journal, and the list of what to fix merges them across referees and journals."
+    - "Offers a separate panel for each journal as the fuller option, with its cost."
+  fail_if:
+    - "Asks the authors to pick a journal before running."
+    - "Gives a score, rating or acceptance probability, averages the recommendations, or predicts the editor's decision at any journal."
+    - "Uses the authors' ladder priorities or ranking reasons in what the referees are told."
+    - "Edits seeded.md or invents a number, result, citation or reviewer comment."
 
 - id: peer-review-invited-referee-01
   skill: manuscript-peer-review
@@ -100,7 +132,7 @@
     - "The user does not say whether they are the invited referee or whether the journal lets referees use AI tools. Human Mutation's publisher, Wiley, asks referees not to upload manuscripts to AI tools (venues.py show human-mutation: reviewers may not use AI tools)."
     - "The six planted defects of peer-review-seeded-01."
   rubric:
-    - "Writes the report in this reply, without first asking the user to confirm their role, the journal's rules or anything else."
+    - "Writes the draft report without first asking the user to confirm their role, the journal's rules or anything else: to a file beside seeded.md that the reply names, or in the reply."
     - "Gives a draft referee report for the user to edit: comments to the authors (a summary, strengths, numbered major and minor concerns, questions) and confidential comments to the editor in a separate section."
     - "Raises at least the variant-level split with gene-level features, the comparison that omits widely used predictors while the Abstract claims to outperform existing ones, and the causal sentence in the Application section, each quoting the manuscript and naming its section."
     - "Mentions the journal's rule on AI help for referees in at most one short sentence that names its practical consequence and leaves the decision with the user, or not at all."
@@ -135,10 +167,12 @@
     - "Confirms F05, noting that the Limitations sentence does not answer the causal wording."
     - "Lists the 4,812 versus 4,182 mismatch outside the ranked concerns, as a point for manuscript-integrity-check."
     - "Gives each verdict its evidence; for each partly answered finding, names the answering text and the part left open."
-    - "Opens with the split between what can be fixed in the text and what needs new work."
+    - "Opens the list of what to fix with the split between what can be fixed in the text and what needs new work."
+    - "Says that the supplied files hold no referee reports, so the referees' recommendations are not known, and offers to collect them; or leaves recommendations out with that reason."
   fail_if:
+    - "Writes a recommendation for a referee whose file gives none."
     - "Reports F01 as a concern, or asks the authors to add a runtime qualifier to the Abstract."
     - "Confirms a partly answered finding as originally raised, without saying which part the paper already answers."
     - "Discards the supplied findings and runs a new panel without saying why."
-    - "Gives a score, rating, acceptance probability or an accept/reject recommendation."
+    - "Gives a score, rating or acceptance probability, or predicts the editor's decision."
     - "Edits seeded.md or invents a number, result, citation or reviewer comment."

@@ -20,7 +20,7 @@ requirements.
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
 | Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A report of unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and applicable submission requirements, with suggested fixes, grouped by when each can be done. |
-| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | A simulated referee panel's judgement on the contribution, design, evidence and claims: strengths, quoted concerns ranked by consequence and cost, and the work only you can do. No scores or acceptance predictions. It can also draft your report on a paper you were invited to referee. |
+| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | The reports three simulated referees would send from your target journal (or each of the top three on your ladder), each with a recommendation, strengths, and major and minor concerns that quote the paper; then the list of what to fix, in the order you can act on it, with the work only you can do. No scores or acceptance predictions. It can also draft your report on a paper you were invited to referee. |
 | Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ladders, preprint servers and journals, ordered by your priorities (speed, reach, AI-policy burden, cost) after checking scientific fit, validation requirements, fees and the agreements that pay them, open-science preferences, review timing and AI policies, with the rule that decides each venue quoted and linked to its page; and what every venue on the ladders asks for, so the shared sections can be adapted before you choose. |
 | Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, shown before and after, plus submission materials and a concise AI-use disclosure where needed. What waits until the code and results are final is listed separately. |
 | Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, with the policy text quoted and linked, precise wording and drafts of scope clarifications or replies to policy questions. |
@@ -47,6 +47,12 @@ Add the context that matters to your request: a target journal, article type, pu
 deadline, for example. For journal selection, explain which additional analyses or experiments are
 feasible. If you have already received an editorial decision, include the relevant comments. The
 assistant uses what you provide and asks about missing facts that would change its answer.
+
+Reports (reviews, audits, check results) go to a file beside your manuscript, to the chat, or both. You
+choose once, the first time a skill needs to know, and every skill keeps that choice for every project;
+"just show it here" still works for a single report, and "reports in the chat from now on" changes it.
+The choice is stored in a small settings file (`settings.py show` in manuscript-integrity-check's
+scripts says where).
 
 ## Improve a manuscript from draft to submission
 
@@ -187,11 +193,12 @@ and claims that became stronger or lost a qualifier. These checks help catch mis
 review the edited text before using it. A request for "punchier" wording improves the prose without
 raising the certainty of a claim.
 
-The simulated referee panel is a way to find objections early, not a prediction. Every concern quotes
-the passage it is about and is checked against the rest of the paper before it reaches you, but the
-panel is not calibrated against real editorial decisions, so it gives no scores or acceptance odds; a
-spread of the simulated reviewers' recommendations is available only if you ask, and is labelled
-uncalibrated.
+The simulated referee panel is a way to find objections early, not a prediction. The referees review
+for a real journal, read from its own pages, and each gives the recommendation a referee would (accept,
+minor revision, major revision or reject). Every concern quotes the passage it is about and is checked
+against the rest of the paper before it reaches you, but the panel is not calibrated against real
+editorial decisions: it gives no scores, acceptance odds or predicted editorial decision, and its
+recommendations are labelled as coming from simulated referees.
 Concerns that need new analyses or data are listed for you to decide on; nothing is added to the paper
 on your behalf.
 

@@ -11,8 +11,10 @@ adjudicator. The report for the authors says what they mean in words and quotes 
 
 ## File layout
 
-A seat writes a JSON object with `findings` and `strengths`; a bare list of findings is also accepted.
-The orchestrator merges the seats' files into one object, keeping each finding's `seat`.
+A seat writes a JSON object with `findings`, `strengths` and its `report` (its summary and
+recommendations, written last; [below](#the-referees-report)); a bare list of findings is also accepted.
+The orchestrator merges the seats' files into one object, keeping each finding's `seat` and putting
+each seat's report, with its `seat`, in the list `reports`.
 
 ```json
 {
@@ -67,6 +69,17 @@ The orchestrator merges the seats' files into one object, keeping each finding's
     {"seat": "champion", "location": "Methods, Model",
      "quote": "Features were standardised on the training set.",
      "note": "Standardising on the training set only avoids one common form of leakage."}
+  ],
+  "reports": [
+    {
+      "seat": "evidence-statistics",
+      "summary": "The authors present VarRank, a logistic regression on 12 features that ranks missense variants, and claim it outperforms existing predictors on held-out ClinVar variants. The model is simple and clearly described, but the benchmark cannot yet support the comparative claim.",
+      "recommendations": [
+        {"venue": "bioinformatics", "recommendation": "major-revision", "form_wording": "Major revision",
+         "reason": "The headline comparison rests on a split that can leak gene identity into the test set.",
+         "rests_on": ["EV-1"]}
+      ]
+    }
   ]
 }
 ```
@@ -103,6 +116,28 @@ The orchestrator merges the seats' files into one object, keeping each finding's
 Strengths have `seat`, `location`, `quote` and `note`, all required; their quotes are checked the same
 way.
 
+## The referee's report
+
+Each seat ends its file with `report`, written only after its findings and strengths are complete
+([seats.md](seats.md#the-seat-brief)): what a referee puts at the top of a report and in the journal's
+recommendation box. The orchestrator builds the report the authors read from it and from the seat's
+adjudicated findings; the seat never writes the concerns twice.
+
+| Field | Required | Values and meaning |
+|---|---|---|
+| `seat` | in a merged file | The referee who wrote it. In a seat's own file it is taken from the findings. |
+| `summary` | yes | The paper and the referee's overall view, as the opening paragraph of a referee report: what the authors claim, how they support it, and whether it holds. Three to five sentences. |
+| `recommendations` | yes | One entry per journal in `venue.md`, each as below. |
+| `recommendations[].venue` | yes | The journal's catalogue key (`bioinformatics`), or its name when it has none. |
+| `recommendations[].recommendation` | yes | `accept`, `minor-revision`, `major-revision` or `reject`. |
+| `recommendations[].form_wording` | no | The journal form's own label when `venue.md` names one ("Reject and resubmit", "Revise"). |
+| `recommendations[].reason` | yes | One or two sentences naming what the recommendation turns on. |
+| `recommendations[].rests_on` | yes, except for `accept` | Ids of this referee's own findings that the recommendation rests on. |
+| `recommendations[].fit` | no | Scope, article type or the journal's bar, when they change the recommendation for this journal. |
+
+No scores, ratings or acceptance odds anywhere. A quick pass writes no report
+([seats.md](seats.md#quick-pass-for-an-integrity-audit)).
+
 ## What the script checks
 
 - **Quotes.** Each `quote`, `defence_quote` and strength quote must occur in the manuscript or a
@@ -127,6 +162,16 @@ way.
 - **Fairness warnings** (not failures): a concern resting on state-of-the-art standing, one that asks
   for new work, or one that objects to simplicity. The adjudicator decides; see
   [adjudication.md](adjudication.md#3-fairness-filter).
+- **Reports.** Each report names its referee, has a summary, and gives one recommendation per journal
+  from the four values, with a reason and the referee's own findings it rests on (a finding another
+  referee raised, or one not in the file, fails). A referee who wrote findings but no report is named,
+  so that the result says it gave none; a file with no reports at all (a quick pass) is not an error.
+  A referee who left out a journal another referee was asked about is named. With `--adjudicated`, each
+  recommendation lists the findings it rests on that the defence refuted, adjudication dropped or
+  narrowed, or that have not met the contract, and each referee's confirmed and downgraded findings are
+  sorted into the sections of its report: `major` and `blocker` as major concerns (except a finding that
+  waits until the code is final), `optional` and end-stage ones as minor concerns, `uncertain` as
+  questions for the authors.
 - **Groups.** Findings that meet the contract are grouped when their quotes overlap in the same file,
   they share a `group` label, their concerns are near-duplicates (at least four shared content words
   and half the combined vocabulary), or they are absence findings at the same location. Each group
@@ -134,8 +179,8 @@ way.
   right. To merge groups that share a root cause, give their findings one `group` label and rerun.
   With `--adjudicated`, groups are listed by stage, then severity, then position in the manuscript.
 
-The script does not judge whether a concern is correct, fair or important, resolve identifiers, or
-score anything. Those are adjudication steps.
+The script does not judge whether a concern is correct, fair or important, whether a recommendation
+is proportionate, resolve identifiers, or score anything. Those are adjudication steps.
 
 ## Running it
 
@@ -146,7 +191,7 @@ uv run --script scripts/check_findings.py "$WORK/adjudicated.json" PAPER.md --ad
 ```
 
 `$WORK` is a scratch directory for the review's working files (SKILL.md, step 3). Exit code 0 when
-every finding and strength meets the contract, 1 when any is not yet a finding, 2 for unusable input
+every finding, strength and report meets the contract, 1 when any does not, 2 for unusable input
 (malformed JSON, a manuscript that is not Markdown, LaTeX or text). For a multi-file LaTeX project, pass
 the `\input` files with `-s` or flatten the project first. Convert `.docx` with `pandoc -t gfm` and
 quote the converted text.

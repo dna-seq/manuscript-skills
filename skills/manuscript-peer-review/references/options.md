@@ -1,4 +1,4 @@
-# Optional checks: robustness, model diversity, decision distribution
+# Optional checks: robustness, model diversity, a panel per journal
 
 None of these runs by default. Each multiplies the cost; offer them when the stakes justify it (a
 high-impact submission, a resubmission after a rejection that felt arbitrary) or when the authors ask.
@@ -33,15 +33,12 @@ the seats independent, and the report never calls them independent on that basis
 for each seat. Send the manuscript to another provider only when the user agrees to that provider, in
 either mode.
 
-## Decision distribution (only on request)
+## A separate panel for each journal
 
-When the authors ask how referees might decide, run a separate step after adjudication: give each seat
-(fresh) the manuscript and ask for the decision it would recommend (accept, minor revision, major
-revision, reject) with its main reason. Report the counts, for example "of five simulated seats: three
-major revision, two reject; the reject reasons both cite the benchmark split". Label it:
-
-> Uncalibrated. These are the dispositions of simulated seats sharing one model, not editors' decisions
-> or a probability of acceptance.
-
-Never convert the counts into a percentage or a score, and never ask for decisions in the same pass as
-findings: a seat that has committed to a decision argues for it.
+When the simulation covers the top three journals of a ladder, the default panel referees the paper once
+and each referee gives a recommendation for each journal (SKILL.md, step 2): the science it judges does
+not change between journals, while the bar, the scope and the article type do. Authors who want each
+journal's review to be independent of the others can ask for a separate panel per journal: three
+referees with only that journal's `venue.md`, and one defence pass over all the findings. It triples the
+whole-paper reads (nine instead of three, plus the defender) and mostly repeats the same concerns, so
+offer it rather than run it.

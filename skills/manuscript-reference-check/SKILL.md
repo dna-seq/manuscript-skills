@@ -37,7 +37,9 @@ uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --referen
     --md /tmp/references.md --json /tmp/references.json   # working files; the authors get the report
 ```
 
-These outputs feed the report. When the authors want the per-reference table as a file, write it beside the
+These outputs feed the report, which goes where the plugin-wide `reports` setting says
+([author priorities](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)).
+When reports go to a file, or the authors want the per-reference table as one, write it beside the
 manuscript (`<manuscript stem>.references.md`) and give its path; never point them to `/tmp`.
 
 Omit `--online` for the offline citation and bibliography consistency checks. Markdown, plain text, LaTeX

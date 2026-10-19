@@ -179,8 +179,8 @@ the two go to different places.
 
 - **What the authors use goes where they can open it.** A skill's outputs (a ladder, the shared record, a
   heat map, an audit table, a response letter and its ledger, a change inventory, a proposal for review, a
-  report the authors asked to have as a file, any file the reply tells them to open or rerun) go to the
-  folder the authors name. Without one, they go beside the manuscript source, or in the folder where the
+  report saved as a file under the `reports` setting below, any file the reply tells them to open or
+  rerun) go to the folder the authors name. Without one, they go beside the manuscript source, or in the folder where the
   project already keeps that kind of document (its venue strategy, its review files), named after the
   manuscript and what the file holds (`paper.journal-ladder.csv`, `paper.heatmap.html`). The reply gives
   each path relative to the project. These outputs are what the skill was asked for, so they need no permission;
@@ -192,13 +192,41 @@ the two go to different places.
   cannot find it, a reboot or the next session deletes it, and nobody can review or version what is in it.
   If something the authors need was written to scratch, move it beside the manuscript and give that path.
 
+**Reports: file, chat or both, one setting for every skill.** A report is what a skill tells the authors
+it found or recommends: a review, an audit, a check's result, a plan. Where it goes is one plugin-wide
+setting, `reports`, chosen once and kept for every skill and every project:
+
+- `file`: save the report where "Where files go" says, named after the manuscript and the report
+  (`paper.peer-review.md`, `paper.integrity-check.md`); the reply gives its path, the headline and the
+  most urgent points, not the whole report. A rerun replaces the file; when the authors have written in
+  it, ask before replacing it.
+- `chat`: give the whole report in the reply and save no report file.
+- `both`: save the file and give the whole report in the reply.
+
+Documents a skill makes or changes for the authors (the manuscript, a response letter, a cover letter, a
+ladder table, a heat map, a PDF, the shared record) are files whatever the setting; it decides only where
+the report goes.
+
+Decide in this order: what the authors say in this conversation ("just show it here", "save it as a
+file"); the project's instructions (`CLAUDE.md`, `AGENTS.md`); the saved setting,
+`../manuscript-integrity-check/scripts/settings.py get reports` (run with `uv run --script` from the
+skill's directory); otherwise ask once, at the start of the task rather than when the report is ready,
+so that long work is not left waiting for the answer. To ask, put the question `settings.py questions`
+prints in one short message (with the host's question tool when it has one): it lists every plugin-wide
+setting not yet chosen, so one round covers the whole plugin. Save the answer with `settings.py set reports <choice>` and
+say in one sentence that it applies to every skill and how to change it ("say 'reports in the chat from
+now on'"). A request for one report ("show this one here") applies to that report only; save a choice
+only when the authors state it as lasting ("from now on", "always"). Do not ask when the authors said to
+run without questions or the host cannot ask: use `file`, do not save it, and say in one sentence how to
+choose.
+
 **Edit the authors' files in place; ask before adding new ones.** When asked to update the manuscript or
 one of the authors' planning documents (a venue strategy, a submission plan), change that file. Do not
 create a new versioned copy, a per-venue variant of the paper or a document that "supersedes" an existing
 one, and do not add pointers to such a file in the manuscript, a README or the project's instructions,
 unless the authors ask for it. If a new file seems better, ask in one sentence and name the file it would
-replace. A skill's own outputs are not such a file: write them as "Where files go" says. The report itself
-goes in the conversation, as the report sections of each skill say.
+replace. A skill's own outputs are not such a file: write them as "Where files go" says, and its report
+as the `reports` setting says.
 
 ## AI-use statements
 

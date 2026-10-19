@@ -2,18 +2,29 @@
 
 A seat is one simulated referee with a remit. Each seat reads the whole paper; the remit decides what it
 reads most closely, not what it may mention. Seats work in isolation (SKILL.md, step 3) and write
-findings in the [finding schema](finding-schema.md).
+findings in the [finding schema](finding-schema.md), then the summary and recommendation that open and
+close a real referee report.
+
+Every seat referees for a journal: the one the submission is simulated for, or each of the top three
+journals of the authors' ladder (SKILL.md, step 2). What the journal publishes, what its editors check on
+arrival and what it asks its referees reach the seat in `venue.md`. The journal sets the bar and the
+scope a referee judges against; the remits below decide what each referee reads most closely.
 
 ## Choosing the panel
 
 Start from `study.designs` and `study.domains` in `manuscript-record.yaml` when it exists, otherwise from
 the manuscript (the design keys are listed in
 [manuscript-record.md](../../manuscript-integrity-check/references/manuscript-record.md#study-design-keys)).
-Add the venue and article type when known: a desk editor judges against a venue's scope.
+Add the journal and article type from step 2 of SKILL.md: referees and a desk editor judge against the
+journal's scope and bar.
 
 - **Three seats** by default: the design's main seat from the table, the skeptic and the champion, then
   the defender in adjudication (four whole-paper reads). The main seat also covers reproducibility, and
-  the skeptic also covers claims and novelty.
+  the skeptic also covers claims and novelty. These are the three referees a journal would send the
+  paper to: an expert on its main method, a hard expert reader, and a reader who values what the
+  paper adds. When the simulation covers three journals, the same three seats each write one report
+  with a recommendation for each journal; a separate panel per journal is the fuller option
+  ([options.md](options.md#a-separate-panel-for-each-journal)).
 - **Five seats** when the authors take up the offer or ask for a fuller panel: add the two seats of the
   "Five-seat panel adds" column. Never more than five: extra seats repeat each other and multiply the
   cost, since each one reads the whole paper.
@@ -122,7 +133,8 @@ and fairness filter as every other seat: hostile, never unfair.
 
 When manuscript-integrity-check or manuscript-improve asks for independent desk-editor and methods
 reviewer passes, run two seats: desk-editor and evidence-statistics. Isolation, the contract and
-adjudication apply unchanged; skip the panel question unless the authors want to choose. Merge the
+adjudication apply unchanged; skip the panel question unless the authors want to choose. The seats skip
+step 6 of the brief: a quick pass writes no report and no recommendation. Merge the
 confirmed points into the calling report, in its stage groups, each saying in words which simulated
 reviewer raised it ("the simulated desk editor"), quoting the manuscript with its section.
 
@@ -147,16 +159,20 @@ editor would see it), its supplementary files, a copy of [finding-schema.md](fin
 when a domain module is loaded for this seat, that module's questions as `domain-questions.md`. Domain
 questions live only in the workspace of the seat they serve. Fill in the angle brackets:
 
-> You are the **<seat>** on a simulated referee panel. The authors plan to submit this manuscript to
-> <venue, or "an unnamed journal"> as <article type>. Study design: <keys>. Your remit: <remit from
-> seats.md>. <If a module is loaded: "Your domain questions are in `domain-questions.md`.">
+> You are the **<seat>** on a simulated referee panel. <One journal: "The editor of <journal> has asked
+> you to referee this manuscript, submitted as <article type>." Several: "The authors are considering
+> <journal 1>, <journal 2> and <journal 3> for this manuscript. Referee it once, and give each journal
+> your recommendation."> What each journal publishes, what its editors check and what it asks its
+> referees are in `venue.md`. Study design: <keys>. Your remit: <remit from seats.md>. <If a module is
+> loaded: "Your domain questions are in `domain-questions.md`.">
 >
 > Work only from the files in this directory. Do not look for other reviews of this work, the authors'
 > notes or their views of it. Unfinished content (a TODO note, a placeholder) is not a referee concern;
 > leave it to the integrity check.
 >
-> 1. Before opening the manuscript, write `criteria.md`: the three to eight problems that, for your
->    remit and this design, would count as major. Do not edit it after you start reading.
+> 1. Before opening the manuscript, read `venue.md` and write `criteria.md`: the three to eight problems
+>    that, for your remit, this design and the journal's bar, would count as major. Do not edit it after
+>    you start reading.
 > 2. Read the whole manuscript, including tables, figure legends and the supplementary files here.
 > 3. Write `findings.json` following `finding-schema.md`. Quote the manuscript exactly; for something
 >    missing, list where you looked. Raise a concern only if resolving it could change the validity,
@@ -168,11 +184,18 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 > 4. Add the paper's strengths to `findings.json` under `strengths`, each with a quote.
 > 5. For each criterion with nothing to raise, add one line to `criteria.md` saying what you checked
 >    and where.
+> 6. Last, when your findings and strengths are complete, add `report` to `findings.json` as
+>    `finding-schema.md` describes: your summary of the paper and your overall view, as the opening
+>    paragraph of a referee report, and for each journal in `venue.md` the recommendation you would
+>    give on its form (accept, minor revision, major revision or reject), with the reason and the ids of
+>    your findings it rests on. Judge each journal by the scope, article type and bar `venue.md` gives:
+>    the same concerns can mean minor revision at one journal and reject at another. Do not change a
+>    finding to fit the recommendation.
 >
-> No scores, ratings, recommendation or acceptance odds. There is no quota: no findings, with a
-> coverage line per criterion, is a valid result.
+> No scores, ratings or acceptance odds. There is no quota: no findings, with a coverage line per
+> criterion, is a valid result, and so is a recommendation to accept.
 
 Never put in a seat's workspace or brief: another seat's output, `manuscript-record.yaml` or its
 claims and open issues, a cover letter or response letter, earlier reviews, the authors' own assessment
-of the paper, or your claim map. A seat that sees what the authors think is strong is no longer
-reviewing the paper.
+of the paper, why they chose the journal or how they ranked the ladder, or your claim map. A seat that
+sees what the authors think is strong is no longer reviewing the paper.

@@ -86,10 +86,10 @@ Use existing context first. A focused check does not need every input below.
 ## Workflow
 
 Select the steps the request needs and run each once over unchanged material. Script outputs that only feed
-the report go to a scratch location (`/tmp` below); the report goes in the conversation, and a report or
-full list the authors are to open goes beside the manuscript
+the report go to a scratch location (`/tmp` below); the report goes where the plugin-wide `reports` setting
+says (a file, the chat or both), and a full list the authors are to open goes beside the manuscript
 ([where files go](references/author-priorities.md#minimum-useful-work)). Paths are relative to this skill's directory: `scripts/`
-holds `scan.py`, `number_check.py`, `hygiene.py` and `precommit.py`; `venues.py` and `policy_watch.py` are in
+holds `scan.py`, `number_check.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py` and `policy_watch.py` are in
 `../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.
 
 | Request | Steps |

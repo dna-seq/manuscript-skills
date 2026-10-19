@@ -66,7 +66,9 @@ priority words in the paper ("first", "novel", "only") are judged as that file's
 
 Start one fresh subagent, the defender, as a blocking call like the seats, with the reading copy, the
 supplementary files and the findings stripped of seat names (renumber ids that name a seat), group
-counts and severities, so that numbers cannot sway it. For each finding it first tests the premise:
+counts and severities, so that numbers cannot sway it. It never sees the referees' reports, their
+recommendations or `venue.md`: a defender that knows a referee recommended rejection argues against the
+rejection, not against the finding. For each finding it first tests the premise:
 does the quoted text say what the concern says it says, and is every other statement the concern makes
 about the paper true? (A concern that asks to qualify a claim in the Abstract assumes the Abstract makes
 that claim.) Then it looks for text that already answers the finding: a method detail elsewhere, a
@@ -167,9 +169,27 @@ The field names and values in this file (verdicts, routes, triage classes, stage
 `unverified`) are the panel's working vocabulary. The report says what they mean in words
 ([output-format.md](output-format.md#content-rules)).
 
-## 9. Recheck
+## 9. The referees' recommendations
 
-Run `check_findings.py --adjudicated` on the final set. Every finding in the report must pass it.
+A recommendation is the referee's, given before the defence pass. Never change it, and never write one
+for a referee whose file has none: say in its report that it gave none.
+
+`check_findings.py --adjudicated` lists, for each recommendation, the findings it rests on that the
+defence refuted, that adjudication dropped or narrowed, or that have not met the contract. When one of
+them carried the recommendation, the referee's report says so in one sentence after the recommendation,
+naming the concern and what answered or narrowed it ("This recommendation rested mainly on the concern
+about the random split; the paper partly answers it in Methods, Model, where features are standardised
+on the training set alone."). Leave it at that sentence: the authors read the recommendation, the
+reason it was given and how far the reason still holds.
+
+Read the recommendations against the confirmed concerns. A `reject` or `major-revision` that rests only
+on polish, wording or end-stage packaging is out of proportion; say so in the same way. A spread
+between referees (one minor revision, one reject) is realistic and reported as it is, never averaged.
+
+## 10. Recheck
+
+Run `check_findings.py --adjudicated` on the final set. Every finding and report in the result must pass
+it.
 
 ## Design sources
 

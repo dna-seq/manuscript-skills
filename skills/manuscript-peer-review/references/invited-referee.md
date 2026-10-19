@@ -25,7 +25,10 @@ and the user can change any of them.
   resolves them without sending any reference text as a search query. Phrase a literature search in
   general terms rather than pasting the paper's sentences into a search engine. When the user asks for
   something that sends the text elsewhere (another model provider, a hosted detector), do it.
-- Keep working files in a scratch location and offer to delete them when the report is done. Do not
+- Keep working files in a scratch location and offer to delete them when the report is done. The draft
+  report itself goes where the plugin-wide `reports` setting says
+  ([author priorities](../../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work));
+  as a file, beside the paper the user gave you (`paper.referee-report.md`) or where they say. Do not
   create `manuscript-record.yaml` for a paper that is not the user's.
 - Leave the authors' identity out of the report, as an anonymous review expects.
 - **Code and data shared for review.** Run them when the user asks, as you would any third-party code:

@@ -35,7 +35,8 @@ is no automated runner yet.
 
 1. Start a fresh agent session with the plugin installed and the case's files in the working directory.
    Give it only the prompt and the files. Never show it the case file, the rubric, earlier outputs or
-   earlier results.
+   earlier results. Point `MANUSCRIPT_SKILLS_CONFIG` at a new empty folder for each run, so that no case
+   inherits a plugin-wide setting (where reports go) that an earlier run saved.
 2. Let it finish. One grader then checks every `rubric` and `fail_if` item against the transcript and any
    files it wrote. A case passes only if every rubric item holds and no `fail_if` item occurred. Numerical
    drift, invented evidence, an unrequested file edit or a false claim that something was checked always
