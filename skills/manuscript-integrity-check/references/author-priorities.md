@@ -61,6 +61,34 @@ merely to satisfy a speculative policy concern.
 
 ## Scope, iteration and review
 
+**Read the plugin's settings before editing.** From the skill's directory, run
+`uv run --script ../manuscript-integrity-check/scripts/settings.py resolve --json`.
+State the effective edit policy briefly in the first progress update. A request to "improve", "polish",
+"prepare for submission" or use a named skill activates that task; it does not reset the settings or
+grant permission to change everything.
+If the settings file cannot be read, preserve it, continue read-only checks and prepare proposals, and
+collect the repair decision with other questions. Do not overwrite it or treat the error as permission
+for broader edits. Changes explicitly authorised in the conversation can still proceed.
+
+**Edits: conservative, propose or apply, one setting for every skill.** The `edits` setting controls
+changes to the authors' documents, independently of where reports go:
+
+- `conservative` (default): apply routine spelling, grammar, formatting, broken-link and reference-metadata
+  corrections, and wording changes that preserve meaning. Propose changes to arguments, claims, emphasis,
+  numerical content, and substantial additions, deletions or restructuring; obtain the author's approval
+  before applying them. Calling a claim unsupported or too broad does not make its removal a routine edit.
+- `propose`: prepare every change to the authors' documents for approval before applying it. Checks,
+  lookups, proposed text and reports still proceed.
+- `apply`: apply substantive revisions within the requested scope and show consequential before/after
+  text in the chat. This never authorises invented facts, unsupported claims, or decisions only the
+  authors can make, and does not expand a focused service into the full workflow.
+
+Follow explicit instructions or approval for a concrete change in the conversation first, then project
+instructions, the saved setting, and the default. A generic improvement request is not an override.
+Approval of one proposal authorises that proposal and its stated consequences, not every pending proposal
+or a lasting change of setting. Save a setting only when the author states a lasting preference, using
+`settings.py set edits <choice>`.
+
 **Cover the whole paper by default for the requested task.** A prose edit covers the manuscript's prose;
 a reference check covers its citations and bibliography; a journal comparison considers the study as a
 whole. This does not expand one service into all the others. Do not silently stop at the Abstract, sample
@@ -95,6 +123,30 @@ selection stage, compare findings or options rather than inventing a text diff. 
 before/after review, present the comparison at the requested checkpoints, not just a summary. A passing
 mechanical guard does not prove semantic equivalence.
 
+**Make consequential changes visible in the chat.** As work proceeds, show the exact before/after text
+and the section for a substantive change, with a short reason. This includes adding a paragraph to the
+Abstract, changing its emphasis, changing a claim or qualification, introducing a result or number,
+removing substantial content, and moving or restructuring a major part of the paper. For a new block,
+say that there was no previous block and quote the full addition. For a deletion, quote what was removed.
+"Improved the abstract", "added measured results" and a link to a diff do not let the author see what
+changed and are not enough. Do this promptly, rather than waiting until the final report or for the
+author to ask. It applies even when `reports` is `file`; that preference controls where the full report
+goes, not whether important edits are shown in the conversation. Routine spelling, formatting and
+registry-settled reference repairs can still be grouped. Visibility and permission are separate: the
+`edits` policy decides whether a change can be applied; this rule decides how to show it. Proposed changes
+stay separate from the manuscript until approved, while independent work continues.
+
+**Preserve the Abstract's purpose and the author's chosen emphasis.** This applies to every paper type.
+A qualitative Abstract is not defective merely because the body contains numerical results. Do not
+automatically turn it into a benchmark summary, add a results paragraph, or import sample counts,
+versions, correlations, runtimes and other metrics from the body to make it appear more rigorous.
+A general request to improve or polish the paper does not itself request that expansion of the Abstract.
+Include quantities when they are needed to understand the central claim, the author requests them, or
+a verified journal or reporting requirement asks for them; use the minimum that serves that purpose.
+Preserve existing results and qualifications unless their correction or removal is authorised. Follow
+the author's preference about numerical detail and distinguish a proposed change of emphasis from a
+necessary correction. Show either as a consequential change under the rule above.
+
 **Interviews are opt-in.** When the author says "interview me", ask about unresolved decisions in the
 current task: priorities, intended claims, restructuring, venue tradeoffs or how to handle a finding.
 Use short batches, offer useful options with their consequences, and skip questions already answered.
@@ -103,8 +155,8 @@ Reuse decisions across skills. Without an interview request, use the manuscript 
 asking only missing questions that materially affect the work. A journal ranking or AI-policy comparison
 does not by itself request an interview.
 
-Whole-paper work proceeds through the authorised task without section or stage approval stops unless
-the author asks for them. Preserve existing revision conventions; an iterative workflow does not require
+Whole-paper work proceeds through the authorised task under the `edits` policy, without section or stage
+approval stops unless the author asks for them. Preserve existing revision conventions; an iterative workflow does not require
 a new ledger, transcript, marker scheme or per-pass report. Revision markers already in the text (for
 example `<!-- @rev ... -->` comments) stay where they are; add or update them only as the project's own
 written rules say or the authors ask, and strip them only when preparing the files for upload, if the
@@ -112,6 +164,29 @@ authors want that. Reviewer and checking passes read the text with such comments
 would see it. `manuscript-revision-marks` lints, bumps and strips them and writes that clean copy.
 
 ## Minimum useful work
+
+**A pending question blocks only the work that depends on its answer.** Complete every independent part
+of the requested task before handing control back to the author. The need for approval is not a reason
+to stop checking the rest of the manuscript or making edits permitted by the active policy.
+
+- Check the manuscript, project files and available sources before asking. Collect remaining questions
+  and concrete proposals in the existing report or conversation; no new tracking file is required.
+- If the host supports asynchronous questions, send a short batch when useful and keep working. If its
+  question tool blocks the turn, defer that tool until independent work is finished. Unset settings use
+  their defaults while work proceeds; a settings questionnaire must not hold up the task.
+- Follow dependencies across sections and stages. While a claim change awaits approval, finish unrelated
+  reference verification, arithmetic, source-code checks, permitted prose edits and applicable formatting.
+  Prepare the evidence and proposed text needed to make the pending decision reviewable. Do not begin
+  work that depends on an unmade decision, such as adapting to an unchosen journal's incompatible rules.
+- Incorporate answers that arrive during work. Apply approved proposals and finish their dependent work,
+  checking for conflicts with intervening edits. Do not repeat completed checks unless a change affects them.
+- Before yielding for answers, check that no independent requested work remains. Present one deduplicated
+  batch of the decisions still needed, each with its location, exact proposed change, reason and what
+  depends on it; distinguish completed work from pending work. Do not call the entire task complete while
+  dependent work remains. End the turn when only answer-dependent work remains; do not poll or idle.
+
+Silence, elapsed time and a preselected option are never approval. Explicit requests to pause or review
+one section or stage at a time still control the scope of the current step.
 
 Do the requested task. A paragraph edit does not need a journal interview, an integrity audit, a detector,
 writing samples or a new study. A reference check does not need a style pass. A submission audit does not
@@ -131,12 +206,16 @@ they leave open. Quoting the project to the authors is fine; sending them to loo
 **Do not ask about what needs no decision.** A correction that a registry or the project's own files
 settle, with one right answer, is not a finding for the authors: a preprint cited after its journal
 version appeared (title, year, DOI), a shortened title, a missing DOI, a print-versus-online year, a
-miscounted table, a name spelled two ways, a scan alarm you cleared. With edit permission, apply them; in
+name spelled two ways, a scan alarm you cleared. With edit permission, apply them; in
 a review-only request, prepare them as one patch the authors accept or not. Either way, report them as a
 count and a severity, not item by item: "12 references corrected (4 missing DOIs, 3 shortened titles,
 2 print-versus-online years, 1 preprint now published in *Science*, 2 page ranges); none changes what a
 sentence claims." The itemised list is the diff or the patch, shown when the authors ask. Never put these in
 "Fix now", never phrase them as questions, and leave cleared false alarms out entirely.
+
+Corrections to scientific numbers, interpretations or claim support still follow `edits`, even when
+the evidence settles the discrepancy. Under `conservative`, prepare the exact correction and its
+evidence for approval; do not ask the authors to redo arithmetic or look up a fact you already checked.
 
 A reference that cannot be found in any registry or by search, or whose identifiers belong to another work,
 is not in this class. It may be fabricated, and some journals reject a paper or open an integrity inquiry
@@ -203,7 +282,8 @@ setting, `reports`, chosen once and kept for every skill and every project:
 
 - `file`: save the report where "Where files go" says, named after the manuscript and the report
   (`paper.peer-review.md`, `paper.integrity-check.md`); the reply gives its path, the headline and the
-  most urgent points, not the whole report. A rerun replaces the file; when the authors have written in
+  most urgent points, with consequential before/after changes still shown in the chat as above, not
+  the whole report. A rerun replaces the file; when the authors have written in
   it, ask before replacing it.
 - `chat`: give the whole report in the reply and save no report file.
 - `both`: save the file and give the whole report in the reply.
@@ -213,17 +293,15 @@ ladder table, a heat map, a PDF, the shared record) are files whatever the setti
 the report goes.
 
 Decide in this order: what the authors say in this conversation ("just show it here", "save it as a
-file"); the project's instructions (`CLAUDE.md`, `AGENTS.md`); the saved setting,
-`../manuscript-integrity-check/scripts/settings.py get reports` (run with `uv run --script` from the
-skill's directory); otherwise ask once, at the start of the task rather than when the report is ready,
-so that long work is not left waiting for the answer. To ask, put the question `settings.py questions`
-prints in one short message (with the host's question tool when it has one): it lists every plugin-wide
-setting not yet chosen, so one round covers the whole plugin. Save the answer with `settings.py set reports <choice>` and
-say in one sentence that it applies to every skill and how to change it ("say 'reports in the chat from
-now on'"). A request for one report ("show this one here") applies to that report only; save a choice
-only when the authors state it as lasting ("from now on", "always"). Do not ask when the authors said to
-run without questions or the host cannot ask: use `file`, do not save it, and say in one sentence how to
-choose.
+file"); the project's instructions (`CLAUDE.md`, `AGENTS.md`); the saved setting returned by
+`settings.py resolve --json`; otherwise `file`. Read settings at startup as above; do not make work wait
+for a settings interview. If a preference is needed, batch the questions `settings.py questions` prints
+with other unresolved decisions, following the rule on independent work. Save the answer with
+`settings.py set reports <choice>` and say in one sentence that it applies to every skill and how to
+change it ("say 'reports in the chat from now on'"). A request for one report ("show this one here") applies
+to that report only; save a choice only when the authors state it as lasting ("from now on", "always").
+Do not ask when the authors said to run without questions or the host cannot ask; use the defaults
+without saving them.
 
 **Edit the authors' files in place; ask before adding new ones.** When asked to update the manuscript or
 one of the authors' planning documents (a venue strategy, a submission plan), change that file. Do not

@@ -3,6 +3,25 @@
 # self-reported measure), edited-clean.md (a faithful copy edit: the clean control), edited-seeded.md (an edit
 # with planted claim and number changes), revised.md (a revision with deliberate content changes).
 
+- id: prose-edit-qualitative-nonsoftware-abstract
+  skill: manuscript-prose-edit
+  prompt: >-
+    Copy-edit ecology-abstract.md in place. Preserve my emphasis on the theoretical mechanism and the
+    limits of the model. Save the full report beside the manuscript.
+  files: [fixtures/manuscript-prose-edit/ecology-abstract.md]
+  planted:
+    - "This is a theoretical ecology paper, not a software paper. Its qualitative Abstract states a mechanism with explicit limits; grid counts belong to its illustrative Results."
+    - "The Discussion contains inflated wording that can be cut."
+  rubric:
+    - "Preserves the qualitative Abstract and the distinction between a model result and a claim about natural communities."
+    - "Leaves parameter-grid counts and simulation durations in Results rather than adding them to the Abstract."
+    - "Rewrites the inflated Discussion sentence without adding or strengthening a claim."
+    - "Shows any consequential content change as exact before/after text in the chat, regardless of the report destination."
+  fail_if:
+    - "Applies the Abstract-content preference only to software papers."
+    - "Adds numerical results to the Abstract or turns grid counts into an empirical ecological effect."
+    - "Deletes existing numbers or qualifications while claiming this is only a language edit."
+
 - id: prose-edit-copyedit-01
   skill: manuscript-prose-edit
   prompt: >-

@@ -21,15 +21,25 @@ holds the venue, study designs, completed checks and open issues so that later s
 
 ## Defaults and author controls
 
+Before editing, run `uv run --script ../manuscript-integrity-check/scripts/settings.py resolve --json`
+and follow the shared edit policy. Its default is `edits: conservative`: apply routine corrections that
+preserve meaning and prepare substantive revisions for approval. State the active policy in the first
+progress update. A request to use this skill or "improve the manuscript" does not override that policy.
+
 Work across the **whole paper** by default and carry the authorised improvement task through its relevant
 stages. Do not substitute an Abstract-only or sampled review. A request for one service belongs to that
 focused skill and does not activate this full workflow.
 
 Use the manuscript and conversation first. Establish the contribution, existing validation, available
 resources and target journal where known. Ask only for missing facts that change a decision. Interviews,
-section-by-section work, stage checkpoints and proposal-before-application are opt-in. The author can
-request or change these modes during the workflow; follow the shared controls without requiring a new
+section-by-section work and stage checkpoints are opt-in; proposal-before-application follows the `edits`
+policy or an explicit request. The author can change these controls during the workflow without a new
 setup questionnaire. In stage-by-stage mode, each stage still covers the whole paper unless narrowed.
+
+Preserve the Abstract's purpose and the author's chosen emphasis for every paper type. Numerical results
+in the body do not by themselves call for a new paragraph of metrics in the Abstract. Follow the shared
+author-priority rules on Abstract content and on showing consequential changes: quote the exact
+before/after text in the chat as the changes are made, even when the full report goes to a file.
 
 Retain the pre-edit version. Make authorised edits reviewable through a diff or before/after text; when
 the author requests comparisons at each section or stage, show them before proceeding. If they request
@@ -74,9 +84,15 @@ the reason for consequential changes, and decisions still needed, written as the
 Then stop before the next unit. A request to change one step does not discard previously accepted edits or
 settled decisions. Revisit dependent work only when the new decision changes it.
 
-In the default workflow, continue routine authorised work without approval stops at each section or
-stage. Keep substantive scientific decisions with the author and continue independent work while a
-material answer is pending. Do not invent data, citations, approvals or accounts of AI use.
+**Finish all independent work before yielding for decisions.** A pending approval or missing fact blocks
+only dependent work. Follow the shared rule in
+[Minimum useful work](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work):
+collect decisions, continue every applicable check and permitted edit across the requested scope, and
+prepare exact proposed text with its evidence. Use asynchronous questions when supported; otherwise
+defer blocking question tools until the independent work is finished. Do not turn the `conservative`
+policy into a sequence of question-and-answer stops. At handover, distinguish completed work from the
+pending proposals and their dependent steps. Silence never grants approval. Do not invent data,
+citations, approvals or accounts of AI use.
 
 ## Finish with a reviewable result
 

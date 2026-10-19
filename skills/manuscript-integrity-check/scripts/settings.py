@@ -5,16 +5,19 @@
 # ///
 """The plugin-wide settings every manuscript skill shares, asked once and kept for every project.
 
-Each setting is a choice the authors make once for the whole plugin, not per skill: today `reports`, where a
-skill's report goes (a file, the chat, or both). The settings live in one small YAML file in the user's
+Each setting is a choice the authors make once for the whole plugin, not per skill: `reports`, where a
+skill's report goes, and `edits`, which changes may be applied without individual approval. The settings live
+in one small YAML file in the user's
 configuration folder, so a choice made while running one skill applies to all of them and to every
 manuscript. A request in the conversation and the project's own instructions still come first; the rule is in
-../references/author-priorities.md ("Reports: file, chat or both").
+../references/author-priorities.md. Invoking a skill does not override these choices.
 
     uv run --script settings.py show                 # every setting, its value or "not set", and the file
     uv run --script settings.py get reports          # the value; prints "not set" and exits 1 when unset
+    uv run --script settings.py resolve --json       # effective saved choices or defaults, without questions
     uv run --script settings.py set reports chat     # save a choice the authors stated
-    uv run --script settings.py unset reports        # forget it, so the next skill asks again
+    uv run --script settings.py set edits conservative
+    uv run --script settings.py unset reports        # forget it; the default applies until chosen again
     uv run --script settings.py questions [--json]   # the one-time question for each setting not yet chosen
 
 The file is `$MANUSCRIPT_SKILLS_CONFIG/settings.yaml` when that variable names a folder (evals and tests set it
@@ -50,7 +53,7 @@ HEADER = ("# manuscript-skills settings: one choice for every skill and every pr
 class Setting:
     question: str
     options: dict[str, str]  # value -> what choosing it means, in the authors' terms
-    default: str  # used without saving it when the authors cannot be asked
+    default: str  # effective when unset; using it does not save it
 
 
 SETTINGS: dict[str, Setting] = {
@@ -64,6 +67,20 @@ SETTINGS: dict[str, Setting] = {
             "both": "Save the file, and also show the full report in the chat.",
         },
         default="file",
+    ),
+    "edits": Setting(
+        question="Which manuscript changes may the skills apply without your approval? "
+                 "Independent checks and permitted edits continue while proposals await your decision. "
+                 "This applies to every skill and every project; you can change it at any time.",
+        options={
+            "conservative": "Apply routine corrections that preserve meaning; propose changes to arguments, "
+                            "claims, emphasis, numerical content and substantial structure for approval.",
+            "propose": "Prepare all changes to your documents as proposals and apply them only after approval; "
+                       "continue checks and prepare the report.",
+            "apply": "Apply substantive changes within the requested scope, showing consequential changes "
+                     "before and after in the chat; never invent facts or decisions.",
+        },
+        default="conservative",
     ),
 }
 
@@ -121,6 +138,11 @@ def value(data: dict[str, Any], key: str) -> str | None:
     return raw if isinstance(raw, str) and raw in setting.options else None
 
 
+def effective(data: dict[str, Any]) -> dict[str, str]:
+    """Saved choices or defaults for starting work without a settings interview; never writes a file."""
+    return {key: value(data, key) or setting.default for key, setting in SETTINGS.items()}
+
+
 def save(path: Path, data: dict[str, Any]) -> None:
     """Write the whole mapping atomically, so an interrupted write never leaves half a file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +195,7 @@ def show(as_json: Annotated[bool, typer.Option("--json", help="Machine-readable 
         return
     typer.echo(f"Settings file: {path}" + ("" if path.is_file() else " (not created yet)"))
     for key, current in rows.items():
-        meaning = SETTINGS[key].options[current] if current else "not set; the next skill that needs it asks once"
+        meaning = SETTINGS[key].options[current] if current else f"not set; default: {SETTINGS[key].default}"
         typer.echo(f"- {key}: {current or 'not set'}. {meaning}")
 
 
@@ -189,6 +211,24 @@ def get(key: str) -> None:
         raise typer.Exit(code=1)
 
 
+@app.command()
+def resolve(as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output")] = False) -> None:
+    """Effective choices and their sources, for every skill to read before work; no questions or writes."""
+    path = settings_path()
+    try:
+        data = load(path)
+    except SettingsError as exc:
+        _fail(exc)
+    choices = effective(data)
+    sources = {key: "saved" if value(data, key) is not None else "default" for key in SETTINGS}
+    if as_json:
+        typer.echo(json.dumps({"file": str(path), "effective": choices, "sources": sources}, indent=2))
+        return
+    typer.echo(f"Settings file: {path}")
+    for key, current in choices.items():
+        typer.echo(f"- {key}: {current} ({sources[key]}). {SETTINGS[key].options[current]}")
+
+
 @app.command("set")
 def set_(key: str, new: str) -> None:
     """Save a choice the authors stated, for every skill and project."""
@@ -202,13 +242,13 @@ def set_(key: str, new: str) -> None:
 
 @app.command()
 def unset(key: str) -> None:
-    """Forget a setting, so the next skill that needs it asks again."""
+    """Forget a saved setting; its default applies until the authors choose again."""
     path = settings_path()
     try:
         put(path, key, None)
     except SettingsError as exc:
         _fail(exc)
-    typer.echo(f"Removed {key} from {path}; the next skill that needs it will ask.")
+    typer.echo(f"Removed {key} from {path}; default: {SETTINGS[key].default}.")
 
 
 @app.command("questions")

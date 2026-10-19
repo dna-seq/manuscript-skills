@@ -258,6 +258,12 @@ the Introduction or the first of the Discussion; strings like "(F1 = 0.94, AUROC
 stuff most. A reader cannot take in eight figures in two sentences, and a reviewer reads the dump as
 compensating for a weak headline. The full set of metrics belongs in Results and its tables.
 
+**Fix:** preserve the Abstract's purpose and the author's chosen emphasis, whatever the paper type.
+Do not add a numerical-results paragraph just because the body contains measurements. A concise
+qualitative statement can convey the contribution. Include quantities when the central claim needs
+them, the author requests them or a verified reporting requirement asks for them; show a substantive
+addition or change of emphasis as exact before/after text in the chat.
+
 **Before:**
 > Our method achieved 94.3% recall (95% CI 92.1–96.0), 91.7% precision, an F1 of 0.930 and an AUROC of
 > 0.971 across 12 datasets (n = 48,213), while running 4.2× faster (40.1 s vs 168.4 s) and using 3.1 GB of

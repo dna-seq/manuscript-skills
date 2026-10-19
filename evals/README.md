@@ -20,6 +20,7 @@ is no automated runner yet.
   prompt: >-
     Red-team this draft before we submit it to Bioinformatics.
   files: [fixtures/manuscript-peer-review/seeded.md]
+  settings: {reports: file, edits: conservative}  # optional saved choices to seed before the run
   planted:                               # what the fixture contains, for the grader only
     - "Table 2 reports n = 412; the Abstract says 421."
   rubric:                                # every item must hold for a pass
@@ -36,7 +37,8 @@ is no automated runner yet.
 1. Start a fresh agent session with the plugin installed and the case's files in the working directory.
    Give it only the prompt and the files. Never show it the case file, the rubric, earlier outputs or
    earlier results. Point `MANUSCRIPT_SKILLS_CONFIG` at a new empty folder for each run, so that no case
-   inherits a plugin-wide setting (where reports go) that an earlier run saved.
+   inherits a plugin-wide setting that an earlier run saved. If the case has a `settings` mapping, write
+   only those choices to `settings.yaml` in that folder before starting the agent; otherwise leave it empty.
 2. Let it finish. One grader then checks every `rubric` and `fail_if` item against the transcript and any
    files it wrote. A case passes only if every rubric item holds and no `fail_if` item occurred. Numerical
    drift, invented evidence, an unrequested file edit or a false claim that something was checked always

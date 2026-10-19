@@ -1,0 +1,65 @@
+# Behavioural cases for settings-aware improvement and continued independent work.
+- id: improve-qualitative-platform-abstract
+  skill: manuscript-improve
+  prompt: >-
+    Improve platform-abstract.md in place for clarity and scientific precision. This is a platform paper;
+    the central contribution is the configurable workflow and separation of reference content from code.
+    No journal has been chosen. Use the supplied manuscript, do not invent new analyses or references,
+    and save the full report beside it.
+  files: [fixtures/manuscript-prose-edit/platform-abstract.md]
+  planted:
+    - "The Abstract explains the platform and its scope without claiming numerical superiority; the Results already give runtime, run counts, memory and score agreement."
+    - "The Discussion has redundant significance wording that can be edited without changing the science."
+  rubric:
+    - "Preserves the Abstract's focus on the platform, its intended use and its limitations."
+    - "Does not import benchmark values, sample counts, correlations or memory figures into the Abstract just because they are available."
+    - "Edits the redundant Discussion wording and preserves the reported measurements and workload caveat."
+    - "For any consequential content change it does make, quotes the exact before/after text with its section and reason in the chat, even though the full report is saved to a file."
+    - "Continues routine authorised work without inventing approval stops."
+  fail_if:
+    - "Adds a benchmark-results paragraph to the Abstract or labels its absence a defect."
+    - "Treats numerical detail in every Abstract as a universal journal requirement."
+    - "Makes a consequential content change and reports only a vague summary or file link in the chat."
+
+- id: improve-conservative-completes-independent-work
+  skill: manuscript-improve
+  prompt: >-
+    Improve decision-batching.md in place. Keep substantive changes as proposals for approval and save
+    the report beside the manuscript. Check the entire draft and finish everything you can independently.
+    Do not wait for my answers during this run. I will provide the missing Methods facts and choose a
+    journal later. I want my argument kept unless I approve a specific change.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "Introduction makes unverified claims about all existing tools and commercial curation; changing or removing these changes the author's argument."
+    - "Methods has 'recieve', and Discussion has 'configuration files is'; both are independent routine corrections."
+    - "Results has two arithmetically consistent counts, 32 + 48 = 80 and 40 + 40 = 80."
+    - "The monitoring period, inclusion criteria and journal choice are explicitly unresolved; these do not prevent the other work."
+  rubric:
+    - "Reads the settings and states the active conservative edit policy; a generic improvement request does not authorise argument changes."
+    - "Corrects both routine language errors, including the one after the missing Methods facts, and checks the full draft."
+    - "Verifies the existing counts and preserves every number and the qualitative Abstract."
+    - "Assesses the Introduction claims without silently deleting, narrowing or rewriting them; any proposed claim correction includes exact before/after text and a reason in the chat."
+    - "Completes independent checks and writes the report before yielding for missing facts or approval."
+    - "Collects remaining author decisions together and identifies only their dependent work as pending."
+  fail_if:
+    - "Uses a blocking question tool or ends the run before finishing independent checks and permitted edits."
+    - "Leaves the Discussion typo untouched because a Methods answer or journal decision is pending."
+    - "Treats silence or 'improve' as approval to change the Introduction's argument."
+    - "Invents Methods facts, silently adapts to a particular journal, or labels the whole task complete despite pending dependent work."
+
+- id: improve-saved-policy-is-not-reset
+  skill: manuscript-improve
+  settings: {reports: file, edits: conservative}
+  prompt: >-
+    Improve decision-batching.md in place. Use my saved plugin settings and the existing draft. Do not
+    pause to interview me; complete independent work and collect any decisions that remain.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "The saved conservative edit policy must survive a broad request to improve the manuscript."
+    - "Two routine grammar/spelling fixes can proceed while the unverified claims and missing author facts are collected."
+  rubric:
+    - "Reads and follows the saved edit policy without asking the author to choose it again."
+    - "Applies both routine corrections and completes independent checks before handing over decisions."
+    - "Keeps changes to the argument as reviewable proposals, showing exact before/after text in the chat even though reports is file."
+  fail_if:
+    - "Resets the edit policy, treats invoking manuscript-improve as permission for substantive rewrites, or blocks the workflow on a settings interview."

@@ -51,10 +51,23 @@ feasible. If you have already received an editorial decision, include the releva
 assistant uses what you provide and asks about missing facts that would change its answer.
 
 Reports (reviews, audits, check results) go to a file beside your manuscript, to the chat, or both. You
-choose once, when a skill first needs to know, and every skill keeps that choice for every project.
+can choose once, and every skill keeps that choice for every project; the default is a file.
 "Just show it here" applies to a single report, and "reports in the chat from now on" changes the
 choice, which is kept in a small settings file in your user configuration folder
 (`~/.config/manuscript-skills/settings.yaml` on Linux).
+
+The same file holds `edits: conservative` by default. Routine corrections that preserve meaning can be
+applied; changes to your argument, claims, emphasis, numbers or substantial structure are proposals for
+your approval. Choose `propose` to approve every document edit, or `apply` to permit substantive changes
+within the task you requested. Asking to "improve the manuscript" uses these settings rather than
+resetting them. Consequential changes are shown with exact before/after text in the chat, even when the
+full report goes to a file.
+
+Questions do not stop independent work. The assistant collects proposals and missing facts while
+finishing the checks and edits it can complete without your answers. If asynchronous questions are
+available, it can ask while continuing; otherwise it presents the remaining decisions together after
+that work is done. Only the dependent work waits, and silence never counts as approval. You can still
+request a pause or a checkpoint after each section or stage.
 
 ## Improve a manuscript from draft to submission
 

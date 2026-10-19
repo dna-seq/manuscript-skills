@@ -18,9 +18,14 @@ venue asks for it.
 
 ## Abstract
 
-**Needs:** one sentence each for the problem, what was done, the main result, and what it means and for
-whom; availability where required for software. Include the quantitative evidence the main claims need
-and the journal's format requires, including relevant uncertainty. There is no universal metric quota.
+**Needs:** a clear account of the problem, what was done, the central contribution or finding, and whom
+it serves; availability where required. Preserve the author's chosen emphasis. The contribution may be
+a biological finding, a method, a theory, a dataset or a platform; do not impose a benchmark-summary
+structure on all of them. A qualitative Abstract does not need a new numerical-results paragraph merely
+because the body has measurements. Include quantities and relevant uncertainty when the central claim
+needs them, the author requests them, or a verified venue or reporting requirement calls for them.
+Use only the detail that serves that purpose, and show any substantive addition or change of emphasis
+as exact before/after text in the chat under the shared author-priority rules.
 **Reads as AI:** the field-landscape opener [A2]; "In this paper, we present a novel …" [C4, A5]; a dump of
 every metric, interval and speed-up [A12]; vague boosters instead of a result [B3]; a closing implication
 sentence [A3]; a triplet of benefits [C2].

@@ -102,7 +102,8 @@ and evidence; this is not a blanket prohibition on authorised reference or forma
 Edit the whole paper by default unless the author requests a passage or selected sections. Work in
 manageable sections internally when useful, but complete the full scope. Section-by-section review and
 approval stops are opt-in. When requested, show before/after text or a diff at each checkpoint and wait
-before moving on. Otherwise continue authorised editing without asking for section-by-section approval.
+before moving on. Otherwise follow the saved `edits` policy: collect proposals that need approval and
+finish every independent check and permitted edit before yielding for answers.
 
 ---
 
@@ -135,9 +136,10 @@ style defaults in `llm-smells.md`: if the authors use semicolons or the occasion
 their frequency.
 
 Without a sample, use the plain technical register: short declarative sentences, "we" for the authors'
-actions (the conventional passive stays in Methods), numbers instead of adjectives in Results, enough
-quantitative detail for the abstract's claims and venue, present tense for established facts and past tense for this
-study's results.
+actions (the conventional passive stays in Methods), numbers instead of adjectives in Results, present
+tense for established facts and past tense for this study's results. Preserve the Abstract's purpose
+and the author's preference about numerical detail; the presence of benchmarks or other measurements
+in the body is not a reason to move them into the Abstract.
 
 ### 3.3 Inventory
 
@@ -174,8 +176,11 @@ is a prerequisite for a copy edit.
 4. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
    Table 2 says 4.2×, the number belongs in the sentence (E1). If no anchor exists, flag it; never supply
    one. In the Abstract, Introduction and Discussion, retain the numbers needed to understand the claim.
-   There is no universal numeric quota. Adding a number from a table changes the textual inventory:
-   treat that as a proposed substantive clarification unless the task already authorises it.
+   Do not use this Results advice to add a numerical-results block to an Abstract that has a different
+   purpose or emphasis. Adding a number from a table is a substantive change: propose it unless the
+   task already authorises it, and show the exact before/after text in the chat even when a full report
+   is saved to a file. Follow the shared author-priority rules for central claims, author preferences
+   and verified reporting requirements; there is no universal numeric quota.
 5. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
    Do not pad a paragraph that became short after cuts: a shorter, specific paragraph is the goal.
 6. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.

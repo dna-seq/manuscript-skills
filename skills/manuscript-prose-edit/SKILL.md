@@ -19,7 +19,9 @@ writing samples or a full audit.
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
-for requested section or stage review, before/after comparisons and optional interviews.
+for the saved `edits` policy, requested section or stage review, before/after comparisons and optional
+interviews. Read the settings before editing. Collect substantive proposals while finishing all
+independent checks and permitted edits; a pending answer blocks only work that depends on it.
 
 ## Edit and check the result
 

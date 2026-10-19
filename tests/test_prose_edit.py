@@ -840,11 +840,12 @@ def test_relative_links_in_the_skill_resolve_with_their_anchors() -> None:
                 assert anchor in {_slug(h) for h in headings}, f"{md.relative_to(ROOT)}: no #{anchor} in {path}"
 
 
-def test_eval_cases_are_complete_and_their_files_exist() -> None:
-    cases = yaml.safe_load((ROOT / "evals" / "manuscript-prose-edit.yaml").read_text(encoding="utf-8"))
+@pytest.mark.parametrize("skill", ["manuscript-prose-edit", "manuscript-improve"])
+def test_eval_cases_are_complete_and_their_files_exist(skill: str) -> None:
+    cases = yaml.safe_load((ROOT / "evals" / f"{skill}.yaml").read_text(encoding="utf-8"))
     assert len({c["id"] for c in cases}) == len(cases)
     for case in cases:
-        assert case["skill"] == "manuscript-prose-edit" and case["prompt"].strip(), case["id"]
+        assert case["skill"] == skill and case["prompt"].strip(), case["id"]
         assert case["rubric"] and case["fail_if"] and case["planted"], case["id"]
         for name in case["files"]:
             assert (ROOT / "evals" / name).is_file(), (case["id"], name)
