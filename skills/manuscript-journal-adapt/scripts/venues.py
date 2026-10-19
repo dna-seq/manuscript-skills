@@ -59,7 +59,7 @@ SEVERE = "severe"
 # The catalogue's vocabulary in the words the authors read (README: no internal tokens in printed output).
 WRITING_WORDS = {
     "free": "AI writing help needs no declaration",
-    "disclose": "AI help is allowed if declared, and language polish needs no declaration",
+    "disclose": "AI help is allowed if declared; only explicitly recorded exemptions apply",
     "disclose_all": "AI help is allowed, but every use must be declared, even language polish",
     "red_line": "AI help is allowed if declared, except that the results and discussion are reserved for the authors",
     "banned_drafting": "the journal asks authors not to have AI draft text; correction aids are allowed",
@@ -375,7 +375,9 @@ def verdict(v: dict[str, Any], ai_use: AiUse) -> str:
         return "Allowed, but every use must be declared" + (", with the full prompts."
                                                              if v.get("prompts") == "required" else ".")
     if rule == "disclose":
-        return "Allowed; language polish needs no declaration." if ai_use == AiUse.polish else "Allowed; declare it."
+        if ai_use == AiUse.polish and v.get('exempt'):
+            return "Allowed; the recorded disclosure exemptions are: " + _and(v['exempt']) + ". Apply only an exemption that covers this use."
+        return "Allowed; declare it. No applicable language-polish exemption has been recorded." if ai_use == AiUse.polish else "Allowed; declare it."
     return "Allowed; no declaration needed."
 
 
@@ -1121,9 +1123,12 @@ def common(
             continue
         listing = "; ".join(f"{_name(v)}, {n}" for v, n in known)
         shortest = min(n for _, n in known)
-        if len({n for _, n in known}) == 1:
+        if len(known) == total and len({n for _, n in known}) == 1:
             now.append(f"- [ ] Length of {label}: at most {shortest} words, the limit of every venue that states one "
                        f"({listing}).")
+        elif len(known) < total:
+            differ.append(f"- Length of {label}: recorded limits are {listing} words; other venues' limits are unknown. "
+                          "Keep this as a venue-specific choice until those rules are checked; no shared cap is established.")
         else:
             differ.append(f"- Length of {label}: the limits differ ({listing} words). Writing to the shortest, "
                           f"{shortest} words, fits all of them; whether that cut is worth making before the choice "

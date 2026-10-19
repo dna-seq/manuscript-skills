@@ -1,0 +1,124 @@
+{
+  "plugin_version": "0.7.0",
+  "real_manuscripts": true,
+  "runs": {
+    "paper1": {
+      "run_id": "20261019T152453Z-07cdeb3d",
+      "skills": {
+        "manuscript-story": {
+          "status": "partial",
+          "reason": "Three-reader panel and before/after measures completed; neighbor/exemplar comparison and full story gates not repeated in this bounded smoke run.",
+          "commands": 1,
+          "issues": 2
+        }
+      },
+      "input_hashes": [
+        {
+          "original": "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/paper1-just-dna-lite.md",
+          "sha256": "580b891e2e99af54308e9d893d15d2ea4f799445113a0238c02a96e5134e7433"
+        },
+        {
+          "original": "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/paper1-just-dna-lite-supplementary.md",
+          "sha256": "d38b5e187e5390d930f43900b34408efc911c32246adfab6903defb415783889"
+        }
+      ],
+      "full_local_run": "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/reviews/plugin-smoke/paper1/20261019T152453Z-07cdeb3d"
+    },
+    "paper2": {
+      "run_id": "20261019T152447Z-49bc5963",
+      "skills": {
+        "manuscript-journal-select": {
+          "status": "completed",
+          "reason": "Bounded selection completed: three journals and two preprint routes checked, source/corpus discrepancy reproduced, conditional ladders and connected publication/update sequence delivered. Author priorities, fee eligibility and absent stable-run evidence remain explicit uncertainties. No manuscript or existing strategy edits.",
+          "commands": 24,
+          "issues": 7
+        }
+      },
+      "input_hashes": [
+        {
+          "original": "/home/antonkulaga/sources/just-module-creator/docs/manuscript/manuscript.tex",
+          "sha256": "2cee64b67799590c52a1c25282fe6cecabe7e8c289f19624975deb2b2060f855"
+        },
+        {
+          "original": "/home/antonkulaga/sources/just-module-creator/docs/manuscript/references.bib",
+          "sha256": "bebb24eacf4b2587ce1cb071ebf8ddefc359756e6b62c56eb20c85cd83fe4a27"
+        }
+      ],
+      "full_local_run": "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/reviews/plugin-smoke/paper2/20261019T152447Z-49bc5963"
+    }
+  },
+  "retained_outputs": [
+    {
+      "path": "paper1/report.md",
+      "sha256": "e7f93812a238f66de394124e97fc5582d6c4b358eba584c1e4606e49bad2d120"
+    },
+    {
+      "path": "paper1/reader-briefs.md",
+      "sha256": "1864bde1fa39dabffe00e9c1f8ce213d3ccbcf06607377a99335549df5ae4f17"
+    },
+    {
+      "path": "paper1/readers/skimmer.md",
+      "sha256": "a1fbb084804338dbef2e8dd7e1cc25c994c59274c1f4accb80877e648212232e"
+    },
+    {
+      "path": "paper1/readers/potential-user.md",
+      "sha256": "66c354e9a5484157e050a05d0f033203e865996fe9ed84694e12e1cf836e82b3"
+    },
+    {
+      "path": "paper1/readers/informed-outsider.md",
+      "sha256": "84ddf97ba1c84797cfe0586146fdcbc0def22c2209c5b7c1174dc825e75ce88c"
+    },
+    {
+      "path": "paper1/metrics-before-after.md",
+      "sha256": "f538d4384a45a5c1b905d6a5f9cccfc2d23ee071c873cca5414a6606aace2980"
+    },
+    {
+      "path": "paper2/report-final.md",
+      "sha256": "708b34263b577fe9b67d1a313f79e249773c45f5e565808bbb780f234401211c"
+    },
+    {
+      "path": "paper2/manuscript.record.yaml",
+      "sha256": "a8f6880bb6458f46fb3d43ca4a38b0cb4addc6dfd0727916fa6874d4024138f6"
+    },
+    {
+      "path": "paper2/manuscript.journal-ladder.csv",
+      "sha256": "2569593b1cc2ecc167fa045fa8919f3f42e48a4e713dc356f83be24a0e9b9d82"
+    },
+    {
+      "path": "paper2/manuscript.journal-ladder-above5.csv",
+      "sha256": "f0f7a3f27cc61f202ccd27c694c03d880625d95134d4460ae97b2340b75ea419"
+    },
+    {
+      "path": "paper2/manuscript.preprint-ladder.csv",
+      "sha256": "c612c70682780383f0dc058324a42a73a43e9d77116bcc2c1cb5c7883fcc5aa3"
+    },
+    {
+      "path": "paper2/manuscript.venue-requirements.md",
+      "sha256": "b7009f863cb23a7467d698c2d39fe0760d36cb7d73424b442c52658d6700b951"
+    },
+    {
+      "path": "paper2/evidence/failures-and-contradictions.md",
+      "sha256": "98c4489cf939f652c3efa42ebee6160c68cd8a4d9a90220c5d8f8c259482a3db"
+    },
+    {
+      "path": "paper2/evidence/smoke-resolutions.md",
+      "sha256": "75797e4e99a7ad5a95de53176fa9b5dd1659cad67fbaf64fbf73c57f95e8841a"
+    },
+    {
+      "path": "paper2/evidence/policy-evidence.md",
+      "sha256": "c8b8093c881b8e1693d999c4765a5cc5325ce5d0a8e887616d8f68a8a62f7456"
+    },
+    {
+      "path": "paper2/evidence/requirements-before-helper-fix.md",
+      "sha256": "c1dbee447f200989eea3c07e8514a49aca5061762f13c1d30a57bf1ddf2fcd02"
+    },
+    {
+      "path": "paper2/evidence/bmc-watcher-list-after-attribution-fix.md",
+      "sha256": "b9990bbe0eb995b1e1ee68a38e7e17aa44c6e54f8ac1c5ed129229ee1dcde401"
+    },
+    {
+      "path": "paper2/commands/0004.stdout.txt",
+      "sha256": "fe93dfb83861bddf309f29e9b70add6d14e5adfdb68c3cda774d7f0166794d48"
+    }
+  ]
+}

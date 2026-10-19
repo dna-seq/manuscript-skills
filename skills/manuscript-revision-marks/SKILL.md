@@ -26,6 +26,8 @@ them, or the authors ask. Never introduce them into a project that does not use 
 record what happened; they never establish what kind of AI use took place, and an AI-use statement is
 drafted from the authors' account (`manuscript-journal-adapt`).
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## The format
 
 ```markdown

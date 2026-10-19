@@ -14,7 +14,7 @@ it.
    empty.
 3. Fill `landed` in the ledger with the location of each change in the revised manuscript.
 4. Draft the letter, then run `scripts/check_response.py` (its Markdown report beside the letter, its JSON in
-   a scratch directory) and fix every blocking finding.
+   the skill's run folder) and fix every blocking finding, preserving earlier attempts.
 
 ## 2. The letter
 

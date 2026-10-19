@@ -28,6 +28,8 @@ Apply the requested task across the whole paper unless the author specifies a na
 Follow the shared [workflow controls](references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
+Before work, follow the shared [project setup and run-output contract](references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Ground rules (read before anything else)
 
 1. **Improve publication prospects.** Concentrate on evidence, clarity, fit and actual submission barriers.
@@ -86,8 +88,8 @@ Use existing context first. A focused check does not need every input below.
 ## Workflow
 
 Select the steps the request needs and run each once over unchanged material. Script outputs that only feed
-the report go to a scratch location (`/tmp` below); the report goes where the plugin-wide `reports` setting
-says (a file, the chat or both), and a full list the authors are to open goes beside the manuscript
+the report belong in this skill's run folder (`/tmp` in examples is illustrative, not a delivery path);
+the `reports` setting controls presentation in chat, and a full list the authors are to open goes beside the manuscript
 ([where files go](references/author-priorities.md#minimum-useful-work)). Paths are relative to this skill's directory: `scripts/`
 holds `scan.py`, `number_check.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py` and `policy_watch.py` are in
 `../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.

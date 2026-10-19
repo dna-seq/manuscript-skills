@@ -1,0 +1,321 @@
+[
+  {
+    "citations": {
+      "accuracy": null,
+      "correct": [
+        "28399814",
+        "41249831"
+      ],
+      "expected_pmids": [
+        "28399814",
+        "41249831"
+      ],
+      "generated_pmids": [
+        "28399814",
+        "41249831"
+      ],
+      "hallucinated": [],
+      "misidentified": [],
+      "missing": [],
+      "recall": 1.0,
+      "resolver": "none",
+      "unrecognised": [],
+      "unscored": [
+        {
+          "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+          "subject": "studies.csv:pmid"
+        }
+      ]
+    },
+    "comparable": true,
+    "direction": {
+      "agreeing": 1,
+      "agreement": 1.0,
+      "both_asserted": 1,
+      "both_withheld": 0,
+      "column": "direction",
+      "disagreeing": 0,
+      "disagreements": [],
+      "pairs_compared": 1,
+      "reference_asserted_run_withheld": 0,
+      "run_asserted_reference_withheld": 0,
+      "unscored": []
+    },
+    "fixture": "sirt6",
+    "note": "Scored against one adjudicated curation, not against the set of all correct rows. Read decoy_rate as the false-positive signal and precision_over_fixture for what its name says. Free-text conclusions are not scored here at all.",
+    "reference": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/reference",
+    "reference_build": "GRCh38",
+    "run": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/runs/a",
+    "run_build": "GRCh38",
+    "thresholds_met": {
+      "citation_recall": true,
+      "decoy_rate": true,
+      "direction_agreement": true,
+      "pair_recall": false
+    },
+    "unscored": [
+      {
+        "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+        "subject": "studies.csv:pmid"
+      },
+      {
+        "reason": "free text needs a judge and none was supplied; not scored, not passed",
+        "subject": "variants.csv:conclusion"
+      }
+    ],
+    "variants": {
+      "csv": "variants.csv",
+      "decoy_rate": 0.0,
+      "decoys_present": [],
+      "expected_pairs": 3,
+      "extra_pairs": [],
+      "f1_over_fixture": 0.5,
+      "generated_pairs": 1,
+      "missing_pairs": [
+        "rs117385980:C/C",
+        "rs117385980:T/T"
+      ],
+      "missing_rsids": [],
+      "pair_recall": 0.3333,
+      "precision_over_fixture": 1.0,
+      "recovered_pairs": 1,
+      "rsid_recall": 1.0,
+      "tiers": [
+        {
+          "expected_pairs": 3,
+          "recall": 0.3333,
+          "recovered_pairs": 1,
+          "tier": "tier2_replicated_trend",
+          "weight": 2.0
+        }
+      ],
+      "unscored": [],
+      "weighted_recall": 0.3333
+    },
+    "weight_sign": {
+      "agreeing_sign": 0,
+      "both_blank": 1,
+      "both_present": 0,
+      "disagreeing_sign": 0,
+      "mean_absolute_error": null,
+      "pairs_compared": 1,
+      "reference_present_run_blank": 0,
+      "run_present_reference_blank": 0,
+      "sign_agreement": null,
+      "unscored": []
+    }
+  },
+  {
+    "citations": {
+      "accuracy": null,
+      "correct": [
+        "28399814",
+        "41249831"
+      ],
+      "expected_pmids": [
+        "28399814",
+        "41249831"
+      ],
+      "generated_pmids": [
+        "28399814",
+        "41249831"
+      ],
+      "hallucinated": [],
+      "misidentified": [],
+      "missing": [],
+      "recall": 1.0,
+      "resolver": "none",
+      "unrecognised": [],
+      "unscored": [
+        {
+          "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+          "subject": "studies.csv:pmid"
+        }
+      ]
+    },
+    "comparable": true,
+    "direction": {
+      "agreeing": 2,
+      "agreement": 1.0,
+      "both_asserted": 2,
+      "both_withheld": 1,
+      "column": "direction",
+      "disagreeing": 0,
+      "disagreements": [],
+      "pairs_compared": 3,
+      "reference_asserted_run_withheld": 0,
+      "run_asserted_reference_withheld": 0,
+      "unscored": []
+    },
+    "fixture": "sirt6",
+    "note": "Scored against one adjudicated curation, not against the set of all correct rows. Read decoy_rate as the false-positive signal and precision_over_fixture for what its name says. Free-text conclusions are not scored here at all.",
+    "reference": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/reference",
+    "reference_build": "GRCh38",
+    "run": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/runs/b/longevity_sirt6",
+    "run_build": "GRCh38",
+    "thresholds_met": {
+      "citation_recall": true,
+      "decoy_rate": true,
+      "direction_agreement": true,
+      "pair_recall": true
+    },
+    "unscored": [
+      {
+        "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+        "subject": "studies.csv:pmid"
+      },
+      {
+        "reason": "free text needs a judge and none was supplied; not scored, not passed",
+        "subject": "variants.csv:conclusion"
+      }
+    ],
+    "variants": {
+      "csv": "variants.csv",
+      "decoy_rate": 0.0,
+      "decoys_present": [],
+      "expected_pairs": 3,
+      "extra_pairs": [],
+      "f1_over_fixture": 1.0,
+      "generated_pairs": 3,
+      "missing_pairs": [],
+      "missing_rsids": [],
+      "pair_recall": 1.0,
+      "precision_over_fixture": 1.0,
+      "recovered_pairs": 3,
+      "rsid_recall": 1.0,
+      "tiers": [
+        {
+          "expected_pairs": 3,
+          "recall": 1.0,
+          "recovered_pairs": 3,
+          "tier": "tier2_replicated_trend",
+          "weight": 2.0
+        }
+      ],
+      "unscored": [],
+      "weighted_recall": 1.0
+    },
+    "weight_sign": {
+      "agreeing_sign": 0,
+      "both_blank": 1,
+      "both_present": 0,
+      "disagreeing_sign": 0,
+      "mean_absolute_error": null,
+      "pairs_compared": 3,
+      "reference_present_run_blank": 0,
+      "run_present_reference_blank": 2,
+      "sign_agreement": null,
+      "unscored": []
+    }
+  },
+  {
+    "citations": {
+      "accuracy": null,
+      "correct": [
+        "41249831"
+      ],
+      "expected_pmids": [
+        "28399814",
+        "41249831"
+      ],
+      "generated_pmids": [
+        "41249831"
+      ],
+      "hallucinated": [],
+      "misidentified": [],
+      "missing": [
+        "28399814"
+      ],
+      "recall": 0.5,
+      "resolver": "none",
+      "unrecognised": [],
+      "unscored": [
+        {
+          "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+          "subject": "studies.csv:pmid"
+        }
+      ]
+    },
+    "comparable": true,
+    "direction": {
+      "agreeing": 0,
+      "agreement": null,
+      "both_asserted": 0,
+      "both_withheld": 0,
+      "column": "direction",
+      "disagreeing": 0,
+      "disagreements": [],
+      "pairs_compared": 1,
+      "reference_asserted_run_withheld": 1,
+      "run_asserted_reference_withheld": 0,
+      "unscored": []
+    },
+    "fixture": "sirt6",
+    "note": "Scored against one adjudicated curation, not against the set of all correct rows. Read decoy_rate as the false-positive signal and precision_over_fixture for what its name says. Free-text conclusions are not scored here at all.",
+    "reference": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/reference",
+    "reference_build": "GRCh38",
+    "run": "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/runs/a2/spec",
+    "run_build": "GRCh38",
+    "thresholds_met": {
+      "citation_recall": true,
+      "decoy_rate": true,
+      "direction_agreement": null,
+      "pair_recall": false
+    },
+    "unscored": [
+      {
+        "reason": "no resolver, so existence and title were not checked \u2014 an id absent from the fixture is unrecognised, never hallucinated",
+        "subject": "studies.csv:pmid"
+      },
+      {
+        "reason": "the metric could not be computed, so the threshold was not tested",
+        "subject": "threshold:direction_agreement"
+      },
+      {
+        "reason": "free text needs a judge and none was supplied; not scored, not passed",
+        "subject": "variants.csv:conclusion"
+      }
+    ],
+    "variants": {
+      "csv": "variants.csv",
+      "decoy_rate": 0.0,
+      "decoys_present": [],
+      "expected_pairs": 3,
+      "extra_pairs": [],
+      "f1_over_fixture": 0.5,
+      "generated_pairs": 1,
+      "missing_pairs": [
+        "rs117385980:C/C",
+        "rs117385980:T/T"
+      ],
+      "missing_rsids": [],
+      "pair_recall": 0.3333,
+      "precision_over_fixture": 1.0,
+      "recovered_pairs": 1,
+      "rsid_recall": 1.0,
+      "tiers": [
+        {
+          "expected_pairs": 3,
+          "recall": 0.3333,
+          "recovered_pairs": 1,
+          "tier": "tier2_replicated_trend",
+          "weight": 2.0
+        }
+      ],
+      "unscored": [],
+      "weighted_recall": 0.3333
+    },
+    "weight_sign": {
+      "agreeing_sign": 0,
+      "both_blank": 1,
+      "both_present": 0,
+      "disagreeing_sign": 0,
+      "mean_absolute_error": null,
+      "pairs_compared": 1,
+      "reference_present_run_blank": 0,
+      "run_present_reference_blank": 0,
+      "sign_agreement": null,
+      "unscored": []
+    }
+  }
+]

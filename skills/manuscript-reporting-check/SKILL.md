@@ -26,8 +26,7 @@ This skill reports; it edits only when the request includes edits, and then thro
 is filled only with facts the authors give (an n, a version, the correction used), inserted under that
 contract's author-supplied content rule; never with a value inferred here. The audit tables and the
 availability report are for the authors: they go beside the manuscript, or where the authors say (`OUT`
-below), and the reply gives their paths. JSON output only feeds the report and goes to a scratch location
-(`SCRATCH` below).
+below), and the reply gives their paths. Retain the JSON checks in this skill's run folder too (`SCRATCH` in older command examples means that durable working folder).
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
@@ -36,6 +35,8 @@ for requested section or stage review, before/after comparisons and optional int
 Three services, usable alone or together: **guidelines** (choose the guidelines that fit the design and
 audit their items), **availability** (data, code and software), **statistics reporting**. A request for
 one does not trigger the others.
+
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
 
 ## Ground rules
 

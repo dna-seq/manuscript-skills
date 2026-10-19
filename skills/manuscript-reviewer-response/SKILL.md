@@ -45,6 +45,8 @@ Work across the whole decision letter by default. A request about one comment ("
 [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for item-by-item review, before/after comparisons and interviews.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Choose the mode
 
 | The authors have | Mode | Result |
@@ -166,8 +168,7 @@ probability or overall score.
 
 ## The structural check
 
-Commands are relative to this skill directory. The JSON outputs only feed the checks and go to a scratch
-directory (`$SCRATCH`); the Markdown check report is for the authors and goes beside the response letter:
+Commands are relative to this skill directory. The JSON and Markdown checks are retained in this skill's run folder (`$SCRATCH` in these command examples denotes that durable working folder); link them beside the response-letter report:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml      # plan: the ledger alone

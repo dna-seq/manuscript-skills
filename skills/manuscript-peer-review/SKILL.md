@@ -32,6 +32,8 @@ reports; it never edits the manuscript.
 Apply the review to the whole paper unless the authors name a narrower scope, and follow the shared
 [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review).
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## What this skill judges, and what it reuses
 
 Referee judgement: is the contribution clear and new; does the design answer the question; do the
@@ -139,9 +141,9 @@ the whole paper).
 
 ## Step 3: run the seats in isolation
 
-- Working files (seat workspaces, the merged findings, the check output) go in a scratch directory
-  (`$WORK` below): only the agent reads them. The review itself goes where the plugin-wide `reports`
-  setting says (step 7).
+- Seat workspaces, merged findings, defence, adjudication and check outputs go under this skill's
+  durable run folder (`$WORK` below). Register the actual reports and task briefs under the shared
+  run-output contract. The `reports` setting controls how much is also presented in chat (step 7).
 - Give each seat its own workspace holding only: a reading copy of the manuscript with HTML comments,
   LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; a
   copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
@@ -255,11 +257,10 @@ tokens) appears only in parentheses after a plain description. Keep it proportio
 report about a page, Part 2 a page or two with one item per root cause. The full record of every finding
 is available on request, in the same plain form.
 
-**Where the review goes** follows the plugin-wide `reports` setting, asked once for every skill
-([author priorities](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)). With `file`, the default, save it beside the manuscript or in the folder the
-authors name, as `paper.peer-review.md`; the reply gives its path, where the paper lands at each journal
-and the "Fix now" items in a sentence each. With `chat`, give the whole review in the reply and save no
-file; with `both`, do both ([output-format.md](references/output-format.md#saving-and-the-shared-record)).
+**Where the review goes** follows the saved manuscript-project destination. Retain it and all
+seat/defence/adjudication outputs in this skill's run folder. The `reports` choice controls chat:
+`file` gives links, the journal recommendations and urgent findings; `chat` and `both` show the whole
+report too. See [output-format.md](references/output-format.md#saving-and-the-shared-record).
 
 ## Hand-offs
 

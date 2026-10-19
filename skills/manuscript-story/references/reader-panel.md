@@ -7,6 +7,12 @@ do not grade the paper and they do not referee it.
 
 ## Independence
 
+Prepare the reading copy before dispatch: remove revision markers, hidden comments and internal draft
+notices or author planning notes that will not appear in the paper. Preserve scientific text and caveats.
+Keep the source snapshot and record what was excluded in the parent run, outside the readers' briefs.
+Reading measures that omit front matter do not make the exported file itself a clean reading copy.
+If a source artifact cannot be removed confidently, retain it and state the resulting limit on the panel.
+
 Run each seat as a separate agent with fresh context when the harness offers one. Give it the manuscript
 (and its figures, when they are files) and its seat's brief, nothing else: not the record, not the
 authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other

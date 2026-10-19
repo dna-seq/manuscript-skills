@@ -27,6 +27,8 @@ for requested section or stage review, before/after comparisons and optional int
 `manuscript-record.yaml` exists beside the manuscript, reuse a recorded reference check whose material is
 unchanged and add open issues there ([shared record](../manuscript-integrity-check/references/manuscript-record.md)).
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## 1. Check identities and citation consistency
 
 The scanner is shared with full integrity audits, so both use one implementation. Commands are relative to

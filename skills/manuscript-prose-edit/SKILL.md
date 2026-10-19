@@ -23,6 +23,8 @@ for the saved `edits` policy, requested section or stage review, before/after co
 interviews. Read the settings before editing. Collect substantive proposals while finishing all
 independent checks and permitted edits; a pending answer blocks only work that depends on it.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Edit and check the result
 
 Read [prose-edit-contract.md](references/prose-edit-contract.md) for the editing procedure and preservation
@@ -63,7 +65,7 @@ uv run --script scripts/guard.py AFTER.md --against HEAD                # in git
 uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
 ```
 
-The comparison copies (a saved pre-edit file, a pasted passage and its edit as two files) and the guard's JSON are working files for a scratch location. Anything the reply points the authors to, such as the guard's Markdown report, goes beside the manuscript, as the shared [rule on where files go](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work) says.
+Retain the before/after copies, guard JSON, style reports and adjudication in this skill's run folder under the shared [project-output contract](../manuscript-integrity-check/references/project-workflow.md). Link the report and consequential comparisons; preserve flags and failed checks even when a later revision resolves them.
 
 The guard keeps its whole-text counts of numbers, citations, identifiers and terms, and also aligns the
 sentences of the two versions (split, merged and moved sentences included). For each sentence it reports,

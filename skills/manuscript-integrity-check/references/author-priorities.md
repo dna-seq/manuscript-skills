@@ -87,9 +87,11 @@ qualification or breaks a venue requirement is not made.
 
 ## Scope, iteration and review
 
-**Read the plugin's settings before editing.** From the skill's directory, run
-`uv run --script ../manuscript-integrity-check/scripts/settings.py resolve --json`.
-State the effective edit policy briefly in the first progress update. A request to "improve", "polish",
+**Resolve the manuscript project before work.** Follow [project-workflow.md](project-workflow.md) for
+first-use manuscript/code/output questions, persisted project choices and inspectable per-skill runs.
+Run `uv run --script ../manuscript-integrity-check/scripts/project.py resolve SOURCE --json` from a
+companion skill (use `scripts/project.py` here). It also resolves global settings, whose standalone reader
+is `settings.py resolve --json`. Use the project-resolved policy and state it briefly in the first update. A request to "improve", "polish",
 "prepare for submission" or use a named skill activates that task; it does not reset the settings or
 grant permission to change everything.
 If the settings file cannot be read, preserve it, continue read-only checks and prepare proposals, and
@@ -111,11 +113,12 @@ changes to the authors' documents, independently of where reports go:
   text in the chat. This never authorises invented facts, unsupported claims, or decisions only the
   authors can make, and does not expand a focused service into the full workflow.
 
-Follow explicit instructions or approval for a concrete change in the conversation first, then project
-instructions, the saved setting, and the default. A generic improvement request is not an override.
+Follow explicit instructions or approval for a concrete change in the conversation first, then saved manuscript-project choices and project
+instructions, the global saved setting, and the default. A generic improvement request is not an override.
 Approval of one proposal authorises that proposal and its stated consequences, not every pending proposal
 or a lasting change of setting. Save a setting only when the author states a lasting preference, using
-`settings.py set edits <choice>`.
+`project.py configure PROJECT --edits <choice>` for this manuscript project. Use
+`settings.py set edits <choice>` only for an explicitly global change.
 
 **Cover the whole paper by default for the requested task.** A prose edit covers the manuscript's prose;
 a reference check covers its citations and bibliography; a journal comparison considers the study as a
@@ -279,12 +282,15 @@ date, as for any other source, and say which facts came from a browser reading a
 
 The agent should perform the checks, lookups, formatting and drafting it can perform. Do not hand the
 author an avoidable research or bookkeeping task. Reuse unchanged checks and existing project conventions;
-do not invent ledgers, revision markers, transcripts or per-pass logs. The optional shared record in
+do not invent scientific ledgers or revision markers. Preserve actual per-skill outputs, seat reports,
+contradictions and failed checks under the shared [run-output contract](project-workflow.md); these are
+inspectable evidence, not invented process history. The optional shared record in
 `manuscript-record.md` holds the current state and keeps no history: create it when the work spans several sessions, when
 the authors ask, or when journal selection records the priorities and venue facts its ladders rest on;
 otherwise, within one session the conversation carries the state. A comment ledger for answering
 referees (`manuscript-reviewer-response`) is part of that task, not a process record. Provide a short
-summary by default; detailed inventories, change tables and extra reviewer passes are optional.
+summary by default, linking the retained per-skill evidence. Extra reviewer passes beyond the selected
+panel remain optional.
 
 **Where files go.** Every file is either something the authors use or something only the agent uses, and
 the two go to different places.
@@ -297,23 +303,24 @@ the two go to different places.
   manuscript and what the file holds (`paper.journal-ladder.csv`, `paper.heatmap.html`). The reply gives
   each path relative to the project. These outputs are what the skill was asked for, so they need no permission;
   the rule below on new files concerns new versions and copies of the authors' own documents.
-- **What only the agent uses goes to a scratch location**: fetched pages, reviewer-seat workspaces, JSON
-  that feeds the next script, sandbox runs of the authors' code, intermediate copies made to compare two
-  versions. Nothing in the reply points there.
+- **Retain evidence in the run folder**: reader/referee workspaces, check JSON, comparisons, failed
+  attempts and contradictions needed to inspect a conclusion follow [project-workflow.md](project-workflow.md).
+  Fetched pages and unrelated intermediates may use scratch; never leave author-needed evidence there.
 - **Never hand over a scratch path.** A temporary directory is not inspectable or durable: the authors
   cannot find it, a reboot or the next session deletes it, and nobody can review or version what is in it.
   If something the authors need was written to scratch, move it beside the manuscript and give that path.
 
 **Reports: file, chat or both, one setting for every skill.** A report is what a skill tells the authors
 it found or recommends: a review, an audit, a check's result, a plan. Where it goes is one plugin-wide
-setting, `reports`, chosen once and kept for every skill and every project:
+setting, `reports`, inherited from global defaults and saved per manuscript project. The run always
+retains the report and evidence; this setting controls presentation in the conversation:
 
 - `file`: save the report where "Where files go" says, named after the manuscript and the report
   (`paper.peer-review.md`, `paper.integrity-check.md`); the reply gives its path, the headline and the
   most urgent points, with consequential before/after changes still shown in the chat as above, not
-  the whole report. A rerun replaces the file; when the authors have written in
-  it, ask before replacing it.
-- `chat`: give the whole report in the reply and save no report file.
+  the whole report. A new run retains its own file; preserve earlier run evidence. Ask before replacing
+  a canonical report the authors have annotated.
+- `chat`: give the whole report in the reply; keep the run's report and evidence inspectable too.
 - `both`: save the file and give the whole report in the reply.
 
 Documents a skill makes or changes for the authors (the manuscript, a response letter, a cover letter, a
@@ -321,12 +328,12 @@ ladder table, a heat map, a PDF, the shared record) are files whatever the setti
 the report goes.
 
 Decide in this order: what the authors say in this conversation ("just show it here", "save it as a
-file"); the project's instructions (`CLAUDE.md`, `AGENTS.md`); the saved setting returned by
-`settings.py resolve --json`; otherwise `file`. Read settings at startup as above; do not make work wait
+file"); the manuscript project's saved choices and instructions (`CLAUDE.md`, `AGENTS.md`); the global saved
+setting returned by `settings.py resolve --json`; otherwise `file`. Read settings at startup as above; do not make work wait
 for a settings interview. If a preference is needed, batch the questions `settings.py questions` prints
 with other unresolved decisions, following the rule on independent work. Save the answer with
-`settings.py set reports <choice>` and say in one sentence that it applies to every skill and how to
-change it ("say 'reports in the chat from now on'"). A request for one report ("show this one here") applies
+`project.py configure PROJECT --reports <choice>` for a lasting manuscript-project preference, or
+`settings.py set reports <choice>` only for an explicitly global change. Say its scope and how to change it ("say 'reports in the chat from now on'"). A request for one report ("show this one here") applies
 to that report only; save a choice only when the authors state it as lasting ("from now on", "always").
 Do not ask when the authors said to run without questions or the host cannot ask; use the defaults
 without saving them.

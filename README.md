@@ -52,18 +52,34 @@ deadline, for example. For journal selection, explain which additional analyses 
 feasible. If you have already received an editorial decision, include the relevant comments. The
 assistant uses what you provide and asks about missing facts that would change its answer.
 
-Reports (reviews, audits, check results) go to a file beside your manuscript, to the chat, or both. You
-can choose once, and every skill keeps that choice for every project; the default is a file.
-"Just show it here" applies to a single report, and "reports in the chat from now on" changes the
-choice, which is kept in a small settings file in your user configuration folder
-(`~/.config/manuscript-skills/settings.yaml` on Linux).
+On first use with a manuscript project, the assistant asks only for missing context: the authoritative
+manuscript and supplements, connected code repositories (none or unknown are valid), and the folder in
+which to save skill runs. Choices are saved in `.manuscript-skills.yaml` in that manuscript project and
+reused by every skill. A later skill or revision does not restart the questions. An explicit request or
+a material inconsistency, such as a missing source or inaccessible destination, prompts only the needed
+question. Related papers can be linked without sharing or overwriting their separate choices.
 
-The same file holds `edits: conservative` by default. Routine corrections that preserve meaning can be
-applied; changes to your argument, claims, emphasis, numbers or substantial structure are proposals for
-your approval. Choose `propose` to approve every document edit, or `apply` to permit substantive changes
-within the task you requested. Asking to "improve the manuscript" uses these settings rather than
-resetting them. Consequential changes are shown with exact before/after text in the chat, even when the
-full report goes to a file.
+Current conversation instructions override saved project choices; project choices override global
+defaults in `~/.config/manuscript-skills/settings.yaml` on Linux. `project.py resolve SOURCE --json`
+reads that hierarchy without changing it. A one-run override is not a lasting preference.
+
+Every run has an index and one subfolder per applied skill. Reports, actual reader/referee responses,
+checks, contradictions, blocked sources, failed attempts and before/after passages remain inspectable.
+The reply links the index and reports. Failed commands survive a successful retry; unrun and incomplete
+stages are labeled. `runs.py validate RUN --final` checks delivery artifacts and panel coverage. It
+cannot establish scientific correctness or verify that the conversation actually displayed an excerpt.
+See the shared [project and run contract](skills/manuscript-integrity-check/references/project-workflow.md)
+for setup, command examples and the limits of these checks.
+
+`reports: file` gives the headline and urgent findings in chat; `chat` and `both` show the whole report
+there. The run evidence stays saved in every mode. `edits: conservative` remains the default: apply
+routine corrections that preserve meaning and propose consequential argument, claim or numerical
+changes. Choose `propose` for proposals only or `apply` for authorized substantive edits. Exact
+consequential before/after text is shown promptly in chat even with file reports.
+
+Whole-manuscript improvement now defaults to `peer_review: auto`: three formal referees plus a defender.
+Save `on-request` or `off` for a different project preference. This does not expand focused tasks into
+peer review. Story review has its own three simulated readers; they do not replace scientific referees.
 
 Questions do not stop independent work. The assistant collects proposals and missing facts while
 finishing the checks and edits it can complete without your answers. If asynchronous questions are
@@ -84,7 +100,7 @@ A useful sequence is:
 
 1. **Review the draft and references.** Identify unsupported claims, citation problems, inconsistent
    numbers, reporting gaps and missing material through the integrity, reference and reporting checks.
-   If you ask for it, a simulated referee panel then adds the objections a referee is likely to raise.
+   The project's referee policy then supplies a simulated panel, automatically by default for this full workflow.
 2. **Resolve scope and choose a journal.** Use policy-fit assessment where the study raises clinical,
    ethics or privacy questions, then order the preprint servers and journals that fit your research and
    publication budget into two ladders by your priorities, and adapt what every venue on them shares.
@@ -112,8 +128,8 @@ For work that spans several sessions, the assistant can keep a small
 with the chosen journal or the ladders, your priorities, completed checks and open issues, so that later
 steps reuse earlier work. It is created when the work spans sessions, when journal selection records
 your priorities and ladders, or when you ask for it. Everything you are meant to open (a saved report, a
-ladder, a heat map, a response letter) goes beside the manuscript or in a folder you name; files only
-the assistant needs go to a temporary location, and the assistant never points you there.
+ladder, a heat map, a response letter) stays in the project or its configured output folder. The run
+retains the evidence behind its findings; unrelated downloads may still use temporary storage.
 
 ## Choose how to review the work
 

@@ -1234,6 +1234,49 @@ def test_common_lists_what_has_not_been_researched_instead_of_treating_it_as_no_
     assert "Data availability (Calm Journal)" in _section(out, "Adapt now")
 
 
+def test_one_known_length_limit_does_not_become_a_shared_mandatory_cut(synthetic_venues: Path, tmp_path: Path) -> None:
+    facts = {"venue_facts": {"calm": COMMON_FACTS['venue_facts']['calm']}}
+    out = _common(tmp_path, facts, 'calm', 'strict')
+    assert 'Length of the body' not in _section(out, 'Adapt now')
+    assert 'no shared cap is established' in _section(out, 'Choose per venue')
+
+
+def test_disclosure_rule_does_not_invent_a_polish_exemption() -> None:
+    venue={'writing_help': 'disclose', 'exempt': []}
+    assert 'needs no declaration' not in venues.verdict(venue, venues.AiUse.polish)
+    assert 'needs no declaration' not in venues.WRITING_WORDS['disclose']
+    assert 'declare it' in venues.verdict(venue, venues.AiUse.polish)
+    venue['exempt']=['spelling and grammar']
+    assert 'spelling and grammar' in venues.verdict(venue, venues.AiUse.polish)
+
+
+def test_selected_journal_watches_inherited_publisher_policy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    catalogue=tmp_path/'venues.yaml'
+    catalogue.write_text(yaml.safe_dump({'venues': {
+        'publisher': {'kind': 'publisher', 'url': 'https://publisher.example/policy'},
+        'journal': {'inherits': 'publisher', 'url': 'https://journal.example/guidelines'},
+    }}))
+    monkeypatch.setattr(watch, 'VENUES_YAML', catalogue)
+    assert watch.watched_urls(['journal']) == {
+        'https://journal.example/guidelines': ['journal'],
+        'https://publisher.example/policy': ['journal'],
+    }
+
+
+def test_watcher_inherits_ai_policy_without_another_journals_fees_or_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    catalogue=tmp_path/'venues.yaml'
+    catalogue.write_text(yaml.safe_dump({'venues': {
+        'parent-journal': {'url': 'https://parent.example/scope', 'sources': ['https://parent.example/fees'],
+                           'ai_policy_url': 'https://publisher.example/ai'},
+        'child-journal': {'inherits': 'parent-journal', 'url': 'https://child.example/guidelines'},
+    }}))
+    monkeypatch.setattr(watch, 'VENUES_YAML', catalogue)
+    assert watch.watched_urls(['child-journal']) == {
+        'https://child.example/guidelines': ['child-journal'],
+        'https://publisher.example/ai': ['child-journal'],
+    }
+
+
 @pytest.mark.parametrize("keys", [["calm"], ["calm", "nowhere"]])
 def test_common_needs_two_known_venues(synthetic_venues: Path, keys: list[str]) -> None:
     from typer.testing import CliRunner

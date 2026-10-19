@@ -18,6 +18,8 @@ person's, and it counts every name it cannot place as an agent. This skill build
 who the people are. **It never decides that a name is a person**: it shows the evidence, the authors
 confirm, and only the confirmed names are written.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Steps
 
 1. **Survey**, read-only (relative to this skill directory):

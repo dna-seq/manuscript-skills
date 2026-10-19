@@ -1,0 +1,472 @@
+manuscript: /home/antonkulaga/sources/just-module-creator/docs/manuscript/manuscript.tex
+updated: '2026-10-19'
+status: review-only smoke selection; existing author plans and manuscripts unchanged
+priority_provenance:
+  paper1: Current author choices are in paper1-just-dna-lite.record.yaml and final
+    October 2026 strategy section.
+  paper2: The October 2026 paper2 table still refers to an above-5 floor. No answer
+    to the current paper2 priority question was available when this scenario was prepared.
+    Neither scenario is a new author decision.
+  alternative: If the above-5 floor remains binding, Bioinformatics is the only metric-eligible
+    venue among the three checked; this bounded comparison does not establish it as
+    the best journal overall.
+study:
+  designs:
+  - software-tool
+  - database-resource
+  domains:
+  - genomics
+  - biocuration
+  human_data: The plugin authors knowledge modules and does not open a genome; individual-genome
+    runtime evidence belongs to paper1. This selection did not run a policy-fit audit.
+ladders:
+  journals: []
+  preprints: []
+  checked: '2026-10-19'
+  conditional_above3:
+    journals:
+    - bmc-bioinformatics
+    - bioinformatics
+    preprints:
+    - biorxiv
+    - arxiv
+  conditional_above5:
+    journals:
+    - bioinformatics
+    preprints:
+    - biorxiv
+    - arxiv
+  note: No author-chosen order or venue is saved. Conditional orders are recommendations
+    awaiting Paper2 priorities. CLI commands pass priorities explicitly; chosen_rung
+    is blank.
+venue_facts:
+  bmc-bioinformatics:
+    name: BMC Bioinformatics
+    jif: 4.4
+    jif_year: 2025
+    url: https://link.springer.com/journal/12859/submission-guidelines/software-article
+    ai_policy_url: https://link.springer.com/brands/bmc/editorial-policies
+    writing_help: disclose_all
+    extra_burden: []
+    prompts: 'no'
+    tracking: 'no'
+    screening: integrity_signals
+    disclosure_neutral: null
+    checked: '2026-10-19'
+    ai_policy_evidence:
+      source: https://link.springer.com/brands/bmc/editorial-policies
+      checked: '2026-10-19'
+      summary: Live risk framework permits writing support with human oversight, verification
+        and disclosure. Red-tier examples concern opaque or unverifiable outputs and
+        displaced accountability. It does not state a blanket ban on AI-written Results
+        or Discussion. This overrides the catalogue's older red_line interpretation
+        for this run.
+    disclosure_places:
+    - Methods or a suitable alternative section
+    disclosure_fields:
+    - how AI was used
+    - human oversight and verification
+    - author accountability
+    limits:
+      abstract_words: 350
+    abstract_headings:
+    - Background
+    - Results
+    - Conclusions
+    required_sections:
+    - Background
+    - Implementation
+    - Results
+    - Discussion (if appropriate)
+    - Conclusions
+    - Availability and requirements
+    - Declarations
+    submission_rules:
+    - when: submission
+      rule: Provide anonymisable reviewer testing and a data availability statement.
+        Include the software requirements and the required declaration headings, using
+        Not applicable where appropriate.
+      source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+      checked: '2026-10-19'
+    review_speed:
+    - metric: submission-to-first-decision
+      days: 5
+      statistic: median
+      population: not stated; includes editorial assessment and must not be described
+        as external peer-review duration
+      period: not stated
+      source: https://link.springer.com/journal/12859
+      checked: '2026-10-19'
+      evidence_kind: official journal statistic
+    publication_costs:
+    - amount: 2590
+      currency: EUR
+      fee_year: 2026
+      route: List fee before VAT/local taxes. A 20% DEAL discount is available if
+        the submitting corresponding author is an eligible Rostock researcher; university
+        fund can pay at most EUR 2000 gross and remaining costs need grant/decentralised
+        funds. Corresponding author and paper2 funding not confirmed; no zero author
+        cost assumed.
+      source: https://link.springer.com/journal/12859/how-to-publish-with-us
+      checked: '2026-10-19'
+    open_science:
+      summary: Reviewers must be able to test anonymously. Non-commercial researcher
+        access required after publication; source and an open-source licence are recommended.
+        A data availability statement is required.
+      source_code: encouraged
+      software_licence: open source recommended, not required
+      data_and_artifacts: Minimal data needed to interpret and replicate results;
+        access restrictions can be stated where justified.
+      preprints: BMC permits any preprint server and licence; preprints are not prior
+        publication. Disclose DOI/licence on submission and add the eventual publication
+        reference. Potentially overlapping companion work must be declared and cited.
+      source: https://link.springer.com/brands/bmc/editorial-policies
+      checked: '2026-10-19'
+    editorial_profile:
+      summary: Software is in scope, but the journal asks for broad utility, a significant
+        advance and comparison with functionally similar software. Table 1's capability
+        comparison and the current mixed-build prep corpus do not yet establish a
+        comparative accuracy advance.
+      evidence_kind: stated criteria plus manuscript-specific judgement
+      source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+      checked: '2026-10-19'
+    validation_requirements:
+    - applies_to:
+      - software
+      strength: recommended
+      description: Software articles usually demonstrate a significant advance by
+        direct comparison with related software. This is a comparison/evidence standard,
+        not a requirement for wet-lab work or a newly recruited cohort. The manuscript's
+        comparative performance claim still depends on reconciling its scored runs.
+      source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+      checked: '2026-10-19'
+      quote: direct comparison with available related software
+    sources:
+    - https://link.springer.com/journal/12859
+    - https://link.springer.com/journal/12859/how-to-publish-with-us
+    - https://link.springer.com/journal/12859/submission-guidelines/software-article
+    - https://link.springer.com/brands/bmc/editorial-policies
+    - https://www.ub.uni-rostock.de/en/support-for-researchers/open-access/publisher-discounts/
+    - https://www.springernature.com/gp/open-science/oa-agreements/germany
+    exempt: []
+  bioinformatics:
+    name: Bioinformatics (Original Paper)
+    jif: 5.5
+    jif_year: 2025
+    url: https://academic.oup.com/bioinformatics/pages/author-guidelines
+    review_speed:
+    - metric: submission-to-first-decision (desk-inclusive)
+      days: 23
+      statistic: median
+      population: all manuscripts receiving a first decision, including desk rejections
+        (OUP metric definition; reused same-day paper1 record)
+      period: '2025'
+      source: https://academic.oup.com/bioinformatics/pages/About
+      checked: '2026-10-19'
+      evidence_kind: official journal statistic, live page
+    publication_costs:
+    - amount: 4376
+      currency: USD
+      fee_year: 2026
+      route: 'Reused paper1''s author-browser fee-calculator reading of 2026-10-19:
+        same fee for Original Papers and Application Notes before tax, ISCB member
+        discount 15%; no OUP agreement found there for Rostock/Romania. Paper2 grant
+        coverage and corresponding-author eligibility unconfirmed; no euro comparison
+        invented.'
+      source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+      checked: '2026-10-19'
+      evidence_kind: reused same-day author record; live calculator not re-operated
+    open_science:
+      summary: Self-contained implementation, documentation, appropriate test data
+        and freely available source at stable URLs are required at submission. Archive
+        the exact described version.
+      source_code: required
+      software_licence: open source encouraged; access to non-commercial users required
+      preprints: The author's original preprint can be posted before submission; update
+        its eventual published DOI. Related manuscripts (including under consideration
+        elsewhere) must be disclosed in the cover letter, copied for editors, and
+        distinguished. These rules allow separate companion papers; they do not require
+        one paper's acceptance first.
+      source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+      checked: '2026-10-19'
+    editorial_profile:
+      summary: Original Papers cover new computational molecular-biology research,
+        including software involving new methods and biological databases. Real biological
+        data must be used, with simulation-only work allowed only when exceptionally
+        justified. The existing literature-based corpus is biological data, but one
+        adjudicated variant and a mixed-build prep round give limited evidence of
+        advance.
+      evidence_kind: stated scope plus manuscript-specific judgement
+      source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+      checked: '2026-10-19'
+    validation_requirements:
+    - applies_to:
+      - software
+      strength: recommended
+      description: Original Papers require actual biological data (simulation-only
+        work needs an exceptional justification) and new methods need comparison with
+        the state of the art. The paper has real literature-based cases, but no matched
+        comparative performance baseline was located. No clinical-cohort or wet-lab
+        requirement was found for this software article.
+      source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+      checked: '2026-10-19'
+      quote: Actual biological data must be used
+    sources:
+    - https://academic.oup.com/bioinformatics/pages/About
+    - https://academic.oup.com/bioinformatics/pages/author-guidelines
+    - https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    - https://academic.oup.com/BIOINFORMATICS/pages/author-guidelines
+    limits:
+      body_words: 5000
+      abstract_words: 150
+    limit_quotes:
+      abstract_words:
+        quote: A maximum of 150 words is recommended.
+        strength: recommended
+        source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+        checked: '2026-10-19'
+  database:
+    name: 'Database: The Journal of Biological Databases and Curation'
+    jif: 2.7
+    jif_year: 2025
+    url: https://academic.oup.com/database/pages/General_Instructions
+    review_speed:
+    - metric: submission-to-first-decision (desk-inclusive)
+      days: 63
+      statistic: median
+      population: all manuscripts receiving a first decision (OUP definition)
+      period: '2025'
+      source: https://academic.oup.com/database/pages/About
+      checked: '2026-10-19'
+    - metric: submission-to-final-decision
+      days: 122
+      statistic: median
+      population: not independently examined
+      period: '2025'
+      source: https://academic.oup.com/database/pages/About
+      checked: '2026-10-19'
+    editorial_profile:
+      summary: Very close scope for annotation methodologies and automated/semi-automated
+        biocuration; a biological discovery or testable hypothesis is strongly encouraged,
+        not stated as universally required. Excluded from both above-3 and above-5
+        scenarios because current JIF is 2.7.
+      source: https://academic.oup.com/database/pages/About
+      checked: '2026-10-19'
+      evidence_kind: stated scope and metric
+    open_science:
+      summary: Open-access CC BY journal; complete journal-specific source/licence,
+        data, overlap and preprint rules remain unverified because live instructions
+        were partial and the author's browser reached a challenge.
+      source: https://academic.oup.com/database/pages/About
+      checked: '2026-10-19'
+    publication_costs: []
+    validation_requirements: null
+    ai_policy_evidence:
+      summary: Journal-specific instructions were incomplete; a generic OUP policy
+        URL redirected to book policy, so it was not applied to this journal. Catalogue's
+        low-burden score is not verified in this run.
+      checked: '2026-10-19'
+  biorxiv:
+    transfers:
+    - bioinformatics
+    transfers_checked:
+    - bmc-bioinformatics
+    - bioinformatics
+    - database
+    url: https://www.biorxiv.org/about/FAQ
+    checked: '2026-10-19'
+    publication_costs:
+    - amount: 0
+      currency: EUR
+      fee_year: 2026
+      route: No submission fee; live FAQ in author's browser.
+      source: https://www.biorxiv.org/about/FAQ
+      checked: '2026-10-19'
+    open_science:
+      summary: Complete computational research articles with methods and results fit;
+        tool announcements without research output do not. Use of generative AI is
+        detailed in the manuscript; authors remain responsible. CC BY is offered.
+        An already-posted manuscript on another preprint server will not be posted.
+      preprints: Use before another preprint server. If bioRxiv declines, arXiv remains
+        a possible fallback. Do not plan successful arXiv posting followed by bioRxiv.
+      source: https://www.biorxiv.org/about/FAQ
+      checked: '2026-10-19'
+    other_desk_rules:
+    - Complete manuscript with research output, rather than tool announcement.
+    - Scope decision remains with screening editors.
+    - FAQ permits updates until journal publication, but About page says until formal
+      acceptance; schedule substantive revisions before acceptance to satisfy both.
+    validation_requirements:
+    - applies_to:
+      - software
+      strength: recommended
+      description: A complete computational article with methods and research results
+        is required; the current paper's scoring-table/corpus conflict must be reconciled
+        before representing that table as validated output.
+      source: https://www.biorxiv.org/about/FAQ
+      checked: '2026-10-19'
+      quote: Announcements of tools or services without data
+    sources:
+    - https://www.biorxiv.org/about/FAQ
+    - https://www.biorxiv.org/content/about-biorxiv
+    writing_help: disclose_all
+    exempt: []
+  arxiv:
+    url: https://info.arxiv.org/help/moderation/index.html
+    checked: '2026-10-19'
+    publication_costs:
+    - amount: 0
+      currency: EUR
+      fee_year: 2026
+      route: Free submission service; no publication charge.
+      source: https://info.arxiv.org/help/submit/index.html
+      checked: '2026-10-19'
+    open_science:
+      summary: Self-contained original research of scholarly interest, significant
+        AI use reported, human authors accountable. CC BY is available. Similar submissions
+        can be requested consolidated/versioned; the two papers need distinct contributions.
+      preprints: Fallback after bioRxiv decline or an alternative first choice. Current
+        official moderation policy limits submitters to two new submissions per calendar
+        month and three active submissions; replacements have a separate once-per-week
+        limit after version 5.
+      source: https://info.arxiv.org/help/moderation/index.html
+      checked: '2026-10-19'
+    validation_requirements:
+    - applies_to:
+      - software
+      strength: recommended
+      description: A self-contained substantive research article is expected; similar
+        submissions may need consolidation or versioning. Whether these two connected
+        papers have sufficient distinct contribution remains editorial judgement,
+        supported by the consumption/authoring split documented here.
+      source: https://info.arxiv.org/help/moderation/index.html
+      checked: '2026-10-19'
+      quote: self-contained and of interest
+    sources:
+    - https://info.arxiv.org/help/moderation/index.html
+    - https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/
+    - https://info.arxiv.org/help/license/index.html
+    exempt: []
+related_manuscripts:
+- manuscript: /home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/paper1-just-dna-lite.md
+  relationship: Paper1 consumes modules, annotates genomes, computes polygenic scores
+    and reports benchmark performance; paper2 authors/evaluates/shares content and
+    does not process samples.
+  status: EASRP 2026 entry, no proceedings; not selected, not published and not under
+    review, according to October author planning.
+  dependency: A citable paper1 preprint is sufficient for paper2's runtime/consumer
+    references; no checked rule requires paper1 journal acceptance.
+publication_sequence:
+- Resolve paper2's TeX-versus-corpus result conflict and tie each table to model/host/plugin/release/attempt
+  identifiers before posting it.
+- Prepare one coordinated release of the shared format/compiler/enricher/registry
+  contract; archive exact per-paper software and evaluation snapshots with their own
+  manifests. Paper1 benchmarks and paper2 authoring corpus remain separate.
+- Post paper1 first under the chosen preprint route and capture its persistent identifier.
+  Its journal submission can proceed as its own paper1 ladder and author approval
+  permit.
+- Replace paper2's placeholder companion citation with paper1's citable preprint.
+  Post paper2 when its own evidence is ready; it need not wait for paper1 acceptance.
+  If arXiv is chosen for both, observe the submitter's new-submission quota and active-submission
+  cap.
+- Submit paper2 to the chosen paper2 journal after the preprint, with the distinct
+  contribution and companion preprint disclosed. The two distinct papers can be considered
+  in parallel; never submit the same manuscript concurrently to multiple journals.
+- When paper2 has an identifier, update paper1's companion reference and release mapping;
+  submit substantive bioRxiv changes before acceptance because its live pages disagree
+  on the later boundary.
+- After either journal version appears, update the corresponding preprint DOI/journal-reference
+  metadata and the other paper's citation at its next permitted revision. Keep a version-specific
+  preprint citation when it supports a result not retained in the journal version.
+open_issues:
+- id: evaluation-corpus
+  summary: TeX fixed-build table versus committed mixed-build corpus remain inconsistent.
+    Scorer reproduces prep values; exact historical plugin build IDs and replacement
+    stable corpus not found.
+  status: open
+- id: paper2-priorities
+  summary: Paper2 above-3/normal-grant scenario versus old above-5 floor awaits author
+    response.
+  status: open
+- id: bmc-live-ai-policy
+  summary: Live BMC risk table supersedes older catalogue's Results/Discussion drafting
+    ban; run record overrides only. Watcher exit0 did not read the publisher page
+    because current watcher URL inheritance omitted it.
+  status: resolved for this run; catalogue left unchanged
+  resolution: Run overrides follow the live policy. Parent corrected inherited publisher
+    inclusion; command0020 verifies the URL is present, but also reveals inherited
+    Genome Biology pages attributed to BMC.
+- id: biorxiv-version-boundary
+  summary: Live FAQ says updates until publication; About says until acceptance. Plan
+    updates before acceptance.
+  status: open
+- id: fee-route
+  summary: Paper2 corresponding author, grant availability and institutional discount
+    applicability unconfirmed.
+  status: open
+ai_use_case:
+  status: actual paper2 assistance account not confirmed
+  cli_scenario: Default revision mode illustrates policy burdens; it is not an attestation
+    of what happened in this manuscript.
+  source: Paper2 process README mentions Claude Code/Cursor, but does not specify
+    each task or manuscript section.
+priority_scenarios:
+  paper1_current:
+    journals:
+    - speed
+    - reach
+    - ai
+    preprints:
+    - transfer
+    - ai
+    jif_floor: above 3
+    fee: grant can pay a normal open-access fee
+    preprint: bioRxiv preferred
+    author_choice: true
+    source: paper1-just-dna-lite.record.yaml,2026-10-19
+  paper2_if_inherited:
+    journals:
+    - speed
+    - reach
+    - ai
+    preprints:
+    - transfer
+    - ai
+    jif_floor: above 3
+    fee: normal grant-funded fee, if author confirms
+    author_choice: false
+  paper2_old_floor:
+    jif_floor: above 5
+    author_choice: historical strategy only; current confirmation pending
+proposed_venue:
+  key: bmc-bioinformatics
+  article_type: software-article
+  stage: proposed initial-submission
+  checked: '2026-10-19'
+  sources:
+  - https://link.springer.com/journal/12859/submission-guidelines/software-article
+  note: Conditional recommendation only, pending paper2 priorities and reconciliation
+    of the evaluation corpus.
+smoke_findings:
+- kind: helper bug
+  summary: Concurrent commands initially overwrote command0001; parent added locking/streamed
+    durable command output. Surviving originals retained; affected BMC watch repeated
+    sequentially.
+  status: fixed by parent; original lost output explicitly not recovered
+- kind: helper bug
+  summary: common promoted a single known word cap and implied an unrecorded language-polish
+    exemption.
+  status: fixed by parent; corrected generation command0019 retained alongside initial
+    command0008
+- kind: helper bug
+  summary: Watcher selection omitted inherited publisher policy.
+  status: fixed by parent; command0020 verifies publisher URL inclusion
+- kind: remaining watcher caveat
+  summary: command0020 also attributes Genome Biology home/fees/software URLs to BMC
+    Bioinformatics because of catalogue inheritance; these journal-specific facts
+    must not be imported into BMC's venue record.
+  status: reported to parent
+- kind: agent invocation error
+  summary: Nine source registrations used unsupported roles; reproduction retained.
+    Sources subsequently registered successfully as input/other.
+  status: resolved

@@ -39,6 +39,8 @@ Apply the requested task across the whole paper unless the author specifies a na
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Priorities: ask once, record them, re-rank when they change
 
 A ladder needs an order of preference, and only the authors can give it. Use the manuscript, the
@@ -148,6 +150,18 @@ Do not let a favourable AI policy, JIF or claimed speed compensate for an infeas
 `ladder` sorts by feasibility before any priority for this reason. Show infeasible candidates separately or
 explain their exclusion. Do not treat a second public dataset as automatically satisfying an
 independent-clinical-cohort rule; check the rule and dataset.
+
+## Connected manuscripts and publication order
+
+When the project records related manuscripts, read their current contribution, evidence and publication
+status before recommending an order. Keep each paper's venue choices and constraints separate. Explain
+what one paper assumes from the other, how their claims differ, which cross-citations should be preprint
+or published versions, and which shared code/data releases each needs. Recommend a concrete sequence for
+preprints, submissions and subsequent version updates, with parallel steps where independence permits.
+Check the shortlisted venues' overlap, prior-publication and preprint rules before treating a dependency
+as a submission barrier. Do not invent a need to await acceptance when a citable preprint is sufficient.
+Save the sequence and unresolved conflicts in the selection run and scientific shared record. This is
+planning, not authorization to submit, upload a preprint or rewrite either paper.
 
 ## The two ladders
 

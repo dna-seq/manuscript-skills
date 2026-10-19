@@ -3,14 +3,12 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12", "pyyaml>=6"]
 # ///
-"""The plugin-wide settings every manuscript skill shares, asked once and kept for every project.
+"""User-wide defaults for manuscript skills; saved manuscript-project choices take precedence.
 
-Each setting is a choice the authors make once for the whole plugin, not per skill: `reports`, where a
-skill's report goes, and `edits`, which changes may be applied without individual approval. The settings live
-in one small YAML file in the user's
-configuration folder, so a choice made while running one skill applies to all of them and to every
-manuscript. A request in the conversation and the project's own instructions still come first; the rule is in
-../references/author-priorities.md. Invoking a skill does not override these choices.
+Use project.py for ordinary skill startup and project preferences. Project setup snapshots these global
+report/edit defaults once; later changes here do not silently replace a manuscript's saved choices.
+Use this script to change an explicitly global preference, or to inspect defaults for new projects.
+The precedence and run-artifact contract live in ../references/author-priorities.md and project-workflow.md.
 
     uv run --script settings.py show                 # every setting, its value or "not set", and the file
     uv run --script settings.py get reports          # the value; prints "not set" and exits 1 when unset
@@ -45,7 +43,7 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 ENV_DIR = "MANUSCRIPT_SKILLS_CONFIG"
 APP_DIR = "manuscript-skills"
-HEADER = ("# manuscript-skills settings: one choice for every skill and every project.\n"
+HEADER = ("# manuscript-skills settings: global defaults, overridden by saved manuscript-project choices.\n"
           "# Change one with `settings.py set KEY VALUE`, or edit this file.\n")
 
 
@@ -59,11 +57,11 @@ class Setting:
 SETTINGS: dict[str, Setting] = {
     "reports": Setting(
         question="Where should the manuscript skills put their reports (reviews, audits, check results)? "
-                 "This applies to every skill and every project; you can change it at any time.",
+                 "This is the global default for new manuscript projects; saved project choices take precedence.",
         options={
-            "file": "Save each report as a file beside the manuscript (or in the folder you name), and give the "
+            "file": "Save each report in the manuscript project's run folder, and give the "
                     "headline and the most urgent points in the chat.",
-            "chat": "Show each report in full in the chat, and save no report file.",
+            "chat": "Show each report in full in the chat; retain the project's inspectable run evidence too.",
             "both": "Save the file, and also show the full report in the chat.",
         },
         default="file",
@@ -71,7 +69,7 @@ SETTINGS: dict[str, Setting] = {
     "edits": Setting(
         question="Which manuscript changes may the skills apply without your approval? "
                  "Independent checks and permitted edits continue while proposals await your decision. "
-                 "This applies to every skill and every project; you can change it at any time.",
+                 "This is the global default for new manuscript projects; saved project choices take precedence.",
         options={
             "conservative": "Apply routine corrections that preserve meaning; propose changes to arguments, "
                             "claims, emphasis, numerical content and substantial structure for approval.",
@@ -231,7 +229,7 @@ def resolve(as_json: Annotated[bool, typer.Option("--json", help="Machine-readab
 
 @app.command("set")
 def set_(key: str, new: str) -> None:
-    """Save a choice the authors stated, for every skill and project."""
+    """Save an explicitly global default; use project.py configure for a manuscript-only choice."""
     path = settings_path()
     try:
         put(path, key, new)

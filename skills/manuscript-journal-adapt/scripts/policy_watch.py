@@ -426,13 +426,23 @@ def fetch(url: str, routes: list[str], last: Optional[date]) -> Fetched:
 # ------------------------------------------------------------------------------------------------ data
 
 def watched_urls(only: Optional[list[str]] = None) -> dict[str, list[str]]:
-    """URL -> the venue keys that cite it, from the raw (uninherited) entries, so each URL is counted once."""
+    """URL -> selected venues governed by it, including inherited publisher/parent policies."""
     raw = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
     out: dict[str, list[str]] = {}
-    for key, v in raw.items():
-        if only and key not in only:
-            continue
-        for u in [v.get("url"), v.get("ai_policy_url"), *(v.get("sources") or [])]:
+    selected = list(only) if only else list(raw)
+
+    def urls(key: str, seen: set[str], inherited: bool = False) -> list[str]:
+        if key in seen or key not in raw:
+            raise typer.BadParameter(f"Invalid venue inheritance at {key}.")
+        entry = raw[key]
+        candidates = [entry.get('ai_policy_url'), entry.get('publisher_policy_url')]
+        if not inherited or entry.get('kind') == 'publisher':
+            candidates += [entry.get('url'), *(entry.get('sources') or [])]
+        own = [u for u in candidates if u]
+        return own + (urls(entry['inherits'], seen | {key}, True) if entry.get('inherits') else [])
+
+    for key in selected:
+        for u in urls(key, set()):
             if u and key not in out.get(u, []):
                 out.setdefault(u, []).append(key)
     if only and not out:

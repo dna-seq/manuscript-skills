@@ -26,9 +26,11 @@ while the science, the journal's requirements and the authors' chosen direction 
 
 Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md),
 including [readers first, referees second](../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second),
-the plugin settings (`uv run --script ../manuscript-integrity-check/scripts/settings.py resolve --json`)
+the project-resolved settings (`uv run --script ../manuscript-integrity-check/scripts/project.py resolve SOURCE --json`)
 and, when it exists, the [manuscript record](../manuscript-integrity-check/references/manuscript-record.md):
 its `story`, `venue`, `claims` and `non_claims` entries bind this skill.
+
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
 
 ## What the authors can ask for
 

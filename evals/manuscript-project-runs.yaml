@@ -1,0 +1,36 @@
+- id: standalone-skill-first-use-and-reuse
+  skill: manuscript-prose-edit
+  prompt: >-
+    Use manuscript-prose-edit to assess this manuscript. Keep edits as proposals. This is a new
+    manuscript project; I have not told you where the outputs should go or which code is connected.
+    After I answer, run the requested check and then run it again on the same project.
+  files: [fixtures/manuscript-prose-edit/platform-abstract.md]
+  rubric:
+    - "Resolves project context and batches only genuinely missing source/code/output questions."
+    - "Accepts none or unknown as a connected-code answer and continues independent checks."
+    - "Saves the supplied project choices and reuses them without re-interviewing on the second invocation."
+    - "Produces a linked run index and a per-skill report and evidence folder for each distinct run."
+    - "Records proposed substantive passages before and after in chat and in the run evidence."
+  fail_if:
+    - "Silently saves guessed user choices."
+    - "Treats an internal or scratch-only report as delivered."
+    - "Changes global preferences when the author gave a project-only preference."
+
+- id: real-manuscript-output-and-failure-retention
+  skill: manuscript-journal-select
+  prompt: >-
+    Run this skill on an author's actual connected manuscripts and code. Save the policy lookups,
+    disagreements and failures so they can improve the skill. Reuse the saved project choices and
+    recommend a publication and update sequence for the companion papers.
+  files: []
+  setup: "Supply the authorized real manuscript paths and existing project/venue context; do not substitute a fixture."
+  rubric:
+    - "Reads actual authoritative sources and distinguishes stale planning notes from current evidence."
+    - "Preserves failed command attempts, blocked sources and contradictory policy or manuscript evidence."
+    - "Separates independent project preferences and related-paper publication dependencies."
+    - "Does not turn missing priority answers into saved author decisions."
+    - "Delivers real report and evidence links and labels partial or unrun work honestly."
+  fail_if:
+    - "Declares a watcher exit code to mean all current venue requirements are unchanged."
+    - "Overwrites a failed attempt or claims fixture output is a real-manuscript smoke run."
+    - "Submits, publishes or updates external manuscript documents during the review-only smoke run."

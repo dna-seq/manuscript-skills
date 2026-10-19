@@ -153,7 +153,7 @@ checklist: a question that does not apply to this paper is skipped without comme
 
 ## The seat brief
 
-Each seat receives one self-contained brief and its own workspace (in a scratch directory) holding only:
+Each seat receives one self-contained brief and its own workspace (inside the durable skill-run folder) holding only:
 the reading copy of the manuscript (HTML comments, LaTeX comments and revision markers removed, as an
 editor would see it), its supplementary files, a copy of [finding-schema.md](finding-schema.md), and,
 when a domain module is loaded for this seat, that module's questions as `domain-questions.md`. Domain

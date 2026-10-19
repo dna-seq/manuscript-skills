@@ -1,0 +1,332 @@
+"""Project isolation and observable evidence-delivery failures, including actual command execution."""
+
+from __future__ import annotations
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import pytest
+import yaml
+from typer.testing import CliRunner
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / 'skills/manuscript-integrity-check/scripts'
+sys.path.insert(0, str(SCRIPTS))
+
+import project as projects
+import runs
+
+runner = CliRunner()
+
+
+@pytest.fixture()
+def manuscript(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setenv('MANUSCRIPT_SKILLS_CONFIG', str(tmp_path / 'global'))
+    folder = tmp_path / 'paper one'
+    folder.mkdir()
+    path = folder / 'paper.md'
+    path.write_text('# Real test input\n\n## Abstract\n\nLocal analysis.\n')
+    return path
+
+
+def configure(path: Path, *args: str):
+    return runner.invoke(projects.app, ['configure', str(path.parent), '--manuscript', path.name,
+                                      '--no-code', '--output-dir', 'reviews', *args])
+
+
+def resolve(path: Path, *args: str):
+    return runner.invoke(projects.app, ['resolve', str(path), '--json', *args])
+
+
+def start(path: Path, skill: str = 'manuscript-prose-edit') -> Path:
+    result = runner.invoke(runs.app, ['start', str(path), '--skill', skill])
+    assert result.exit_code == 0, (result.output, result.exception)
+    return Path(result.output.strip())
+
+
+def add(run: Path, source: Path, role: str = 'report', skill: str = 'manuscript-prose-edit', *args: str):
+    return runner.invoke(runs.app, ['add', str(run), '--skill', skill, '--file', str(source), '--role', role, *args])
+
+
+def finish(run: Path, skill: str = 'manuscript-prose-edit', status: str = 'completed', *args: str):
+    return runner.invoke(runs.app, ['finish', str(run), '--skill', skill, '--status', status, *args])
+
+
+def test_first_use_asks_missing_context_without_writing(manuscript: Path) -> None:
+    result = resolve(manuscript)
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data['status'] == 'setup_required'
+    assert {q['key'] for q in data['questions']} == {'manuscripts', 'code_roots', 'output_dir'}
+    assert not (manuscript.parent / projects.CONFIG).exists()
+
+
+def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    for _ in range(3):
+        data = json.loads(resolve(manuscript).output)
+        assert data['status'] == 'ready' and not data['questions']
+        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'peer_review': 'auto'}
+    for skill in ('manuscript-prose-edit', 'manuscript-journal-select'):
+        run = start(manuscript, skill)
+        assert runs.read(run)['context']['project_file'] == str(manuscript.parent / projects.CONFIG)
+
+
+def test_conversation_override_is_transient_and_project_outlives_global_change(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    original = (manuscript.parent / projects.CONFIG).read_bytes()
+    global_file = projects.settings.settings_path()
+    global_file.parent.mkdir(parents=True)
+    global_file.write_text('reports: chat\nedits: apply\n')
+    data = json.loads(resolve(manuscript, '--reports', 'both', '--edits', 'propose').output)
+    assert data['effective']['reports'] == 'both' and data['sources']['reports'] == 'conversation'
+    assert data['effective']['edits'] == 'propose'
+    assert json.loads(resolve(manuscript).output)['effective']['reports'] == 'file'
+    assert (manuscript.parent / projects.CONFIG).read_bytes() == original
+
+
+def test_missing_location_or_misbound_paper_is_a_targeted_conflict(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    other = manuscript.parent / 'different.md'
+    other.write_text('Another manuscript.')
+    result = resolve(other)
+    assert result.exit_code == 3
+    assert json.loads(result.output)['issues'][0]['scope'] == 'manuscript'
+    manuscript.unlink()
+    data = json.loads(resolve(manuscript).output)
+    assert data['status'] == 'conflict' and not data['questions']
+
+
+def test_unknown_code_is_an_answer_and_related_papers_keep_separate_choices(manuscript: Path) -> None:
+    other = manuscript.parent.parent / 'paper-two'
+    other.mkdir()
+    paper = other / 'paper.md'
+    paper.write_text('Other paper')
+    assert configure(paper, '--reports', 'both').exit_code == 0
+    result = runner.invoke(projects.app, ['configure', str(manuscript.parent), '--manuscript', manuscript.name,
+        '--unknown-code', '--output-dir', 'reviews', '--related-manuscript', str(paper)])
+    assert result.exit_code == 0, result.output
+    data = json.loads(resolve(manuscript).output)
+    assert data['project']['code_roots'] is None and not data['questions']
+    assert data['effective']['reports'] == 'file'
+    assert json.loads(resolve(paper).output)['effective']['reports'] == 'both'
+
+
+@pytest.mark.parametrize('body', ['schema_version: 99\n', '- broken\n', 'schema_version: 1\nsettings: {edits: anything}\n'])
+def test_broken_project_is_preserved(manuscript: Path, body: str) -> None:
+    config = manuscript.parent / projects.CONFIG
+    config.write_text(body)
+    assert resolve(manuscript).exit_code == 2
+    assert configure(manuscript).exit_code == 2
+    assert config.read_text() == body
+
+
+def test_configure_preserves_unmentioned_choices_and_future_keys(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    config = manuscript.parent / projects.CONFIG
+    data = yaml.safe_load(config.read_text()) | {'future': {'retained': True}}
+    config.write_text(yaml.safe_dump(data))
+    result = runner.invoke(projects.app, ['configure', str(manuscript.parent), '--peer-review', 'on-request'])
+    assert result.exit_code == 0
+    data = yaml.safe_load(config.read_text())
+    assert data['future'] == {'retained': True} and data['code_roots'] == []
+    assert data['settings']['peer_review'] == 'on-request'
+
+
+def test_invalid_override_never_mutates_settings(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    path = manuscript.parent / projects.CONFIG
+    before = path.read_bytes()
+    assert resolve(manuscript, '--peer-review', 'invented').exit_code == 2
+    assert path.read_bytes() == before
+
+
+def test_unique_runs_snapshots_reports_and_detectable_tampering(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run, another = start(manuscript), start(manuscript)
+    assert run != another and run.parent == manuscript.parent / 'reviews'
+    report = manuscript.parent / 'report.md'
+    report.write_text('Full findings with actual coverage.')
+    assert finish(run).exit_code == 1  # a completed thought is not a saved report
+    assert add(run, report).exit_code == 0
+    assert finish(run).exit_code == 0
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
+    (run / 'manuscript-prose-edit/report.md').write_text('Silently replaced')
+    result = runner.invoke(runs.app, ['validate', str(run), '--final'])
+    assert result.exit_code == 1 and 'changed evidence' in result.output
+
+
+def test_real_failed_command_survives_a_successful_rerun(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    args = ['exec', str(run), '--skill', 'manuscript-prose-edit', '--', sys.executable, '-c']
+    bad = runner.invoke(runs.app, [*args, "import sys; print('actual failure'); sys.exit(4)"])
+    assert bad.exit_code == 4, (bad.output, bad.exception)
+    good = runner.invoke(runs.app, [*args, "print('successful retry')"])
+    assert good.exit_code == 0, (good.output, good.exception)
+    entry = runs.read(run)['skills']['manuscript-prose-edit']
+    assert [c['exit_code'] for c in entry['commands']] == [4, 0]
+    assert 'actual failure' in (run / entry['commands'][0]['outputs'][0]).read_text()
+    assert 'command_failure' in (run / 'manuscript-prose-edit/README.md').read_text()
+    assert len(entry['artifacts']) == 4
+
+
+def test_a_nonexistent_command_is_retained_as_failure(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    result = runner.invoke(runs.app, ['exec', str(run), '--skill', 'manuscript-prose-edit', '--', str(run/'absent-program')])
+    assert result.exit_code == 127
+    assert runs.read(run)['skills']['manuscript-prose-edit']['commands'][0]['exit_code'] == 127
+
+
+def test_reader_and_referee_completion_requires_real_saved_seat_artifacts(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    report = manuscript.parent / 'report.md'
+    report.write_text('Unit-test stand-in; this is not the real-manuscript smoke run.')
+    run = start(manuscript, 'manuscript-story')
+    assert add(run, report, 'report', 'manuscript-story').exit_code == 0
+    assert finish(run, 'manuscript-story').exit_code == 1
+    for seat in ('skimmer', 'potential-user', 'informed-outsider'):
+        assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md').exit_code == 0
+    assert finish(run, 'manuscript-story').exit_code == 0
+    second = start(manuscript, 'manuscript-peer-review')
+    assert add(second, report, 'report', 'manuscript-peer-review').exit_code == 0
+    for seat in ('methods', 'skeptic', 'champion'):
+        assert add(second, report, 'referee', 'manuscript-peer-review', '--seat', seat, '--name', f'{seat}.md').exit_code == 0
+    assert finish(second, 'manuscript-peer-review').exit_code == 1
+    for role in ('defence', 'adjudication'):
+        assert add(second, report, role, 'manuscript-peer-review', '--name', f'{role}.md').exit_code == 0
+    assert finish(second, 'manuscript-peer-review').exit_code == 0
+
+
+def test_unshown_change_blocks_handover_and_source_edit_is_detected(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    after = manuscript.parent / 'after.txt'
+    after.write_text('Proposed paragraph.')
+    assert add(run, after, 'report', 'manuscript-prose-edit', '--name', 'report.md').exit_code == 0
+    original = manuscript.read_text()
+    manuscript.write_text(original + '\nAdded paragraph.\n')
+    assert finish(run).exit_code == 1
+    args=['change', str(run), '--skill', 'manuscript-prose-edit', '--section', 'Abstract', '--reason', 'Author-approved clarification', '--after', str(after)]
+    assert runner.invoke(runs.app, args).exit_code == 0
+    assert finish(run).exit_code == 0
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 1
+    assert runner.invoke(runs.app, ['shown', str(run), '--skill', 'manuscript-prose-edit', '--number', '1']).exit_code == 0
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
+
+
+def test_partial_is_a_valid_handover_without_claiming_complete(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    report = manuscript.parent / 'report.md'
+    report.write_text('Blocked source; no support verdict.')
+    assert add(run, report).exit_code == 0
+    assert finish(run, status='partial').exit_code == 1
+    assert finish(run, 'manuscript-prose-edit', 'partial', '--reason', 'Source inaccessible').exit_code == 0
+    result=runner.invoke(runs.app, ['validate', str(run), '--final'])
+    assert result.exit_code == 0 and json.loads(result.output)['workflow_complete'] is False
+
+
+def test_evidence_paths_cannot_escape_or_overwrite_an_attempt(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    report = manuscript.parent / 'report.md'
+    report.write_text('Evidence')
+    assert add(run, report, 'check', 'manuscript-prose-edit', '--name', '../../escaped.md').exit_code != 0
+    assert not (run.parent/'escaped.md').exists()
+    assert add(run, report).exit_code == 0
+    assert add(run, report).exit_code != 0
+    assert (run/'manuscript-prose-edit/report.md').read_text() == 'Evidence'
+
+
+def test_concurrent_writer_fails_without_touching_manifest(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    before = (run/'run.json').read_bytes()
+    with runs.FileLock(run/'.writer.lock'):
+        result = runner.invoke(runs.app, ['issue', str(run), '--skill', 'manuscript-prose-edit', '--kind', 'test', '--message', 'blocked writer'])
+    assert result.exit_code == 3 and 'Run is busy' in result.output
+    assert (run/'run.json').read_bytes() == before
+    assert runner.invoke(runs.app, ['issue', str(run), '--skill', 'manuscript-prose-edit', '--kind', 'test', '--message', 'retry']).exit_code == 0
+
+
+def test_interrupted_command_logs_survive_the_next_attempt(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    folder = run/'manuscript-prose-edit/commands'
+    folder.mkdir()
+    orphan = folder/'0001.stdout.txt'
+    orphan.write_text('Interrupted attempt evidence')
+    result = runner.invoke(runs.app, ['exec', str(run), '--skill', 'manuscript-prose-edit', '--', sys.executable, '-c', "print('retry')"])
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert orphan.read_text() == 'Interrupted attempt evidence'
+    entry = runs.read(run)['skills']['manuscript-prose-edit']
+    assert entry['commands'][0]['attempt'] == 2
+    assert any(i['kind'] == 'interrupted_attempt' for i in entry['issues'])
+    assert any(a['path'].endswith('0001.stdout.txt') for a in entry['artifacts'])
+
+
+def test_folder_source_is_a_setup_conflict_instead_of_a_startup_crash(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    result = runner.invoke(projects.app, ['configure', str(manuscript.parent), '--manuscript', '.'])
+    assert result.exit_code == 0
+    result = resolve(manuscript.parent)
+    assert result.exit_code == 3 and 'source file inside' in result.output
+    result = runner.invoke(runs.app, ['start', str(manuscript.parent), '--skill', 'manuscript-story'])
+    assert result.exit_code == 3 and not (manuscript.parent/'reviews').exists()
+
+
+def test_deleted_source_cannot_silently_pass_final_validation(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    report = manuscript.parent/'report.md'
+    report.write_text('Review of source before deletion')
+    assert add(run, report).exit_code == 0
+    assert finish(run).exit_code == 0
+    manuscript.unlink()
+    result = runner.invoke(runs.app, ['validate', str(run), '--final'])
+    assert result.exit_code == 1 and 'Authoritative source is missing' in result.output
+
+
+def test_two_seat_quick_pass_retains_findings_without_fabricating_referee_reports(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript, 'manuscript-peer-review')
+    report=manuscript.parent/'report.md'
+    report.write_text('Unit-test payload for a quick-pass findings file.')
+    assert add(run, report, 'report', 'manuscript-peer-review').exit_code == 0
+    for seat in ('desk-editor', 'evidence-statistics'):
+        assert add(run, report, 'seat', 'manuscript-peer-review', '--seat', seat, '--name', f'seats/{seat}.md').exit_code == 0
+    for role in ('defence', 'adjudication'):
+        assert add(run, report, role, 'manuscript-peer-review', '--name', f'{role}.md').exit_code == 0
+    assert finish(run, 'manuscript-peer-review').exit_code == 1
+    assert finish(run, 'manuscript-peer-review', 'completed', '--review-mode', 'quick').exit_code == 0
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='Uses POSIX process-group termination; ordinary command capture is cross-platform.')
+def test_killing_a_real_command_preserves_partial_output_and_attempt_metadata(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    command=[sys.executable, str(SCRIPTS/'runs.py'), 'exec', str(run), '--skill', 'manuscript-prose-edit', '--',
+             sys.executable, '-c', "import time; print('partial output', flush=True); time.sleep(30)"]
+    process=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    output=run/'manuscript-prose-edit/commands/0001.stdout.txt'
+    deadline=time.monotonic()+5
+    while time.monotonic()<deadline and not (output.exists() and 'partial output' in output.read_text()):
+        time.sleep(0.01)
+    os.killpg(process.pid, signal.SIGKILL)
+    process.communicate(timeout=5)
+    assert output.read_text() == 'partial output\n'
+    entry=runs.read(run)['skills']['manuscript-prose-edit']
+    assert entry['commands'][0]['state'] == 'running' and entry['commands'][0]['exit_code'] is None
+    result=runner.invoke(runs.app, ['exec', str(run), '--skill', 'manuscript-prose-edit', '--', sys.executable, '-c', "print('retry')"])
+    assert result.exit_code == 0, (result.output, result.exception)
+    entry=runs.read(run)['skills']['manuscript-prose-edit']
+    assert [(c['attempt'],c['state'],c['exit_code']) for c in entry['commands']] == [(1,'interrupted',None),(2,'finished',0)]
+    assert output.read_text() == 'partial output\n'

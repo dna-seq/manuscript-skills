@@ -16,7 +16,7 @@ text. `--github-auth` sends `$GITHUB_TOKEN` to GitHub when the unauthenticated l
 runs out; ask before using it. `--record manuscript-record.yaml` reads the venue from the record. Exit
 code 1 means at least one major finding in the current work; end-stage findings count only with `--final`,
 when the authors say they are about to submit. The Markdown report goes beside the manuscript, or where the
-authors say (`OUT`), and the reply gives its path; the JSON only feeds the report and goes to a scratch
+authors say (`OUT`), and the reply gives its path; retain the JSON evidence in this skill's run
 location.
 
 The Markdown report is written for the authors under the shared rules for the

@@ -36,6 +36,8 @@ Apply the requested task across the whole paper unless the author specifies a na
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## AI-use context (only when the decision needs it)
 
 Use the conversation and manuscript first. Ask what AI did only when the venue verdict or disclosure

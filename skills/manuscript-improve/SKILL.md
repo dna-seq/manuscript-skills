@@ -2,7 +2,7 @@
 name: manuscript-improve
 description: >-
   Improve a manuscript from draft to submission by coordinating scientific review, reference and
-  reporting checks, optional simulated peer review, policy fit, journal selection, prose editing, a check
+  reporting checks, project-configured simulated peer review, policy fit, journal selection, prose editing, a check
   of how the paper reads to its readers, and journal adaptation, and later the response to referees. Use for explicit whole-workflow requests or
   requests that combine several services, including optional section-by-section work, stage review with
   before/after comparisons, or an "interview me" decision process. Use an individual manuscript skill for
@@ -19,10 +19,13 @@ of findings, verified sources and author decisions across the workflow. When the
 sessions or the authors ask, the optional [shared record](../manuscript-integrity-check/references/manuscript-record.md)
 holds the venue, study designs, completed checks and open issues so that later stages reuse them.
 
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+
 ## Defaults and author controls
 
-Before editing, run `uv run --script ../manuscript-integrity-check/scripts/settings.py resolve --json`
-and follow the shared edit policy. Its default is `edits: conservative`: apply routine corrections that
+Before work, resolve the manuscript project with
+`uv run --script ../manuscript-integrity-check/scripts/project.py resolve SOURCE --json`
+and follow the effective edit policy and saved output destination. Its default is `edits: conservative`: apply routine corrections that
 preserve meaning and prepare substantive revisions for approval. State the active policy in the first
 progress update. A request to use this skill or "improve the manuscript" does not override that policy.
 
@@ -57,7 +60,7 @@ unaffordable validation requirement can justify settling journal fit before edit
 | Stage | Companion skills and outcome |
 |---|---|
 | Review the draft and evidence | [manuscript-integrity-check](../manuscript-integrity-check/SKILL.md) identifies scientific and submission problems, including numbers and their arithmetic; [manuscript-reference-check](../manuscript-reference-check/SKILL.md) verifies the identity of every reference and checks support for claims in its priority order (load-bearing claims, borrowed numbers, "first" claims); [manuscript-reporting-check](../manuscript-reporting-check/SKILL.md) checks the reporting guidelines that fit the study design, statistics reporting, and whether data, code and software are available. Run each mechanical check once and reuse it. |
-| Anticipate referees (when requested) | [manuscript-peer-review](../manuscript-peer-review/SKILL.md) gives referee-style judgement on contribution, design and claims, reusing the checks above rather than repeating them. Its author-required items are the authors' decision; its fixable-in-text items feed the revision stage, each with the placement that costs readers least. |
+| Anticipate referees (project policy; automatic by default for this full workflow) | [manuscript-peer-review](../manuscript-peer-review/SKILL.md) gives referee-style judgement on contribution, design and claims, reusing the checks above rather than repeating them. Its author-required items are the authors' decision; its fixable-in-text items feed the revision stage, each with the placement that costs readers least. |
 | Establish policy and journal fit | [manuscript-policy-fit](../manuscript-policy-fit/SKILL.md) resolves study-specific scope and applicable requirements when relevant. [manuscript-journal-select](../manuscript-journal-select/SKILL.md) gives a preprint ladder and a journal ladder ordered by the authors' priorities, and what every venue on them asks for, if no target is settled or the author requests alternatives. Reuse an existing choice. |
 | Revise the paper | Correct supported defects within the authorised scope and use [manuscript-prose-edit](../manuscript-prose-edit/SKILL.md) for clarity and author voice. Preserve results and qualifications; distinguish substantive claim corrections from language changes. Obtain author facts or decisions when a correction depends on them, and insert facts the authors supply under the prose-edit contract's "Author-supplied content" rule (§1). |
 | Check how it reads | [manuscript-story](../manuscript-story/SKILL.md) reads the revised paper as its readers do, against the version before this workflow, and repairs the story within the direction the authors recorded: a stake in the opening, one headline per result, real output shown, caveats kept but placed where they cost readers least. A change of direction is only offered as options. Run it after the revision stage, and whenever referee-driven changes have accumulated. |
@@ -97,8 +100,9 @@ citations, approvals or accounts of AI use.
 
 ## Finish with a reviewable result
 
-Return the revised manuscript or requested proposals with one summary for the whole workflow, not one
-report per companion skill. Write it as
+Return the revised manuscript or requested proposals with one concise summary for the whole workflow,
+linking its run index and each companion skill's report and evidence folder. Retain contradictions,
+failed checks and panel reports; the combined summary never replaces per-skill artifacts. Write it as
 [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
 describes: each main change quoted before and after with its section, the selected journal's applicable
 rules quoted with the URLs of their pages, plain words, acronyms spelled out and full sentences. Put the
@@ -115,5 +119,7 @@ Make the original-to-final comparison accessible. In an iterative workflow, stat
 version and next requested step using the conversation or existing project conventions; no new tracking
 files are required.
 
-Optional detector checks and independent reviewer agents keep their companion skills' request boundaries.
+Optional detector checks keep their companion skill's request boundary. Formal referee simulation uses
+project `peer_review`: `auto` by default in this full workflow, `on-request` only on request, or `off`;
+record a skipped stage with its reason. A focused edit never activates this full workflow or its panel.
 Completing this workflow prepares the manuscript; it does not authorise submitting, emailing or publishing.

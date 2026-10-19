@@ -191,7 +191,7 @@ uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.tex -s sup
 uv run --script scripts/check_findings.py "$WORK/adjudicated.json" PAPER.md --adjudicated
 ```
 
-`$WORK` is a scratch directory for the review's working files (SKILL.md, step 3). Exit code 0 when
+`$WORK` is the durable skill-run folder for the review's evidence (SKILL.md, step 3). Exit code 0 when
 every finding, strength and report meets the contract, 1 when any does not, 2 for unusable input
 (malformed JSON, a manuscript that is not Markdown, LaTeX or text). For a multi-file LaTeX project, pass
 the `\input` files with `-s` or flatten the project first. Convert `.docx` with `pandoc -t gfm` and

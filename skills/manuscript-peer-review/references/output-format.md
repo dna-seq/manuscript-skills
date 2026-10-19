@@ -240,23 +240,16 @@ family, with their cost (options.md).>
 
 ## Saving and the shared record
 
-Seat workspaces, the merged findings and the check output are working files: keep them in a scratch
+Seat workspaces, merged findings and check outputs are inspectable evidence: keep them in the skill-run
 directory, not beside the manuscript, unless the project already keeps such files.
 
-Where the review goes follows the plugin-wide `reports` setting, decided as
-[the author priorities](../../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)
-say (the request, the project's instructions, the saved setting, else one question for the whole
-plugin):
-
-- `file` (the default when the authors cannot be asked): save the review in the folder the authors
-  name, else beside the manuscript source (or where the project keeps its review files), named after the
-  manuscript (`paper.peer-review.md`); never inside the manuscript source itself and never at a scratch
-  path. A rerun replaces the file; when the authors have written in it, ask before replacing it. The
-  reply gives the file's path relative to the project, where the paper lands (each referee's
-  recommendation, per journal) and the "Fix now" items in a sentence each, and says the full review is
-  in the file.
-- `chat`: give the whole review in the reply, in the same form, and save no file.
-- `both`: save the file and give the whole review in the reply.
+Save the review and all seat/check evidence in this skill's durable run folder, following
+[project-workflow.md](../../manuscript-integrity-check/references/project-workflow.md). The saved
+manuscript-project `reports` choice controls presentation: `file` gives the path, recommendations and
+urgent findings in chat; `chat` and `both` give the full report there too. Every mode retains the run's
+report and evidence. New runs preserve earlier reports instead of replacing their evidence. An existing
+canonical author-annotated review is updated only with their authorization; register its current version
+in the run. Link the review and run index in the reply.
 
 When
 `manuscript-record.yaml` exists, add each confirmed concern to `open_issues` (`from:
