@@ -9,9 +9,14 @@ goals. Satisfying editors, administrative processes or preferences about AI is n
 - Prioritise scientific validity, a clear contribution, journal fit and submission readiness. Handle
   paperwork proportionately. Explain whether a proposed change improves the science, satisfies a verified
   requirement, or is optional advice.
-- Apply only the chosen journal's rules for the actual article type and submission stage. Use permitted
-  exemptions, free-format submission and concise declarations. Do not import the strictest rule from
-  another journal or turn a publisher's recommendation into a requirement.
+- Apply the rules of the journals actually in play, for the actual article type and submission stage.
+  Once a journal is chosen, that is its rules alone. Before the choice, it is what every journal on the
+  authors' ladder shares (the "Adapt now" part of `manuscript-journal-select`'s `venues.py common`):
+  requirements one version of the manuscript can meet for all of them at once, adapted first. Where they
+  disagree (length limits, abstract headings, section order), wait for the choice or follow the first
+  rung; writing to the strictest limit is an option to offer with its cost, never a default. Use
+  permitted exemptions, free-format submission and concise declarations. Do not import a rule from a
+  journal the authors are not considering, or turn a publisher's recommendation into a requirement.
 - Treat burdensome or ambiguous AI policies as a venue-selection cost. Suggest a suitable journal with
   less friction or a supported interpretation before proposing author rewrites, new logs or experiments.
   Do not imply that an author rewrite erases earlier AI use or automatically satisfies a drafting ban.

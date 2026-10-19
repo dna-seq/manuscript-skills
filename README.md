@@ -1,10 +1,12 @@
 # Manuscript Skills
 
 Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of eleven focused skills to check references,
-reporting and statistics, anticipate referees, improve prose, select a journal, prepare a submission
-answer referees after a decision, or keep track of who revised each passage and which AI edits no
-person has reviewed yet. They work with manuscripts written with or without AI assistance.
+`manuscript-improve` for the full workflow, or choose one of eleven focused skills: review a manuscript
+before submission, check its references, reporting and statistics, clarify which ethics and privacy
+rules apply, simulate the referees of a target journal, improve the prose, choose where to preprint and
+submit, prepare for a journal, answer referees after a decision, or keep track of who revised each
+passage and which AI edits no person has reviewed yet. They work with manuscripts written with or
+without AI assistance.
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. Journal
 recommendations take account of the research you have done, the validation you can afford and your
@@ -39,9 +41,9 @@ through selected sections or review one stage at a time, and change that prefere
 Once the plugin is installed, share your manuscript with the assistant and describe what you want done.
 You can use ordinary language or name a skill from the table above.
 
-Markdown, plain text and LaTeX manuscripts can be checked directly. Include the bibliography files with
-a LaTeX manuscript. For Word or Google Docs, use a document connection available to your assistant or
-provide an export. For a passage edit, pasting the text is enough.
+The skills read Markdown, plain text and LaTeX directly; with LaTeX, include the bibliography files,
+because the reference checks read them. For Word or Google Docs, use a document connection your
+assistant has, or provide an export, and for a passage edit paste the passage.
 
 Add the context that matters to your request: a target journal, article type, publication budget or
 deadline, for example. For journal selection, explain which additional analyses or experiments are
@@ -49,10 +51,10 @@ feasible. If you have already received an editorial decision, include the releva
 assistant uses what you provide and asks about missing facts that would change its answer.
 
 Reports (reviews, audits, check results) go to a file beside your manuscript, to the chat, or both. You
-choose once, the first time a skill needs to know, and every skill keeps that choice for every project;
-"just show it here" still works for a single report, and "reports in the chat from now on" changes it.
-The choice is stored in a small settings file (`settings.py show` in manuscript-integrity-check's
-scripts says where).
+choose once, when a skill first needs to know, and every skill keeps that choice for every project.
+"Just show it here" applies to a single report, and "reports in the chat from now on" changes the
+choice, which is kept in a small settings file in your user configuration folder
+(`~/.config/manuscript-skills/settings.yaml` on Linux).
 
 ## Improve a manuscript from draft to submission
 
@@ -90,9 +92,11 @@ from the referees' comments, drafts the response letter and checks it against th
 
 For work that spans several sessions, the assistant can keep a small
 [shared record](skills/manuscript-integrity-check/references/manuscript-record.md) beside the manuscript
-with the chosen journal, completed checks and open issues, so that later steps reuse earlier work. It is
-created only for work across sessions or when you ask for it; other working files go to a scratch
-location.
+with the chosen journal or the ladders, your priorities, completed checks and open issues, so that later
+steps reuse earlier work. It is created when the work spans sessions, when journal selection records
+your priorities and ladders, or when you ask for it. Everything you are meant to open (a saved report, a
+ladder, a heat map, a response letter) goes beside the manuscript or in a folder you name; files only
+the assistant needs go to a temporary location, and the assistant never points you there.
 
 ## Choose how to review the work
 
@@ -132,9 +136,11 @@ For journal selection:
 > wet-lab budget. Compare scientific fit, publication costs and review speed. We used AI to revise the
 > text, so explain the relevant writing policies too.
 
-You can also ask for an interview to establish your journal preferences, compare AI-policy burdens,
-or find journals where named colleagues publish. Journal adaptation checks whether a target journal's AI
-policy has changed since it was last read.
+Journal selection first asks a short batch of priorities (speed, reach, AI-policy burden, cost, who
+pays the fee) unless you have already given them, and keeps them in the shared record. You can also ask
+for a fuller interview: what AI did in each section, which AI-policy burdens you refuse, and where named
+colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed since it
+was last read.
 
 For adaptation to a journal:
 
@@ -153,8 +159,11 @@ For reporting standards and availability:
 
 For a simulated referee review:
 
-> Red-team this draft the way a sceptical referee at [journal] would. Quote the passages you object to,
-> tell me which concerns I can fix in the text and which need new work, and skip any scores.
+> Show me what three referees at [journal] would send back on this draft, then what we should fix
+> first. Tell me which concerns I can fix in the text and which need new work.
+
+Without a named journal, the referees review for the journal in your shared record, or for each of the
+top three journals on your ladder.
 
 For a response to referees:
 
@@ -193,20 +202,23 @@ and claims that became stronger or lost a qualifier. These checks help catch mis
 review the edited text before using it. A request for "punchier" wording improves the prose without
 raising the certainty of a claim.
 
-The simulated referee panel is a way to find objections early, not a prediction. The referees review
-for a real journal, read from its own pages, and each gives the recommendation a referee would (accept,
-minor revision, major revision or reject). Every concern quotes the passage it is about and is checked
-against the rest of the paper before it reaches you, but the panel is not calibrated against real
-editorial decisions: it gives no scores, acceptance odds or predicted editorial decision, and its
-recommendations are labelled as coming from simulated referees.
-Concerns that need new analyses or data are listed for you to decide on; nothing is added to the paper
-on your behalf.
+The simulated referee panel shows objections early, while you can still act on them. The referees
+review for a real journal whose pages were read for them, and each writes the report a referee would
+send: a recommendation (accept, minor revision, major revision or reject), a summary, strengths, and
+major and minor concerns. A second part turns those reports into your list of what to fix, in the order
+above. Every concern quotes the passage it is about and is checked against the rest of the paper before
+it reaches you. Because the panel has never been calibrated against real editorial decisions, it gives
+no scores, acceptance odds or predicted editorial decision, and its recommendations are labelled as
+coming from simulated referees. Concerns that need new analyses or data are listed for you to decide on;
+nothing is added to the paper on your behalf.
 
 Reporting guidelines are checked when they fit your study design; a missing checklist item is a
 requirement only when your target journal asks for that guideline. Reference and availability checks
 look up public identifiers online (DOIs, PMIDs, accessions, package names, and links written in the
 text); for a reference without a working identifier, the reference's own text is searched in Crossref,
-and a match stays a candidate for you to confirm. The rest of the manuscript is not sent anywhere. Controlled access, such as dbGaP or EGA, is a legitimate route, not a defect.
+and a match stays a candidate for you to confirm. The rest of the manuscript is not sent anywhere. Data
+under controlled access, such as dbGaP or EGA, is reported as restricted, which the check accepts as a
+legitimate route.
 
 Reference checking distinguishes a source's identity from its support for a particular sentence. A DOI
 that resolves to the right paper does not establish that the paper supports your claim. The assistant
@@ -225,9 +237,9 @@ involving recruited participants can raise different requirements. Applicable ex
 a missing declaration alone does not establish that an approval was required.
 
 AI-use statements draw on your account of what the tools did and the journal's required fields and
-exemptions. Optional AI-text detector checks run only when requested. Their scores are fallible style
-signals, not evidence of authorship or a guarantee of acceptance. A hosted detector requires your
-agreement before the manuscript is sent to that service.
+exemptions. Optional AI-text detector checks run only when requested. Their scores measure style and are
+often wrong: they cannot show who wrote a passage, and a low score guarantees nothing at submission. A
+hosted detector requires your agreement before the manuscript is sent to that service.
 
 ## Installation
 
