@@ -73,7 +73,7 @@ The author can change how the work proceeds at any point:
   stage checkpoint does not narrow coverage to one section. Section and stage iteration can be combined
   when the author asks. Reuse journal choices and manuscript-level requirements across sections.
 - **Review before applying:** retain the current manuscript and prepare proposed text or a separate
-  revision, with a diff or before/after excerpts. Wait for the author's choice before changing the working
+  revision in the scratch location (never beside the manuscript), with a diff or before/after excerpts. Wait for the author's choice before changing the working
   manuscript. Review-only requests remain findings without applied edits.
 - **Review between steps:** after the requested section or stage, show what changed and wait before
   proceeding. If changes were authorised, they can be applied within that step; do not infer permission
@@ -149,6 +149,13 @@ referees (`manuscript-reviewer-response`) is part of that task, not a process re
 (script outputs, reviewer-seat workspaces, fetched sources) go to a scratch location, not beside the
 manuscript, unless the project already keeps such files. Provide a short summary by default; detailed
 inventories, change tables and extra reviewer passes are optional.
+
+**Edit the authors' files in place; ask before adding new ones.** When asked to update the manuscript or
+one of the authors' planning documents (a venue strategy, a submission plan), change that file. Do not
+create a new versioned copy, a per-venue variant of the paper or a document that "supersedes" an existing
+one, and do not add pointers to such a file in the manuscript, a README or the project's instructions,
+unless the authors ask for it. If a new file seems better, ask in one sentence and name the file it would
+replace. The report itself goes in the conversation, as The report sections of each skill say.
 
 ## AI-use statements
 
