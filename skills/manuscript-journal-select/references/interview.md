@@ -20,6 +20,7 @@ flags and `--refuse` values are for the command, not for the question.
 | whose venues to consider: colleagues, a lab, the authors they cite most | `peers "Name" …`, then `rank --only KEY …` |
 | validation they have or can afford, for public-data work | `--study-design`, `--validation-available` (see `selection-fields.md`) |
 | a preprint first | `rank --preprints` (arXiv, bioRxiv, medRxiv, Research Square, SSRN, Preprints.org) |
+| what matters most, in order, for each ladder: speed, reach, AI-policy burden, cost (and, for the preprint ladder, a direct transfer to the first journals) | `ladder --priority …` (`speed`, `reach`, `ai`, `cost`, `transfer`), recorded as `priorities` in the shared record |
 
 `--refuse` values, each a burden the authors can decline:
 

@@ -21,7 +21,9 @@ validation, fees or other selection requirements are unchanged.
 
 It tries plain HTTP, then headless Chrome, then the newest Wayback copy. A page none of them can read is
 listed under "Could not be read" (`not_assessed` in the JSON), never as unchanged. An archived snapshot is
-historical evidence, not verification of the current rule. Try available browsing tools for blocked pages; ask the author for a copy only if this is
+historical evidence, not verification of the current rule. For a blocked page, follow the order of the shared rule
+(`../../manuscript-integrity-check/references/author-priorities.md`, "When a page blocks automated reading"): the
+authors' own browser, when a browser-control tool is connected, comes before an archived copy; ask the author for a copy only if this is
 the remaining obstacle to a material decision. Do not treat a paraphrased fetch as an exact quotation.
 
 "Changed since the last read" means the AI passages differ; the report quotes each passage before and

@@ -5,7 +5,7 @@ What `scripts/check_availability.py` checks, how to read its states, and what re
 ## Run it
 
 ```bash
-uv run --script scripts/check_availability.py PAPER.md --venue KEY --md SCRATCH/avail.md --json SCRATCH/avail.json
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md --json SCRATCH/avail.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online   # look every identifier up
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```
@@ -15,8 +15,9 @@ public identifiers leave the machine (accessions, DOIs, repository and package n
 text. `--github-auth` sends `$GITHUB_TOKEN` to GitHub when the unauthenticated limit (60 requests an hour)
 runs out; ask before using it. `--record manuscript-record.yaml` reads the venue from the record. Exit
 code 1 means at least one major finding in the current work; end-stage findings count only with `--final`,
-when the authors say they are about to submit. Write the outputs to a scratch location, not beside the
-manuscript.
+when the authors say they are about to submit. The Markdown report goes beside the manuscript, or where the
+authors say (`OUT`), and the reply gives its path; the JSON only feeds the report and goes to a scratch
+location.
 
 The Markdown report is written for the authors under the shared rules for the
 [order of work](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) and

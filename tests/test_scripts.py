@@ -977,13 +977,14 @@ def test_journal_speed_and_editorial_profile_are_not_inherited(synthetic_venues:
     data = yaml.safe_load(synthetic_venues.read_text())
     data["venues"]["pub"].update(
         review_speed=[{"metric": "first decision", "days": 3}],
+        publication_costs=[{"amount": 1000, "currency": "EUR"}],
         editorial_profile={"summary": "Publisher marketing claim"},
         validation_requirements=VALIDATION_RULES,
     )
     synthetic_venues.write_text(yaml.safe_dump(data))
     _, resolved = venues.load_venues()
     assert resolved["calm"]["validation_requirements"] == VALIDATION_RULES
-    assert "review_speed" not in resolved["calm"] and "editorial_profile" not in resolved["calm"]
+    assert not {"review_speed", "publication_costs", "editorial_profile"} & set(resolved["calm"])
 
 
 def test_no_validation_cannot_be_combined_with_an_available_route(synthetic_venues: Path) -> None:
@@ -992,6 +993,252 @@ def test_no_validation_cannot_be_combined_with_an_available_route(synthetic_venu
     result = CliRunner().invoke(venues.app, [
         "rank", "--validation-available", "none", "--validation-available", "wet-lab"])
     assert result.exit_code != 0
+
+
+# Facts read for one manuscript: Calm is slower and has no fee recorded, Strict is faster; "fresh" is a journal the
+# catalogue lacks, added by the record with a name and nothing else known.
+TASK_RECORD = {
+    "priorities": ["ai"],
+    "venue_facts": {
+        "calm": {"review_speed": [{"metric": "submission-to-first-decision", "days": 30, "statistic": "median"}],
+                 "publication_costs": [{"amount": 2000, "currency": "EUR"}]},
+        "strict": {"review_speed": [{"metric": "submission-to-first-decision", "days": 10, "statistic": "median"}],
+                   "publication_costs": [{"amount": 3000, "currency": "USD"}]},
+        "fresh": {"name": "Fresh Journal", "jif": 7.0},
+    },
+}
+
+
+def _ladder(record: Path, *args: str) -> list[str]:
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(venues.app, ["ladder", "--record", str(record), *args])
+    assert result.exit_code == 0, result.output
+    return re.findall(r"^\| \d+ \| .*?\(`([a-z-]+)`\)", result.output, flags=re.M)
+
+
+@pytest.fixture()
+def task_record(synthetic_venues: Path, tmp_path: Path) -> Path:
+    p = tmp_path / "manuscript-record.yaml"
+    p.write_text(yaml.safe_dump(TASK_RECORD), encoding="utf-8")
+    return p
+
+
+@pytest.mark.parametrize("priorities, order", [
+    (["--priority", "speed"], ["strict", "calm", "fresh"]),  # fresh has no speed figure: below the known ones
+    (["--priority", "reach"], ["strict", "fresh", "calm"]),  # JIF 8.0, 7.0, 6.1
+    (["--priority", "ai"], ["calm", "strict", "fresh"]),  # light, severe, not researched
+    (["--priority", "cost"], ["calm", "fresh", "strict"]),  # a USD fee is shown but not compared; a tie goes to the name
+    (["--priority", "speed", "--priority", "reach"], ["strict", "calm", "fresh"]),
+    ([], ["calm", "strict", "fresh"]),  # the record's priorities, [ai]
+])
+def test_ladder_orders_by_the_authors_priorities_in_turn(task_record: Path, priorities: list[str],
+                                                          order: list[str]) -> None:
+    assert _ladder(task_record, *priorities) == order
+
+
+def test_ladder_passes_a_tie_to_the_next_priority(task_record: Path) -> None:
+    data = yaml.safe_load(task_record.read_text())
+    data["venue_facts"]["calm"]["review_speed"][0]["days"] = 10  # now as fast as Strict
+    task_record.write_text(yaml.safe_dump(data))
+    assert _ladder(task_record, "--priority", "speed", "--priority", "ai")[:2] == ["calm", "strict"]
+    assert _ladder(task_record, "--priority", "speed", "--priority", "reach")[:2] == ["strict", "calm"]
+
+
+def test_ladder_keeps_an_infeasible_venue_last_whatever_the_priorities(task_record: Path) -> None:
+    data = yaml.safe_load(task_record.read_text())
+    data["venue_facts"]["strict"]["validation_requirements"] = [VALIDATION_RULES[0]]
+    task_record.write_text(yaml.safe_dump(data))
+    order = _ladder(task_record, "--priority", "reach", "--study-design", "public-data",
+                    "--validation-available", "none")
+    assert order[-1] == "strict" and order[:2] == ["fresh", "calm"]
+
+
+@pytest.mark.parametrize("record, args", [
+    ({}, []),  # no priorities anywhere
+    ({"priorities": ["prestige"]}, []),  # not a priority the ladder knows
+    ({}, ["--priority", "ai", "--priority", "ai"]),
+    ({"venue_facts": {"ghost": {"jif": 9}}}, ["--priority", "ai"]),  # an unknown venue without a name
+])
+def test_ladder_refuses_missing_or_unusable_priorities_and_facts(synthetic_venues: Path, tmp_path: Path,
+                                                                 record: dict, args: list[str]) -> None:
+    from typer.testing import CliRunner
+
+    p = tmp_path / "record.yaml"
+    p.write_text(yaml.safe_dump(record))
+    result = CliRunner().invoke(venues.app, ["ladder", "--record", str(p), *args])
+    assert result.exit_code != 0
+
+
+def test_ladder_csv_has_fixed_columns_and_leaves_unknowns_empty(task_record: Path) -> None:
+    import csv as csv_module
+    import io
+
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
+                                             "--format", "csv"])
+    assert result.exit_code == 0, result.output
+    reader = csv_module.DictReader(io.StringIO(result.output))
+    assert reader.fieldnames == venues.LADDER_COLUMNS
+    rows = list(reader)
+    # The same order as the table, numbered from 1.
+    assert [r["key"] for r in rows] == _ladder(task_record, "--priority", "speed")
+    assert [r["rung"] for r in rows] == ["1", "2", "3"]
+    by_key = {r["key"]: r for r in rows}
+    assert by_key["strict"]["first_decision_days"] == "10" and by_key["strict"]["fee_currency"] == "USD"
+    # Fresh has no speed, fee or AI policy read: empty cells, never zero.
+    fresh = by_key["fresh"]
+    assert (fresh["first_decision_days"], fresh["fee_amount"], fresh["ai_points"]) == ("", "", "")
+    assert fresh["facts_from_record"] == "jif;name" and fresh["jif"] == "7.0"
+    assert {r["priorities"] for r in rows} == {"speed"} and {r["ladder"] for r in rows} == {"journals"}
+    assert {r["chosen_rung"] for r in rows} == {""}  # no order recorded yet
+
+
+def test_ladder_csv_shows_the_recorded_order_beside_the_sorted_one(task_record: Path) -> None:
+    import csv as csv_module
+    import io
+
+    from typer.testing import CliRunner
+
+    data = yaml.safe_load(task_record.read_text())
+    data["ladders"] = {"journals": ["calm", "strict"]}  # the authors moved Calm up; Fresh is not on their ladder
+    task_record.write_text(yaml.safe_dump(data))
+    result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
+                                             "--format", "csv"])
+    rows = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.output))}
+    assert (rows["strict"]["rung"], rows["strict"]["chosen_rung"]) == ("1", "2")
+    assert (rows["calm"]["rung"], rows["calm"]["chosen_rung"]) == ("2", "1")
+    assert rows["fresh"]["chosen_rung"] == ""
+
+
+def test_speed_and_fee_compare_only_like_with_like() -> None:
+    accepted = {"review_speed": [{"metric": "submission to acceptance", "days": 90}]}
+    assert venues.speed_days(accepted)[0] is None and "not compared" in venues.speed_days(accepted)[1]
+    assert venues.speed_days({})[0] is None
+    assert venues.fee_eur({"publication_costs": [{"amount": 2590, "currency": "EUR"}]})[0] == 2590
+    assert venues.fee_eur({"publication_costs": [{"amount": 3165, "currency": "USD"}]})[0] is None
+    covered = {"publication_costs": [{"amount": 3165, "currency": "USD", "author_cost_eur": 0}]}
+    assert venues.fee_eur(covered)[0] == 0
+
+
+@pytest.mark.parametrize("server, journals, cell", [
+    ({"transfers": ["strict", "calm"]}, ["strict"], "Transfers directly to Strict Journal."),
+    # A journal the server's list was checked for and lacks is "not to"; one it was not checked for stays open.
+    ({"transfers": ["strict"], "transfers_checked": ["strict", "calm"]}, ["strict", "calm"],
+     "Transfers directly to Strict Journal; not to Calm Journal."),
+    ({"transfers": ["strict"]}, ["strict", "calm"], "Transfers directly to Strict Journal; not checked for Calm Journal."),
+    ({}, ["strict"], "Not recorded."),
+])
+def test_preprint_ladder_ranks_servers_and_names_their_transfers_to_the_journal_ladder(
+        synthetic_venues: Path, server: dict, journals: list[str], cell: str) -> None:
+    from typer.testing import CliRunner
+
+    data = yaml.safe_load(synthetic_venues.read_text())
+    data["venues"]["server"] = {"kind": "preprint", "name": "A Server", "writing_help": "disclose", **server}
+    data["venues"]["mirror"] = {"kind": "preprint", "name": "A Mirror", "inherits": "server"}
+    synthetic_venues.write_text(yaml.safe_dump(data))
+    args = ["ladder", "--preprints", "--priority", "ai", *[a for j in journals for a in ("--journal", j)]]
+    result = CliRunner().invoke(venues.app, args)
+    assert result.exit_code == 0, result.output
+    assert set(re.findall(r"\(`([a-z-]+)`\)", result.output)) == {"server", "mirror"}
+    row = next(line for line in result.output.splitlines() if "(`server`)" in line)
+    assert row.rstrip(" |").endswith(cell)
+    # A server's transfer list is its own: the server that inherits its policy does not inherit the list.
+    mirror = next(line for line in result.output.splitlines() if "(`mirror`)" in line)
+    assert mirror.rstrip(" |").endswith("Not recorded.")
+
+
+def test_transfer_priority_puts_the_server_that_reaches_the_highest_journal_first(
+        synthetic_venues: Path, tmp_path: Path) -> None:
+    data = yaml.safe_load(synthetic_venues.read_text())
+    data["venues"]["low"] = {"kind": "preprint", "name": "Low Server", "writing_help": "disclose", "transfers": ["calm"]}
+    data["venues"]["high"] = {"kind": "preprint", "name": "High Server", "writing_help": "disclose_all",
+                              "transfers": ["strict"]}
+    data["venues"]["unread"] = {"kind": "preprint", "name": "Aardvark Server", "writing_help": "disclose"}
+    synthetic_venues.write_text(yaml.safe_dump(data))
+    record = tmp_path / "record.yaml"
+    # One record, a different order for each ladder.
+    record.write_text(yaml.safe_dump({"priorities": {"journals": ["reach"], "preprints": ["transfer", "ai"]}}))
+    ladder = ["--preprints", "--journal", "strict", "--journal", "calm"]
+    assert _ladder(record, *ladder) == ["high", "low", "unread"]
+    assert _ladder(record, *ladder[:1], "--journal", "calm", "--journal", "strict") == ["low", "high", "unread"]
+    # On AI burden alone Low and Aardvark tie (one point each), and the name breaks the tie.
+    assert _ladder(record, "--preprints", "--journal", "strict", "--priority", "ai") == ["unread", "low", "high"]
+    assert _ladder(record) == ["strict", "calm"]  # the journal ladder reads the record's `journals` order
+
+
+@pytest.mark.parametrize("args", [["--priority", "transfer"], ["--preprints", "--priority", "transfer"]])
+def test_transfer_priority_needs_preprint_servers_and_a_journal_ladder(synthetic_venues: Path, args: list[str]) -> None:
+    from typer.testing import CliRunner
+
+    assert CliRunner().invoke(venues.app, ["ladder", *args]).exit_code != 0
+
+
+COMMON_FACTS = {"venue_facts": {
+    "calm": {"limits": {"body_words": 3500, "abstract_words": 150},
+             "abstract_headings": ["Background", "Results"],
+             "required_sections": ["Data availability", "Ethics statement"],
+             "software": ["archived release with a DOI"],
+             "submission_rules": [{"when": "submission", "rule": "alt text under every figure", "quote": "q"}]},
+    "strict": {"limits": {"body_words": 5000, "abstract_words": 150},
+               "abstract_headings": ["Background", "Results"],
+               "required_sections": ["Data availability."],
+               "software": ["Archived release with a DOI", "test data"],
+               "submission_rules": [{"when": "submission", "rule": "Alt text under every figure", "quote": "q"},
+                                    {"when": "after_review", "rule": "reference style X", "quote": "q"}]},
+}}
+
+
+def _common(tmp_path: Path, facts: dict, *keys: str) -> str:
+    from typer.testing import CliRunner
+
+    p = tmp_path / "record.yaml"
+    p.write_text(yaml.safe_dump(facts))
+    result = CliRunner().invoke(venues.app, ["common", *keys, "--record", str(p)])
+    assert result.exit_code == 0, result.output
+    return result.output
+
+
+def _section(text: str, heading: str) -> str:
+    return text.split(f"## {heading}")[1].split("\n## ")[0]
+
+
+def test_common_separates_what_one_version_satisfies_from_where_the_venues_disagree(
+        synthetic_venues: Path, tmp_path: Path) -> None:
+    out = _common(tmp_path, COMMON_FACTS, "calm", "strict")
+    now, differ = _section(out, "Adapt now"), _section(out, "Choose per venue")
+    end = _section(out, "At the end")
+    # The same requirement in two spellings is one item, asked by every venue.
+    assert now.count("Data availability") == 1 and "Data availability (every venue)" in now
+    assert "Ethics statement (Calm Journal)" in now
+    assert "Abstract: Background, Results (every venue)" in now
+    assert "at most 150 words" in now
+    assert "Alt text under every figure (every venue)" in now
+    # Different body limits are a choice, with the shortest that fits both.
+    assert "Length of the body" in differ and "3500 words" in differ and "Length of the body" not in now
+    assert "Reference style X (Strict Journal)" in differ
+    assert "Archived release with a DOI (every venue)" in end and "Test data (Strict Journal)" in end
+    assert "The strictest is Strict Journal's" in out
+
+
+def test_common_lists_what_has_not_been_researched_instead_of_treating_it_as_no_rule(
+        synthetic_venues: Path, tmp_path: Path) -> None:
+    facts = {"venue_facts": {"calm": COMMON_FACTS["venue_facts"]["calm"]}}
+    out = _common(tmp_path, facts, "calm", "strict")
+    gaps = {line.split(" (")[0].lstrip("- "): line for line in _section(out, "Not researched yet").splitlines()
+            if line.startswith("- ")}
+    assert "the abstract headings" in gaps["Strict Journal"] and "the length of the body" in gaps["Strict Journal"]
+    assert "abstract headings" not in gaps.get("Calm Journal", "") and "length" not in gaps.get("Calm Journal", "")
+    # Calm's sections are not "every venue" when Strict's are unknown.
+    assert "Data availability (Calm Journal)" in _section(out, "Adapt now")
+
+
+@pytest.mark.parametrize("keys", [["calm"], ["calm", "nowhere"]])
+def test_common_needs_two_known_venues(synthetic_venues: Path, keys: list[str]) -> None:
+    from typer.testing import CliRunner
+
+    assert CliRunner().invoke(venues.app, ["common", *keys]).exit_code != 0
 
 
 def test_recorded_validation_rules_have_supported_values_and_discoverable_sources() -> None:
@@ -1274,3 +1521,13 @@ def test_watch_excerpt_keeps_the_change_visible_in_a_long_passage() -> None:
     assert len(quoted_after) < watch.EXCERPT_CHARS + 30
     removed = watch.describe_changes("## AI\n\nAI tools cannot be authors.", "## AI")
     assert removed == ['Under the heading "AI", the passage "AI tools cannot be authors." was removed.']
+
+
+def test_journal_select_eval_cases_are_complete_and_their_files_exist() -> None:
+    cases = yaml.safe_load((ROOT / "evals" / "manuscript-journal-select.yaml").read_text(encoding="utf-8"))
+    assert len({c["id"] for c in cases}) == len(cases)
+    for case in cases:
+        assert case["skill"] == "manuscript-journal-select" and case["prompt"].strip(), case["id"]
+        assert case["rubric"] and case["fail_if"], case["id"]
+        for name in case["files"]:
+            assert (ROOT / "evals" / name).is_file(), (case["id"], name)

@@ -38,6 +38,9 @@
 #   tracking:      required     the venue makes authors record AI use beyond one acknowledgement (prompts,
 #                               deposited outputs, kept versions); venues.py rank leaves these out by default
 #                  recommended  the policy says authors should keep records and may be asked for them
+#   transfers:     preprint servers only: catalogue keys of the journals the server transfers manuscripts to
+#                  directly; transfers_checked lists the journals the server's list was read for (a journal
+#                  checked and absent is a no; one not checked is unknown). Neither is inherited.
 #
 # Length limits and the page's own words (venues.py show prints the quotes; scan.py --venue reads `limits`)
 #   limits:        abstract_words and body_words (words); over_limit_return, the multiple of the body limit
@@ -56,8 +59,8 @@
 #
 # Selection fields: validation_requirements, excluded_study_designs, open_science, editorial_profile,
 # review_speed, publication_costs. See manuscript-journal-select/references/selection-fields.md.
-# Each fact has its own source/read date. Missing fields are unknown; timing and editorial assessments
-# are journal-specific and never inherited. Validation/resource fit is separate from AI friction.
+# Each fact has its own source/read date. Missing fields are unknown; timing, fees and editorial
+# assessments are journal-specific and never inherited. Validation/resource fit is separate from AI friction.
 
 checked: 2026-10-15
 
@@ -70,6 +73,7 @@ venues:
     status: VERIFIED
     url: https://academic.oup.com/bioinformatics/pages/author-guidelines
     ai_policy_url: https://transition.iscb.org/iscb-policy-statements/iscb-policy-for-acceptable-use-of-large-language-models
+    sources: [https://academic.oup.com/bioinformatics/pages/About, https://academic.oup.com/bioinformatics/pages/open-access]
     fields: [bioinformatics, software]
     writing_help: banned_drafting
     exempt: null # permitted use does not by itself establish a disclosure exemption
@@ -127,6 +131,28 @@ venues:
     software: [source at a stable URL at submission, "archived version (Zenodo, Software Heritage or Figshare) URL in the abstract", test data, install and run documentation, instructions to reproduce each figure]
     other_desk_rules: [ML papers validated by leave-one-out are editorially rejected, new methods compared with state of the art, pre-screen returns papers of less significance, all data on which the conclusions are based publicly available in stable public repositories (Supporting Data)]
     software_article: true
+    open_science:
+      summary: "Software and source code freely available at stable URLs at submission, with the submitted version and test data archived (Zenodo, Figshare, Software Heritage); an open-source licence is encouraged, not required."
+      source_code: required
+      software_licence: "open source encouraged, not required"
+      preprints: "a preprint does not prevent submission, and a bioRxiv preprint can be submitted directly from bioRxiv; after acceptance the preprint's status must be updated with the paper's DOI; no licence condition is stated"
+      source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+      checked: 2026-10-19
+    review_speed:
+      - metric: submission-to-first-decision (desk-inclusive)
+        days: 23
+        statistic: median
+        population: all manuscripts with a first decision in the year, desk rejections included (OUP's definition)
+        period: 2025
+        source: https://academic.oup.com/bioinformatics/pages/About
+        checked: 2026-10-19
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 4376
+        currency: USD
+        route: "the same for Original Papers and Application Notes, excluding tax (OUP's charges calculator on the author guidelines, read in a browser); ISCB members get 15% off; OUP's read-and-publish search finds no agreement for the University of Rostock or any Romanian institution, and Romania is not on OUP's low- and middle-income list"
+        source: https://academic.oup.com/bioinformatics/pages/author-guidelines
+        checked: 2026-10-19
 
   bioinformatics-note:
     name: Bioinformatics (Application Note)
@@ -145,6 +171,15 @@ venues:
       note: the live page could not be read past its open-access charges section on 2026-10-19, so its later sections were read on this copy; that copy gives no word limit for the abstract of an Application Note
     abstract_headings: [Summary, Availability and Implementation, Contact, Supplementary Information]
     other_desk_rules: [application name in the title, software available for 2 years, web services without mandatory registration, ML papers validated by leave-one-out are editorially rejected, pre-screen returns papers of less significance]
+    review_speed:
+      - metric: submission-to-first-decision (desk-inclusive)
+        days: 23
+        statistic: median
+        population: all manuscripts of the journal, not split by article type; desk rejections included
+        period: 2025
+        source: https://academic.oup.com/bioinformatics/pages/About
+        checked: 2026-10-19
+        evidence_kind: official statistic
 
   briefings-bioinformatics:
     name: Briefings in Bioinformatics
@@ -244,12 +279,40 @@ venues:
     prompts: "no"
     screening: integrity_signals
     screening_note: publisher reports nonsense-text, reference and phrase checks; these do not establish general AI-authorship attribution or screening of this submission
-    sources: [https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690]
+    sources: [https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690,
+              https://link.springer.com/journal/13059, https://link.springer.com/journal/13059/how-to-publish-with-us]
     penalties: [withdrawal (reference checker), rejection or retraction for hallucinated references, institution notified]
     extra_burden: []
     limits: null
     software: [public repository with OSI licence, Availability and requirements block with archived DOI]
     software_article: true
+    open_science:
+      summary: "Source code in a public repository under an OSI-compliant licence, stated in the manuscript; a DOI-assigning deposit of the described version recommended; the journal states 'a very strict open access, open source and open data policy'."
+      source_code: required
+      software_licence: OSI-compliant
+      preprints: "posting a preprint is not prior publication and any licence may be chosen for it; its DOI and licence are disclosed at submission (BMC editorial policies); not on bioRxiv's direct-transfer list"
+      source: https://link.springer.com/journal/13059/submission-guidelines/software
+      checked: 2026-10-19
+    editorial_profile:
+      summary: "Software articles must be 'a clear advance over the state-of-the-art existing tools in a side-by-side demonstration using the same dataset', benchmarked on data with known ground truth where possible; a pipeline combining existing methods is in scope."
+      evidence_kind: stated-scope
+      source: https://link.springer.com/journal/13059/submission-guidelines/software
+      checked: 2026-10-19
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 13
+        statistic: median
+        population: not stated (the same page's overview text says 14 days)
+        source: https://link.springer.com/journal/13059
+        checked: 2026-10-19
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 4690
+        currency: EUR
+        fee_year: 2026
+        route: "Projekt DEAL gives German participating institutions, the University of Rostock among them, 20% off, billed centrally; no Springer Nature agreement covers BMC fees for Romanian institutions"
+        source: https://link.springer.com/journal/13059/how-to-publish-with-us
+        checked: 2026-10-19
 
   genome-medicine:
     name: Genome Medicine
@@ -262,6 +325,7 @@ venues:
     fields: [genomics, clinical]
     oa: full
     software: [software project URL in the abstract, Availability and requirements block with archived DOI]
+    open_science: null # Genome Biology's reading is that journal's, not this one's
     fit_note: clinical genomics venue; expects clinical relevance and safeguards
 
   bmc-bioinformatics:
@@ -272,10 +336,39 @@ venues:
     status: VERIFIED
     inherits: genome-biology
     url: https://link.springer.com/journal/12859/submission-guidelines/software-article
+    sources: [https://www.springernature.com/gp/advancing-discovery/springboard/blog/blogposts-trust-integrity/harnessing-technology-to-strengthen-research-integrity/27802690,
+              https://link.springer.com/journal/12859, https://link.springer.com/journal/12859/how-to-publish-with-us]
     fields: [bioinformatics, software]
     oa: full
     software: [Availability and requirements block with archived DOI, open-source licence recommended but not required]
     fit_note: "BMC series: judged on scientific validity, not perceived interest"
+    open_science:
+      summary: "The software must be testable by reviewers anonymously and, once published, free for non-commercial use; an open-source licence is recommended, not required; the archived version's DOI goes in the Availability and requirements block."
+      source_code: encouraged
+      software_licence: "open source recommended, not required"
+      preprints: "posting a preprint is not prior publication and any licence may be chosen for it; its DOI and licence are disclosed at submission (BMC editorial policies); not on bioRxiv's direct-transfer list"
+      source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+      checked: 2026-10-19
+    editorial_profile:
+      summary: "Software articles must show 'a significant advance over previously published software (usually demonstrated by direct comparison with available related software)'."
+      evidence_kind: stated-scope
+      source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+      checked: 2026-10-19
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 5
+        statistic: median
+        population: not stated
+        source: https://link.springer.com/journal/12859
+        checked: 2026-10-19
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 2590
+        currency: EUR
+        fee_year: 2026
+        route: "Projekt DEAL gives German participating institutions, the University of Rostock among them, 20% off, billed centrally; no Springer Nature agreement covers BMC fees for Romanian institutions"
+        source: https://link.springer.com/journal/12859/how-to-publish-with-us
+        checked: 2026-10-19
 
   scientific-data:
     name: Scientific Data
@@ -288,6 +381,7 @@ venues:
     fields: [data]
     software: [Code availability statement]
     software_article: false
+    open_science: null # Genome Biology's reading is that journal's, not this one's
     fit_note: Data Descriptors (datasets), not software papers
 
   plos-comp-biol:
@@ -317,6 +411,37 @@ venues:
         checked: 2026-10-15
     sources:
       - https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1004854
+      - https://journals.plos.org/ploscompbiol/s/submission-guidelines
+      - https://plos.org/metrics/
+      - https://plos.org/fees/
+    open_science:
+      summary: "Source code downloadable anonymously under an OSI-compliant licence, deposited in an open archive and included as supporting information with test data; software that needs databases or resources 'whose persistence is not guaranteed' is not considered."
+      source_code: required
+      software_licence: OSI-compliant
+      preprints: "posting on a preprint server does not affect consideration; authors can opt in to bioRxiv posting at submission, and bioRxiv transfers to the journal directly"
+      source: https://journals.plos.org/ploscompbiol/s/submission-guidelines
+      checked: 2026-10-19
+    editorial_profile:
+      summary: "Software articles under 3,500 words describe 'an open-source tool of broad utility that represents a significant advance in providing new biological insights', already widely adopted or with that promise; results must be reproducible by reviewers on the deposited test data."
+      evidence_kind: stated-scope
+      source: https://journals.plos.org/ploscompbiol/s/submission-guidelines
+      checked: 2026-10-19
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 41
+        statistic: median
+        population: the whole journal, not only Software articles
+        period: 2025
+        source: https://plos.org/metrics/
+        checked: 2026-10-19
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 3165
+        currency: USD
+        fee_year: 2026
+        route: "PLOS's flat-fee institutional agreements list no University of Rostock or Romanian institution; fee assistance on demonstrated need, applied for at submission"
+        source: https://plos.org/fees/
+        checked: 2026-10-19
 
   frontiers-default:
     kind: publisher
@@ -576,7 +701,12 @@ venues:
     other_desk_rules: [no narrative reviews, no announcements of tools or services without data, no hypotheses without new data,
                        no editorials, letters, opinion pieces, white papers or policy statements]
     software_article: false
-    fit_note: a software paper must read as a research article with results, not a tool announcement
+    fit_note: a software paper must read as a research article with results, not a tool announcement; a paper with health-related information may be closed and sent to medRxiv
+    # Direct transfer to journals (B2J), read on https://www.biorxiv.org/submit-a-manuscript on 2026-10-19 for the
+    # journals in transfers_checked only; the list has about 250 entries.
+    transfers: [bioinformatics, bioinformatics-note, bioinformatics-advances, nar-genomics-bioinformatics, plos-comp-biol]
+    transfers_checked: [bioinformatics, bioinformatics-note, bioinformatics-advances, nar-genomics-bioinformatics,
+                        plos-comp-biol, genome-biology, bmc-bioinformatics, gpb, cell-reports-methods]
 
   medrxiv:
     kind: preprint
@@ -588,6 +718,7 @@ venues:
     other_desk_rules: [simple automated or formulaic analyses of public data are generally not sufficient,
                        tool announcements alone are not sufficient (needs Introduction, Results, Discussion),
                        papers with inappropriate causal language may be declined, no narrative reviews]
+    fit_note: a software paper must read as a research article with results, not a tool announcement; human data need a statement of ethical oversight by an independent body unless the data are already openly available, and clinical case reports are not posted
 
   research-square:
     kind: preprint
@@ -734,7 +865,8 @@ venues:
     jif_year: 2025
     status: VERIFIED
     url: https://academic.oup.com/nargab/pages/author-guidelines
-    sources: ['https://academic.oup.com/nargab/pages/scope_and_criteria']
+    sources: ['https://academic.oup.com/nargab/pages/scope_and_criteria', 'https://academic.oup.com/nargab/pages/About',
+              'https://doaj.org/api/search/journals/issn%3A2631-9268']
     fields: [genomics, bioinformatics, software]
     article_types: [research, methods, software, database, review, perspective]
     oa: full
@@ -742,6 +874,28 @@ venues:
     software_article: true
     fit_note: only the OUP authorship/AI clause (no ISCB text); Application Notes max 3000 words, 3 figures/tables, 30
       references; novel bioinformatics components must be open source
+    open_science:
+      summary: "Software released as open source under an OSI licence, on GitHub and archived in Zenodo before acceptance; all data and code underlying a paper released as a condition of publication."
+      source_code: required
+      software_licence: OSI
+      preprints: "on bioRxiv's direct-transfer list; the journal's own preprint wording was not read"
+      source: https://academic.oup.com/nargab/pages/scope_and_criteria
+      checked: 2026-10-19
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 44
+        statistic: median
+        population: not stated
+        period: 2025
+        source: https://academic.oup.com/nargab/pages/About
+        checked: 2026-10-19
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 3035
+        currency: USD
+        route: "the same for Standard, Methods and Application Notes, excluding tax (OUP's charges calculator, read in a browser); OUP's read-and-publish search finds no agreement for the University of Rostock or any Romanian institution"
+        source: https://academic.oup.com/nargab/pages/author-guidelines
+        checked: 2026-10-19
 
   gpb:
     name: Genomics, Proteomics & Bioinformatics

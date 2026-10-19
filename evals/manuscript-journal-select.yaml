@@ -1,0 +1,56 @@
+# Behavioural cases for manuscript-journal-select. Format and grading: evals/README.md.
+# Fixture: the fictional software note of the reporting-check cases (a Rust tool benchmarked on public data,
+# no cohort, no wet lab). The cases test the deliverable: a preprint ladder and a journal ladder ordered by
+# the authors' priorities, and what every venue on the ladders asks for. Venue facts change; grade the
+# behaviour (sources, dates, order, unknowns kept), not a particular journal.
+
+- id: journal-select-two-ladders-01
+  skill: manuscript-journal-select
+  prompt: >-
+    Where should we preprint and submit this? Speed matters most to us, then impact factor, then how little
+    AI paperwork the journal asks for. Impact factor above 3. A grant can pay a normal open-access fee. We
+    used an AI assistant to revise the text.
+  files: [fixtures/manuscript-reporting-check/software-note.md]
+  rubric:
+    - "Gives two ladders: one of preprint servers and one of journals, each with a first rung and at least one fallback."
+    - "Orders the journal ladder by the stated priorities in the stated order (speed, then impact factor, then AI burden), after feasibility, and says where it departed from that order and why."
+    - "Compares speed only as like with like (for example days to a first decision), with each figure's source and the date read; a journal without a published figure is shown as not known, not as fast or slow."
+    - "Checks the two ladders against each other: whether each journal accepts a manuscript already posted on the chosen server, and whether the server transfers to any rung directly."
+    - "Checks whether the preprint server would decline the paper (for example a tool announcement without results) before placing it on the ladder."
+    - "Lists what every venue on the ladders asks for, separating what one version of the manuscript can satisfy now from where the venues disagree, and names venues whose rules were not researched."
+    - "Quotes the rule that decides each venue with its URL and the date read, and lists the authors' decisions together (a journal that bans AI drafting is 'Depends', with the rule quoted, never excluded)."
+    - "Asks no further questions: the prompt already states the priorities, floor, fee route and AI use."
+    - "Writes the record, the two ladder CSVs and the venue-requirements file beside the manuscript, named after it, and gives each path relative to the project."
+  fail_if:
+    - "Writes any of those outputs only to a scratch or temporary directory, or points the authors to one."
+    - "Asks permission before writing those outputs, as if they were new versions of the authors' documents."
+    - "Gives an acceptance probability or a single weighted score per venue."
+    - "Invents a review time, fee, impact factor or policy, or presents a remembered value as read today."
+    - "Treats an unresearched requirement as no requirement."
+    - "Edits the manuscript."
+
+- id: journal-select-ask-priorities-01
+  skill: manuscript-journal-select
+  prompt: >-
+    Pick a journal for this paper, and a preprint server.
+  files: [fixtures/manuscript-reporting-check/software-note.md]
+  rubric:
+    - "Before ordering any ladder, asks one short batch: what matters most in order (speed, reach, AI-policy burden, cost), an impact-factor floor, who pays the fee, and the preprint intention."
+    - "Does not start the full interview (per-section AI use, refused burdens, colleagues' venues) unprompted."
+    - "After the answers, records them (priorities) and orders both ladders by them."
+  fail_if:
+    - "Orders a ladder by priorities it assumed and did not state as an assumption."
+    - "Asks for facts the manuscript already gives (article type, that it is a software paper, the licence)."
+
+- id: journal-select-reprioritise-01
+  skill: manuscript-journal-select
+  prompt: >-
+    (Follow-up in the same session, after two ladders were given.) Actually cost matters more than speed for
+    us now. Redo the journal ladder.
+  files: [fixtures/manuscript-reporting-check/software-note.md]
+  rubric:
+    - "Updates the recorded priorities and reorders the journal ladder with cost first, reusing the facts already read instead of looking them all up again."
+    - "Says which rungs moved and why, and which venues have no comparable fee (a fee in another currency, or none read) and so sit below the known ones."
+  fail_if:
+    - "Changes the preprint ladder's order without a reason that follows from the new priority."
+    - "Drops a venue from the ladder only because its fee is not known."

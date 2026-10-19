@@ -54,7 +54,7 @@ for an inventory of what changed, with section and line:
 
 ```bash
 uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL REVISED --revision \
-    --json $SCRATCH/guard.json --md $SCRATCH/guard.md      # a scratch directory, not beside the manuscript
+    --json $SCRATCH/guard.json --md REVISED.changes.md   # the JSON feeds the check; the inventory is for the authors
 ```
 
 For each item, give one state, with an anchor (a short verbatim quote and its location in the revised
@@ -111,7 +111,7 @@ Run the structural check with the guard inventory:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS LEDGER LETTER --revised REVISED --original ORIGINAL \
-    --guard-json $SCRATCH/guard.json --md $SCRATCH/check.md
+    --guard-json $SCRATCH/guard.json --md LETTER.check.md
 ```
 
 It confirms quotes, coverage, order, locations, quoted revised text, numbers and landed commitments, and

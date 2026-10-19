@@ -81,11 +81,12 @@ Relative to this skill directory; standard library only (`uv run --script`, no d
 uv run --script scripts/rev_marks.py lint PAPER.md [--strict]       # exit 1 on an error (or warning)
 uv run --script scripts/rev_marks.py strip PAPER.md                 # write PAPER.clean.md
 uv run --script scripts/rev_marks.py strip PAPER.md --check         # exit 1 if the twin is missing or stale
-uv run --script scripts/rev_marks.py report PAPER.md --blind --unreviewed --html $SCRATCH/heatmap.html
+uv run --script scripts/rev_marks.py report PAPER.md --blind --unreviewed --html PAPER.heatmap.html
 uv run --script scripts/rev_marks.py bump PAPER.md C3 --by claude   # an agent's round, dated today
 uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna    # anna reviewed it, as the authors say
 ```
 
+The heat map is for the authors: write it beside the manuscript (or where they say) and give its path.
 `lint` and `report` take `--config PATH` and `--unknown agent|human`. The heat map shades each
 segment by its rounds and outlines and hatches the unreviewed ones. Exit codes: 0 clean, 1 errors (a
 malformed or unpaired mark, a stale twin, an unknown id), 2 usage or a malformed `rev-marks.toml`, 3

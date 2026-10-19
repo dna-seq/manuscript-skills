@@ -79,7 +79,9 @@ and stage. Start from [venue-policies.md](references/venue-policies.md); its dat
 clearance. Read the operative paragraphs, including exceptions, rather than relying on a search snippet
 or a publisher-wide summary. Record the URL, date and access limitation with material findings. Reuse a
 current check within the task. If access fails, try another primary route (the same journal's article-type
-or ethics page, the publisher-wide policy, a headless browser, an archived copy labelled with its date)
+or ethics page, the publisher-wide policy, a headless browser, the authors' own browser when a
+browser-control tool is connected, an archived copy labelled with its date; the order is in the shared
+[rule for blocked pages](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work))
 and label remaining uncertainty; continue without making the author fetch every blocked page. A
 summarising fetch tool paraphrases: quote a rule only from text retrieved word for word, and say so when
 a quotation is a paraphrase. For which rules can be checked from the files and which rest on editorial

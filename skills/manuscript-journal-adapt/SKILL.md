@@ -55,8 +55,25 @@ trailer as a question to put to them, never as the answer.
 
 Use `../manuscript-journal-select/SKILL.md` for journal shortlists and requirements-based comparisons.
 That skill uses the shared database and the helpers in this directory, checks validation affordability
-before softer preferences, and compares open science/source policies, editorial receptiveness, costs
-and review speed. The `rank` helper's AI-friction score is only one input to that decision.
+before softer preferences, compares open science/source policies, editorial receptiveness, costs
+and review speed, and orders the result into a preprint ladder and a journal ladder by the authors'
+priorities. The `rank` helper's AI-friction score is only one input to that decision.
+
+## Adapt for a ladder before the choice
+
+When the authors want to adapt before they choose, adapt to what every venue on the ladders shares:
+
+```bash
+uv run --script scripts/venues.py common KEY KEY KEY --record REC.yaml
+```
+
+Apply its "Adapt now" items to the manuscript in place: sections a venue requires (one that a single venue
+requires usually costs the others nothing), abstract headings and length limits when every venue states the
+same, rules every venue's guidelines share, and single-venue rules that cost the others nothing (alt text,
+dataset citations). Leave its "Choose per venue" items (differing abstract formats, section orders, length
+limits, reference styles) for the choice, or follow the first rung when the authors ask; offer the shortest
+limit as an option with its cost, never as a default. Its "At the end" items wait with the other end-stage
+work. Never create a per-venue copy of the manuscript to cover the ladder.
 
 ## Adapt to a venue
 

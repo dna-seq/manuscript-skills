@@ -13,8 +13,8 @@ it.
    exists; for one that does not exist yet, write `[TBD: ...]` naming what is missing and leave `landed`
    empty.
 3. Fill `landed` in the ledger with the location of each change in the revised manuscript.
-4. Draft the letter, then run `scripts/check_response.py` (output to a scratch directory) and fix every
-   blocking finding.
+4. Draft the letter, then run `scripts/check_response.py` (its Markdown report beside the letter, its JSON in
+   a scratch directory) and fix every blocking finding.
 
 ## 2. The letter
 

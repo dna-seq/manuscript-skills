@@ -57,8 +57,11 @@ see. For file edits:
 ```bash
 uv run --script scripts/style_profile.py BEFORE.md                    # before editing: where the patterns are
 uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
+uv run --script scripts/guard.py AFTER.md --against HEAD                # in git: the last commit is BEFORE
 uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
 ```
+
+The comparison copies (a saved pre-edit file, a pasted passage and its edit as two files) and the guard's JSON are working files for a scratch location. Anything the reply points the authors to, such as the guard's Markdown report, goes beside the manuscript, as the shared [rule on where files go](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work) says.
 
 The guard keeps its whole-text counts of numbers, citations, identifiers and terms, and also aligns the
 sentences of the two versions (split, merged and moved sentences included). For each sentence it reports,
@@ -122,8 +125,9 @@ always exits 0. `manuscript-reviewer-response` checks each listed change against
 `manuscript-journal-adapt` and `manuscript-policy-fit` use it to show what their authorised edits changed.
 Present the changes; do not judge them as errors, since the authors chose them. A whole-paper revision can
 list hundreds of changes: give the authors the claim changes first, each quoted with its section, then the
-number, citation and identifier changes grouped by section, and keep the full Markdown report as a file they can
-open. A count of changes alone tells them nothing they can check.
+number, citation and identifier changes grouped by section, and write the full Markdown report beside the
+revised manuscript (`<manuscript stem>.changes.md`, or where they say) and give its path. A count of changes
+alone tells them nothing they can check.
 
 ## Optional independent reflection
 

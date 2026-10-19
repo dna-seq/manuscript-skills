@@ -2,23 +2,31 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12", "pyyaml>=6", "httpx>=0.27"]
 # ///
-"""Rank candidate venues by how much friction their AI policy puts on an AI-assisted manuscript, print one
-venue's requirements as a checklist, and list where named researchers publish.
+"""Rank candidate venues by how much friction their AI policy puts on an AI-assisted manuscript, order a
+shortlist into a journal ladder and a preprint ladder by the authors' priorities, print what every venue on a
+ladder asks for, print one venue's requirements as a checklist, and list where named researchers publish.
 
 The data is manuscript-integrity-check/references/venues.yaml (keep the two skills side by side); the read
-date of each policy page comes from policy-snapshots/index.yaml, written by policy_watch.py.
+date of each policy page comes from policy-snapshots/index.yaml, written by policy_watch.py. Facts researched
+for one manuscript (review times, fees, preprint rules, author guidelines the catalogue lacks) and the authors'
+priorities live in that manuscript's record and are passed with --record; the catalogue stays read-only.
 
     uv run --script venues.py rank                                    # all journals, least friction first
     uv run --script venues.py rank --ai-use drafting --field aging --refuse prompts --refuse ai-detector
     uv run --script venues.py rank --field bioinformatics --type software --min-jif 4
+    uv run --script venues.py ladder --only KEY --only KEY --priority speed --priority reach --record REC.yaml
+    uv run --script venues.py ladder --preprints --journal KEY --priority ai --record REC.yaml
+    uv run --script venues.py common KEY KEY KEY --record REC.yaml    # what every venue on the ladder asks for
     uv run --script venues.py show <venue-key>                        # keys are listed by `rank`
     uv run --script venues.py peers "First Last" "Other Name" --since 2019
 """
 
 from __future__ import annotations
 
+import csv
 import os
 import re
+import sys
 import unicodedata
 from collections import Counter
 from datetime import date
@@ -191,6 +199,37 @@ class Burden(str, Enum):
     disclosure_penalty = "disclosure-penalty"  # page says disclosed AI use may count against the paper
 
 
+class Priority(str, Enum):
+    """What the authors want most from a venue, in their order; `ladder` sorts by them after feasibility."""
+    speed = "speed"  # days to a first decision, as the venue publishes it
+    reach = "reach"  # journal impact factor
+    ai = "ai"  # AI-policy work, in the points `rank` explains
+    cost = "cost"  # what the authors would pay, in euros
+    transfer = "transfer"  # preprint servers: how high on the journal ladder the first direct-transfer journal is
+
+
+PRIORITY_WORDS = {"speed": "speed to a first decision", "reach": "reach (journal impact factor)",
+                  "ai": "a light AI-policy burden", "cost": "a low cost to the authors",
+                  "transfer": "a direct transfer to a journal high on the journal ladder"}
+FIT_ORDER = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
+
+
+class OutputFormat(str, Enum):
+    md = "md"  # a table for the authors
+    csv = "csv"  # one row per rung, in LADDER_COLUMNS; an empty cell means not known, never zero
+
+
+# The ladder's CSV columns, in order. Units are in the names; numbers only in the numeric columns.
+LADDER_COLUMNS = [
+    "ladder", "rung", "chosen_rung", "key", "name", "fits", "fits_reason",
+    "first_decision_days", "speed_measure", "speed_source", "speed_checked",
+    "jif", "jif_year", "ai_points", "ai_tier", "ai_for_this_use",
+    "fee_amount", "fee_currency", "fee_year", "author_cost_eur", "fee_route", "fee_source", "fee_checked",
+    "preprint_rule", "transfers", "guidelines_url", "facts_from_record", "priorities",
+]
+FIRST_DECISION = re.compile(r"first[- ]decision", re.I)
+
+
 # ------------------------------------------------------------------------------------------------ data
 
 def load_venues() -> tuple[date, dict[str, dict[str, Any]]]:
@@ -210,9 +249,10 @@ def _resolve(key: str, venues: dict[str, dict[str, Any]], seen: set[str]) -> dic
     entry = venues[key]
     parent = entry.get("inherits")
     base = dict(_resolve(parent, venues, seen | {key})) if parent else {}
-    # Timelines, editorial assessments and the quoted rules of one journal's page describe that journal, not its
-    # parent or sibling.
-    for journal_specific in ("review_speed", "editorial_profile", "submission_rules", "limit_quotes", "quoted_from"):
+    # Timelines, fees, editorial assessments, direct-transfer lists and the quoted rules of one journal's page
+    # describe that journal (or server), not its parent or sibling.
+    for journal_specific in ("review_speed", "publication_costs", "editorial_profile", "submission_rules",
+                             "limit_quotes", "quoted_from", "transfers", "transfers_checked"):
         base.pop(journal_specific, None)
     if base.get("kind") == "publisher":
         base.pop("kind")
@@ -396,6 +436,158 @@ def _jif(v: dict[str, Any]) -> str:
     return f"{v['jif']}" + (f" ({v['jif_year']})" if v.get("jif_year") else "")
 
 
+def _name(v: dict[str, Any]) -> str:
+    return v.get("name") or v["key"]
+
+
+def _selected(venues: dict[str, dict[str, Any]], *, preprints: bool, only: Optional[list[str]],
+              field: Optional[list[str]], article_type: Optional[list[str]], software: bool,
+              oa: Optional[list[str]], min_jif: Optional[float], refused: set[Burden],
+              include_tracking: bool) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """The venues the filters keep, and the ones left out only because they require AI records beyond one
+    acknowledgement (named, so the authors can ask for them)."""
+    kept: dict[str, dict[str, Any]] = {}
+    left_out: list[str] = []
+    for key, v in journals(venues, preprints).items():
+        if only and key not in only:
+            continue
+        if field and not set(v.get("fields") or []) & set(field):
+            continue
+        if (article_type or software) and not _has_type(v, (article_type or []) + (["software"] if software else [])):
+            continue
+        if oa and v.get("oa") not in oa:
+            continue
+        if min_jif is not None and (v.get("jif") is None or v["jif"] < min_jif):
+            continue
+        if burdens(v) & refused:
+            continue
+        if v.get("tracking") == "required" and not include_tracking and Burden.tracking not in refused:
+            left_out.append(f"{_name(v)} ({'; '.join(v.get('extra_burden') or [])})")
+            continue
+        kept[key] = v
+    return kept, left_out
+
+
+# ------------------------------------------------------------------------------------------------ task facts
+
+def load_record(path: Optional[Path], preprints: bool = False) -> tuple[list[str], dict[str, dict[str, Any]]]:
+    """The authors' priorities for one ladder and the venue facts researched for one manuscript.
+
+    Reads the shared manuscript record (`priorities: {journals: [speed, reach], preprints: [transfer, ai]}`, or one
+    list for both ladders; `venue_facts: {key: {...}}`) or a plain facts file with a `venues` mapping. These facts
+    were read from the venues' own pages for this task; the catalogue is not changed by an author's task."""
+    if path is None:
+        return [], {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    priorities = raw.get("priorities") or []
+    if isinstance(priorities, dict):
+        priorities = priorities.get("preprints" if preprints else "journals") or []
+    facts = raw.get("venue_facts") or raw.get("venues") or {}
+    return [str(p) for p in priorities], facts
+
+
+def recorded_ladder(path: Optional[Path], preprints: bool) -> list[str]:
+    """The order the authors chose for one ladder (`ladders: {journals: [...], preprints: [...]}` in the record),
+    which may move a rung away from the sorted order for a reason the report states; [] when none is recorded."""
+    if path is None:
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return [str(k) for k in (raw.get("ladders") or {}).get("preprints" if preprints else "journals") or []]
+
+
+def with_facts(venues: dict[str, dict[str, Any]], facts: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The catalogue with the task's facts laid over it, field by field. A venue the catalogue lacks can be added
+    by the facts when they give it a name; `from_facts` lists the fields that came from the task."""
+    out = dict(venues)
+    for key, given in facts.items():
+        if key not in venues and not given.get("name"):
+            raise typer.BadParameter(f"the facts describe {key!r}, which the catalogue does not know; give it a "
+                                     "name to add it for this task")
+        out[key] = {**venues.get(key, {}), **given, "key": key, "from_facts": sorted(given)}
+    return out
+
+
+def _first_decision(v: dict[str, Any]) -> Optional[dict[str, Any]]:
+    return next((m for m in v.get("review_speed") or [] if m.get("days") is not None
+                 and FIRST_DECISION.search(str(m.get("metric") or ""))), None)
+
+
+def speed_days(v: dict[str, Any]) -> tuple[Optional[float], str]:
+    """Days to a first decision, the one speed measure `ladder` compares, and the venue's figures in words.
+
+    Only first-decision figures are compared: a time to acceptance or to publication measures something else,
+    and is shown but never ranked against a first decision."""
+    figures = [m for m in v.get("review_speed") or [] if m.get("days") is not None]
+    for m in figures:
+        if FIRST_DECISION.search(str(m.get("metric") or "")):
+            detail = ", ".join(str(m[k]) for k in ("statistic", "population", "period") if m.get(k))
+            return float(m["days"]), f"{m['days']} days to first decision" + (f" ({detail})" if detail else "")
+    if figures:
+        return None, "; ".join(f"{m['days']} days, {m.get('metric') or 'measure not named'}" for m in figures) + \
+            " (no first-decision figure, so not compared)"
+    return None, "not known"
+
+
+def fee_eur(v: dict[str, Any]) -> tuple[Optional[float], str]:
+    """What the authors would pay in euros, and the fee in words. `author_cost_eur` is the amount left to the
+    authors after an agreement, discount, fund or waiver they can use; without it a fee in euros is compared as
+    listed, and a fee in another currency is shown but not compared."""
+    costs = v.get("publication_costs") or []
+    if not costs:
+        return None, "not known"
+    c = costs[0]
+    amount, currency = c.get("amount"), str(c.get("currency") or "")
+    shown = (f"{amount} {currency}".strip() + (f" ({c['fee_year']})" if c.get("fee_year") else "")
+             if amount is not None else "fee not recorded")
+    if c.get("route"):
+        shown += f"; {c['route']}"
+    if c.get("author_cost_eur") is not None:
+        return float(c["author_cost_eur"]), f"{shown}; the authors would pay about {c['author_cost_eur']} EUR"
+    if amount is not None and currency.upper() == "EUR":
+        return float(amount), shown
+    return None, f"{shown} (no euro figure, so not compared)"
+
+
+def priority_value(v: dict[str, Any], priority: Priority,
+                   journals_on_ladder: Optional[list[str]] = None) -> Optional[float]:
+    """The venue's value on one priority, lower is better; None when not known. For `transfer`, the rung (counted
+    from 0, in the order the journals are given) of the first journal the server transfers to directly; a server
+    whose checked list reaches none of them comes after every one that reaches some."""
+    if priority == Priority.transfer:
+        transfers = v.get("transfers")
+        if transfers is None or not journals_on_ladder:
+            return None
+        rungs = [n for n, k in enumerate(journals_on_ladder) if k in transfers]
+        return float(rungs[0]) if rungs else float(len(journals_on_ladder))
+    if priority == Priority.speed:
+        return speed_days(v)[0]
+    if priority == Priority.reach:
+        return -float(v["jif"]) if v.get("jif") is not None else None
+    if priority == Priority.ai:
+        return friction(v)[0]
+    return fee_eur(v)[0]
+
+
+def ladder_order(v: dict[str, Any], priorities: list[Priority], study: Optional[str],
+                 available: Optional[set[str]], journals_on_ladder: Optional[list[str]] = None) -> tuple[Any, ...]:
+    """Feasibility first, then each priority in the authors' order. An unknown value sorts below every known one
+    at its step, and a tie passes to the next priority; the name breaks the last tie."""
+    key: list[Any] = [FIT_ORDER[validation_fit(v, study, available)[0]]]
+    for p in priorities:
+        value = priority_value(v, p, journals_on_ladder)
+        key.append((1, 0.0) if value is None else (0, value))
+    key.append(_name(v).lower())
+    return tuple(key)
+
+
+def _norm(text: Any) -> str:
+    return re.sub(r"\s+", " ", str(text)).strip().rstrip(".").lower()
+
+
+def _who(names: list[str], total: int) -> str:
+    return "every venue" if len(names) == total and total > 1 else _and(names)
+
+
 # ------------------------------------------------------------------------------------------------ commands
 
 @app.command()
@@ -434,24 +626,10 @@ def rank(
     if available and "none" in available and len(available) > 1:
         raise typer.BadParameter("'none' cannot be combined with an available validation route")
     rows = []
-    left_out: list[str] = []
-    for key, v in journals(venues, preprints).items():
-        if only and key not in only:
-            continue
-        if field and not set(v.get("fields") or []) & set(field):
-            continue
-        if (article_type or software) and not _has_type(v, (article_type or []) + (["software"] if software else [])):
-            continue
-        if oa and v.get("oa") not in oa:
-            continue
-        if min_jif is not None and (v.get("jif") is None or v["jif"] < min_jif):
-            continue
-        hit = burdens(v) & refused
-        if hit:
-            continue
-        if v.get("tracking") == "required" and not include_tracking and Burden.tracking not in refused:
-            left_out.append(f"{v.get('name', key)} ({'; '.join(v.get('extra_burden') or [])})")
-            continue
+    kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
+                               software=software, oa=oa, min_jif=min_jif, refused=refused,
+                               include_tracking=include_tracking)
+    for key, v in kept.items():
         score, reasons = friction(v)
         if max_friction is not None and (score is None or score > max_friction):
             continue
@@ -734,6 +912,315 @@ def show(
             out.append(f"- **{label}:** {_scalar(value, field)}.")
         else:
             out += [f"- **{label}:**", *_profile_lines(value, field, 1)]
+    glossary = abbreviations("\n".join(out))
+    typer.echo("\n".join(out + (["", glossary] if glossary else [])))
+
+
+def _preprint_cell(v: dict[str, Any], venues: dict[str, dict[str, Any]], journals_on_ladder: Optional[list[str]],
+                   preprints: bool) -> str:
+    """For a journal, its rule on manuscripts already posted as preprints; for a preprint server, the journals it
+    transfers manuscripts to directly, narrowed to the journal ladder when one is given. A journal missing from a
+    server's list counts as "not to" only when the list was checked for it (`transfers_checked`)."""
+    if not preprints:
+        rule = (v.get("open_science") or {}).get("preprints")
+        return _sentence(rule) if rule else "Not known."
+    transfers = v.get("transfers")
+    if transfers is None:
+        return "Not recorded."
+
+    def named(keys: list[str], join: Any = _and) -> str:
+        return join([_name(venues[k]) if k in venues else k for k in keys])
+
+    if not journals_on_ladder:
+        return f"Transfers directly to {named(transfers)}." if transfers else "No direct transfers recorded."
+    checked = set(v.get("transfers_checked") or transfers)
+    yes = [k for k in journals_on_ladder if k in transfers]
+    no = [k for k in journals_on_ladder if k not in transfers and k in checked]
+    unchecked = [k for k in journals_on_ladder if k not in checked]
+    parts = ([f"transfers directly to {named(yes)}"] if yes else []) \
+        + ([f"not to {named(no, _or)}"] if no else []) + ([f"not checked for {named(unchecked, _or)}"] if unchecked else [])
+    return _sentence("; ".join(parts))
+
+
+@app.command()
+def ladder(
+    priority: Annotated[Optional[list[Priority]], typer.Option(
+        help="What the authors want most, first; repeatable: speed, reach, ai, cost, and for preprint servers "
+             "transfer. Without it the record's `priorities` are used")] = None,
+    record: Annotated[Optional[Path], typer.Option(
+        help="The manuscript record (or a facts file): its `priorities` and the `venue_facts` researched for "
+             "this manuscript, laid over the catalogue")] = None,
+    only: Annotated[Optional[list[str]], typer.Option(help="Only these venue keys (the shortlist)")] = None,
+    field: Annotated[Optional[list[str]], typer.Option(help="Keep venues tagged with any of these fields")] = None,
+    article_type: Annotated[Optional[list[str]], typer.Option("--type", help="Keep venues taking this type")] = None,
+    software: Annotated[bool, typer.Option(help="Only venues with a software article type")] = False,
+    oa: Annotated[Optional[list[str]], typer.Option(help="Keep these access models: full, hybrid, subscription")] = None,
+    min_jif: Annotated[Optional[float], typer.Option(help="Drop venues below this JIF (and those without one)")] = None,
+    refuse: Annotated[Optional[list[Burden]], typer.Option(help="Drop venues that impose this; repeatable")] = None,
+    include_tracking: Annotated[bool, typer.Option(
+        help="Also list venues that require recording AI use beyond one acknowledgement")] = False,
+    preprints: Annotated[bool, typer.Option(help="Order preprint servers instead of journals")] = False,
+    journal: Annotated[Optional[list[str]], typer.Option(
+        help="With --preprints: the journals on the journal ladder, to show which ones each server transfers "
+             "to directly; repeatable")] = None,
+    ai_use: Annotated[AiUse, typer.Option(help="What AI did to the text")] = AiUse.revision,
+    study_design: Annotated[Optional[StudyDesign], typer.Option(
+        help="What the paper contributes, for the validation rules (see `rank --help`)")] = None,
+    validation_available: Annotated[Optional[list[Validation]], typer.Option(
+        help="Validation already available or affordable; repeatable; 'none' when unavailable")] = None,
+    output: Annotated[OutputFormat, typer.Option(
+        "--format", help="md: a table for the authors; csv: one row per rung in fixed columns (an empty cell "
+                         "means not known)")] = OutputFormat.md,
+) -> None:
+    """A shortlist ordered into a ladder: feasibility first, then each of the authors' priorities in turn."""
+    _, venues = load_venues()
+    recorded, facts = load_record(record, preprints)
+    venues = with_facts(venues, facts)
+    try:
+        priorities = list(priority or []) or [Priority(p) for p in recorded]
+    except ValueError as exc:
+        raise typer.BadParameter("the record's priorities must be among " +
+                                 ", ".join(p.value for p in Priority)) from exc
+    if not priorities:
+        raise typer.BadParameter("give the authors' priorities with --priority (speed, reach, ai, cost; transfer "
+                                 "for preprint servers), most important first, or record them as `priorities` in "
+                                 "the manuscript record")
+    if len(set(priorities)) != len(priorities):
+        raise typer.BadParameter("name each priority once")
+    if Priority.transfer in priorities and not (preprints and journal):
+        raise typer.BadParameter("the transfer priority orders preprint servers (--preprints) by the journal ladder "
+                                 "given with --journal, first rung first")
+    unknown = sorted(set(journal or []) - set(venues))
+    if unknown:
+        raise typer.BadParameter(f"unknown journal keys: {', '.join(unknown)}")
+    available = {value.value for value in validation_available} if validation_available is not None else None
+    if available and "none" in available and len(available) > 1:
+        raise typer.BadParameter("'none' cannot be combined with an available validation route")
+    study = study_design.value if study_design else None
+    kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
+                               software=software, oa=oa, min_jif=min_jif, refused=set(refuse or []),
+                               include_tracking=include_tracking)
+    rows = sorted(kept.values(), key=lambda v: ladder_order(v, priorities, study, available, journal))
+    if output == OutputFormat.csv:
+        _ladder_csv(rows, venues, priorities, study, available, journal, preprints, ai_use,
+                    recorded_ladder(record, preprints))
+        return
+    kind = "Preprint" if preprints else "Journal"
+    typer.echo(f"# {kind} ladder\n")
+    typer.echo("Ordered by whether the paper fits each venue's recorded rules, then by "
+               + ", then by ".join(PRIORITY_WORDS[p.value] for p in priorities)
+               + ". A value that is not known sorts below every known value at its step, and a tie passes to the "
+                 "next step. A rung is an order of preference under these priorities, not a chance of acceptance; "
+                 "the speed compared is days to a first decision, which for most journals includes desk "
+                 "rejections.\n")
+    last = "Direct transfer" if preprints else "Manuscripts already posted as preprints"
+    typer.echo(f"| Rung | {'Server' if preprints else 'Journal'} | Fits its recorded rules | Speed | Reach "
+               f"| AI-policy work | What this means for your AI use | Cost | {last} |")
+    typer.echo("|---:|---|---|---|---|---|---|---|---|")
+    printed: list[str] = []
+    for n, v in enumerate(rows, 1):
+        fit, reason = validation_fit(v, study, available)
+        score, _ = friction(v)
+        work = "not known" if score is None else f"{_points(score)} ({tier(score)})"
+        printed.append(f"| {n} | {_name(v)} (`{v['key']}`) | {fit_text(fit, reason)} | {_sentence(speed_days(v)[1])} "
+                       f"| {_sentence(_jif(v))} | {_sentence(work)} | {verdict(v, ai_use)} "
+                       f"| {_sentence(fee_eur(v)[1])} | {_preprint_cell(v, venues, journal, preprints)} |")
+        typer.echo(printed[-1])
+    for p in priorities:
+        missing = [_name(v) for v in rows if priority_value(v, p, journal) is None]
+        if missing:
+            typer.echo(f"\nNot known, so placed below the known values at the step for {PRIORITY_WORDS[p.value]}: "
+                       f"{_and(missing)}.")
+    from_task = [f"{_name(v)} ({', '.join(f.replace('_', ' ') for f in v['from_facts'])})"
+                 for v in rows if v.get("from_facts")]
+    if from_task:
+        typer.echo("\nFacts read for this manuscript and taken from its record: " + "; ".join(from_task) + ".")
+    if left_out:
+        typer.echo("\nThese were left out because they require records of AI use beyond one acknowledgement "
+                   "(add --include-tracking to list them): " + "; ".join(left_out) + ".")
+    glossary = abbreviations("\n".join(printed + left_out))
+    if glossary:
+        typer.echo("\n" + glossary)
+
+
+def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], priorities: list[Priority],
+                study: Optional[str], available: Optional[set[str]], journals_on_ladder: Optional[list[str]],
+                preprints: bool, ai_use: AiUse, chosen: list[str]) -> None:
+    """The ladder as CSV on stdout, in LADDER_COLUMNS: `rung` is the sorted order under the priorities,
+    `chosen_rung` the order recorded in the record (empty for a venue it does not list)."""
+    def cell(value: Any) -> str:
+        return "" if value is None else str(value)
+
+    writer = csv.DictWriter(sys.stdout, fieldnames=LADDER_COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for n, v in enumerate(rows, 1):
+        fit, reason = validation_fit(v, study, available)
+        score, _ = friction(v)
+        speed = _first_decision(v) or {}
+        fee = (v.get("publication_costs") or [{}])[0]
+        rule = (v.get("open_science") or {}).get("preprints")
+        transfers = v.get("transfers")
+        writer.writerow({
+            "ladder": "preprints" if preprints else "journals", "rung": n,
+            "chosen_rung": chosen.index(v["key"]) + 1 if v["key"] in chosen else "", "key": v["key"], "name": _name(v),
+            "fits": FIT_WORDS[fit], "fits_reason": reason,
+            "first_decision_days": cell(speed.get("days")),
+            "speed_measure": ", ".join(str(speed[k]) for k in ("metric", "statistic", "population", "period")
+                                       if speed.get(k)) if speed else speed_days(v)[1],
+            "speed_source": cell(speed.get("source")), "speed_checked": cell(speed.get("checked")),
+            "jif": cell(v.get("jif")), "jif_year": cell(v.get("jif_year")),
+            "ai_points": cell(score), "ai_tier": "" if score is None else tier(score),
+            "ai_for_this_use": verdict(v, ai_use),
+            "fee_amount": cell(fee.get("amount")), "fee_currency": cell(fee.get("currency")),
+            "fee_year": cell(fee.get("fee_year")), "author_cost_eur": cell(fee.get("author_cost_eur")),
+            "fee_route": cell(fee.get("route")), "fee_source": cell(fee.get("source")),
+            "fee_checked": cell(fee.get("checked")),
+            "preprint_rule": cell(rule),
+            "transfers": "" if transfers is None else ";".join(
+                k for k in transfers if not journals_on_ladder or k in journals_on_ladder),
+            "guidelines_url": cell(v.get("url")),
+            "facts_from_record": ";".join(v.get("from_facts") or []),
+            "priorities": ";".join(p.value for p in priorities),
+        })
+
+
+@app.command()
+def common(
+    keys: Annotated[list[str], typer.Argument(
+        help="The venues on the ladder (keys from `rank`), journals and preprint servers alike")],
+    record: Annotated[Optional[Path], typer.Option(
+        help="The manuscript record (or a facts file) whose `venue_facts` fill what the catalogue lacks")] = None,
+) -> None:
+    """What every venue on a ladder asks for: what one version of the manuscript can satisfy now, where the venues
+    disagree, what waits for the final code and data, and what has not been researched."""
+    _, venues = load_venues()
+    _, facts = load_record(record)
+    venues = with_facts(venues, facts)
+    unknown = [k for k in keys if k not in venues]
+    if unknown:
+        raise typer.BadParameter(f"unknown venue keys: {', '.join(unknown)}")
+    vs = [venues[k] for k in dict.fromkeys(keys)]
+    if len(vs) < 2:
+        raise typer.BadParameter("name at least two venues")
+    total = len(vs)
+    now: list[str] = []
+    differ: list[str] = []
+    end: list[str] = []
+    gaps: dict[str, list[str]] = {}
+
+    def gap(v: dict[str, Any], what: str) -> None:
+        gaps.setdefault(_name(v), []).append(what)
+
+    for key, label in (("body_words", "the body"), ("abstract_words", "the abstract")):
+        have = [(v, (v.get("limits") or {}).get(key)) for v in vs]
+        for v, n in have:
+            if not n:
+                gap(v, f"the length of {label}")
+        known = [(v, n) for v, n in have if n]
+        if not known:
+            continue
+        listing = "; ".join(f"{_name(v)}, {n}" for v, n in known)
+        shortest = min(n for _, n in known)
+        if len({n for _, n in known}) == 1:
+            now.append(f"- [ ] Length of {label}: at most {shortest} words, the limit of every venue that states one "
+                       f"({listing}).")
+        else:
+            differ.append(f"- Length of {label}: the limits differ ({listing} words). Writing to the shortest, "
+                          f"{shortest} words, fits all of them; whether that cut is worth making before the choice "
+                          "is your decision.")
+
+    headings = [(v, v.get("abstract_headings")) for v in vs]
+    for v, h in headings:
+        if h is None:
+            gap(v, "the abstract headings")
+    known_h = [(v, h) for v, h in headings if h is not None]
+    if known_h:
+        def form(h: list[str]) -> str:
+            return ", ".join(h) if h else "no headings (unstructured)"
+        if len({tuple(_norm(x) for x in h) for _, h in known_h}) == 1:
+            now.append(f"- [ ] Abstract: {form(known_h[0][1])} ({_who([_name(v) for v, _ in known_h], total)}).")
+        else:
+            differ.append("- Abstract headings differ: " + "; ".join(f"{_name(v)}: {form(h)}" for v, h in known_h)
+                          + ".")
+
+    def union(field: str, label: str, target: list[str], what: str) -> None:
+        items: dict[str, tuple[str, list[str]]] = {}
+        for v in vs:
+            values = v.get(field)
+            if values is None:
+                gap(v, what)
+                continue
+            for x in values:
+                items.setdefault(_norm(x), (str(x), []))[1].append(_name(v))
+        if items:
+            target.append(f"- {label}:")
+            target.extend(f"  - [ ] {_sentence(text)[:-1]} ({_who(names, total)})" for text, names in items.values())
+
+    union("required_sections", "Sections to add (one a single venue requires costs the others little)", now,
+          "the required sections")
+    union("other_desk_rules", "Rules the editors check on arrival, to check against the draft", now,
+          "the rules checked on arrival")
+
+    shared: dict[tuple[str, str], tuple[str, list[str]]] = {}
+    for v in vs:
+        rules = v.get("submission_rules")
+        if rules is None:
+            gap(v, "the other rules of its author guidelines")
+            continue
+        for r in rules:
+            shared.setdefault((str(r.get("when")), _norm(r["rule"])), (r["rule"], []))[1].append(_name(v))
+    first = [(t, n) for (w, _), (t, n) in shared.items() if w == "submission"]
+    after = [(t, n) for (w, _), (t, n) in shared.items() if w == "after_review"]
+    same = [f"  - [ ] {_sentence(t)[:-1]} (every venue)" for t, n in first if len(n) == total]
+    own = [f"  - {_sentence(t)[:-1]} ({_and(n)})" for t, n in first if len(n) < total]
+    if same:
+        now += ["- Rules of the author guidelines that every venue shares:", *same]
+    if own:
+        differ += ["- Rules that only some venues state. Those that cost the others nothing (alt text, dataset "
+                   "citations) can be adopted now; a section order or a reference style waits for the choice:", *own]
+    if after:
+        differ += ["- Not needed until after the first review:",
+                   *[f"  - {_sentence(t)[:-1]} ({_who(n, total)})" for t, n in after]]
+
+    union("software", "Software and availability", end, "its software and availability rules")
+    union("disclosure_places", "Where the AI-use statement goes (one statement, placed everywhere a venue asks)",
+          end, "where the AI-use statement goes")
+    union("disclosure_fields", "What the AI-use statement states", end, "what the AI-use statement states")
+    union("extra_burden", "Extra work about AI", end, "its extra AI requirements")
+
+    rules_known = [(v, v["writing_help"]) for v in vs if v.get("writing_help")]
+    ai_lines = [f"- {_name(v)}: {WRITING_WORDS[r]}." for v, r in rules_known]
+    if len({r for _, r in rules_known}) > 1:
+        strict_v, strict_r = max(rules_known, key=lambda item: WRITING_COST[item[1]])
+        ai_lines.append(f"\nThe strictest is {_name(strict_v)}'s: {WRITING_WORDS[strict_r]}. A manuscript written "
+                        "and declared to that rule keeps every venue on the list open; whether to write to it is "
+                        "your decision.")
+    for v in vs:
+        if not v.get("writing_help"):
+            gap(v, "its AI policy")
+
+    names = _and([_name(v) for v in vs])
+    out = [f"# What the venues on this ladder ask for: {names}", "",
+           "Each requirement is listed with the venues that ask for it; \"every venue\" means all of them. A venue "
+           "missing from an item may simply not have been researched for it (see the last section), which is not "
+           "the same as having no rule.", "",
+           "## Adapt now: one version serves every venue", ""]
+    out += now or ["Nothing is recorded that every venue shares; read the author guidelines in the last section."]
+    out += ["", "## Choose per venue: the venues disagree", "",
+            "These wait until the venue is chosen, or follow the first rung of the ladder.", ""]
+    out += differ or ["Nothing recorded disagrees."]
+    out += ["", "## At the end, once the code, data and results are final", "",
+            "Done earlier, these have to be done twice.", ""]
+    out += end or ["Nothing recorded."]
+    out += ["", "## AI writing rules on the list", "", *(ai_lines or ["None recorded."])]
+    if gaps:
+        out += ["", "## Not researched yet", "",
+                "Read these on the venue's own author guidelines, and add what you find to the manuscript "
+                "record's `venue_facts` so the next run includes it:", ""]
+        for v in vs:
+            if _name(v) in gaps:
+                out.append(f"- {_name(v)} ({v.get('url') or 'no guidelines page recorded'}): "
+                           f"{_and(gaps[_name(v)])}.")
     glossary = abbreviations("\n".join(out))
     typer.echo("\n".join(out + (["", glossary] if glossary else [])))
 

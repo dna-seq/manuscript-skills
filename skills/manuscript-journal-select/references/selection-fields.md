@@ -4,13 +4,25 @@ This file guides maintenance of the plugin's catalogue,
 `../../manuscript-integrity-check/references/venues.yaml`. During an author's task, report newly
 researched facts in the result as plain sentences that cover the points below, each with the URL of its
 page and the date read (the field names are for the catalogue, not for the authors), and in the shared
-manuscript record's `venue` entry when one exists;
+manuscript record's `venue_facts` (below);
 write them into `venues.yaml` only when the task is maintaining this repository, following
 `../../manuscript-journal-adapt/references/policy-maintenance.md`. In an installed plugin the catalogue
 sits in a cache that an update replaces. Preserve existing fields; research only decision-changing gaps
 for the requested comparison. Missing or `null` means unresearched, never no rule,
 zero cost, permissive policy or fast review. Date each new fact independently; an AI-policy check date
 does not refresh fees or review statistics.
+
+## Facts read for one manuscript
+
+During an author's task, what is read goes to the manuscript record's `venue_facts`, keyed by the venue's
+catalogue key, in the same field names as the catalogue (`review_speed`, `publication_costs`, `open_science`,
+`limits`, `abstract_headings`, `required_sections`, `submission_rules`, `software`, `other_desk_rules`), each
+with `source` and `checked`. `venues.py ladder` and `common` lay these facts over the catalogue field by field;
+a venue the catalogue lacks can be added with a `name`. The authors' `priorities` sit beside them in the record.
+When maintaining this repository, the same facts go into `venues.yaml`.
+
+`review_speed`, `publication_costs`, `editorial_profile`, `submission_rules`, `transfers` and
+`transfers_checked` describe one journal or server and are never inherited from the entry it `inherits`.
 
 ## Expensive validation and scope restrictions
 
@@ -88,8 +100,20 @@ publishes turnaround metrics per journal; some OUP and Frontiers journals state 
 or author pages. Record what the source states, with its population and period.
 
 `publication_costs` records researched APC/other fees with `amount`, `currency`, `fee_year`, applicable
-article type, tax caveats where material, waiver/agreement routes, `source` and `checked`. An unresearched
-fee is not zero. Validation budget and publication budget are separate constraints.
+article type, tax caveats where material, waiver/agreement routes (`route`, in words), `source` and
+`checked`. In a manuscript's `venue_facts`, `author_cost_eur` is what these authors would pay after the
+agreements, funds and waivers that cover them; `ladder` compares that figure, else a fee listed in euros,
+and shows a fee in another currency without comparing it. An unresearched fee is not zero. Validation budget
+and publication budget are separate constraints.
+
+## Preprints and direct transfer
+
+`open_science.preprints` records a journal's rule on manuscripts already posted as preprints: whether posting
+affects consideration, licence conditions, what must be disclosed at submission and what must be updated after
+acceptance. A preprint server's `transfers` lists the catalogue keys of the journals it transfers manuscripts
+to directly; `transfers_checked` lists the journals its list was read for, so that a journal absent from
+`transfers` but checked is a "no" and one not checked stays unknown. Record a server's scope exclusions
+(tool announcements without data, papers sent to another server) in `other_desk_rules` and `fit_note`.
 
 ## Verified examples and cautions
 

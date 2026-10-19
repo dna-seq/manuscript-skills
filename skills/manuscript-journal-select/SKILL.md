@@ -1,15 +1,17 @@
 ---
 name: manuscript-journal-select
 description: >-
-  Select journals for a manuscript using its subject, article type, available validation and budget,
-  open-source and open-science preferences, editorial receptiveness, review speed and AI-policy burden.
-  Use for journal shortlists, requirements-based venue comparisons or a submission sequence, especially
-  for in-silico-only work, and when asked to interview the authors to pick a journal or preprint server by
-  how strict or hostile its AI policy is, or to see where named colleagues publish. Reuse the shared venue
-  database; use manuscript-journal-adapt after selection.
+  Select where to preprint and where to publish a manuscript, as two ladders ordered by the authors' own
+  priorities (speed, reach, AI-policy burden, cost), after checking subject, article type, available validation
+  and budget, open-source and open-science preferences, editorial receptiveness, review speed and AI-policy
+  burden; and list the requirements every venue on the ladders shares, so that those sections can be adapted
+  before the choice. Use for journal shortlists, preprint server choice, requirements-based venue comparisons or
+  a submission sequence, especially for in-silico-only work, and when asked to interview the authors to pick a
+  journal or preprint server by how strict or hostile its AI policy is, or to see where named colleagues
+  publish. Reuse the shared venue database; use manuscript-journal-adapt after selection.
 ---
 
-# Select journals the authors can realistically publish in
+# Choose where to preprint and where to publish
 
 Help the authors publish sound work within their actual resources. Read
 `../manuscript-integrity-check/references/author-priorities.md`. The author decides tradeoffs and policy
@@ -17,27 +19,52 @@ interpretations; journal requirements are information for that decision, not ass
 For policy-verification limits, consult
 `../manuscript-integrity-check/references/requirement-checkability.md` when needed.
 
+The result is two ladders and one shared list:
+
+- **The preprint ladder**: the server to post on first, and the fallback if it declines the paper.
+- **The journal ladder**: the journals in the order the authors would try them, each rung with its verdict,
+  the rule that decides it and what would move it up or down.
+- **What every venue on the ladders asks for**: the requirements one version of the manuscript can meet now,
+  where the venues disagree, and what waits for the final code and data.
+
+These are files the authors keep and rerun, so they go where the authors can open them (see "Where the
+outputs go" below), never to a scratch location.
+
 Use `manuscript-policy-fit` for study-specific clinical-scope, ethics, privacy and regulatory applicability,
 including authors' voluntarily public personal genomes or biomedical records. Incorporate the actual
-requirements and exceptions into the shortlist; wording ambiguity alone does not establish a need for
+requirements and exceptions into the ladders; wording ambiguity alone does not establish a need for
 new oversight, recruitment or clinical validation.
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
-## Establish constraints without creating an interview burden
+## Priorities: ask once, record them, re-rank when they change
 
-Use the manuscript and existing conversation first. Ask only missing facts that change the shortlist:
-subject and contribution, article type, research/validation already done or affordable, publication
-budget (article processing charges), deadline, licence/funder constraints, and priorities among speed,
-reach and editorial fit. Offer a fuller interview only if requested. Do not make the author supply a
-complete questionnaire. When the authors ask to be interviewed, follow `references/interview.md` for
-questions mapped to `rank` flags. For AI-policy rankings, reuse that reference's field mapping and score
-explanations without automatically starting an interview; use known facts and ask only questions that
-materially affect the comparison.
+A ladder needs an order of preference, and only the authors can give it. Use the manuscript, the
+conversation and the shared record first. When the record or the conversation does not already state them,
+ask one short batch, with the environment's question interface when there is one:
 
-Treat an author's in-silico-only budget as a real constraint. Distinguish existing/public independent
+- what matters most for the journal ladder, in order: speed to a decision, reach (journal impact factor),
+  a light AI-policy burden, low cost;
+- an impact-factor floor, if any;
+- who pays the publication fee: only institutional agreements and funds, a grant, or nobody;
+- whether to preprint, and where they lean.
+
+These are the facts that change the order, so the batch is part of every selection. It is not the interview.
+The interview (`references/interview.md`) runs only when the authors ask to be interviewed, and covers what
+AI did in each section, the AI-policy burdens they refuse and whose venues to consider. Ask nothing else unless
+it changes the ladders: subject, article type, validation done or affordable, deadline, licence or funder
+constraints. Do not make the author supply a complete questionnaire.
+
+Record the answers in the shared record (`../manuscript-integrity-check/references/manuscript-record.md`),
+written beside the manuscript: `priorities` (one order for each ladder), and the facts read for this
+manuscript under `venue_facts`. When
+the authors change a priority, update the record and run the ladder again: the facts already read are
+reused, and only a venue new to the ladder needs new lookups. When the project keeps an equivalent planning
+document, report the ladders there too, edited in place.
+
+An author's in-silico-only budget is a real constraint, so distinguish existing/public independent
 validation data, collecting a new cohort, and laboratory work: computational replication may be affordable
 even when recruitment or experiments are not. Do not infer access to a second dataset or collaborators.
 Capture any resource ceiling once and reuse it; recommend feasible venues rather than expanding the study
@@ -51,33 +78,49 @@ specific entry. Keep these skills together; do not create a second journal datab
 Commands below are relative to this skill directory:
 
 ```bash
-uv run --script ../manuscript-journal-adapt/scripts/venues.py rank --field bioinformatics --type software
-uv run --script ../manuscript-journal-adapt/scripts/venues.py rank --study-design public-data --validation-available none
-uv run --script ../manuscript-journal-adapt/scripts/venues.py rank --study-design public-data --validation-available independent-cohort
-uv run --script ../manuscript-journal-adapt/scripts/venues.py show <venue-key>
-uv run --script ../manuscript-journal-adapt/scripts/venues.py peers "First Last" --since 2019
+V="uv run --script ../manuscript-journal-adapt/scripts/venues.py"
+$V rank --field bioinformatics --type software                    # a first pool, by AI-policy burden
+$V rank --study-design public-data --validation-available none
+$V rank --preprints                                               # preprint servers
+$V show <venue-key>                                               # one venue's checklist
+$V peers "First Last" --since 2019                                # where named colleagues publish
+R=DIR/STEM.record.yaml                                            # DIR: beside the manuscript, or where the authors say
+$V ladder --only KEY --only KEY ... --record $R                   # the journal ladder, by the recorded priorities
+$V ladder --only KEY ... --record $R --format csv > DIR/STEM.journal-ladder.csv
+$V ladder --preprints --journal KEY ... --record $R --format csv > DIR/STEM.preprint-ladder.csv
+$V common KEY KEY ... --record $R > DIR/STEM.venue-requirements.md  # what every venue on the ladders asks for
 ```
 
-`rank` supplies a preliminary AI-friction/resource comparison, not a complete recommendation or an
-acceptance probability. Inspect the entry's other selection fields and make the full comparison below.
-Use optional field/type, JIF, OA, named-peer and `--refuse` filters only for the author's actual preferences.
-The helper excludes mandatory AI record-keeping venues by default; explain that omission and use
-`--include-tracking` when the author wants them considered. Unknown data are not favourable evidence.
+`rank` gives a first pool from the whole catalogue, ordered by AI friction and the recorded validation
+rules; the recommendation comes from the full comparison below, and neither says anything about the chance of
+acceptance. Use its field/type, JIF, OA, named-peer and `--refuse` filters
+only for the author's actual preferences. The helper excludes mandatory AI record-keeping venues by default;
+explain that omission and use `--include-tracking` when the author wants them considered. Unknown data are
+not favourable evidence.
 
 For the shortlist, read current journal-specific author instructions, scope and article-type pages, plus
 applicable publisher requirements. Search specifically for validation, computational/public-data/MR
-restrictions, code/licence/data rules, fees and turnaround metrics; an AI-policy page alone is insufficient.
-The existing `policy_watch.py` compares AI passages and does not establish that these other policies are
-unchanged; still run it for the two or three venues you recommend
-(`uv run --script ../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY`) and read the
-live page for anything it could not reach. Whenever a selection task checks a decision-changing
+restrictions, code/licence/data rules, fees and the agreements that cover the corresponding authors'
+institutions, turnaround metrics and the preprint policy; an AI-policy page alone is insufficient. For each
+preprint server, read what it declines (tool announcements without data, health-related papers it sends to
+another server), its AI rule and the journals it transfers to directly. The existing `policy_watch.py`
+compares AI passages and does not establish that these other policies are unchanged; still run it for the
+venues the result recommends (`uv run --script ../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY`)
+and read the live page for anything it could not reach. Publisher sites often block scripts and load fees,
+agreement lists and review times by script, so follow the shared
+[rule for blocked pages](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work):
+the authors' own browser, when a browser-control tool is connected, reads what the other routes cannot. Whenever a selection task checks a decision-changing
 requirement, state in the result, in plain sentences, its scope, accepted alternatives, the URL of the
 page it is on and the date read; `references/selection-fields.md` lists what to capture. Do not
-leave an expensive validation condition buried in background notes. Write it into the plugin's
-`venues.yaml` only when the task is maintaining this repository; during an author's task the catalogue is
-read-only (it sits in the plugin cache). This does not require refreshing unrelated entries.
+leave an expensive validation condition buried in background notes.
 
-## Feasibility before preference scoring
+Write what you read into the record's `venue_facts` for this manuscript (review times, fees with the route
+that pays them, preprint rules, the author-guideline fields the catalogue lacks), each with its source and
+date; `ladder` and `common` lay these facts over the catalogue. Write them into the plugin's `venues.yaml`
+only when the task is maintaining this repository; during an author's task the catalogue is read-only (it
+sits in the plugin cache). This does not require refreshing unrelated entries.
+
+## Feasibility before preference
 
 Identify each material requirement early, with its source/date, scope, strength, accepted alternatives
 and exceptions. Distinguish explicit requirements, recommendations, published practice and judgement.
@@ -102,8 +145,50 @@ its validation column); the internal name may follow in parentheses:
   visible, with the reason, rather than silently treating it as permissive.
 
 Do not let a favourable AI policy, JIF or claimed speed compensate for an infeasible validation requirement.
-Show infeasible candidates separately or explain their exclusion. Do not treat a second public dataset
-as automatically satisfying an independent-clinical-cohort rule; check the rule and dataset.
+`ladder` sorts by feasibility before any priority for this reason. Show infeasible candidates separately or
+explain their exclusion. Do not treat a second public dataset as automatically satisfying an
+independent-clinical-cohort rule; check the rule and dataset.
+
+## The two ladders
+
+**The journal ladder.** Order the feasible candidates by the authors' priorities, in their order: `ladder`
+sorts by feasibility, then by each priority in turn, puts a value nobody has read below every known value at
+its step, and passes a tie to the next priority. It compares speed only as days to a first decision, and a
+fee only in euros (as listed, or `author_cost_eur` after an agreement, fund or waiver the authors can use).
+Then judge what the numbers cannot: scientific fit and realistic prospects, the bar a software paper must
+clear, the length the manuscript would have to lose. Move a rung when one of these outweighs the sorted
+order, say why, and record the chosen order in the record's `ladders`. Each rung states its verdict, the rule that decides it (quoted, with its page and the
+date read), its comparable figures and what would move it.
+
+**The preprint ladder.** Order the servers by the authors' preprint priorities with
+`ladder --preprints --journal KEY ...`, the journals given in their ladder order. The `transfer` priority puts
+first the server that transfers directly to the highest rung. Before order, check scope: a server that would
+decline the paper (a tool announcement without results, a paper it sends to a clinical server, content it
+screens out) is not a rung, whatever its AI policy. Then check the two ladders against each other: every
+journal on the journal ladder must accept a manuscript already posted on the chosen server, with the licence
+chosen for the preprint. Name any journal whose rule conflicts, and the licence that keeps every rung open.
+
+Never advertise a short desk-inclusive first-decision median as the duration of external peer review.
+Compare like metrics and populations, retain unknowns, and do not promise a decision by the author's
+deadline. Journal-level timing and editorial assessments must not be copied from a publisher or sibling.
+
+## What the ladders have in common
+
+Run `common` on every venue of both ladders. It reports:
+
+- **Adapt now**: requirements one version of the manuscript can meet for every venue at once (a section only
+  one venue requires usually costs the others nothing), with the venues that ask for each.
+- **Choose per venue**: where the venues disagree (abstract headings, length limits, section order, reference
+  style). These wait for the choice, or follow the first rung; writing to the shortest limit is an option to
+  offer, with its cost, never a default.
+- **At the end**: software archiving and the AI-use statement, written once with every field any venue asks
+  for and placed wherever each venue asks.
+- **The AI writing rules on the list**, and the strictest of them. Name it once as the authors' decision.
+- **Not researched yet**: the fields no reading covers, per venue. Read them from the live author guidelines,
+  add them to `venue_facts` and run `common` again; do not report a venue as having no rule.
+
+When the authors want to adapt before choosing, pass the "Adapt now" part to `manuscript-journal-adapt`. It
+edits the manuscript in place; the per-venue part waits.
 
 ## Compare viable candidates on the author's priorities
 
@@ -113,7 +198,7 @@ as automatically satisfying an independent-clinical-cohort rule; check the rule 
 | Open source and open science | Submitted-software source/licence requirements; data and code availability; reproducibility artifacts; preprints; open review; acceptance of justified privacy/access restrictions |
 | Editorial conservatism or receptiveness | Stated novelty/soundness threshold; support for methods, replication, negative results, interdisciplinary or unconventional work; actual relevant published examples |
 | Review speed | Desk-inclusive first decision, first decision after external review, acceptance and online-publication times separately, with statistic, population, period and source |
-| Total author cost and effort | APC currency/year and waivers, validation expenses, deposits, format work, deadlines and maintenance commitments |
+| Total author cost and effort | APC currency/year and waivers, the agreements and funds that cover the corresponding authors, validation expenses, deposits, format work, deadlines and maintenance commitments |
 | AI-policy burden and verifiability | Actual kind of assistance, exemptions, disclosure/record requests and evidence of enforcement; use the shared `requirement-checkability.md` |
 
 Open access does not establish support for open-source software, and a software-sharing mandate is not
@@ -121,18 +206,37 @@ the same as an affordable APC. Do not describe a journal as generally open-minde
 prestige, publisher identity or one anecdote. State the evidence, the particular kind of receptiveness
 and confidence; label interpretive judgements as such.
 
-Never advertise a short desk-inclusive first-decision median as the duration of external peer review.
-Compare like metrics and populations, retain unknowns, and do not promise a decision by the author's
-deadline. Journal-level timing and editorial assessments must not be copied from a publisher or sibling.
+## Deliver the ladders, not more homework
 
-## Deliver the selection, not more homework
+## Where the outputs go
 
-Provide a concise comparison: venue/article type, disposition and decisive validation rule, scientific
-fit, open-science/source stance, editorial receptiveness, comparable review timing, cost, AI burden and
-sources/dates. Expand only the dimensions that affect the decision. Recommend a first choice and a
-sequential fallback where useful, with the main uncertainty, then put the authors' decisions together
-(a fee route, a validation tradeoff, a journal policy that conflicts with their actual use, each named
-once with its practical consequence).
+Write four files, named after the manuscript (`STEM` is its file name without the extension), in the folder
+the authors name; without one, beside the manuscript source, or beside the project's venue planning document
+when it keeps one:
+
+| File | What it holds |
+|---|---|
+| `STEM.record.yaml` (or the existing `manuscript-record.yaml`) | The authors' priorities and every venue fact read for this manuscript, with source and date |
+| `STEM.journal-ladder.csv` | The journal ladder in fixed columns |
+| `STEM.preprint-ladder.csv` | The preprint ladder in the same columns |
+| `STEM.venue-requirements.md` | What every venue on the ladders asks for (`common`) |
+
+The CSV columns are fixed: the sorted rung and the chosen rung from the record, verdict and its reason, days to a first decision with its source and date,
+impact factor, AI-policy points, fee with its route and source, preprint rule or direct transfers, the facts
+taken from the record and the priorities used. An empty cell means not known, never zero. Regenerate the CSV
+and the requirements file from the record instead of editing them, so a re-rank shows in the diff. When the
+project keeps a venue planning document, update its ladder section in place as well. The reply names every
+path, relative to the project. These files are the skill's output, written without asking; a scratch
+location is for fetched pages only.
+
+Give, in this order: the preprint ladder; the journal ladder as a table (rung, venue and article type,
+verdict and the rule that decides it, comparable speed, impact factor, AI burden, cost and who pays,
+preprint rule) with one or two sentences per rung on fit and what would move it; what every venue asks for
+(adapt now, choose per venue, at the end); then the authors' decisions together (a fee route, a validation
+tradeoff, a journal policy that conflicts with their actual use, the strictest AI rule on the list, each
+named once with its practical consequence). Recommend a first rung and its fallbacks, with the main
+uncertainty. Follow the author's priorities rather than assigning universal weights or a fake precision
+score; the ladder is an order of preference and says nothing about the chance of acceptance.
 
 Write it as [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
 describes. Quote the rule that decides each venue with the URL of the page it is on and the date it was
@@ -146,13 +250,12 @@ manuscript (concerns the referees raised, a missing statement), group it under t
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
 science fixes first, archiving and declarations last, and none of it an obstacle to choosing.
 
-Follow the author's priorities rather than assigning universal weights or a fake precision score.
-Do the lookups yourself; do not ask the author to research policy pages. Stop once there is a usable
-shortlist. Pass the chosen venue and verified requirements to `manuscript-journal-adapt`; a selection
-request alone does not trigger manuscript rewriting, new experiments or a full integrity audit. When the
-authors keep a shared record (`../manuscript-integrity-check/references/manuscript-record.md`), store the
-chosen venue, article type and check date there.
+Do the lookups yourself; do not ask the author to research policy pages. Stop once both ladders are usable.
+Pass the chosen venue and verified requirements to `manuscript-journal-adapt`; a selection request alone
+does not trigger manuscript rewriting, new experiments or a full integrity audit. Store the ladders, the
+chosen venue, article type and check date in the record.
 
 After a rejection, `manuscript-reviewer-response` helps decide between revising for the same journal and
-submitting elsewhere. When choosing the next venue, carry over the referees' concerns that still apply,
-such as a validation requirement the paper cannot meet, rather than ranking from scratch.
+submitting elsewhere. When choosing the next venue, step down the ladder and carry over the referees'
+concerns that still apply, such as a validation requirement the paper cannot meet, rather than ranking
+from scratch.

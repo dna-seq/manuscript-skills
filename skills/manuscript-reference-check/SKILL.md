@@ -34,8 +34,11 @@ this skill directory:
 
 ```bash
 uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --references-only --online \
-    --md /tmp/references.md --json /tmp/references.json
+    --md /tmp/references.md --json /tmp/references.json   # working files; the authors get the report
 ```
+
+These outputs feed the report. When the authors want the per-reference table as a file, write it beside the
+manuscript (`<manuscript stem>.references.md`) and give its path; never point them to `/tmp`.
 
 Omit `--online` for the offline citation and bibliography consistency checks. Markdown, plain text, LaTeX
 with its linked `.bib` files, and standalone `.bib` files are supported; export Word or Google Docs first,
@@ -93,7 +96,9 @@ Follow [claim-support.md](references/claim-support.md). In short:
 4. **Read, then challenge what matters:** `confirmed` needs a verbatim passage that carries the claim as
    written; `partial` supports a weaker or narrower claim (give the narrowed wording); `rejected` means the
    source does not say it or says otherwise; `blocked` means the source could not be read and never counts
-   as support. Send every `confirmed` on a load-bearing claim to one batched skeptic subagent whose default
+   as support. Before calling a paywalled source `blocked`, open it in the authors' browser when a
+   browser-control tool is connected: their institution may license it
+   ([when a page blocks automated reading](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work)). Send every `confirmed` on a load-bearing claim to one batched skeptic subagent whose default
    is reject; a `rejected` stands only after a second independent search of the source finds no support;
    `partial` and `blocked` need neither. Start these subagents yourself: they are part of this check, and the
    user need not ask for them. Only where the host cannot start subagents, do both in-context and say so.

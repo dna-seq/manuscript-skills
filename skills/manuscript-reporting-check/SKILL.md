@@ -24,9 +24,10 @@ the least avoidable effort. Read the shared
 This skill reports; it edits only when the request includes edits, and then through `manuscript-prose-edit`'s
 [contract](../manuscript-prose-edit/references/prose-edit-contract.md#1-the-contract). A reporting gap
 is filled only with facts the authors give (an n, a version, the correction used), inserted under that
-contract's author-supplied content rule; never with a value inferred here. Working files (audit tables,
-JSON output) go to a scratch location (`SCRATCH` below), not beside the manuscript, unless the project
-keeps them.
+contract's author-supplied content rule; never with a value inferred here. The audit tables and the
+availability report are for the authors: they go beside the manuscript, or where the authors say (`OUT`
+below), and the reply gives their paths. JSON output only feeds the report and goes to a scratch location
+(`SCRATCH` below).
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
@@ -96,7 +97,7 @@ licences.
 ## 2. Audit the items
 
 ```bash
-uv run --script scripts/guidelines.py items strega --manuscript PAPER.md --md SCRATCH/strega-audit.md
+uv run --script scripts/guidelines.py items strega --manuscript PAPER.md --md OUT/strega-audit.md
 ```
 
 The table lists every item to check (an extension with its base's items, each number in parentheses after
@@ -113,7 +114,7 @@ transfer; never reproduce the form's text.
 ## 3. Check availability
 
 ```bash
-uv run --script scripts/check_availability.py PAPER.md --venue KEY --md SCRATCH/avail.md --json SCRATCH/avail.json
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md --json SCRATCH/avail.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```

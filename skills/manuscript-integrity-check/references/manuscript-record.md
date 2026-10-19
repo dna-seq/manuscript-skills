@@ -6,18 +6,23 @@ the next. It is a coordination aid, not a log: it holds the current state, never
 
 ## When to use it
 
-- Create it only when the work spans several sessions (for example review this week, adaptation next
-  week, a response to referees months later), or when the authors ask for one. Within one session the
-  conversation carries the state, even when several skills run; a single task never needs it.
+- Create it when the work spans several sessions (for example review this week, adaptation next
+  week, a response to referees months later), when the authors ask for one, or when journal selection runs:
+  the ladders are built from the authors' priorities and the venue facts it holds, and a re-rank reuses them.
+  Otherwise, within one session the conversation carries the state, even when several skills run.
 - If the project already keeps an equivalent (a checklist, a submission tracker, a section in its
-  CLAUDE.md or AGENTS.md), use that instead of creating a second record.
+  CLAUDE.md or AGENTS.md), use that instead of creating a second record. The ladder helpers read the
+  priorities and venue facts from YAML, so those two still go in a record, kept beside the manuscript or
+  beside the project's venue planning document, never in a scratch location.
 - Read it at the start of a task when it exists. Update only the entries your skill owns. Never store
   genomes, medical records, private approvals, reviewer identities or detector scores in it.
 
 ## Location and format
 
-`manuscript-record.yaml` beside the manuscript source the authors edit (same directory). It is the
-authors' file; do not commit it unless they want it versioned. Unknown fields are kept as written.
+`manuscript-record.yaml` beside the manuscript source the authors edit (same directory), or
+`<manuscript stem>.record.yaml` when several manuscripts share the folder, or where the authors say. Name
+its path in the reply. It is the authors' file; do not commit it unless they want it versioned. Unknown
+fields are kept as written.
 
 ```yaml
 manuscript: paper.md                 # the source the authors edit
@@ -29,6 +34,29 @@ venue:                               # set by manuscript-journal-select or manus
   stage: initial-submission          # initial-submission | revision | resubmission | accepted
   checked: 2026-10-15                # when its requirements were read from primary sources
   sources: [https://academic.oup.com/bioinformatics/pages/author-guidelines]
+
+priorities:                          # set by manuscript-journal-select from the authors' answers; most important first
+  journals: [speed, reach, ai]       # speed | reach | ai | cost
+  preprints: [transfer, ai]          # the same, plus transfer (a direct transfer to the first journal rungs)
+  jif_floor: 3                       # other constraints the authors stated, in their words where useful
+  fee: "a grant can pay a normal open-access fee"
+
+ladders:                             # the current order; rerun `venues.py ladder` when priorities or facts change
+  preprints: [biorxiv, arxiv]
+  journals: [bmc-bioinformatics, genome-biology, bioinformatics]
+  checked: 2026-10-19
+
+venue_facts:                         # facts read for this manuscript on the venues' own pages; venues.py ladder and
+  bmc-bioinformatics:                # common lay them over the catalogue, which an author's task never edits
+    review_speed:
+      - {metric: submission-to-first-decision, days: 5, statistic: median,
+         source: "https://link.springer.com/journal/12859", checked: 2026-10-19}
+    publication_costs:
+      - {amount: 2590, currency: EUR, fee_year: 2026, author_cost_eur: 0,
+         route: "the grant pays; Projekt DEAL takes 20% off for the University of Rostock",
+         source: "https://link.springer.com/journal/12859/how-to-publish-with-us", checked: 2026-10-19}
+    abstract_headings: [Background, Results, Conclusions]
+    limits: {abstract_words: 350}
 
 study:                               # set by whichever skill first establishes it; the authors confirm
   designs: [software-tool, public-data-reanalysis]   # keys from the list below; mixed studies list several

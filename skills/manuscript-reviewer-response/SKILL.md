@@ -93,8 +93,8 @@ Read [references/ledger.md](references/ledger.md) before splitting.
    real option. No acceptance probabilities.
 
 Write the ledger as `review-ledger.yaml` (the format is in the reference) and check it with the script's
-plan form (below). It is a task file: keep it with the authors' revision files whenever another round is possible, since a
-later round builds on it; use a scratch location only for a one-off check. Name companion skills in `hand_to`: ethics, consent, clinical scope and
+plan form (below). It is a task file the authors read and a later round builds on: keep it with their
+revision files (beside the response letter, or where they say) and give its path. Name companion skills in `hand_to`: ethics, consent, clinical scope and
 privacy to `manuscript-policy-fit`; requested reporting checklists and availability statements to
 `manuscript-reporting-check`; new citations to `manuscript-reference-check`. With no letter to write, stop
 here.
@@ -166,13 +166,13 @@ probability or overall score.
 
 ## The structural check
 
-Commands are relative to this skill directory. Outputs go to a scratch directory (`$SCRATCH`), not beside
-the manuscript:
+Commands are relative to this skill directory. The JSON outputs only feed the checks and go to a scratch
+directory (`$SCRATCH`); the Markdown check report is for the authors and goes beside the response letter:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml      # plan: the ledger alone
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml RESPONSE.md \
-    --revised REVISED.md --original ORIGINAL.md --md $SCRATCH/check.md --json $SCRATCH/check.json
+    --revised REVISED.md --original ORIGINAL.md --md RESPONSE.check.md --json $SCRATCH/check.json
 uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL.md REVISED.md --revision \
     --json $SCRATCH/guard.json
 uv run --script scripts/check_response.py ... --guard-json $SCRATCH/guard.json   # changes no reply mentions
