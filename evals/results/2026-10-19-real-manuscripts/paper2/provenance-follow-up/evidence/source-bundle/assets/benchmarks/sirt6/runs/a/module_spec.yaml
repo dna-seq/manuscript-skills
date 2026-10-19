@@ -1,0 +1,31 @@
+schema_version: '1.0'
+module:
+  title: SIRT6 rs117385980 and longevity
+  description: A single SIRT6 variant with a consistent but non-significant longevity signal.
+  report_title: SIRT6 and longevity
+  icon: hourglass half
+  icon_set: fomantic
+  color: '#6435c9'
+  name: longevity_sirt6
+license: CC-BY-NC-ND-4.0
+weighting:
+  scale: none — this module authors no weights; the `weight` cell is empty
+  method: >-
+    Not applicable. The module carries one variant supported by two underpowered
+    studies whose results are trend-level; no published effect estimate is poolable
+    into a score, and inventing one would give a non-significant finding the
+    appearance of a graded risk contribution.
+  note: >-
+    The only published effect estimate is Hirvonen 2017's combined Fisher OR 3.58
+    (95% CI 0.96-13.4, p = 0.074), recorded on that study's own row in studies.csv.
+    The 2025 replication reports no odds ratio for the age-trend test it bears on.
+    Read the per-study rows rather than deriving a weight from them.
+authorship:
+  - who: claude-opus-5
+    role: created
+    kind: [ai, agent]
+    at: '2026-08-31'
+defaults:
+  curator: ai-module-creator
+  method: literature-review
+genome_build: GRCh38

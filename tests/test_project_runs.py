@@ -161,6 +161,25 @@ def test_unique_runs_snapshots_reports_and_detectable_tampering(manuscript: Path
     assert result.exit_code == 1 and 'changed evidence' in result.output
 
 
+def test_source_readme_can_be_retained_without_replacing_the_generated_index(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    source = manuscript.parent / 'README.md'
+    source.write_text('The original scientific module documentation.\n')
+    index = run / 'manuscript-prose-edit/README.md'
+    generated = index.read_text()
+    for name in ('README.md', 'evidence/../README.md'):
+        rejected = add(run, source, 'input', 'manuscript-prose-edit', '--name', name)
+        assert rejected.exit_code == 1
+        assert index.read_text() == generated
+    retained = add(run, source, 'input', 'manuscript-prose-edit', '--name', 'evidence/module/README.md')
+    assert retained.exit_code == 0, (retained.output, retained.exception)
+    assert (run / 'manuscript-prose-edit/evidence/module/README.md').read_bytes() == source.read_bytes()
+    assert index.read_text().startswith('# manuscript-prose-edit')
+    assert 'evidence/module/README.md' in index.read_text()
+    assert runner.invoke(runs.app, ['validate', str(run)]).exit_code == 0
+
+
 def test_real_failed_command_survives_a_successful_rerun(manuscript: Path) -> None:
     assert configure(manuscript).exit_code == 0
     run = start(manuscript)

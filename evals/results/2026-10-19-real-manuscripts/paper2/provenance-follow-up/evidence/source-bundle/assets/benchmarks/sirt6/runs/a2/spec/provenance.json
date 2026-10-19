@@ -1,0 +1,17 @@
+{
+  "generator": "just-module-creator",
+  "items": [
+    {
+      "variant_key": "rs117385980",
+      "rationale": "The paper reports two opposing non-significant trends for the same allele: T absent in the frail group, which reads protective, and T absent above age 80, which reads as a survival disadvantage. Its own abstract calls this a diverse effect. Neither trend reaches significance, so no direction is authored and no weight is authored either. Withholding here is the claim, not a gap to be filled later. [jmc field=direction value_sha256=b23a6a8439c0 source=PMID 41249831 recorded=2026-08-31T01:55:32Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {}
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "The source is an exploratory study reporting a null frailty result and a non-significant age trend (p=0.073). The state vocabulary has no member meaning undecided: neutral would assert benign and risk or protective would assert a direction the paper explicitly declines to claim. alt is the descriptive member and the format maps it to direction unknown, which is the honest reading. Chosen by an agent; a reviewer may prefer to drop the row entirely. [jmc field=state value_sha256=4d48fba6cf5f source=PMID 41249831 recorded=2026-08-31T01:55:29Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {}
+    }
+  ]
+}

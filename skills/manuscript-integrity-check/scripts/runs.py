@@ -139,8 +139,8 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
         raise ValueError("Evidence must be a non-empty file.")
     entry = ensure_skill(data, name)
     target = within(run, f"{name}/{destination or source.name}")
-    if not target.is_relative_to((run / name).resolve()) or target.name == "README.md":
-        raise ValueError("Use an evidence filename inside its skill folder; README.md is the generated status index.")
+    if not target.is_relative_to((run / name).resolve()) or target == (run / name / "README.md").resolve():
+        raise ValueError("Use an evidence filename inside its skill folder; its root README.md is the generated status index.")
     if any(item['path'] == target.relative_to(run.resolve()).as_posix() for item in entry['artifacts']):
         raise ValueError("Evidence is already registered; save the next attempt under a new filename.")
     if target != source.resolve():

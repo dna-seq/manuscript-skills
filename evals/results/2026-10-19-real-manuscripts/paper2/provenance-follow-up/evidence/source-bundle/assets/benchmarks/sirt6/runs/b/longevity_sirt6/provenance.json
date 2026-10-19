@@ -1,0 +1,29 @@
+{
+  "generator": "just-module-creator",
+  "items": [
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Neither source study reaches significance, so direction is a reading rather than a result and a reviewer should treat it as the first thing to overturn. C/T is called risk because both cohorts put the T allele lower among their oldest participants and they are the only two cohorts that exist for this variant; the honest counterweight, recorded in the row conclusion, is that the same Iranian paper found T slightly more common among robust than among frail participants and calls the effect diverse. C/C is neutral rather than protective because the trend in its favour was not significant either, and asserting protection from a non-significant complement would be a stronger claim than either paper makes. T/T is unknown because neither cohort observed a single homozygote, so no inference from the heterozygous finding is grounded. Note that this log cannot name a genotype: the override record is keyed on variant and field, while variants.csv is keyed on variant and genotype. [jmc field=direction value_sha256=5952fb4b5bd4 source=authored judgement, no source consulted recorded=2026-08-30T23:59:44Z by=claude-opus-5[1m]]",
+      "human_reviewed": false,
+      "outranks": {
+        "direction": "Neither source study reaches significance, so direction is a reading rather than a result and a reviewer should treat it as the first thing to overturn. C/T is called risk because both cohorts put the T allele lower among their oldest participants and they are the only two cohorts that exist for this variant; the honest counterweight, recorded in the row conclusion, is that the same Iranian paper found T slightly more common among robust than among frail participants and calls the effect diverse. C/C is neutral rather than protective because the trend in its favour was not significant either, and asserting protection from a non-significant complement would be a stronger claim than either paper makes. T/T is unknown because neither cohort observed a single homozygote, so no inference from the heterozygous finding is grounded. Note that this log cannot name a genotype: the override record is keyed on variant and field, while variants.csv is keyed on variant and genotype."
+      }
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Hirvonen 2017 states its combined Fisher exact odds ratio twice and the two disagree: the abstract says 3.53, the Results text and Table 2 both say 3.58, with an identical 95 percent CI of 0.96 to 13.4 in every case. The table value is recorded because a results table is the primary reporting surface and two independent places in the article agree on it against the abstract's one. Recorded because an author transcribing from the abstract alone, which is all a literature search returns, would have written 3.53 and nothing in the toolchain would have disagreed. Source said: 3.53. [jmc field=effect_size value_sha256=0a450f2c46d7 source=pmid:28399814 abstract recorded=2026-08-30T23:59:34Z by=claude-opus-5[1m]]",
+      "human_reviewed": false,
+      "outranks": {
+        "effect_size": "Hirvonen 2017 states its combined Fisher exact odds ratio twice and the two disagree: the abstract says 3.53, the Results text and Table 2 both say 3.58, with an identical 95 percent CI of 0.96 to 13.4 in every case. The table value is recorded because a results table is the primary reporting surface and two independent places in the article agree on it against the abstract's one. Recorded because an author transcribing from the abstract alone, which is all a literature search returns, would have written 3.53 and nothing in the toolchain would have disagreed. Source said: 3.53."
+      }
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "No tool fills weight and no published effect size was reused for it, so every one of these numbers is a curator choice. The scale is declared in module_spec.yaml weighting: minus one to plus one, positive is protective, ordinal within this module only. Minus 0.2 on the heterozygote is deliberately near-negligible: it records the direction the two cohorts trend in without pretending a p of 0.074 supports a magnitude. The reference genotype carries an explicit 0.0 rather than a blank because a blank and a considered zero are the same bytes and the audit cannot tell them apart; 0.0 here is the claim that this genotype changes nothing. The homozygous-alt row is left unweighted on purpose because its direction is unknown, and the format's only sign check keys on direction, so no check is watching any of these three numbers. A reviewer should check the signs by hand. [jmc field=weight value_sha256=1727441af587 source=authored judgement, no source consulted recorded=2026-08-30T23:59:53Z by=claude-opus-5[1m]]",
+      "human_reviewed": false,
+      "outranks": {
+        "weight": "No tool fills weight and no published effect size was reused for it, so every one of these numbers is a curator choice. The scale is declared in module_spec.yaml weighting: minus one to plus one, positive is protective, ordinal within this module only. Minus 0.2 on the heterozygote is deliberately near-negligible: it records the direction the two cohorts trend in without pretending a p of 0.074 supports a magnitude. The reference genotype carries an explicit 0.0 rather than a blank because a blank and a considered zero are the same bytes and the audit cannot tell them apart; 0.0 here is the claim that this genotype changes nothing. The homozygous-alt row is left unweighted on purpose because its direction is unknown, and the format's only sign check keys on direction, so no check is watching any of these three numbers. A reviewer should check the signs by hand."
+      }
+    }
+  ]
+}

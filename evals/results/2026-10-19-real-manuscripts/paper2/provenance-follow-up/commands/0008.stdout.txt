@@ -1,0 +1,61 @@
+{
+  "checkout": "2c7e5979d05d31529838b0903126a0bbe04506ec",
+  "historical_round": {
+    "round-introduced": {
+      "commit": "fab4db5c0f1369dee6ad44b8eb36da410b365087",
+      "version_declaration": "version = \"0.27.0\""
+    },
+    "round-completed": {
+      "commit": "221b95f6c187f852e68449c4f815bed20bbba49e",
+      "version_declaration": "version = \"0.27.0\""
+    }
+  },
+  "interpretation": "Manuscript runs 1/2/3 intentionally replace preparation a/b/a2. Different scores alone are not a numerical contradiction.",
+  "raw_later_round": "not_found_in_searched_locations",
+  "historical_archive_exists_here": false,
+  "local_project_transcript_count": 0,
+  "preparation_scores": [
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/a",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 1,
+      "expected_pairs": 3,
+      "pair_recall": 0.3333,
+      "decoy_rate": 0.0,
+      "citation_recall": 1.0,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 1,
+      "agreeing_direction": 1,
+      "direction_agreement": 1.0
+    },
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/b/longevity_sirt6",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 3,
+      "expected_pairs": 3,
+      "pair_recall": 1.0,
+      "decoy_rate": 0.0,
+      "citation_recall": 1.0,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 2,
+      "agreeing_direction": 2,
+      "direction_agreement": 1.0
+    },
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/a2/spec",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 1,
+      "expected_pairs": 3,
+      "pair_recall": 0.3333,
+      "decoy_rate": 0.0,
+      "citation_recall": 0.5,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 0,
+      "agreeing_direction": 0,
+      "direction_agreement": null
+    }
+  ]
+}

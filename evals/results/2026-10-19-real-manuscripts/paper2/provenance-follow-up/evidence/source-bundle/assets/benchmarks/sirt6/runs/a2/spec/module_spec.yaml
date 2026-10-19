@@ -1,0 +1,29 @@
+schema_version: '1.0'
+module:
+  title: SIRT6 and Longevity
+  description: One SIRT6 stop-gained variant and its exploratory link to human longevity
+  report_title: SIRT6 rs117385980 — longevity and frailty
+  icon: hourglass half
+  icon_set: fomantic
+  color: '#6435c9'
+  name: longevity_sirt6
+  version: '0.1.0'
+defaults:
+  curator: claude-opus-5
+  method: literature-review
+genome_build: GRCh38
+license: CC-BY-NC-ND-4.0
+weighting:
+  scale: 'none — this module authors no weights'
+  method: >-
+    Not applicable. The single source reports a null result for frailty and a non-significant
+    age trend for longevity; any weight would be an invention with no published magnitude
+    behind it. The `weight` column is left empty on every row and `direction` is `unknown`.
+  note: >-
+    A consumer summing weights across modules will get zero from this one. That is deliberate,
+    not a missing value: read the row's own `conclusion`, which is self-sufficient.
+authorship:
+  - who: claude-opus-5
+    role: created
+    kind: [ai, agent]
+    at: '2026-08-31'

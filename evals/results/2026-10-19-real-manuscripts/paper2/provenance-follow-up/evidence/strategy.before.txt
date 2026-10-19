@@ -1,0 +1,3 @@
+The current manuscript contains repeated-run results, but its fixed-build table disagrees with the
+retained preparation corpus. Reconcile the named builds and results before posting Paper 2; then assess
+matched authoring baselines and reference support. Do not describe the existing evidence as absent.

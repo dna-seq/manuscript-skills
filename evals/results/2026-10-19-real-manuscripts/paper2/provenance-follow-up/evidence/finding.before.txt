@@ -1,0 +1,1 @@
+This could be a newer table whose supporting stable-build corpus was not retained, or a stale table. The available files do not settle which.

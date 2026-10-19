@@ -1,0 +1,12 @@
+I want a just-dna module about human longevity, built from this paper:
+
+10.1038/s41598-025-24018-3
+
+Call it `longevity_sirt6`, put everything in the run directory, and compile it. Get it to the point
+where it *could* be published — but don't publish it. I want to see what comes out first.
+
+When you're done, tell me two things. First, what you managed to fetch and what you couldn't get to.
+Second — and I care about this as much as the module — how was the plugin to actually use? What did
+you reach for that wasn't there, what was there but behaved oddly, what would have saved you time,
+and what did you end up doing by hand that a tool should have done. Be blunt; I'd rather hear what is
+missing than what worked.

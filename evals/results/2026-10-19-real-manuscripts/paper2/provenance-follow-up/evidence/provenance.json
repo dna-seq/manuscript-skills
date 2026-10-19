@@ -1,0 +1,289 @@
+{
+  "repository": "/home/antonkulaga/sources/just-module-creator",
+  "checkout": "2c7e5979d05d31529838b0903126a0bbe04506ec",
+  "historical_round": {
+    "round-introduced": {
+      "commit": "fab4db5c0f1369dee6ad44b8eb36da410b365087",
+      "version_declaration": "version = \"0.27.0\""
+    },
+    "round-completed": {
+      "commit": "221b95f6c187f852e68449c4f815bed20bbba49e",
+      "version_declaration": "version = \"0.27.0\""
+    }
+  },
+  "interpretation": "Manuscript runs 1/2/3 intentionally replace preparation a/b/a2. Different scores alone are not a numerical contradiction.",
+  "raw_later_round": "not_found_in_searched_locations",
+  "historical_archive_path": "data/interim/repro-bench-2/",
+  "historical_archive_exists_here": false,
+  "searched_roots": [
+    "/home/antonkulaga/sources/just-module-creator/assets",
+    "/home/antonkulaga/sources/just-module-creator/data",
+    "/home/antonkulaga/sources/just-module-creator/docs",
+    "/home/antonkulaga/sources/just-module-creator/.claude",
+    "/home/antonkulaga/sources/just-dna-lite/data",
+    "/home/antonkulaga/sources/just-dna-lite/docs"
+  ],
+  "matching_paths": [
+    "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/reviews/plugin-smoke/paper2/20261019T152447Z-49bc5963/manuscript-journal-select/evidence/sirt6-reference-metadata.json",
+    "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/reviews/plugin-smoke/paper2/20261019T203243Z-ce6a0dad/manuscript-integrity-check/evidence/source-bundle/assets/benchmarks/sirt6",
+    "/home/antonkulaga/sources/just-dna-lite/docs/manuscript/v0.5/reviews/plugin-smoke/paper2/20261019T203243Z-ce6a0dad/manuscript-integrity-check/evidence/source-bundle/assets/benchmarks/sirt6/runs/b/longevity_sirt6",
+    "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6",
+    "/home/antonkulaga/sources/just-module-creator/assets/benchmarks/sirt6/runs/b/longevity_sirt6"
+  ],
+  "local_project_transcript_count": 0,
+  "search_limit": "Current local checkout, locally available Git refs, listed connected folders and this project transcript directory. No remote original-machine archive or inaccessible Claude session was retrieved.",
+  "preparation_scores": [
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/a",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 1,
+      "expected_pairs": 3,
+      "pair_recall": 0.3333,
+      "decoy_rate": 0.0,
+      "citation_recall": 1.0,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 1,
+      "agreeing_direction": 1,
+      "direction_agreement": 1.0
+    },
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/b/longevity_sirt6",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 3,
+      "expected_pairs": 3,
+      "pair_recall": 1.0,
+      "decoy_rate": 0.0,
+      "citation_recall": 1.0,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 2,
+      "agreeing_direction": 2,
+      "direction_agreement": 1.0
+    },
+    {
+      "preparation_run": "assets/benchmarks/sirt6/runs/a2/spec",
+      "rsid_recall": 1.0,
+      "recovered_pairs": 1,
+      "expected_pairs": 3,
+      "pair_recall": 0.3333,
+      "decoy_rate": 0.0,
+      "citation_recall": 0.5,
+      "citation_identity_accuracy": null,
+      "citation_resolver": "none",
+      "both_asserted": 0,
+      "agreeing_direction": 0,
+      "direction_agreement": null
+    }
+  ],
+  "source_hashes": [
+    {
+      "path": "assets/benchmarks/sirt6/metadata.json",
+      "sha256": "3ca395e1b6906e3f7b38af259e98eebfd0952a52b52605fd7e1de1ddde4e9002"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/prompt.txt",
+      "sha256": "1fdbe9050c3ed965be357405bcd92631844d71d1198597cfeb7839564b8f5385"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/README.md",
+      "sha256": "d94bed68aa63b70bd07fc1dc6aa8e40cdb483f9743c51a2f486e0d5b6177523a"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/frequencies.csv",
+      "sha256": "bf7a623d509c99ac71ee7322f00a51f8ba6d72e9d7741adaca5c8e49b08c0698"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/gene_metrics.csv",
+      "sha256": "d31c2436adc71d4b197747a7108a899d4b45a7066fe7b2438662db7aa796a0a3"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/gwas_effects.csv",
+      "sha256": "075db818b61b479bd7ed90cf2e632598544c0846329e3e7cc9be0fde149dc1b5"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/licensing.csv",
+      "sha256": "e3e30e148fe4f642e730a643014c129d1636eaaef324697f51b4ae98447d0526"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/literature.csv",
+      "sha256": "db1080f31cb0b430cb4d3a379f0ef33071a9c9b2da917df01d815706d28e18c0"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/module_spec.yaml",
+      "sha256": "3718f33b29954cac7892406391554e367b805cc71c13ffcbb68dec342bfc7221"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/provenance.json",
+      "sha256": "208aefd6b6ee406d74b965dd5623c5eeb24b7215a7a155d9502ba08af3853aed"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/resolution.csv",
+      "sha256": "0a268f5e8d57a09b6cd27f35b9a2801b11ac8f5cd54ae30376169b5fb903aba8"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/studies.csv",
+      "sha256": "4a64cb202f9e5e017cffac4db6639f59c905ba5d5f136341416405f25e697836"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/variants.csv",
+      "sha256": "ffec6d56e54dae39fbdea2bfee04ba7759da4bff40e1e8021fa0b1d50a91bc29"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/reference/verification.json",
+      "sha256": "ae0d9ff696bd3ef7a3d66df1942e21d07f422324255b526b9e8a4e88d5b1cc17"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/README.md",
+      "sha256": "878e9b17588fdb1fff14c9e798704510ca4657ecdcd5b62dc3b75144693c2009"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/frequencies.csv",
+      "sha256": "bf7a623d509c99ac71ee7322f00a51f8ba6d72e9d7741adaca5c8e49b08c0698"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/gene_metrics.csv",
+      "sha256": "d31c2436adc71d4b197747a7108a899d4b45a7066fe7b2438662db7aa796a0a3"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/gwas_effects.csv",
+      "sha256": "075db818b61b479bd7ed90cf2e632598544c0846329e3e7cc9be0fde149dc1b5"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/licensing.csv",
+      "sha256": "bebf03e80cbefd982208625c8990e8d12e8b8a4a3df3ce53a409a428a04d4720"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/literature.csv",
+      "sha256": "db1080f31cb0b430cb4d3a379f0ef33071a9c9b2da917df01d815706d28e18c0"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/module_spec.yaml",
+      "sha256": "3718f33b29954cac7892406391554e367b805cc71c13ffcbb68dec342bfc7221"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/provenance.json",
+      "sha256": "208aefd6b6ee406d74b965dd5623c5eeb24b7215a7a155d9502ba08af3853aed"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/resolution.csv",
+      "sha256": "0a268f5e8d57a09b6cd27f35b9a2801b11ac8f5cd54ae30376169b5fb903aba8"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/studies.csv",
+      "sha256": "4a64cb202f9e5e017cffac4db6639f59c905ba5d5f136341416405f25e697836"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/variants.csv",
+      "sha256": "6ee6e45530f7b25b1b367e03316e377f066294956832b61238eadb6796bb3ef4"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a/verification.json",
+      "sha256": "e16ab44fde29fced817de2ed96fd913f630f242ea41ea667dc907e3bf7548cb3"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/NOTES.md",
+      "sha256": "fca7d09aa61cfa7c7e3778ffe6be8b26c8b45f37ade67c513211bede21e672d1"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/README.md",
+      "sha256": "93df35747f66851395c55b4cd8dee4281e888193b044d8dce45850a01924a712"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/frequencies.csv",
+      "sha256": "400ff9868b399e0c49183f837381535cf911802e0e3fe4143887309063de1eae"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/gene_metrics.csv",
+      "sha256": "16d9ab7e80f54bd35ebf24177860c7e39495f314eb47d72072c2739778f0b04f"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/gwas_effects.csv",
+      "sha256": "e2d02291d6e178425becbb866bd7855b31803f2507f7345c60fc574ff4baa26d"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/licensing.csv",
+      "sha256": "67868c3f82041edb0b2c474c2c16d0e9dce559246b6cf79c27da8b8a063d2ff2"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/literature.csv",
+      "sha256": "be122959426ea077b27941cd3d9db47a7c41c6749b75dfa8a2b3de306c2a85b6"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/module_spec.yaml",
+      "sha256": "6a6cb89f3e23cb6db4e1ce482ec9c57df80a35eba64e5baad3d8291042b8d7e3"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/provenance.json",
+      "sha256": "b3523bb83f638691455e5be22396acb00d4d61eee3f368d06ce1d13a6f665710"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/resolution.csv",
+      "sha256": "8b10e4873d3e1db24021a749c4ba5315fb283cff912a3e2f33c32f2cda41c794"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/studies.csv",
+      "sha256": "cf70caa2311e64658f98169f4a0b07ddb98ff3beaa2ef5026b3501e5a4f98eb1"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/variants.csv",
+      "sha256": "fa13bf52bdaf33b038e10d3d03d53360a84cd8316646f25fc159b67dc76e0752"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/a2/spec/verification.json",
+      "sha256": "5ab39f7cfaadcfdcf09259cd7e85f73764b008e016dc95860a7ce2358268e36a"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/README.md",
+      "sha256": "b51254b21301a078258cec6e5c6a99ab424a29c09fc00277f125114b1e666e0e"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/licensing.csv",
+      "sha256": "ea2b2053fab7d72fda4c73217837a77af8d86538b24c05798e30cd87e5835530"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/literature.csv",
+      "sha256": "218fc5acc5cf1fe8fff64c0d6746bfce9cd8788ae6abc8a29a0c8e2e0964c729"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/module_spec.yaml",
+      "sha256": "eb5658b72adffa5c3ff71aa1775b881b56eb34630fb1c37a0d54fb281b5f688f"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/provenance.json",
+      "sha256": "c7542bd18838bd5f5edc742488f92747cf018a722050516383b4b70d05dacf31"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/resolution.csv",
+      "sha256": "e9b04c196f5ba28257a95de6b0931e0d5fbf6e1b7ee6b8a3ffe03630dc85d44d"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/studies.csv",
+      "sha256": "a9b6f36c08596971285424dbdbc96393a821eb909665a7564c19754b5ca33cf1"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/variants.csv",
+      "sha256": "38c200779b7d84618ef2bf858d4f2dcc43e83ec6a5a8818fbc2571e241a43a95"
+    },
+    {
+      "path": "assets/benchmarks/sirt6/runs/b/longevity_sirt6/verification.json",
+      "sha256": "f15dcceea5d3c4967ca0a66bec42e0d724de13f61b3f8c65862fe02461382e61"
+    },
+    {
+      "path": "docs/BENCHMARKING.md",
+      "sha256": "4e633b6734c8d621ff4c92bd1b7f84a434a348b3062f25e10e43eb71f8986ac6"
+    },
+    {
+      "path": "docs/manuscript/claw-bio-inspired-benchmark.md",
+      "sha256": "81860b1f8bc76dd3158fc48bcc69c8157524a8ab9636e737e41dea9a24543404"
+    },
+    {
+      "path": "scripts/bench_score.py",
+      "sha256": "b36c208f560c9ad5bcb7d95fccf6e6826f4071f0573acf8e6325e6c86bc8d949"
+    },
+    {
+      "path": "src/just_module_creator/bench.py",
+      "sha256": "e6b4c4634d612127b0ba51506b784f68a52c7932e161edb829e0c75564eed11f"
+    }
+  ]
+}

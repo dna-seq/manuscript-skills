@@ -1,0 +1,2 @@
+association_id,variant_key,rsid,effect_allele,effect_size,effect_measure,effect_unit,effect_direction,standard_error,confidence_interval,risk_allele_frequency,p_value,p_value_num,trait,trait_efo_id,pmid,study_accession,ancestry,dataset,source,status,fetched_at
+rs117385980:not_found,rs117385980,rs117385980,,,,,,,,,,,,,,,,gwas_catalog_2026-08-31,gwas_catalog,not_found,2026-08-31T01:51:33Z

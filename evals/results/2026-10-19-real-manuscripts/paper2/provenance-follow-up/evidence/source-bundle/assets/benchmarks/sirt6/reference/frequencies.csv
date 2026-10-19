@@ -1,0 +1,12 @@
+variant_key,rsid,chrom,start,ref,alt,genome_build,population,allele_count,allele_number,homozygote_count,hemizygote_count,faf95,dataset,vrs_id,caid,source,status,fetched_at
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,global,12545,574784,183,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,afr,246,51950,0,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,ami,16,912,1,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,amr,418,26328,6,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,asj,506,14744,5,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,eas,1,29818,0,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,fin,847,34788,11,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,mid,53,2154,1,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,nfe,9650,360930,145,0,0.02628964,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,remaining,563,25080,12,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z
+ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,rs117385980,19,4180588,C,T,GRCh38,sas,245,28080,2,0,,gnomad_v4.1_joint,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,CA15948970,gnomad,resolved,2026-08-30T23:57:02Z

@@ -1,0 +1,302 @@
+commit 221b95f6c187f852e68449c4f815bed20bbba49e
+Author: winternewt <isoutthere@gmail.com>
+Date:   Mon Aug 31 08:58:38 2026 +0300
+
+    Three runs scored, and the paragraph says what they are worth
+    
+    Runs 2 and 3 landed. The table is full: all three recovered the variant the
+    paper supports, cited both it and the study it replicates, agreed on direction,
+    and introduced no decoy. Two matched the reference on every genotype row
+    including the homozygous row that asserts nothing because neither cohort saw a
+    carrier, and all three independently declined to propagate the seed paper's own
+    misdescription of the variant as stop-gained.
+    
+    The paragraph does not boast, and the reason is a deflation one of the runs
+    volunteered about itself. The validator names the missing genotype explicitly
+    and a written rule says a zero weight is a claim while a blank is not — so
+    agreement partly measures the guidance rather than the runs. Convergence shows
+    the workflow is prescriptive enough to produce consistent output from
+    independent runs, which is weaker than, and must not be read as, independent
+    confirmation that the output is right. That sentence is in the paper.
+    
+    The residual variance is one cell: suggestive versus not_significant on a p of
+    0.07, two runs against one, from the same number. A vocabulary ambiguity already
+    filed upstream, and an aggregate score would have hidden it.
+    
+    Both runs were integrity-checked against their own transcripts, not their
+    self-reports: no access to the reference, the sibling runs, or any registry read
+    that could return a published module. One run did list data/interim/ and saw five
+    directory names, no contents; it disclosed this unprompted before I asked.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01MHfqtXobnQcHE5BHTqdWLt
+
+diff --git a/docs/manuscript/manuscript.tex b/docs/manuscript/manuscript.tex
+index b37fe60..b5d6b77 100644
+--- a/docs/manuscript/manuscript.tex
++++ b/docs/manuscript/manuscript.tex
+@@ -508,31 +508,45 @@ reference module, plugin version fixed. \emph{n/c}: empty denominator.}
+ Run & rsID recall & Pair recall & Decoy rate & Citation recall & Direction \\
+ \midrule
+ 1 & 1.00 & 0.67 & 0.00 & 1.00 & 1.00 \\
+-2 & TBD  & TBD  & TBD  & TBD  & TBD  \\
+-3 & TBD  & TBD  & TBD  & TBD  & TBD  \\
++2 & 1.00 & 1.00 & 0.00 & 1.00 & 1.00 \\
++3 & 1.00 & 1.00 & 0.00 & 1.00 & 1.00 \\
+ \bottomrule
+ \end{tabular}
+ \end{table}
+ 
+ Table~\ref{tab:scores} reports three runs of one prompt on one paper
+-against that reference, at a fixed plugin version. The reference holds
+-where a curation should: no run introduced a decoy, and each recovered the
+-variant the paper supports. Divergence is on judgement rather than
+-retrieval. The assigned paper's longevity claim replicates an earlier
+-study, and retrieving that earlier paper unprompted---which the reference
+-cites---is not stable across runs, so citation recall separates runs that a
+-comparison of variant rows alone would call equivalent. Genotype coverage
+-differs where the source observed no carriers, an authoring decision each
+-run makes independently.
++against that reference, at a fixed plugin version. Facts reproduced: all
++three runs recovered the variant the paper supports, cited both the paper
++and the earlier study it replicates, agreed with the reference on effect
++direction, and introduced no decoy. Two of the three matched the reference
++on every genotype row, including a homozygous row that asserts nothing
++because neither cohort observed a carrier. All three independently declined
++to propagate the seed paper's own misdescription of the variant as
++stop-gained, which the study it cites classifies as intronic at the same
++coordinate.
++
++Two caveats keep this from being a reproducibility claim, and both are
++visible only because the metrics are separated. The variance that remains
++is concentrated in one cell: the significance verdict on a
++$p \approx 0.07$ result, where two runs read \emph{suggestive} and one
++\emph{not significant} from the same number. That is a vocabulary
++ambiguity, reported upstream, not an authoring error---but a
++single aggregate score would have hidden it, and a reviewer needs it
++surfaced. More importantly, agreement here partly measures the guidance
++rather than the runs: the validator names the missing genotype explicitly,
++and a written rule states that a zero weight is a claim while a blank is
++not. Convergence therefore shows the workflow is prescriptive enough to
++produce consistent output from independent runs, which is weaker than, and
++should not be read as, independent confirmation that the output is correct.
+ 
+ Three runs of one prompt on one paper is a demonstration rather than a
+ performance estimate. Two further papers have no reference; there the
+-scorer reports what a module asserts against what it withholds, which
+-corrected our own prediction: we expected a paper running no association
+-test to yield no variant rows, and a run produced sixty, each recording the
+-observation with direction and significance withheld. The rows are
+-appropriate and the prediction was wrong. Row count is therefore not
+-scored; whether the cells assert more than the source supports is.
++scorer reports what a module asserts against what it withholds. That
++reading corrected our own prediction that a paper running no association
++test should yield no variant rows: a run produced sixty, each recording the
++observation with direction and significance withheld, which is the
++appropriate output. Row count is therefore not scored; whether the cells
++assert more than the source supports is.
+ 
+ % ================================================================
+ \section{Results}
+
+commit fab4db5c0f1369dee6ad44b8eb36da410b365087
+Author: winternewt <isoutthere@gmail.com>
+Date:   Mon Aug 31 08:38:12 2026 +0300
+
+    Cut the evaluation section to the framework, and drop the prep runs from it
+    
+    The ground-truth-construction paragraph is gone entirely. How a reference gets
+    adjudicated is the expert's work and not this paper's subject; what the paper
+    owes a reader is that the reference is an expert curation rather than system
+    output, which is one clause. The section keeps the three measurement choices
+    that are actually load-bearing — two recall grains because they fail apart,
+    decoy rate in place of precision, and an empty denominator reported as not
+    computed — and drops the narration around them.
+    
+    The a/b/a2 rows are out. They were prep runs across three plugin builds and the
+    table now holds three runs at a fixed version, with two rows pending. Run 1 is
+    scored; 2 and 3 are in flight.
+    
+    Elsewhere: the catalogs paragraph in Related work loses a sentence per resource
+    where the citation already carries it, and Discussion loses a redundant
+    research-only restatement. Limitations no longer calls the runs preparatory,
+    since they are not any more.
+    
+    Section 468 -> 357 prose words, and about 200 words out of Related work and
+    Discussion together.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01MHfqtXobnQcHE5BHTqdWLt
+
+diff --git a/docs/manuscript/manuscript.tex b/docs/manuscript/manuscript.tex
+index 6366d45..2e9523f 100644
+--- a/docs/manuscript/manuscript.tex
++++ b/docs/manuscript/manuscript.tex
+@@ -126,20 +126,16 @@ assigned to a particular genotype. VEP, ANNOVAR, and OpenCRAVAT/OakVar perform
+ this kind of lookup by joining a callset to established
+ resources~\citep{mclaren2016vep,wang2010annovar,pagel2020opencravat}. ClinVar
+ and the GWAS Catalog publish records that can supply annotation
+-content~\citep{landrum2018clinvar,sollis2023gwas}. HGMD derives
+-variant--disease associations from the literature through manual review, though
+-the public version updates infrequently and does not include explicit
+-pathogenicity calls~\citep{stenson2020hgmd}. ClinGen provides expert
+-variant curation within the ACMG/AMP
+-framework~\citep{rehm2015clingen,richards2015acmg}. CIViC crowdsources the
+-clinical interpretation of cancer variants from expert curators, anchoring
+-every evidence item to a source publication~\citep{griffith2017civic}; its
+-releases are database-wide rather than installable per-topic units, which
+-makes it a source this ecosystem can consume rather than an alternative to
+-it. ClinPGx, which since 2025
+-consolidates PharmGKB, CPIC and PharmCAT into one resource, supplies
+-pharmacogenomic annotations including diplotype-level clinical
+-recommendations~\citep{whirl2012pharmgkb,clinpgx2025}. The GA4GH Genomic Knowledge
++content~\citep{landrum2018clinvar,sollis2023gwas}, HGMD derives
++variant--disease associations from the literature through manual
++review~\citep{stenson2020hgmd}, ClinGen provides expert curation within the
++ACMG/AMP framework~\citep{rehm2015clingen,richards2015acmg}, and ClinPGx
++consolidates PharmGKB, CPIC and PharmCAT into one pharmacogenomic
++resource~\citep{whirl2012pharmgkb,clinpgx2025}. CIViC crowdsources cancer
++variant interpretation, anchoring every evidence item to a source
++publication~\citep{griffith2017civic}; its releases are database-wide rather
++than installable per-topic units, which makes it a source this ecosystem
++consumes rather than an alternative to it. The GA4GH Genomic Knowledge
+ Standards define interoperable representations for variant
+ annotations~\citep{ga4gh2022gks}. The problem addressed here begins before the
+ join: selected evidence must be turned into a reviewable, machine-checkable
+@@ -483,79 +479,60 @@ endorsement.
+ 
+ \subsection{Evaluation dimensions}
+ 
+-Three dimensions are relevant for evaluating AI-authored modules against
+-expert-curated ground truth: variant recall (which rsID--genotype pairs were
+-recovered), citation identity (whether each PMID names the intended paper,
+-not merely exists), and weight-sign agreement (whether the effect direction
+-matches). A scorer implementing them ships with the plugin.
+-
+-Constructing ground truth is the difficulty, and one property of the task
+-makes it tractable. Given a byte-identical prompt and one paper, two runs
+-produced complementary rather than competing modules: one agreed with the
+-other on every shared cell while covering a third of the row keys, and the
+-second covered every key while agreeing on a third of the cells. Neither is
+-a reference. A domain expert read the differences and merged the stronger
+-half of each, and that adjudicated module is the ground truth scored
+-against---an expert curation informed by the runs, rather than a run
+-promoted to an answer. Scoring authored modules against a module the same
+-system authored would measure agreement with itself.
+-
+-Table~\ref{tab:scores} illustrates the framework on three preparatory
+-runs. These runs were exploratory: they informed revisions to the authoring
+-prompts and to the upstream schema, and the plugin changed between them, so
+-the values demonstrate that the instrument discriminates rather than
+-measuring authoring quality. Two properties of the output matter more than
+-the values. First, every run recovered the correct variant while differing
+-on which genotypes it authored, so recall at the rsID and at the
+-rsID--genotype grain are reported separately; a single score with partial
+-credit for a recovered variant with wrong genotypes conflates two different
+-failures. Second, one run withheld the effect direction the reference
+-asserts, which leaves no row where both sides state one. That is reported
+-as not computed rather than as disagreement---an empty denominator is not a
+-failed check, and the corresponding threshold is likewise undefined rather
+-than passed.
++Modules are scored against an expert-curated reference on three dimensions:
++variant recall (which rsID--genotype pairs were recovered), citation
++identity (whether each PMID names the intended paper, not merely exists),
++and effect-direction agreement. A scorer implementing them ships with the
++plugin. The reference is the expert's curation rather than any system
++output, since scoring authored modules against a module the same system
++authored measures agreement with itself.
++
++Three measurement choices are load-bearing. Recall is reported at two
++grains, because a run that recovers the right variant with the wrong
++genotypes and one that recovers half the variants exactly are distinct
++failures that partial credit would average away. \emph{Decoy rate}
++replaces precision: a variant absent from one curation may still be
++correct, whereas a decoy is one an expert designated non-associated. And a
++metric with an empty denominator is reported as not computed rather than as
++disagreement, with its threshold undefined rather than passed---a check
++that could not run is not a check that passed.
+ 
+ \begin{table}[ht]
+ \centering
+ \small
+-\caption{Three preparatory runs of one prompt scored against a
+-human-adjudicated reference module, illustrating the framework's output.
+-The runs predate a stable plugin version and are not a performance
+-estimate. Recall is reported at two grains; \emph{decoy rate} is the
+-fraction of expert-designated non-associated variants that appear, and is
+-the sound false-positive measure, since an unexpected variant may be
+-correct and merely absent from one curation. \emph{n/c} marks a metric
+-whose denominator was empty.}
++\caption{Three runs of one prompt scored against an expert-curated
++reference module, plugin version fixed. \emph{n/c}: empty denominator.}
+ \label{tab:scores}
+ \begin{tabular}{@{}lrrrrr@{}}
+ \toprule
+ Run & rsID recall & Pair recall & Decoy rate & Citation recall & Direction \\
+ \midrule
+-A  & 1.00 & 0.33 & 0.00 & 1.00 & 1.00 \\
+-B  & 1.00 & 1.00 & 0.00 & 1.00 & 1.00 \\
+-C  & 1.00 & 0.33 & 0.00 & 0.50 & n/c \\
++1 & 1.00 & 0.67 & 0.00 & 1.00 & 1.00 \\
++2 & TBD  & TBD  & TBD  & TBD  & TBD  \\
++3 & TBD  & TBD  & TBD  & TBD  & TBD  \\
+ \bottomrule
+ \end{tabular}
+ \end{table}
+ 
+-Citation recall separates the runs on a behaviour worth naming. The
+-assigned paper's longevity claim replicates an earlier study; run A
+-retrieved that earlier paper unprompted and carried it as a second study
+-row, and run C did not. Retrieving an unprompted primary source is
+-therefore not stable behaviour across runs of one prompt, which an
+-evaluation of the module alone would not have shown.
+-
+-The two remaining papers in the set have no adjudicated reference; for
+-those, the scorer reports what a module asserts against what it withholds,
+-without a reference. That reference-free reading corrected our own
+-prediction: we expected a paper running no association test to yield no
+-variant rows, and a run produced sixty, each recording the observation with
+-the direction and significance explicitly withheld. The rows are
++Table~\ref{tab:scores} reports three runs of one prompt on one paper
++against that reference, at a fixed plugin version. The reference holds
++where a curation should: no run introduced a decoy, and each recovered the
++variant the paper supports. Divergence is on judgement rather than
++retrieval. The assigned paper's longevity claim replicates an earlier
++study, and retrieving that earlier paper unprompted---which the reference
++cites---is not stable across runs, so citation recall separates runs that a
++comparison of variant rows alone would call equivalent. Genotype coverage
++differs where the source observed no carriers, an authoring decision each
++run makes independently.
++
++Three runs of one prompt on one paper is a demonstration rather than a
++performance estimate. Two further papers have no reference; there the
++scorer reports what a module asserts against what it withholds, which
++corrected our own prediction: we expected a paper running no association
++test to yield no variant rows, and a run produced sixty, each recording the
++observation with direction and significance withheld. The rows are
+ appropriate and the prediction was wrong. Row count is therefore not
+-scored; whether the cells assert more than the source supports is. A scored
+-round over a stable plugin version, with repeated runs per prompt and a
+-second agent host, is the evaluation this framework was built to carry and
+-is future work.
++scored; whether the cells assert more than the source supports is.
+ 
+ % ================================================================
+ \section{Results}
+@@ -666,12 +643,10 @@ failed to replicate~\citep{border2019no}, GWAS effect sizes routinely shrink in
+ independent cohorts~\citep{ioannidis2005why}, direct-to-consumer tests have
+ produced false-positive rates above 40\%~\citep{tandyconnor2018false}, and
+ variant reclassifications have led to genetic
+-misdiagnoses~\citep{manrai2016genetic}. A person from a more deterministic
+-field can easily mistake a statistical association for a causal mechanism.
+-The ecosystem is therefore explicitly research-only, and educating users about
+-these limitations is as important as the tools. A module that faithfully
+-reflects a study which later fails to replicate is not wrong on its own terms,
+-but a user acting on it may be harmed all the same.
++misdiagnoses~\citep{manrai2016genetic}. The ecosystem is therefore explicitly
++research-only: a module that faithfully reflects a study which later fails to
++replicate is not wrong on its own terms, but a user acting on it may be harmed
++all the same.
+ 
+ The registry turns individual effort into shared infrastructure: authors
+ version, extend, correct, and republish modules---the pattern software

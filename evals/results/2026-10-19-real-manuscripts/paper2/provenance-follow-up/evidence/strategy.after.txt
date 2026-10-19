@@ -1,0 +1,4 @@
+Git history records a later fixed-version round that intentionally replaced the retained preparation
+runs. Their different scores do not establish a numerical error in the manuscript. Recover and archive
+the later round's raw modules, prompt, reference and version evidence before posting Paper 2, then
+reproduce its table and assess matched authoring baselines and reference support.

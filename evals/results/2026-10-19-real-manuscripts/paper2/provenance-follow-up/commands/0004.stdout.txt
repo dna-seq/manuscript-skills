@@ -1,0 +1,14 @@
+ebee4a2_2026-08-31 11:38:42 +0300_Rebase anonymous on main and restore manuscript from main
+4368281_2026-08-31 04:27:20 +0300_Anonymize repository for double-blind review submission
+df36f54_2026-08-31 07:39:48 +0300_0.27.0 — the framework is the deliverable, and the prep numbers say so
+ef79336_2026-08-31 07:28:42 +0300_The evaluation section reports what was measured
+15dedcb_2026-08-31 07:23:26 +0300_Citation identity offline, and the two seams that stay empty
+34032aa_2026-08-31 07:19:59 +0300_The primary measurement: did a run recover the adjudicated answer
+87b7791_2026-08-31 07:14:37 +0300_Type the loader honestly, and refuse a table with no upstream key at all
+5203bcb_2026-08-31 07:13:40 +0300_A fixture that cannot be trusted is refused where somebody is looking at it
+37b6678_2026-08-31 07:10:19 +0300_A watched column can be absent two ways, and neither is a withheld cell
+9621db8_2026-08-31 07:04:17 +0300_The bench scorer moves into src, and the crash it was hiding gets a test
+5ae8309_2026-08-31 07:00:36 +0300_The benchmark corpus becomes something a test can reach
+56c6873_2026-08-31 04:32:11 +0300_The bench scorer locates the spec, survives a one-sided table, and can census a run
+d786368_2026-08-31 00:41:43 +0300_A deterministic scorer for the benchmark, against an adjudicated reference
+c62ab35_2026-08-30 01:03:03 +0300_rewrote discussions and gave LLM vs us examples

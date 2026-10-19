@@ -1,0 +1,3 @@
+pmid,doi,pmcid,exists,is_open_access,license,share_alike,commercial_use,redistribution,quotes_authored,quotes_found,quote_source,doi_exists,doi_checked,source,status,fetched_at
+28399814,10.1186/s12881-017-0401-z,PMC5387321,true,true,cc by,false,true,true,1,1,fulltext,true,10.1186/s12881-017-0401-z,pubmed,resolved,2026-08-30T23:59:05Z
+41249831,10.1038/s41598-025-24018-3,PMC12624115,true,true,cc by-nc-nd,false,false,true,1,1,fulltext,true,10.1038/s41598-025-24018-3,pubmed,resolved,2026-08-30T23:59:05Z

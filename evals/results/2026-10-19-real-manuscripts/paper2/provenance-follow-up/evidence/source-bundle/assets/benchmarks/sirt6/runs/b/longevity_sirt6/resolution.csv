@@ -1,0 +1,2 @@
+variant_key,rsid,chrom,start,ref,alts,genome_build,locus_index,vrs_id,vrs_spec,caid,source,authority,status,rsid_alternates,rsid_current,rsid_status,fetched_at
+rs117385980,rs117385980,19,4180588,C,T,GRCh38,0,ga4gh:VA.YxCS1acZj0ufkzEEd26R-KF--4hLspHR,2.0,,gnomad,gnomad,resolved,,,live,

@@ -1,0 +1,39 @@
+schema_version: '1.0'
+module:
+  title: SIRT6 rs117385980 and human longevity
+  description: One SIRT6 variant, two cohorts, an inverse longevity trend significant in neither.
+  report_title: SIRT6 and longevity
+  icon: hourglass half
+  icon_set: fomantic
+  color: '#6435c9'
+  name: longevity_sirt6
+defaults:
+  curator: claude-opus-5[1m]
+  method: literature-review
+genome_build: GRCh38
+license: CC-BY-NC-ND-4.0
+authorship:
+  - who: claude-opus-5[1m]
+    role: created
+    kind:
+      - ai
+      - agent
+    at: '2026-08-30'
+weighting:
+  scale: >-
+    Minus one to plus one, curator-set, ordinal within this module only. Positive is protective, which
+    is the format's convention and the opposite of an odds ratio. Magnitudes are deliberately small
+    because no result behind this module reached significance at p < 0.05.
+  method: >-
+    Literature triage of two papers. No GWAS effect size was reused as a weight and no polygenic score
+    is involved. The heterozygous row carries minus 0.2 to record the direction both cohorts trend in,
+    at a magnitude meant to be nearly negligible beside a significant finding in another module. The
+    reference row carries an explicit 0.0, which is a claim that this genotype changes nothing rather
+    than a blank. The homozygous-alt row is left unweighted because neither source study observed that
+    genotype and its direction is therefore unknown.
+  note: >-
+    These weights are not comparable with any other module's and nothing downstream says so at the
+    point of use. A consumer that sums weights across modules will produce a number this scale does not
+    support. Read the weights as a recorded direction, never as a magnitude of risk: the underlying
+    p-values are 0.074 and 0.073, and both source papers call for larger cohorts before anything here
+    is treated as established.

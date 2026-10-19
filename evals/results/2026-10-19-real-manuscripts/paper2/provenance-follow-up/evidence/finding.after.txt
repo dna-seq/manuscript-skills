@@ -1,0 +1,1 @@
+Git history identifies a later round: fab4db5 introduced runs 1–3 in place of preparation runs a/b/a2, and 221b95f filled the completed table. The preparation corpus therefore cannot establish that the manuscript’s numbers are wrong; the unresolved issue is recovery of the later round’s raw outputs and version evidence.

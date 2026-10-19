@@ -183,6 +183,14 @@ from a wider set of runs than the table it cites, a version later superseded), a
 [project check](references/author-priorities.md#minimum-useful-work) describes. Ask the authors only what the
 files leave open.
 
+Before treating different benchmark values as a contradiction, establish that they describe the same
+round, inputs, reference and metric definition. When those identifiers are unclear, trace the table's
+introduction through relevant Git history or run records. An older committed corpus may describe a
+preparation round that a later table deliberately replaced. A commit message can establish that intended
+distinction; it cannot validate results without their raw outputs. Report a missing reproducibility
+archive separately from a demonstrated numerical error, and never substitute an older round's values
+merely because those are the files available.
+
 ### Step 4: reporting, availability and venue requirements
 
 Ethics, privacy, clinical-scope and regulatory applicability (including authors' own public genomes) are

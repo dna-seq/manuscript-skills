@@ -1,0 +1,37 @@
+{
+  "generator": "just-module-creator",
+  "items": [
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Written by an agent after reading both fulltexts in full. Deliberately states the limits inline rather than only the direction, because the underlying evidence is two underpowered trend-level results and a bare directional sentence would read as stronger than the papers support. No molecular consequence is asserted: the two papers disagree on whether the variant is stop-gained or intronic, and that disagreement is unresolved and recorded in the README. [jmc field=conclusion value_sha256=01d4998e4962 source=Sheikholmolouki 2025 (PMID 41249831) and Hirvonen 2017 (PMID 28399814) recorded=2026-08-30T23:57:59Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {
+        "conclusion": "Written by an agent after reading both fulltexts in full. Deliberately states the limits inline rather than only the direction, because the underlying evidence is two underpowered trend-level results and a bare directional sentence would read as stronger than the papers support. No molecular consequence is asserted: the two papers disagree on whether the variant is stop-gained or intronic, and that disagreement is unresolved and recorded in the README."
+      }
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Heterozygous C/T is the only genotype either cohort observed; every carrier in both studies was heterozygous. C/C was deliberately not authored: Hirvonen's discussion argues a positive CC effect, but that is an inference from the same 2x2 table rather than a separate observation, so authoring it would double-count one test. T/T was observed in neither cohort although gnomAD records 183 homozygotes globally. Both omissions are written up as open decisions in the README. [jmc field=genotype value_sha256=9f79559de6b9 source=Sheikholmolouki 2025 (PMID 41249831) and Hirvonen 2017 (PMID 28399814) recorded=2026-08-30T23:57:39Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {
+        "genotype": "Heterozygous C/T is the only genotype either cohort observed; every carrier in both studies was heterozygous. C/C was deliberately not authored: Hirvonen's discussion argues a positive CC effect, but that is an inference from the same 2x2 table rather than a separate observation, so authoring it would double-count one test. T/T was observed in neither cohort although gnomAD records 183 homozygotes globally. Both omissions are written up as open decisions in the README."
+      }
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Neither study reached its own significance threshold: p = 0.074 in the Finnish combined test and p = 0.073 across the Iranian age strata. Both author teams nevertheless frame the result as a directional trend worth following up. Suggestive is the closest honest value in the vocabulary; not_significant is a defensible alternative and is flagged in the README as a reviewer's call. The Iranian paper's primary frailty hypothesis was null and is not carried as a claim. [jmc field=stat_significance value_sha256=b0c1a97d403c source=Sheikholmolouki 2025 (PMID 41249831) and Hirvonen 2017 (PMID 28399814) recorded=2026-08-30T23:57:55Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {
+        "stat_significance": "Neither study reached its own significance threshold: p = 0.074 in the Finnish combined test and p = 0.073 across the Iranian age strata. Both author teams nevertheless frame the result as a directional trend worth following up. Suggestive is the closest honest value in the vocabulary; not_significant is a defensible alternative and is flagged in the README as a reviewer's call. The Iranian paper's primary frailty hypothesis was null and is not carried as a claim."
+      }
+    },
+    {
+      "variant_key": "rs117385980",
+      "rationale": "Both papers report the T allele depleted among the longest-lived and agree on direction, so risk is the honest state on the longevity axis this module is about. Authored by an agent from the two fulltexts; no human reviewer has confirmed it. Note the counter-direction recorded in the row's negatives column: the same allele was enriched among robust participants in the Iranian cohort. [jmc field=state value_sha256=2c6ef0f0d0e4 source=Sheikholmolouki 2025 (PMID 41249831) and Hirvonen 2017 (PMID 28399814) recorded=2026-08-30T23:57:43Z by=claude-opus-5]",
+      "human_reviewed": false,
+      "outranks": {
+        "state": "Both papers report the T allele depleted among the longest-lived and agree on direction, so risk is the honest state on the longevity axis this module is about. Authored by an agent from the two fulltexts; no human reviewer has confirmed it. Note the counter-direction recorded in the row's negatives column: the same allele was enriched among robust participants in the Iranian cohort."
+      }
+    }
+  ]
+}

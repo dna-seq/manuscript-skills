@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_source_readme_can_be_retained_without_replacing_the_generated_index ___
+
+manuscript = PosixPath('/tmp/pytest-of-antonkulaga/pytest-5/test_source_readme_can_be_reta0/paper one/paper.md')
+
+    def test_source_readme_can_be_retained_without_replacing_the_generated_index(manuscript: Path) -> None:
+        assert configure(manuscript).exit_code == 0
+        run = start(manuscript)
+        source = manuscript.parent / 'README.md'
+        source.write_text('The original scientific module documentation.\n')
+        index = run / 'manuscript-prose-edit/README.md'
+        generated = index.read_text()
+        for name in ('README.md', 'evidence/../README.md'):
+            rejected = add(run, source, 'input', 'manuscript-prose-edit', '--name', name)
+            assert rejected.exit_code == 1
+            assert index.read_text() == generated
+        retained = add(run, source, 'input', 'manuscript-prose-edit', '--name', 'evidence/module/README.md')
+>       assert retained.exit_code == 0, (retained.output, retained.exception)
+E       AssertionError: ('', ValueError('Use an evidence filename inside its skill folder; README.md is the generated status index.'))
+E       assert 1 == 0
+E        +  where 1 = <Result ValueError('Use an evidence filename inside its skill folder; README.md is the generated status index.')>.exit_code
+
+tests/test_project_runs.py:176: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_project_runs.py::test_source_readme_can_be_retained_without_replacing_the_generated_index
+1 failed in 0.12s

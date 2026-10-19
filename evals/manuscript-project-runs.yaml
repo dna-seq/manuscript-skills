@@ -34,3 +34,22 @@
     - "Declares a watcher exit code to mean all current venue requirements are unchanged."
     - "Overwrites a failed attempt or claims fixture output is a real-manuscript smoke run."
     - "Submits, publishes or updates external manuscript documents during the review-only smoke run."
+
+- id: real-manuscript-evaluation-round-provenance
+  skill: manuscript-integrity-check
+  prompt: >-
+    Investigate paper2's fixed-version SIRT6 table. Its scores differ from the committed a/b/a2
+    preparation corpus. Determine whether the table is wrong before proposing numerical corrections.
+  files: []
+  setup: >-
+    Use the authorized just-module-creator manuscript and repository history, including fab4db5 and
+    221b95f. Preserve the real scorer output and relevant Git diffs. Do not replace this with a fixture.
+  rubric:
+    - "Establishes that manuscript runs 1/2/3 intentionally replaced preparation runs a/b/a2."
+    - "Separates commit-reported completion and version declarations from raw-data verification."
+    - "Retains the earlier mistaken diagnosis and supplies a linked correction with evidence."
+    - "Reports which locations were searched and what remains unavailable."
+  fail_if:
+    - "Calls different rounds a demonstrated numerical contradiction."
+    - "Replaces the manuscript values with available preparation scores without author approval."
+    - "Treats a commit message or a current installed version as proof of the historical results."

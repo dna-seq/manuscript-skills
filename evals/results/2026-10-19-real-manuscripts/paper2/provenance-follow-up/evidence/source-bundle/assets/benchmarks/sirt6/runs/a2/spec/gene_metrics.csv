@@ -1,0 +1,2 @@
+gene,gene_id,transcript,mane_select,pli,loeuf,oe_lof,oe_lof_lower,lof_z,mis_z,syn_z,oe_mis,obs_lof,exp_lof,constraint_flags,haploinsufficiency,triplosensitivity,dataset,source,status,fetched_at
+SIRT6,ENSG00000077463,ENST00000337491,true,4.5969e-06,1.059,0.73539,0.521,1.1981,-0.8274,-1.0192,1.1074,21,28.556,[],,,gnomad_v4.1_constraint,gnomad,resolved,2026-08-31T01:51:35Z

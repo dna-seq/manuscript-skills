@@ -1,0 +1,1 @@
+warning: `VIRTUAL_ENV=/home/antonkulaga/.cache/uv/environments-v2/runs-cb51106f0f963726` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead

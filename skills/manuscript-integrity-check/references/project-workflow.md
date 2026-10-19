@@ -79,7 +79,8 @@ registered by the next attempt, with their unknown original exit status clearly 
 
 Write conclusions, checks and failed attempts under `RUN/SKILL/`, not in a disposable scratch folder.
 Each skill gets a generated `README.md` linking its evidence and showing its status. Save the actual
-author-facing report as `report.md` or another descriptive filename. Register outputs, including files
+author-facing report as `report.md` or another descriptive filename. Only the skill-root `README.md`
+is reserved; source READMEs can be retained under evidence subfolders. Register outputs, including files
 already written there:
 
 ```bash

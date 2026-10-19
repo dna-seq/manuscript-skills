@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "name": "sirt6",
+  "trait": "Human longevity / healthy aging",
+  "description": "One SIRT6 variant, two cohorts, a trend that reaches significance in neither.",
+  "expected_spec": "reference",
+  "scored_tables": [
+    "variants.csv",
+    "studies.csv"
+  ],
+  "source_references": [
+    "Sheikholmolouki et al. 2025, Sci Rep 15:40251 (PMID 41249831) \u2014 the assigned paper",
+    "Hirvonen et al. 2017, BMC Med Genet 18:41 (PMID 28399814) \u2014 the primary longevity source it replicates"
+  ],
+  "provenance": {
+    "kind": "adjudicated_merge",
+    "adjudicated_by": "a bioinformatician reading the diffs between runs",
+    "adjudicated_on": "2026-08-31",
+    "merged_from": [
+      "runs/a",
+      "runs/b"
+    ],
+    "why": "Neither run is the reference. Given a byte-identical prompt they came out complementary rather than ranked: run a agreed on every shared cell while covering a third of the keys, run b covered every key and agreed on a third of the cells. The merge takes run a's studies, licensing and README argument and its C/T row verbatim, and run b's C/C and T/T rows \u2014 which do not make the protective claim run a withheld them to avoid \u2014 with run b's weights dropped, because no tool fills weight and only a pilot settles it. The human adjudication is what makes this ground truth rather than one more run.",
+    "closed_by": "human-adjudicated (merge of run-sirt6-a and run-sirt6-b)",
+    "module_hash": "sha256:fdc55e9931fa2cf9101026b76f871d6e9cd82b82ba33b54a78748af60fd0d5d4",
+    "content_signature": "sha256:cdeebbf4d7e863ab11979b4bed61b514a6400ee420b08444a4e7d390e2ea9ec1",
+    "artifact_digest": "sha256:7610f0fa02bfd409683823e127087644d6c796e2018d3d23ae097dab361c1507",
+    "compiled_with": "just-dna-compiler 0.6.6",
+    "note": "The three digests are what a recompile is checked against; build/ is not committed because a compile is deterministic. artifact_digest moves when the compiler's minor moves and content_signature does not \u2014 compare the second across versions.",
+    "known_warnings": [
+      "1 study quote(s) come from article(s) licensed 'cc by-nc-nd' \u2014 the module's real licence constraint, and it should not go away",
+      "module declares license 'CC-BY-NC-ND-4.0' but annotation-layer sources report [...] \u2014 fired by the machine-written ClinGen row (upstream S77, fixed in 0.7) and itself partly misreported (upstream S79)"
+    ]
+  },
+  "variant_tiers": {
+    "tier2_replicated_trend": {
+      "description": "Reported in two independent cohorts with concordant direction, significant in neither. There is no tier 1 here and inventing one would misdescribe the evidence.",
+      "weight": 2.0,
+      "rsids": [
+        "rs117385980"
+      ]
+    }
+  },
+  "decoy_variants": {
+    "description": "Real rsIDs that must not appear. rs2802292 is the interesting one: a genuine longevity variant (FOXO3) that is NOT in this paper, so it catches a run importing general knowledge instead of reading the source it was given. The other two are real variants for unrelated traits.",
+    "rsids": [
+      "rs2802292",
+      "rs1421085",
+      "rs4988235"
+    ]
+  },
+  "scoring": {
+    "minimum_acceptable": {
+      "pair_recall": 0.5,
+      "citation_recall": 0.5,
+      "direction_agreement": 0.9,
+      "decoy_rate": 0.0
+    }
+  }
+}
