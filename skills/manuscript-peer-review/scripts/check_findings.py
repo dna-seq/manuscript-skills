@@ -40,7 +40,6 @@ import typer
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-TEXT_SUFFIXES = {".md", ".markdown", ".qmd", ".rmd", ".tex", ".txt", ".text", ".rst", ".csv", ".tsv"}
 
 SEATS = ("claims-novelty", "evidence-statistics", "reproducibility", "champion", "skeptic",
          "desk-editor", "software-methods", "genomics", "human-data-clinical", "ai-systems")
@@ -692,16 +691,31 @@ def _group(findings: list[dict[str, Any]], adjudicated: bool = False) -> list[di
     return groups
 
 
+def _not_text(path: Path) -> str | None:
+    """Why *path* cannot be read as text, or None when it can. Any file is tried, whatever its name: YAML,
+    JSON, TOML, BibTeX, HTML and the like are text a manuscript legitimately ships with. Only content that is
+    not UTF-8 text (a spreadsheet, a Word file, a PDF, an image) is refused."""
+    data = path.read_bytes()
+    if b"\0" in data:
+        return "it is a binary file, not text"
+    try:
+        data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return "it is not UTF-8 text"
+    return None
+
+
 def _load_sources(manuscript: Path, supplements: list[Path]) -> Sources:
-    if manuscript.suffix.lower() not in TEXT_SUFFIXES:
-        raise ValueError(f"{manuscript.name}: unsupported manuscript type '{manuscript.suffix}'. Convert it to "
-                         f"Markdown or text first (for example `pandoc -t gfm`).")
+    why = _not_text(manuscript)
+    if why:
+        raise ValueError(f"{manuscript.name}: {why}. Convert it to Markdown or text first (for example "
+                         f"`pandoc -t gfm`).")
     docs, unreadable = [], {}
     for path in supplements:
-        if path.suffix.lower() not in TEXT_SUFFIXES:
-            unreadable[path.name] = f"unsupported type '{path.suffix}'; convert it to text to check its quotes"
-        elif not path.is_file():
-            unreadable[path.name] = "file not found"
+        why = "file not found" if not path.is_file() else _not_text(path)
+        if why:
+            unreadable[path.name] = f"{why}; convert it to text to check quotes from it" \
+                if why != "file not found" else why
         else:
             docs.append(Document.load(path))
     return Sources(manuscript=Document.load(manuscript), supplements=docs, unreadable=unreadable)
@@ -732,7 +746,8 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
     panel = sorted({f["seat"] for f in findings if _nonempty_str(f.get("seat"))})
     return {
         "manuscript": manuscript.name,
-        "supplements": [d.path.name for d in sources.supplements] + sorted(sources.unreadable),
+        "supplements": [d.path.name for d in sources.supplements],
+        "unreadable": dict(sorted(sources.unreadable.items())),
         "stage": "adjudicated" if adjudicated else "seat findings",
         "summary": {"findings": len(findings), **counts, "groups": len(groups), "seats": len(panel),
                     "strengths": len(strengths),
@@ -870,7 +885,9 @@ def to_markdown(report: dict[str, Any]) -> str:
         intro += (f"Of {_plural(s['strengths'], 'strength')}, {s['strengths_not_anchored']} "
                   f"{'lacks' if s['strengths_not_anchored'] == 1 else 'lack'} a verified quote. ")
     if report["supplements"]:
-        intro += f"Besides the manuscript, the check searched {_words_list(report['supplements'], 'and')}."
+        intro += f"Besides the manuscript, the check searched {_words_list(report['supplements'], 'and')}. "
+    for name, why in report.get("unreadable", {}).items():
+        intro += f"It could not read {name} ({why}), so quotes from it were not checked. "
     lines += [intro.strip(), "",
               "A group's count says how many simulated referees raised the concern. Agreement between referees "
               "is not evidence that the concern is right.", ""]

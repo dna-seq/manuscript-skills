@@ -129,6 +129,9 @@ uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.md --suppl
 
 `PAPER.md` stands for the manuscript as Markdown, LaTeX or plain text; a `.tex` source is checked as it
 is, with its markup and comments handled ([finding-schema.md](references/finding-schema.md#what-the-script-checks)).
+Pass every supplementary file the referees quote, whatever its format: any text file is read (YAML, JSON,
+TOML, CSV, BibTeX, HTML, a curation or config file). Only a binary file (a spreadsheet, a Word file, a
+PDF) is refused, and the report names it.
 
 Each finding needs a seat, a location, a verbatim quote (or, for something missing, where the seat
 looked), the concern, the claim it affects and how (validity, support, scope, reproducibility or

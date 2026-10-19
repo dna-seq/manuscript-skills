@@ -463,16 +463,41 @@ def test_quotes_from_supplements(tmp_path: Path) -> None:
     assert f["contract"] == "pass" and f["quote"]["file"] == "supp.md" and f["quote"]["line"] == 1
 
 
-@pytest.mark.parametrize("supplements,source", [([], "S1.md"), (["S1.xlsx"], "S1.xlsx")])
+@pytest.mark.parametrize("supplements,source", [([], "S1.md"), (["S1.xlsx"], "S1.xlsx"), (["S1.bin"], "S1.bin")])
 def test_quotes_from_unsupplied_or_unreadable_sources_are_not_assessed(tmp_path: Path, supplements: list[str],
                                                                        source: str) -> None:
     paths = []
-    for name in supplements:
-        (tmp_path / name).write_bytes(b"PK\x03\x04")
+    for name in supplements:  # a zip header with NUL bytes, as a real .xlsx has; and bytes that are not UTF-8
+        (tmp_path / name).write_bytes(b"PK\x03\x04\x14\x00\x06\x00" if name.endswith(".xlsx") else b"\xff\xfe\xfa")
         paths.append(tmp_path / name)
     f = _only(cf.check([_finding(quote="Table S1 lists 4,182 test variants", source=source)], SEEDED, paths))
     assert f["contract"] == "not_assessed"
     assert f["quote"]["status"] == "not_assessed"
+
+
+@pytest.mark.parametrize("name, text", [
+    ("S4_curation.yaml", "modules:\n  longevitymap:\n    note: Table S1 lists 4,182 test variants\n"),
+    ("S1.json", '{"note": "Table S1 lists 4,182 test variants"}\n'),
+    ("config.toml", 'note = "Table S1 lists 4,182 test variants"\n'),
+    ("refs.bib", "@misc{s1, note = {Table S1 lists 4,182 test variants}}\n"),
+    ("page.html", "<p>Table S1 lists 4,182 test variants</p>\n"),
+    ("NOTES", "Table S1 lists 4,182 test variants\n"),
+])
+def test_any_text_file_is_a_supplement_whatever_its_name(tmp_path: Path, name: str, text: str) -> None:
+    supp = tmp_path / name
+    supp.write_text(text, encoding="utf-8")
+    report = cf.check([_finding(quote="Table S1 lists 4,182 test variants", source=name)], SEEDED, [supp])
+    assert _only(report)["contract"] == "pass" and report["supplements"] == [name] and report["unreadable"] == {}
+
+
+def test_an_unreadable_supplement_is_never_reported_as_searched(tmp_path: Path) -> None:
+    readable, binary = tmp_path / "S2.yaml", tmp_path / "S1.xlsx"
+    readable.write_text("note: something\n", encoding="utf-8")
+    binary.write_bytes(b"PK\x03\x04\x14\x00\x06\x00")
+    report = cf.check([_finding()], SEEDED, [readable, binary])
+    assert report["supplements"] == ["S2.yaml"] and list(report["unreadable"]) == ["S1.xlsx"]
+    md = cf.to_markdown(report)
+    assert "the check searched S2.yaml." in md and "could not read S1.xlsx" in md
 
 
 # --- strengths, the CLI and the documentation example ---------------------------------------------------------
@@ -520,10 +545,14 @@ def test_cli_rejects_malformed_input_with_exit_two(tmp_path: Path, payload: str)
     assert runner.invoke(cf.app, [str(p), str(SEEDED)]).exit_code == 2
 
 
-def test_cli_rejects_an_unsupported_manuscript_type(tmp_path: Path) -> None:
+def test_cli_rejects_a_manuscript_that_is_not_text_and_reads_any_that_is(tmp_path: Path) -> None:
     pdf = tmp_path / "paper.pdf"
-    pdf.write_bytes(b"%PDF-1.7")
-    assert runner.invoke(cf.app, [str(_write_json(tmp_path, [_finding()])), str(pdf)]).exit_code == 2
+    pdf.write_bytes(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<< /Length 0 >>\x00")  # a PDF's binary marker line
+    result = runner.invoke(cf.app, [str(_write_json(tmp_path, [_finding()])), str(pdf)])
+    assert result.exit_code == 2 and "Convert it to Markdown or text" in result.output
+    odd = tmp_path / "paper.manuscript"  # text under any name is read
+    odd.write_text(SEEDED.read_text(encoding="utf-8"), encoding="utf-8")
+    assert runner.invoke(cf.app, [str(_write_json(tmp_path, [_finding()])), str(odd)]).exit_code == 0
 
 
 # --- the Markdown report: quoted passages, URLs and plain words, never bare line references -----------------

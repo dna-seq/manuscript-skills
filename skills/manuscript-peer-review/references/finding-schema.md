@@ -114,7 +114,9 @@ way.
   a referee never sees them. The report gives the line where the quote starts and ends.
 - **Status of a quote** is three-valued: `verified`, `not_found` (fails the contract, with the longest
   opening run that does occur, to help correct a misquote), or `not_assessed` when it names a
-  supplementary file that was not supplied or cannot be read as text. `not_assessed` is not a pass.
+  supplementary file that was not supplied or is not text (a binary file such as a spreadsheet or a PDF;
+  any text file is read, whatever its name). `not_assessed` is not a pass, and the report names each file
+  it could not read instead of listing it as searched.
 - **Fields.** Required fields present and non-empty; enumerated fields within their values; ids unique;
   `looked_in` for absence findings; `drop_reason` for `dropped`; with `--adjudicated`, a verdict on
   every finding, triage on confirmed and downgraded ones, `verdict_evidence` on every verdict, and a
