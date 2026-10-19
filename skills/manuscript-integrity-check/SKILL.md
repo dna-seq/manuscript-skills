@@ -317,9 +317,11 @@ parentheses.
 - **Questions**, only for facts the next step needs that neither the manuscript, the conversation nor the
   project's files answer.
 
-Before handing the report over, reread it against the prose-edit catalogue
-(`../manuscript-prose-edit/references/llm-smells.md`) and, when it is installed, the `humanizer` skill, and fix
-what reads as notes or stock phrasing without changing any fact, quote or number. With the shared record,
+Before handing the report over, run the smell check on it and read it against the pattern list the check
+prints (`uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`, as
+[Writing for the authors](references/author-priorities.md#writing-for-the-authors) requires; never a
+separately installed `humanizer` skill), and fix what reads as notes or stock phrasing without changing any
+fact, quote or number. With the shared record,
 update its `checks` and `open_issues` instead of adding a log.
 
 When fixes are authorised, use `manuscript-prose-edit` (its preservation contract and `guard.py`) for language,

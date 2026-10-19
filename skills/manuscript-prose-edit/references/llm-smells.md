@@ -519,9 +519,12 @@ force-bearing "never", "must" or "all" in rules, inclusion criteria and safety s
 ### C1. Negative parallelism
 
 **Watch for:** not only X but also Y; It is not merely X, it is Y; it is not X, it is Y; not just X, but Y;
-not a X but a Y; rather than simply X; X, not Y (as a flourish); no X, no Y (tailing fragments).
+not a X but a Y; not by X but by Y; rather than simply X; X, not Y ("a research prototype, not a clinical
+product"), above all when it recurs; no X, no Y (tailing fragments).
 
-**Why:** A rhetorical contrast where there is no contrast to make.
+**Why:** A rhetorical contrast where there is no contrast to make. The appositive "X, not Y" is the form
+methods and software papers use most, and each use looks defensible alone: it states a limit or corrects an
+assumption. Three under one heading are a habit a reader notices.
 
 **Before:**
 > The tool is not only fast but also accurate, offering not just annotation but a complete interpretation
@@ -530,8 +533,17 @@ not a X but a Y; rather than simply X; X, not Y (as a flourish); no X, no Y (tai
 **After:**
 > The tool annotates a genome in 40 s with 99.8% concordance to the reference implementation.
 
+**Before:**
+> The score is a population-level estimate, not a diagnosis. The tool is a research prototype, not a
+> clinical product. Its modules are drafts, not curated references.
+
+**After:**
+> The score is a population-level estimate, not a diagnosis. The tool is built for research and makes no
+> clinical interpretation, and its modules are drafts that no curator has reviewed yet.
+
 **Leave it when:** the contrast is the point ("The effect was driven not by the common allele but by two
-rare haplotypes").
+rare haplotypes"), or the reader would otherwise assume the opposite. Keep the one that carries the
+argument and state the others positively; `style_profile.py --check` fails on three under one heading.
 
 ### C2. Rule of three and tricolons
 

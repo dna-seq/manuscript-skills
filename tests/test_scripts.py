@@ -410,6 +410,138 @@ def test_smell_patterns_compile_and_match_the_catalogue_ids() -> None:
         assert f"### {sid}." in catalogue, sid
 
 
+def _c1(sentence: str) -> list[str]:
+    return [m.group(0) for rx in profile.load_smells()["C1"]["patterns"] for m in rx.finditer(sentence)]
+
+
+@pytest.mark.parametrize("sentence, flagged", [
+    ("Just-DNA-Lite is a research tool, not a clinical pipeline.", True),
+    ("Heritability is a population-level statistic, not individual determinism.", True),
+    ("The platform mitigates this not by gatekeeping but by making provenance visible.", True),
+    ("The tool is not only fast but also accurate.", True),
+    ("We kept every sample, whether or not it passed the filter.", False),
+    ("Many, if not most, samples were sequenced twice.", False),
+    ("The caller is fast but not exact.", False),
+    ("Several analyses, not least the ancestry check, were rerun.", False),
+    ("Support for GRCh37 is planned, not yet implemented.", False),
+    ("Table 2 lists 21 tools, not 22.", False),
+    ("The effect was not significant.", False),
+])
+def test_negation_pivot_patterns_catch_the_appositive_contrast(sentence: str, flagged: bool) -> None:
+    assert bool(_c1(sentence)) is flagged, _c1(sentence)
+
+
+DISCUSSION = """# Paper
+
+## 5. Discussion
+
+### 5.1 Limits
+
+Heritability is a population-level statistic, not individual determinism, and estimates change with the cohort. Most reported variants come from association studies and have not been replicated in other ancestries.
+
+The tool annotates a genome in about a minute on a laptop and keeps every file on that machine.
+
+### 5.2 Privacy
+
+Local execution reduces the need to upload a genome to a hosted analysis service before annotation.
+"""
+
+
+def _doc(text: str, report: bool = False) -> dict:
+    return profile.profile_text(text, False, profile.load_smells(), profile.load_kobak(), report)
+
+
+def test_check_reports_a_pattern_the_edit_added_and_not_one_it_kept_or_moved() -> None:
+    before = _doc(DISCUSSION)
+    moved = DISCUSSION.replace(
+        "Heritability is a population-level statistic, not individual determinism, and estimates change with the "
+        "cohort. Most reported variants come from association studies and have not been replicated in other "
+        "ancestries.",
+        "Most reported variants come from association studies and have not been replicated in other ancestries. "
+        "Heritability is a population-level statistic, not individual determinism, and estimates change with the "
+        "cohort.")
+    assert profile.added_hits(before, _doc(moved)) == []
+    added = DISCUSSION.replace("on a laptop and keeps", "on a laptop, not a server, and keeps")
+    hits = profile.added_hits(before, _doc(added))
+    assert [(h["id"], h["text"], h["section"]) for h in hits] == [("C1", "laptop, not a server",
+                                                                    "5. Discussion > 5.1 Limits")]
+
+
+def test_check_judges_clusters_only_under_the_headings_the_edit_changed() -> None:
+    three = DISCUSSION.replace(
+        "The tool annotates a genome in about a minute on a laptop and keeps every file on that machine.",
+        "The tool is a research prototype, not a clinical product. Its modules are drafts, not curated "
+        "references, and its scores are estimates, not diagnoses.")
+    result = profile.run_check(_doc(three), None, set())
+    assert [(c["id"], c["section"], c["count"]) for c in result["clusters"]] == [
+        ("C1", "5. Discussion > 5.1 Limits", 4)]
+    assert not result["passed"]
+    assert profile.run_check(_doc(three), None, {"C1"})["passed"]  # kept on purpose after review
+    edited_elsewhere = three.replace("before annotation", "before it is annotated")
+    unchanged_section = profile.run_check(_doc(edited_elsewhere), _doc(three), set())
+    assert unchanged_section["sections_checked"] == ["5. Discussion > 5.2 Privacy"]
+    assert unchanged_section["clusters"] == [] and unchanged_section["passed"]
+
+
+def test_report_mode_skips_quotations_address_and_questions() -> None:
+    report = ("You wrote “Moreover, the tool plays a pivotal role in precision medicine.” in the Discussion. "
+              "Which cohort does it mean, and can you give its size? The sentence names no cohort and no number, "
+              "so a referee cannot tell what it rests on.")
+    as_paper, as_report = _doc(report), _doc(report, report=True)
+    paper_hits = {sid for p in as_paper["paragraphs"] for sid in p["hits"]}
+    report_hits = {sid for p in as_report["paragraphs"] for sid in p["hits"]}
+    assert {"A1", "C7", "G2"} <= paper_hits
+    assert report_hits == set()
+    assert as_report["paragraphs"][0]["words"] == as_paper["paragraphs"][0]["words"]  # quotes keep their length
+
+
+def test_reading_list_carries_every_catalogue_entry_once() -> None:
+    catalogue = (SKILLS / "manuscript-prose-edit" / "references" / "llm-smells.md").read_text()
+    ids = re.findall(r"^### ([A-K]\d+)\. ", catalogue, re.MULTILINE)
+    entries = profile.catalogue_entries()
+    assert [e["id"] for e in entries] == ids
+    assert all(e["watch"] and len(e["watch"]) <= 400 for e in entries)
+    listing = profile.reading_list(entries, profile.load_smells(), report=False)
+    assert all(f"({sid}" in listing for sid in ids)
+    assert "(C1, counted)" in listing and "(D5)" in listing
+
+
+def test_check_cli_fails_until_the_pattern_is_rewritten_or_kept(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+    before, after = tmp_path / "before.md", tmp_path / "after.md"
+    before.write_text(DISCUSSION, encoding="utf-8")
+    after.write_text(DISCUSSION.replace("on a laptop and keeps", "on a laptop, not a server, and keeps"),
+                     encoding="utf-8")
+    run = CliRunner().invoke
+    plain = run(profile.app, [str(after)])
+    assert plain.exit_code == 0 and "Read the text against every pattern" not in plain.output
+    failed = run(profile.app, [str(after), "--before", str(before), "--check"])
+    assert failed.exit_code == 1, failed.output
+    assert "The edit added negation pivot (C1): “laptop, not a server”" in failed.output
+    assert "## Read the text against every pattern" in failed.output and "(D5)" in failed.output
+    kept = run(profile.app, [str(after), "--before", str(before), "--check", "--keep", "c1"])
+    assert kept.exit_code == 0 and "kept after review, and tell the authors" in kept.output
+    clean = run(profile.app, [str(before), "--before", str(before), "--check"])
+    assert clean.exit_code == 0 and "The edit added no pattern" in clean.output
+
+
+@pytest.mark.parametrize("rel", [
+    "manuscript-prose-edit/SKILL.md",
+    "manuscript-prose-edit/references/prose-edit-contract.md",
+    "manuscript-integrity-check/references/author-priorities.md",
+    "manuscript-integrity-check/SKILL.md",
+    "manuscript-peer-review/references/output-format.md",
+    "manuscript-journal-adapt/SKILL.md",
+    "manuscript-policy-fit/SKILL.md",
+    "manuscript-reviewer-response/SKILL.md",
+    "manuscript-improve/SKILL.md",
+])
+def test_every_skill_that_writes_prose_requires_the_smell_check(rel: str) -> None:
+    text = " ".join((SKILLS / rel).read_text(encoding="utf-8").split())
+    assert re.search(r"style_profile\.py [^`]*--check", text), rel
+    assert "required" in text.lower(), rel
+
+
 @pytest.mark.parametrize("text, flagged", [
     ("Recall was high: 12 of 40 (30%) variants.", False),
     ("Recall was high: 12 of 40 (35%) variants.", True),

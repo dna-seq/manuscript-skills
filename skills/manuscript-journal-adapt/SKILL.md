@@ -117,7 +117,11 @@ For content-preserving edits, consult the shared
 [prose-edit contract](../manuscript-prose-edit/references/prose-edit-contract.md) and review the diff.
 `../manuscript-prose-edit/scripts/guard.py BEFORE AFTER` flags selected changes to numbers, citations,
 identifiers, terms and wording, and claims that an edit strengthened; it does not prove semantic
-equivalence. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
+equivalence. Every passage the adaptation writes or rewrites (a cut abstract, a merged section, a new
+statement) also passes the smell check, which is required:
+`../manuscript-prose-edit/scripts/style_profile.py AFTER --before BEFORE --check`, then a read of the new
+text against the pattern list it prints (prose-edit contract, §5.3). New text is where an adaptation adds
+machine-written prose. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
 lists each change with its section and line. When text moves to another file (a supplement split off,
 a section moved there), pass that file as well so moved text is not reported as removed, and still read
 the diff yourself: a guard that passes does not prove nothing was dropped. Revision markers in the text

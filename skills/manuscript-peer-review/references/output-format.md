@@ -132,9 +132,13 @@ family, with their cost (options.md).>
   not read; prior work whose identifiers could not be resolved; referees run one after another by one
   agent; one model family; no reviewer questions for the paper's field; the venue unknown, so the
   desk-editor judgement is generic.
-- **Reread before handing it over** against the prose-edit catalogue
-  ([llm-smells.md](../../manuscript-prose-edit/references/llm-smells.md)) and, when it is installed, the
-  `humanizer` skill. Fix what reads as notes or stock phrasing without changing a fact, quote or number.
+- **Run the smell check before handing it over** (required):
+  `uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`, then read
+  the report against the pattern list it prints, from the prose-edit catalogue
+  ([llm-smells.md](../../manuscript-prose-edit/references/llm-smells.md)), never a separately installed
+  `humanizer` skill
+  ([why](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)). Fix
+  what reads as notes or stock phrasing without changing a fact, quote or number.
 - `check_findings.py --md` writes a working file for adjudication, not the report. Write the report from
   the adjudicated findings in this format.
 

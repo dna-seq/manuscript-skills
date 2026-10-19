@@ -230,10 +230,21 @@ be understandable by someone who did not write these skills, without opening ano
   processing charge rather than APC). Never use abbreviations these skills invented.
 - **Full sentences, not notes.** Write each finding as connected prose: what is wrong, why it matters
   for the paper, and what to do. No telegraphic fragments, arrows, stacked abbreviations or "X: Y; Z"
-  shorthand. A table is fine for a list of like items, but every cell is a readable phrase. Before
-  returning a report, reread it against the prose-edit catalogue
-  (`../../manuscript-prose-edit/references/llm-smells.md`) and, when it is installed, the `humanizer`
-  skill, and fix what reads as notes or as stock phrasing, without changing any fact, quote or number.
+  shorthand. A table is fine for a list of like items, but every cell is a readable phrase.
+- **The smell check before any report goes out (required).** Save the report to a file if it exists only
+  in the conversation, and run, from your skill's directory,
+  `uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`. Rewrite
+  what it lists without changing any fact, quote or number, or keep a use whose catalogue entry says to
+  leave it and rerun with `--keep ID`. Then read the report against the full pattern list the check prints
+  (every entry of the prose-edit catalogue, `../../manuscript-prose-edit/references/llm-smells.md`, in one
+  line each) and fix what reads as notes or stock phrasing: the counts find only part of it. Quoted
+  manuscript text is not counted, and a report may address the authors as "you" and end a finding with the
+  question it needs answered. A report is not handed over while the check fails or has not run.
+- **This plugin's catalogue, not another humanizer.** The catalogue already holds blader/humanizer's
+  patterns with the exceptions a manuscript needs. Do not load a separately installed `humanizer` skill
+  for the smell check: it is not part of these skills, more than one skill can carry that name, and their rules
+  pull against a report. blader/humanizer, for one, bans every en dash and every closing question, which
+  strips the ranges and quotations a report keeps verbatim and the questions it puts to the authors.
 - **Labels in parentheses only.** Catalogue or rule IDs, reviewer-seat names and item codes a script
   assigned may follow the description in parentheses for traceability, never stand alone. The referees'
   own comment numbers are the exception: keep them, with the comment quoted.

@@ -146,6 +146,12 @@ smells:
       - '\bnot (?:just|merely|simply)\b.{1,60}?\b(?:but|it is|it''s)\b'
       - '\bit is not\b.{1,40}?,\s*(?:it is|but)\b'
       - 'rather than (?:simply|merely|just)'
+      # "a research tool, not a clinical pipeline": the appositive contrast, the commonest form in methods
+      # papers. Not "not only/just" (above), "not least", "not necessarily", "not yet", "not always", or a
+      # number ("21 tools, not 22" corrects a count).
+      - '\b[\w-]+,\s+not\s+(?!only\b|just\b|merely\b|simply\b|least\b|necessarily\b|yet\b|always\b|\d)(?:(?:an?|the)\s+)?[\w-]+'
+      # "mitigates this not by gatekeeping but by making provenance visible"
+      - '\bnot (?:by|in|for|from|through|with|because|as)\b[^.;]{1,80}?\bbut (?:by|in|for|from|through|with|because|as)\b'
   C4:
     name: signposting
     patterns:

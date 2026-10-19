@@ -24,13 +24,29 @@ for requested section or stage review, before/after comparisons and optional int
 ## Edit and check the result
 
 Read [prose-edit-contract.md](references/prose-edit-contract.md) for the editing procedure and preservation
-rules. Consult the relevant entries in [llm-smells.md](references/llm-smells.md) for concrete writing
-problems and false positives, and [section-guide.md](references/section-guide.md) when a section's purpose
-matters. The catalogue is diagnostic help, not a checklist to exhaust.
+rules, and [section-guide.md](references/section-guide.md) when a section's purpose matters. The patterns
+that make prose read as machine-written are in [llm-smells.md](references/llm-smells.md), each with its fix
+and its "Leave it when"; a sentence that still says something specific can stay, so the aim is never zero
+hits.
 
-For a long draft, `scripts/style_profile.py PAPER.md [--sample AUTHORS.md]` can locate repetitive or
-generic prose. Use available author samples when voice matching helps; do not require samples for an
-ordinary edit. The optional installed `humanizer` catalogue can help, subject to this skill's contract.
+**The smell check is required for every edit**, short or long, a file or a pasted passage (save the
+original and the edit as two files). An edit is not finished, and is not handed over, until both parts
+have run:
+
+1. **Counts.** Before editing, run `scripts/style_profile.py` on the text in scope to see where the
+   patterns are. After editing, run it with `--before` and `--check` (below). It fails while the edit added
+   a pattern the original did not have, or while one pattern is used three or more times under a heading the
+   edit changed. Rewrite each, or keep one whose catalogue entry says to leave it, rerun with `--keep ID`,
+   and tell the authors under "Then the writing" which sentences you kept and why.
+2. **Reading.** The counts know only some patterns, and only some wordings of those. `--check` ends with
+   every catalogue entry in one line: read the edited text against that whole list, find by reading what no
+   count can, and fix it under the same rules. Open an entry in the catalogue for its examples and its
+   "Leave it when" before you change a sentence.
+
+Use available author samples (`--sample`) when voice matching helps; do not require samples for an
+ordinary edit. The catalogue already holds blader/humanizer's patterns with the exceptions a manuscript
+needs, so do not load a separately installed `humanizer` skill: its hard rules (no en dash anywhere, merged
+paragraphs) break this skill's contract.
 
 Make the authorised edits, preserve scientific meaning and review the diff in context. The contract's
 **claim ceiling** holds for every request, including "make it punchier" or "sound more confident": improve
@@ -39,8 +55,9 @@ the prose, never raise a claim's certainty, causality, novelty, generality or sc
 see. For file edits:
 
 ```bash
+uv run --script scripts/style_profile.py BEFORE.md                    # before editing: where the patterns are
 uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md]
-uv run --script scripts/style_profile.py PAPER.md --sample AUTHORS.md
+uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
 ```
 
 The guard keeps its whole-text counts of numbers, citations, identifiers and terms, and also aligns the
@@ -56,8 +73,8 @@ affected by the edit. Revision markers
 (`<!-- @rev ... -->`) stay where they are and are added or updated only as the project's written rules say
 ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review));
 the guard ignores them. Where the project keeps them, an applied edit bumps or opens its segment through
-`manuscript-revision-marks`, signed with the name of whoever wrote the round. Return the edited text or a concise file-change summary, the warnings that stand and
-unresolved content questions; detailed change tables are on request.
+`manuscript-revision-marks`, signed with the name of whoever wrote the round. Return the edited text or a concise file-change summary, the warnings that stand, the
+patterns kept on purpose and unresolved content questions; detailed change tables are on request.
 
 For a claim that needs source verification, use `manuscript-reference-check`. Use `manuscript-policy-fit`
 when an edit depends on clinical, ethics, privacy or regulatory applicability. Venue formatting and
@@ -142,4 +159,5 @@ Commands are relative to this skill directory. Keep the plugin's companion skill
 `style_profile.py` also reads the shared vocabulary CSV under `manuscript-integrity-check/references/`.
 The integrity skill's pre-commit hook uses this skill's style profiler. `guard.py` is also available to
 venue adaptation, policy-fit edits and reviewer responses; those callers use the same copy of the
-preservation tool and the same ladders.
+preservation tool and the same ladders. They and every report to the authors also run the smell check
+(`style_profile.py --check`, with `--report` for a report), against the same catalogue.

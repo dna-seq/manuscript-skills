@@ -130,6 +130,11 @@ that exist.
   required statements, including an AI-use statement if the venue's policy covers the revision.
 
 Fill `landed` for each commitment, then run the check (commands below) and fix every blocking finding.
+Run the smell check on the letter as well (required):
+`uv run --script ../manuscript-prose-edit/scripts/style_profile.py RESPONSE.md --report --check`. It skips
+the quoted referee comments; fix what it lists in the replies and read them against the pattern list it
+prints (sycophancy toward referees is entry G3). Manuscript text you drafted for a reply passes the same
+check against the original (`style_profile.py REVISED.md --before ORIGINAL.md --check`).
 Return the letter, the check's report (or a summary in its style) and the decisions still waiting for the
 authors.
 

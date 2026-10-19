@@ -87,10 +87,12 @@ and evidence; this is not a blanket prohibition on authorised reference or forma
 
 ## 2. Invocation modes
 
-- **Passage mode** (text pasted into the conversation). Deliver the edited passage and any unresolved
-  content question. Add a change table only when requested or needed to explain a consequential edit.
+- **Passage mode** (text pasted into the conversation). Run the smell check (5.3) on the passage and its
+  edit, saved as two files, then deliver the edited passage and any unresolved content question. Add a
+  change table only when requested or needed to explain a consequential edit.
 - **File mode** (a path). Edit the file in place, prose only: never touch equations, code, tables of data,
-  citation keys, labels, cross-references, URLs or front matter. Run the guard (section 5), then report a
+  citation keys, labels, cross-references, URLs or front matter. Run the smell check and the guard
+  (section 5), then report a
   summary: what kinds of change, how many, and which sentences need the authors, each quoted with its section.
   Offer the full change table rather than pasting it. If the author requests review before application,
   retain the working file and prepare proposed text or a separate revision until accepted.
@@ -194,15 +196,34 @@ is a prerequisite for a copy edit.
 
 Re-read the changed passages and their evidence. Check scientific meaning, term consistency, logical
 links and the requested house style. Preserve ordinary dashes, connectors and technical vocabulary when
-they work. Counted style inventories are optional diagnostics, not a gate the manuscript must pass.
+they work. The smell check (5.3) is required; the profiler's other measures (sentence-length spread,
+vocabulary rates) are diagnostics, not a gate.
 
 ### 5.2 The scaffolding audit
 
 When repetition or generic rhetoric remains, consult the relevant catalogue entries. Respect their
 false-positive exceptions and the author's voice. A flagged passage can stay unchanged when it works.
-Do not exhaust the catalogue or repeat a loop solely to eliminate style hits.
+Do not repeat a loop solely to eliminate style hits.
 
-### 5.3 The guard
+### 5.3 The smell check
+
+```bash
+uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID]
+```
+
+Required for every edit, and an edit is not handed over until it has run. It has two parts:
+
+- **Counts.** Exit code 1 means the edit added a pattern the original did not have, or one pattern is used
+  three or more times under a heading the edit changed. Rewrite each, or keep one whose entry's "Leave it
+  when" applies, rerun with `--keep ID`, and list the kept sentences for the authors under "Then the
+  writing" with the reason. A pattern that was already in the original and stands alone is a place to look,
+  not a failure.
+- **Reading.** The counts match only the patterns that have a regular expression, in the wordings it knows
+  (a third of the catalogue). The check ends with every catalogue entry in one line; read the edited text
+  against all of them and fix what you find by reading, under the same rules. This is where the structural,
+  evidential and hedging patterns (sections D, E and I) are found.
+
+### 5.4 The guard
 
 ```bash
 uv run --script scripts/guard.py BEFORE.md AFTER.md        # or: guard.py FILE --against <git ref>
@@ -228,13 +249,13 @@ values and changed relationships that keep every marker. For a short pasted pass
 against `claim-ladders.md` is sufficient. Tell the authors what the guard found in its report's plain words
 ("no number, citation or claim strength changed"), not as an exit code, a "protected change" or a rung.
 
-### 5.4 Change rate
+### 5.5 Change rate
 
 The guard reports the share of words changed. Its 25% and 50% thresholds are review heuristics, not
 scientific boundaries or mandatory approval points. Judge scope by whether the edit changes meaning and
 matches the request, especially for short passages where a small fix can change most of the words.
 
-### 5.5 Reading checks
+### 5.6 Reading checks
 
 - Read the passage aloud, or as a reviewer would: does each sentence say something the reader needs?
 - Does every claim still point to its evidence (a number, a table, a citation)?

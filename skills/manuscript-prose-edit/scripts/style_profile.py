@@ -10,14 +10,28 @@ starts where it matters, and profiles style: sentence-length spread, connective 
 diversity, LLM-vocabulary and em-dash rates, anchors (numbers and citations) per paragraph. Given a sample
 of the authors' own writing, it reports which measures depart from that baseline.
 
+The check every edit and every report must pass (`--check`) adds two verdicts and a reading list. With
+`--before`, it names each pattern the edit added that the original did not have. It names each pattern used
+three or more times under one heading (only the headings the edit changed, when `--before` is given): one
+use can stand, a run of them is the habit a reader notices. And it prints every entry of the catalogue in
+one line, because the counts find only the patterns that have a regular expression: the editor reads the
+text against that list and finds the rest by reading. `--report` checks a report to the authors instead
+of a manuscript: quoted manuscript text is skipped, and "you" and questions are expected there.
+
     uv run --script style_profile.py PAPER.md
     uv run --script style_profile.py PAPER.tex --sample earlier_paper.md --sample thesis_ch2.md --top 15
     uv run --script style_profile.py PAPER.md --json profile.json
+    uv run --script style_profile.py EDITED.md --before ORIGINAL.md --check [--keep C1]
+    uv run --script style_profile.py REPORT.md --report --check
+
+Exit codes: 0 when the check passed or was not asked for, 1 while `--check` finds an added pattern or a
+cluster that `--keep` does not name, 2 for a usage error.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import re
@@ -33,7 +47,14 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 HERE = Path(__file__).resolve().parent
 PATTERNS_YAML = HERE.parent / "references" / "smell-patterns.yaml"
+CATALOGUE_MD = HERE.parent / "references" / "llm-smells.md"
 KOBAK_CSV = HERE.parents[1] / "manuscript-integrity-check" / "references" / "kobak_2024_style_words.csv"
+
+# A report to the authors quotes the manuscript, addresses the authors and asks them questions.
+REPORT_SKIPPED = {"C7": "a report asks the authors questions", "G2": "a report addresses the authors"}
+QUOTED_SPAN = re.compile(r"“[^”]*”|\"[^\"\n]*\"|`[^`\n]*`")
+BLOCKQUOTE = re.compile(r"^[ \t]*>.*$", re.MULTILINE)
+CLUSTER = 3
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 LATEX_COMMENT = re.compile(r"(?<!\\)%.*$", re.MULTILINE)
@@ -84,12 +105,22 @@ def load_kobak() -> set[str]:
         return {row["word"] for row in csv.DictReader(fh) if float(row["r"]) >= 2.0}
 
 
-def clean(text: str, latex: bool) -> str:
-    """Prose a reader sees, with line breaks kept so paragraph line numbers stay right."""
+def clean(text: str, latex: bool, report: bool = False) -> str:
+    """Prose a reader sees, with line breaks kept so paragraph line numbers stay right.
+
+    In a report, quotations, block quotes and code are the manuscript's words, not the report's: a quotation
+    becomes as many neutral words, so a quoted "Moreover" is not counted against the report while the
+    sentence quoting it keeps its length."""
     def blank(m: re.Match[str]) -> str:
         return "\n" * m.group(0).count("\n")
 
+    def neutral(m: re.Match[str]) -> str:
+        return "“" + " ".join(["q"] * max(len(WORD.findall(m.group(0))), 1)) + "”" + blank(m)
+
     text = HTML_COMMENT.sub(blank, text)
+    if report:
+        text = BLOCKQUOTE.sub("", text)
+        text = QUOTED_SPAN.sub(neutral, text)
     if latex:
         text = LATEX_COMMENT.sub("", text)
         text = LATEX_ENV_SKIP.sub(blank, text)
@@ -208,8 +239,11 @@ def mtld(words: list[str], threshold: float = 0.72) -> Optional[float]:
     return round((one_pass(words) + one_pass(words[::-1])) / 2, 1)
 
 
-def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], kobak: set[str]) -> dict[str, Any]:
-    cleaned = clean(text, latex)
+def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], kobak: set[str],
+                 report: bool = False) -> dict[str, Any]:
+    if report:
+        smells = {sid: s for sid, s in smells.items() if sid not in REPORT_SKIPPED}
+    cleaned = clean(text, latex, report)
     paras = paragraphs(cleaned)
     heads = headings(cleaned)
     all_sentences: list[str] = []
@@ -241,7 +275,7 @@ def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], koba
         para_reports.append({"line": line, "section": section_at(heads, line), "words": n_words,
                              "sentences": len(sents), "hits": hits,
                              "smells_per_100_words": round(100 * n_hits / n_words, 2), "anchors": anchors,
-                             "text": para[:160]})
+                             "text": para[:160], "digest": hashlib.sha1(para.encode("utf-8")).hexdigest()[:12]})
     words = [w.lower() for _, p in paras for w in WORD.findall(p)]
     n = max(len(words), 1)
     lengths = [len(WORD.findall(s)) for s in all_sentences]
@@ -299,6 +333,104 @@ def compare(doc: dict[str, Any], sample: dict[str, Any], factor: float = 1.5) ->
             departs = ((direction in ("higher", "either") and ratio >= factor)
                        or (direction in ("lower", "either") and ratio <= 1 / factor))
         out.append({"measure": key, "manuscript": a, "authors": b, "ratio": ratio, "departs": departs})
+    return out
+
+
+def _norm(s: str) -> str:
+    return " ".join(s.lower().split())
+
+
+def _hit_keys(doc: dict[str, Any]) -> Counter[tuple[str, str]]:
+    """Each hit as (pattern, matched words); a chain of short sentences (C16) counts once per heading."""
+    keys: Counter[tuple[str, str]] = Counter()
+    for p in doc["paragraphs"]:
+        for sid, found in p["hits"].items():
+            if sid == "C16":
+                keys[(sid, p["section"])] += 1
+            else:
+                keys.update((sid, _norm(h)) for h in found)
+    return keys
+
+
+def added_hits(before: dict[str, Any], after: dict[str, Any]) -> list[dict[str, Any]]:
+    """Hits the edit introduced: found in the edited text more often than in the original.
+
+    Matching is by the matched words, so a sentence moved or left alone is not reported, and a pattern kept
+    while its sentence was rewritten around it is not reported either."""
+    extra = _hit_keys(after) - _hit_keys(before)
+    out: list[dict[str, Any]] = []
+    for p in after["paragraphs"]:
+        for sid, found in p["hits"].items():
+            for h in (found[:1] if sid == "C16" else found):
+                key = (sid, p["section"]) if sid == "C16" else (sid, _norm(h))
+                if extra[key] > 0:
+                    extra[key] -= 1
+                    out.append({"id": sid, "text": h, "line": p["line"], "section": p["section"]})
+    return out
+
+
+def changed_sections(before: dict[str, Any], after: dict[str, Any]) -> set[str]:
+    """Headings whose paragraphs differ between the two versions; a renamed heading counts as changed."""
+    def by_section(doc: dict[str, Any]) -> dict[str, Counter[str]]:
+        out: dict[str, Counter[str]] = {}
+        for p in doc["paragraphs"]:
+            out.setdefault(p["section"], Counter())[p["digest"]] += 1
+        return out
+
+    b, a = by_section(before), by_section(after)
+    return {s for s in a if b.get(s) != a[s]}
+
+
+def clusters(doc: dict[str, Any], sections: Optional[set[str]], threshold: int = CLUSTER) -> list[dict[str, Any]]:
+    """A pattern used `threshold` or more times under one heading: once can stand, a run of them is a habit."""
+    found: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for p in doc["paragraphs"]:
+        if sections is not None and p["section"] not in sections:
+            continue
+        for sid, hits in p["hits"].items():
+            uses = hits[:1] if sid == "C16" else hits
+            found.setdefault((p["section"], sid), []).extend({"text": h, "line": p["line"]} for h in uses)
+    return [{"id": sid, "section": section, "count": len(uses), "uses": uses}
+            for (section, sid), uses in found.items() if len(uses) >= threshold]
+
+
+def run_check(after: dict[str, Any], before: Optional[dict[str, Any]], keep: set[str],
+              threshold: int = CLUSTER) -> dict[str, Any]:
+    """The verdict `--check` gates on: what the edit added, and clusters under the headings it touched."""
+    sections = changed_sections(before, after) if before is not None else None
+    added = added_hits(before, after) if before is not None else []
+    found = clusters(after, sections, threshold)
+    return {"added": added, "clusters": found, "kept": sorted(keep), "threshold": threshold,
+            "sections_checked": None if sections is None else sorted(sections),
+            "passed": all(x["id"] in keep for x in added + found)}
+
+
+def catalogue_entries(path: Path = CATALOGUE_MD) -> list[dict[str, str]]:
+    """Every lettered entry of the catalogue: its group, ID, name and what to watch for, in one line each.
+
+    The "Watch for" paragraph when the entry has one, else its first paragraph, so the reading list always
+    says what the entry is about and is regenerated from the catalogue rather than kept by hand."""
+    text = path.read_text(encoding="utf-8")
+    out: list[dict[str, str]] = []
+    group = ""
+    for block in re.split(r"^(?=#{2,3} )", text, flags=re.MULTILINE):
+        head = block.splitlines()[0] if block.strip() else ""
+        g = re.match(r"^## ([A-K])\. (.+)$", head)
+        if g:
+            group = f"{g.group(1)}. {g.group(2).strip()}"
+            continue
+        if head.startswith("## "):
+            group = ""
+            continue
+        e = re.match(r"^### ([A-K]\d+)\. (.+)$", head)
+        if not e or not group:
+            continue
+        body = block[len(head):]
+        watch = re.search(r"\*\*Watch for:\*\*\s*(.+?)(?:\n\s*\n|\n\*\*)", body, re.DOTALL)
+        paras = [x for x in re.split(r"\n\s*\n", body) if x.strip()]
+        line = " ".join((watch.group(1) if watch else (paras[0] if paras else "")).split())
+        out.append({"group": group, "id": e.group(1), "name": e.group(2).strip(),
+                    "watch": line if len(line) <= 400 else line[:399].rsplit(" ", 1)[0] + "…"})
     return out
 
 
@@ -389,6 +521,69 @@ def to_markdown(path: str, doc: dict[str, Any], smells: dict[str, dict[str, Any]
     return "\n".join(out) + "\n"
 
 
+def _quoted(uses: list[dict[str, Any]], limit: int = 4) -> str:
+    """The distinct matched words, each once, with how often a repeated one occurs."""
+    counts = Counter(u["text"] for u in uses)
+    shown = [f"“{t}”" + (f" ({_times(n)})" if n > 1 else "") for t, n in counts.most_common()]
+    rest = len(shown) - limit
+    return _listed(shown[:limit] + ([_count(rest, "other", "others")] if rest > 0 else []))
+
+
+def check_markdown(result: dict[str, Any], smells: dict[str, dict[str, Any]], compared: bool,
+                   report: bool = False) -> str:
+    """The verdict in sentences: what to fix before the text or the report is handed over.
+
+    A pattern kept in a manuscript is named to the authors; in a report, the report is what they read."""
+    keep = set(result["kept"])
+    scope = "under the headings the edit changed" if compared else "under any heading"
+    tell = "" if report else ", and tell the authors which sentence and why"
+    out = ["", "## Before handing the text over", ""]
+    if not result["added"] and not result["clusters"]:
+        added = "The edit added no pattern the original did not have, and no" if compared else "No"
+        out.append(f"{added} pattern is used {result['threshold']} or more times {scope}. Still read the text "
+                   "against the list below: the counts find only some of the patterns.")
+    for h in result["added"]:
+        name = _pattern(h["id"], smells)
+        what = (f"kept after review{tell}" if h["id"] in keep else
+                f"rewrite it, or keep it only if its entry says to leave it{tell}")
+        out.append(f"- The edit added {name} ({h['id']}): “{h['text']}”, in "
+                   f"{place(h['section'], 'line ' + str(h['line']))}. It was not in the original; {what}.")
+    for c in result["clusters"]:
+        name = _pattern(c["id"], smells)
+        lines = sorted({u["line"] for u in c["uses"]})
+        span = f"line {lines[0]}" if len(lines) == 1 else f"lines {lines[0]} to {lines[-1]}"
+        what = (f"Kept after review{tell}." if c["id"] in keep else
+                "One use can stand where the reader needs it; a run of them is the habit a reader notices. "
+                "Rewrite the ones that do not carry the argument, then check again.")
+        out.append(f"- {name[:1].upper()}{name[1:]} ({c['id']}) is used {c['count']} times in "
+                   f"{place(c['section'], span)}: {_quoted(c['uses'])}. {what}")
+    if result["added"] or result["clusters"]:
+        out += ["", "Passed." if result["passed"] else
+                "Not passed: the text is not ready to hand over until each item above is rewritten or kept on "
+                f"purpose{'' if report else ' and named to the authors'}."]
+    return "\n".join(out) + "\n"
+
+
+def reading_list(entries: list[dict[str, str]], smells: dict[str, dict[str, Any]], report: bool) -> str:
+    """Every catalogue entry in one line, to read the text against: the patterns no count can find."""
+    out = ["", "## Read the text against every pattern", "",
+           "The counts above find only the patterns marked “counted”, and only in the wordings they know. Read "
+           "the edited text against each line below, find the rest by reading, and fix what you find. Before "
+           "changing a sentence, read that entry's “Leave it when” in the editor's catalogue; a sentence that "
+           "still says something specific can stay."]
+    if report:
+        out += ["", "This is a report to the authors: addressing them as “you” and asking them questions is expected, "
+                    "and the manuscript's words inside quotation marks are not the report's."]
+    group = ""
+    for e in entries:
+        if e["group"] != group:
+            group = e["group"]
+            out += ["", f"### {group}", ""]
+        counted = ", counted" if e["id"] in smells else ""
+        out.append(f"- {e['name']} ({e['id']}{counted}): {e['watch']}")
+    return "\n".join(out) + "\n"
+
+
 @app.command()
 def main(
     path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, readable=True)],
@@ -398,9 +593,30 @@ def main(
     factor: Annotated[float, typer.Option(help="Ratio to the authors' baseline that counts as a departure")] = 1.5,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full profile as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here")] = None,
+    before: Annotated[Optional[Path], typer.Option(exists=True, dir_okay=False, readable=True,
+                                                   help="The text before the edit: report the patterns the edit "
+                                                        "added, and judge clusters only under the headings it "
+                                                        "changed")] = None,
+    check: Annotated[bool, typer.Option("--check", help="Exit 1 while the edit added a pattern or one pattern is "
+                                                        "used --cluster times under a heading; print every "
+                                                        "catalogue entry to read the text against")] = False,
+    keep: Annotated[Optional[list[str]], typer.Option(help="A pattern ID reviewed and kept on purpose "
+                                                           "(repeatable); name the sentences to the authors")] = None,
+    cluster: Annotated[int, typer.Option(min=2, help="Uses of one pattern under one heading that make a "
+                                                     "cluster")] = CLUSTER,
+    report: Annotated[bool, typer.Option("--report", help="Check a report to the authors: skip quoted text, "
+                                                          "and expect 'you' and questions")] = False,
 ) -> None:
     smells, kobak = load_smells(), load_kobak()
-    doc = profile_text(path.read_text(encoding="utf-8"), path.suffix == ".tex", smells, kobak)
+    latex = path.suffix == ".tex"
+    doc = profile_text(path.read_text(encoding="utf-8"), latex, smells, kobak, report)
+    if report:
+        smells = {sid: s for sid, s in smells.items() if sid not in REPORT_SKIPPED}
+    result = None
+    if check or before:
+        original = profile_text(before.read_text(encoding="utf-8"), latex, smells, kobak, report) if before else None
+        result = run_check(doc, original, {k.strip().upper() for k in keep or []}, cluster)
+        doc["check"] = result
     baseline = None
     if sample:
         joined = "\n\n".join(s.read_text(encoding="utf-8") for s in sample)
@@ -412,11 +628,17 @@ def main(
     if json_out:
         json_out.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
     md = to_markdown(str(path), doc, smells, top, baseline, factor)
+    if result is not None:
+        md += check_markdown(result, smells, before is not None, report)
+    if check:
+        md += reading_list(catalogue_entries(), smells, report)
     if md_out:
         md_out.write_text(md, encoding="utf-8")
         typer.echo(f"Wrote the report to {md_out}.")
     else:
         typer.echo(md)
+    if check and result is not None and not result["passed"]:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

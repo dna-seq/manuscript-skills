@@ -24,10 +24,12 @@ before/after comparison and pause at those boundaries; otherwise finish all sect
 style_profile.py SECTION                      → ranked smells (and optional detector notes, below)
 round 1:  writer(section, smells)             → draft-1 + change table
           guard.py SECTION draft-1            → revert protected changes the authors did not ask for
+          style_profile.py draft-1 --before SECTION --check → fix added patterns and clusters
           critic A (new subagent)(draft-1)    → findings; the orchestrator accepts or rejects each
           no accepted finding → stop
 round 2:  writer(draft-1, accepted findings)  → draft-2 + change table
           guard.py SECTION draft-2
+          style_profile.py draft-2 --before SECTION --check
           critic B (new subagent)(draft-2)    → findings; accepted ones go to the authors, not to a round 3
 stop
 ```
@@ -128,7 +130,9 @@ Section:
    concrete problem the contract lets the writer fix; reject it when the catalogue entry's "Leave it when"
    applies, when it is a field convention, or when fixing it would change a claim (send that to the authors).
 3. After each writer pass, run `guard.py SECTION DRAFT` against the original section. Revert every protected
-   change the authors did not ask for, and read every warning yourself.
+   change the authors did not ask for, and read every warning yourself. Then run the smell check
+   (`style_profile.py DRAFT --before SECTION --check`, contract §5.3) and fix what it lists before the critic
+   reads the draft; give each critic the check's reading list along with the text.
 4. Merge the change tables into one summary for the authors: the changes grouped by what they are, in plain
    words with the finding IDs in parentheses (as under "Traceability" above), then the flagged sentences,
    each quoted with its section and ordered by when the authors can act, claim questions first under "Fix
