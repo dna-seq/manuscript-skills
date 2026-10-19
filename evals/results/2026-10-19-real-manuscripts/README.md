@@ -28,3 +28,6 @@ Make Paper 1 citable first. Reconcile Paper 2's evaluation before posting it, th
 The final full offline suite passed **1,188 tests**. The independent retest passed 395 relevant tests and confirmed its six original findings were fixed. Both real run manifests passed final artifact validation; Paper 1 remains explicitly partial. A successful manifest check establishes file delivery/coverage consistency, not scientific correctness or that an excerpt actually appeared in chat.
 
 After that full-suite run, global-settings help wording and same-project source-revision guidance were clarified; the 54 project/settings tests were rerun. No validation logic changed in that final documentation clarification. No fresh full reference audit, formal referee panel, new biological experiment, manuscript rewrite, submission or external document update is represented by these smoke runs.
+
+Final package validation found and repaired five pre-existing discovery-description issues, then passed
+all 13 skills. The [initial failures and correction](../2026-10-19-package-validation.md) are retained.

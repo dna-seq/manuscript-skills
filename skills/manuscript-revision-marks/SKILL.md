@@ -1,16 +1,12 @@
 ---
 name: manuscript-revision-marks
 description: >-
-  Keep and use revision marks inside a Markdown or LaTeX manuscript: which passages were rewritten, in
-  how many rounds and by whom (`<!-- @rev ID rounds=N by=name:date -->` or `% @rev` comment lines),
-  the clean copy without them that reviews and builds read, the blind spots no round has touched,
-  the passages an AI or agent wrote that no person has reviewed since, and a heat map of the revision. Use when a manuscript already carries @rev marks, when the authors ask to
-  record who revised what (accountability or traceability of AI-assisted edits), to lint, strip, bump
-  or report marks, to list the prose nobody has reviewed, or to see which AI edits still await a
-  person. Also builds the PDF from the clean copy (Markdown or LaTeX, pandoc and tectonic) and measures
-  it against a page cap. Use manuscript-mark-people to build the project's list of people. Use manuscript-reviewer-response for the
-  review ledger and the response letter (a mark can carry a ledger item's id), manuscript-prose-edit for
-  the edits themselves, and manuscript-integrity-check before upload.
+  Maintain revision marks in Markdown and LaTeX manuscripts: which passages were rewritten, how
+  often, by whom, and which AI edits still await human review. Use when marks already exist or the
+  authors request traceability, linting, clean reading copies, revision reports, blind spots or a
+  heat map. Build PDFs from clean copies and measure page limits. Marks are opt-in and do not
+  establish what kind of AI use occurred. Use manuscript-mark-people to identify confirmed human
+  reviewers and manuscript-reviewer-response for the response-letter ledger.
 ---
 
 # Revision marks: who revised what, and what nobody has read

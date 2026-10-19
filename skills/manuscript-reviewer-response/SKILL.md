@@ -1,17 +1,13 @@
 ---
 name: manuscript-reviewer-response
 description: >-
-  Answer real referees and editors, and check that a revision answers them. Plan a revision from a
-  decision letter (split the comments into items in the referees' own numbering, record what each asks
-  for and the authors' decision on each, and weigh revising against submitting elsewhere), draft a
-  point-by-point journal response letter that maps every reply to a location in the revised manuscript
-  across review rounds, or a one-shot conference rebuttal, and verify before sending that the revised
-  manuscript addresses each comment. Use when a decision letter, referee reports or a draft response
-  letter are supplied. Use manuscript-peer-review for a simulated review before submission,
-  manuscript-policy-fit for replies to ethics, consent, clinical-scope or privacy comments,
-  manuscript-reference-check for new citations, manuscript-reporting-check for requested checklists,
-  manuscript-prose-edit for language edits, manuscript-journal-adapt for formatting the revision, and
-  manuscript-journal-select when deciding whether to submit elsewhere.
+  Plan and verify a revision from real referee reports and editorial decisions. Preserve referee
+  numbering, separate requested changes and author decisions, draft point-by-point replies tied to
+  manuscript locations, and check that the revised paper actually addresses each response. Use for
+  journal response letters, revision verification, multiple review rounds, one-shot conference
+  rebuttals, or deciding between revision and submission elsewhere. Use manuscript-peer-review for
+  simulated reports before submission and the focused reference/reporting skills for evidence
+  checks.
 ---
 
 # Respond to referees and verify the revision

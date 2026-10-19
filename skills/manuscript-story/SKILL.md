@@ -1,19 +1,14 @@
 ---
 name: manuscript-story
 description: >-
-  Make a manuscript interesting to its readers again without changing its science, its fit to the
-  journal or the direction the authors chose. Reads the paper as its readers do (a panel of fresh
-  readers and reading measures compared across versions), compares its story with the closest papers
-  and with well-told papers of the same format, then edits the story: a stake in the first sentences,
-  one headline per result, a worked example of real output, caveats kept but placed where they cost the
-  reader least, an ending on what the reader can do. Every story edit passes the science guard, the
-  target journal's format and screening checks, and the AI-writing check before it is handed over.
-  Changing the paper's direction (which theme leads: privacy, a biological question, openness, speed)
-  is only ever proposed, as options for the authors. Use for "the paper is boring", "how does it read",
-  "make it more engaging", "tell a better story", "reader's perspective", "hook", "narrative", "what
-  would a reader remember", "compare our story with X's paper", "make it more about privacy". Use
-  manuscript-prose-edit for copy editing, manuscript-peer-review for referee critique,
-  manuscript-journal-adapt for venue formatting and manuscript-reference-check for citations.
+  Make a manuscript more engaging while preserving its science, journal fit and the authors' chosen
+  direction. Use when the paper is boring, harder to read after revisions, needs stronger
+  storytelling, or should be compared with an earlier version. Run fresh skimmer, potential-user and
+  informed-outsider readers; compare reading measures and relevant neighboring papers; edit
+  openings, result headlines, real worked examples, caveat placement and the ending. Show
+  consequential before/after passages and retain the readers' actual reports and disagreements.
+  Propose changes of theme or audience as author decisions. Use manuscript-prose-edit for language-
+  only editing and manuscript-peer-review for scientific referee simulation.
 ---
 
 # Tell the paper's story to its readers

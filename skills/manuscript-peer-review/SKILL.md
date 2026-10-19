@@ -1,19 +1,13 @@
 ---
 name: manuscript-peer-review
 description: >-
-  Simulate the referee reports a real journal would send back on the authors' own draft ("Reviewer 2"),
-  then turn them into what to fix. Three referees review for the target journal (or each of the top
-  three journals on the authors' ladder) and each writes a report as referees do: a recommendation
-  (accept, minor revision, major revision or reject), a summary, strengths, major and minor concerns.
-  Every concern quotes the manuscript and survives a defence pass before it is reported; the concerns
-  are then merged into the authors' list of what to fix, in the order they can act on it. Also drafts a
-  referee report when the user is reviewing someone else's paper. Use for
-  pre-submission red-teaming, simulated or "Reviewer 2" reviews, and desk-editor or methods-reviewer
-  passes. Use manuscript-integrity-check for checkable submission problems (references, leftovers,
-  declarations, venue rules, numbers), manuscript-reference-check for citations,
-  manuscript-reporting-check for reporting guidelines and availability statements,
-  manuscript-reviewer-response once real referee reports arrive, and manuscript-policy-fit for ethics,
-  privacy and clinical-scope questions.
+  Simulate journal referee reports on an author's draft, with independent referees, manuscript
+  quotations, a defence pass and an ordered revision list. Use for pre-submission red-teaming,
+  Reviewer 2, desk-editor or methods-reviewer passes, or drafting a report when the user is an
+  invited referee. The full panel has three referees plus a defender; a requested quick pass uses
+  two seats. Keep simulated reports separate from real editorial reviews. Use manuscript-reviewer-
+  response for responding to real referees and manuscript-integrity-check for mechanical submission
+  checks.
 ---
 
 # Simulated peer review

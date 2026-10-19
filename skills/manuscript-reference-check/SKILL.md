@@ -1,17 +1,12 @@
 ---
 name: manuscript-reference-check
 description: >-
-  Verify a manuscript's citations and reference list: that each entry is the work it names (identifier,
-  title and authors), whether it was retracted, withdrawn or has an expression of concern, whether a cited
-  preprint has since been published, whether in-text citations and the bibliography agree, and whether each
-  cited source actually says what the sentence claims (confirmed, partial, rejected or blocked, with the
-  supporting passage quoted). Use for reference checks, citation fact-checking, claim-to-source verification
-  and bibliography repair, including data and software citations in the reference list. Use
-  manuscript-integrity-check for a full submission audit (it calls this skill for references),
-  manuscript-peer-review for a simulated referee panel (it sends "missing prior work" claims here to verify),
-  manuscript-reviewer-response for answering referees (citations added in a revision are verified here),
-  manuscript-reporting-check for accessions, DOIs and links in availability statements and Methods, and
-  manuscript-prose-edit for language editing.
+  Verify citation identity and metadata, retractions or expressions of concern, publication of cited
+  preprints, agreement between in-text citations and the bibliography, and whether a source supports
+  its citing claim. Return confirmed, partial, rejected or blocked support with the supporting
+  passage. Use for reference checks, citation fact-checking, claim-to-source verification and
+  bibliography repair, including data and software citations. Use manuscript-reporting-check for
+  availability/reporting guidelines and manuscript-peer-review for scientific referee judgement.
 ---
 
 # Verify references and their support for claims
