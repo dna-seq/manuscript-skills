@@ -1,9 +1,10 @@
 # Manuscript Skills
 
 Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of eleven focused skills: review a manuscript
+`manuscript-improve` for the full workflow, or choose one of twelve focused skills: review a manuscript
 before submission, check its references, reporting and statistics, clarify which ethics and privacy
-rules apply, simulate the referees of a target journal, improve the prose, choose where to preprint and
+rules apply, simulate the referees of a target journal, improve the prose, make the paper interesting to
+its readers again without changing its science or direction, choose where to preprint and
 submit, prepare for a journal, answer referees after a decision, or keep track of who revised each
 passage and which AI edits no person has reviewed yet. They work with manuscripts written with or
 without AI assistance.
@@ -19,6 +20,7 @@ requirements.
 |---|---|---|
 | Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
+| Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
 | Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A report of unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and applicable submission requirements, with suggested fixes, grouped by when each can be done. |
@@ -88,7 +90,9 @@ A useful sequence is:
    publication budget into two ladders by your priorities, and adapt what every venue on them shares.
    Use your existing target if you have already chosen one.
 3. **Revise the paper.** Correct supported problems and improve the prose while preserving the results
-   and their qualifications. Identify substantive claim changes separately from language edits.
+   and their qualifications. Identify substantive claim changes separately from language edits. Then
+   check how the revised paper reads to its readers, against the version you started from, and repair
+   the story within the direction you chose.
 4. **Prepare for the chosen journal.** Apply its length, structure and section requirements and draft the
    required statements and submission materials.
 5. **Check the changes.** Verify affected citations, claims and submission requirements, and report any
@@ -137,6 +141,12 @@ For a prose edit:
 
 > Edit the Discussion for clarity and readability. Preserve the claims, numbers, citations and
 > uncertainty, and keep our voice. Show me what changed.
+
+For the story:
+
+> Our paper got boring after two rounds of referee comments. Compare it with the first draft from a
+> reader's point of view, then make it interesting again without dropping any caveat the referees made
+> us add. Keep the privacy angle; if another angle would read better, give us options.
 
 For references:
 
@@ -256,7 +266,7 @@ hosted detector requires your agreement before the manuscript is sent to that se
 
 ## Installation
 
-Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all twelve skills.
+Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all thirteen skills.
 
 In **Codex**, install it from the **DNA Seq Genomics** marketplace.
 

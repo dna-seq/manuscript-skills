@@ -71,6 +71,13 @@ claims:                              # load-bearing claims; edits must not stren
 non_claims:                          # what the paper explicitly does not claim
   - "No clinical or diagnostic utility is claimed."
 
+story:                               # set by manuscript-story from the authors' words; skills never change it alone
+  direction: "Privacy: people can read their own genome without uploading it"   # the lead theme
+  themes: [privacy, openness, speed] # every theme the paper carries, lead first
+  readers: ["bioinformaticians who might run or extend the tool", "biologists curious about their own genome"]
+  remember: "A whole genome annotated on your own computer in about half a minute."   # what readers should keep
+  confirmed: 2026-10-19              # absent: a draft, which licenses no change
+
 terminology:
   preferred: {"polygenic score": ["PRS", "polygenic risk score"]}
 

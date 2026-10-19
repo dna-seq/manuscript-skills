@@ -59,7 +59,7 @@ COSTS = ("text", "reanalysis", "new-data", "unknown")
 STAGE_KEYS = ("now", "writing", "journal", "final")  # the optional `stage` an adjudicator may set
 HAND_TO = ("manuscript-prose-edit", "manuscript-reference-check", "manuscript-reporting-check",
            "manuscript-integrity-check", "manuscript-policy-fit", "manuscript-journal-adapt",
-           "manuscript-journal-select")
+           "manuscript-journal-select", "manuscript-story")
 PRIOR_STATUS = ("verified", "unverified")
 RECOMMENDATIONS = ("accept", "minor-revision", "major-revision", "reject")
 RECOMMENDATION_WORDS = {"accept": "accept", "minor-revision": "minor revision", "major-revision": "major revision",

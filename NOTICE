@@ -72,6 +72,22 @@ regressions versus previously missed issues) and from projects without a licence
 (TobiasLee/Rebuttal-Skill: decide-first revision planning; HeartWise-AI/ai-writing-skills: the
 negative-space test).
 
+skills/manuscript-story (added October 2026) and the readers-first rules it brought into the other skills
+restate, in our own words, rules and tests from the projects below. No code or text was copied.
+
+- ipeirotis/blue-pencil (MIT): sorting each hedge as a doubt about the central claim, a scope condition
+  or filler, and moving rather than deleting it; claims in the Abstract and Introduction without inline
+  caveat clauses; a running example the editor may not invent.
+- Yuan1z0825/nature-skills (Apache-2.0): a deletion check across the paragraph for every requested
+  addition, and the question whether a sentence tells the reader what was found or tells a referee why
+  an objection does not overturn it.
+- Boom5426/Nature-Paper-Skills (MIT), its anti-defensive-writing skill, and Kiterlin/anti-defensive-writing
+  (MIT): that defensive text is mostly added during editing, not drafting.
+- Rimagination/good-story (MIT): the one-sentence, gap, memory and autobiography tests.
+
+Ideas only come from anthropics/skills (doc-coauthoring, licence not stated: testing a document with a
+reader who has no context) and borgr/paper-sharpener (no licence: readers scan for tension).
+
 Reporting-guideline items in skills/manuscript-reporting-check/references/guidelines.yaml are
 paraphrases with the official item numbers. Each entry records its source and licence; checklists that
 are non-commercial or not openly licensed (for example CARE) are not reproduced.

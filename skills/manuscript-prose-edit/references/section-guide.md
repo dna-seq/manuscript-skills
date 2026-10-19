@@ -34,13 +34,15 @@ the results do not support; within the word limit.
 
 ## Introduction
 
-**Needs:** what is known (cited to specific work), what is missing, why it matters for this field, what
-this paper does. Usually 3 to 6 paragraphs.
+**Needs:** the stake first (why the paper's readers should care, in terms of the authors' chosen
+direction), then what is known (cited to specific work), what is missing, what this paper does. Name the
+closest existing work and what it does not do. Usually 3 to 6 paragraphs.
 **Reads as AI:** textbook padding [A10]; vague authorities and citation bundles [A6]; "has garnered
 significant attention" [A2]; a closing list of contributions in bullets [D2] (acceptable once in ML venues);
 the contributions repeated later word for word [D5].
-**Fix:** start from the gap; cite the closest prior work, including what it already does; state the aim as
-the authors' choice ("We wanted …", "We asked whether …").
+**Fix:** start from the stake or the gap, not the field's history; cite the closest prior work, including
+what it already does; state the aim as the authors' choice ("We wanted …", "We asked whether …"). Where
+the story needs more than a fix of wording, `manuscript-story` owns it.
 
 ## Related work (where the venue has the section)
 
@@ -60,8 +62,10 @@ of the filters [B11]; signposting [C4]; hidden decisions ("it was decided") [C10
 
 ## Results
 
-**Needs:** each result with its number, unit, uncertainty and the figure or table; past tense; ordered by
-the argument, not by the order of the analyses.
+**Needs:** each result opening with its finding in plain words, then its number, unit, uncertainty and the
+figure or table; past tense; ordered by the argument, not by the order of the analyses. For a tool, show
+what a user gets (a real output). The run history, every version tried and the defence of design choices
+go in Methods, the supplement or the response letter.
 **Reads as AI:** describing the figure instead of the result [E5]; boosters and "significantly" without a
 test [B3, E3]; participle tails interpreting each result [A9]; mini-conclusions after each paragraph [A8].
 **Check:** percentages recompute from their counts (the scan does this for "x of y (z%)"); tests named; the
@@ -74,8 +78,8 @@ limitations that bear on the conclusions, each with its consequence; what would 
 **Reads as AI:** restating the results [D5]; implications without content [A3]; speculative mechanism
 filler [A11]; boilerplate limitations [A7]; symmetric strengths and weaknesses [D4]; a positive send-off
 [A3].
-**Fix:** organise by interpretive point; state the material limitations specifically; end on
-the main limit or the next concrete step.
+**Fix:** organise by interpretive point; state the material limitations specifically, each once, in
+Limitations; end on the next concrete step or the open question the work raises, not on a caveat.
 
 ## Limitations (as its own section)
 
@@ -86,7 +90,9 @@ to every study.
 
 ## Conclusion (where the venue has one)
 
-**Needs:** one or two sentences: the finding and its main condition.
+**Needs:** a few sentences: the finding and what a reader can do with it. A condition that changes the
+finding stays with it; the rest of the limits are already in Limitations and are not repeated here. Do
+not end the last sentence on a caveat: the end of a sentence is where the reader puts the emphasis.
 **Reads as AI:** a third repetition of the contributions [D5]; "In conclusion, this work represents a
 significant step towards…" [A1, A3, A8].
 
@@ -96,6 +102,8 @@ significant step towards…" [A1, A3, A8].
 abbreviations used in the panel.
 **Reads as AI:** "This figure illustrates…", "A comprehensive overview of…", interpretation in the caption
 that belongs in Results.
+**Fix:** say what the figure shows. A caption that explains at length what a figure does not mean, or
+apologises for it, is a sign the figure should be replaced or explained once in the text.
 
 ## Availability statements and declarations
 

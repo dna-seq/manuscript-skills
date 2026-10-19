@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript story"
+  short_description: "Make the paper interesting to its readers without changing its science or direction"
+  default_prompt: "Use $manuscript-story to read our manuscript as its readers would and compare it with our earlier version. Tell us where readers lose interest and why, quoting the passages, then edit the story within the direction we chose: keep every caveat but put it where it costs the reader least, and pass the science, journal and AI-writing checks. Give any change of the paper's direction only as options for us to choose from."

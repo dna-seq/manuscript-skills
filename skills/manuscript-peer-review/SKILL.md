@@ -263,8 +263,10 @@ file; with `both`, do both ([output-format.md](references/output-format.md#savin
 
 ## Hand-offs
 
-- Fixable-in-text concerns go to manuscript-prose-edit only when the authors authorise edits. Narrowing
-  a claim is the authors' decision.
+- Fixable-in-text concerns go to manuscript-prose-edit only when the authors authorise edits, each with
+  its placement, so the fix lands where it costs readers least. Narrowing a claim is the authors' decision.
+  A concern about how the paper reads (no stake, no example of output, caveats crowding the results) goes
+  to manuscript-story, which also offers a reader panel as the counterpart of these referees.
 - Author-required work stays with the authors. Never invent an analysis, result, number or citation to
   close a concern.
 - Venue routes go to manuscript-journal-adapt or manuscript-journal-select; policy routes to

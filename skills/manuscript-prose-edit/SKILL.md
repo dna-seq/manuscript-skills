@@ -72,8 +72,12 @@ wording, a scope qualifier, limiting or concessive word ("only", "albeit", "desp
 evidence-status word that disappeared, and a number, citation or identifier the sentence did not have. Exit 1
 marks a protected change: a count change, a stronger claim, a lost qualifier or a token new to its paragraph.
 Lowered claims and moved tokens are warnings. After an authorised claim correction, `--allow-strengthening`
-lists the claim changes as authorised instead of failing; numbers and citations still fail. The guard does not
-prove semantic equivalence. Resolve false positives yourself when meaning is unchanged and rerun only checks
+lists the claim changes as authorised instead of failing; numbers and citations still fail. With `--relocated`, a
+scope qualifier, limiting or concessive word, null result or evidence-status word that left its sentence is a
+warning instead of exit 1 when a new or changed sentence, in the edited text or a `--moved-to` file, holds the
+same marker; a caveat reworded on the way, or one that no such sentence holds, still exits 1, and so does any lost
+number, citation or identifier. Use it only when the edit moves caveats on purpose (manuscript-story does). The
+guard does not prove semantic equivalence. Resolve false positives yourself when meaning is unchanged and rerun only checks
 affected by the edit. Revision markers
 (`<!-- @rev ... -->`) stay where they are and are added or updated only as the project's written rules say
 ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review));

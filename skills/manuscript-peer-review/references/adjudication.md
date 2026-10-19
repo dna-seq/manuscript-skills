@@ -122,6 +122,13 @@ Each confirmed or downgraded finding gets one route:
 | `policy` | Ethics, consent, privacy, clinical scope | manuscript-policy-fit |
 | `dropped` | Failed the gate, the fairness filter or the defence | nobody; `drop_reason` says why |
 
+A `fixable-in-text` finding also gets a `placement`: where the fix costs the paper's readers least
+([readers first, referees second](../../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second)).
+A doubt about a central claim goes `with-claim`, said once with its number; a scope condition goes in
+`limitations` or `methods`; detail that only answers a referee's objection goes in the `supplement` or
+the `response-letter`. Never place evidence that would change a reader's conclusion outside the main text.
+A referee asked for it is not a reason to put it in the Abstract, the Introduction or a results sentence.
+
 Use `hand_to` for the skill when it is not obvious, for example manuscript-reporting-check for a
 reporting-guideline gap or manuscript-reference-check for a citation that does not support its
 sentence. A confirmed finding in another check's remit (the table in SKILL.md: a number that disagrees,

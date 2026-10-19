@@ -89,6 +89,24 @@ own nouns. Then the evidence, then the location.
 - Quote revised text when it is short and settles the point: `The revised sentence reads: "..."`. The
   check confirms the quote occurs in the revised manuscript at the cited lines.
 
+### Where the change goes
+
+A referee is one reader; the change made for them is read by every reader after them
+([readers first, referees second](../../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second)).
+Put each change where it costs readers least, and say in the reply where it went:
+
+- A doubt about a central claim goes beside the claim, once, with its number.
+- A scope condition goes in Limitations or Methods.
+- An explanation only the referee needs (why a design choice is not a flaw, a rerun with every version)
+  goes in the supplement, or in the letter alone when the journal allows it; the reply says so ("We give
+  the full rerun in Supplementary S3 and summarise it in one sentence in Section 4.2").
+- Every addition to a paragraph is a reason to reread that paragraph for what it makes redundant; list
+  what was cut with the change.
+- Evidence that would change a reader's conclusion stays in the main text, whoever asked for it.
+
+When a revision adds several such changes, offer the authors a reading check with `manuscript-story`
+against the submitted version before the letter is final.
+
 ### Already in the paper
 
 Give the location first, and then make it easier to find: a careful referee missed it, so the next reader

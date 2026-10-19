@@ -249,7 +249,11 @@ yourself (a unit respelled, a citation reformatted), and flag actual content dec
 Warnings (a claim lowered, a qualifier added, a negation changed, a number moved within its paragraph) are
 changes the authors must see when they stand; list them with the edit. When the authors asked for a claim
 correction, rerun with `--allow-strengthening`: the claim changes are still listed, marked authorised, and
-numbers and citations still fail. A passing guard does not prove meaning stayed intact: it can miss swapped
+numbers and citations still fail. `--relocated` is for an edit that moves caveats on purpose, to the end of their result, the Limitations or the
+supplement: each lost marker must reappear, with the same key, in another inserted or changed sentence or in a
+`--moved-to` file, one occurrence per lost marker and never from a sentence that only swapped one marker of that
+kind for another, and a matched finding becomes a warning whose `relocated_to` names the section, line, file and
+sentence, so the authors still see where each caveat went. A passing guard does not prove meaning stayed intact: it can miss swapped
 values and changed relationships that keep every marker. For a short pasted passage, a direct comparison
 against `claim-ladders.md` is sufficient. Tell the authors what the guard found in its report's plain words
 ("no number, citation or claim strength changed"), not as an exit code, a "protected change" or a rung.

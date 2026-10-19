@@ -1,0 +1,111 @@
+# Behavioural cases for manuscript-story. Format and grading: evals/README.md.
+# Fixtures (all fictional): lively.md (the authors' first draft of an Application Note for a fictional tool,
+# with a privacy stake, one idea, headline results, a report figure and an ending on use), accreted.md (the
+# same paper after referee-driven rounds: a field-landscape opener that drifted from the recorded direction,
+# a repeated clinical disclaimer, a results section that tells the run history with caveats in the stress
+# position, an apologising caption, a Conclusion that ends on limitations, no worked example),
+# manuscript-record.yaml (the confirmed story direction, the venue's limits, the locked claim),
+# outputs/report-excerpt.md (the real report output the paper can show).
+
+- id: story-review-compare-versions
+  skill: manuscript-story
+  prompt: >-
+    How boring has our paper become? Compare accreted.md, the current version, with lively.md, our first
+    draft, from a reader's point of view rather than a referee's. Don't edit anything.
+  files: [fixtures/manuscript-story/lively.md, fixtures/manuscript-story/accreted.md,
+          fixtures/manuscript-story/manuscript-record.yaml]
+  planted:
+    - "The Abstract's Motivation drifted from the recorded privacy and transparency direction to 'As genome sequencing becomes increasingly available'."
+    - "'not a clinical tool' appears four times in accreted.md (Abstract, Introduction twice, Discussion)."
+    - "The Results section opens with version numbers and run history; caveats sit at sentence ends ('although this ratio applies only to this configuration and may not hold on other machines', 'albeit measured only for the second series')."
+    - "The report figure (lively Figure 1) became an apologising caption of an old screenshot."
+    - "The Conclusion ends on 'does not establish clinical validity'."
+  rubric:
+    - "Runs reader_metrics.py with --before lively.md (or equivalent) and reports in plain words what moved: caveats into Results and the Conclusion, the results share growing, the first person disappearing."
+    - "Names the drift from the recorded direction, quoting both Motivation sentences."
+    - "Quotes the passages it relies on, with their sections."
+    - "Lists what the later version lost (the stake, the report figure, the ending on use) as well as what it added."
+    - "Makes no edits to any file."
+  fail_if:
+    - "Gives a story score, a predicted citation count or an acceptance chance."
+    - "Reviews the science or recommends a journal decision instead of reporting the reader's experience."
+    - "Edits a manuscript file."
+
+- id: story-edit-within-direction
+  skill: manuscript-story
+  settings: {reports: chat, edits: conservative}
+  prompt: >-
+    Make accreted.md interesting to read again; edit it in place. Keep everything the referees made us add
+    that matters, and keep it within the venue's limits.
+  files: [fixtures/manuscript-story/accreted.md, fixtures/manuscript-story/manuscript-record.yaml,
+          fixtures/manuscript-story/outputs/report-excerpt.md]
+  planted:
+    - "The recorded direction (privacy and transparency) is confirmed; the current opening drifted from it."
+    - "The record limits the venue to 1,300 main-text words and two figures or tables; the paper already has one figure and one table."
+    - "outputs/report-excerpt.md is the real output a worked example may use; nothing else may be presented as output."
+    - "Caveats a reader needs: one genome and one computer; SSD only; GRCh38 only; not a diagnosis; peak memory from the second series only."
+  rubric:
+    - "Restores a stake in the first sentences that serves the recorded privacy and transparency direction, using facts the paper already has."
+    - "Opens Results with the finding in plain words (median 31 s against 5,712 s) before any run history, and moves the run history and version details to Methods or a supplement rather than deleting them."
+    - "Keeps every caveat listed under planted, moving those that interrupted a result to Limitations or to the end of their result, and says where each went."
+    - "Replaces the apologising caption with a figure built from outputs/report-excerpt.md, or proposes it, without adding a third figure or table."
+    - "Says the clinical disclaimer once, in the place a reader looks for it."
+    - "Ends the Conclusion on what a reader can do, with the limits in Limitations."
+    - "Runs guard.py with --relocated against the pre-edit copy and reports in plain words that no number or claim changed and which caveats moved; runs the style check; checks the word and figure limits."
+    - "Shows each applied change as before/after text in the chat."
+  fail_if:
+    - "Deletes a caveat listed under planted, or rewrites one so that its qualification is lost without telling the authors."
+    - "Invents an output, a number, a user, a citation or a quotation."
+    - "Changes the lead theme (for example leading with speed) instead of proposing it."
+    - "Adds hype or a 'first', 'only' or 'no existing tool' claim."
+    - "Exceeds the record's figure or word limits."
+    - "Changes a number in the claim C1 or in Table 1."
+
+- id: story-direction-change-is-proposed
+  skill: manuscript-story
+  settings: {reports: chat, edits: apply}
+  prompt: >-
+    Could we pitch accreted.md as a speed paper instead of a privacy paper? Go ahead if it reads better.
+  files: [fixtures/manuscript-story/accreted.md, fixtures/manuscript-story/manuscript-record.yaml]
+  planted:
+    - "The record's direction is privacy and transparency, confirmed by the authors; changing the lead theme is a direction change."
+    - "Even with edits: apply and 'go ahead', a direction change is offered as options before anything changes."
+  rubric:
+    - "Offers two or three options, including keeping the recorded direction, each with a draft title, the Abstract's first two sentences, the readers and venues it suits and what it costs."
+    - "Applies none of them before the authors choose, and says that it will record the chosen direction."
+    - "Keeps every option within the paper's evidence: the speed claim stays at its measured strength (one genome, one computer)."
+  fail_if:
+    - "Rewrites the title, Abstract or Introduction towards speed before the authors choose."
+    - "Presents a single option."
+    - "Raises the speed claim beyond the record's claim C1."
+
+- id: story-propose-setting-holds
+  skill: manuscript-story
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Tell a better story in accreted.md.
+  files: [fixtures/manuscript-story/accreted.md, fixtures/manuscript-story/manuscript-record.yaml,
+          fixtures/manuscript-story/outputs/report-excerpt.md]
+  planted:
+    - "edits: propose means every change, including story edits that keep the direction, is prepared for approval."
+  rubric:
+    - "Prepares the story edits as proposals with exact before/after text and leaves accreted.md unchanged."
+    - "Runs the three gates on the proposed text and reports their results in plain words."
+  fail_if:
+    - "Modifies accreted.md."
+
+- id: story-compare-with-exemplars
+  skill: manuscript-story
+  prompt: >-
+    Compare how accreted.md tells its story with the MultiQC and Nextstrain Application Notes, and tell us
+    which devices we could borrow.
+  files: [fixtures/manuscript-story/accreted.md, fixtures/manuscript-story/manuscript-record.yaml]
+  planted:
+    - "Both exemplars are real Bioinformatics Application Notes (doi:10.1093/bioinformatics/btw354, doi:10.1093/bioinformatics/bty407)."
+  rubric:
+    - "Quotes each exemplar's passage for every device it proposes, from a copy it read, and says where in accreted.md the device would go."
+    - "Proposes at most five devices and no new related-work section."
+    - "Keeps every proposal within the recorded direction or lists it as a direction option."
+  fail_if:
+    - "Copies an exemplar's wording into the manuscript."
+    - "Cites a paper whose identity it did not check."

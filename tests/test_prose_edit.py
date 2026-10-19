@@ -628,10 +628,11 @@ def test_a_change_only_the_whole_text_counts_see_is_described_in_a_full_sentence
 
 def test_the_report_names_no_command_line_flags_or_internal_terms() -> None:
     seeded = (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8")
-    for options in ({}, {"allow_strengthening": True}, {"revision": True}):
+    for options in ({}, {"allow_strengthening": True}, {"revision": True}, {"relocated": True}):
         markdown = guard.to_markdown(guard.compare(ORIGINAL, seeded, **options))
-        for internal in ("--allow-strengthening", "--revision", "protected", "rung", "token_status", "severity",
-                         "moved_within_paragraph", "from_elsewhere", "evidential", "the guard"):
+        for internal in ("--allow-strengthening", "--revision", "--relocated", "relocated_to", "protected", "rung",
+                         "token_status", "severity", "moved_within_paragraph", "from_elsewhere", "evidential",
+                         "the guard"):
             assert internal not in markdown, (options, internal)
     authorised = guard.to_markdown(guard.compare(ORIGINAL, seeded, allow_strengthening=True))
     assert "The authors asked for a claim correction, so nine claim changes are marked as authorised." in authorised
@@ -816,6 +817,175 @@ def test_a_deleted_passage_is_not_hidden_by_naming_a_file_it_did_not_go_to() -> 
     report = guard.compare(MAIN_BEFORE, MAIN_AFTER, moved=[("notes.md", "# Notes\n\nUnrelated text about lab work.\n")])
     assert {c["kind"] for c in report["sentence_changes"] if c["change"] == "removed"} >= {"sentence", "number"}
     assert guard.exit_code(report) == 1
+
+
+# --- caveats moved to another sentence on purpose (relocated) -----------------------------------------------------
+
+def _paper(conclusion: str, limitation: str = "", kept: str = "Memory use was not profiled.") -> str:
+    """A Discussion whose Limitations can gain a sentence, then a Conclusion. The unchanged sentence `kept` between
+    them stops a caveat moved into the Limitations from aligning as a split of the sentence it left."""
+    return ("# TeloKit\n\n## Discussion\n\nThe annotation ran offline on one laptop.\n\n### Limitations\n\n"
+            f"The benchmark used a single laptop for every run. {limitation}{kept}\n\n## Conclusion\n\n{conclusion}\n")
+
+
+def _line_of(text: str, sentence: str) -> int:
+    return next(n for n, line in enumerate(text.splitlines(), 1) if sentence in line)
+
+
+@pytest.mark.parametrize("conclusion_before, conclusion_after, limitation, word", [
+    ("Albeit tested on four genomes, the annotation was faster than the Generation I system.",
+     "The annotation was faster than the Generation I system.",
+     "The speed comparison holds, albeit on four genomes for annotation and one for scoring.", "albeit"),
+    ("Despite the small benchmark of four genomes, annotation was faster than in the Generation I system.",
+     "Annotation was faster than in the Generation I system.",
+     "The speed comparison held despite the small benchmark of four genomes.", "despite"),
+])
+def test_a_concession_moved_into_the_limitations_is_a_warning_only_with_relocated(
+        tmp_path: Path, conclusion_before: str, conclusion_after: str, limitation: str, word: str) -> None:
+    before, after = _paper(conclusion_before), _paper(conclusion_after, limitation + " ")
+    without = guard.compare(before, after)
+    assert [(c["kind"], c["severity"], c["removed"]) for c in without["sentence_changes"]] == [
+        ("limitation", "protected", [word])]
+    assert guard.exit_code(without) == 1
+    assert "relocated" not in without and "relocated" not in without["summary"]
+    assert not [c for c in without["sentence_changes"] if "relocated_to" in c]  # no new fields without the flag
+
+    report = guard.compare(before, after, relocated=True)
+    finding = _only(report["sentence_changes"], "limitation")
+    line = _line_of(after, limitation)
+    assert (finding["severity"], finding["removed"], finding["section"]) == ("warning", [word], "TeloKit > Conclusion")
+    assert finding["relocated_to"] == [{"marker": word, "section": "TeloKit > Discussion > Limitations", "line": line,
+                                        "file": None, "sentence": limitation}]
+    assert finding["note"].startswith(f"It moved to the Discussion, Limitations (line {line})")
+    assert guard.exit_code(report) == 0 and report["relocated"] is True and report["summary"]["relocated"] == 1
+    assert guard.exit_code(guard.compare(before, after, relocated=True, revision=True)) == 0
+    assert _only(guard.compare(before, after, relocated=True, revision=True)["sentence_changes"],
+                 "limitation")["relocated_to"] == finding["relocated_to"]
+
+    markdown = guard.to_markdown(report)
+    assert (f"In the Conclusion (line {_line_of(after, conclusion_after)}), the limiting word “{word}” was dropped. "
+            f"It moved to the Discussion, Limitations (line {line})") in markdown
+    assert f"  - Where it is now: “{limitation.replace(word, f'**{word}**')}”" in markdown
+    assert "One caveat moved from its sentence to another one" in markdown
+    assert "Revert" not in markdown and "Revert this unless" in guard.to_markdown(without)
+
+    files = {name: tmp_path / name for name in ("before.md", "after.md")}
+    files["before.md"].write_text(before, encoding="utf-8")
+    files["after.md"].write_text(after, encoding="utf-8")
+    runner = CliRunner()
+    assert runner.invoke(guard.app, [str(files["before.md"]), str(files["after.md"])]).exit_code == 1
+    assert runner.invoke(guard.app, [str(files["before.md"]), str(files["after.md"]), "--relocated"]).exit_code == 0
+
+
+SCOPE_BEFORE = "# TeloKit\n\n## Results\n\nIn this cohort, rs429358 was associated with shorter telomeres.\n"
+SCOPE_AFTER = "# TeloKit\n\n## Results\n\nrs429358 was associated with shorter telomeres.\n"
+SCOPE_SUPPLEMENT = ("# Supplementary material\n\n## S3 Cohort\n\nThe donors were recruited at three centres.\n\n"
+                    "All association results come from this cohort of older adults.\n")
+
+
+def test_a_scope_qualifier_moved_to_the_supplement_names_the_file(tmp_path: Path) -> None:
+    moved = [("supplementary.md", SCOPE_SUPPLEMENT)]
+    assert _only(guard.compare(SCOPE_BEFORE, SCOPE_AFTER, moved=moved)["sentence_changes"], "scope")["severity"] == \
+        "protected"
+    report = guard.compare(SCOPE_BEFORE, SCOPE_AFTER, moved=moved, relocated=True)
+    finding = _only(report["sentence_changes"], "scope")
+    destination = "All association results come from this cohort of older adults."
+    assert (finding["severity"], finding["removed"]) == ("warning", ["In this cohort"])
+    assert finding["relocated_to"] == [{"marker": "from this cohort", "section": "Supplementary material > S3 Cohort",
+                                        "line": _line_of(SCOPE_SUPPLEMENT, destination), "file": "supplementary.md",
+                                        "sentence": destination}]
+    assert (f"It moved to supplementary.md, in the S3 Cohort (line {_line_of(SCOPE_SUPPLEMENT, destination)})"
+            in guard.to_markdown(report))
+    assert guard.exit_code(report) == 0
+
+    paths = {name: tmp_path / name for name in ("before.md", "after.md", "supplementary.md")}
+    for path, text in zip(paths.values(), (SCOPE_BEFORE, SCOPE_AFTER, SCOPE_SUPPLEMENT)):
+        path.write_text(text, encoding="utf-8")
+    args = [str(paths["before.md"]), str(paths["after.md"]), "--moved-to", str(paths["supplementary.md"])]
+    runner = CliRunner()
+    assert runner.invoke(guard.app, args).exit_code == 1
+    out = tmp_path / "r.json"
+    assert runner.invoke(guard.app, [*args, "--relocated", "--json", str(out)]).exit_code == 0
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [c["relocated_to"][0]["file"] for c in data["sentence_changes"] if c["relocated_to"]] == ["supplementary.md"]
+
+
+def test_each_new_marker_accounts_for_one_lost_marker() -> None:
+    # one sentence loses two "only"s and one comes back elsewhere: the sentence still lost one
+    report = guard.compare(
+        _paper("The annotation was tested on only four genomes and only one laptop, and was faster than the "
+               "Generation I system."),
+        _paper("The annotation was tested on four genomes and one laptop, and was faster than the Generation I "
+               "system.", "The benchmark covered only four genomes. "), relocated=True)
+    finding = _only(report["sentence_changes"], "limitation")
+    assert (finding["severity"], finding["removed"]) == ("protected", ["only", "only"])
+    assert [spot["marker"] for spot in finding["relocated_to"]] == ["only"]
+    assert finding["note"].endswith("but no other new or changed sentence holds the remaining “only”.")
+    assert guard.exit_code(report) == 1
+    # two sentences lose one "only" each and one comes back elsewhere: one of them is still a lost caveat
+    report = guard.compare(
+        _paper("Annotation was tested on only four genomes. It was faster than the Generation I system on the same "
+               "laptop. Scoring used only one genome."),
+        _paper("Annotation was tested on four genomes. It was faster than the Generation I system on the same laptop. "
+               "Scoring used one genome.", "The benchmark covered only four genomes and one scoring genome. "),
+        relocated=True)
+    limits = [c for c in report["sentence_changes"] if c["kind"] == "limitation"]
+    assert sorted((c["severity"], bool(c["relocated_to"])) for c in limits) == [("protected", False), ("warning", True)]
+    assert guard.exit_code(report) == 1
+
+
+CONCESSION = ("Despite the small benchmark of four genomes, annotation was faster than in the Generation I system.",
+              "Annotation was faster than in the Generation I system.")
+
+
+@pytest.mark.parametrize("limitation", [
+    "",  # dropped, and no sentence took it
+    "The benchmark was small, with four genomes. ",  # moved, but reworded so that "despite" went
+])
+def test_a_caveat_with_no_sentence_holding_its_marker_stays_protected(limitation: str) -> None:
+    report = guard.compare(_paper(CONCESSION[0]), _paper(CONCESSION[1], limitation), relocated=True)
+    finding = _only(report["sentence_changes"], "limitation")
+    assert (finding["severity"], finding["relocated_to"]) == ("protected", None)
+    assert guard.exit_code(report) == 1
+
+
+def test_a_lost_number_stays_protected_when_its_caveat_moved() -> None:
+    before = _paper("Albeit tested on 4 genomes, the annotation was faster than the Generation I system.")
+    after = _paper("The annotation was faster than the Generation I system.",
+                   "The speed comparison holds, albeit on 4 genomes. ")
+    report = guard.compare(before, after, relocated=True)
+    assert _only(report["sentence_changes"], "limitation")["severity"] == "warning"
+    numbers = [c for c in report["sentence_changes"] if c["kind"] == "number"]
+    assert {(c["token"], c["change"], c["severity"], c["relocated_to"]) for c in numbers} == {
+        ("4", "removed", "protected", None), ("4", "added", "protected", None)}
+    assert guard.exit_code(report) == 1
+
+
+ONLY = ("The annotation was tested on only four genomes and was faster than the Generation I system.",
+        "The annotation was tested on four genomes and was faster than the Generation I system.")
+
+
+@pytest.mark.parametrize("kept_before, kept_after", [
+    ("Scoring used only one genome.", "Scoring used only one genome."),  # unchanged
+    ("Scoring used only one genome.", "Scoring was run on only one genome."),  # changed, but its "only" was there
+    ("Scoring used only one genome.", "Scoring used only one genome, albeit a deep one."),  # what it gained is not "only"
+])
+def test_a_marker_a_sentence_already_had_does_not_absorb_a_lost_one(kept_before: str, kept_after: str) -> None:
+    report = guard.compare(_paper(ONLY[0], kept=kept_before), _paper(ONLY[1], kept=kept_after), relocated=True)
+    lost = [c for c in report["sentence_changes"] if c["kind"] == "limitation" and c["change"] == "removed"]
+    assert [(c["removed"], c["severity"], c["relocated_to"]) for c in lost] == [(["only"], "protected", None)]
+    assert guard.exit_code(report) == 1
+
+
+def test_two_sentences_that_swap_qualifiers_are_not_relocations() -> None:
+    """Each sentence gained the other's qualifier, but lost one of the same kind, so neither is a destination."""
+    before = ("# Results\n\nTERT knockdown shortened telomeres in mice over two generations.\n\n"
+              "The inhibitor bound TERT in vitro at nanomolar doses.\n")
+    after = before.replace("in mice", "IN_VITRO").replace("in vitro", "in mice").replace("IN_VITRO", "in vitro")
+    report = guard.compare(before, after, relocated=True)
+    scopes = [c for c in report["sentence_changes"] if c["kind"] == "scope"]
+    assert [(c["change"], c["severity"], c["relocated_to"]) for c in scopes] == [
+        ("replaced", "protected", None), ("replaced", "protected", None)]
 
 
 # --- skill files and eval cases -----------------------------------------------------------------------------------

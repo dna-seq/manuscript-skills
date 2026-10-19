@@ -59,6 +59,32 @@ editorial judgement and unknown enforcement. Do not call an opaque rule objectiv
 that a hard-to-check rule cannot be enforced. Do not investigate the author or demand private histories
 merely to satisfy a speculative policy concern.
 
+## Readers first, referees second
+
+A paper is written for its readers; a referee is one of them, and an editor reads it first. Every change
+made for a referee is paid for by every later reader, so weigh what a change costs a reader as well as what
+it buys with a referee. In every skill:
+
+- **Answer a referee where it costs readers least.** A doubt about the central claim stays beside the
+  claim, said once, with its number. A scope condition goes in Limitations or Methods. Defensive detail
+  (why a choice is not a flaw, every version of a rerun, the full run history) goes in the supplement or
+  the response letter. Move a caveat; never delete one, and never move out of the main text evidence that
+  would change a reader's conclusion.
+- **When a revision adds, check what can now go.** An addition to a paragraph is a reason to reread the
+  whole paragraph for the sentence it makes redundant.
+- **Keep what makes the paper readable**: the stake in its first sentences, the authors' voice, a worked
+  example of real output, one headline per result, an ending on what a reader can do. A revision that loses
+  one of these for a referee's sake has a cost the authors should see; `manuscript-story` measures it.
+- **The paper's direction is the authors'.** Which theme leads (privacy, a biological question, openness,
+  speed) and who the paper is for are recorded in the shared record's `story` entry. No skill changes them
+  on its own: a change of direction is always offered as options, under every `edits` setting. Edits that
+  tell the story better within the recorded direction and pass the science, journal and AI-writing checks
+  are routine for `manuscript-story` under `conservative`, as the authors decided; they are proposals under
+  `propose`.
+
+Readers never outrank the science or the journal: a reader-friendly change that raises a claim, drops a
+qualification or breaks a venue requirement is not made.
+
 ## Scope, iteration and review
 
 **Read the plugin's settings before editing.** From the skill's directory, run
@@ -77,6 +103,8 @@ changes to the authors' documents, independently of where reports go:
   corrections, and wording changes that preserve meaning. Propose changes to arguments, claims, emphasis,
   numerical content, and substantial additions, deletions or restructuring; obtain the author's approval
   before applying them. Calling a claim unsupported or too broad does not make its removal a routine edit.
+  Story edits that keep the authors' recorded direction are routine for `manuscript-story` (see
+  [Readers first, referees second](#readers-first-referees-second)); a change of direction never is.
 - `propose`: prepare every change to the authors' documents for approval before applying it. Checks,
   lookups, proposed text and reports still proceed.
 - `apply`: apply substantive revisions within the requested scope and show consequential before/after

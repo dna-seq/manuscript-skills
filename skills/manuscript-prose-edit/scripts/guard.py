@@ -26,6 +26,7 @@ diff in context.
     uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # an authorised claim correction
     uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json
     uv run --script guard.py BEFORE.md AFTER.md --moved-to SUPPLEMENT.md  # text moved to another file (repeatable)
+    uv run --script guard.py BEFORE.md AFTER.md --relocated               # caveats moved to other sentences on purpose
 
 Edit mode (default). Exit code 1 when a protected item changed: a count of numbers, citations, identifiers,
 terms, URLs or code; a claim that rose on a ladder or gained novelty or generality wording; a scope,
@@ -36,6 +37,14 @@ claim correction. Lowered claims, added qualifiers, negation changes, deleted se
 paragraph are warnings: read each one. A deleted sentence that reads as a stock phrase the contract lets an edit
 cut (an empty implication, a mini-conclusion, a filler phrase, signposting; references/smell-patterns.yaml) is
 not listed.
+
+Relocated caveats (`--relocated`): a scope, limiting or concessive, null-result or evidence-status marker that
+left a surviving sentence is a warning, not protected, when the same marker (same scope key, word, null result
+or status key) is new in another sentence: an inserted or changed one of AFTER, or one in a `--moved-to` file.
+Each new occurrence accounts for one lost marker, and a sentence that lost markers of a kind offers only what it
+gained beyond them. The finding gets `relocated_to` (a list of {marker, section, line, file, sentence}) and a
+note naming where the caveat went; one with no such sentence, or reworded so the marker went, stays protected,
+and so does every number, citation or identifier.
 
 Revision mode (`--revision`): for an original and a revised manuscript where content changes are expected.
 Lists every change of the kinds above with section and line, in the same fields, and always exits 0. It also
@@ -777,6 +786,19 @@ def _status_keys(text: str) -> list[tuple[str, str]]:
     return keys
 
 
+def _scope_sides(tb: str, ta: str, survives: bool) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Scope keys of a sentence before and after. "In this study" is framing, not scope, when the sentence was
+    deleted or keeps a first person ("In this study, we show" → "We show")."""
+    sb, sa = _scope_keys(tb), _scope_keys(ta)
+    if not survives or FIRST_PERSON.search(ta):
+        sb = [(k, s) for k, s in sb if k != "this-study"]
+    return sb, sa
+
+
+def _null_marks(text: str) -> list[str]:
+    return [m.group(0).lower() for m in NULL_RESULT.finditer(text)]
+
+
 def _keyed_diff(before: list[tuple[str, str]], after: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
     """Surface forms of keys that lost or gained occurrences; synonyms within one key are not a change."""
     kb, ka = Counter(k for k, _ in before), Counter(k for k, _ in after)
@@ -1026,11 +1048,7 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         found.append(_finding("generality", "lowered", "warning", g, bs, as_, removed=gen_removed,
                               note="The claim now reaches less far, which the authors must approve."))
 
-    sb, sa = _scope_keys(tb), _scope_keys(ta)
-    if g.after and FIRST_PERSON.search(ta):  # "In this study, we show" → "We show" keeps the study as the scope
-        sb = [(k, s) for k, s in sb if k != "this-study"]
-    if not g.after:
-        sb = [(k, s) for k, s in sb if k != "this-study"]
+    sb, sa = _scope_sides(tb, ta, bool(g.after))
     s_removed, s_added = _keyed_diff(sb, sa)
     if s_removed:
         found.append(_finding("scope", "replaced" if s_added else "removed", "protected", g, bs, as_,
@@ -1059,7 +1077,7 @@ def _claim_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> list[d
         found.append(_finding("limitation", "added", "warning", g, bs, as_, removed=l_removed, added=l_added,
                               note="This narrows the claim, so the authors must see it."))
 
-    nb, na = [m.group(0).lower() for m in NULL_RESULT.finditer(tb)], [m.group(0).lower() for m in NULL_RESULT.finditer(ta)]
+    nb, na = _null_marks(tb), _null_marks(ta)
     null_change = None
     if len(nb) > len(na) and whole != "inserted":
         null_change = "removed"
@@ -1133,16 +1151,136 @@ def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: li
     return found
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Relocated caveats (--relocated): a qualifier that left its sentence for another one is still in the paper
+# ---------------------------------------------------------------------------------------------------------------
+
+RELOCATABLE = {"scope": ("removed", "replaced"), "limitation": ("removed",), "null_result": ("removed",),
+               "evidence_status": ("removed", "replaced")}
+
+
+def _caveat_marks(text: str) -> list[tuple[str, str, str]]:
+    """(kind, key, surface) of each marker a caveat can carry, keyed as the claim checks key them."""
+    marks = [("scope", k, s) for k, s in _scope_keys(text)]
+    marks += [("limitation", w, w) for w in _limitation_marks(text)[0]]
+    marks += [("null_result", s, s) for s in _null_marks(text)]
+    return marks + [("evidence_status", k, s) for k, s in _status_keys(text)]
+
+
+def _lost_caveat(kind: str, tb: str, ta: str) -> tuple[list[tuple[str, str]], Callable[[Counter[str]], bool]]:
+    """The (key, surface) markers of one kind a surviving sentence lost, and the test `_claim_findings` applies with
+    `found` of them counted as still in the paper: True while the loss is still protected."""
+    if kind == "limitation":
+        (lb, ob), (la, oa) = _limitation_marks(tb), _limitation_marks(ta)
+        return ([(w, w) for w in sorted((Counter(lb) - Counter(la)).elements())],
+                lambda found: len(lb) > len(la) + found.total() and len(lb) + ob > len(la) + oa + found.total())
+    if kind == "null_result":
+        nb, na = _null_marks(tb), _null_marks(ta)
+        return ([(s, s) for s in sorted((Counter(nb) - Counter(na)).elements())],
+                lambda found: len(nb) > len(na) + found.total())
+    sb, sa = _scope_sides(tb, ta, True) if kind == "scope" else (_status_keys(tb), _status_keys(ta))
+    deficit = Counter(k for k, _ in sb) - Counter(k for k, _ in sa)
+    lost, left = [], Counter(deficit)
+    for k, s in sb:
+        if left[k] > 0:
+            lost.append((k, s))
+            left[k] -= 1
+    return lost, lambda found: bool(deficit - found)
+
+
+def _caveat_destinations(groups: list[Group], bs: list[Sentence], as_: list[Sentence], n_main: int
+                         ) -> tuple[dict[tuple[str, str], list[tuple[int, int, str]]], Counter[tuple[int, str]]]:
+    """Markers that new or changed sentences gained, by (kind, key), as (unit, sentence, surface): a unit is an
+    alignment group, or a sentence of a moved-to file that no sentence of BEFORE became. With them, how many
+    markers of each kind a unit may give away: what it gained beyond what it lost of that kind, so a sentence that
+    swapped one qualifier for another is no destination for either."""
+    units = [(n, g.before, g.after) for n, g in enumerate(groups) if g.kind != "equal" and g.after]
+    matched = {j for g in groups for j in g.after}
+    units += [(len(groups) + j, [], [j]) for j in range(n_main, len(as_)) if j not in matched]
+    pool: dict[tuple[str, str], list[tuple[int, int, str]]] = {}
+    capacity: Counter[tuple[int, str]] = Counter()
+    for unit, before, after in units:
+        had = Counter((kind, key) for i in before for kind, key, _ in _caveat_marks(bs[i].text))
+        marks = [(j, mark) for j in after for mark in _caveat_marks(as_[j].text)]
+        gained = Counter((kind, key) for _, (kind, key, _) in marks) - had
+        for kind in RELOCATABLE:
+            capacity[(unit, kind)] = (sum(1 for _, mark in marks if mark[0] == kind)
+                                      - sum(v for (k, _), v in had.items() if k == kind))
+        for j, (kind, key, surface) in marks:
+            if gained[(kind, key)] > 0:
+                gained[(kind, key)] -= 1
+                pool.setdefault((kind, key), []).append((unit, j, surface))
+    return pool, capacity
+
+
+def _caveat_place(s: Sentence, title: Optional[str]) -> str:
+    """'the Discussion, Limitations (line 12)', or 'supplementary.md, in the S3 Cohort (line 5)'."""
+    where = f"{_section({'section': s.section}, title)} (line {s.line})"
+    return f"{s.file}, in {where}" if s.file else where
+
+
+def _relocate(changes: list[dict[str, object]], owner: dict[int, int], groups: list[Group], bs: list[Sentence],
+              as_: list[Sentence], n_main: int, titles: dict[Optional[str], Optional[str]]) -> None:
+    """Downgrade a lost caveat to a warning when other new or changed sentences hold every marker it needs.
+    Each destination occurrence accounts for one lost marker, in document order."""
+    pool, capacity = _caveat_destinations(groups, bs, as_, n_main)
+    for c in changes:
+        c["relocated_to"] = None
+        n = owner.get(id(c))
+        kind = str(c["kind"])
+        if n is None or c["severity"] != "protected" or c["change"] not in RELOCATABLE.get(kind, ()):
+            continue
+        g = groups[n]
+        if not g.before or not g.after:
+            continue
+        lost, still = _lost_caveat(kind, " ".join(bs[i].text for i in g.before), " ".join(as_[j].text for j in g.after))
+        found: Counter[str] = Counter()
+        spots: list[tuple[int, str]] = []
+        for key, _ in lost:
+            if not still(found):
+                break
+            slots = pool.get((kind, key), [])
+            k = next((k for k, (unit, _, _) in enumerate(slots) if unit != n and capacity[(unit, kind)] > 0), None)
+            if k is None:
+                continue
+            unit, j, surface = slots.pop(k)
+            capacity[(unit, kind)] -= 1
+            found[key] += 1
+            spots.append((j, surface))
+        if not spots:
+            continue
+        c["relocated_to"] = [{"marker": surface, "section": as_[j].section, "line": as_[j].line,
+                              "file": as_[j].file, "sentence": as_[j].text} for j, surface in spots]
+        places = [(surface, _caveat_place(as_[j], titles.get(as_[j].file))) for j, surface in spots]
+        if still(found):
+            left, rest = Counter(found), []
+            for key, s in lost:
+                if left[key] > 0:
+                    left[key] -= 1
+                else:
+                    rest.append(s)
+            c["note"] =(f"{c['note']} " + _listed([f"{_q(s)} moved to {p}" for s, p in places])
+                         + f", but no other new or changed sentence holds the remaining {_quoted_list(rest)}.")
+            continue
+        one = len(places) == 1
+        went = f"It moved to {places[0][1]}" if one else "They moved: " + _listed(
+            [f"{_q(s)} to {p}" for s, p in places])
+        c["severity"] = "warning"
+        c["note"] = (f"{went}, so the paper still states {'it' if one else 'them'}; check that readers still see "
+                     f"which claim {'it qualifies' if one else 'they qualify'}.")
+
+
 EXTERNAL_BLOCKS = 1_000_000  # paragraph numbers of a moved-to file start at (its position + 1) times this
 
 
 def sentence_changes(before_text: str, after_text: str, moved: list[tuple[str, str]] | tuple[()] = (), *,
-                     revision: bool = False) -> tuple[list[dict[str, object]], dict[str, int]]:
+                     revision: bool = False, relocated: bool = False) -> tuple[list[dict[str, object]], dict[str, int]]:
     """Align the sentences of two versions and list claim, scope and token changes with their locations.
 
     `moved` lists (name, text) of the files part of the text was moved to: a sentence found there is moved, not
     deleted, and a changed one is compared with its copy there. `revision` adds the inventory's new sentences and
-    rewordings."""
+    rewordings. `relocated` makes a lost caveat a warning when another new or changed sentence holds its marker
+    (every finding then has `relocated_to`)."""
     bs, main = segment(before_text), segment(after_text)
     external = [s for n, (name, text) in enumerate(moved)
                 for s in segment(text, file=name, block_base=(n + 1) * EXTERNAL_BLOCKS)]
@@ -1184,16 +1322,22 @@ def sentence_changes(before_text: str, after_text: str, moved: list[tuple[str, s
         "doc_ext": doc_ext, "main_after": main, "words_b": words_by_block(bs), "words_a": words_by_block(as_),
     }
     changes: list[dict[str, object]] = []
-    for g in groups:
+    owner: dict[int, int] = {}  # id of a claim finding → index of its group
+    for n, g in enumerate(groups):
         if g.kind == "equal":
             continue
         claims = _claim_findings(g, bs, as_)
+        owner.update((id(c), n) for c in claims)
         if not claims:
             claims = _sentence_findings(g, bs, as_, ctx, revision)
         changes += claims
         changes += _token_findings(g, bs, as_, tok_b, tok_a, ctx)
     changes.sort(key=lambda c: (c["after_line"] if c["after_line"] is not None and not c["after_file"]
                                 else c["before_line"] or 0, c["before_line"] or 0))
+    if relocated:
+        titles = {None: document_title(after_text) or document_title(before_text)}
+        titles.update((name, document_title(text)) for name, text in moved)
+        _relocate(changes, owner, groups, bs, as_, len(main), titles)
     for n, c in enumerate(changes, 1):
         c["id"] = n
     counts = Counter(g.kind for g in groups)
@@ -1216,9 +1360,11 @@ def document_title(text: str) -> Optional[str]:
 
 
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
-            allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = ()) -> dict[str, object]:
+            allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = (),
+            relocated: bool = False) -> dict[str, object]:
     """Compare two versions. `moved` lists (name, text) of the files part of the text was moved to (a
-    supplement, say): what is found there counts as moved, not removed."""
+    supplement, say): what is found there counts as moved, not removed. `relocated`: caveats were moved to other
+    sentences on purpose, so one whose marker another new or changed sentence holds is a warning."""
     latex = _is_latex(before_text) or _is_latex(after_text)
     before, after = _prose(before_text, latex), _prose(after_text, latex)
     elsewhere = "\n\n".join(_prose(text, _is_latex(text)) for _, text in moved)
@@ -1231,13 +1377,13 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
             out[name] = _diff(ib, ia, im)
             if im is not None and patterns is PROTECTED and _moved_items(ib, ia, im):
                 moved_counts[name] = _moved_items(ib, ia, im)
-    changes, alignment = sentence_changes(before_text, after_text, moved, revision=revision)
+    changes, alignment = sentence_changes(before_text, after_text, moved, revision=revision, relocated=relocated)
     if allow_strengthening:
         for c in changes:
             if c["kind"] in CLAIM_KINDS and c["severity"] == "protected":
                 c["authorised"] = True
     summary = Counter(f"{c['severity']}" for c in changes)
-    return {
+    report: dict[str, object] = {
         "mode": "revision" if revision else "edit",
         "title": document_title(after_text) or document_title(before_text),
         "allow_strengthening": allow_strengthening,
@@ -1257,6 +1403,11 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
                     "authorised": sum(1 for c in changes if c["authorised"]),
                     "by_kind": dict(Counter(str(c["kind"]) for c in changes))},
     }
+    if relocated:  # only with the flag, so a report without it is unchanged
+        report["relocated"] = True
+        report["summary"]["relocated"] = sum(1 for c in changes  # type: ignore[index]
+                                             if c["relocated_to"] and c["severity"] == "warning")
+    return report
 
 
 def exit_code(report: dict[str, object]) -> int:
@@ -1482,6 +1633,8 @@ def _claim_lines(c: dict[str, object], title: Optional[str], revision: bool) -> 
         out.append(f"  - Before the edit: {excerpt(c['before'], c['removed'])}")
     if c["after"]:
         out.append(f"  - After the edit: {excerpt(c['after'], c['added'])}")
+    for spot in c.get("relocated_to") or ():  # type: ignore[union-attr]
+        out.append(f"  - Where it is now: {excerpt(spot['sentence'], [spot['marker']])}")
     return out
 
 
@@ -1598,6 +1751,12 @@ def to_markdown(report: dict[str, object]) -> str:
                   + (f"; {_count_word(changed, 'of them was', 'of them were')} changed on the way, and the changes "
                      "below compare each with its copy there." if changed else
                      (", word for word." if n else ".")), ""]
+    relocations = int(report.get("summary", {}).get("relocated", 0))  # type: ignore[union-attr]
+    if relocations:
+        one = relocations == 1
+        lines += [f"{_upper_first(_count_word(relocations, 'caveat', 'caveats'))} moved from "
+                  f"{'its' if one else 'their'} sentence to another one; {'it is' if one else 'each is'} listed below "
+                  "with where it went.", ""]
     lines.append("## Changes to what the claims say, sentence by sentence")
     lines += [""] + ([x for c in claims for x in _claim_lines(c, title, revision)] or  # type: ignore[arg-type]
                      ["No sentence changed how strong, how general or how qualified its claim is."])
@@ -1659,6 +1818,10 @@ def main(
     moved_to: Annotated[Optional[list[Path]], typer.Option(
         "--moved-to", exists=True, dir_okay=False, help="A file part of the text was moved to (a supplement, say); "
         "repeat for several. Text found there counts as moved, not removed")] = None,
+    relocated: Annotated[bool, typer.Option("--relocated", help="Caveats were moved to other sentences on purpose: a "
+                                            "lost scope, limiting, null-result or evidence-status marker is a warning "
+                                            "when a new or changed sentence, here or in a --moved-to file, holds the "
+                                            "same marker. Numbers, citations and identifiers stay protected")] = False,
 ) -> None:
     if against:
         before_text, after_text = _git_show(before.resolve(), against), before.read_text(encoding="utf-8")
@@ -1669,7 +1832,7 @@ def main(
                                  "compare with in --against.")
     moved = [(path.name, path.read_text(encoding="utf-8")) for path in moved_to or []]
     report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening,
-                     moved=moved)
+                     moved=moved, relocated=relocated)
     markdown = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")

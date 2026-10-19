@@ -1,0 +1,32 @@
+manuscript: accreted.md
+updated: 2026-10-19
+
+venue:
+  key: example-applications-journal    # a fictional venue for the evaluation; its limits are given here
+  article_type: application-note
+  stage: initial-submission
+  checked: 2026-10-19
+
+venue_facts:
+  example-applications-journal:
+    abstract_headings: [Motivation, Results, Availability and implementation]
+    limits: {main_text_words: 1300, figures_and_tables: 2, references: 15}
+
+claims:
+  - id: C1
+    text: "Annotation of one whole-genome variant file with eight sets takes a median of 31 s on a desktop computer."
+    location: "Results"
+    evidence: "Table 1"
+non_claims:
+  - "No clinical or diagnostic utility is claimed."
+
+story:
+  direction: "Privacy and transparency: people can read their own genome without uploading it, and see why each result appears"
+  themes: [privacy, transparency, openness, speed]
+  readers:
+    - "biologists curious about their own genome: what they would see and what it cannot tell them"
+    - "bioinformaticians who might extend it: how annotation sets work and how to publish one"
+  remember: "Your genome, read on your own computer in half a minute, with every result traced to its study."
+  argues_against: "consumer reports that require an upload and do not show how a result was reached"
+  example: "outputs/report-excerpt.md, the report for one author's published genome"
+  confirmed: 2026-10-12
