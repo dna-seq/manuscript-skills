@@ -10,7 +10,7 @@
     - "Six selected recorded reader concerns are deduplicated in the input, all with unknown severity."
     - "The review was partial, the readers were simulated agents and no manuscript edits were applied."
   rubric:
-    - "Renders one offline dashboard.html that opens on the Overview, with the derived summary.json, and no separate image or annotated copy."
+    - "Renders one offline manuscript-dashboard.html that opens on the Overview, with the derived summary.json, and no separate image or annotated copy."
     - "Shows six selected recorded concerns and zero applied edits, with partial coverage visible on the Overview."
     - "Retains the distinction between recorded simulated-reader feedback and established scientific errors."
     - "Opens the dashboard in a browser when one is available and checks its tabs in both themes."

@@ -94,7 +94,7 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
 `--revision` is the corrected version that manuscript-improve builds from this inventory with its
 `revise.py`; the renderer refuses one built from another inventory. Leave it out for a run without one.
 
-- `dashboard.html`: one self-contained file that opens offline, on the Overview. Its tabs: headline
+- `manuscript-dashboard.html`: one self-contained file that opens offline, on the Overview. Its tabs: headline
   counts, coverage per skill, the funnel from raw signals to confirmed problems and the machine-writing
   patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
   skill, and AI-related or not, with a heat grid of where they sit and a sortable, searchable table with
@@ -106,7 +106,7 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
   adjudication's verdict, grouped by who can act); the readers' paths, in a tab of their own; and what
   could not be checked. Each tab has an address, so
-  `dashboard.html#manuscript` opens the annotated paper itself. Evidence keeps file names only, never
+  `manuscript-dashboard.html#manuscript` opens the annotated paper itself. Evidence keeps file names only, never
   local paths. It follows the system light or dark theme.
 - `summary.json`: every derived count, with the evidence files' hashes.
 

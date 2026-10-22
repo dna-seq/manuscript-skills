@@ -6,7 +6,7 @@
 
     uv run --script dashboard.py findings.json --output-dir dashboard [--revision RUN/manuscript-improve/revision]
 
-`dashboard.html` is one self-contained file: headline counts, review coverage, the funnel from raw signals
+`manuscript-dashboard.html` is one self-contained file: headline counts, review coverage, the funnel from raw signals
 to distinct findings, cross-filtered breakdowns, the manuscript with every quoted problem highlighted and
 explained in a margin comment, which skills found the same problem, every finding with its evidence, the
 edits as word-level diffs, the corrected version with track changes (from manuscript-improve's revise.py),
@@ -541,7 +541,7 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
     if writing:
         summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}
                                        for v in writing["versions"]}
-    outputs = {"dashboard.html": dashboard_html(data, summary, base, corrected, writing),
+    outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing),
                "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
     if any((output_dir / name).exists() for name in outputs):
         raise ValueError("Output files already exist; choose a new output directory to retain the previous attempt.")

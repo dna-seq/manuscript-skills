@@ -172,9 +172,9 @@ def test_the_dashboard_shows_the_corrected_version_and_counts_patterns_in_each_v
     assert summary["revision"]["proposed_in_this_version"] == 4 and summary["revision"]["not_placed"] == 1
     patterns = summary["writing_patterns"]
     assert patterns["original"]["by_pattern"].get("A1") == 1 and "A1" not in patterns["proposed"]["by_pattern"]
-    page = (run / "dashboard/dashboard.html").read_text()
+    page = (run / "dashboard/manuscript-dashboard.html").read_text()
     assert "__REVISION_HTML__" not in page and '<ins class="proposed"' in page
-    assert sorted(p.name for p in (run / "dashboard").iterdir()) == ["dashboard.html", "summary.json"]
+    assert sorted(p.name for p in (run / "dashboard").iterdir()) == ["manuscript-dashboard.html", "summary.json"]
 
 
 def test_a_corrected_version_from_another_inventory_is_refused(run: Path) -> None:

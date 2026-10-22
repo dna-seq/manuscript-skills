@@ -120,8 +120,8 @@ def test_the_dashboard_is_the_only_rendering(data: dict, tmp_path: Path) -> None
     source = tmp_path / "input.json"
     source.write_text(json.dumps(data))
     summary = visualize.render(source, tmp_path / "out")
-    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["dashboard.html", "summary.json"]
-    assert embedded((tmp_path / "out/dashboard.html").read_text())["summary"]["counts"] == summary["counts"]
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["manuscript-dashboard.html", "summary.json"]
+    assert embedded((tmp_path / "out/manuscript-dashboard.html").read_text())["summary"]["counts"] == summary["counts"]
 
 
 def test_only_the_current_schema_is_accepted(data: dict) -> None:
@@ -193,13 +193,13 @@ def test_real_render_preserves_partial_scope_counts_and_previous_attempts(data: 
     source.write_text(json.dumps(data))
     output = tmp_path / "rendered"
     summary = visualize.render(source, output)
-    payload = embedded((output / "dashboard.html").read_text())
+    payload = embedded((output / "manuscript-dashboard.html").read_text())
     assert payload["inventory"]["illustrative"] and {c["status"] for c in payload["inventory"]["coverage"]} == {"partial"}
     assert json.loads((output / "summary.json").read_text())["counts"] == summary["counts"]
-    original = (output / "dashboard.html").read_bytes()
+    original = (output / "manuscript-dashboard.html").read_bytes()
     with pytest.raises(ValueError, match="already exist"):
         visualize.render(source, output)
-    assert (output / "dashboard.html").read_bytes() == original
+    assert (output / "manuscript-dashboard.html").read_bytes() == original
 
 
 def test_empty_findings_are_not_mislabeled_as_complete_review(data: dict) -> None:
