@@ -21,7 +21,7 @@ requirements.
 | Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
 | Deslop scientific writing | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Removes formulaic LLM phrasing, boilerplate and empty rhetoric while preserving scientific meaning and author voice. Also audits without editing; owns the shared pattern catalogue and style checker. |
-| Show colleagues what the review caught | [manuscript-visualize](skills/manuscript-visualize/SKILL.md) | Turns saved findings and before/after evidence into Vega-Lite infographics and a searchable offline HTML report, with SVG and PNG for sharing. Separates distinct problems, applied edits, proposals and remaining work, preserving actual coverage. |
+| Show colleagues what the review caught | [manuscript-visualize](skills/manuscript-visualize/SKILL.md) | The last step of every improvement run. Collects each skill's findings from the run, merges what several skills found into one problem, and renders an offline dashboard: problems by kind, severity, stage, section and skill, coverage, the funnel from raw signals to confirmed problems, edits as before/after diffs, the reader and referee panels, and, against a reference review such as a co-author's comments on the same version, what was caught and why the rest was missed. SVG and PNG for slides. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
@@ -81,7 +81,10 @@ consequential before/after text is shown promptly in chat even with file reports
 
 Whole-manuscript improvement now defaults to `peer_review: auto`: three formal referees plus a defender.
 Save `on-request` or `off` for a different project preference. This does not expand focused tasks into
-peer review. Story review has its own three simulated readers; they do not replace scientific referees.
+peer review. Story review has its own simulated readers: by default a skimmer, a potential user and an
+informed outsider, or the audiences you save for the project (`project.py configure ROOT --reader
+"clinician: ..." --reader ...`). Each reads in its own order, and the panel reports where each would
+close the paper, not just where attention dipped. They do not replace scientific referees.
 
 Questions do not stop independent work. The assistant collects proposals and missing facts while
 finishing the checks and edits it can complete without your answers. If asynchronous questions are
@@ -169,10 +172,13 @@ Use `manuscript-deslop` for a focused pattern check or cleanup, and `manuscript-
 language editing. You can also ask to identify the patterns without editing. If another plugin supplies
 a humanizer, selecting `manuscript-deslop` identifies this plugin's manuscript-specific workflow.
 
-For a shareable review infographic:
+For the review dashboard (manuscript-improve builds it at the end of every run):
 
 > Visualize what this manuscript-improve run caught and changed so I can show my colleagues. Use the
 > saved evidence, separate problems from edits, and show what remains open and what was not checked.
+
+> Compare this run on v0.3 with our co-author's comments on the same version: which did it catch, which
+> did it miss, and why.
 
 For the story:
 

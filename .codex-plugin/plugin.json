@@ -1,7 +1,7 @@
 {
   "name": "manuscript-skills",
-  "version": "0.7.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review. Includes focused deslop and infographics of saved review findings and edits.",
+  "version": "0.8.0",
+  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review. Includes focused deslop, and a dashboard of what a review run found, changed and left open, with the annotated manuscript and the comparison with a human review.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -38,13 +38,13 @@
     "storytelling",
     "readability",
     "deslop",
-    "infographics"
+    "dashboard"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Manuscript Skills",
     "shortDescription": "Help authors publish with less avoidable work",
-    "longDescription": "Author-led manuscript review, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet. Includes focused deslop and shareable review infographics grounded in saved evidence.",
+    "longDescription": "Author-led manuscript review, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet. Includes focused deslop and an offline dashboard of each review run, grounded in its saved evidence: problems counted once, the annotated manuscript, the journals, the readers' paths and the comparison with a human review.",
     "developerName": "DNA Seq",
     "category": "Research",
     "capabilities": [
