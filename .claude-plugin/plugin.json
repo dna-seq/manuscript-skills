@@ -3,7 +3,7 @@
   "name": "manuscript-skills",
   "displayName": "Manuscript Skills",
   "version": "0.7.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: check references and whether sources support the claims, audit numbers, statistics and reporting standards, simulate referee review before submission, answer real referees and verify the revision, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, edit without strengthening claims, keep papers interesting to their readers without changing their science or the direction the authors chose, and keep revision marks that show which AI edits no person has reviewed yet, with a review draft PDF built from them.",
+  "description": "Help authors publish sound manuscripts with less avoidable work: check references and whether sources support the claims, audit numbers, statistics and reporting standards, simulate referee review before submission, answer real referees and verify the revision, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, edit without strengthening claims, keep papers interesting to their readers without changing their science or the direction the authors chose, and keep revision marks that show which AI edits no person has reviewed yet, with a review draft PDF built from them. Includes focused deslop and infographics of saved review findings and edits.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -40,7 +40,9 @@
     "ai-edits",
     "typesetting",
     "storytelling",
-    "readability"
+    "readability",
+    "deslop",
+    "infographics"
   ],
   "skills": "./skills"
 }

@@ -1,7 +1,7 @@
 {
   "name": "manuscript-skills",
   "version": "0.7.0",
-  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review.",
+  "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review. Includes focused deslop and infographics of saved review findings and edits.",
   "author": {
     "name": "DNA Seq",
     "url": "https://github.com/dna-seq"
@@ -36,13 +36,15 @@
     "ai-edits",
     "typesetting",
     "storytelling",
-    "readability"
+    "readability",
+    "deslop",
+    "infographics"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Manuscript Skills",
     "shortDescription": "Help authors publish with less avoidable work",
-    "longDescription": "Author-led manuscript review, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet.",
+    "longDescription": "Author-led manuscript review, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet. Includes focused deslop and shareable review infographics grounded in saved evidence.",
     "developerName": "DNA Seq",
     "category": "Research",
     "capabilities": [
@@ -57,7 +59,8 @@
       "Copy-edit this section without changing what it says.",
       "Review this manuscript for avoidable ethics or clinical misclassification; the demonstration genome is my own public data.",
       "Red-team this draft like Reviewer 2 before we submit.",
-      "Help me answer these referee comments and check that our revision addresses each one."
+      "Help me answer these referee comments and check that our revision addresses each one.",
+      "Visualize what this manuscript review caught and changed so I can show my colleagues."
     ]
   }
 }

@@ -138,7 +138,7 @@ For content-preserving edits, consult the shared
 identifiers, terms and wording, and claims that an edit strengthened; it does not prove semantic
 equivalence. Every passage the adaptation writes or rewrites (a cut abstract, a merged section, a new
 statement) also passes the smell check, which is required:
-`../manuscript-prose-edit/scripts/style_profile.py AFTER --before BEFORE --check`, then a read of the new
+`../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`, then a read of the new
 text against the pattern list it prints (prose-edit contract, §5.3). New text is where an adaptation adds
 machine-written prose. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
 lists each change with its section and line. When text moves to another file (a supplement split off,

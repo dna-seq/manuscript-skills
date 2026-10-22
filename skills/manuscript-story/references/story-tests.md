@@ -11,7 +11,7 @@ an option for the authors.
    paper's lead theme, before the field's background? A first sentence about how much cheaper sequencing
    has become, how fast a field is growing or how important a topic is gives the reader nothing the next
    sentence needs (the field-landscape opener, A2 in the
-   [smell catalogue](../../manuscript-prose-edit/references/llm-smells.md)). Fix: open with the problem a
+   [smell catalogue](../../manuscript-deslop/references/llm-smells.md)). Fix: open with the problem a
    reader has, or the consequence of not solving it, and move the background after it.
 2. **One sentence.** Can the Abstract's first three sentences be read as "And, But, Therefore": what is
    known and wanted, what blocks it, what this paper does about it (Olson 2015)? A list of facts joined by

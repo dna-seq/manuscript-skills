@@ -1,13 +1,13 @@
 # Manuscript Skills
 
 Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of twelve focused skills: review a manuscript
+`manuscript-improve` for the full workflow, or choose one of fourteen focused skills: review a manuscript
 before submission, check its references, reporting and statistics, clarify which ethics and privacy
-rules apply, simulate the referees of a target journal, improve the prose, make the paper interesting to
-its readers again without changing its science or direction, choose where to preprint and
-submit, prepare for a journal, answer referees after a decision, or keep track of who revised each
-passage and which AI edits no person has reviewed yet. They work with manuscripts written with or
-without AI assistance.
+rules apply, simulate the referees of a target journal, improve the prose, remove formulaic AI phrasing,
+make the paper interesting to its readers again without changing its science or direction, choose where to preprint and
+submit, prepare for a journal, answer referees after a decision, visualize what the reviews caught and
+changed, or keep track of who revised each passage and which AI edits no person has reviewed yet.
+They work with manuscripts written with or without AI assistance.
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. Journal
 recommendations take account of the research you have done, the validation you can afford and your
@@ -20,6 +20,8 @@ requirements.
 |---|---|---|
 | Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
+| Deslop scientific writing | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Removes formulaic LLM phrasing, boilerplate and empty rhetoric while preserving scientific meaning and author voice. Also audits without editing; owns the shared pattern catalogue and style checker. |
+| Show colleagues what the review caught | [manuscript-visualize](skills/manuscript-visualize/SKILL.md) | Turns saved findings and before/after evidence into Vega-Lite infographics and a searchable offline HTML report, with SVG and PNG for sharing. Separates distinct problems, applied edits, proposals and remaining work, preserving actual coverage. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
@@ -158,6 +160,20 @@ For a prose edit:
 > Edit the Discussion for clarity and readability. Preserve the claims, numbers, citations and
 > uncertainty, and keep our voice. Show me what changed.
 
+For deslop:
+
+> Deslop the Discussion. Cut boilerplate and repeated AI phrasing while keeping our claims,
+> uncertainty, numbers and citations. Show the consequential changes.
+
+Use `manuscript-deslop` for a focused pattern check or cleanup, and `manuscript-prose-edit` for broader
+language editing. You can also ask to identify the patterns without editing. If another plugin supplies
+a humanizer, selecting `manuscript-deslop` identifies this plugin's manuscript-specific workflow.
+
+For a shareable review infographic:
+
+> Visualize what this manuscript-improve run caught and changed so I can show my colleagues. Use the
+> saved evidence, separate problems from edits, and show what remains open and what was not checked.
+
 For the story:
 
 > Our paper got boring after two rounds of referee comments. Compare it with the first draft from a
@@ -282,7 +298,7 @@ hosted detector requires your agreement before the manuscript is sent to that se
 
 ## Installation
 
-Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all thirteen skills.
+Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all fifteen skills.
 
 In **Codex**, install it from the **DNA Seq Genomics** marketplace.
 

@@ -24,7 +24,7 @@ How to read it:
 - **Entries** give what to watch for and the fix; the longer ones add why it reads as AI, a before/after
   example and when to leave it.
 - **Examples are invented**, and citations appear as `[n]`. Where an After holds a fact its Before lacks, it
-  shows what the authors would write; in a copy edit, ask them for it (`prose-edit-contract.md` §1).
+  shows what the authors would write; in a copy edit, ask them for it ([prose-edit contract](../../manuscript-prose-edit/references/prose-edit-contract.md) §1).
 - **The IDs are for the editor.** A1, C16 and the rest let a critic, an editor and a later reread point at the
   same entry. When you tell the authors about a pattern, describe it in plain words and quote the sentence
   with its section; the ID may follow in parentheses ("a participle tail that claims an importance the
@@ -762,7 +762,7 @@ short sentence carries emphasis, or a list of criteria or steps is meant to be r
 ## D. Paragraph and section structure
 
 Most fixes here move content between paragraphs or sections. In a copy edit that is restructuring: propose
-it to the authors rather than applying it (`prose-edit-contract.md` §1).
+it to the authors rather than applying it ([prose-edit contract](../../manuscript-prose-edit/references/prose-edit-contract.md) §1).
 
 ### D1. The template paragraph
 
@@ -1286,7 +1286,7 @@ voice (some journals want passive abstracts without "we"), section names, how re
 
 ### J3. Match the authors' own earlier writing
 
-See the writer profile in `prose-edit-contract.md`. Draw replacements from the authors' repertoire; never
+See the writer profile in [prose-edit contract](../../manuscript-prose-edit/references/prose-edit-contract.md). Draw replacements from the authors' repertoire; never
 upgrade their vocabulary.
 
 ### J4. Terms earn their place

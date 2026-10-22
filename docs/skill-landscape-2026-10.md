@@ -5,6 +5,10 @@ writing, reviewer simulation, revision and pre-submission checks. The question i
 manuscript-skills add to become a general manuscript-improvement toolkit, what it already covers, and
 what to leave alone.
 
+On 2026-10-22, the shared LLM-pattern catalogue, style profiler and optional reflection procedure moved
+from prose-edit into `manuscript-deslop`. Prose-edit retains the editing contract, claim guard and
+optional detectors; the dated survey below describes the earlier layout.
+
 ## Status (2026-10-16)
 
 Most of this survey has been implemented:

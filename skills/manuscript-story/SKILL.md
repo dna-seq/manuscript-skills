@@ -130,7 +130,7 @@ failure is fixed or turned into a decision for the authors:
    3): hype and promotional wording, unsupported "first", "only" or "no existing tool" claims, a lay
    register in a technical venue, health or treatment advice in a paper about people's data (hand clinical
    or privacy scope to `manuscript-policy-fit`).
-3. **AI-written prose.** `../manuscript-prose-edit/scripts/style_profile.py AFTER --before BEFORE --check`,
+3. **AI-written prose.** `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`,
    then read the edit against the pattern list it prints. Storytelling is where marketing voice and
    manufactured vividness creep in.
 

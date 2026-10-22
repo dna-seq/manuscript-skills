@@ -91,7 +91,7 @@ authors asked for a claim correction. It never covers numbers, citations or iden
 
 ## Critic and editor vocabulary
 
-Name a claim problem by the catalogue entry in `llm-smells.md` where one exists, and by these ladders. These
+Name a claim problem by the catalogue entry in [deslop catalogue](../../manuscript-deslop/references/llm-smells.md) where one exists, and by these ladders. These
 names are for the critic and the editor; in anything the authors read, describe the problem first and put the
 ID in parentheses.
 

@@ -1,7 +1,8 @@
 manuscript-skills
 Copyright (c) 2026 DNA Seq. Licensed under the MIT License (see LICENSE).
 
-skills/manuscript-prose-edit/references/llm-smells.md and prose-edit-contract.md adapt patterns, rules and
+skills/manuscript-deslop/references/llm-smells.md and
+skills/manuscript-prose-edit/references/prose-edit-contract.md adapt patterns, rules and
 process steps from the following MIT-licensed projects. The text and examples here are rewritten for
 scientific manuscripts; detector-evasion techniques from these projects are deliberately not included.
 

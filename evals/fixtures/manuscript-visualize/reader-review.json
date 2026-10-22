@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "title": "What the reader review caught",
+  "run_id": "2026-10-19-real-manuscripts/paper1",
+  "scope": "Selected recorded reader findings from Paper 1, 19 October 2026. Bounded review; no manuscript edits applied.",
+  "coverage": [
+    {
+      "skill": "manuscript-story",
+      "status": "partial",
+      "note": "Three simulated reader perspectives and metrics; the full story workflow was not completed.",
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The manuscript masters were not edited during this smoke run. Status is partial for the full manuscript-story workflow; that label must remain visible even though the three-reader evidence and artifact handover succeeded."
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "category": "Story and structure",
+      "section": "Reader review",
+      "summary": "Implementation details obscure the practical task",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "All three described losing the practical task amid implementation names, artifact terminology and PRS matching/ancestry mechanics."
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "category": "Figures",
+      "section": "Reader review",
+      "summary": "An obsolete-display disclaimer interrupts Figure 3",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The skimmer and both full readers also found Figure 3's obsolete-display disclaimer disruptive."
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "category": "Practical use",
+      "section": "Reader review",
+      "summary": "First-run requirements and genome-build support are unclear",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The potential user could not confidently establish first-run downloads, disk requirements or whether their file's genome build was supported."
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "category": "Story and structure",
+      "section": "Reader review",
+      "summary": "A complete question-to-action journey is missing",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The outsider wanted a complete question-to-result-to-next-action journey and a worked interpretation of model disagreement."
+        }
+      ]
+    },
+    {
+      "id": "F5",
+      "category": "Interpretation",
+      "section": "Reader review",
+      "summary": "Model disagreement lacks a worked interpretation",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The outsider wanted a complete question-to-result-to-next-action journey and a worked interpretation of model disagreement."
+        }
+      ]
+    },
+    {
+      "id": "F6",
+      "category": "Draft artifacts",
+      "section": "Reader review",
+      "summary": "An internal opening notice affected the reader response",
+      "severity": "unknown",
+      "assessment": "confirmed",
+      "resolution": "open",
+      "skills": [
+        "manuscript-story"
+      ],
+      "evidence": [
+        {
+          "path": "../../results/2026-10-19-real-manuscripts/paper1/report.md",
+          "quote": "The generated reading export includes an internal opening draft notice. The potential user explicitly reacted to it before the Abstract."
+        }
+      ]
+    }
+  ],
+  "changes": [],
+  "limitations": [
+    "Confirmed here means recorded reader feedback, not established scientific errors.",
+    "The readers were simulated agents, not human participants or journal referees.",
+    "This selection is not a full manuscript audit; severity was not assessed."
+  ]
+}

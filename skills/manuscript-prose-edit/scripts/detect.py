@@ -40,7 +40,7 @@ REMOTE = {"aiornot"}
 
 
 def _load_profile() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("style_profile", HERE / "style_profile.py")
+    spec = importlib.util.spec_from_file_location("style_profile", HERE.parents[1] / "manuscript-deslop" / "scripts" / "style_profile.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules["style_profile"] = module

@@ -4,8 +4,9 @@ Improve readability and publication prospects while preserving the authors' scie
 voice. Follow `../../manuscript-integrity-check/references/author-priorities.md` for scope, author effort
 and disclosure. Style patterns and detector scores do not establish authorship or submission readiness.
 
-This file is the procedure. `llm-smells.md` is the catalogue of patterns (with examples) the procedure
-looks for; `section-guide.md` says what each part of a paper needs.
+This file is the editing procedure. [manuscript-deslop](../../manuscript-deslop/SKILL.md) owns the
+pattern-check procedure and [catalogue](../../manuscript-deslop/references/llm-smells.md);
+`section-guide.md` says what each part of a paper needs.
 
 ---
 
@@ -62,7 +63,7 @@ wording they want and the evidence that wording would need, and let them decide.
 
 **Narrowing is a claim correction too.** Lowering a claim, adding a hedge, limitation or qualifier, or
 deleting a claim sentence changes the science. Do it only when asked, or propose it, and list it among the
-changes the authors must see. Never add new doubt to make text sound careful (`llm-smells.md` I5).
+changes the authors must see. Never add new doubt to make text sound careful ([deslop catalogue](../../manuscript-deslop/references/llm-smells.md) I5).
 
 **Preserve, even when a style list says otherwise:**
 - a hedge tied to evidence ("may, because follow-up was two years"; "in this cohort"); remove only a
@@ -132,7 +133,7 @@ voice matching is part of the task and cannot otherwise be done. Consider the fe
 9. **Recurring phrases and lab vocabulary.** Keep them, even when slightly odd.
 
 Match those habits. Do not upgrade casual words or regularise a deliberate quirk. A sample outranks the
-style defaults in `llm-smells.md`: if the authors use semicolons or the occasional dash, keep them at
+style defaults in [deslop catalogue](../../manuscript-deslop/references/llm-smells.md): if the authors use semicolons or the occasional dash, keep them at
 their frequency.
 
 Without a sample, use the plain technical register: short declarative sentences, "we" for the authors'
@@ -145,7 +146,7 @@ in the body is not a reason to move them into the Abstract.
 
 For a long or difficult section, optionally note:
 
-- relevant patterns from `llm-smells.md`;
+- relevant patterns from [deslop catalogue](../../manuscript-deslop/references/llm-smells.md);
 - **anchors**: numbers, named methods, datasets, genes, cohorts, citations. A paragraph with no anchor
   making a claim is a question for the authors, not something to fill;
 - defined terms and the synonyms used for them;
@@ -213,20 +214,13 @@ Do not repeat a loop solely to eliminate style hits.
 ### 5.3 The smell check
 
 ```bash
-uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID]
+uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID]
 ```
 
-Required for every edit, and an edit is not handed over until it has run. It has two parts:
-
-- **Counts.** Exit code 1 means the edit added a pattern the original did not have, or one pattern is used
-  three or more times under a heading the edit changed. Rewrite each, or keep one whose entry's "Leave it
-  when" applies, rerun with `--keep ID`, and list the kept sentences for the authors under "Then the
-  writing" with the reason. A pattern that was already in the original and stands alone is a place to look,
-  not a failure.
-- **Reading.** The counts match only the patterns that have a regular expression, in the wordings it knows
-  (a third of the catalogue). The check ends with every catalogue entry in one line; read the edited text
-  against all of them and fix what you find by reading, under the same rules. This is where the structural,
-  evidential and hedging patterns (sections D, E and I) are found.
+Required for every edit, before handover. Follow [manuscript-deslop's count and reading
+checks](../../manuscript-deslop/SKILL.md#find-and-fix-the-patterns), including the before-edit profile,
+the catalogue's exceptions and `--keep ID` for reviewed uses that stay. Explain retained sentences under
+"Then the writing". Preserve this contract's scientific meaning and claim ceiling throughout.
 
 ### 5.4 The guard
 

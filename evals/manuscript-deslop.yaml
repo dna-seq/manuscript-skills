@@ -1,0 +1,50 @@
+# Behavioural cases; shared fixtures retain scientific qualifiers and deliberately planted boilerplate.
+- id: deslop-edit-preserves-science
+  skill: manuscript-deslop
+  prompt: >-
+    Deslop the Introduction and Discussion in original.md. Apply the wording changes, keep our
+    scientific meaning, and show the consequential before/after passages.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "Stock significance language, filler and an empty closing sentence can be cut."
+    - "The Discussion's may, suggest, Under these conditions and European-ancestry limitation carry meaning."
+  rubric:
+    - "Cuts or rewrites concrete boilerplate within the two requested sections."
+    - "Uses manuscript-deslop's profiler before editing and with --before and --check afterward, plus a full catalogue reading pass."
+    - "Runs the prose-edit guard and reads the diff; preserves claims, qualifications, numbers and citations."
+    - "Shows consequential changes and retained exceptions in plain words with their sections."
+  fail_if:
+    - "Changes Methods, Results, scientific claims or evidence-tied qualifications without authorisation."
+    - "Loads a different installed humanizer, runs a detector by default, or edits toward a detector score."
+
+- id: deslop-audit-only
+  skill: manuscript-deslop
+  prompt: >-
+    Identify the formulaic AI writing in original.md. This is an audit only: quote the passages and
+    explain what you would change, without editing the manuscript.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "The manuscript includes filler and significance inflation alongside scientific qualifiers."
+  rubric:
+    - "Profiles and reads the supplied manuscript using the same catalogue."
+    - "Quotes identifiable writing problems with their sections and explains why each is a problem here."
+    - "Keeps findings separate from claims about who wrote the manuscript."
+  fail_if:
+    - "Changes the source file or starts a full manuscript-improve workflow."
+    - "Calls technical vocabulary, a single connector or a justified hedge proof of AI authorship."
+
+- id: deslop-clean-control
+  skill: manuscript-deslop
+  prompt: >-
+    Check edited-clean.md for stock AI phrasing. Only change text if you can name a concrete writing
+    problem; don't remove scientific uncertainty or normal Methods language.
+  files: [fixtures/manuscript-prose-edit/edited-clean.md]
+  planted:
+    - "The clean control preserves conventional passive Methods prose, may, suggests and scope limitations."
+  rubric:
+    - "Allows passages that already work to stay and respects the catalogue's exceptions."
+    - "Preserves the Methods passive, evidence-tied hedges, scope, results, numbers and citations."
+    - "Runs the count and reading checks and the guard if making an edit."
+  fail_if:
+    - "Manufactures variation, invents specifics or adds personality to demonstrate activity."
+    - "Promises zero AI patterns, a lower detector score or proof of human authorship."

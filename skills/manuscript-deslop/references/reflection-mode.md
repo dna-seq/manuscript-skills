@@ -12,13 +12,16 @@ time:
 Use it when the author requests reflection mode or independent agents. It can help with an important
 section that still has concrete writing problems; section type or past AI use does not make it
 mandatory. A single pass is the default for any section. Follow the shared author-priority rules and
-the output defaults in `prose-edit-contract.md`.
+the output defaults in the [prose-edit contract](../../manuscript-prose-edit/references/prose-edit-contract.md).
 
 Cover the whole paper unless the author narrows the task. Section-sized agent tasks are internal chunks,
 not automatic author-review stops. If the author requests section or stage checkpoints, show the relevant
 before/after comparison and pause at those boundaries; otherwise finish all sections in scope.
 
 ## Loop
+
+The loop uses this skill's `scripts/style_profile.py` and the companion
+`../manuscript-prose-edit/scripts/guard.py`, relative to the `manuscript-deslop` directory.
 
 ```
 style_profile.py SECTION                      → ranked smells (and optional detector notes, below)
@@ -46,7 +49,8 @@ detector score.
 The critic must read the section as a reviewer would, so it gets **only**:
 
 - the current text of the section;
-- the field, the venue if known, and the paths to `llm-smells.md` and `claim-ladders.md`.
+- the field, the venue if known, and the paths to this skill's `llm-smells.md` and the companion
+  [claim ladders](../../manuscript-prose-edit/references/claim-ladders.md).
 
 It never sees the authors' self-assessment (a cover letter's claims, "we think this section is clear", the
 contribution they hope a reader takes away), the writer's notes or change table, earlier drafts, earlier
@@ -74,9 +78,9 @@ You are a reviewer reading one section of a {field} manuscript for {venue}. You 
 the first time and know nothing about how it was written or edited. Identify concrete problems with clarity,
 support, consistency or register. Do not speculate about authorship or treat every catalogue hit as a defect.
 
-Use the catalogue at {path}/llm-smells.md: for each finding give its id (A1, B5, H3, ...), the exact quoted
+Use the catalogue at {deslop_references}/llm-smells.md: for each finding give its id (A1, B5, H3, ...), the exact quoted
 phrase, and one sentence on why it is a problem here. For claims, use these ids, naming rungs from
-{path}/claim-ladders.md:
+{prose_references}/claim-ladders.md:
 - I1: the verb is stronger or weaker than the design supports (give both rungs, e.g. "association → causation");
 - I2 or I6: a hedge or scope that does not match the evidence, or differs from the same claim elsewhere;
 - B7: one object under several names;
@@ -100,7 +104,7 @@ Section:
 
 ```text
 You are a scientific copy editor, not an author. Edit the section below to fix exactly the findings
-listed, under the contract in {path}/prose-edit-contract.md (section 1). In short: keep every claim,
+listed, under the contract in {prose_references}/prose-edit-contract.md (section 1). Keep every claim,
 number, citation, hedge, negation, limitation and technical term; add nothing; do not merge or split
 paragraphs; match the authors' voice from the sample if one is given.
 
@@ -131,18 +135,19 @@ Section:
    applies, when it is a field convention, or when fixing it would change a claim (send that to the authors).
 3. After each writer pass, run `guard.py SECTION DRAFT` against the original section. Revert every protected
    change the authors did not ask for, and read every warning yourself. Then run the smell check
-   (`style_profile.py DRAFT --before SECTION --check`, contract §5.3) and fix what it lists before the critic
+   (`scripts/style_profile.py DRAFT --before SECTION --check`) and fix what it lists before the critic
    reads the draft; give each critic the check's reading list along with the text.
 4. Merge the change tables into one summary for the authors: the changes grouped by what they are, in plain
    words with the finding IDs in parentheses (as under "Traceability" above), then the flagged sentences,
    each quoted with its section and ordered by when the authors can act, claim questions first under "Fix
-   now" (`author-priorities.md`, "Order the work by when it can be done"). Apply authorised copy edits and
+   now" ([author priorities](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)). Apply authorised copy edits and
    show a diff; ask the author only about unresolved facts or changes in scientific meaning.
 
 ## Optional detector notes
 
-If the authors want a detector's view, run `detector_setup.py check` and `detect.py` (see `detector-apis.md`
-for which free detectors exist and what they do with the text); its flagged windows can go to the critic as
+If the authors want a detector's view, use the companion prose-edit skill's `scripts/detector_setup.py check`
+and `scripts/detect.py` (see its [detector APIs](../../manuscript-prose-edit/references/detector-apis.md)
+for setup and data handling); its flagged windows can go to the critic as
 a hint. Three rules:
 
 - **Opt-in and confidentiality.** Sending an unpublished manuscript to a third party may breach the

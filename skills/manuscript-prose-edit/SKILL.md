@@ -4,7 +4,8 @@ description: >-
   Edit manuscript prose for clarity, grammar, consistency and author voice while preserving scientific
   meaning and claim strength. Use for language editing, copy editing, reducing repetitive or generic
   writing, checking that an edit or a revision did not change numbers, citations or claims, and requested
-  style or AI-text detector checks. Use manuscript-journal-adapt for venue formatting and AI-use statements,
+  style or AI-text detector checks. Use manuscript-deslop for a focused check or cleanup of formulaic LLM
+  phrasing, manuscript-journal-adapt for venue formatting and AI-use statements,
   manuscript-reference-check for citation verification, manuscript-integrity-check for a full audit,
   manuscript-peer-review for referee-style critique of the science, and manuscript-reviewer-response for
   answering referees.
@@ -28,29 +29,16 @@ Before work, follow the shared [project setup and run-output contract](../manusc
 ## Edit and check the result
 
 Read [prose-edit-contract.md](references/prose-edit-contract.md) for the editing procedure and preservation
-rules, and [section-guide.md](references/section-guide.md) when a section's purpose matters. The patterns
-that make prose read as machine-written are in [llm-smells.md](references/llm-smells.md), each with its fix
-and its "Leave it when"; a sentence that still says something specific can stay, so the aim is never zero
-hits.
-
-**The smell check is required for every edit**, short or long, a file or a pasted passage (save the
-original and the edit as two files). An edit is not finished, and is not handed over, until both parts
-have run:
-
-1. **Counts.** Before editing, run `scripts/style_profile.py` on the text in scope to see where the
-   patterns are. After editing, run it with `--before` and `--check` (below). It fails while the edit added
-   a pattern the original did not have, or while one pattern is used three or more times under a heading the
-   edit changed. Rewrite each, or keep one whose catalogue entry says to leave it, rerun with `--keep ID`,
-   and tell the authors under "Then the writing" which sentences you kept and why.
-2. **Reading.** The counts know only some patterns, and only some wordings of those. `--check` ends with
-   every catalogue entry in one line: read the edited text against that whole list, find by reading what no
-   count can, and fix it under the same rules. Open an entry in the catalogue for its examples and its
-   "Leave it when" before you change a sentence.
+rules, and [section-guide.md](references/section-guide.md) when a section's purpose matters. Apply
+[manuscript-deslop](../manuscript-deslop/SKILL.md) for the pattern check: it owns the catalogue,
+false-positive exceptions and style profiler. **The smell check is required for every edit**, including a
+short pasted passage saved as before/after files. Run its counts before and after editing, then read the
+edit against the full catalogue list. Resolve added patterns and clusters, or record a reviewed exception
+with `--keep ID` and explain the retained sentences to the authors. A sentence that works can stay.
 
 Use available author samples (`--sample`) when voice matching helps; do not require samples for an
-ordinary edit. The catalogue already holds blader/humanizer's patterns with the exceptions a manuscript
-needs, so do not load a separately installed `humanizer` skill: its hard rules (no en dash anywhere, merged
-paragraphs) break this skill's contract.
+ordinary edit. Use this plugin's deslop workflow for these checks; other installed humanizers can have
+rules that conflict with scientific writing or the preservation contract.
 
 Make the authorised edits, preserve scientific meaning and review the diff in context. The contract's
 **claim ceiling** holds for every request, including "make it punchier" or "sound more confident": improve
@@ -59,10 +47,10 @@ the prose, never raise a claim's certainty, causality, novelty, generality or sc
 see. For file edits:
 
 ```bash
-uv run --script scripts/style_profile.py BEFORE.md                    # before editing: where the patterns are
+uv run --script ../manuscript-deslop/scripts/style_profile.py BEFORE.md # before editing: where the patterns are
 uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
 uv run --script scripts/guard.py AFTER.md --against HEAD                # in git: the last commit is BEFORE
-uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
+uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
 ```
 
 Retain the before/after copies, guard JSON, style reports and adjudication in this skill's run folder under the shared [project-output contract](../manuscript-integrity-check/references/project-workflow.md). Link the report and consequential comparisons; preserve flags and failed checks even when a later revision resolves them.
@@ -139,7 +127,7 @@ alone tells them nothing they can check.
 
 ## Optional independent reflection
 
-Use [reflection-mode.md](references/reflection-mode.md) only when the user requests reflection mode or
+Use [reflection-mode.md](../manuscript-deslop/references/reflection-mode.md) only when the user requests reflection mode or
 independent agents. A new critic subagent each round reads only the current text, never the authors'
 self-assessment, the writer's notes or what the last round fixed, and cites a catalogue ID for each finding
 so every fix is traceable without a log file. The summary for the authors describes each kind of change in
@@ -169,8 +157,8 @@ there is no identifiable problem. A detector result is not evidence of authorshi
 ## Shared tools
 
 Commands are relative to this skill directory. Keep the plugin's companion skills together:
-`style_profile.py` also reads the shared vocabulary CSV under `manuscript-integrity-check/references/`.
-The integrity skill's pre-commit hook uses this skill's style profiler. `guard.py` is also available to
+`manuscript-deslop` owns the style profiler and catalogue, shared with the integrity skill's pre-commit
+hook and this skill's optional detectors. `guard.py` is also available to
 venue adaptation, policy-fit edits and reviewer responses; those callers use the same copy of the
 preservation tool and the same ladders. They and every report to the authors also run the smell check
-(`style_profile.py --check`, with `--report` for a report), against the same catalogue.
+(`../manuscript-deslop/scripts/style_profile.py TEXT --check`, with `--report` for a report), against the same catalogue.

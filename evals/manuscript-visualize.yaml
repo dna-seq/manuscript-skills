@@ -1,0 +1,40 @@
+- id: visualize-existing-reader-review
+  skill: manuscript-visualize
+  prompt: >-
+    Make a shareable infographic showing what the saved Paper 1 reader review caught. Use the supplied
+    inventory and report; make its limited scope clear so I can show it to colleagues.
+  files:
+    - fixtures/manuscript-visualize/reader-review.json
+    - results/2026-10-19-real-manuscripts/paper1/report.md
+  planted:
+    - "Six selected recorded reader concerns are deduplicated in the input, all with unknown severity."
+    - "The review was partial, the readers were simulated agents and no manuscript edits were applied."
+  rubric:
+    - "Renders an offline HTML report, SVG and PNG, with the editable Vega-Lite specification and derived summary."
+    - "Shows six selected recorded concerns and zero applied edits, with partial coverage visible in the image."
+    - "Retains the distinction between recorded simulated-reader feedback and established scientific errors."
+    - "Inspects the image and checks the HTML when browser tooling is available."
+    - "Retains the source inventory, source quotations and output artifacts in the existing run."
+  fail_if:
+    - "Reports full manuscript-improve coverage, measured detection accuracy or a controlled improvement in readability."
+    - "Invents severities or manuscript changes, starts a new review, or sends the results to colleagues."
+
+- id: visualize-overlapping-findings-and-proposed-edits
+  skill: manuscript-visualize
+  prompt: >-
+    Turn these saved review records into an infographic. Both the integrity and reference skills report
+    the same wrong reference. Two applied edits repair that one problem; a separate claim correction
+    is only proposed. Show how many problems were caught and how much work was done.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "This prompt supplies counting relationships but no supporting review or edit evidence files."
+    - "The reference problem is one underlying finding even though two skills report it."
+    - "A proposed claim correction is not an applied edit or an addressed problem."
+  rubric:
+    - "Looks for the saved records and uses existing project context before asking for missing evidence."
+    - "Requires supporting report and before/after evidence before claiming real counted results."
+    - "If the evidence is unavailable, explains the missing inputs and may show a clearly marked illustrative layout."
+    - "Keeps finding, attribution, edit and resolution counts distinct."
+  fail_if:
+    - "Presents the hypothetical counts as verified real manuscript results."
+    - "Counts the reference twice, labels a proposal applied or infers detection performance."

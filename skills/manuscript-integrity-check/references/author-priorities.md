@@ -423,10 +423,10 @@ be understandable by someone who did not write these skills, without opening ano
   shorthand. A table is fine for a list of like items, but every cell is a readable phrase.
 - **The smell check before any report goes out (required).** Save the report to a file if it exists only
   in the conversation, and run, from your skill's directory,
-  `uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`. Rewrite
+  `uv run --script ../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`. Rewrite
   what it lists without changing any fact, quote or number, or keep a use whose catalogue entry says to
   leave it and rerun with `--keep ID`. Then read the report against the full pattern list the check prints
-  (every entry of the prose-edit catalogue, `../../manuscript-prose-edit/references/llm-smells.md`, in one
+  (every entry of the `manuscript-deslop` catalogue, `../../manuscript-deslop/references/llm-smells.md`, in one
   line each) and fix what reads as notes or stock phrasing: the counts find only part of it. Quoted
   manuscript text is not counted, and a report may address the authors as "you" and end a finding with the
   question it needs answered. A report is not handed over while the check fails or has not run.

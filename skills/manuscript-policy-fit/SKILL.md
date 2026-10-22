@@ -122,7 +122,7 @@ identifiers, citations and scientific meaning. Mark any proposed narrowing of a 
 claim correction, not cosmetic rephrasing. The companion `manuscript-prose-edit/scripts/guard.py` can
 help with selected mechanical changes, but cannot establish policy fit or semantic equivalence. Text you
 write into the manuscript (a scope clarification, an ethics or data statement) passes the required smell
-check, `../manuscript-prose-edit/scripts/style_profile.py AFTER --before BEFORE --check`, with a read
+check, `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`, with a read
 against the pattern list it prints (prose-edit contract, §5.3). When the
 authors authorised a claim correction, run it with `--allow-strengthening`: claim changes are then listed
 as authorised, while changed numbers and citations still fail.

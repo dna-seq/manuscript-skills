@@ -229,9 +229,9 @@ family, with their cost (options.md).>
   not found, so its form and recommendation options were assumed; referees run one after another by one
   agent; one model family; no reviewer questions for the paper's field.
 - **Run the smell check before handing it over** (required):
-  `uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`, then read
-  the report against the pattern list it prints, from the prose-edit catalogue
-  ([llm-smells.md](../../manuscript-prose-edit/references/llm-smells.md)), never a separately installed
+  `uv run --script ../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`, then read
+  the report against the pattern list it prints, from the `manuscript-deslop` catalogue
+  ([llm-smells.md](../../manuscript-deslop/references/llm-smells.md)), never a separately installed
   `humanizer` skill
   ([why](../../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)). Fix
   what reads as notes or stock phrasing without changing a fact, quote, number or recommendation.

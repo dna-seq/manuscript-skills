@@ -35,7 +35,7 @@ sentence; or a number, citation or identifier that is new to its sentence and it
 `--allow-strengthening` exempts the claim changes (never the counts or the tokens) when the authors authorised a
 claim correction. Lowered claims, added qualifiers, negation changes, deleted sentences and tokens moved within a
 paragraph are warnings: read each one. A deleted sentence that reads as a stock phrase the contract lets an edit
-cut (an empty implication, a mini-conclusion, a filler phrase, signposting; references/smell-patterns.yaml) is
+cut (an empty implication, a mini-conclusion, a filler phrase, signposting; ../manuscript-deslop/references/smell-patterns.yaml) is
 not listed.
 
 Relocated caveats (`--relocated`): a scope, limiting or concessive, null-result or evidence-status marker that
@@ -76,7 +76,7 @@ import yaml
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-SMELL_PATTERNS = Path(__file__).resolve().parent.parent / "references" / "smell-patterns.yaml"
+SMELL_PATTERNS = Path(__file__).resolve().parents[2] / "manuscript-deslop" / "references" / "smell-patterns.yaml"
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 LATEX_COMMENT = re.compile(r"(?<!\\)%.*$", re.MULTILINE)
@@ -954,7 +954,7 @@ def _stock_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
 
 
 def _stock_sentence(text: str, last_in_paragraph: bool) -> bool:
-    """A sentence that reads as a stock phrase from the smell catalogue (references/smell-patterns.yaml)."""
+    """A sentence that reads as a stock phrase from the smell catalogue (../manuscript-deslop/references/smell-patterns.yaml)."""
     target = text.lstrip("\"“(*_")
     for scope, rx in _stock_patterns():
         if scope == "end" and not last_in_paragraph:

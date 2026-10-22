@@ -330,7 +330,7 @@ parentheses.
   project's files answer.
 
 Before handing the report over, run the smell check on it and read it against the pattern list the check
-prints (`uv run --script ../manuscript-prose-edit/scripts/style_profile.py REPORT.md --report --check`, as
+prints (`uv run --script ../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`, as
 [Writing for the authors](references/author-priorities.md#writing-for-the-authors) requires; never a
 separately installed `humanizer` skill), and fix what reads as notes or stock phrasing without changing any
 fact, quote or number. With the shared record,

@@ -371,7 +371,7 @@ def test_venues_yaml_parses_and_is_dated() -> None:
     assert raw["checked"] is not None and raw["venues"]
 
 
-profile = _load("style_profile", SKILLS / "manuscript-prose-edit" / "scripts" / "style_profile.py")
+profile = _load("style_profile", SKILLS / "manuscript-deslop" / "scripts" / "style_profile.py")
 
 SLOPPY = """# Intro
 
@@ -422,7 +422,7 @@ def test_profile_baseline_flags_departures_from_the_authors_own_writing() -> Non
 
 def test_smell_patterns_compile_and_match_the_catalogue_ids() -> None:
     smells = profile.load_smells()
-    catalogue = (SKILLS / "manuscript-prose-edit" / "references" / "llm-smells.md").read_text()
+    catalogue = (SKILLS / "manuscript-deslop" / "references" / "llm-smells.md").read_text()
     for sid in smells:
         assert f"### {sid}." in catalogue, sid
 
@@ -513,7 +513,7 @@ def test_report_mode_skips_quotations_address_and_questions() -> None:
 
 
 def test_reading_list_carries_every_catalogue_entry_once() -> None:
-    catalogue = (SKILLS / "manuscript-prose-edit" / "references" / "llm-smells.md").read_text()
+    catalogue = (SKILLS / "manuscript-deslop" / "references" / "llm-smells.md").read_text()
     ids = re.findall(r"^### ([A-K]\d+)\. ", catalogue, re.MULTILINE)
     entries = profile.catalogue_entries()
     assert [e["id"] for e in entries] == ids
@@ -543,6 +543,8 @@ def test_check_cli_fails_until_the_pattern_is_rewritten_or_kept(tmp_path: Path) 
 
 
 @pytest.mark.parametrize("rel", [
+    "manuscript-deslop/SKILL.md",
+    "manuscript-visualize/SKILL.md",
     "manuscript-prose-edit/SKILL.md",
     "manuscript-prose-edit/references/prose-edit-contract.md",
     "manuscript-integrity-check/references/author-priorities.md",

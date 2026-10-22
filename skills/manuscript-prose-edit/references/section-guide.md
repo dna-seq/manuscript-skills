@@ -1,6 +1,6 @@
 # Section by section: what each part of a paper needs, and what reads as AI there
 
-Use with `llm-smells.md` (pattern ids in brackets) and the shared venue checklist from
+Use with [deslop catalogue](../../manuscript-deslop/references/llm-smells.md) (pattern ids in brackets) and the shared venue checklist from
 `../manuscript-journal-adapt/scripts/venues.py show` (relative to the prose-edit skill directory). The
 venue's author guidelines override anything here (structured abstracts, section names, word limits).
 
