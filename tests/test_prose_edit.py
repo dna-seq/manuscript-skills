@@ -997,7 +997,7 @@ def _slug(heading: str) -> str:
     return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
 
 
-@pytest.mark.parametrize("skill", ["manuscript-prose-edit", "manuscript-deslop", "manuscript-visualize"])
+@pytest.mark.parametrize("skill", ["manuscript-prose-edit", "manuscript-deslop", "manuscript-dashboard"])
 def test_relative_links_in_the_skill_resolve_with_their_anchors(skill: str) -> None:
     for md in (ROOT / "skills" / skill).rglob("*.md"):
         for target in re.findall(r"\]\(([^)\s]+)\)", md.read_text(encoding="utf-8")):
@@ -1011,7 +1011,7 @@ def test_relative_links_in_the_skill_resolve_with_their_anchors(skill: str) -> N
                 assert anchor in {_slug(h) for h in headings}, f"{md.relative_to(ROOT)}: no #{anchor} in {path}"
 
 
-@pytest.mark.parametrize("skill", ["manuscript-prose-edit", "manuscript-deslop", "manuscript-visualize", "manuscript-improve"])
+@pytest.mark.parametrize("skill", ["manuscript-prose-edit", "manuscript-deslop", "manuscript-dashboard", "manuscript-improve"])
 def test_eval_cases_are_complete_and_their_files_exist(skill: str) -> None:
     cases = yaml.safe_load((ROOT / "evals" / f"{skill}.yaml").read_text(encoding="utf-8"))
     assert len({c["id"] for c in cases}) == len(cases)

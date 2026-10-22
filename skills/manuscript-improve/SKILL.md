@@ -77,7 +77,7 @@ unaffordable validation requirement can justify settling journal fit before edit
 | Check how it reads | [manuscript-story](../manuscript-story/SKILL.md) reads the revised paper as its readers do, against the version before this workflow, and repairs the story within the direction the authors recorded: a stake in the opening, one headline per result, real output shown, caveats kept but placed where they cost readers least. A change of direction is only offered as options. Run it after the revision stage, and whenever referee-driven changes have accumulated. |
 | Prepare for the chosen journal | Use [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) for the actual article type and submission stage: scope, length and abstract format, required sections and the reporting checklist that journal asks for. Statements whose contents depend on final code and results can be drafted now and are finished in the last stage. Resolve the target before making incompatible journal-specific changes; before that, only the requirements every venue on the ladders shares are adapted. |
 | Verify the revision | Recheck affected claims, references, cross-section consistency and applicable submission requirements. Compare against the retained version with `../manuscript-prose-edit/scripts/guard.py ORIGINAL FINAL --revision`, for the working copy and for the corrected version (`proposed.md`), resolve unintended drift and identify what remains unverified. Run the required smell check on the revised text, `../manuscript-deslop/scripts/style_profile.py FINAL --before ORIGINAL --check`, and read it against the pattern list the check prints. Compare how it reads with `../manuscript-story/scripts/reader_metrics.py FINAL --before ORIGINAL` and show the authors what moved. |
-| Show what the workflow found and did (always, last) | [manuscript-visualize](../manuscript-visualize/SKILL.md) collects every stage's `findings.json`, merges the problems several skills found, dismisses what did not hold and renders the dashboard: problems by kind, severity, stage and section, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, coverage, edits as diffs, the panels, and what could not be checked. |
+| Show what the workflow found and did (always, last) | [manuscript-dashboard](../manuscript-dashboard/SKILL.md) collects every stage's `findings.json`, merges the problems several skills found, dismisses what did not hold and renders the dashboard: problems by kind, severity, stage and section, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, coverage, edits as diffs, the panels, and what could not be checked. |
 | Finish for submission, once the code, data and results are final | Archive the release and quote its DOI and version, finalise the data availability statement, declarations, AI-use statement and cover letter with manuscript-journal-adapt, remove revision markers if the authors want that, and run the submission-package check in manuscript-integrity-check. Do this when the authors say they are about to submit; until then these items are listed last and are not blockers for the draft. |
 | After a decision | [manuscript-reviewer-response](../manuscript-reviewer-response/SKILL.md) plans the revision from the decision letter in the referees' own numbering, drafts the response letter and verifies that the revision addresses each comment. This is a separate request, after real reviews arrive. |
 | Track who revised what (where the manuscript keeps revision marks) | [manuscript-revision-marks](../manuscript-revision-marks/SKILL.md) keeps the `@rev` marks current through every stage, lists the AI edits no person has reviewed and the prose no round has read, and builds the PDF from the clean copy against the page limit; [manuscript-mark-people](../manuscript-mark-people/SKILL.md) sets up who counts as a person. Never introduced into a project that does not use marks unless the authors ask. |
@@ -124,7 +124,7 @@ citations, approvals or accounts of AI use.
 
 **Build the corrected version.** The working copy holds only what the mode applied; the authors also get
 the whole improved paper to read. It is built from the adjudicated inventory, so the order at the end of
-a run is: collect and adjudicate the findings (manuscript-visualize, steps 1 and 2), build the corrected
+a run is: collect and adjudicate the findings (manuscript-dashboard, steps 1 and 2), build the corrected
 version, verify it, then render the dashboard. Write
 `RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
 recommend (`prefer`); the proposals to hold back with the reason (`hold`: a statement for a journal not
@@ -132,7 +132,7 @@ yet chosen, a decision only the authors can make, an addition with slots for fac
 an anchor for an addition its stage left without one. Then run, from this skill directory:
 
 ```bash
-uv run --script scripts/revise.py ORIGINAL WORKING RUN/manuscript-visualize/findings.json \
+uv run --script scripts/revise.py ORIGINAL WORKING RUN/manuscript-dashboard/findings.json \
   --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision
 ```
 
@@ -165,11 +165,11 @@ version and next requested step using the conversation or existing project conve
 files are required.
 
 Every stage writes `findings.json` beside its report, as
-[stage findings](../manuscript-visualize/references/stage-findings.md) describes, including the stages run
+[stage findings](../manuscript-dashboard/references/stage-findings.md) describes, including the stages run
 by reviewer agents. The last step of every run of this workflow is
-[manuscript-visualize](../manuscript-visualize/SKILL.md) on the same run: collect the stages' findings,
+[manuscript-dashboard](../manuscript-dashboard/SKILL.md) on the same run: collect the stages' findings,
 merge what several skills found into one record each, dismiss what did not hold, and render the
-dashboard, with the corrected version, into `RUN/manuscript-visualize/`. Link the dashboard first in the
+dashboard, with the corrected version, into `RUN/manuscript-dashboard/`. Link the dashboard first in the
 summary and the corrected version second: they are how the authors and their colleagues see what the
 workflow caught, changed and left open, with the actual coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,
 with its reason; its unfound problems are unknown, not zero.

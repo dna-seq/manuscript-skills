@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "skills/manuscript-visualize/scripts/dashboard.py"
+SCRIPT = ROOT / "skills/manuscript-dashboard/scripts/dashboard.py"
 spec = importlib.util.spec_from_file_location("dashboard", SCRIPT)
 visualize = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = visualize
@@ -211,7 +211,7 @@ def test_empty_findings_are_not_mislabeled_as_complete_review(data: dict) -> Non
 
 
 def test_worked_input_uses_actual_evidence_and_does_not_invent_edits() -> None:
-    source = ROOT / "evals/fixtures/manuscript-visualize/reader-review.json"
+    source = ROOT / "evals/fixtures/manuscript-dashboard/reader-review.json"
     inventory = visualize.Inventory.model_validate_json(source.read_text())
     visualize.verify_evidence(inventory, source.parent)
     summary = visualize.summarize(inventory)
@@ -221,7 +221,7 @@ def test_worked_input_uses_actual_evidence_and_does_not_invent_edits() -> None:
     assert inventory.coverage[0].status == "partial" and "Selected" in inventory.scope
 
 
-COLLECT = ROOT / "skills/manuscript-visualize/scripts/collect.py"
+COLLECT = ROOT / "skills/manuscript-dashboard/scripts/collect.py"
 spec = importlib.util.spec_from_file_location("collect", COLLECT)
 collect = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = collect
@@ -275,7 +275,7 @@ def test_collect_merges_attributions_checks_edits_and_keeps_every_source(tmp_pat
                                   "update": [{"id": "IC-2", "assessment": "confirmed"}],
                                   "change_links": [{"change": "prose-edit.C1", "finding_ids": ["IC-2"]}],
                                   "addressed": ["IC-2"]}))
-    out = run / "manuscript-visualize/findings.json"
+    out = run / "manuscript-dashboard/findings.json"
     result = CliRunner().invoke(collect.app, [str(run), "--output", str(out), "--merge", str(merges), "--version", "v0.3"])
     assert result.exit_code == 0, result.output
     inventory = visualize.Inventory.model_validate_json(out.read_text())
@@ -302,7 +302,7 @@ def test_collect_refuses_an_inventory_whose_evidence_is_not_in_its_file(tmp_path
     doc = json.loads((run / "manuscript-integrity-check/findings.json").read_text())
     doc["findings"][0]["evidence"][0]["quote"] = "A sentence the report never wrote."
     (run / "manuscript-integrity-check/findings.json").write_text(json.dumps(doc))
-    out = run / "manuscript-visualize/findings.json"
+    out = run / "manuscript-dashboard/findings.json"
     result = CliRunner().invoke(collect.app, [str(run), "--output", str(out)])
     assert result.exit_code == 1 and not out.exists()
 
@@ -316,7 +316,7 @@ def test_collect_reads_reading_paths_where_readers_left_and_each_panel_round(tmp
         "# Clinician\n\n```yaml\nseat: clinician\npath:\n  - {section: Abstract, how: read}\n  - {section: 2. Methods, how: skipped}\n"
         "left:\n  section: Abstract\n  quote: It runs.\n  why: Nothing for patients.\ndips: [{section: Abstract, quote: x, why: y}]\n"
         "takeaway: Fast.\nnext: bookmark\n```\n")
-    out = run / "manuscript-visualize/findings.json"
+    out = run / "manuscript-dashboard/findings.json"
     assert CliRunner().invoke(collect.app, [str(run), "--output", str(out)]).exit_code == 0
     readers = {r.seat: r for r in visualize.Inventory.model_validate_json(out.read_text()).panel.readers}
     clinician = readers["clinician"]
@@ -350,7 +350,7 @@ def test_a_proposal_linked_to_a_merged_record_follows_it_to_the_record_kept(tmp_
     merges = tmp_path / "merges.json"
     merges.write_text(json.dumps({"merge": [{"keep": "IC-1", "ids": ["ST-1"]}],
                                   "decisions": [{"id": "D1", "summary": "Choose the key", "finding_ids": ["ST-1"]}]}))
-    out = run / "manuscript-visualize/findings.json"
+    out = run / "manuscript-dashboard/findings.json"
     result = CliRunner().invoke(collect.app, [str(run), "--output", str(out), "--merge", str(merges)])
     assert result.exit_code == 0, result.output
     inventory = visualize.Inventory.model_validate_json(out.read_text())

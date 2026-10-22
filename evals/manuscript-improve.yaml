@@ -75,7 +75,7 @@
     - "The two routine errors and the unverified Introduction claims are found by more than one stage."
     - "No journal is chosen, so the journal-dependent stages cannot run."
   rubric:
-    - "Each stage that ran writes findings.json beside its report, and the last step runs manuscript-visualize on the same run."
+    - "Each stage that ran writes findings.json beside its report, and the last step runs manuscript-dashboard on the same run."
     - "The inventory counts a problem two stages found once, with both skills and both source IDs kept, and records the merge in merges.json."
     - "The routine corrections appear as applied edits only after the revised file is checked; the Introduction changes stay proposals."
     - "Coverage shows the journal-dependent stages as not run with their reason, and the summary links the dashboard first."

@@ -555,7 +555,7 @@ def test_check_cli_fails_until_the_pattern_is_rewritten_or_kept(tmp_path: Path) 
 
 @pytest.mark.parametrize("rel", [
     "manuscript-deslop/SKILL.md",
-    "manuscript-visualize/SKILL.md",
+    "manuscript-dashboard/SKILL.md",
     "manuscript-prose-edit/SKILL.md",
     "manuscript-prose-edit/references/prose-edit-contract.md",
     "manuscript-integrity-check/references/author-priorities.md",

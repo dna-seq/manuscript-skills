@@ -85,9 +85,9 @@ Write conclusions, checks and failed attempts under `RUN/SKILL/`, not in a dispo
 Each skill gets a generated `README.md` linking its evidence and showing its status. Save the actual
 author-facing report as `report.md` or another descriptive filename. Only the skill-root `README.md`
 is reserved; source READMEs can be retained under evidence subfolders. Beside the report, write the same
-findings as `findings.json` ([stage findings](../../manuscript-visualize/references/stage-findings.md)):
+findings as `findings.json` ([stage findings](../../manuscript-dashboard/references/stage-findings.md)):
 one record per distinct problem with its verbatim passage, severity, stage and evidence, plus what was
-dismissed and what could not be checked. `manuscript-visualize` counts the run from these files and
+dismissed and what could not be checked. `manuscript-dashboard` counts the run from these files and
 never infers that a skill without one found nothing. Register outputs, including files
 already written there:
 

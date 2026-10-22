@@ -21,7 +21,7 @@ def load(name: str, path: Path):
     return module
 
 
-viz = load("dashboard", ROOT / "skills/manuscript-visualize/scripts/dashboard.py")
+viz = load("dashboard", ROOT / "skills/manuscript-dashboard/scripts/dashboard.py")
 revise = load("revise", ROOT / "skills/manuscript-improve/scripts/revise.py")
 
 ORIGINAL = """# A tool
@@ -201,7 +201,7 @@ def test_an_applied_edit_a_later_stage_changed_again_is_still_found(second: tupl
 
 
 def test_collect_counts_an_applied_edit_that_a_later_stage_changed_again(tmp_path: Path) -> None:
-    collect = load("collect", ROOT / "skills/manuscript-visualize/scripts/collect.py")
+    collect = load("collect", ROOT / "skills/manuscript-dashboard/scripts/collect.py")
     original = "# T\n\nWe use HuggingFace, which serves as the source.\n"
     working = "# T\n\nWe use Hugging Face, which is the source.\n"
     for skill, number, before, after in (("manuscript-prose-edit", 1, original.splitlines()[2], "We use Hugging Face, which serves as the source."),

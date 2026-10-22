@@ -4,7 +4,7 @@
 # ///
 """Draft the dashboard inventory from a manuscript-skills run, so nothing the run recorded is dropped.
 
-    uv run --script collect.py RUN --output RUN/manuscript-visualize/findings.json
+    uv run --script collect.py RUN --output RUN/manuscript-dashboard/findings.json
     uv run --script collect.py RUN --output OUT.json --merge merges.json --reference reference.json
 
 It reads run.json for coverage, the manuscript snapshot for its title and sections, every skill's
@@ -42,6 +42,7 @@ PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF"
           "manuscript-story": "ST", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
 SKIP = {"findings.json", "merges.json"}
+OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
 CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "evidence")
 app = typer.Typer(add_completion=False)
 
@@ -70,7 +71,7 @@ def manuscript(run: Path, data: dict, version: str, out_dir: Path) -> dict | Non
 def coverage(run: Path, data: dict, out_dir: Path) -> list[dict]:
     rows = []
     for name, seat in data["skills"].items():
-        if name == "manuscript-visualize":
+        if name in OWN:
             continue
         status = seat["status"]
         rows.append({"skill": name, "status": status if status in TERMINAL else "unknown",
@@ -85,7 +86,7 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
     seen: set[str] = set()
     for path in sorted(run.glob("manuscript-*/findings.json")):
         skill, folder = path.parent.name, path.parent
-        if skill == "manuscript-visualize":
+        if skill in OWN:
             continue
         doc = json.loads(path.read_text(encoding="utf-8"))
 
@@ -138,7 +139,7 @@ def signals(run: Path) -> list[dict]:
     """Raw output counts: scanner and checker hits by check, referee proposals, reader concerns."""
     rows = []
     for path in sorted(run.glob("manuscript-*/**/*.json")):
-        if path.name in SKIP or "commands" in path.parts or path.relative_to(run).parts[0] == "manuscript-visualize":
+        if path.name in SKIP or "commands" in path.parts or path.relative_to(run).parts[0] in OWN:
             continue
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
@@ -431,7 +432,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
     original = Path(data["inputs"][0]["original"])
     current = original.read_text(encoding="utf-8") if original.is_file() else snapshot.read_text(encoding="utf-8")
     records = stage_records(run, out_dir, snapshot)
-    statuses = {name: seat["status"] for name, seat in data["skills"].items() if name != "manuscript-visualize"}
+    statuses = {name: seat["status"] for name, seat in data["skills"].items() if name not in OWN}
     inventory: dict[str, Any] = {
         "schema_version": 2, "title": title, "run_id": data["run_id"],
         "scope": scope or f"Whole-manuscript run started {data['started_at'][:10]}; skills: "

@@ -72,7 +72,7 @@ def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> N
         data = json.loads(resolve(manuscript).output)
         assert data['status'] == 'ready' and not data['questions']
         assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'peer_review': 'auto'}
-    for skill in ('manuscript-prose-edit', 'manuscript-deslop', 'manuscript-visualize', 'manuscript-journal-select'):
+    for skill in ('manuscript-prose-edit', 'manuscript-deslop', 'manuscript-dashboard', 'manuscript-journal-select'):
         run = start(manuscript, skill)
         assert runs.read(run)['context']['project_file'] == str(manuscript.parent / projects.CONFIG)
 
@@ -373,3 +373,10 @@ def test_exec_runs_where_it_was_called_so_relative_paths_resolve_for_the_caller(
     assert result.exit_code == 0, result.output
     command = json.loads((run / "run.json").read_text())["skills"]["manuscript-story"]["commands"][0]
     assert command["cwd"] == str(caller.resolve()) and (run / "manuscript-story/commands/0001.stdout.txt").read_text() == "here"
+
+
+def test_a_renamed_skill_keeps_its_former_name_in_older_runs() -> None:
+    assert runs.skill_name('manuscript-dashboard') == 'manuscript-dashboard'
+    assert runs.skill_name('manuscript-visualize') == 'manuscript-visualize'  # runs made before 0.10.0
+    with pytest.raises(ValueError, match='Unknown manuscript skill'):
+        runs.skill_name('manuscript-nonexistent')

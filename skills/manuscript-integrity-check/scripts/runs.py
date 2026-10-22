@@ -89,7 +89,13 @@ def within(run: Path, relative: str) -> Path:
     return path
 
 
+# Skills that were renamed: older runs keep the former name, and new records may still be added under it.
+FORMER_NAMES = {"manuscript-visualize": "manuscript-dashboard"}
+
+
 def skill_name(name: str) -> str:
+    if name in FORMER_NAMES:
+        return name
     if not re.fullmatch(r"manuscript-[a-z-]+", name) or not (SKILLS / name / "SKILL.md").is_file():
         raise ValueError(f"Unknown manuscript skill: {name}")
     return name

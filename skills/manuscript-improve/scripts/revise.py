@@ -7,7 +7,7 @@
     uv run --script revise.py ORIGINAL WORKING INVENTORY --choices choices.json --output-dir RUN/manuscript-improve/revision
 
 ORIGINAL is the manuscript before the workflow, WORKING the working copy with the applied edits, and
-INVENTORY the adjudicated findings.json from manuscript-visualize. Each applied edit is located in the
+INVENTORY the adjudicated findings.json from manuscript-dashboard. Each applied edit is located in the
 working copy, newest first; undoing them must give the original exactly, so an edit nobody recorded stops
 the build.
 The proposals are then applied in manuscript order to give the proposed version.
@@ -25,7 +25,7 @@ text built so far and does not straddle another edit; every other proposal is li
 
 Outputs: revised.md (the working copy), proposed.md (every chosen proposal applied), changes.md (the same
 as CriticMarkup against the original) and revision.json: what was applied, held, left as an alternative or
-not placed, and the track-changes view that manuscript-visualize shows as the dashboard's Revised paper.
+not placed, and the track-changes view that manuscript-dashboard shows as the dashboard's Revised paper.
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ from typing import Annotated
 
 import typer
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "manuscript-visualize" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "manuscript-dashboard" / "scripts"))
 import dashboard as viz  # noqa: E402
 
 TOKEN = re.compile(r"\s+|\w+|[^\w\s]")

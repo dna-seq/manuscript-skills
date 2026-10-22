@@ -1,16 +1,18 @@
 ---
-name: manuscript-visualize
+name: manuscript-dashboard
 description: >-
   Turn a manuscript run's saved findings, evidence and revisions into an offline dashboard for the
   authors and colleagues: distinct problems by kind, severity, stage, section and skill, what each
   skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
   corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
-  simulated reviewers' concerns and suggestions and the readers' paths, and, when a reference review exists (a human referee's comments on the
-  same version), which of its problems the run caught and missed. manuscript-improve calls it as its last step; use it directly to visualize an earlier run or a
-  focused skill's results. New reviews and scientific result figures belong to their own workflows.
+  simulated reviewers' concerns and suggestions and the readers' paths, and, when a reference review
+  exists (a human referee's comments on the same version), which of its problems the run caught and
+  missed. manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
+  earlier run or a focused skill's results. Formerly manuscript-visualize. New reviews and scientific
+  result figures belong to their own workflows.
 ---
 
-# Visualize what the review found and changed
+# A dashboard of what the review found and changed
 
 Make the existing work understandable to someone who did not follow the chat: the problems the run
 found, counted once each, with the passage, the evidence and what to do; the edits made and proposed;
@@ -19,7 +21,7 @@ a dashboard does not ask for another review or another edit.
 
 Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md) and
 reuse the [project and run](../manuscript-integrity-check/references/project-workflow.md). Save the
-inventory, the adjudication, the outputs and the report under `RUN/manuscript-visualize/`. Older reports
+inventory, the adjudication, the outputs and the report under `RUN/manuscript-dashboard/`. Older reports
 without a run manifest can still be shown: write the inventory by hand ([data contract](references/data-contract.md))
 and state their scope and unknown coverage rather than inventing a complete run.
 
@@ -29,7 +31,7 @@ Every skill of the run writes `findings.json` beside its report ([stage findings
 Collect drafts the inventory from those files and the run manifest:
 
 ```bash
-uv run --script scripts/collect.py RUN --output RUN/manuscript-visualize/findings.draft.json --version v0.3
+uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/findings.draft.json --version v0.3
 ```
 
 It takes coverage from `run.json`, the manuscript's title and sections from its snapshot, each skill's
@@ -42,7 +44,7 @@ or record why it has none. A missing file never means the skill found nothing.
 ## 2. Adjudicate: one record per problem
 
 Read the draft against the reports. Collect never decides what is the same problem or what holds;
-write those decisions in `RUN/manuscript-visualize/merges.json` and collect again under a new name with
+write those decisions in `RUN/manuscript-dashboard/merges.json` and collect again under a new name with
 `--merge`:
 
 ```json
@@ -85,8 +87,8 @@ reference lacks. Those are not false alarms by default: one review is one readin
 ## 4. Render
 
 ```bash
-uv run --script scripts/dashboard.py RUN/manuscript-visualize/findings.json \
-  --output-dir RUN/manuscript-visualize/dashboard --revision RUN/manuscript-improve/revision
+uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
+  --output-dir RUN/manuscript-dashboard/dashboard --revision RUN/manuscript-improve/revision
 ```
 
 `--revision` is the corrected version that manuscript-improve builds from this inventory with its
