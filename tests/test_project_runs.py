@@ -404,3 +404,23 @@ def test_every_reader_and_referee_records_whether_it_ran_as_a_fresh_agent(manusc
     del data['skills']['manuscript-story']['artifacts'][1]['isolation']
     runs.save(run, data)
     assert any('does not record whether it ran as a fresh agent' in e for e in runs.problems(run, runs.read(run)))
+
+
+def test_how_an_earlier_panel_output_ran_is_recorded_once_with_its_basis(manuscript: Path, tmp_path: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript, 'manuscript-peer-review')
+    data = runs.read(run)
+    seat = tmp_path / 'findings.json'
+    seat.write_text('{"findings": []}')
+    item = runs.artifact(run, data, 'manuscript-peer-review', seat, 'other', 'seats/a/findings.json')
+    item['role'] = 'referee'  # registered before outputs had to say how they ran
+    runs.save(run, data)
+    basis = ['--basis', 'The manifest notes that isolation followed the skill; each seat folder holds only its brief.']
+    path = ['--path', 'manuscript-peer-review/seats/a/findings.json']
+    ok = CliRunner().invoke(runs.app, ['isolation', str(run), '--skill', 'manuscript-peer-review', *path, '--isolation', 'fresh-agent', *basis])
+    assert ok.exit_code == 0, ok.output
+    recorded = runs.read(run)['skills']['manuscript-peer-review']
+    assert recorded['artifacts'][-1]['isolation'] == 'fresh-agent' and recorded['artifacts'][-1]['isolation_recorded']['basis'].startswith('The manifest')
+    assert any(i['kind'] == 'isolation_recorded_later' for i in recorded['issues'])
+    again = CliRunner().invoke(runs.app, ['isolation', str(run), '--skill', 'manuscript-peer-review', *path, '--isolation', 'one-agent', *basis])
+    assert again.exit_code != 0 and 'already records' in again.output
