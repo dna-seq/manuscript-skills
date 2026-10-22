@@ -211,15 +211,15 @@ def test_reader_and_referee_completion_requires_real_saved_seat_artifacts(manusc
     assert add(run, report, 'report', 'manuscript-story').exit_code == 0
     assert finish(run, 'manuscript-story').exit_code == 1
     for seat in ('skimmer', 'potential-user', 'informed-outsider'):
-        assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md').exit_code == 0
+        assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
     assert finish(run, 'manuscript-story').exit_code == 0
     second = start(manuscript, 'manuscript-peer-review')
     assert add(second, report, 'report', 'manuscript-peer-review').exit_code == 0
     for seat in ('methods', 'skeptic', 'champion'):
-        assert add(second, report, 'referee', 'manuscript-peer-review', '--seat', seat, '--name', f'{seat}.md').exit_code == 0
+        assert add(second, report, 'referee', 'manuscript-peer-review', '--seat', seat, '--name', f'{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
     assert finish(second, 'manuscript-peer-review').exit_code == 1
-    for role in ('defence', 'adjudication'):
-        assert add(second, report, role, 'manuscript-peer-review', '--name', f'{role}.md').exit_code == 0
+    assert add(second, report, 'defence', 'manuscript-peer-review', '--name', 'defence.md', '--isolation', 'fresh-agent').exit_code == 0
+    assert add(second, report, 'adjudication', 'manuscript-peer-review', '--name', 'adjudication.md').exit_code == 0
     assert finish(second, 'manuscript-peer-review').exit_code == 0
 
 
@@ -320,9 +320,9 @@ def test_two_seat_quick_pass_retains_findings_without_fabricating_referee_report
     report.write_text('Unit-test payload for a quick-pass findings file.')
     assert add(run, report, 'report', 'manuscript-peer-review').exit_code == 0
     for seat in ('desk-editor', 'evidence-statistics'):
-        assert add(run, report, 'seat', 'manuscript-peer-review', '--seat', seat, '--name', f'seats/{seat}.md').exit_code == 0
-    for role in ('defence', 'adjudication'):
-        assert add(run, report, role, 'manuscript-peer-review', '--name', f'{role}.md').exit_code == 0
+        assert add(run, report, 'seat', 'manuscript-peer-review', '--seat', seat, '--name', f'seats/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
+    assert add(run, report, 'defence', 'manuscript-peer-review', '--name', 'defence.md', '--isolation', 'fresh-agent').exit_code == 0
+    assert add(run, report, 'adjudication', 'manuscript-peer-review', '--name', 'adjudication.md').exit_code == 0
     assert finish(run, 'manuscript-peer-review').exit_code == 1
     assert finish(run, 'manuscript-peer-review', 'completed', '--review-mode', 'quick').exit_code == 0
     assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
@@ -380,3 +380,27 @@ def test_a_renamed_skill_keeps_its_former_name_in_older_runs() -> None:
     assert runs.skill_name('manuscript-visualize') == 'manuscript-visualize'  # runs made before 0.10.0
     with pytest.raises(ValueError, match='Unknown manuscript skill'):
         runs.skill_name('manuscript-nonexistent')
+
+
+def test_every_reader_and_referee_records_whether_it_ran_as_a_fresh_agent(manuscript: Path) -> None:
+    """A panel output without --isolation is refused; one read by one agent in turn is kept, recorded as an issue and
+    labelled, and a hand-edited manifest that drops the field fails validation."""
+    assert configure(manuscript).exit_code == 0
+    report = manuscript.parent / 'report.md'
+    report.write_text('Unit-test stand-in for a reader report.')
+    run = start(manuscript, 'manuscript-story')
+    assert add(run, report, 'report', 'manuscript-story').exit_code == 0
+    refused = add(run, report, 'reader', 'manuscript-story', '--seat', 'skimmer', '--name', 'readers/skimmer.md')
+    assert refused.exit_code == 2 and 'isolation' in refused.output
+    assert add(run, report, 'reader', 'manuscript-story', '--seat', 'skimmer', '--name', 'readers/skimmer.md', '--isolation', 'one-agent').exit_code == 0
+    for seat in ('potential-user', 'informed-outsider'):
+        assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
+    entry = runs.read(run)['skills']['manuscript-story']
+    assert [i['kind'] for i in entry['issues']] == ['not_independent'] and 'skimmer' in entry['issues'][0]['message']
+    assert finish(run, 'manuscript-story').exit_code == 0
+    readme = (run / 'manuscript-story/README.md').read_text()
+    assert 'seat: skimmer (one agent in turn, not independent)' in readme and 'seat: potential-user (fresh agent)' in readme
+    data = runs.read(run)
+    del data['skills']['manuscript-story']['artifacts'][1]['isolation']
+    runs.save(run, data)
+    assert any('does not record whether it ran as a fresh agent' in e for e in runs.problems(run, runs.read(run)))

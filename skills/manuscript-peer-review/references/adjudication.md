@@ -80,7 +80,10 @@ supplementary note, a stated limitation, a non-claim, a figure legend. It return
   its own;
 - **not answered**, with where it looked.
 
-Without subagents, do the defence pass yourself after all seat passes, and label it as such.
+The defender is a fresh agent like the seats, never one of them and never a fork of the coordinator
+([Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees));
+record it with `--isolation`. Only when the host cannot start agents at all, do the defence pass yourself
+after all seat passes, record `--isolation one-agent` and label it as such.
 
 ## 6. Verdicts
 

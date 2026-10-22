@@ -173,8 +173,10 @@ statement, pointer sentences for moved material) is AI use too. Do the drafting 
 name it once among the uses in the statement's draft, alongside what the authors say their tools did.
 
 When the authors give the tools they used, fill them in the statement at once (tool, developer, the model
-versions they name, how one tool checked another) and leave in brackets only what they have not said, such
-as which parts of the work each tool was used for.
+versions they name, how one tool checked another) and ask in the report for what they have not said, such
+as which parts of the work each tool was used for. A statement that is still mostly gaps is held, not put into
+the manuscript as a frame of notes
+([Questions for the authors are comments, never text](../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 
 ## Report the adaptation
 

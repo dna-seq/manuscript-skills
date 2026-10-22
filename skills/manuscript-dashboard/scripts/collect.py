@@ -176,7 +176,31 @@ def parse_reader(path: Path) -> dict | None:
     return doc if isinstance(doc, dict) and doc.get("seat") else None
 
 
-def panel(run: Path) -> dict:
+def story(run: Path) -> dict | None:
+    """The story stage's direction, tests and options, when its findings.json gives them."""
+    path = run / "manuscript-story" / "findings.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8")).get("story") if path.is_file() else None
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def isolation(data: dict | None) -> tuple[dict[str, str], dict[str, str]]:
+    """How each reader (by its file) and each referee (by its seat) ran, as runs.py recorded it: a fresh agent, or
+    one agent reading as every seat in turn."""
+    by_path, by_seat = {}, {}
+    for name in ("manuscript-story", "manuscript-peer-review"):
+        for item in ((data or {}).get("skills", {}).get(name) or {}).get("artifacts", []):
+            if item.get("isolation") and item.get("role") in {"reader", "referee", "seat"}:
+                by_path[item["path"]] = item["isolation"]
+                if item.get("seat"):
+                    by_seat[item["seat"]] = item["isolation"]
+    return by_path, by_seat
+
+
+def panel(run: Path, data: dict | None = None) -> dict:
+    by_path, by_seat = isolation(data)
     readers = []
     for path in sorted(run.glob("manuscript-story/readers*/*.md")):
         if not (doc := parse_reader(path)):
@@ -191,7 +215,8 @@ def panel(run: Path) -> dict:
         readers.append({"seat": str(doc["seat"]), "takeaway": str(doc.get("takeaway") or "No takeaway given."),
                         "stopped_at": where or "Finished", "next": str(doc.get("next") or ""),
                         "left": str(left.get("section") or "") if left else "", "dips": dips, "path": path_steps,
-                        "round": path.parent.name if path.parent.name != "readers" else ""})
+                        "round": path.parent.name if path.parent.name != "readers" else "",
+                        "isolation": by_path.get(path.relative_to(run).as_posix(), "")})
     recommendations, reviewers = [], []
     # The adjudicated file carries each concern's verdict; earlier stages of the same review lack it.
     candidates = sorted(run.glob("manuscript-peer-review/**/*.json"),
@@ -211,7 +236,7 @@ def panel(run: Path) -> dict:
                 if rec.get("recommendation") in {"accept", "minor-revision", "major-revision", "reject"}:
                     recommendations.append({"seat": seat, "venue": rec["venue"],
                                             "recommendation": rec["recommendation"], "reason": rec.get("reason") or "No reason given."})
-            reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""),
+            reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""), "isolation": by_seat.get(seat, ""),
                               "strengths": [str(s.get("note") or s.get("quote")) for s in strengths if s["seat"] == seat],
                               "concerns": [{"id": str(c.get("id") or f"{seat}-{n}"), "severity": str(c.get("severity") or ""),
                                             "location": str(c.get("location") or ""), "concern": str(c["concern"]),
@@ -337,9 +362,13 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             if before is not None and before in text:
                 text = text.replace(before, after or "", 1)
                 took.append(len(out))
+            # The recorded reason is the edit's reasoning; its first sentence is the summary.
+            first = re.match(r"(.+?[.!?])(?:\s|$)", reason.strip())
+            summary = first.group(1) if first else reason.strip()
             out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "section": section,
-                        "summary": reason, "finding_ids": [], "before": before, "after": after,
-                        "evidence": [{"path": relative(path, out_dir), "quote": (after or before)[:200]}]})
+                        "summary": summary, "why": reason.strip() if reason.strip() != summary else "",
+                        "finding_ids": [], "before": before, "after": after,
+                        "evidence": [{"path": relative(path, out_dir), "quote": reason.strip() or (after or before)[:200]}]})
     replayed = text == current
     for index, record in enumerate(out):
         before, after = record["before"], record["after"]
@@ -441,7 +470,8 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "changes": records["changes"] + recorded_changes(run, data, out_dir, current, snapshot.read_text(encoding="utf-8")),
         "limitations": limitation or [], "manuscript": manuscript(run, data, version, out_dir),
         "signals": signals(run), "dismissed": records["dismissed"], "not_checked": records["not_checked"],
-        "decisions": [], "panel": panel(run), "reference": None, "venues": venues(run),
+        "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run),
+        "story": story(run),
     }
     mentions = concern_mentions(inventory["findings"])
     if merge:

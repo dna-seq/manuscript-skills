@@ -13,11 +13,16 @@ Keep the source snapshot and record what was excluded in the parent run, outside
 Reading measures that omit front matter do not make the exported file itself a clean reading copy.
 If a source artifact cannot be removed confidently, retain it and state the resulting limit on the panel.
 
-Run each seat as a separate agent with fresh context when the harness offers one. Give it the manuscript
-(and its figures, when they are files) and its seat's brief, nothing else: not the record, not the
-authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other
-files. Without agents, read once per seat, in order, and do not revise one seat's answer after reading as
-the next. A seat that has read the authors' intentions can no longer tell them whether the text conveys
+Each seat is a separate fresh agent, as
+[Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)
+requires: a new agent per reader, never a fork of the coordinator and never one that has worked on the paper,
+started by the session that can start agents (in manuscript-improve, the coordinator itself). Give it the
+manuscript (and its figures, when they are files) and its seat's brief, nothing else: not the record, not
+the authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other
+files, and no summary or hint from the coordinator. Record each reader with `--isolation fresh-agent`. Only
+when the host cannot start agents at all, read once per seat, in order, do not revise one seat's answer
+after reading as the next, record `--isolation one-agent` and say in the report that these readers were not
+independent. A seat that has read the authors' intentions can no longer tell them whether the text conveys
 them.
 
 ## The seats

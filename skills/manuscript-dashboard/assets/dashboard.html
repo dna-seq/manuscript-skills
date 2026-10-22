@@ -18,7 +18,7 @@
   --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
   --heat-1: #fbe3dc; --heat-2: #f6c2b3; --heat-3: #ef9a85; --heat-4: #e06b57; --heat-5: #c4433a; --heat-6: #8f1f1f;
   --heat-ink-lo: #0b0b0b; --heat-ink-hi: #ffffff;
-  --ins: rgba(27,175,122,0.20); --del: rgba(227,73,72,0.16);
+  --ins: rgba(27,175,122,0.20); --del: rgba(227,73,72,0.16); --note-bg: #fde047; --note-ink: #1f1a00;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -32,7 +32,7 @@
     --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
     --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
     --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
-    --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26);
+    --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26); --note-bg: #facc15; --note-ink: #1f1a00;
   }
 }
 :root[data-theme="dark"] {
@@ -46,7 +46,7 @@
   --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
   --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
   --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
-  --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26);
+  --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26); --note-bg: #facc15; --note-ink: #1f1a00;
 }
 * { box-sizing: border-box; }
 html { background: var(--page); }
@@ -104,7 +104,7 @@ h3 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
 .chip .count { color: var(--ink-2); }
 .st-good .icon { background: var(--good); } .st-warning .icon { background: var(--warning); }
 .st-critical .icon { background: var(--critical); color: #fff; } .st-muted .icon { background: var(--grid); color: var(--ink); }
-.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 4px; border: 1px solid var(--ink-2); border-radius: 4px; font: 700 10px/1 system-ui, sans-serif; letter-spacing: 0.02em; color: var(--ink); background: var(--surface); vertical-align: middle; margin-right: 3px; }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 4px; border: 1px solid var(--ink-2); border-radius: 4px; font: 700 12px/1 system-ui, "Segoe UI Symbol", "DejaVu Sans", sans-serif; letter-spacing: 0.02em; color: var(--ink); background: var(--surface); vertical-align: middle; margin-right: 3px; }
 .bars { display: grid; gap: 2px; }
 .bar-row { display: grid; grid-template-columns: minmax(90px, 38%) 1fr; gap: 10px; align-items: center; padding: 4px 6px; border-radius: 6px; border: 0; background: none; text-align: left; width: 100%; }
 button.bar-row { cursor: pointer; }
@@ -147,9 +147,13 @@ details > summary { cursor: pointer; color: var(--ink-2); }
 .diff ins { background: var(--ins); text-decoration: underline; text-decoration-thickness: 1px; }
 .diff del { background: var(--del); text-decoration: line-through; }
 .edit { margin: 0 0 16px; }
+.edit .why { margin: 10px 0 0; line-height: 1.5; }
+.edit .why > div { margin-top: 4px; }
 .edit header { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; margin-bottom: 8px; }
 .heat td.cell { text-align: center; font-variant-numeric: tabular-nums; min-width: 44px; }
 .heat th.row-head { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); font-weight: 500; white-space: normal; min-width: 160px; }
+.heat th.reader-col { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); white-space: normal; text-align: center; min-width: 88px; vertical-align: bottom; }
+.heat td.inferred { opacity: 0.5; }
 .reader { display: grid; gap: 4px; }
 /* The manuscript view */
 .paper-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; margin-top: 16px; }
@@ -157,6 +161,7 @@ article.paper { background: var(--surface); border: 1px solid var(--border); bor
 article.paper h1 { font-size: 24px; line-height: 1.3; } article.paper h2 { font-size: 20px; margin-top: 32px; } article.paper h3 { font-size: 17px; }
 article.paper table { border-collapse: collapse; width: 100%; font: 13px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; margin: 14px 0; }
 article.paper th, article.paper td { border: 1px solid var(--grid); padding: 5px 8px; text-transform: none; letter-spacing: 0; color: var(--ink); white-space: normal; }
+article.paper img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
 article.paper code { font-size: 0.88em; background: var(--surface-2); padding: 0 3px; border-radius: 3px; }
 article.paper a { color: var(--accent-ink); }
 article.paper blockquote { color: var(--ink-2); white-space: normal; }
@@ -202,6 +207,13 @@ article.paper ins.applied, article.paper del.applied { background: none; text-de
 article.paper[data-view="proposed"] del, article.paper[data-view="original"] ins { display: none; }
 article.paper[data-view="proposed"] ins, article.paper[data-view="original"] del { background: none; text-decoration: none; cursor: auto; }
 article.paper .flash { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* Questions for the authors are comments, never text: the passage is marked in yellow and a ? opens the question. */
+article.paper .asks { box-shadow: inset 0 -0.45em 0 var(--note-bg); }
+article.paper button.ask { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin: 0 2px; padding: 0; border: 0; border-radius: 50%; background: var(--note-bg); color: var(--note-ink); font: 700 0.7em/1 system-ui, sans-serif; vertical-align: super; cursor: pointer; }
+article.paper.hide-asks .asks { box-shadow: none; } article.paper.hide-asks button.ask { display: none; }
+.note-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0 0; }
+.note-bar .swatch-note { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--note-bg); vertical-align: middle; }
+.rev-item .question { display: block; margin-top: 2px; padding: 2px 6px; border-left: 3px solid var(--note-bg); }
 .rev-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; margin-top: 16px; }
 .rev-list { position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 24px); overflow: auto; display: grid; gap: 10px; }
 .rev-list details > summary { cursor: pointer; font-weight: 600; }
@@ -288,13 +300,14 @@ __REVISION_HTML__
                 'judged-differently': 'Looked at, judged differently', 'input-missing': 'Needed input the run lacked',
                 'wording-preference': 'A wording preference', 'later-decision': 'A decision made after this version',
                 unexplained: 'Not yet explained'};
-  // Which skill found a problem is shown by its badge, never by colour.
-  const SKILL = {'manuscript-integrity-check': ['IC', 'Integrity check'], 'manuscript-reference-check': ['RF', 'Reference check'],
-    'manuscript-reporting-check': ['RP', 'Reporting check'], 'manuscript-peer-review': ['PR', 'Simulated reviewers'],
-    'manuscript-policy-fit': ['PF', 'Policy fit'], 'manuscript-story': ['ST', 'Story and readers'],
-    'manuscript-journal-select': ['JS', 'Journal selection'], 'manuscript-journal-adapt': ['JA', 'Journal adaptation'],
-    'manuscript-prose-edit': ['PE', 'Prose edit'], 'manuscript-deslop': ['DS', 'Deslop'], 'manuscript-improve': ['IM', 'Workflow'],
-    'manuscript-reviewer-response': ['RR', 'Reviewer response'], 'manuscript-revision-marks': ['RM', 'Revision marks']};
+  // Which skill found a problem is shown by its icon, never by colour; the name is in the tooltip and the legend.
+  // \uFE0E asks for the plain text glyph where a symbol also has an emoji form.
+  const SKILL = {'manuscript-integrity-check': ['\u2713', 'Integrity check'], 'manuscript-reference-check': ['[1]', 'Reference check'],
+    'manuscript-reporting-check': ['\u2630', 'Reporting check'], 'manuscript-peer-review': ['\u2696\uFE0E', 'Simulated reviewers'],
+    'manuscript-policy-fit': ['\u00A7', 'Policy fit'], 'manuscript-story': ['\u263A\uFE0E', 'Story and readers'],
+    'manuscript-journal-select': ['\u2606', 'Journal selection'], 'manuscript-journal-adapt': ['\u21C4', 'Journal adaptation'],
+    'manuscript-prose-edit': ['\u00B6', 'Prose edit'], 'manuscript-deslop': ['\u2702\uFE0E', 'Deslop'], 'manuscript-improve': ['\u2699\uFE0E', 'Workflow'],
+    'manuscript-reviewer-response': ['\u21A9\uFE0E', 'Reviewer response'], 'manuscript-revision-marks': ['\u270E', 'Revision marks']};
   const short = s => String(s).replace(/^manuscript-/, '');
   const skillName = s => (SKILL[s] || [null, short(s)])[1];
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
@@ -349,6 +362,12 @@ __REVISION_HTML__
   }
   const badge = skill => withTip(h('span', {class: 'badge', 'aria-label': skillName(skill)}, (SKILL[skill] || [short(skill).slice(0, 2).toUpperCase()])[0]), [skillName(skill)]);
   const badges = skills => [...new Set(skills)].map(badge);
+  // The icons of the skills this run used, with their names.
+  const skillLegend = () => {
+    const used = new Set([...inv.findings.flatMap(f => f.skills || []), ...inv.coverage.map(c => c.skill)]);
+    return h('div', {class: 'leg', 'aria-label': 'Which skill found it'}, h('span', null, 'Found by:'),
+      Object.keys(SKILL).filter(k => used.has(k)).map(k => h('span', null, h('span', {class: 'badge', 'aria-hidden': 'true'}, SKILL[k][0]), SKILL[k][1])));
+  };
 
   // Sections in manuscript order; a finding's section maps to one by its number, then by its name.
   const clean = s => String(s).replace(/[*#_`]/g, '').replace(/\s+/g, ' ').trim();
@@ -458,6 +477,11 @@ __REVISION_HTML__
   if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
   if (inv.panel && (inv.panel.recommendations.length || (inv.panel.reviewers || []).length))
     tabs.push(['reviewers', 'Reviewers', (inv.panel.reviewers || []).reduce((n, r) => n + r.concerns.length, 0) || null]);
+  // Story: the story stage's direction, tests, edits and the narrative changes only the authors can choose.
+  const fromStory = c => (c.evidence || []).some(e => e.skill === 'manuscript-story') || /^(ST-|story\.)/.test(c.id);
+  const storyFindings = findings.filter(f => f.assessment !== 'dismissed' && f.skills.includes('manuscript-story'));
+  const storyChanges = inv.changes.filter(fromStory);
+  if (inv.story || storyFindings.length || storyChanges.length) tabs.push(['story', 'Story', storyChanges.length || null]);
   if (inv.panel && inv.panel.readers.length) tabs.push(['readers', 'Readers', null]);
   tabs.push(['coverage', 'Coverage and limits', null]);
   const app = document.getElementById('app'), nav = document.getElementById('nav'), panels = {};
@@ -806,8 +830,9 @@ __REVISION_HTML__
       kpi('Edits in the corrected version', R.applied.length + R.proposed_in_this_version.length, `${R.applied.length} applied to the working copy · ${R.proposed_in_this_version.length} proposed`, true),
       kpi('Held back', R.held.length, 'proposals waiting for a journal or a decision'),
       kpi('Alternatives not used', R.alternatives.length, 'another proposal for the same passage was chosen'),
-      kpi('Not placed', R.not_placed.length, 'the text could not take them as written')));
-    p.append(h('p', {class: 'note'}, 'The version the workflow proposes: the edits already applied, then every proposal, one per contested passage. It is a separate file, proposed.md; your working manuscript changes only when you accept it. Dotted marks are routine edits already applied; tinted marks are proposals. Select a change to see it in the list.'));
+      kpi('Not placed', R.not_placed.length, 'the text could not take them as written'),
+      (R.comments || []).length ? kpi('Questions for the authors', R.comments.length, 'comments in yellow: facts or decisions only the authors have') : null));
+    p.append(h('p', {class: 'note'}, 'The version the workflow proposes: the edits already applied, then every proposal, one per contested passage. It is a separate file, proposed.md, with no notes or placeholders in its text; questions for the authors are comments beside it. Your working manuscript changes only when you accept it. Dotted marks are routine edits already applied; tinted marks are proposals. Select a change to see it in the list.'));
     const article = h('article', {class: 'paper', 'data-view': 'changes'});
     article.append(document.getElementById('revision-src').content.cloneNode(true));
     const views = h('div', {class: 'views', role: 'group', 'aria-label': 'Show'});
@@ -848,7 +873,37 @@ __REVISION_HTML__
       const edit = R.edits[Number(t.dataset.c)];
       if (edit) show(edit.ids[0]);
     });
-    p.append(views, h('div', {class: 'rev-layout'}, article, list));
+    // Questions for the authors are comments on the passage, never text in it: the corrected text stays clean.
+    const asks = R.comments || [], left = R.notes_in_text || [];
+    for (const e of R.edits) {
+      if (!(e.comments || []).length) continue;
+      const parts = [...article.querySelectorAll(`[data-c="${e.n}"]`)];
+      if (!parts.length) continue;
+      for (const el of parts) el.classList.add('asks');
+      parts[parts.length - 1].after(withTip(h('button', {class: 'ask', type: 'button', 'aria-label': `Question for the authors: ${e.comments.join(' ')}`,
+        onclick: ev => { ev.stopPropagation(); show(e.ids[0]); }}, '?'), ['Question for the authors', ...e.comments]));
+    }
+    const save = (text, name) => {
+      const a = h('a', {href: URL.createObjectURL(new Blob([text], {type: 'text/markdown;charset=utf-8'})), download: name});
+      document.body.append(a); a.click(); a.remove();
+    };
+    const hide = h('button', {class: 'ghost', type: 'button', 'aria-pressed': 'false', onclick: e => {
+      const on = article.classList.toggle('hide-asks');
+      e.currentTarget.setAttribute('aria-pressed', String(on));
+      e.currentTarget.textContent = on ? 'Show the questions' : 'Hide the questions';
+    }}, 'Hide the questions');
+    const bar = h('div', {class: 'note-bar'},
+      asks.length ? [h('span', {class: 'note', style: 'margin: 0'}, h('span', {class: 'swatch-note'}), ` ${plural(asks.length, 'question')} for the authors, as comments on the passages: none is in the text.`), hide] : null,
+      R.text != null ? h('button', {class: 'ghost', type: 'button', onclick: () => save(R.text, 'corrected.md')}, 'Save the corrected text') : null);
+    if (left.length) p.append(h('div', {class: 'notice'}, `${plural(left.length, 'note')} to the authors ${left.length === 1 ? 'is' : 'are'} in the text itself, from edits already applied to the working manuscript. Delete ${left.length === 1 ? 'it' : 'them'} there before the paper goes anywhere: `,
+      left.map((x, i) => [i ? '; ' : '', `line ${x.line}, "${x.note}"`]), '.'));
+    if (asks.length) list.prepend(group('Questions for the authors', asks.map(x => {
+      const el = h(x.placed ? 'button' : 'div', {class: 'rev-item', type: x.placed ? 'button' : null, onclick: x.placed ? () => show(x.ids[0]) : null},
+        h('strong', null, x.ids.join(', ')), ` · ${x.section}`, h('span', {class: 'question'}, x.question),
+        !x.placed && x.passage ? h('span', {class: 'why'}, `About: "${x.passage.length > 160 ? x.passage.slice(0, 158) + '…' : x.passage}"`) : null);
+      return el;
+    }), true));
+    p.append(views, bar, h('div', {class: 'rev-layout'}, article, list));
     openRevised = id => { selectTab('revised'); requestAnimationFrame(() => show(id)); };
   })();
 
@@ -856,7 +911,7 @@ __REVISION_HTML__
   let sortKey = 'severity', sortDir = 1;
   const expanded = new Set();
   const charts = h('div', {class: 'grid'}), heat = h('div', {style: 'margin-top: 16px'}), tableBox = h('div', {style: 'margin-top: 16px'});
-  if (panels.findings) panels.findings.append(h('p', {class: 'note', style: 'margin: 16px 0 12px'}, 'The filters in the sidebar apply here and in the manuscript. Select a bar or a section to filter by it.'), charts, heat, tableBox);
+  if (panels.findings) panels.findings.append(h('p', {class: 'note', style: 'margin: 16px 0 12px'}, 'The filters in the sidebar apply here and in the manuscript. Select a bar or a section to filter by it.'), skillLegend(), charts, heat, tableBox);
   const tally = (list, key) => list.reduce((acc, f) => { for (const k of [].concat(key(f))) acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   function drawFindings() {
     const visible = findings.filter(f => pass(f));
@@ -1088,6 +1143,14 @@ __REVISION_HTML__
     while (j < k) push('+', B[j++]);
     return out;
   }
+  // Why an edit was made: the stage's own reasoning, or else what the problems it fixes say. A summary alone is a title, not a reason.
+  function whyOf(c) {
+    if (c.why && c.why.trim() && c.why.trim() !== c.summary.trim()) return h('p', {class: 'why'}, h('strong', null, 'Why: '), c.why);
+    const linked = c.finding_ids.map(id => byId.get(id)).filter(Boolean);
+    if (linked.length) return h('div', {class: 'why'}, h('strong', null, 'Why: '), linked.map(f => h('div', null, link(f.id, () => openFinding(f.id)), ` ${f.summary}.`,
+      f.detail ? ` ${f.detail}` : '', f.action ? h('span', {class: 'note', style: 'margin: 0'}, ` Fix: ${f.action}`) : '')));
+    return h('p', {class: 'why note'}, 'No reason was recorded beyond the summary above.');
+  }
   if (panels.edits) (function edits() {
     const p = panels.edits, kinds = tally(inv.changes, c => c.kind);
     const rivals = new Map();
@@ -1102,19 +1165,99 @@ __REVISION_HTML__
       const view = h('div', {class: 'diff'});
       if (diff) for (const [op, t] of diff) view.append(op === '=' ? document.createTextNode(t) : h(op === '+' ? 'ins' : 'del', null, t));
       else view.append(c.before == null ? h('ins', null, c.after) : c.after == null ? h('del', null, c.before) : `${c.before}\n→\n${c.after}`);
-      p.append(h('article', {class: 'card edit'},
+      p.append(h('article', {class: 'card edit', id: `edit-${c.id}`},
         h('header', null, h('strong', null, c.id), h('span', {class: 'tag'}, c.status === 'applied' ? 'Applied' : 'Proposed'), h('span', {class: 'tag'}, c.kind), h('span', {class: 'note', style: 'margin: 0'}, c.section),
           rivals.has(c.id) ? h('span', {class: 'tag', style: 'border-color: var(--sev-major); color: var(--ink)'}, `competes with ${rivals.get(c.id).join(', ')}`) : null),
         h('p', {style: 'margin: 0 0 8px'}, c.summary, c.finding_ids.length ? [' · for ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : ' · independent improvement',
           inRevision(c.id) && openRevised ? [' · ', link('in the corrected version', () => openRevised(c.id), `Show ${c.id} in the corrected version`)] : null),
         view,
-        h('details', null, h('summary', null, 'Before and after in full, and the evidence'),
+        whyOf(c),
+        h('div', {class: 'evidence'}, h('div', {class: 'note', style: 'margin: 8px 0 0'}, 'Evidence'), said(c.evidence)),
+        h('details', null, h('summary', null, 'Before and after in full'),
           h('div', {class: 'grid', style: 'margin-top: 8px'}, h('div', null, h('h3', null, 'Before'), h('blockquote', null, c.before == null ? '(addition)' : c.before)),
-            h('div', null, h('h3', null, 'After'), h('blockquote', null, c.after == null ? '(deletion)' : c.after))), said(c.evidence))));
+            h('div', null, h('h3', null, 'After'), h('blockquote', null, c.after == null ? '(deletion)' : c.after))))));
     }
   })();
 
   // ---------- panel ----------
+  // ---------- story ----------
+  if (panels.story) (function story() {
+    const p = panels.story, St = inv.story || {direction: '', confirmed: false, drift: '', tests: [], options: []};
+    // A story finding merged into another problem keeps its own id among that problem's sources.
+    const findingOf = id => byId.get(id) || findings.find(f => (f.sources || []).some(s => s.id === id));
+    const openEdit = id => {
+      if (inRevision(id) && openRevised) return openRevised(id);
+      selectTab('edits');
+      const el = document.getElementById(`edit-${id}`);
+      if (el) el.scrollIntoView({block: 'start', behavior: motion()});
+    };
+    const findingLinks = ids => ids.map(id => findingOf(id)).filter(Boolean).map(f => [link(f.id, () => openFinding(f.id)), ' ']);
+    const editLinks = ids => ids.filter(id => inv.changes.some(c => c.id === id)).map(id => [link(id, () => openEdit(id)), ' ']);
+    const RESULT = {holds: ['✓', 'Holds', 'var(--good, #1baf7a)'], partly: ['◐', 'Partly', 'var(--sev-minor)'], fails: ['✕', 'Fails', 'var(--sev-major)'], 'not-run': ['–', 'Not run', 'var(--deemph)']};
+    const decisions = storyFindings.filter(f => f.decision);
+    const applied = storyChanges.filter(c => c.status === 'applied'), proposed = storyChanges.filter(c => c.status === 'proposed');
+    const count = r => St.tests.filter(t => t.result === r).length;
+    p.append(h('div', {class: 'kpis'},
+      St.tests.length ? kpi('Story tests that hold', `${count('holds')} of ${St.tests.length}`,
+        [`${count('fails')} fail`, `${count('partly')} hold in part`, count('not-run') ? `${count('not-run')} not run` : null].filter(Boolean).join(' · '), true) : null,
+      kpi('Edits that keep the direction', storyChanges.length, `${applied.length} applied · ${proposed.length} proposed`),
+      kpi('Need your decision', decisions.length + St.options.length, 'narrative changes only you can choose'),
+      kpi('Story problems', storyFindings.length, 'from the story stage and its readers')));
+    p.append(h('p', {class: 'note'}, 'How the paper tells its story to its readers, from the story stage. Edits that keep your direction are applied or proposed under your edit setting; a change to the narrative structure (the lead theme, the order of the themes, the readers, the title) is only ever offered, and nothing here changes it until you choose.'));
+
+    p.append(h('h2', {class: 'sec'}, 'The direction'));
+    p.append(card(null,
+      St.direction ? h('p', {style: 'margin-top: 0; font-size: 16px'}, St.direction) : h('p', {class: 'empty'}, 'The story stage recorded no direction.'),
+      St.direction ? h('p', {class: St.confirmed ? 'note' : 'notice', style: 'margin: 6px 0 0'}, St.confirmed ? 'Confirmed by the authors.' : 'Drafted from the title, the Abstract, the end of the Introduction and the Conclusion: please confirm it or rewrite it in your own words. The story edits keep to it.') : null,
+      St.drift ? h('p', null, h('strong', null, 'Drift: '), St.drift) : null));
+
+    if (St.tests.length) {
+      p.append(h('h2', {class: 'sec'}, 'The story tests'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Does the paper do what keeps its readers reading: a stake in the opening, one idea, a headline per result, real output shown, caveats where they cost least, an ending on what the reader can do.'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['Test', 'Result', 'What it found', 'Problems', 'Edits'].map(t => h('th', null, t)))),
+        h('tbody', null, St.tests.map(t => { const [icon, label, color] = RESULT[t.result]; return h('tr', null,
+          h('td', {style: 'font-weight: 600; min-width: 140px'}, t.test),
+          h('td', {style: 'white-space: nowrap'}, h('span', {style: `color: ${color}; font-weight: 700`}, icon), ` ${label}`),
+          h('td', null, t.note), h('td', {style: 'white-space: nowrap'}, findingLinks(t.finding_ids).map(x => [x, h('br')])), h('td', {style: 'white-space: nowrap'}, editLinks(t.change_ids).map(x => [x, h('br')]))); })))));
+    }
+
+    if (decisions.length || St.options.length) {
+      p.append(h('h2', {class: 'sec'}, 'Needs your decision: changes to the narrative'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'These change the paper\'s structure or direction, so they are questions for you, not edits. Each option is drafted far enough to judge.'));
+      if (St.options.length) p.append(h('div', {class: 'grid'}, St.options.map(o => card(o.title,
+        o.summary ? h('p', {style: 'margin-top: 0'}, o.summary) : null,
+        o.readers ? h('p', null, h('strong', null, 'Suits: '), o.readers) : null,
+        o.cost ? h('p', null, h('strong', null, 'What it costs: '), o.cost) : null))));
+      if (decisions.length) p.append(card('Other story decisions', h('ul', {style: 'margin: 0; padding-left: 18px'}, decisions.map(f => h('li', {style: 'margin-bottom: 6px'},
+        link(f.id, () => openFinding(f.id)), ` ${f.summary}.`, f.action ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, f.action) : null)))));
+    }
+
+    if (storyChanges.length) {
+      p.append(h('h2', {class: 'sec'}, 'Edits that keep the direction'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['Edit', 'Status', 'Section', 'What and why'].map(t => h('th', null, t)))),
+        h('tbody', null, storyChanges.map(c => h('tr', null,
+          h('td', null, link(c.id, () => openEdit(c.id))), h('td', null, c.status === 'applied' ? 'Applied' : 'Proposed'), h('td', null, c.section),
+          h('td', null, h('strong', null, c.summary), c.why ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, c.why) : null)))))));
+    }
+
+    const rest = storyFindings.filter(f => !f.decision);
+    if (rest.length) {
+      p.append(h('h2', {class: 'sec'}, 'Story problems'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['ID', 'Severity', 'Section', 'Problem'].map(t => h('th', null, t)))),
+        h('tbody', null, rest.map(f => h('tr', null, h('td', null, link(f.id, () => openFinding(f.id))), h('td', null, sevBadge(f.severity)),
+          h('td', null, f.section), h('td', null, f.summary)))))));
+    }
+    if (panels.readers) p.append(h('p', {class: 'note'}, 'What each reader did, where they left and what they wanted is on the ', link('Readers', () => selectTab('readers')), ' tab.'));
+  })();
+
+  // How a simulated reader or reviewer ran: a fresh agent sees only its brief; one agent reading as every seat in
+  // turn is not independent, and its agreement with the other seats is not corroboration.
+  const ranAs = r => r.isolation === 'one-agent'
+    ? h('div', {class: 'notice', style: 'margin: 0 0 6px'}, 'Read by one agent in turn, not independently: its agreement with the others is not corroboration.')
+    : h('div', {class: 'note', style: 'margin: 0 0 6px'}, r.isolation === 'fresh-agent' ? 'Ran as a fresh agent that saw only its brief and the paper.' : 'How it ran was not recorded.');
   if (panels.reviewers || panels.readers) (function panel() {
     let p = panels.reviewers || panels.readers;
     const P = inv.panel;
@@ -1129,39 +1272,75 @@ __REVISION_HTML__
     const readers = P.readers.filter(r => roundOf(r) === round);
     if (readers.length) {
       const finished = r => /^finished$/i.test(r.left);
-      // Readers follow their own path: skipping a section is not leaving. Map every step to a top-level section.
+      // Readers follow their own path: skipping a section is not leaving. Each step maps to the section or
+      // subsection it names; the bars count top-level sections, the table shows every heading a reader named.
       const TOP = SECTIONS.filter(sec => !/^\d+\.\d+/.test(sec));
       const FIG = 'Figures and tables';
-      const topOf = name => {
+      const placeOf = name => {
         if (/^\s*(fig(ure)?|table)s?\b/i.test(clean(name))) return FIG;
-        const sec = sectionOf({section: name}), num = numberOf(sec);
-        return (num && TOP.find(t => numberOf(t) === num.split('.')[0])) || (TOP.includes(sec) ? sec : null);
+        const sec = sectionOf({section: name});
+        return SECTIONS.includes(sec) ? sec : null;
       };
+      // The headings above a subsection, nearest first: 3.2.1, then 3.2, then 3.
+      const above = sec => {
+        const num = numberOf(sec) || '';
+        const parts = num.split('.');
+        return parts.slice(1).map((_, i) => parts.slice(0, parts.length - 1 - i).join('.'))
+          .map(n => SECTIONS.find(s => numberOf(s) === n)).filter(Boolean);
+      };
+      const topOf = sec => (!sec || sec === FIG || TOP.includes(sec)) ? sec : (above(sec).filter(s => TOP.includes(s)).pop() || null);
+      const mark = (state, key, how) => { if (key && state[key] !== 'read') state[key] = how === 'skipped' ? (state[key] || 'skipped') : 'read'; };
       const mapped = readers.filter(r => r.path.length).map(r => {
-        const steps = r.path.map(st => ({top: topOf(st.section), how: st.how})).filter(st => st.top);
-        const leftTop = r.left && !finished(r) ? topOf(r.left) : null;
+        const steps = r.path.map(st => ({at: placeOf(st.section), how: st.how})).filter(st => st.at);
+        const leftAt = r.left && !finished(r) ? placeOf(r.left) : null;
         let cut = steps.length;
-        if (leftTop) { const i = steps.map(st => st.top).lastIndexOf(leftTop); cut = i < 0 ? steps.length : i + 1; }
-        const before = steps.slice(0, cut), state = {};
-        for (const st of before) if (state[st.top] !== 'read') state[st.top] = st.how === 'skipped' ? (state[st.top] || 'skipped') : 'read';
-        if (leftTop) state[leftTop] = 'left';
-        return {r, state};
+        if (leftAt) {
+          let i = steps.map(st => st.at).lastIndexOf(leftAt);
+          if (i < 0) i = steps.map(st => topOf(st.at)).lastIndexOf(topOf(leftAt));
+          cut = i < 0 ? steps.length : i + 1;
+        }
+        // exact: what the reader recorded for a heading; within: a section's state from its subsections; state: top level, for the bars.
+        const exact = {}, within = {}, state = {};
+        for (const st of steps.slice(0, cut)) {
+          mark(exact, st.at, st.how);
+          mark(state, topOf(st.at), st.how);
+          for (const sec of above(st.at)) mark(within, sec, st.how);
+        }
+        if (leftAt) { exact[leftAt] = 'left'; if (topOf(leftAt)) state[topOf(leftAt)] = 'left'; }
+        return {r, exact, within, state};
       });
       if (mapped.length && TOP.length) {
         const cols = [...TOP, ...(mapped.some(m => m.state[FIG]) ? [FIG] : [])];
         const parts = [['read', 'Read or skimmed', 'var(--accent)'], ['skipped', 'Skipped', 'var(--deemph)'], ['left', 'Left the paper here', 'var(--sev-major)'], ['none', 'Never got there', 'var(--grid)']];
         const rows = cols.map(sec => stackRow(sec, parts.map(([k, label, color]) => ({label, color, count: mapped.filter(m => (m.state[sec] || 'none') === k).length})), mapped.length));
-        const grid = h('table', null, h('thead', null, h('tr', null, h('th', null, 'Reader'), cols.map(sec => h('th', {class: 'num', title: sec}, numberOf(sec) || sec.slice(0, 10))))),
-          h('tbody', null, mapped.map(({r, state}) => h('tr', null, h('th', {scope: 'row', style: 'text-transform: none; letter-spacing: 0; color: var(--ink); white-space: normal'}, r.seat),
-            cols.map(sec => { const st = state[sec]; return withTip(h('td', {class: 'cell', tabindex: 0, style: st ? `background: ${st === 'left' ? 'var(--hl-major)' : st === 'read' ? 'var(--surface-2)' : 'transparent'}` : ''},
-              st === 'left' ? '✕' : st === 'read' ? '●' : st === 'skipped' ? '–' : ''), [{read: 'Read or skimmed', skipped: 'Skipped', left: 'Left the paper here'}[st] || 'Never got there', `${r.seat} · ${sec}`]); })))));
+        // A subsection gets its own row when a reader named it; a heading nobody named is read through the one above it.
+        const named = new Set(mapped.flatMap(m => Object.keys(m.exact)));
+        const lines = [...SECTIONS.filter(sec => TOP.includes(sec) || named.has(sec)), ...(named.has(FIG) ? [FIG] : [])];
+        const depth = sec => sec === FIG ? 0 : Math.max(0, (numberOf(sec) || '').split('.').length - 1);
+        const cellOf = (m, sec) => {
+          if (m.exact[sec]) return [m.exact[sec], ''];
+          if (m.within[sec]) return [m.within[sec], 'from its subsections'];
+          const outer = above(sec).find(s => m.exact[s] && m.exact[s] !== 'left');
+          return outer ? [m.exact[outer], `recorded for ${outer} as a whole`] : [null, ''];
+        };
+        const grid = h('table', null,
+          h('thead', null, h('tr', null, h('th', {scope: 'col'}, 'Section'), mapped.map(({r}) => h('th', {class: 'reader-col', scope: 'col'}, r.seat)))),
+          h('tbody', null, lines.map(sec => h('tr', null,
+            h('th', {class: 'row-head', scope: 'row', style: `padding-left: ${10 + 18 * depth(sec)}px; font-weight: ${depth(sec) ? 400 : 600}; min-width: 240px`}, sec),
+            mapped.map(m => {
+              const [st, how] = cellOf(m, sec);
+              return withTip(h('td', {class: 'cell' + (how ? ' inferred' : ''), tabindex: 0, style: st ? `background: ${st === 'left' ? 'var(--hl-major)' : st === 'read' ? 'var(--surface-2)' : 'transparent'}` : ''},
+                st === 'left' ? '✕' : st === 'read' ? '●' : st === 'skipped' ? '–' : ''),
+                [({read: 'Read or skimmed', skipped: 'Skipped', left: 'Left the paper here'}[st] || 'Never got there') + (how ? ` (${how})` : ''), `${m.r.seat} · ${sec}`]);
+            })))));
         p.append(card('Where readers went, and where they left', h('div', {class: 'leg'}, parts.map(([, label, color]) => h('span', null, h('span', {class: 'swatch', style: `background: ${color}`}), label))),
           h('div', {class: 'bars'}, rows),
           h('div', {class: 'table-wrap heat', style: 'margin-top: 12px'}, grid),
-          h('p', {class: 'note'}, `Each reader follows their own path: a skipped section is not a lost reader. ● read or skimmed, – skipped, ✕ left the paper there, blank never reached. ${readers.length - mapped.length ? `${readers.length - mapped.length} readers in this round recorded no path and are not shown.` : ''}`)));
+          h('p', {class: 'note'}, `Each reader follows their own path: a skipped section is not a lost reader. ● read or skimmed, – skipped, ✕ left the paper there, blank never reached. A faded mark was not recorded for that heading itself: it comes from the subsections below it, or from the section above recorded as a whole. ${readers.length - mapped.length ? `${readers.length - mapped.length} readers in this round recorded no path and are not shown.` : ''}`)));
       }
       const odd = r => r.left && !finished(r) && /try|cite/i.test(r.next);
       p.append(h('div', {class: 'grid', style: 'margin-top: 16px'}, readers.map(r => card(r.seat, h('div', {class: 'reader'},
+        ranAs(r),
         h('div', null, h('strong', null, 'Would tell a colleague: '), r.takeaway),
         h('div', null, h('strong', null, r.left ? (finished(r) ? 'Read to the end; dipped at: ' : 'Would leave at: ') : 'Attention dropped at: '), r.left && !finished(r) ? r.stopped_at : (r.dips.join(', ') || r.stopped_at)),
         r.next ? h('div', null, h('strong', null, 'Next: '), r.next) : null,
@@ -1209,10 +1388,11 @@ __REVISION_HTML__
         if (!here.length) continue;
         p.append(h('details', {class: 'card', open: route === 'fixable-in-text' || route === 'author-required' || null, style: 'margin-top: 10px'},
           h('summary', null, h('strong', null, `${label} (${here.length})`)),
-          h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(c => [h('li', {style: 'list-style: none; margin-left: -18px'}, h('span', {class: 'badge'}, seatName(c.seat).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()), ' ', h('em', null, seatName(c.seat))), concernItem(c)]))));
+          h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(c => [h('li', {style: 'list-style: none; margin-left: -18px'}, badge('manuscript-peer-review'), ' ', h('em', null, seatName(c.seat))), concernItem(c)]))));
       }
       p.append(h('h2', {class: 'sec'}, 'Each reviewer\'s report'));
       p.append(h('div', {class: 'grid'}, reviewers.map(r => card(seatName(r.seat),
+        ranAs(r),
         r.summary ? h('p', {style: 'margin-top: 0'}, r.summary) : null,
         r.strengths.length ? [h('h3', {style: 'font-size: 14px; margin: 8px 0 4px'}, 'Strengths'), h('ul', {style: 'margin: 0; padding-left: 18px'}, r.strengths.map(t => h('li', null, t)))] : null,
         h('details', {style: 'margin-top: 8px'}, h('summary', null, `${plural(r.concerns.length, 'concern')}: ${r.concerns.filter(c => c.severity === 'major').length} major`),

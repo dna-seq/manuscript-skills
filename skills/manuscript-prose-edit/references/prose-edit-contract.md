@@ -47,7 +47,9 @@ citation, hedge, negation and limitation.
 correction method, a clarification a referee asked for) may be inserted verbatim where they belong. List each
 one as a content change, not a copy edit, and check the result with `guard.py --revision`: its inventory should
 show the supplied facts and nothing else. Insert what was supplied and nothing more: never invent, complete or
-reconstruct a fact, and ask when a supplied fact conflicts with the text.
+reconstruct a fact, and ask when a supplied fact conflicts with the text. A fact the text needs and the authors
+have not supplied is a question for them, never a placeholder in the text
+([Questions for the authors are comments, never text](../../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 
 **Claim ceiling.** An edit may never raise a claim's certainty, causality, novelty, generality or scope:
 not by a stronger verb ("suggests" → "shows", "is associated with" → "drives"), a dropped hedge or qualifier

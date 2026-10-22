@@ -93,7 +93,7 @@ already written there:
 
 ```bash
 uv run --script scripts/runs.py add RUN --skill manuscript-story --file REPORT --role report --name report.md
-uv run --script scripts/runs.py add RUN --skill manuscript-story --file READER --role reader --seat skimmer --name readers/skimmer.md
+uv run --script scripts/runs.py add RUN --skill manuscript-story --file READER --role reader --seat skimmer --isolation fresh-agent --name readers/skimmer.md
 uv run --script scripts/runs.py exec RUN --skill manuscript-story -- uv run --script METRICS SOURCE
 uv run --script scripts/runs.py issue RUN --skill manuscript-story --kind contradiction --message 'Explain the actual disagreement and its consequence.'
 ```
@@ -124,11 +124,47 @@ The `reports` setting controls how much report text is also shown in chat; run e
 Stable project documents, such as the scientific record and venue planning document, remain in place;
 register the version used or produced in this run rather than moving their authoritative masters.
 
+## Independent readers and referees
+
+A simulated referee, reader, defender or critic is worth running only if it has not watched the work it
+judges being done. The coordinator has: it read the authors' messages, the record, the other stages'
+findings and its own edits. Whatever of that reaches a seat (a summary of the paper, a list of known
+problems, a hint where to look, what the authors meant, what the run changed) makes the seat repeat the
+coordinator instead of reading the paper. These rules hold in every skill that runs a panel
+(`manuscript-peer-review`, `manuscript-story`, the deslop reflection loop) and are not optional:
+
+1. **A fresh agent per seat.** Each seat runs as a new agent whose whole context is its brief: in Claude
+   Code, the Agent tool with a general-purpose agent, never a `fork` (a fork inherits this conversation)
+   and never a message to an agent that has already worked on this paper; in other hosts, their
+   equivalent of a new agent. One agent per seat: a reader is never reused as another reader, a referee
+   never as the defender.
+2. **The session that can start agents starts them.** A delegated agent often cannot start agents of its
+   own (Claude Code's subagents cannot). In `manuscript-improve` the coordinator starts every referee seat,
+   reader and defender itself, even when it delegates the rest of those stages; a stage agent that cannot
+   start agents prepares the workspaces and briefs and hands them back, and never reads as the seats itself.
+3. **The brief is the skill's template, filled, and nothing else**: the journal, article type, study
+   design, remit, or the reader's description in the authors' words. Give paths to the workspace files,
+   never extracts the coordinator chose. Save each brief exactly as sent beside the seat's report.
+4. **The workspace is all the seat may read.** It holds the reading copy and what the seat's brief lists,
+   and the brief tells the seat to open nothing else: no other file of the project or the run, no git
+   history, no search for other reviews of this work.
+5. **Record how each seat ran.** Register its output with `--isolation fresh-agent`, or `--isolation
+   one-agent` under the fallback below. `runs.py validate` refuses a completed story or peer-review stage
+   whose reader, referee, seat or defence output does not say, and the dashboard shows which seats were
+   not independent.
+6. **Fallback only when the host cannot start agents at all**, not because a stage was delegated, is slow
+   or runs in the background (a host that reports completion can run seats in the background). Then one
+   agent reads once per seat, in order, writes each seat's answer before taking the next and never revises
+   an earlier one. Record `--isolation one-agent`, label each such seat "read by one agent in turn, not
+   independent" in the report, and never count agreement between such seats as corroboration.
+
 ## Before/after and honest handover
 
 Show exact consequential before/after text, the section and a reason promptly in chat, including full
 additions and deletions. Save it as well with `runs.py change RUN --skill SKILL --section SECTION
---reason REASON --before BEFORE_FILE --after AFTER_FILE --shown-in-chat`. Omit `--before` for an addition,
+--reason REASON --before BEFORE_FILE --after AFTER_FILE --shown-in-chat`. The reason is one to three
+sentences, what was wrong and why the new wording fixes it, its first a short title: the dashboard shows the
+first as the edit's summary and the whole as its reasoning. Omit `--before` for an addition,
 `--after` for a deletion. `shown RUN --skill SKILL --number N` can acknowledge an existing change after
 showing it. These flags are agent attestations: the script cannot see or verify the conversation.
 A diff link does not satisfy the chat requirement. Classify genuine routine-only changes with a

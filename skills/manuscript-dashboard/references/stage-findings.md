@@ -62,6 +62,15 @@ authors' document; this file is the same findings in a form a script can count.
   null` and `anchor`, the verbatim passage it goes after, so the corrected version can place it. A move is
   two records with the same summary: the deletion where the text was (`after: null`) and the addition, with
   its anchor, where it goes. A record whose before and after are the same text changes nothing.
+- Every change gives `why`: one to three sentences on what was wrong with the passage and why this wording
+  fixes it, naming the rule, check or finding it rests on ("The Abstract gives 6.1 million variants; Table 2
+  and the Methods give 6,138,868, so the Abstract now quotes the measured count"). The `summary` is a title;
+  the dashboard shows `why` beside every edit, and an edit with neither `why` nor a linked finding says so.
+  Its evidence quote is the report's sentence that gives the reason, not a heading.
+- A question the authors must answer about a proposal goes in its `comment` ("add the postal code"), and
+  the proposal reads complete without the answer. Never a placeholder in `after`: `[AUTHORS: ...]`, `[TODO]`,
+  `XX` or a stand-in value could reach a submission
+  ([author priorities](../../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 - Categories, in these words: References; Claims and evidence; Numbers and statistics; Methods and
   reproducibility; Text versus code; Reporting and availability; Figures and tables; Writing and
   clarity; Story and structure; Ethics, privacy and scope; Journal fit; Submission package.

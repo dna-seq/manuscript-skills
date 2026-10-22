@@ -21,7 +21,12 @@ requirements.
 Every `manuscript-improve` run ends with one offline file, `manuscript-dashboard.html`. This one is from
 a blind run on a real software paper (draft v0.3 of Just-DNA-Lite), compared afterwards with a co-author's
 review of the same draft: 114 confirmed problems, each counted once however many skills found it, sorted
-by what to fix now, and the corrected version of the whole paper beside the original.
+by what to fix now, and the corrected version of the whole paper beside the original. The file is
+self-contained (its data, styles, scripts and the paper's images are inside it), so you can send it to a
+colleague as it is. The same review also comes as a Word document: the corrected version as tracked
+changes signed by each stage, and the problems, the questions for you and the reason for each edit as
+comments in the margin; Google Docs opens it with the comments as comments and the changes as suggestions.
+No question for you is ever written into the paper's text, where it could be submitted by mistake.
 
 <table>
 <tr>
@@ -203,6 +208,9 @@ For the review dashboard (manuscript-improve builds it at the end of every run):
 
 > Compare this run on v0.3 with our co-author's comments on the same version: which did it catch, which
 > did it miss, and why.
+
+> Give me the corrected version as a Word document with the review as comments, so my co-authors can
+> accept or reject each change.
 
 For the story:
 

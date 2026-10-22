@@ -18,6 +18,7 @@ establish local file/quotation identity, not scientific support or correctness o
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import html
 import json
@@ -27,6 +28,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
+from urllib.parse import unquote
 from typing import Annotated, Literal
 
 import typer
@@ -39,8 +41,45 @@ STAGES = ("now", "writing", "journal", "final", "unknown")
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 TEMPLATE = ASSETS / "dashboard.html"
 DESLOP = Path(__file__).resolve().parents[2] / "manuscript-deslop"
-AUTHOR_NOTE = re.compile(r"\[AUTHORS:[^\]]*\]")
 app = typer.Typer(add_completion=False)
+
+
+def author_notes(text: str) -> list[tuple[int, int]]:
+    """Where the notes to the authors are: each `[AUTHORS: ...]` the workflow left for a fact or a decision only
+    the authors have, as (start, end), the outermost of nested notes, brackets balanced. An unclosed note runs to
+    the end of its paragraph."""
+    spans, at = [], 0
+    while (start := text.find("[AUTHORS:", at)) >= 0:
+        depth, end = 0, start
+        stop = text.find("\n\n", start)
+        stop = len(text) if stop < 0 else stop
+        while end < stop:
+            depth += {"[": 1, "]": -1}.get(text[end], 0)
+            end += 1
+            if not depth:
+                break
+        spans.append((start, end))
+        at = end
+    return spans
+
+
+def strip_notes(text: str) -> str:
+    """The text without its notes to the authors: a note alone on a line goes with its line, and the spaces a
+    note leaves before punctuation or at a line end go with it."""
+    out, at = [], 0
+    for start, end in author_notes(text):
+        out.append(text[at:start])
+        at = end
+    out.append(text[at:])
+    joined = "\x00".join(out)
+    # A line or list item that held only notes goes; so do the spaces a note leaves.
+    joined = re.sub(r"(?m)^[ \t]*(?:[-*+][ \t]+|\d+[.)][ \t]+)?(?:\x00[ \t]*)+(?:\n|\Z)", "", joined)
+    joined = re.sub(r"[ \t]*,[ \t]*\x00[ \t]*(?=[,.;:!?)\]]|\n|\Z)", "", joined)  # "Academy, [note], Romania"
+    joined = re.sub(r"[ \t]*\x00[ \t]*(?=[,.;:!?)\]]|\n|\Z)", "", joined)  # before punctuation or a line end
+    joined = re.sub(r"(?<=[(\[])[ \t]*\x00[ \t]*", "", joined)  # after an opening bracket
+    joined = re.sub(r"[ \t]*\x00[ \t]*", " ", joined)
+    joined = re.sub(r"\n{3,}", "\n\n", joined)
+    return joined if text.startswith("\n") else joined.lstrip("\n")
 
 
 class Record(BaseModel):
@@ -93,6 +132,8 @@ class Change(Record):
     before: str | None = None
     after: str | None = None
     anchor: str | None = None
+    why: str = ""  # the reasoning: what was wrong with the passage and why this wording fixes it
+    comment: str = ""  # a question for the authors about this edit: a fact or decision only they have, never put in the text
     evidence: Annotated[list[Evidence], Field(min_length=1)]
 
     @model_validator(mode="after")
@@ -152,6 +193,7 @@ class Reader(Record):
     dips: list[Text] = Field(default_factory=list)  # sections where attention dropped and came back
     round: str = ""  # which panel, when a run has more than one
     path: list[Step] = Field(default_factory=list)  # the sections in the order the reader visited them
+    isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
 
 
 class Concern(Record):
@@ -173,6 +215,7 @@ class Concern(Record):
 class Reviewer(Record):
     seat: Text
     summary: str = ""
+    isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
     strengths: list[str] = Field(default_factory=list)
     concerns: list[Concern] = Field(default_factory=list)
 
@@ -264,6 +307,32 @@ class Venue(Record):
     url: str = ""
 
 
+class StoryTest(Record):
+    """One story test (manuscript-story's story-tests.md): does the paper do this for its readers?"""
+    test: Text
+    result: Literal["holds", "partly", "fails", "not-run"]
+    note: str = ""  # what it found, with the passage quoted
+    finding_ids: list[Identity] = Field(default_factory=list)
+    change_ids: list[Identity] = Field(default_factory=list)
+
+
+class StoryOption(Record):
+    """A way to point the paper: a change of direction is only ever offered, never applied."""
+    title: Text
+    summary: str = ""  # the draft title and the Abstract's first sentences it would take
+    readers: str = ""  # whom and which venues it suits
+    cost: str = ""
+
+
+class Story(Record):
+    """How the paper tells its story, from manuscript-story: the direction, the tests and the options."""
+    direction: str = ""
+    confirmed: bool = False  # the authors confirmed the direction; otherwise it was drafted from the text
+    drift: str = ""
+    tests: list[StoryTest] = Field(default_factory=list)
+    options: list[StoryOption] = Field(default_factory=list)
+
+
 class Inventory(Record):
     schema_version: Literal[2]
     title: Text
@@ -282,6 +351,7 @@ class Inventory(Record):
     panel: Panel | None = None
     reference: Reference | None = None
     venues: list[Venue] = Field(default_factory=list)
+    story: Story | None = None
 
     @model_validator(mode="after")
     def reconcile(self) -> Inventory:
@@ -448,12 +518,36 @@ def inline(document: dict) -> str:
     return text
 
 
-def manuscript_html(text: str, suffix: str) -> str:
-    """The reviewed text as HTML. Raw HTML in Markdown is shown as text, so an author's comment stays visible."""
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+               ".svg": "image/svg+xml", ".webp": "image/webp"}
+IMAGE_LIMIT = 8 * 1024 * 1024
+
+
+def embed_images(rendered: str, folders: list[Path]) -> str:
+    """Put each local image into the page as a data URI, so the dashboard stays one file that works on another
+    computer. An image that cannot be found, or is too large, keeps its path and says so."""
+    def embed(match: re.Match) -> str:
+        source = html.unescape(match.group(2))
+        if re.match(r"(?i)^(?:[a-z][a-z0-9+.-]*:|//)", source):
+            return match.group(0)
+        name = unquote(source.split("#")[0].split("?")[0])
+        for folder in folders:
+            path = (folder / name).resolve()
+            if path.is_file() and path.suffix.lower() in IMAGE_TYPES and path.stat().st_size <= IMAGE_LIMIT:
+                data = base64.b64encode(path.read_bytes()).decode("ascii")
+                return f'{match.group(1)}src="data:{IMAGE_TYPES[path.suffix.lower()]};base64,{data}"'
+        return f'{match.group(1)}title="Not embedded: {html.escape(name)} was not found or is over 8 MB" src="{match.group(2)}"'
+    return re.sub(r'(<img\b[^>]*?)src="([^"]*)"', embed, rendered)
+
+
+def manuscript_html(text: str, suffix: str, folders: list[Path] | None = None) -> str:
+    """The reviewed text as HTML. Raw HTML in Markdown is shown as text, so an author's comment stays visible.
+    Local images are embedded from the first of `folders` that holds them."""
     if suffix in {".md", ".markdown", ".txt"}:
         from markdown_it import MarkdownIt
 
-        return MarkdownIt("commonmark", {"html": False}).enable("table").render(text)
+        rendered = MarkdownIt("commonmark", {"html": False}).enable("table").render(text)
+        return embed_images(rendered, folders or [])
     parts = []
     for block in re.split(r"\n\s*\n", text):
         if heading := re.match(r"\\(?:sub)*section\*?\{(.+?)\}", block.strip()):
@@ -479,10 +573,23 @@ def writing_patterns(versions: list[tuple[str, str, str, str]]) -> dict:
     out = []
     for key, label, text, suffix in versions:
         # Notes to the authors ("[AUTHORS: ...]") are removed before submission and are not the paper's prose.
-        profile = style_profile.profile_text(AUTHOR_NOTE.sub("", text), suffix == ".tex", smells, kobak)
+        profile = style_profile.profile_text(strip_notes(text), suffix == ".tex", smells, kobak)
         out.append({"key": key, "label": label, "words": profile["metrics"]["words"], "totals": profile["smell_totals"]})
     used = sorted({sid for version in out for sid in version["totals"]}, key=lambda sid: (sid[0], int(sid[1:] or 0)))
     return {"versions": out, "patterns": [{"id": sid, "name": smells[sid]["name"], "group": groups.get(sid[0], "")} for sid in used]}
+
+
+def image_folders(base: Path, path: Path) -> list[Path]:
+    """Where the manuscript's relative image paths point: beside the reviewed copy, then beside the original the
+    run snapshotted (run.json sits above the inventory's folder)."""
+    folders = [path.parent]
+    for manifest in (base / "run.json", base.parent / "run.json"):
+        if manifest.is_file():
+            try:
+                folders += [Path(source["original"]).parent for source in json.loads(manifest.read_text(encoding="utf-8")).get("inputs", [])]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+    return folders
 
 
 def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, revision: dict | None = None,
@@ -500,11 +607,11 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
     paper = ""
     if base is not None and data.manuscript and data.manuscript.path:
         path = (base / data.manuscript.path).resolve()
-        paper = manuscript_html(path.read_text(encoding="utf-8"), path.suffix.lower())
+        paper = manuscript_html(path.read_text(encoding="utf-8"), path.suffix.lower(), image_folders(base, path))
     if payload["manuscript"]:
         payload["manuscript"].pop("path", None)
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
-    corrected = {key: value for key, value in revision.items() if key != "body_html"} if revision else None
+    corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
                 "revision": corrected, "writing": writing,
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
@@ -532,11 +639,19 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         if corrected.get("inventory_sha256") != summary["inventory_sha256"]:
             raise ValueError("The corrected version was built from another inventory; rebuild it with revise.py from this one.")
         suffix = versions[0][3] if versions else ".md"
+        proposed = (revision / "proposed.md").read_text(encoding="utf-8")
         versions += [("revised", "After the applied edits", (revision / "revised.md").read_text(encoding="utf-8"), suffix),
-                     ("proposed", "Corrected version", (revision / "proposed.md").read_text(encoding="utf-8"), suffix)]
+                     ("proposed", "Corrected version", proposed, suffix)]
+        # The text for the dashboard's save button. A corrected version built before questions became comments
+        # may still carry notes in its text: they are listed, to be removed.
+        corrected.setdefault("comments", [])
+        corrected.setdefault("notes_in_text", [{"note": proposed[a:b], "line": proposed.count("\n", 0, a) + 1}
+                                               for a, b in author_notes(proposed)])
+        corrected["text"] = proposed
         summary["revision"] = {key: len(corrected[key]) for key in ("applied", "proposed_in_this_version", "held",
                                                                        "alternatives", "not_placed")}
         summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]
+        summary["revision"] |= {"questions": len(corrected["comments"]), "notes_in_text": len(corrected["notes_in_text"])}
     writing = writing_patterns(versions) if versions else None
     if writing:
         summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}

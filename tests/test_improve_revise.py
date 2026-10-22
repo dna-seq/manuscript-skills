@@ -237,3 +237,88 @@ def test_additions_to_a_reference_list_go_on_their_own_lines_and_keep_their_orde
     assert document.current() == ("# T\n\nText.\n\n## Ethics\n\nNone.\n\n## Consent\n\nGiven.\n\n## References\n\n"
                                   "Adams, A. (2020). One.\nBaker, B. (2019). Two.\nCole, C. (2021). Three.\n\n## End\n")
     assert not record["not_placed"]
+
+
+def test_notes_to_the_authors_become_comments_and_never_reach_the_text(tmp_path: Path) -> None:
+    """A question for the authors is a comment: a [AUTHORS: ...] note a stage left in a proposal is lifted out of
+    its text, and a proposal that is only a question is listed, not placed."""
+    data = inventory()
+    data["changes"] = [
+        change("PE.C1", "applied", "We use HuggingFace for data.", "We use Hugging Face for data."),
+        change("JA-C4", "proposed", "Rostock, Germany", "[AUTHORS: postal code] Rostock, Germany, [AUTHORS: city]"),
+        change("IC-C1", "proposed", "The pipeline joins by rsID.", "The pipeline joins by position and genotype.",
+               comment="Which genome build do the positions use?"),
+        change("ST-C3", "proposed", "It is fast.", "It is fast. [AUTHORS: confirm that this is planned]"),
+        change("JA-C9", "proposed", None, "[AUTHORS: tool, version and model]", anchor="It is fast."),
+    ]
+    original = ORIGINAL.replace("Genomes are cheap.", "Genomes are cheap. Rostock, Germany.")
+    working = original.replace("HuggingFace", "Hugging Face")
+    document, record = revise.build(original, working, viz.Inventory.model_validate(data), {})
+    proposed = document.current()
+    assert "AUTHORS" not in proposed and "[" not in proposed.split("# A tool")[1]
+    assert "Rostock, Germany." in proposed and "position and genotype" in proposed
+    asked = {(c["ids"][0], c["question"], c["placed"]) for c in record["comments"]}
+    assert asked == {("JA-C4", "postal code", False), ("JA-C4", "city", False),
+                     ("IC-C1", "Which genome build do the positions use?", True),
+                     ("ST-C3", "confirm that this is planned", False), ("JA-C9", "tool, version and model", False)}
+    not_placed = {x["id"]: x["why"] for x in record["not_placed"]}
+    assert set(not_placed) == {"JA-C4", "ST-C3", "JA-C9"} and all("only asks them" in why for why in not_placed.values())
+    assert record["notes_in_text"] == []
+    assert "{>>IC-C1 · Question for the authors: Which genome build do the positions use?<<}" in revise.critic(
+        document, {"IC-C1": ["Which genome build do the positions use?"]})
+
+
+def test_a_note_already_in_the_working_copy_is_listed_for_removal() -> None:
+    data = inventory()
+    data["changes"] = [change("PE.C1", "applied", "We use HuggingFace for data.",
+                              "We use Hugging Face [AUTHORS: which version?] for data.")]
+    working = ORIGINAL.replace("We use HuggingFace for data.", "We use Hugging Face [AUTHORS: which version?] for data.")
+    _, record = revise.build(ORIGINAL, working, viz.Inventory.model_validate(data), {})
+    assert [n["note"] for n in record["notes_in_text"]] == ["[AUTHORS: which version?]"]
+    assert record["notes_in_text"][0]["line"] == 5
+
+
+def test_the_command_puts_each_question_on_its_edit_and_the_dashboard_lists_them(run: Path) -> None:
+    data = json.loads((run / "findings.json").read_text())
+    for c in data["changes"]:
+        if c["id"] == "IC-C1":
+            c["after"] = "The pipeline joins by position and genotype [AUTHORS: which genome build?]."
+    (run / "findings.json").write_text(json.dumps(data))
+    result = CliRunner().invoke(revise.app, [str(run / "original.md"), str(run / "working.md"), str(run / "findings.json"),
+                                             "--choices", str(run / "choices.json"), "--output-dir", str(run / "revision")])
+    assert result.exit_code == 0, result.output
+    assert (run / "revision/proposed.md").read_text() == PROPOSED
+    record = json.loads((run / "revision/revision.json").read_text())
+    assert [e["comments"] for e in record["edits"] if "IC-C1" in e["ids"]] == [["which genome build?"]]
+    assert "Question for the authors: which genome build?" in (run / "revision/changes.md").read_text()
+    summary = viz.render(run / "findings.json", run / "dashboard", revision=run / "revision")
+    assert summary["revision"]["questions"] == 1 and summary["revision"]["notes_in_text"] == 0
+
+
+def test_a_proposal_that_still_has_a_gap_is_not_placed_and_its_question_is_listed() -> None:
+    """A placeholder in another form, or the empty brackets a lifted note leaves, never reaches the text."""
+    data = inventory()
+    data["changes"] = [
+        change("PE.C1", "applied", "We use HuggingFace for data.", "We use Hugging Face for data."),
+        change("JA-C12", "proposed", "The pipeline joins by rsID.",
+               "The pipeline ([AUTHORS: year]) joins by rsID [Data set, revision AUTHORS]."),
+        change("JA-C13", "proposed", "It is fast.", "It is fast (TBD seconds)."),
+    ]
+    document, record = revise.build(ORIGINAL, WORKING, viz.Inventory.model_validate(data), {})
+    assert document.current() == WORKING
+    assert {x["id"] for x in record["not_placed"]} == {"JA-C12", "JA-C13"}
+    asked = [c["question"] for c in record["comments"] if c["ids"] == ["JA-C12"]]
+    assert asked[0] == "year" and any("revision AUTHORS" in q for q in asked) and any("()" in q for q in asked)
+
+
+def test_a_note_that_fills_a_slot_in_a_sentence_holds_the_proposal_and_a_plain_authors_does_not() -> None:
+    data = inventory()
+    data["changes"] = [
+        change("PE.C1", "applied", "We use HuggingFace for data.", "We use Hugging Face for data."),
+        change("JA-C8", "proposed", "It is fast.", "It is fast. The authors used [AUTHORS: tool and version] to draft it."),
+        change("JA-C10", "proposed", "The pipeline joins by rsID.", "The remaining authors declare that the pipeline joins by rsID."),
+    ]
+    document, record = revise.build(ORIGINAL, WORKING, viz.Inventory.model_validate(data), {})
+    assert [x["id"] for x in record["not_placed"]] == ["JA-C8"]
+    assert "The remaining authors declare" in document.current() and "used" not in document.current().split("It is fast.")[1]
+    assert any("The authors used …" in c["question"] for c in record["comments"] if c["ids"] == ["JA-C8"])
