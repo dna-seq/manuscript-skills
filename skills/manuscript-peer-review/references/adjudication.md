@@ -65,7 +65,7 @@ priority words in the paper ("first", "novel", "only") are judged as that file's
 ## 5. Defence pass
 
 Start one fresh subagent, the defender, as a blocking call like the seats, with the reading copy, the
-supplementary files and the findings stripped of seat names (renumber ids that name a seat), group
+supplementary files, the figures (`figures/`, as the seats had them) and the findings stripped of seat names (renumber ids that name a seat), group
 counts and severities, so that numbers cannot sway it. It never sees the referees' reports, their
 recommendations or `venue.md`: a defender that knows a referee recommended rejection argues against the
 rejection, not against the finding. For each finding it first tests the premise:
@@ -80,7 +80,10 @@ supplementary note, a stated limitation, a non-claim, a figure legend. It return
   its own;
 - **not answered**, with where it looked.
 
-Without subagents, do the defence pass yourself after all seat passes, and label it as such.
+The defender is a fresh agent like the seats, never one of them and never a fork of the coordinator
+([Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees));
+record it with `--isolation`. Only when the host cannot start agents at all, do the defence pass yourself
+after all seat passes, record `--isolation one-agent` and label it as such.
 
 ## 6. Verdicts
 

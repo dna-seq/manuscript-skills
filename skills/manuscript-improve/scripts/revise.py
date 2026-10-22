@@ -24,8 +24,13 @@ A proposal is applied only where its before-text, or an addition's anchor, occur
 text built so far and does not straddle another edit; every other proposal is listed with its reason.
 
 Outputs: revised.md (the working copy), proposed.md (every chosen proposal applied), changes.md (the same
-as CriticMarkup against the original) and revision.json: what was applied, held, left as an alternative or
-not placed, and the track-changes view that manuscript-dashboard shows as the dashboard's Revised paper.
+as CriticMarkup against the original, with the questions for the authors as comments) and revision.json:
+what was applied, held, left as an alternative or not placed, the questions for the authors, and the
+track-changes view that manuscript-dashboard shows as the dashboard's Revised paper.
+
+No note to the authors goes into the text. A question comes as a proposal's `comment`; a `[AUTHORS: ...]` note
+a stage left in a proposal's text is lifted out of it and becomes a comment too, so the corrected version
+never carries one. A note already in the working copy (in an applied edit) is listed for removal.
 """
 from __future__ import annotations
 
@@ -225,6 +230,47 @@ def insertion_point(text: str, anchor_end: int, addition: str) -> tuple[int, str
     return end, "\n\n" + addition
 
 
+# A gap a proposal still holds once its notes are lifted: a placeholder in another form, or the empty brackets a
+# lifted note leaves ("just-dna-seq ()."). Only what the passage did not already contain counts.
+GAP = re.compile(r"\bAUTHORS\b|\b(?:TODO|TBD|FIXME)\b|\bX{2,}\b|\(\s*[,;]?\s*\)|\[\s*\]|"
+                 r"(?i:\[(?:todo|tbd|tbc|insert|add|citation needed)\b[^\]]*\])")
+# A note that filled a slot inside a sentence: after one of these words, or after a colon at the end of its line, the
+# sentence cannot stand without the fact ("The authors used [AUTHORS: tool] to ...", "Correspondence: [AUTHORS: email]").
+SLOT = re.compile(r"(?i:\b(?:of|for|by|with|using|used|use|the|a|an|to|in|on|at|from|as|and|or|is|are|was|were|be|been|"
+                  r"via|than|named|called|version|model|tool|tools))\s*$")
+
+
+def gaps(after: str, before: str) -> list[str]:
+    found = []
+    for match in GAP.finditer(after):
+        if match.group(0) not in before:
+            start, end = max(0, match.start() - 40), min(len(after), match.end() + 40)
+            found.append(after[start:end].strip())
+    return found
+
+
+def slots(after: str) -> list[str]:
+    """The notes in a proposal that stand where the sentence needs their fact, each with the words around it."""
+    found = []
+    for start, end in viz.author_notes(after):
+        lead, rest = after[:start].rstrip(), after[end:]
+        line_end = not rest.split("\n", 1)[0].strip(" .")
+        if SLOT.search(lead) or (lead.endswith(":") and line_end):
+            found.append((after[max(0, start - 40):start] + "…" + after[end:end + 40]).strip())
+    return found
+
+
+def lift(change: viz.Change) -> tuple[str, list[str]]:
+    """A proposal's text without the notes to the authors a stage left in it, and its questions: those notes,
+    then its comment. A note in the text could reach a submission; a comment cannot."""
+    after = change.after or ""
+    spans = viz.author_notes(after)
+    asked = [re.sub(r"^\[AUTHORS:\s*|\]$", "", after[a:b]).strip() for a, b in spans]
+    if spans:
+        after = viz.strip_notes(after)
+    return after, [*asked, *([change.comment.strip()] if change.comment.strip() else [])]
+
+
 def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tuple[Document, dict]:
     changes = {c.id: c for c in data.changes}
     proposals = {c.id: c for c in data.changes if c.status == "proposed"}
@@ -269,10 +315,20 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
         return revised.find(target) if target else -1
 
     todo = [c for c in proposals.values() if c.id not in held and c.id not in alternatives]
+    questions: dict[str, list[str]] = {}
     for change in sorted(todo, key=lambda c: (position(c) < 0, position(c))):
+        after, asked = lift(change)
+        if asked:
+            questions[change.id] = asked
+        if left := [*slots(change.after or ""), *gaps(after, change.before or "")]:
+            questions[change.id] = [*asked, *(f'complete the passage it proposes: "{text}"' for text in left)]
         try:
+            if left:
+                raise Unplaced("its text still has a gap for a fact only the authors have; it waits for their answer, "
+                               "and its questions are listed")
+            if asked and after.strip() == (change.before or "").strip():
+                raise Unplaced("without its notes to the authors it changes nothing: it only asks them, and its questions are listed")
             if change.before:
-                after = change.after or ""
                 if after == change.before:
                     raise Unplaced("its text is the same before and after: a move to another place is left to the authors")
                 head, tail = trim(change.before, after)
@@ -283,7 +339,7 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
             if not anchor:
                 raise Unplaced("an addition that names no anchor passage")
             start = document.find(anchor)
-            at, addition = insertion_point(document.working(), start + len(anchor), change.after or "")
+            at, addition = insertion_point(document.working(), start + len(anchor), after)
             document.propose(at, at, addition, change.id)
         except Unplaced as reason:
             unplaced[change.id] = str(reason)
@@ -294,6 +350,12 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
         "held": [{"id": cid, "why": why} for cid, why in held.items()],
         "alternatives": [{"id": cid, "chosen": chosen} for cid, chosen in alternatives.items()],
         "not_placed": [{"id": cid, "why": why} for cid, why in unplaced.items()],
+        "comments": [{"ids": [cid], "question": question, "section": changes[cid].section, "placed": cid in in_text,
+                      "passage": (changes[cid].before or anchors.get(cid) or changes[cid].anchor or "")[:400]}
+                     for cid, asked in questions.items() for question in asked],
+        # Notes already in the text came with applied edits: the working manuscript holds them and they must go.
+        "notes_in_text": [{"note": document.current()[a:b], "line": document.current().count("\n", 0, a) + 1}
+                          for a, b in viz.author_notes(document.current())],
         "changes": {cid: {"section": c.section, "summary": c.summary, "kind": c.kind, "status": c.status,
                           "finding_ids": c.finding_ids} for cid, c in changes.items()},
     }
@@ -314,13 +376,15 @@ def word_diff(old: str, new: str) -> list[tuple[str, str]]:
     return out
 
 
-def critic(document: Document) -> str:
+def critic(document: Document, asked: dict[str, list[str]] | None = None) -> str:
+    """CriticMarkup against the original; each edit's comment names it and carries its questions for the authors."""
     parts = []
     for piece in document.pieces:
         if piece.status == "text":
             parts.append(piece.text)
             continue
-        note = "{>>" + ", ".join(piece.ids) + "<<}"
+        questions = [q for cid in piece.ids for q in (asked or {}).get(cid, [])]
+        note = "{>>" + ", ".join(piece.ids) + "".join(f" · Question for the authors: {q}" for q in questions) + "<<}"
         if piece.old and piece.new:
             parts.append("{~~" + piece.old + "~>" + piece.new + "~~}" + note)
         elif piece.new:
@@ -390,9 +454,9 @@ def tagged(rendered: str, edits: list[dict]) -> str:
     return "".join(parts)
 
 
-def track_changes(document: Document, suffix: str) -> tuple[str, list[dict]]:
+def track_changes(document: Document, suffix: str, folders: list[Path] | None = None) -> tuple[str, list[dict]]:
     text, edits = marked(document)
-    return tagged(viz.manuscript_html(text, suffix), edits), edits
+    return tagged(viz.manuscript_html(text, suffix, folders), edits), edits
 
 
 def digest(text: str) -> str:
@@ -416,16 +480,25 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     proposed = document.current()
-    body, edits = track_changes(document, original.suffix.lower())
+    body, edits = track_changes(document, original.suffix.lower(), [working.resolve().parent, original.resolve().parent])
+    asked: dict[str, list[str]] = {}
+    for comment in record["comments"]:
+        for cid in comment["ids"]:
+            asked.setdefault(cid, []).append(comment["question"])
+    for edit in edits:
+        edit["comments"] = [q for cid in edit["ids"] for q in asked.get(cid, [])]
     record |= {"original_sha256": digest(source), "revised_sha256": digest(revised), "proposed_sha256": digest(proposed),
-               "inventory_sha256": hashlib.sha256(inventory.read_bytes()).hexdigest(), "edits": edits, "body_html": body}
+               "inventory_sha256": hashlib.sha256(inventory.read_bytes()).hexdigest(), "edits": edits, "body_html": body,
+               # The text as unchanged runs and edits, in order, for exports such as the annotated Word document.
+               "pieces": [{"text": p.text} if p.status == "text" else {"old": p.old, "new": p.new, "ids": p.ids, "status": p.status}
+                          for p in document.pieces]}
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "revised.md").write_text(revised, encoding="utf-8")
     (output_dir / "proposed.md").write_text(proposed, encoding="utf-8")
-    (output_dir / "changes.md").write_text(critic(document), encoding="utf-8")
+    (output_dir / "changes.md").write_text(critic(document, asked), encoding="utf-8")
     (output_dir / "revision.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     typer.echo(json.dumps({key: len(record[key]) for key in ("applied", "proposed_in_this_version", "held",
-                                                               "alternatives", "not_placed")}, indent=2))
+                                                               "alternatives", "not_placed", "comments", "notes_in_text")}, indent=2))
 
 
 if __name__ == "__main__":

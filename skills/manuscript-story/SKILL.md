@@ -75,8 +75,8 @@ drift: report it with the before and after text and offer to restore it or to re
    first, straight to the results, Methods skipped) and records that path; skipping is not leaving.
    Each says where on its path a real reader would close the paper, where attention only dipped, the
    one sentence they would tell a colleague, what they wanted and did not get, and the terms that
-   stopped them; a reader who left before what it came for cannot try or cite the work. Use independent agents when the harness offers them; give each only
-   the manuscript and its seat.
+   stopped them; a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
+   ([independence is required](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
 3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake, the gap, the one idea,
    a headline per result, a worked example of real output, where the caveats sit, what the paper argues
    against, how it ends, and whether it tells how the authors did the project or why a reader should
@@ -155,6 +155,29 @@ remains under the labels of
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done).
 Say what the gates found in their own plain words. Never give a "story score", a predicted citation count
 or an acceptance chance.
+
+## What goes to the dashboard
+
+Besides its findings and proposals, the stage's `findings.json` gives a `story` object, which the dashboard's
+Story tab shows: the direction, whether the authors confirmed it, any drift, every story test with its result,
+and the direction options.
+
+```json
+"story": {
+  "direction": "Local-first and open: annotate a personal genome on your own computer, with methods you can inspect",
+  "confirmed": false,
+  "drift": "",
+  "tests": [{"test": "The stake", "result": "fails", "note": "The Introduction opens on sequencing costs: \"...\"; the reader's problem comes third.",
+             "finding_ids": ["ST-2"], "change_ids": ["ST-C1"]}],
+  "options": [{"title": "Option A: keep local-first and open", "summary": "Title unchanged; the Abstract opens: \"...\"",
+               "readers": "researchers who would run or extend it", "cost": "Little: all five themes stay."}]
+}
+```
+
+`result` is `holds`, `partly`, `fails` or `not-run` (with the reason in `note`); the note quotes the passage,
+as the report does. A story edit that keeps the direction is a proposal or an applied edit with its `why`; a
+change to the narrative structure is an option or a finding with `decision: true`, never an edit, and a
+question about a proposal is its `comment`, never a placeholder in the text.
 
 ## Boundaries
 

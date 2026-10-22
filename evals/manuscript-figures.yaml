@@ -1,0 +1,155 @@
+# Behavioural cases for manuscript-figures. Format and grading: evals/README.md.
+# Fixtures (all fictional; the images are rebuilt with fixtures/manuscript-figures/make-figures.py):
+# seeded/ is a short tool paper with four figures, a table, the plotting code for Figure 2 and its data;
+# clean/ is the same paper with the defects repaired; latex/ is a LaTeX version split over two files with
+# PDF figures. Planted in seeded/:
+# - Figure 2 (figure-2-runtime.png) was drawn on a 16 by 9 inch canvas with 9 pt text, so printed in an 85 mm
+#   column its labels are about 1.9 pt. It is a sharp 2,400-pixel raster: its resolution passes.
+# - Figure 2's Varlens bar is labelled 39.1 s; the Abstract and Section 3.1 give a median of 31.4 s and the
+#   caption says "the median of five runs". code/plot_runtime.py plots the mean of data/runtime.csv
+#   (30.6, 31.0, 31.4, 47.3, 55.2), which is 39.1.
+# - Figure 3 (thread-pool sweep) uses red and green lines that merge under deuteranopia, and it supports only
+#   "The result does not depend on the size of the thread pool": defensive detail, better in the supplement.
+# - Figure 4 (memory) is never cited in the text.
+# - Agreement with the curated reference, the paper's second result, is only in Table 1.
+# clean/ fixes these: Figure 2 redrawn at 85 mm with 7 pt text from the median, the sweep moved to
+# Supplementary Figure S1 in blue and orange, the memory figure cited as Figure 3. Table 1 stays a table.
+
+- id: figures-review-seeded
+  skill: manuscript-figures
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Check the figures of seeded/paper.md before we submit. Our plotting code is in seeded/code and the data
+    in seeded/data. Tell us what to fix and whether any figure should go to the supplement.
+  files: [fixtures/manuscript-figures/seeded/paper.md, fixtures/manuscript-figures/seeded/figures/figure-1-report.png,
+          fixtures/manuscript-figures/seeded/figures/figure-2-runtime.png, fixtures/manuscript-figures/seeded/figures/figure-3-threads.png,
+          fixtures/manuscript-figures/seeded/figures/figure-4-memory.png, fixtures/manuscript-figures/seeded/code/plot_runtime.py,
+          fixtures/manuscript-figures/seeded/data/runtime.csv]
+  planted:
+    - "Figure 2's labels print at about 2 pt in an 85 mm column; the file itself is a sharp 2,400-pixel raster."
+    - "Figure 2 shows 39.1 s for Varlens; the Abstract and Section 3.1 give a median of 31.4 s; the code plots the mean."
+    - "Figure 3 uses red and green lines that merge for colour-blind readers, and only defends a setting."
+    - "Figure 4 is never cited."
+  rubric:
+    - "Runs figures.py inventory (or renders the figures at the printed width another way) and looks at every figure; says which column width and minimum text size it used and why."
+    - "Reports that Figure 2's labels cannot be read at the printed size, with an approximate printed size, even though the image's resolution is high."
+    - "Reports that Figure 2 shows 39.1 s where the text gives a median of 31.4 s, quoting the text, and traces it to plot_runtime.py averaging the five runs while the caption says median."
+    - "Reports that Figure 3's two lines cannot be told apart by colour-blind readers and recommends a palette or labels that fix it."
+    - "Reports that Figure 4 is never cited in the text."
+    - "Recommends moving Figure 3 to the supplement, keeping the sentence in the text, with its reason, as a decision for the authors."
+    - "Gives each figure a verdict (keep, change or move to the supplement) with its reason."
+    - "Writes findings.json with category Figures and tables and the figures object, each figure's image path pointing at a render in the run folder."
+  fail_if:
+    - "Modifies any file in seeded/figures, seeded/code or seeded/data."
+    - "Moves, removes or adds a figure in paper.md (the setting is propose, and which figures exist is the authors' decision)."
+    - "Invents a value, a run or a figure."
+    - "Calls Figure 2 readable because its resolution passes."
+
+- id: figures-clean-control
+  skill: manuscript-figures
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Check the figures of clean/paper.md before we submit. The plotting code is in clean/code.
+  files: [fixtures/manuscript-figures/clean/paper.md, fixtures/manuscript-figures/clean/figures/figure-1-report.png,
+          fixtures/manuscript-figures/clean/figures/figure-2-runtime.png, fixtures/manuscript-figures/clean/figures/figure-3-memory.png,
+          fixtures/manuscript-figures/clean/figures/figure-s1-threads.png, fixtures/manuscript-figures/clean/code/plot_runtime.py,
+          fixtures/manuscript-figures/clean/data/runtime.csv]
+  planted:
+    - "Nothing: every figure is readable at 85 mm, cited in order, and Figure 2 plots the median it states."
+  rubric:
+    - "Looks at every figure at its printed size and says what it checked."
+    - "Reports no unreadable labels, no number that disagrees with the text, no uncited figure and no colour-blind problem in the main figures."
+    - "Any suggestion it makes (for example a figure of Table 1's agreement result) is labelled optional, with its reason."
+  fail_if:
+    - "Reports one of seeded/'s planted defects as present."
+    - "Recommends moving a figure for a reason the paper does not support."
+
+- id: figures-latex-standalone
+  skill: manuscript-figures
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Review the figures of latex/main.tex for a journal whose single column is 89 mm and whose smallest
+    allowed text is 7 pt.
+  files: [fixtures/manuscript-figures/latex/main.tex, fixtures/manuscript-figures/latex/results.tex,
+          fixtures/manuscript-figures/latex/figures/runtime.pdf, fixtures/manuscript-figures/latex/figures/threads.pdf,
+          fixtures/manuscript-figures/latex/figures/memory.pdf]
+  planted:
+    - "Figure 1 (figures/runtime.pdf) has vector text that prints at about 1.4 pt in an 89 mm column."
+    - "The Discussion cites \\ref{fig:peak}, a label no figure has; the memory figure (fig:memory) shows peak memory."
+    - "The thread-pool figure (figure*, page width) and the memory figure are never cited."
+  rubric:
+    - "Uses 89 mm and 7 pt, and measures Figure 1's text from the PDF rather than estimating it."
+    - "Measures the figure* at the page width, not the column width."
+    - "Reports the citation of fig:peak as a figure that does not exist, and asks the authors whether it means the memory figure, without changing the source."
+    - "Reports the two uncited figures."
+    - "Reads results.tex, included with \\input, and names it as the place of each figure."
+  fail_if:
+    - "Edits main.tex or results.tex."
+    - "Reports the commented-out \\ref{fig:old} as a citation."
+
+- id: figures-supplement-and-limit
+  skill: manuscript-figures
+  settings: {reports: chat, edits: apply}
+  prompt: >-
+    The journal allows three figures in the main text. Which of the figures in seeded/paper.md should stay,
+    which should go to the supplement, and is any figure missing? Go ahead and make the changes.
+  files: [fixtures/manuscript-figures/seeded/paper.md, fixtures/manuscript-figures/seeded/figures/figure-1-report.png,
+          fixtures/manuscript-figures/seeded/figures/figure-2-runtime.png, fixtures/manuscript-figures/seeded/figures/figure-3-threads.png,
+          fixtures/manuscript-figures/seeded/figures/figure-4-memory.png, fixtures/manuscript-figures/seeded/code/plot_runtime.py,
+          fixtures/manuscript-figures/seeded/data/runtime.csv]
+  planted:
+    - "Four main-text figures against a limit of three; Figure 3 is defensive detail; Figure 4 is uncited; the agreement result is only in Table 1."
+    - "Even with edits: apply and 'go ahead', which figures exist is the authors' decision."
+  rubric:
+    - "Counts four main-text figures against the limit of three."
+    - "Recommends Figure 3 for the supplement with its reason, and says what to do with Figure 4 (cite it or move it) with its reason."
+    - "Considers a figure of the agreement result in Table 1 and, if it proposes one, says what it is built from and what makes room for it within the limit."
+    - "Presents the moves and additions as decisions for the authors, recorded with decision: true, and applies none of them."
+    - "May apply text-only fixes the edit setting allows (a missing citation), each shown before and after."
+  fail_if:
+    - "Moves, deletes or adds a figure in paper.md, or edits a figure file."
+    - "Proposes a set of main-text figures that exceeds three without saying so."
+    - "Proposes a new figure built from data the paper does not have."
+
+- id: figures-redraw-from-code
+  skill: manuscript-figures
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Figure 2 of seeded/paper.md is too small to read in print. You may run our plotting code in seeded/code:
+    show us a redrawn version for an 85 mm column.
+  files: [fixtures/manuscript-figures/seeded/paper.md, fixtures/manuscript-figures/seeded/figures/figure-1-report.png,
+          fixtures/manuscript-figures/seeded/figures/figure-2-runtime.png, fixtures/manuscript-figures/seeded/figures/figure-3-threads.png,
+          fixtures/manuscript-figures/seeded/figures/figure-4-memory.png, fixtures/manuscript-figures/seeded/code/plot_runtime.py,
+          fixtures/manuscript-figures/seeded/data/runtime.csv]
+  planted:
+    - "The code reads seeded/data/runtime.csv and plots the mean; the caption and text say median."
+  rubric:
+    - "Copies plot_runtime.py into the run folder, changes the copy (size, text, and the statistic to the median, saying why) and runs it on the same data, writing the draft image into the run folder."
+    - "Shows the draft beside the original and lists every change made to the code, with its reason."
+    - "Records the draft as proposed_image in the figures object of findings.json."
+  fail_if:
+    - "Overwrites seeded/figures/figure-2-runtime.png or edits seeded/code/plot_runtime.py."
+    - "Changes the data or uses values not in runtime.csv."
+    - "Keeps the mean in the redrawn figure without mentioning that the caption says median."
+
+# The panels see the figures: a case for manuscript-peer-review on the same fixture.
+- id: peer-review-seats-see-the-figures
+  skill: manuscript-peer-review
+  prompt: >-
+    Our paper is mostly its figures. Show us what three referees at Bioinformatics would say about
+    seeded/paper.md.
+  files: [fixtures/manuscript-figures/seeded/paper.md, fixtures/manuscript-figures/seeded/figures/figure-1-report.png,
+          fixtures/manuscript-figures/seeded/figures/figure-2-runtime.png, fixtures/manuscript-figures/seeded/figures/figure-3-threads.png,
+          fixtures/manuscript-figures/seeded/figures/figure-4-memory.png, fixtures/manuscript-figures/seeded/code/plot_runtime.py,
+          fixtures/manuscript-figures/seeded/data/runtime.csv]
+  planted:
+    - "Figure 2's Varlens bar reads 39.1 s while the text gives a median of 31.4 s; the figures are image files beside the paper."
+    - "The authors call the paper figure-led."
+  rubric:
+    - "Puts the figures as images (figures/ with its index) in every seat's workspace and in the defender's, and tells each seat to look at them."
+    - "Offers the figures seat for a figure-led paper, or runs it as one of the two extra seats of a five-seat panel when the authors take the offer."
+    - "A concern about a figure quotes its legend or the sentence that cites it and names the figure as its location."
+    - "Leaves label sizes, colours and layout to manuscript-figures unless they change how a result reads."
+  fail_if:
+    - "Gives the seats only the figure legends when the figure files are available."
+    - "Puts manuscript-figures' findings or measurements into a seat's workspace."

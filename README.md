@@ -2,13 +2,13 @@
 
 Skills that help scientists prepare manuscripts for publication, for
 [Claude Code](https://claude.com/claude-code) and [Codex](https://github.com/openai/codex) (AI assistants
-that work with the files on your computer). They review a draft, check its references, simulate the
-referees of a target journal, edit the prose, choose and prepare for a journal, and answer the referees
-after a decision. They work with manuscripts written with or without AI assistance.
+that work with the files on your computer). They review a draft, check its references and figures,
+simulate the referees of a target journal, edit the prose, choose and prepare for a journal, and answer
+the referees after a decision. They work with manuscripts written with or without AI assistance.
 
 Start with `manuscript-improve`. One request runs the relevant checks and edits across the whole paper
 and ends with a corrected version and a dashboard of what the run found. For a single task, use
-[one of the fourteen focused skills](#choose-the-task-you-need).
+[one of the fifteen focused skills](#choose-the-task-you-need).
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. You
 decide which journal to pursue and how to handle uncertain or burdensome requirements. Made by
@@ -24,6 +24,12 @@ run found 114 confirmed problems, each counted once however many skills found it
 what to fix now. A co-author had reviewed the same draft separately; the run saw neither that review nor
 any later version of the paper. Of the co-author's 125 points, the run found 79 (27 of them only in
 part) and missed 46.
+
+The dashboard is self-contained, so you can send it to a colleague as it is. The same review also comes
+as a Word document: the corrected version as tracked changes signed by each stage, with the problems,
+the questions for you and the reason for each edit as margin comments. Google Docs opens it with the
+changes as suggestions. No question for you is ever written into the paper's text, where it could be
+submitted by mistake.
 
 <table>
 <tr>
@@ -74,6 +80,7 @@ and where to save reports) and remembers the answers for that manuscript.
 | Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | Unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and submission requirements, with suggested fixes. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Each reference's identity and authors, retractions, withdrawn preprints and preprints since published, and whether the sources support the claims that carry the paper, with the passage quoted. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines for your study design (CONSORT, STROBE, PRISMA, ARRIVE and others). It also checks that your data, code and software can be found, and how statistics are reported. |
+| Review the figures | [manuscript-figures](skills/manuscript-figures/SKILL.md) | Every figure seen as it will be printed: at the journal's column width, in greyscale and as colour-blind readers see it. Each is checked against its caption, the text and tables, the order it is cited in and the code that draws it. You get a verdict per figure (keep, change or move to the supplement) and the figures worth adding; your figure files are never overwritten. |
 | Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | Reports from three simulated referees at your target journal, each quoting the paper, then what to fix first, including the work only you can do. No scores or acceptance odds. It can also draft your report when you are the referee. |
 | Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | Which clinical, ethics or privacy requirements apply, with the policy quoted and linked, and drafts of scope clarifications or replies to policy questions. |
 | Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. |
@@ -125,6 +132,15 @@ For the review dashboard (manuscript-improve builds it at the end of every run):
 
 > Compare this run on v0.3 with our co-author's comments on the same version: which did it catch, which
 > did it miss, and why.
+
+> Give me the corrected version as a Word document with the review as comments, so my co-authors can
+> accept or reject each change.
+
+For the figures:
+
+> Check our figures as they will look in Bioinformatics: can every label be read in print, do the
+> numbers match the text, and which figures should go to the supplement? Our plotting code is in
+> analysis/. Don't change the figure files.
 
 For the story:
 
@@ -207,7 +223,8 @@ The stages:
 
 1. **Review the draft and references.** The integrity, reference and reporting checks find unsupported
    claims, citation problems, inconsistent numbers, reporting gaps and missing material. A panel of
-   simulated referees reviews the draft too, by default for this full workflow.
+   simulated referees reviews the draft too, by default for this full workflow. Every figure is looked
+   at as it will be printed and checked against its caption, the text and its code.
 2. **Resolve scope and choose a journal.** Where the study raises clinical, ethics or privacy questions,
    the policy-fit assessment says which rules apply. The preprint servers and journals that fit your
    research and publication budget are then ordered into two ladders by your priorities, and the
@@ -383,7 +400,7 @@ claude plugin marketplace add dna-seq/manuscript-skills
 claude plugin install manuscript-skills@manuscript-skills
 ```
 
-The plugin installs all fifteen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
+The plugin installs all sixteen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
 the computer running the assistant; their dependencies install on first use. Building a PDF from a
 marked manuscript also needs the document tools [pandoc](https://pandoc.org/) and
 [tectonic](https://tectonic-typesetting.github.io/), which uv does not install. Looking up references

@@ -442,6 +442,33 @@ be understandable by someone who did not write these skills, without opening ano
 Script JSON can keep line numbers and codes for other tools; their Markdown and terminal output follows
 these rules.
 
+## Questions for the authors are comments, never text
+
+No skill writes a placeholder or a note to the authors into the manuscript, the working copy, a proposal or
+the corrected version: no `[AUTHORS: ...]`, `[TODO]`, `[TBD]`, `XX`, `[insert ...]`, `[citation needed]`,
+no HTML or LaTeX comment and no plausible value standing in for the real one. Text in the manuscript can be
+submitted by mistake, and a comment in a LaTeX or Markdown source travels with it to arXiv or a journal's
+system. A question the authors must answer goes beside the text, where it cannot be shipped:
+
+- **About a passage that exists** ("is this planned?", "which authors contributed equally?"): a decision for
+  the authors in the report, with the passage quoted.
+- **About a proposal**: the proposal's `comment` in its stage's `findings.json`. The proposal itself is
+  written so that it reads complete without the answer ("Rostock University Medical Center, Rostock,
+  Germany", with the comment "add the postal code"), or, when its substance is the missing fact (an
+  AI-use statement that waits for the tool names), it is held with the question as its reason.
+- **End-stage facts** (postal addresses, the corresponding author's email, equal-contribution marks, a
+  funder's required acknowledgement, archive DOIs, the tools and versions for the AI-use statement): listed
+  under "Before submission", written in when the authors supply them.
+- **Look before asking.** A fact the project holds (a version in a file header, a commit, a count in a run
+  report) is read from it, not asked for.
+
+The comments reach the authors where they read the revision: the dashboard marks the passage in yellow with
+a question mark beside it and lists every question, `changes.md` carries them as CriticMarkup comments, and an
+exported document carries them as review comments. `revise.py` lifts any `[AUTHORS: ...]` a stage still left
+in a proposal out of its text and makes it a comment, and lists any note already in the working copy for
+removal; the integrity scan flags one that remains before submission. (The response letter's `[TBD: ...]`
+belongs to that letter's own drafting and check.)
+
 ## Deduplicating and stopping
 
 Deduplicate by root cause, omit irrelevant checks and distinguish agent work from author decisions. Stop

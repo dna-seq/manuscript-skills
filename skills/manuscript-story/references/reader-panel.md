@@ -13,12 +13,22 @@ Keep the source snapshot and record what was excluded in the parent run, outside
 Reading measures that omit front matter do not make the exported file itself a clean reading copy.
 If a source artifact cannot be removed confidently, retain it and state the resulting limit on the panel.
 
-Run each seat as a separate agent with fresh context when the harness offers one. Give it the manuscript
-(and its figures, when they are files) and its seat's brief, nothing else: not the record, not the
-authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other
-files. Without agents, read once per seat, in order, and do not revise one seat's answer after reading as
-the next. A seat that has read the authors' intentions can no longer tell them whether the text conveys
+Each seat is a separate fresh agent, as
+[Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)
+requires: a new agent per reader, never a fork of the coordinator and never one that has worked on the paper,
+started by the session that can start agents (in manuscript-improve, the coordinator itself). Give it the
+manuscript, its figures as images and its seat's brief, nothing else: not the record, not
+the authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other
+files, and no summary or hint from the coordinator. Record each reader with `--isolation fresh-agent`. Only
+when the host cannot start agents at all, read once per seat, in order, do not revise one seat's answer
+after reading as the next, record `--isolation one-agent` and say in the report that these readers were not
+independent. A seat that has read the authors' intentions can no longer tell them whether the text conveys
 them.
+
+Readers look at figures before they read sentences, so every seat's workspace holds them: `figures/`, made
+with `uv run --script ../manuscript-figures/scripts/figures.py workspace PAPER --into WORKSPACE/figures`,
+one PNG per figure (a PDF, SVG or EPS figure rendered) and `index.md` with each figure's number, caption and
+file. Nothing else goes with them: no measurement and no other stage's view of a figure.
 
 ## The seats
 
@@ -31,8 +41,9 @@ a wet-lab biologist, a clinician, a biology student, an informed enthusiast, a r
 and save the answer. Each seat reads the whole paper, so more than five or six costs more than it adds.
 
 1. **The skimmer.** A busy researcher in the field deciding, from a preprint feed or a table of contents,
-   whether to read on. Reads the title, the Abstract, every figure and table caption, the first sentence of
-   each paragraph and the Conclusion, in that order, and nothing else.
+   whether to read on. Reads the title and the Abstract, looks at every figure with its caption and every
+   table caption, then reads the first sentence of each paragraph and the Conclusion, in that order, and
+   nothing else.
 2. **The potential user.** Someone who could use the method, tool or result in their own work. Reads the
    whole paper asking: what would I get, what would I see, could I run or apply it, what would stop me.
 3. **The informed outsider.** A scientist from a neighbouring field (for a genomics tool, a biologist or a
@@ -91,7 +102,9 @@ it looked. The parent checks that `next` agrees with `left` and returns a seat's
 ## Prompt for a seat
 
 > You are [seat brief]. You have never seen this paper and know nothing about its authors. Read it as that
-> reader would, [reading order for the seat]. Then answer in the format below. Be honest about where your
+> reader would, [reading order for the seat]. The figures are images in `figures/` (listed in
+> `figures/index.md`): open each one when your reading reaches it, as you would look at it on the page, and
+> say what it told you or where it lost you, like any passage. Then answer in the format below. Be honest about where your
 > attention dropped and why; quote the paper's own words. Do not review its science, recommend a decision
 > or suggest edits: say only what happened to you as a reader.
 

@@ -50,6 +50,17 @@ class Role(str, Enum):
 
 
 ROLES = {role.value for role in Role}
+# Outputs of a simulated reader, referee, quick-pass seat or defender: each records how it ran (project-workflow.md,
+# "Independent readers and referees").
+PANEL = {'reader', 'referee', 'seat', 'defence'}
+
+
+class Isolation(str, Enum):
+    fresh_agent = 'fresh-agent'  # a new agent whose whole context was its brief
+    one_agent = 'one-agent'  # the fallback: one agent read as each seat in turn; not independent
+
+
+ISOLATION_LABEL = {'fresh-agent': 'fresh agent', 'one-agent': 'one agent in turn, not independent'}
 SKILLS = Path(__file__).resolve().parents[2]
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -116,7 +127,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
             lines.append(f"Review mode: {seat.get('review_mode', 'full')}.\n")
         for item in seat["artifacts"]:
             relative = Path(item["path"]).relative_to(name).as_posix()
-            lines.append(f"- {item['role']}: [{relative}]({relative})" + (f" — seat: {item['seat']}" if item.get('seat') else ""))
+            lines.append(f"- {item['role']}: [{relative}]({relative})" + (f" — seat: {item['seat']}" if item.get('seat') else "")
+                         + (f" ({ISOLATION_LABEL[item['isolation']]})" if item.get('isolation') in ISOLATION_LABEL else ""))
         for issue in seat["issues"]:
             lines.extend(["", f"- **{issue['kind']}**: {issue['message']}"])
         for number, command in enumerate(seat['commands'], 1):
@@ -138,9 +150,13 @@ def ensure_skill(data: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str,
-             destination: str | None = None, seat: str | None = None, allow_empty: bool = False) -> dict[str, Any]:
+             destination: str | None = None, seat: str | None = None, allow_empty: bool = False,
+             isolation: str | None = None) -> dict[str, Any]:
     if role not in ROLES:
         raise ValueError(f"Unknown evidence role: {role}")
+    if role in PANEL and isolation not in ISOLATION_LABEL:
+        raise ValueError(f"A {role} output records how it ran: --isolation fresh-agent (a new agent whose only context "
+                         "was its brief) or --isolation one-agent (the fallback when the host cannot start agents).")
     if not source.is_file() or (not allow_empty and not source.stat().st_size):
         raise ValueError("Evidence must be a non-empty file.")
     entry = ensure_skill(data, name)
@@ -155,6 +171,11 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
             shutil.copyfileobj(original, output)
     item = {"path": target.relative_to(run.resolve()).as_posix(), "role": role, "seat": seat,
             "sha256": digest(target), "recorded_at": now()}
+    if role in PANEL:
+        item["isolation"] = isolation
+        if isolation == 'one-agent':
+            entry['issues'].append({'kind': 'not_independent', 'recorded_at': now(), 'message':
+                f"{seat or role}: read by one agent in turn, not independent; its agreement with other seats is not corroboration."})
     entry['artifacts'].append(item)
     return item
 
@@ -188,6 +209,9 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
         if entry['status'] in {'partial', 'blocked', 'not_run', 'reused'} and not entry.get('reason'):
             errors.append(f"{name}: status needs its reason/coverage or reused source")
         if entry['status'] == 'completed':
+            for item in entry['artifacts']:
+                if item['role'] in PANEL and item.get('isolation') not in ISOLATION_LABEL:
+                    errors.append(f"{name}: {item['path']} does not record whether it ran as a fresh agent (--isolation)")
             if name == 'manuscript-story':
                 seats = {item['seat'] for item in entry['artifacts'] if item['role'] == 'reader'}
                 if not {'skimmer', 'potential-user', 'informed-outsider'} <= seats:
@@ -245,11 +269,15 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
 @serialized
 def add(run: Path, skill: Annotated[str, typer.Option('--skill')],
         file: Annotated[Path, typer.Option('--file')], role: Role = Role.other,
-        name: str | None = None, seat: str | None = None) -> None:
-    """Retain an actual output with its role. --seat identifies a reader or referee; files cannot be overwritten."""
+        name: str | None = None, seat: str | None = None, isolation: Isolation | None = None) -> None:
+    """Retain an actual output with its role. --seat identifies a reader or referee, and --isolation says whether it
+    ran as a fresh agent; files cannot be overwritten."""
     run = run.resolve()
     data = read(run)
-    item = artifact(run, data, skill, file, role.value, name, seat)
+    if role.value in PANEL and isolation is None:
+        raise typer.BadParameter(f"A {role.value} output records how it ran: --isolation fresh-agent (a new agent whose only "
+                                 "context was its brief) or --isolation one-agent (the fallback when the host cannot start agents).")
+    item = artifact(run, data, skill, file, role.value, name, seat, isolation=isolation.value if isolation else None)
     save(run, data)
     typer.echo(str(run / item['path']))
 

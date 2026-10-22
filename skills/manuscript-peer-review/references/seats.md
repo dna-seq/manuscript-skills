@@ -30,6 +30,8 @@ journal's scope and bar.
   cost, since each one reads the whole paper.
 - Load a domain module into the seat whose remit it serves (usually the main seat), or give it its own
   seat in a five-seat panel when the paper's main risk lies in that domain.
+- For a figure-led paper (an atlas, an imaging or visualisation method, a paper whose results are mostly
+  figures), offer the figures seat, as one of the two extra seats of a five-seat panel.
 
 | Study design (any of) | Main seat | Five-seat panel adds | Domain modules to consider |
 |---|---|---|---|
@@ -126,6 +128,13 @@ and fairness filter as every other seat: hostile, never unfair.
 - **software-methods**, **genomics**, **human-data-clinical**, **ai-systems**: a domain module run as
   its own seat. software-methods is also the main seat for software and resource papers, where it takes
   the reproducibility remit as well.
+- **figures**: for a figure-led paper. Looks at every figure before reading the text around it, then
+  asks whether each figure shows what the claim citing it says: the comparison the claim rests on is the
+  one plotted, on a scale that does not exaggerate or hide it (a truncated axis, a log scale left
+  unstated), with the variation shown (points or intervals, not bars of means alone) and n stated; panels
+  agree with the text and tables; nothing a reader would need is only in the supplement. Legibility,
+  colour and layout are [manuscript-figures](../../manuscript-figures/SKILL.md)' remit, and the
+  claim-consequence gate drops them unless they change how a result reads.
 - **custom:<name>**: a seat the authors ask for (for example `custom:clinician` or
   `custom:statistician`), with a one- or two-sentence remit from them.
   Seats saved for the project (`referees` in `.manuscript-skills.yaml`, set with `project.py configure
@@ -157,7 +166,9 @@ checklist: a question that does not apply to this paper is skipped without comme
 
 Each seat receives one self-contained brief and its own workspace (inside the durable skill-run folder) holding only:
 the reading copy of the manuscript (HTML comments, LaTeX comments and revision markers removed, as an
-editor would see it), its supplementary files, a copy of [finding-schema.md](finding-schema.md), and,
+editor would see it), its supplementary files, the figures as images in `figures/` with `figures/index.md`
+(made with `uv run --script ../manuscript-figures/scripts/figures.py workspace PAPER --into WORKSPACE/figures`),
+a copy of [finding-schema.md](finding-schema.md), and,
 when a domain module is loaded for this seat, that module's questions as `domain-questions.md`. Domain
 questions live only in the workspace of the seat they serve. Fill in the angle brackets:
 
@@ -175,7 +186,11 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 > 1. Before opening the manuscript, read `venue.md` and write `criteria.md`: the three to eight problems
 >    that, for your remit, this design and the journal's bar, would count as major. Do not edit it after
 >    you start reading.
-> 2. Read the whole manuscript, including tables, figure legends and the supplementary files here.
+> 2. Read the whole manuscript, including tables, figure legends and the supplementary files here. Look
+>    at each figure in `figures/` (listed in `figures/index.md`) when the text reaches it, as a referee
+>    looks at the page: does it show what its legend and the sentences citing it say? For a concern about
+>    a figure, quote its legend or the sentence that cites it, and give the figure and panel as the
+>    location.
 > 3. Write `findings.json` following `finding-schema.md`. Quote the manuscript exactly; for something
 >    missing, list where you looked. Raise a concern only if resolving it could change the validity,
 >    support, scope, reproducibility or interpretation of a claim, and name that claim. Say what would

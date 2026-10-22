@@ -31,6 +31,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `decisions` | choices only the authors can make: `id`, `summary`, `finding_ids`. |
 | `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
 | `reference` | a review to compare with; [below](#reference-review). |
+| `figures` | optional, from `manuscript-figures`; [below](#figures). |
 | `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused` and `unknown`. A completed
@@ -58,7 +59,10 @@ Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment
 ## Changes and evidence
 
 A change has `id`, `kind`, `section`, `summary`, `status` (`applied` or `proposed`), `finding_ids`,
-`before`, `after` and `evidence`. Use null for the before text of an addition or after text of a deletion;
+`before`, `after`, `why`, `comment` and `evidence`. `comment` is a question for the authors about the edit, shown
+beside it and never written into the text. `why` is the reasoning in one to three sentences: what was wrong
+and why the new wording fixes it; the `summary` is only its title. For an applied edit, `collect.py` takes
+`why` from the reason recorded with `runs.py change`, whose first sentence becomes the summary. Use null for the before text of an addition or after text of a deletion;
 at least one must contain text. An addition names `anchor`, the verbatim passage it follows, so that
 the corrected version can place it; a replacement has no anchor. Applied before/after text must occur in its cited evidence files.
 An applied edit must be checked against the accepted revision, not inferred from a comparison's
@@ -136,3 +140,23 @@ The skill chart counts attribution, so its bars add up to more than the total.
 Do not sum per-skill attribution as independent discoveries, compare unequal scopes, or label the
 fraction addressed as a detector's accuracy. Without a reference, a run cannot show how many problems
 the skills missed; with one, the missed count is relative to that reference only.
+
+## Figures
+
+`figures` is optional and comes from `manuscript-figures`' `findings.json`: `limit` (`count`, `counts`, which
+is "figures" or "figures and tables", and `source`), `items` (one per figure: `id`, `caption`, `image`,
+`verdict` of `keep`, `change` or `move-to-supplement`, `message`, `why`, `recommendations` each with `kind`
+`content` or `visual`, `change` and `why`, `proposed_image`, `code` and `finding_ids`) and `new` (figures to add:
+`title`, `kind`, `shows`, `why`, `placement`, `source`, `replaces`, `finding_ids`). `collect.py` makes the image
+paths relative to the inventory and follows each finding link to the record kept after merging; the renderer
+embeds the images, so the dashboard stays one file, and says when one could not be found or is over 8 MB.
+`summary.json` counts the verdicts, the new figures and the main-text figures now and if the authors accept
+every move and addition. Which figures the paper has is the authors' decision: moves and additions are
+listed as decisions, never counted as applied.
+
+## Story
+
+`story` is optional and comes from `manuscript-story`'s `findings.json`: `direction`, `confirmed` (the authors
+confirmed it), `drift`, `tests` (each with `test`, `result` of `holds`, `partly`, `fails` or `not-run`, `note`,
+`finding_ids` and `change_ids`) and `options` (each with `title`, `summary`, `readers` and `cost`). The Story
+tab shows it with the story stage's findings and edits; without it the tab shows those alone.

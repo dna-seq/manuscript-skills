@@ -55,7 +55,9 @@ The critic must read the section as a reviewer would, so it gets **only**:
 It never sees the authors' self-assessment (a cover letter's claims, "we think this section is clear", the
 contribution they hope a reader takes away), the writer's notes or change table, earlier drafts, earlier
 critic findings, or what the previous round fixed. A critic that knows what was fixed looks for confirmation
-instead of problems. Spawn a new subagent for each round rather than continuing the previous critic.
+instead of problems. Spawn a new subagent for each round rather than continuing the previous critic, and
+never a fork of the orchestrator: a fork inherits everything the orchestrator read and wrote
+([Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
 
 The writer gets the section, the accepted findings, the contract and the authors' writing sample if one exists.
 It does not need the critic's identity or rejected findings.

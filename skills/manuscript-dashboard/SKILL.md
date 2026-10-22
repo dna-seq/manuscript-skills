@@ -5,7 +5,8 @@ description: >-
   authors and colleagues: distinct problems by kind, severity, stage, section and skill, what each
   skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
   corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
-  simulated reviewers' concerns and suggestions and the readers' paths, and, when a reference review
+  figures with their verdicts and recommendations, the simulated reviewers' concerns and suggestions and
+  the readers' paths, and, when a reference review
   exists (a human referee's comments on the same version), which of its problems the run caught and
   missed. manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
   earlier run or a focused skill's results. Formerly manuscript-visualize. New reviews and scientific
@@ -94,17 +95,26 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
 `--revision` is the corrected version that manuscript-improve builds from this inventory with its
 `revise.py`; the renderer refuses one built from another inventory. Leave it out for a run without one.
 
-- `manuscript-dashboard.html`: one self-contained file that opens offline, on the Overview. Its tabs: headline
+- `manuscript-dashboard.html`: one self-contained file that opens offline, on the Overview, and can be sent to
+  anyone as it is: data, styles and scripts are inside it, and the manuscript's local images are embedded
+  (an image it could not find keeps its path and says so). Which skill found something is shown by an
+  icon, with its name in the tooltip and a legend. Its tabs: headline
   counts, coverage per skill, the funnel from raw signals to confirmed problems and the machine-writing
   patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
   skill, and AI-related or not, with a heat grid of where they sit and a sortable, searchable table with
   every passage and evidence excerpt; the manuscript with every quoted problem highlighted by severity and the skills'
   comments beside it; the corrected version as track changes, with what was held back or could not be
-  placed; the comparison with the reference review; the journals, with each venue's AI policy as icons
+  placed, and the questions for the authors as comments beside the passages (marked in yellow, hidden with
+  one click; none is in the text); the comparison with the reference review; the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
-  held against the paper); word-level diffs of the edits; the
+  held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
+  figures (each one as rendered, with its verdict, problems and recommended changes, a redrawn draft beside
+  it when there is one, the figures to add and the venue's limit; `#figures/Figure%202` opens one); the
+  story (the direction, the story tests, the edits that keep the direction and the narrative changes only
+  the authors can choose); the
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
-  adjudication's verdict, grouped by who can act); the readers' paths, in a tab of their own; and what
+  adjudication's verdict, grouped by who can act); the readers' paths by section and subsection, in a tab
+  of their own; whether each reader and reviewer ran as a fresh agent; and what
   could not be checked. Each tab has an address, so
   `manuscript-dashboard.html#manuscript` opens the annotated paper itself, and `#manuscript/IC-1` the
   paper at that problem (`#findings/IC-1` its row, `#revised/PE-C3` that change). Evidence keeps file names only, never
@@ -119,6 +129,24 @@ Counts come from the records, never from supplied totals: confirmed problems, ca
 flags, applied and proposed edits are separate units, and a problem found by three skills is one
 problem. Do not add a quality score, an improvement percentage or a detection rate without a reference.
 
+### The annotated Word document
+
+Some readers want the paper itself, annotated, in the editor they already use. Write it beside the dashboard:
+
+```bash
+uv run --script scripts/export_docx.py RUN/manuscript-dashboard/findings.json \
+  --revision RUN/manuscript-improve/revision --output RUN/manuscript-dashboard/manuscript-review.docx
+```
+
+The text is the corrected version against the reviewed one, every edit a tracked change signed by the stage
+that made it (Story, Prose edit, Journal adaptation), so the authors accept or reject each one in Word. The
+review is in the margin: each problem as a comment on the passage it quotes (problems whose passage is not in
+the text share one comment on their section's heading), the questions for the authors on their edit, one
+comment per edit, and each edit's reasoning (`--no-reasons` leaves those out, `--no-problems` the problems).
+Nothing is added to the text. Without `--revision` it annotates the reviewed version with the problems only.
+For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments and
+tracked changes become suggestions. Uploading is sending the paper somewhere, so it waits for the authors to ask.
+
 ## 5. Check and deliver
 
 Reconcile every displayed total with `summary.json`. Open the dashboard in an available browser: every
@@ -128,6 +156,6 @@ checked.
 
 Write a short `report.md`: the run and its coverage, what the main counts mean, the problems that
 matter most, what the comparison shows when there is one, and links to the dashboard, the inventory and
-the merge file. The shared report check is required: run `../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`,
+the merge file, and the annotated Word document when it was written. The shared report check is required: run `../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`,
 and read it against its pattern list. Register the report, the inventory, the merge file and the outputs
 with `runs.py add`; keep failed attempts too. Creating the files does not send them to anyone.

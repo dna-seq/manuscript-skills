@@ -44,6 +44,7 @@ Checkable problems belong to other skills. Reuse their results; do not re-run th
 | Citation identity, retractions, source support; "first", "novel" and "only" claims ([claim-support.md](../manuscript-reference-check/references/claim-support.md#priority-and-absence-claims)) | manuscript-reference-check |
 | Reporting guidelines, data, code and software availability, statistics reporting | manuscript-reporting-check |
 | Ethics, consent, privacy and clinical-scope applicability | manuscript-policy-fit |
+| How each figure reads in print (legibility, colour, layout), captions, citation order, the code that draws it | manuscript-figures |
 
 When `manuscript-record.yaml` lists one of these as a current check (same manuscript sha256, or the
 changed sections lie outside its scope), or its findings are in the conversation, cite its result where a
@@ -139,12 +140,17 @@ the whole paper).
   durable run folder (`$WORK` below). Register the actual reports and task briefs under the shared
   run-output contract. The `reports` setting controls how much is also presented in chat (step 7).
 - Give each seat its own workspace holding only: a reading copy of the manuscript with HTML comments,
-  LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; a
-  copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
+  LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; the
+  figures as images (`figures/`, from `../manuscript-figures/scripts/figures.py workspace`), so the seat
+  looks at them as a referee does; a copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
   of any domain module loaded for that seat, as `domain-questions.md` (no other seat sees them). Nothing else: no
   `manuscript-record.yaml`, no other seat's output, no cover letter, earlier reviews, notes or the
   authors' view of their paper. Quotes are still checked against the original, where comments are not
   quotable either.
+- **Independence is required**, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) sets out: a fresh agent
+  per seat whose whole context is its brief, started by the session that can start agents (in
+  manuscript-improve, the coordinator itself), the brief filled from the template and nothing else, and
+  `--isolation` recorded for every seat and the defender.
 - Start each seat as a fresh subagent with the seat brief from
   [seats.md](references/seats.md#the-seat-brief), never as a fork of this conversation. Launch all seats
   in one message, so that they run in parallel, and receive every result before merging: as blocking
@@ -152,10 +158,12 @@ the whole paper).
   stages meanwhile). Never merge, adjudicate or end the workflow while a seat is still running. Retry a seat that fails to start (for example at a concurrency
   limit). Before merging, check that each seat's `findings.json` exists, parses and ends with its
   `report`; ask a seat that left the report out to add it, and never write one for it.
-- **Fallback.** When the host cannot start subagents, or a seat still fails after a retry, run that seat
-  (or every seat) as a sequential pass: write its criteria first, then one pass from the reading copy,
-  without rereading earlier passes until all are done. Label those seats "sequential pass by one agent,
-  not independent" in the output.
+- **Fallback.** Only when the host cannot start subagents at all, or a seat still fails after a retry,
+  run that seat (or every seat) as a sequential pass: write its criteria first, then one pass from the
+  reading copy, without rereading earlier passes until all are done. A stage that was delegated to an agent
+  which cannot start agents is not this case: it hands the prepared workspaces back to the coordinator.
+  Record `--isolation one-agent`, label those seats "read by one agent in turn, not independent" in the
+  output, and never count their agreement as corroboration.
 
 ## Step 4: check the finding contract and resolve prior work
 
