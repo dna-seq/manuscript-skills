@@ -74,6 +74,27 @@ SCREENING_WORDS = {"plagiarism": "plagiarism checks only",
                    "integrity_signals": "plagiarism and paper-mill checks, with no AI-text detector named",
                    "may_detect_ai": "says it may use AI-text detection",
                    "ai_detector_deployed": "runs an AI-text detector on submissions"}
+# Each part of an AI policy, judged by the work it puts on the authors: "good" none beyond one declaration,
+# "warning" some, "red" a red flag (drafting banned, prompts or a record of AI changes required, a detector run
+# on submissions, declared use held against the paper), "unknown" not researched. The ladder and the review
+# dashboard show these as icons; the ladder CSV writes each as "level: words".
+AI_ASPECTS = {"drafting": "AI drafting", "prompts": "Prompts", "records": "Record of AI changes",
+              "detection": "AI-text detection", "declaration": "Where to declare",
+              "counted": "Declared use held against the paper", "extra": "Extra AI work"}
+DRAFTING_FLAGS = {"free": ("good", "allowed, with no declaration"), "disclose": ("good", "allowed if declared"),
+                  "disclose_all": ("warning", "every use declared, even language polish"),
+                  "red_line": ("warning", "not in the results and discussion; allowed elsewhere if declared"),
+                  "banned_drafting": ("red", "banned for the whole paper; correction aids only")}
+PROMPT_FLAGS = {"no": ("good", "not asked for"), "on_request": ("warning", "given on request"),
+                "encouraged": ("warning", "encouraged in the paper"), "recommended": ("warning", "recommended"),
+                "required": ("red", "required in the paper")}
+TRACKING_FLAGS = {"no": ("good", "not asked for"), "on_request": ("warning", "given on request"),
+                  "recommended": ("warning", "kept in case the journal asks"),
+                  "required": ("red", "required: outputs deposited or versions kept")}
+SCREENING_FLAGS = {"plagiarism": ("good", "none named; plagiarism checks only"),
+                   "integrity_signals": ("good", "none named; plagiarism and paper-mill checks"),
+                   "may_detect_ai": ("warning", "may be used"), "ai_detector_deployed": ("red", "run on submissions")}
+FLAG_ICONS = {"good": "✓", "warning": "!", "red": "⚑", "unknown": "?"}
 ACCESS_WORDS = {"full": "full open access", "hybrid": "hybrid (subscription, with an open-access option)",
                 "subscription": "subscription only"}
 STATUS_WORDS = {"VERIFIED": "checked against the journal's own pages",
@@ -224,6 +245,8 @@ LADDER_COLUMNS = [
     "ladder", "rung", "chosen_rung", "key", "name", "fits", "fits_reason",
     "first_decision_days", "speed_measure", "speed_source", "speed_checked",
     "jif", "jif_year", "ai_points", "ai_tier", "ai_for_this_use",
+    "ai_red_flags", "ai_drafting", "ai_prompts", "ai_records", "ai_detection", "ai_declaration", "ai_counted",
+    "ai_extra", "ai_reasons", "ai_policy_url",
     "fee_amount", "fee_currency", "fee_year", "author_cost_eur", "fee_route", "fee_source", "fee_checked",
     "preprint_rule", "transfers", "guidelines_url", "facts_from_record", "priorities",
 ]
@@ -345,6 +368,40 @@ def friction(v: dict[str, Any]) -> tuple[Optional[int], list[str]]:
         score = max(0, score - 1)
         reasons.append("It says declared AI use does not count against the paper (minus 1 point).")
     return score, reasons
+
+
+def ai_flags(v: dict[str, Any]) -> dict[str, tuple[str, str]]:
+    """Each aspect of the venue's AI policy as (level, words), from the same fields `friction` scores."""
+    if v.get("writing_help") is None:
+        return {aspect: ("unknown", "not researched") for aspect in AI_ASPECTS}
+    places = v.get("disclosure_places") or []
+    neutral = v.get("disclosure_neutral")
+    extra = v.get("extra_burden") or []
+    if not places:
+        declaration = ("unknown", "not recorded")
+    elif len(places) >= 3 or Burden.supplement in burdens(v):
+        declaration = ("warning", f"{len(places)} places: " + "; ".join(places))
+    else:
+        declaration = ("good", "; ".join(places))
+    return {
+        "drafting": DRAFTING_FLAGS.get(v["writing_help"], ("unknown", "not recorded")),
+        "prompts": PROMPT_FLAGS.get(v.get("prompts") or "no", ("unknown", "not recorded")),
+        "records": TRACKING_FLAGS.get(v.get("tracking") or "no", ("unknown", "not recorded")),
+        "detection": SCREENING_FLAGS.get(v.get("screening") or "plagiarism", ("unknown", "not recorded")),
+        "declaration": declaration,
+        "counted": ("good", "no, the policy says so") if neutral is True else
+                   ("red", "yes, the policy says it may") if neutral is False else ("unknown", "not stated"),
+        "extra": ("warning", "; ".join(extra)) if extra else ("good", "none listed"),
+    }
+
+
+def red_flags(v: dict[str, Any]) -> str:
+    """The red flags of a venue's AI policy in words, for the ladder table."""
+    flags = ai_flags(v)
+    if all(level == "unknown" for level, _ in flags.values()):
+        return "Not known: the AI policy has not been researched."
+    red = [f"{FLAG_ICONS['red']} {AI_ASPECTS[a]}: {words}" for a, (level, words) in flags.items() if level == "red"]
+    return "; ".join(red) + "." if red else "None."
 
 
 def tier(score: Optional[int]) -> str:
@@ -1017,15 +1074,15 @@ def ladder(
                  "rejections.\n")
     last = "Direct transfer" if preprints else "Manuscripts already posted as preprints"
     typer.echo(f"| Rung | {'Server' if preprints else 'Journal'} | Fits its recorded rules | Speed | Reach "
-               f"| AI-policy work | What this means for your AI use | Cost | {last} |")
-    typer.echo("|---:|---|---|---|---|---|---|---|---|")
+               f"| AI-policy work | AI-policy red flags | What this means for your AI use | Cost | {last} |")
+    typer.echo("|---:|---|---|---|---|---|---|---|---|---|")
     printed: list[str] = []
     for n, v in enumerate(rows, 1):
         fit, reason = validation_fit(v, study, available)
         score, _ = friction(v)
         work = "not known" if score is None else f"{_points(score)} ({tier(score)})"
         printed.append(f"| {n} | {_name(v)} (`{v['key']}`) | {fit_text(fit, reason)} | {_sentence(speed_days(v)[1])} "
-                       f"| {_sentence(_jif(v))} | {_sentence(work)} | {verdict(v, ai_use)} "
+                       f"| {_sentence(_jif(v))} | {_sentence(work)} | {red_flags(v)} | {verdict(v, ai_use)} "
                        f"| {_sentence(fee_eur(v)[1])} | {_preprint_cell(v, venues, journal, preprints)} |")
         typer.echo(printed[-1])
     if Priority.speed in priorities:
@@ -1071,7 +1128,8 @@ def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], p
     writer.writeheader()
     for n, v in enumerate(rows, 1):
         fit, reason = validation_fit(v, study, available)
-        score, _ = friction(v)
+        score, why = friction(v)
+        flags = ai_flags(v)
         speed = _first_decision(v) or {}
         fee = (v.get("publication_costs") or [{}])[0]
         rule = (v.get("open_science") or {}).get("preprints")
@@ -1087,6 +1145,9 @@ def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], p
             "jif": cell(v.get("jif")), "jif_year": cell(v.get("jif_year")),
             "ai_points": cell(score), "ai_tier": "" if score is None else tier(score),
             "ai_for_this_use": verdict(v, ai_use),
+            "ai_red_flags": "" if score is None else sum(level == "red" for level, _ in flags.values()),
+            **{f"ai_{aspect}": f"{level}: {words}" for aspect, (level, words) in flags.items()},
+            "ai_reasons": " ".join(why), "ai_policy_url": cell(policy_page(v)),
             "fee_amount": cell(fee.get("amount")), "fee_currency": cell(fee.get("currency")),
             "fee_year": cell(fee.get("fee_year")), "author_cost_eur": cell(fee.get("author_cost_eur")),
             "fee_route": cell(fee.get("route")), "fee_source": cell(fee.get("source")),

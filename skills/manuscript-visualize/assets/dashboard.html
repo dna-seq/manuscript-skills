@@ -195,7 +195,30 @@ tr.chosen td { background: var(--surface-2); }
 #tooltip .tip-value { font-weight: 650; }
 #tooltip .tip-label { color: var(--ink-2); }
 footer { color: var(--ink-2); font-size: 13px; border-top: 1px solid var(--grid); margin-top: 32px; padding-top: 12px; max-width: 1200px; }
-@media (max-width: 1100px) { .paper-layout { grid-template-columns: 1fr; } aside.rail .comment { position: static; } }
+/* The corrected version: insertions underlined on a tint, deletions struck; a routine edit already applied is dotted. */
+article.paper ins { background: var(--ins); text-decoration: underline; text-decoration-thickness: 1px; cursor: pointer; }
+article.paper del { background: var(--del); text-decoration: line-through; cursor: pointer; }
+article.paper ins.applied, article.paper del.applied { background: none; text-decoration-style: dotted; }
+article.paper[data-view="proposed"] del, article.paper[data-view="original"] ins { display: none; }
+article.paper[data-view="proposed"] ins, article.paper[data-view="original"] del { background: none; text-decoration: none; cursor: auto; }
+article.paper .flash { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rev-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; margin-top: 16px; }
+.rev-list { position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 24px); overflow: auto; display: grid; gap: 10px; }
+.rev-list details > summary { cursor: pointer; font-weight: 600; }
+.rev-item { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-top: 6px; color: var(--ink); font-size: 13px; }
+button.rev-item { cursor: pointer; } button.rev-item:hover, .rev-item.active { border-color: var(--focus); }
+.rev-item .why { color: var(--ink-2); display: block; margin-top: 2px; }
+.views { display: inline-flex; gap: 4px; margin: 12px 0 0; }
+.views button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+.flag { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+.flag .icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font: 700 11px/1 system-ui, sans-serif; flex: none; }
+.flag.good .icon { background: var(--good); color: #fff; } .flag.warning .icon { background: var(--warning); color: #0b0b0b; }
+.flag.red .icon { background: var(--critical); color: #fff; } .flag.unknown .icon { background: var(--grid); color: var(--ink); }
+.flag.red { font-weight: 600; }
+.ai-grid td { vertical-align: top; min-width: 120px; }
+.ai-tag { display: inline-block; border: 1px solid var(--ink-2); border-radius: 4px; padding: 0 4px; font: 700 10px/16px system-ui, sans-serif; margin-left: 4px; color: var(--ink); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment { position: static; } .rev-list { position: static; max-height: none; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
   .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--grid); }
@@ -242,12 +265,15 @@ footer { color: var(--ink-2); font-size: 13px; border-top: 1px solid var(--grid)
 <template id="paper-src">
 __MANUSCRIPT_HTML__
 </template>
+<template id="revision-src">
+__REVISION_HTML__
+</template>
 <script type="application/json" id="inventory">__INVENTORY_JSON__</script>
 <script>
 (() => {
   'use strict';
   const D = JSON.parse(document.getElementById('inventory').textContent);
-  const inv = D.inventory, S = D.summary, counts = S.counts, PAPER_ONLY = D.mode === 'paper';
+  const inv = D.inventory, S = D.summary, counts = S.counts, R = D.revision;
   const SEV = ['blocker', 'major', 'minor', 'info', 'unknown'];
   const SEV_LABEL = {blocker: 'Blocker', major: 'Major', minor: 'Minor', info: 'Optional', unknown: 'Not assessed'};
   const STAGE = ['now', 'writing', 'journal', 'final', 'unknown'];
@@ -264,7 +290,7 @@ __MANUSCRIPT_HTML__
                 unexplained: 'Not yet explained'};
   // Which skill found a problem is shown by its badge, never by colour.
   const SKILL = {'manuscript-integrity-check': ['IC', 'Integrity check'], 'manuscript-reference-check': ['RF', 'Reference check'],
-    'manuscript-reporting-check': ['RP', 'Reporting check'], 'manuscript-peer-review': ['PR', 'Simulated referees'],
+    'manuscript-reporting-check': ['RP', 'Reporting check'], 'manuscript-peer-review': ['PR', 'Simulated reviewers'],
     'manuscript-policy-fit': ['PF', 'Policy fit'], 'manuscript-story': ['ST', 'Story and readers'],
     'manuscript-journal-select': ['JS', 'Journal selection'], 'manuscript-journal-adapt': ['JA', 'Journal adaptation'],
     'manuscript-prose-edit': ['PE', 'Prose edit'], 'manuscript-deslop': ['DS', 'Deslop'], 'manuscript-improve': ['IM', 'Workflow'],
@@ -358,6 +384,20 @@ __MANUSCRIPT_HTML__
       skill ? [badge(skill), h('strong', null, skillName(skill))] : null, label,
       n != null ? h('span', {class: 'count'}, `· ${plural(n, 'problem')}`) : null), [label, note]);
   }
+  // AI-policy aspects: icon, label and words; red marks work beyond one declaration (a ban, prompts or a record
+  // of AI changes, a detector, declared use held against the paper). Never colour alone.
+  const AI_ASPECT = {drafting: 'AI drafting', prompts: 'Prompts', records: 'Record of AI changes', detection: 'AI-text detection',
+    declaration: 'Where to declare', counted: 'Declared use held against the paper', extra: 'Extra AI work'};
+  const FLAG = {good: ['✓', 'No extra work'], warning: ['!', 'Some extra work'], red: ['⚑', 'Red flag'], unknown: ['?', 'Not known']};
+  function flag(aspect, a, short) {
+    const [icon, word] = FLAG[a.level] || FLAG.unknown;
+    return withTip(h('span', {class: `flag ${a.level}`, tabindex: 0, 'aria-label': `${AI_ASPECT[aspect]}: ${word}, ${a.text}`},
+      h('span', {class: 'icon', 'aria-hidden': 'true'}, icon), short ? null : h('span', null, a.text)), [`${AI_ASPECT[aspect]}: ${a.text}`, word]);
+  }
+  const redFlags = v => v.ai_policy ? Object.values(v.ai_policy.aspects).filter(a => a.level === 'red').length : null;
+  // A finding is AI-related when the deslop stage reported it or it is about AI use, AI policy or machine-written text.
+  const AI_RE = /\bAI\b|\bLLMs?\b|large language model|generative|machine-writ|\bprompts?\b|AI-use/;
+  const isAi = f => f.skills.includes('manuscript-deslop') || AI_RE.test([f.summary, f.detail, f.action, f.category].join(' '));
   function barChart(rows, opts = {}) {
     const box = h('div', {class: 'bars'});
     if (!rows.length || rows.every(r => !r.count)) { box.append(h('p', {class: 'empty'}, opts.empty || 'Nothing in this selection.')); return box; }
@@ -390,9 +430,9 @@ __MANUSCRIPT_HTML__
 
   // ---------- header ----------
   const m = inv.manuscript;
-  document.getElementById('title').textContent = (inv.illustrative ? 'Illustrative example: ' : '') + (PAPER_ONLY && m ? `Annotated manuscript: ${m.title}` : inv.title);
-  document.title = PAPER_ONLY && m ? `Annotated: ${m.title}` : inv.title;
-  document.getElementById('meta').textContent = [m && m.title && !PAPER_ONLY ? `${m.title}${m.version ? ` (${m.version})` : ''}` : (m && m.version) || null,
+  document.getElementById('title').textContent = (inv.illustrative ? 'Illustrative example: ' : '') + inv.title;
+  document.title = inv.title;
+  document.getElementById('meta').textContent = [m && m.title ? `${m.title}${m.version ? ` (${m.version})` : ''}` : null,
     `Run ${inv.run_id}`, `Generated ${D.generated}`].filter(Boolean).join(' · ');
   document.getElementById('scope').textContent = inv.scope;
   document.getElementById('brand-title').textContent = m ? m.title : inv.title;
@@ -400,23 +440,25 @@ __MANUSCRIPT_HTML__
   const notices = document.getElementById('notices');
   if (inv.illustrative) notices.append(h('div', {class: 'notice'}, 'Illustrative example: these records are synthetic and describe no real manuscript.'));
   const incomplete = inv.coverage.filter(c => !['completed', 'reused'].includes(c.status));
-  if (incomplete.length && !PAPER_ONLY) notices.append(h('div', {class: 'notice'},
+  if (incomplete.length) notices.append(h('div', {class: 'notice'},
     `Coverage is not complete: ${incomplete.map(c => `${skillName(c.skill)} ${(STATUS[c.status] || STATUS.unknown)[1].toLowerCase()}`).join(', ')}. ` +
     'Problems an unfinished check would have found are unknown, not zero.'));
 
   // ---------- navigation ----------
   const live = findings.filter(f => f.assessment !== 'dismissed');
-  const tabs = PAPER_ONLY ? [['paper', 'Manuscript', live.length]] : [['overview', 'Overview'], ['findings', 'Problems', live.length]];
-  if (!PAPER_ONLY && D.has_paper) tabs.push(['paper', 'Manuscript', null]);
-  if (!PAPER_ONLY && inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
-  if (!PAPER_ONLY && inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
-  if (!PAPER_ONLY && inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
-  if (!PAPER_ONLY && inv.panel && (inv.panel.readers.length || inv.panel.recommendations.length)) tabs.push(['panel', 'Readers and referees', null]);
-  if (!PAPER_ONLY) tabs.push(['coverage', 'Coverage and limits', null]);
+  // Each tab has an address (dashboard.html#manuscript), so a link can open the annotated paper directly.
+  const tabs = [['overview', 'Overview'], ['findings', 'Problems', live.length]];
+  if (D.has_paper) tabs.push(['manuscript', 'Manuscript', null]);
+  if (R) tabs.push(['revised', 'Corrected version', R.proposed_in_this_version.length + R.applied.length]);
+  if (inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
+  if (inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
+  if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
+  if (inv.panel && (inv.panel.readers.length || inv.panel.recommendations.length || (inv.panel.reviewers || []).length)) tabs.push(['panel', 'Reviewers and readers', null]);
+  tabs.push(['coverage', 'Coverage and limits', null]);
   const app = document.getElementById('app'), nav = document.getElementById('nav'), panels = {};
   for (const [key, label, n] of tabs) {
     nav.append(h('button', {type: 'button', role: 'tab', id: `tab-${key}`, 'aria-controls': `panel-${key}`, onclick: () => selectTab(key)}, h('span', null, label), n != null ? h('span', {class: 'n'}, String(n)) : null));
-    panels[key] = h('section', {class: 'panel' + (key === 'paper' ? ' wide' : ''), role: 'tabpanel', id: `panel-${key}`, 'aria-labelledby': `tab-${key}`, hidden: true});
+    panels[key] = h('section', {class: 'panel' + (key === 'manuscript' || key === 'revised' ? ' wide' : ''), role: 'tabpanel', id: `panel-${key}`, 'aria-labelledby': `tab-${key}`, hidden: true});
     app.append(panels[key]);
   }
   let current = null;
@@ -426,15 +468,16 @@ __MANUSCRIPT_HTML__
       panels[k].hidden = k !== key;
       document.getElementById(`tab-${k}`).setAttribute('aria-selected', String(k === key));
     }
-    if (key === 'paper') requestAnimationFrame(layoutRail);
-    store.set('review-dashboard-tab', key);
+    if (key === 'manuscript') requestAnimationFrame(layoutRail);
+    if (location.hash.slice(1) !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
+  window.addEventListener('hashchange', () => { const key = location.hash.slice(1); if (panels[key] && key !== current) selectTab(key); });
 
   // ---------- shared filters (Problems and Manuscript) ----------
-  const F = {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: ''};
+  const F = {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: '', ai: ''};
   const searchText = f => [f.id, f.summary, f.detail, f.action, f.quote, f.section, f.category, f.skills.join(' '),
     (refLinks.get(f.id) || []).join(' '), f.sources.map(s => s.id).join(' '), f.evidence.map(e => e.quote).join(' ')].join(' ').toLowerCase();
-  for (const f of findings) f._text = searchText(f);
+  for (const f of findings) { f._text = searchText(f); f._ai = isAi(f); }
   function pass(f, except) {
     if (F.assessment && except !== 'assessment' && f.assessment !== F.assessment) return false;
     if (!F.assessment && f.assessment === 'dismissed') return false;
@@ -444,6 +487,7 @@ __MANUSCRIPT_HTML__
     if (F.skill && except !== 'skill' && !f.skills.includes(F.skill)) return false;
     if (F.section && except !== 'section' && f._section !== F.section) return false;
     if (F.q && !f._text.includes(F.q.toLowerCase())) return false;
+    if (F.ai && except !== 'ai' && !f._ai) return false;
     return true;
   }
   const options = (values, label) => [h('option', {value: ''}, label), ...values.map(([v, t]) => h('option', {value: v}, t))];
@@ -454,9 +498,10 @@ __MANUSCRIPT_HTML__
     stage: h('select', {'aria-label': 'When it can be fixed'}, options(STAGE.map(s => [s, STAGE_LABEL[s]]), 'Any stage')),
     category: h('select', {'aria-label': 'Kind of problem'}, options([...new Set(findings.map(f => f.category))].sort().map(c => [c, c]), 'Any kind')),
     skill: h('select', {'aria-label': 'Found by'}, options(inv.coverage.map(c => [c.skill, skillName(c.skill)]), 'Found by any skill')),
+    ai: h('select', {'aria-label': 'AI-related'}, options([['yes', 'AI-related only']], 'Any topic')),
   };
   const shown = h('span', {role: 'status'});
-  const reset = h('button', {class: 'ghost', type: 'button', onclick: () => { Object.assign(F, {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: ''}); refresh(); }}, 'Reset');
+  const reset = h('button', {class: 'ghost', type: 'button', onclick: () => { Object.assign(F, {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: '', ai: ''}); refresh(); }}, 'Reset');
   search.addEventListener('input', () => { F.q = search.value.trim(); refresh(); });
   for (const [dim, el] of Object.entries(selects)) el.addEventListener('change', () => { F[dim] = el.value; refresh(); });
   document.getElementById('filters').append(search, ...Object.values(selects), h('div', {class: 'row'}, shown, reset));
@@ -480,7 +525,7 @@ __MANUSCRIPT_HTML__
     drawLegends();
     drawToc();
     if (panels.findings) drawFindings();
-    if (panels.paper) applyPaperFilters();
+    if (panels.manuscript) applyPaperFilters();
   }
 
   // ---------- table of contents ----------
@@ -502,7 +547,7 @@ __MANUSCRIPT_HTML__
   const placed = [], general = [], cards = new Map(), located = new Set();
   function buildPaper() {
     if (!D.has_paper || paper) return;
-    const p = panels.paper;
+    const p = panels.manuscript;
     const intro = h('p', {class: 'note', style: 'margin-top: 0'}, 'Each highlight is a passage a skill quoted when it reported a problem; its comment is beside it. Colour shows severity only; the badges show which skills found it. A dashed underline marks a candidate the authors still need to check. This is the reviewed version, before any edit of this run.');
     generalList = h('div', {class: 'list'});
     const generalBox = h('details', {class: 'card general'}, h('summary', null, 'Comments on the whole manuscript, on missing content, or whose passage was not found'), generalList);
@@ -619,7 +664,7 @@ __MANUSCRIPT_HTML__
     layoutRail();
   }
   function layoutRail() {
-    if (!rail || current !== 'paper') return;
+    if (!rail || current !== 'manuscript') return;
     if (!window.matchMedia('(min-width: 1101px)').matches) { rail.style.height = ''; for (const c of cards.values()) c.style.top = ''; return; }
     const top0 = rail.getBoundingClientRect().top + window.scrollY;
     let bottom = 0;
@@ -644,14 +689,14 @@ __MANUSCRIPT_HTML__
   function openInPaper(id) {
     if (!D.has_paper) return;
     const f = byId.get(id);
-    if (f && !pass(f)) Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: ''});
-    selectTab('paper');
+    if (f && !pass(f)) Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: '', ai: ''});
+    selectTab('manuscript');
     refresh();
     requestAnimationFrame(() => activate(id, 'text'));
   }
   function goToSection(sec) {
     if (!D.has_paper) { toggle('section', sec); return; }
-    selectTab('paper');
+    selectTab('manuscript');
     const target = [...paper.querySelectorAll('h1, h2, h3, h4')].find(el => clean(el.textContent).toLowerCase() === sec.toLowerCase());
     (target || paper).scrollIntoView({block: 'start', behavior: 'smooth'});
   }
@@ -673,13 +718,19 @@ __MANUSCRIPT_HTML__
     const b = S.benchmark;
     if (b) tiles.push(kpi('Caught of the reference review', `${b.full + b.partial} of ${b.items}`, `${b.full} matched, ${b.partial} partly, ${b.missed} not caught`));
     if ((S.chosen_venues || []).length) tiles.push(kpi('Journals to target', S.chosen_venues.length, S.chosen_venues.join(' · ')));
+    const picked = inv.venues.filter(v => v.chosen && v.ai_policy);
+    const amber = v => Object.values(v.ai_policy.aspects).filter(a => a.level === 'warning').length;
+    if (picked.length) tiles.push(kpi('AI-policy red flags', picked.reduce((n, v) => n + redFlags(v), 0),
+      picked.map(v => `${v.name}: ${redFlags(v)} red, ${amber(v)} amber`).join(' · ') + ' (see Journals)'));
+    if (R) tiles.push(kpi('Corrected version', R.applied.length + R.proposed_in_this_version.length,
+      `edits in it: ${R.applied.length} applied, ${R.proposed_in_this_version.length} proposed · ${R.held.length + R.not_placed.length} left out`));
     p.append(h('div', {class: 'kpis'}, tiles));
     p.append(h('h2', {class: 'sec'}, 'Review coverage'));
     p.append(h('div', {class: 'chips'}, inv.coverage.map(c => statusChip(c.skill, c.status, c.note, S.by_skill[c.skill] || 0))));
     p.append(h('p', {class: 'note'}, 'Each chip shows how far the skill got and how many confirmed problems it reported. A problem found by two skills counts for both chips but once in every total.'));
     const grid = h('div', {class: 'grid', style: 'margin-top: 20px'});
     const funnel = [];
-    if (S.signals) funnel.push({key: 'signals', label: 'Raw signals screened', count: S.signals, color: 'var(--deemph)', hint: 'Scanner hits, referee proposals and reader concerns before merging and checking'});
+    if (S.signals) funnel.push({key: 'signals', label: 'Raw signals screened', count: S.signals, color: 'var(--deemph)', hint: 'Scanner hits, reviewer proposals and reader concerns before merging and checking'});
     funnel.push({key: 'distinct', label: 'Distinct problems recorded', count: live.length, color: 'var(--deemph)'},
       {key: 'confirmed', label: 'Confirmed', count: counts.confirmed_findings, color: 'var(--accent)'},
       {key: 'candidate', label: 'Candidates', count: counts.candidate_findings, color: 'var(--deemph)'},
@@ -688,6 +739,7 @@ __MANUSCRIPT_HTML__
       h('p', {class: 'note'}, 'Signals and problems are different units: one problem often rests on several signals, and many signals are repeats or false alarms.')));
     grid.append(card('Confirmed problems by when they can be fixed', barChart(STAGE.filter(s => (S.by_stage || {})[s]).map(s => ({key: s, label: STAGE_LABEL[s], count: S.by_stage[s]})), {unit: 'problem'})));
     p.append(grid);
+    if (D.writing) p.append(writingPatterns());
     p.append(h('h2', {class: 'sec'}, 'The most serious confirmed problems'));
     const top = [...serious].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || stageRank(a.stage) - stageRank(b.stage)).slice(0, 15);
     if (!top.length) p.append(h('p', {class: 'empty'}, 'No confirmed blocker or major problem in this scope.'));
@@ -702,6 +754,81 @@ __MANUSCRIPT_HTML__
       p.append(h('h2', {class: 'sec'}, 'Decisions for the authors'));
       p.append(h('ul', null, decisions.map(d => h('li', null, h('strong', null, d.id), ' ', d.summary, ' ', d.finding_ids.filter(id => byId.has(id) && id !== d.id).map(id => [' ', link(id, () => openFinding(id))])))));
     }
+  })();
+
+  // Machine-writing patterns of the deslop catalogue, counted in each version of the text.
+  function writingPatterns() {
+    const W = D.writing, V = W.versions;
+    const rate = v => (Object.values(v.totals).reduce((a, b) => a + b, 0) / Math.max(v.words, 1) * 1000).toFixed(1);
+    const head = h('tr', null, h('th', null, 'Pattern'), V.map(v => h('th', {class: 'num'}, v.label)));
+    let group = null;
+    const rows = [];
+    for (const pat of W.patterns) {
+      if (pat.group !== group) { group = pat.group; rows.push(h('tr', null, h('th', {colspan: V.length + 1, style: 'text-align: left; padding-top: 10px'}, group))); }
+      rows.push(h('tr', null, h('td', null, `${pat.name} `, h('span', {class: 'tag'}, pat.id)), V.map(v => h('td', {class: 'num'}, String(v.totals[pat.id] || 0)))));
+    }
+    rows.push(h('tr', null, h('th', {style: 'text-align: left'}, 'All patterns, per 1,000 words'), V.map(v => h('th', {class: 'num'}, `${rate(v)} (${v.words.toLocaleString('en')} words)`))));
+    return h('div', null, h('h2', {class: 'sec'}, 'Machine-writing patterns by type'),
+      W.patterns.length ? h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, head), h('tbody', null, rows)))
+        : h('p', {class: 'empty'}, 'No pattern of the catalogue occurs in these texts.'),
+      h('p', {class: 'note'}, 'Counted by the deslop style checker in each version, leaving out the [AUTHORS: …] notes the corrected version carries for the authors. A hit is a place to look, never a verdict: people write these too, and the deslop stage keeps a use whose catalogue exception applies. Patterns that only reading finds are not counted here.'));
+  }
+
+  // ---------- the corrected version: every applied and chosen proposed edit, as track changes ----------
+  let openRevised = null;
+  const inRevision = id => R && (R.applied.includes(id) || R.proposed_in_this_version.includes(id));
+  if (panels.revised) (function revised() {
+    const p = panels.revised, info = R.changes;
+    const at = new Map();
+    for (const e of R.edits) for (const id of e.ids) at.set(id, e.n);
+    p.append(h('div', {class: 'kpis'},
+      kpi('Edits in the corrected version', R.applied.length + R.proposed_in_this_version.length, `${R.applied.length} applied to the working copy · ${R.proposed_in_this_version.length} proposed`, true),
+      kpi('Held back', R.held.length, 'proposals waiting for a journal or a decision'),
+      kpi('Alternatives not used', R.alternatives.length, 'another proposal for the same passage was chosen'),
+      kpi('Not placed', R.not_placed.length, 'the text could not take them as written')));
+    p.append(h('p', {class: 'note'}, 'The version the workflow proposes: the edits already applied, then every proposal, one per contested passage. It is a separate file, proposed.md; your working manuscript changes only when you accept it. Dotted marks are routine edits already applied; tinted marks are proposals. Select a change to see it in the list.'));
+    const article = h('article', {class: 'paper', 'data-view': 'changes'});
+    article.append(document.getElementById('revision-src').content.cloneNode(true));
+    const views = h('div', {class: 'views', role: 'group', 'aria-label': 'Show'});
+    for (const [key, label] of [['changes', 'Changes'], ['proposed', 'Corrected text'], ['original', 'Reviewed text']]) {
+      views.append(h('button', {class: 'ghost', type: 'button', 'aria-pressed': String(key === 'changes'), onclick: e => {
+        article.dataset.view = key;
+        for (const b of views.children) b.setAttribute('aria-pressed', String(b === e.currentTarget));
+      }}, label));
+    }
+    const items = new Map();
+    const entry = (id, why, clickable) => {
+      const c = info[id] || {section: '', summary: ''};
+      const el = h(clickable ? 'button' : 'div', {class: 'rev-item', type: clickable ? 'button' : null, onclick: clickable ? () => show(id) : null},
+        h('strong', null, id), ` · ${c.section}`, h('span', {class: 'why'}, c.summary), why ? h('span', {class: 'why'}, why) : null);
+      if (clickable) items.set(id, el);
+      return el;
+    };
+    const group = (title, list, open) => list.length ? h('details', {open: open || null}, h('summary', null, `${title} (${list.length})`), list) : null;
+    const list = h('aside', {class: 'rev-list', 'aria-label': 'Changes in the corrected version'},
+      group('Proposed, in this version', R.proposed_in_this_version.map(id => entry(id, null, true)), true),
+      group('Applied to the working copy', R.applied.map(id => entry(id, null, true)), true),
+      group('Held back', R.held.map(x => entry(x.id, x.why, false))),
+      group('Alternatives not used', R.alternatives.map(x => entry(x.id, `Another proposal for this passage was chosen: ${x.chosen}.`, false))),
+      group('Not placed', R.not_placed.map(x => entry(x.id, `Not placed: ${x.why}.`, false))));
+    let lit = [];
+    function show(id) {
+      for (const el of lit) el.classList.remove('flash');
+      for (const el of items.values()) el.classList.remove('active');
+      lit = [...article.querySelectorAll(`[data-c="${at.get(id)}"]`)];
+      for (const el of lit) el.classList.add('flash');
+      if (lit[0]) lit[0].scrollIntoView({block: 'center', behavior: 'smooth'});
+      const item = items.get(id);
+      if (item) { item.classList.add('active'); item.scrollIntoView({block: 'nearest'}); }
+    }
+    article.addEventListener('click', e => {
+      const t = e.target.closest('[data-c]');
+      if (!t) return;
+      const edit = R.edits[Number(t.dataset.c)];
+      if (edit) show(edit.ids[0]);
+    });
+    p.append(views, h('div', {class: 'rev-layout'}, article, list));
+    openRevised = id => { selectTab('revised'); requestAnimationFrame(() => show(id)); };
   })();
 
   // ---------- problems ----------
@@ -726,6 +853,11 @@ __MANUSCRIPT_HTML__
     if (S.skill_pairs.length) charts.append(card('Confirmed problems found by more than one skill',
       barChart(S.skill_pairs.slice(0, 8).map(pr => ({key: pr.skills.join('+'), label: pr.skills.map(skillName).join(' + '), lead: badges(pr.skills), count: pr.count})), {unit: 'shared problem'}),
       h('p', {class: 'note'}, `${S.found_by_several_skills} of ${counts.confirmed_findings} confirmed problems were reported independently by two or more skills (full scope, whatever the filters).`)));
+    const ai = findings.filter(f => pass(f, 'ai') && f._ai).length;
+    charts.append(card('AI-related problems', barChart([{key: 'yes', label: 'About AI use, AI policy or machine-written text', count: ai},
+      {key: 'no', label: 'Everything else', count: findings.filter(f => pass(f, 'ai') && !f._ai).length, color: 'var(--deemph)'}],
+      {unit, active: F.ai, onPick: k => { if (k === 'yes') toggle('ai', 'yes'); }}),
+      h('p', {class: 'note'}, 'Reported by the deslop stage, or naming AI use, an AI policy, prompts or machine-written text. Marked AI in the table.')));
     drawHeat(findings.filter(f => pass(f, 'section')));
     drawTable(visible);
   }
@@ -772,7 +904,7 @@ __MANUSCRIPT_HTML__
       const open = expanded.has(f.id);
       const detail = h('tr', {class: 'detail', id: `detail-${f.id}`, hidden: !open}, h('td', {colspan: COLS.length}, findingDetail(f)));
       const row = h('tr', {class: 'row', id: `finding-${f.id}`, tabindex: 0, 'aria-expanded': String(open), 'aria-controls': `detail-${f.id}`},
-        h('td', null, badges(f.skills)), h('td', null, h('strong', null, f.id)), h('td', null, sevBadge(f.severity)), h('td', null, STAGE_SHORT[f.stage]),
+        h('td', null, badges(f.skills)), h('td', null, h('strong', null, f.id), f._ai ? h('span', {class: 'ai-tag', title: 'AI-related'}, 'AI') : null), h('td', null, sevBadge(f.severity)), h('td', null, STAGE_SHORT[f.stage]),
         h('td', null, f.category), h('td', null, f.section), h('td', null, f.summary, f.decision ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'decision') : null),
         h('td', null, f.assessment === 'confirmed' ? (f.resolution === 'addressed' ? 'Addressed' : 'Open') : f.assessment === 'candidate' ? 'Candidate' : 'Dismissed'),
         inv.reference ? h('td', null, (refLinks.get(f.id) || []).map(r => h('span', {class: 'tag'}, r))) : null,
@@ -803,7 +935,7 @@ __MANUSCRIPT_HTML__
   function openFinding(id) {
     const f = byId.get(id);
     if (!f || !panels.findings) return;
-    Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: id});
+    Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: id, ai: ''});
     expanded.add(id);
     selectTab('findings');
     refresh();
@@ -870,8 +1002,31 @@ __MANUSCRIPT_HTML__
     const facts = v => h('dl', {class: 'facts'}, [['Article type', v.article_type], ['Impact factor', v.impact_factor != null ? `${v.impact_factor}${v.impact_factor_year ? ` (${v.impact_factor_year})` : ' (year not shown)'}` : ''],
       ['First decision', v.first_decision_days != null ? `${v.first_decision_days} days` : 'not published'], ['AI-policy work', v.ai_points != null ? `${v.ai_points} point${v.ai_points === 1 ? '' : 's'}, ${v.ai_tier}` : ''],
       ['For this paper\'s AI use', v.ai_for_this_use], ['Fee', v.fee], ['Fit', v.fits]].filter(([, x]) => x).map(([k, x]) => [h('dt', null, k), h('dd', null, x)]));
+    const policyBlock = v => {
+      if (!v.ai_policy) return h('p', {class: 'note'}, 'AI policy: not recorded.');
+      const n = redFlags(v);
+      return h('div', {style: 'margin-top: 8px'}, h('h3', {style: 'margin: 0 0 4px; font-size: 14px'}, `AI policy · ${n ? `${n} red flag${n === 1 ? '' : 's'}` : 'no red flags'}`),
+        h('div', {style: 'display: grid; gap: 4px'}, Object.entries(v.ai_policy.aspects).map(([k, a]) => h('div', null, h('span', {class: 'note', style: 'margin: 0; display: inline-block; min-width: 12em'}, AI_ASPECT[k]), flag(k, a)))),
+        v.ai_policy.url ? h('p', {class: 'note'}, `Policy page: ${v.ai_policy.url}`) : null);
+    };
     p.append(h('div', {class: 'venues'}, chosen.map((v, i) => h('section', {class: 'card venue'}, h('h3', null, h('span', {class: 'rank'}, String(i + 1)), v.name), facts(v),
-      v.why ? h('p', {class: 'note'}, v.why) : null, v.url ? h('p', {class: 'note'}, v.url) : null))));
+      policyBlock(v), v.why ? h('p', {class: 'note'}, v.why) : null, v.url ? h('p', {class: 'note'}, v.url) : null))));
+    const withPolicy = [...ladder, ...preprints].filter(v => v.ai_policy);
+    if (withPolicy.length) {
+      p.append(h('h2', {class: 'sec'}, 'AI policies across the ladders'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, h('span', {class: 'flag red'}, h('span', {class: 'icon'}, '⚑'), 'red flag'), ' work beyond one declaration: AI drafting banned, prompts or a record of every AI change required, an AI-text detector run on submissions, declared use held against the paper. ',
+          h('span', {class: 'flag warning'}, h('span', {class: 'icon'}, '!'), 'some extra work'), ' ', h('span', {class: 'flag good'}, h('span', {class: 'icon'}, '✓'), 'none'), ' ',
+          h('span', {class: 'flag unknown'}, h('span', {class: 'icon'}, '?'), 'not researched'), '. Hover an icon for the rule.'));
+      const keys = Object.keys(AI_ASPECT);
+      p.append(h('div', {class: 'table-wrap'}, h('table', {class: 'ai-grid'},
+        h('thead', null, h('tr', null, h('th', null, 'Venue'), h('th', {class: 'num'}, 'Red flags'), keys.map(k => h('th', null, AI_ASPECT[k])))),
+        h('tbody', null, withPolicy.map(v => h('tr', {class: v.chosen ? 'chosen' : null},
+          h('td', null, h('strong', null, v.name), v.chosen ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'chosen') : null, v.ladder === 'preprints' ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'preprint') : null),
+          h('td', {class: 'num'}, String(redFlags(v))),
+          keys.map(k => h('td', null, flag(k, v.ai_policy.aspects[k] || {level: 'unknown', text: 'not recorded'}, true)))))))));
+      const sources = [...new Set(withPolicy.map(v => v.ai_policy.source).filter(Boolean))];
+      if (sources.length) p.append(h('p', {class: 'note'}, `Read from ${sources.join('; ')}.`));
+    }
     const maxIf = Math.max(...ladder.map(v => v.impact_factor || 0), 1), maxDays = Math.max(...ladder.map(v => v.first_decision_days || 0), 1);
     p.append(h('div', {class: 'grid', style: 'margin-top: 16px'},
       card('Impact factor', barChart(ladder.filter(v => v.impact_factor != null).map(v => ({key: v.key, label: v.name, count: v.impact_factor, text: String(v.impact_factor), color: v.chosen ? 'var(--accent)' : 'var(--deemph)', hint: v.impact_factor_year ? `Journal Citation Reports ${v.impact_factor_year}` : 'year not shown on the journal page'})), {unit: 'point'}),
@@ -884,7 +1039,8 @@ __MANUSCRIPT_HTML__
       h('td', null, withTip(h('span', {tabindex: 0}, v.fits || '—'), [v.fits, v.fits_reason])),
       h('td', {class: 'num'}, v.impact_factor != null ? [h('span', {class: 'mini', style: `width: ${v.impact_factor / maxIf * 60}px`}), String(v.impact_factor)] : '—'),
       h('td', {class: 'num'}, v.first_decision_days != null ? withTip(h('span', {tabindex: 0}, h('span', {class: 'mini', style: `width: ${v.first_decision_days / maxDays * 60}px; background: var(--deemph)`}), `${v.first_decision_days} d`), [`${v.first_decision_days} days`, v.speed_measure]) : '—'),
-      h('td', null, v.ai_points != null ? withTip(h('span', {tabindex: 0}, `${v.ai_points} · ${v.ai_tier}`), ['AI-policy work for this paper', v.ai_for_this_use]) : '—'),
+      h('td', null, v.ai_points != null ? withTip(h('span', {tabindex: 0}, `${v.ai_points} · ${v.ai_tier}`), ['AI-policy work for this paper', v.ai_for_this_use]) : '—',
+        redFlags(v) ? h('span', {class: 'flag red', style: 'margin-left: 6px'}, h('span', {class: 'icon', 'aria-hidden': 'true'}, '⚑'), String(redFlags(v))) : null),
       h('td', null, v.fee || '—'), h('td', null, v.preprint_rule ? withTip(h('span', {tabindex: 0}, v.preprint_rule.length > 60 ? v.preprint_rule.slice(0, 58) + '…' : v.preprint_rule), ['Preprints', v.preprint_rule]) : '—')));
     p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, [['Rank', 'num'], ['Tool rank', 'num'], ['Journal'], ['Fit'], ['Impact factor', 'num'], ['First decision', 'num'], ['AI-policy work'], ['Fee'], ['Preprints']].map(([t, c]) => h('th', {class: c || null}, t)))), h('tbody', null, rows))));
     p.append(h('p', {class: 'note'}, '"Tool rank" is the order the ladder tool gave when the selection reordered it; the reasons are in the journal-selection report. AI-policy work counts what the journal\'s AI rules ask of a paper with this AI use: 1 light, 2–3 moderate, 4 or more heavy.'));
@@ -928,7 +1084,8 @@ __MANUSCRIPT_HTML__
       p.append(h('article', {class: 'card edit'},
         h('header', null, h('strong', null, c.id), h('span', {class: 'tag'}, c.status === 'applied' ? 'Applied' : 'Proposed'), h('span', {class: 'tag'}, c.kind), h('span', {class: 'note', style: 'margin: 0'}, c.section),
           rivals.has(c.id) ? h('span', {class: 'tag', style: 'border-color: var(--sev-major); color: var(--ink)'}, `competes with ${rivals.get(c.id).join(', ')}`) : null),
-        h('p', {style: 'margin: 0 0 8px'}, c.summary, c.finding_ids.length ? [' · for ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : ' · independent improvement'),
+        h('p', {style: 'margin: 0 0 8px'}, c.summary, c.finding_ids.length ? [' · for ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : ' · independent improvement',
+          inRevision(c.id) && openRevised ? [' · ', link('in the corrected version', () => openRevised(c.id), `Show ${c.id} in the corrected version`)] : null),
         view,
         h('details', null, h('summary', null, 'Before and after in full, and the evidence'),
           h('div', {class: 'grid', style: 'margin-top: 8px'}, h('div', null, h('h3', null, 'Before'), h('blockquote', null, c.before == null ? '(addition)' : c.before)),
@@ -991,8 +1148,58 @@ __MANUSCRIPT_HTML__
       p.append(h('p', {class: 'note'}, 'Simulated readers are agents given only the reading copy; they are not human participants.'));
     }
     }
+    // ---------- the simulated reviewers: verdict per journal, then what they ask for, then each report ----------
+    const reviewers = P.reviewers || [];
+    const seatName = seat => String(seat).replace(/[-_]/g, ' ').replace(/^./, c => c.toUpperCase());
+    if (P.recommendations.length) {
+      const venues = [...new Set(P.recommendations.map(r => r.venue))], seats = [...new Set(P.recommendations.map(r => r.seat))];
+      const vname = key => (inv.venues.find(v => v.key === key) || {}).name || key;
+      p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'Simulated reviewers: recommendation per journal'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, h('th', null, 'Reviewer'), venues.map(v => h('th', null, vname(v))))),
+        h('tbody', null, seats.map(s => h('tr', null, h('th', {scope: 'row', style: 'text-transform: none; letter-spacing: 0; color: var(--ink)'}, seatName(s)), venues.map(v => {
+          const rec = P.recommendations.find(r => r.seat === s && r.venue === v);
+          return h('td', null, rec ? [h('strong', null, REC[rec.recommendation]), h('div', {class: 'note', style: 'margin: 2px 0 0'}, rec.reason)] : '');
+        })))))));
+      p.append(h('p', {class: 'note'}, 'Recommendations are the reviewers\' own, before the authors answer. No acceptance probability is implied.'));
+    }
+    const concerns = reviewers.flatMap(r => r.concerns.map(c => ({...c, seat: r.seat})));
+    if (concerns.length) {
+      const n = pred => concerns.filter(pred).length;
+      p.append(h('div', {class: 'kpis', style: 'margin-top: 16px'},
+        kpi('Reviewer concerns', concerns.length, `${n(c => c.severity === 'major')} major · ${n(c => c.severity !== 'major')} optional or uncertain`, true),
+        kpi('Upheld by the adjudication', n(c => c.verdict === 'confirmed'), `${n(c => c.verdict === 'downgraded')} downgraded · ${n(c => c.verdict === 'refuted')} refuted`),
+        kpi('Fixable in the text', n(c => c.route === 'fixable-in-text'), `${n(c => c.cost === 'reanalysis')} need a reanalysis of existing data`),
+        kpi('Need the authors', n(c => c.route === 'author-required'), 'a fact, a decision or new work only they can supply'),
+        kpi('Answered by the defence, at least in part', n(c => /answered/.test(c.defence) && c.defence !== 'not answered'), `${n(c => /^answered/.test(c.defence))} in full · ${n(c => c.defence === 'not answered')} not answered`)));
+      const ROUTE = [['fixable-in-text', 'Fixable in the text'], ['author-required', 'Needs the authors'], ['policy', 'A journal-policy question'], ['', 'Route not given']];
+      const VERDICT = {confirmed: 'upheld', downgraded: 'downgraded', refuted: 'refuted'};
+      const concernItem = c => h('li', {style: 'margin-bottom: 8px'},
+        h('div', null, h('span', {class: 'tag'}, c.id), h('span', {class: 'tag'}, c.severity || 'severity not given'), c.verdict ? withTip(h('span', {class: 'tag', tabindex: 0}, VERDICT[c.verdict] || c.verdict), ['Adjudication', c.verdict_evidence || c.verdict]) : null,
+          c.defence ? h('span', {class: 'tag'}, `defence: ${c.defence}`) : null, c.location ? h('span', {class: 'note', style: 'margin-left: 4px'}, c.location) : null),
+        h('div', null, c.concern),
+        c.suggestion ? h('div', null, h('strong', null, 'Suggestion: '), c.suggestion) : null,
+        h('div', {class: 'note', style: 'margin: 2px 0 0'}, [c.placement ? `goes in: ${c.placement}` : null, c.cost ? `cost: ${c.cost}` : null].filter(Boolean).join(' · '),
+          c.finding_ids.length ? [' · problem ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : null));
+      p.append(h('h2', {class: 'sec'}, 'What the reviewers suggest'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Every concern with the reviewer\'s own suggestion (what would change their mind), grouped by who can act. Each links to the problem it became in this dashboard.'));
+      for (const [route, label] of ROUTE) {
+        const here = concerns.filter(c => (c.route || '') === route).sort((a, b) => (a.severity === 'major' ? 0 : 1) - (b.severity === 'major' ? 0 : 1));
+        if (!here.length) continue;
+        p.append(h('details', {class: 'card', open: route === 'fixable-in-text' || route === 'author-required' || null, style: 'margin-top: 10px'},
+          h('summary', null, h('strong', null, `${label} (${here.length})`)),
+          h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(c => [h('li', {style: 'list-style: none; margin-left: -18px'}, h('span', {class: 'badge'}, seatName(c.seat).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()), ' ', h('em', null, seatName(c.seat))), concernItem(c)]))));
+      }
+      p.append(h('h2', {class: 'sec'}, 'Each reviewer\'s report'));
+      p.append(h('div', {class: 'grid'}, reviewers.map(r => card(seatName(r.seat),
+        r.summary ? h('p', {style: 'margin-top: 0'}, r.summary) : null,
+        r.strengths.length ? [h('h3', {style: 'font-size: 14px; margin: 8px 0 4px'}, 'Strengths'), h('ul', {style: 'margin: 0; padding-left: 18px'}, r.strengths.map(t => h('li', null, t)))] : null,
+        h('details', {style: 'margin-top: 8px'}, h('summary', null, `${plural(r.concerns.length, 'concern')}: ${r.concerns.filter(c => c.severity === 'major').length} major`),
+          h('ul', {style: 'margin: 8px 0 0; padding-left: 18px'}, r.concerns.map(concernItem)))))));
+      p.append(h('p', {class: 'note'}, 'Simulated reviewers are agents given the reading copy and the journal\'s criteria; they are not people. A defence agent then answered each concern for the authors, and an adjudicator decided what stands.'));
+    }
+
     if (P.readers.length) {
-      p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'Simulated readers'));
+      p.append(h('h2', {class: 'sec', style: 'margin-top: 24px'}, 'Simulated readers'));
       if (rounds.length > 1) {
         const pick = h('select', {'aria-label': 'Reader panel'}, rounds.map(r => h('option', {value: r, selected: r === best ? true : null},
           `${ROUND_LABEL[r] || r} (${P.readers.filter(x => roundOf(x) === r).length} readers${P.readers.some(x => roundOf(x) === r && x.path.length) ? ', reading paths' : ''})`)));
@@ -1003,17 +1210,6 @@ __MANUSCRIPT_HTML__
       drawReaders(best);
     }
 
-    if (P.recommendations.length) {
-      const venues = [...new Set(P.recommendations.map(r => r.venue))], seats = [...new Set(P.recommendations.map(r => r.seat))];
-      const vname = key => (inv.venues.find(v => v.key === key) || {}).name || key;
-      p.append(h('h2', {class: 'sec'}, 'Simulated referees: recommendation per journal'));
-      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, h('th', null, 'Referee'), venues.map(v => h('th', null, vname(v))))),
-        h('tbody', null, seats.map(s => h('tr', null, h('th', {scope: 'row', style: 'text-transform: none; letter-spacing: 0; color: var(--ink)'}, s), venues.map(v => {
-          const rec = P.recommendations.find(r => r.seat === s && r.venue === v);
-          return h('td', null, rec ? [h('strong', null, REC[rec.recommendation]), h('div', {class: 'note', style: 'margin: 2px 0 0'}, rec.reason)] : '');
-        })))))));
-      p.append(h('p', {class: 'note'}, 'Recommendations are the referees\' own, before the authors answer. No acceptance probability is implied.'));
-    }
   })();
 
   // ---------- coverage ----------
@@ -1050,8 +1246,8 @@ __MANUSCRIPT_HTML__
   window.addEventListener('resize', () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(layoutRail); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutRail);
   refresh();
-  const saved = store.get('review-dashboard-tab');
-  selectTab(tabs.some(([k]) => k === saved) ? saved : tabs[0][0]);
+  const asked = location.hash.slice(1);
+  selectTab(panels[asked] ? asked : 'overview');
 })();
 </script>
 </body>

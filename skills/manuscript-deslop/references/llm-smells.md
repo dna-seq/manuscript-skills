@@ -1166,7 +1166,8 @@ transparent, We want to be upfront, as openers before an ordinary point.
 ### H10. Reframe pivots and landing phrases
 
 **Watch for:** Seen this way, …; Put differently, …; In other words, … (when nothing new follows); … is
-where the real work happens; … is what truly matters; that is the whole point.
+where the real work happens; … is what truly matters; that is the whole point; the larger experiment is
+social: … (a pivot that names a grander frame before saying the plain thing).
 
 **Fix:** if the reframing adds nothing, delete it; if it adds something, state that thing directly.
 

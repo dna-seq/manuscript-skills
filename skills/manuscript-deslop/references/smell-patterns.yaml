@@ -216,6 +216,7 @@ smells:
       - '^put differently,'
       - 'is where the real'
       - 'what (?:truly|really) matters'
+      - '\bthe (?:larger|bigger|broader|deeper|real|true) (?:experiment|question|story|point|picture|lesson|shift|test) (?:is|here is)\b'
   F1:
     name: em dash
     patterns:

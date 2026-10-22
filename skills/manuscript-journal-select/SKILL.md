@@ -236,16 +236,18 @@ when it keeps one:
 | `STEM.venue-requirements.md` | What every venue on the ladders asks for (`common`) |
 
 The CSV columns are fixed: the sorted rung and the chosen rung from the record, verdict and its reason, days to a first decision with its source and date,
-impact factor, AI-policy points, fee with its route and source, preprint rule or direct transfers, the facts
-taken from the record and the priorities used. An empty cell means not known, never zero. Regenerate the CSV
+impact factor, AI-policy points, the AI policy aspect by aspect (drafting, prompts, a record of AI changes,
+AI-text detection, where to declare, whether declared use counts against the paper, extra work), each as
+`level: words` with `red` for a red flag, and the policy page, fee with its route and source, preprint rule
+or direct transfers, the facts taken from the record and the priorities used. An empty cell means not known, never zero. Regenerate the CSV
 and the requirements file from the record instead of editing them, so a re-rank shows in the diff. When the
 project keeps a venue planning document, update its ladder section in place as well. The reply names every
 path, relative to the project. These files are the skill's output, written without asking; a scratch
 location is for fetched pages only.
 
 Give, in this order: the preprint ladder; the journal ladder as a table (rung, venue and article type,
-verdict and the rule that decides it, comparable speed, impact factor, AI burden, cost and who pays,
-preprint rule) with one or two sentences per rung on fit and what would move it; what every venue asks for
+verdict and the rule that decides it, comparable speed, impact factor, AI burden and its red flags, cost
+and who pays, preprint rule) with one or two sentences per rung on fit and what would move it; what every venue asks for
 (adapt now, choose per venue, at the end); then the authors' decisions together (a fee route, a validation
 tradeoff, a journal policy that conflicts with their actual use, the strictest AI rule on the list, each
 named once with its practical consequence). Recommend a first rung and its fallbacks, with the main
@@ -258,7 +260,10 @@ read. Use plain words for the catalogue's terms: describe a study design ("a sof
 reanalysis of public data") and a policy rule ("asks authors not to have AI draft text") rather than
 showing a design key, field or flag name such as `public-data`, `banned_drafting` or `drafting-ban`; the
 name may follow in parentheses. Give the AI-policy burden as `rank` does, in points with the reason in
-words. Spell out acronyms at first use (article processing charge, journal impact factor) and write full
+words, and name every red flag (⚑): AI drafting banned for the whole paper, prompts or a record of AI
+changes required, an AI-text detector run on submissions, declared use held against the paper. A rule that
+reserves only some sections (the results and discussion) is named with those sections. The review
+dashboard shows the same flags as icons. Spell out acronyms at first use (article processing charge, journal impact factor) and write full
 sentences; a table is fine when every cell is a readable phrase. If the result also lists work on the
 manuscript (concerns the referees raised, a missing statement), group it under the four labels of
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["typer>=0.12", "pydantic>=2.6", "pyyaml>=6"]
+# dependencies = ["typer>=0.12", "pydantic>=2.6", "pyyaml>=6", "httpx>=0.27"]
 # ///
 """Draft the dashboard inventory from a manuscript-skills run, so nothing the run recorded is dropped.
 
@@ -9,7 +9,8 @@
 
 It reads run.json for coverage, the manuscript snapshot for its title and sections, every skill's
 findings.json (../references/stage-findings.md), the check outputs as raw signal counts, the reader
-reports, the referees' recommendations and the recorded before/after changes. A recorded change counts
+reports, the reviewers' recommendations, concerns, suggestions and strengths, and the recorded before/after
+changes. A recorded change counts
 as applied only when its after-text is in the current manuscript and its before-text is not; otherwise it
 is a proposal.
 
@@ -23,13 +24,14 @@ import csv
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 import yaml
 
-import infographic as viz
+import dashboard as viz
 
 SEVERITY = {"blocker": "blocker", "serious": "blocker", "major": "major", "important": "major", "minor": "minor",
             "optional": "minor", "info": "info", "uncertain": "unknown", "unknown": "unknown"}
@@ -40,7 +42,7 @@ PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF"
           "manuscript-story": "ST", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
 SKIP = {"findings.json", "merges.json"}
-CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "evidence")
+CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "evidence")
 app = typer.Typer(add_completion=False)
 
 
@@ -189,22 +191,58 @@ def panel(run: Path) -> dict:
                         "stopped_at": where or "Finished", "next": str(doc.get("next") or ""),
                         "left": str(left.get("section") or "") if left else "", "dips": dips, "path": path_steps,
                         "round": path.parent.name if path.parent.name != "readers" else ""})
-    recommendations = []
-    for path in sorted(run.glob("manuscript-peer-review/**/*.json")):
+    recommendations, reviewers = [], []
+    # The adjudicated file carries each concern's verdict; earlier stages of the same review lack it.
+    candidates = sorted(run.glob("manuscript-peer-review/**/*.json"),
+                        key=lambda p: (p.name != "findings.adjudicated.json", p.name != "findings.merged.json", str(p)))
+    for path in candidates:
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
         if not isinstance(doc, dict) or not isinstance(doc.get("reports"), list):
             continue
+        concerns = [c for c in doc.get("findings") or [] if isinstance(c, dict) and c.get("seat") and c.get("concern")]
+        strengths = [s for s in doc.get("strengths") or [] if isinstance(s, dict) and s.get("seat")]
         for report in doc["reports"]:
+            seat = report.get("seat", "reviewer")
             for rec in report.get("recommendations", []):
                 if rec.get("recommendation") in {"accept", "minor-revision", "major-revision", "reject"}:
-                    recommendations.append({"seat": report.get("seat", "referee"), "venue": rec["venue"],
+                    recommendations.append({"seat": seat, "venue": rec["venue"],
                                             "recommendation": rec["recommendation"], "reason": rec.get("reason") or "No reason given."})
+            reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""),
+                              "strengths": [str(s.get("note") or s.get("quote")) for s in strengths if s["seat"] == seat],
+                              "concerns": [{"id": str(c.get("id") or f"{seat}-{n}"), "severity": str(c.get("severity") or ""),
+                                            "location": str(c.get("location") or ""), "concern": str(c["concern"]),
+                                            "suggestion": str(c.get("change_my_mind") or ""), "route": str(c.get("route") or c.get("proposed_route") or ""),
+                                            "placement": str(c.get("placement") or ""), "cost": str(c.get("cost") or ""),
+                                            "defence": str(c.get("defence_outcome") or ""), "verdict": str(c.get("verdict") or ""),
+                                            "verdict_evidence": str(c.get("verdict_evidence") or "")}
+                                           for n, c in enumerate((c for c in concerns if c["seat"] == seat), 1)]})
         if recommendations:
             break
-    return {"readers": readers, "recommendations": recommendations}
+    return {"readers": readers, "recommendations": recommendations, "reviewers": reviewers}
+
+
+def concern_mentions(findings: list[dict]) -> dict[str, set[str]]:
+    """Which stage records cite each reviewer concern: the peer-review stage names the concern IDs it groups."""
+    out: dict[str, set[str]] = {}
+    for finding in findings:
+        text = " ".join(str(finding.get(k) or "") for k in ("detail", "summary", "action"))
+        for cid in re.findall(r"\b[A-Z]{2,3}-\d+\b", text):
+            out.setdefault(cid, set()).add(finding["id"])
+    return out
+
+
+def link_concerns(inventory: dict, mentions: dict[str, set[str]]) -> None:
+    """Each reviewer concern to the problems that carry it, following a merged record to the one kept."""
+    final = {}
+    for finding in inventory["findings"]:
+        for sid in {finding["id"], *(source["id"] for source in finding.get("sources") or [])}:
+            final[sid] = finding["id"]
+    for reviewer in (inventory.get("panel") or {}).get("reviewers", []):
+        for concern in reviewer["concerns"]:
+            concern["finding_ids"] = sorted({final[x] for x in mentions.get(concern["id"], set()) if x in final})
 
 
 def number(text: str | None) -> float | None:
@@ -214,12 +252,48 @@ def number(text: str | None) -> float | None:
         return None
 
 
+ASPECTS = ("drafting", "prompts", "records", "detection", "declaration", "counted", "extra")
+
+
+def catalogue_policies(folder: Path) -> tuple[Any, dict[str, dict]]:
+    """For a ladder written before it carried the AI-policy columns: the venue catalogue with the facts the
+    run's record holds, laid over it as the ladder itself did."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "manuscript-journal-adapt" / "scripts"))
+    import venues as catalogue
+
+    checked, resolved = catalogue.load_venues()
+    records = sorted(folder.glob("*.record.yaml"))
+    if records:
+        resolved = catalogue.with_facts(resolved, catalogue.load_record(records[0])[1])
+    return catalogue, {"checked": str(checked), "venues": resolved}
+
+
+def ai_policy(row: dict, key: str, folder: Path, cache: dict) -> dict | None:
+    if row.get("ai_drafting"):
+        aspects = {a: dict(zip(("level", "text"), (row.get(f"ai_{a}") or "unknown: not recorded").split(": ", 1))) for a in ASPECTS}
+        return {"aspects": aspects, "reasons": [row["ai_reasons"]] if row.get("ai_reasons") else [],
+                "url": row.get("ai_policy_url") or "", "source": "the run's ladder"}
+    if "catalogue" not in cache:
+        try:
+            cache["catalogue"] = catalogue_policies(folder)
+        except (OSError, ValueError, yaml.YAMLError, typer.BadParameter) as exc:  # show none rather than a guess
+            cache["catalogue"] = (None, {"error": str(exc)})
+    catalogue, data = cache["catalogue"]
+    venue = (data.get("venues") or {}).get(key)
+    if catalogue is None or venue is None:
+        return None
+    flags = catalogue.ai_flags(venue)
+    return {"aspects": {a: {"level": level, "text": text} for a, (level, text) in flags.items()},
+            "reasons": catalogue.friction(venue)[1], "url": catalogue.policy_page(venue) or "",
+            "source": f"the venue catalogue (checked {data['checked']}) with this run's record"}
+
+
 def venues(run: Path) -> list[dict]:
     """The journal and preprint ladders manuscript-journal-select wrote, in the order it chose."""
     folder = run / "manuscript-journal-select"
     top = json.loads((folder / "top3.json").read_text(encoding="utf-8")) if (folder / "top3.json").is_file() else []
     chosen = {entry.get("key") or entry.get("name"): entry for entry in top}
-    rows = []
+    rows, cache = [], {}
     for ladder in ("journals", "preprints"):
         files = [f for f in sorted(folder.glob(f"*.{ladder.rstrip('s')}-ladder.csv")) if not re.search(r"-ladder-\w+\.csv$", f.name)]
         if not files:
@@ -236,29 +310,41 @@ def venues(run: Path) -> list[dict]:
                              "impact_factor": number(row.get("jif")), "impact_factor_year": row.get("jif_year") or "",
                              "first_decision_days": number(row.get("first_decision_days")), "speed_measure": row.get("speed_measure") or "",
                              "ai_points": int(number(row.get("ai_points"))) if number(row.get("ai_points")) is not None else None,
-                             "ai_tier": row.get("ai_tier") or "", "ai_for_this_use": row.get("ai_for_this_use") or "", "fee": fee,
+                             "ai_tier": row.get("ai_tier") or "", "ai_for_this_use": row.get("ai_for_this_use") or "",
+                             "ai_policy": ai_policy(row, row.get("key") or "", folder, cache), "fee": fee,
                              "preprint_rule": row.get("preprint_rule") or "", "why": (pick or {}).get("why", ""),
                              "url": row.get("guidelines_url") or (pick or {}).get("url", "")})
     return rows
 
 
-def recorded_changes(run: Path, data: dict, out_dir: Path, current: str) -> list[dict]:
-    """runs.py change records; applied only when the revised manuscript holds the after-text and not the before-text."""
-    out = []
+def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: str) -> list[dict]:
+    """runs.py change records, in the order the skills recorded them. Replayed on the reviewed text, each
+    must find its before-text; when the replay ends on the revised manuscript, every one that took is
+    applied, including an edit a later stage edited again. Otherwise a change counts as applied only when
+    the revised manuscript holds its after-text and not its before-text."""
+    out, text, took = [], start, []
     for skill, seat in data["skills"].items():
         for number, change in enumerate(seat["changes"], 1):
             path = run / change["path"]
-            text = path.read_text(encoding="utf-8")
-            parts = re.match(r"# (.*?)\n\nReason: (.*?)\n\n## Before\n\n(.*)\n\n## After\n\n(.*)\Z", text, re.S)
+            parts = re.match(r"# (.*?)\n\nReason: (.*?)\n\n## Before\n\n(.*)\n\n## After\n\n(.*)\Z",
+                             path.read_text(encoding="utf-8"), re.S)
             if not parts:
                 continue
             section, reason, before, after = parts.groups()
             before = None if before.strip() == "(No previous block.)" else before.strip()
             after = None if after.strip() == "(Block removed.)" else after.strip()
-            applied = (after is None or after in current) and (before is None or before not in current)
-            out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "kind": "Applied edit" if applied else "Recorded change, not in the revision", "section": section,
-                        "summary": reason, "status": "applied" if applied else "proposed", "finding_ids": [],
-                        "before": before, "after": after, "evidence": [{"path": relative(path, out_dir), "quote": (after or before)[:200]}]})
+            if before is not None and before in text:
+                text = text.replace(before, after or "", 1)
+                took.append(len(out))
+            out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "section": section,
+                        "summary": reason, "finding_ids": [], "before": before, "after": after,
+                        "evidence": [{"path": relative(path, out_dir), "quote": (after or before)[:200]}]})
+    replayed = text == current
+    for index, record in enumerate(out):
+        before, after = record["before"], record["after"]
+        applied = (index in took) if replayed else (after is None or after in current) and (before is None or before not in current)
+        record.update(kind="Applied edit" if applied else "Recorded change, not in the revision",
+                      status="applied" if applied else "proposed")
     return out
 
 
@@ -351,17 +437,19 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "scope": scope or f"Whole-manuscript run started {data['started_at'][:10]}; skills: "
                           + ", ".join(f"{k.removeprefix('manuscript-')} {v}" for k, v in statuses.items()) + ".",
         "coverage": coverage(run, data, out_dir), "findings": records["findings"],
-        "changes": records["changes"] + recorded_changes(run, data, out_dir, current),
+        "changes": records["changes"] + recorded_changes(run, data, out_dir, current, snapshot.read_text(encoding="utf-8")),
         "limitations": limitation or [], "manuscript": manuscript(run, data, version, out_dir),
         "signals": signals(run), "dismissed": records["dismissed"], "not_checked": records["not_checked"],
         "decisions": [], "panel": panel(run), "reference": None, "venues": venues(run),
     }
+    mentions = concern_mentions(inventory["findings"])
     if merge:
         try:
             apply_merges(inventory, json.loads(merge.read_text(encoding="utf-8")), out_dir, merge.resolve().parent)
         except (KeyError, ValueError) as exc:
             typer.echo(f"The merge file could not be applied; nothing was written.\n{exc}", err=True)
             raise typer.Exit(1) from exc
+    link_concerns(inventory, mentions)
     if reference:
         ref = json.loads(reference.read_text(encoding="utf-8"))
         source = ref["source"]

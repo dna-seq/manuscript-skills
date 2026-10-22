@@ -3,10 +3,10 @@ name: manuscript-visualize
 description: >-
   Turn a manuscript run's saved findings, evidence and revisions into an offline dashboard for the
   authors and colleagues: distinct problems by kind, severity, stage, section and skill, what each
-  skill covered, the funnel from raw signals to confirmed problems, edits as before/after diffs, the
-  reader and referee panels, and, when a reference review exists (a human referee's comments on the
-  same version), which of its problems the run caught and missed. Also writes SVG and PNG for slides.
-  manuscript-improve calls it as its last step; use it directly to visualize an earlier run or a
+  skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
+  corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
+  simulated reviewers' concerns and suggestions and the readers' paths, and, when a reference review exists (a human referee's comments on the
+  same version), which of its problems the run caught and missed. manuscript-improve calls it as its last step; use it directly to visualize an earlier run or a
   focused skill's results. New reviews and scientific result figures belong to their own workflows.
 ---
 
@@ -85,19 +85,31 @@ reference lacks. Those are not false alarms by default: one review is one readin
 ## 4. Render
 
 ```bash
-uv run --script scripts/infographic.py RUN/manuscript-visualize/findings.json \
-  --output-dir RUN/manuscript-visualize/dashboard
+uv run --script scripts/dashboard.py RUN/manuscript-visualize/findings.json \
+  --output-dir RUN/manuscript-visualize/dashboard --revision RUN/manuscript-improve/revision
 ```
 
-- `dashboard.html`: one self-contained file that opens offline: headline counts, coverage per skill,
-  the funnel from raw signals to confirmed problems, cross-filtered charts by kind, severity, stage and
-  skill, a heat grid of where in the manuscript the problems sit, the problems found by several skills,
-  a sortable, searchable table with every passage and evidence excerpt, word-level diffs of the edits,
-  the reader and referee panels, the comparison with the reference review, and what could not be
-  checked. Evidence keeps file names only, never local paths. It follows the system light or dark theme.
-- `infographic.svg` and `.png`: the static summary for slides, with scope and coverage in the image
-  (`--no-static` skips them).
-- `infographic.vl.json` and `summary.json`: the chart specification and every derived count.
+`--revision` is the corrected version that manuscript-improve builds from this inventory with its
+`revise.py`; the renderer refuses one built from another inventory. Leave it out for a run without one.
+
+- `dashboard.html`: one self-contained file that opens offline, on the Overview. Its tabs: headline
+  counts, coverage per skill, the funnel from raw signals to confirmed problems and the machine-writing
+  patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
+  skill, and AI-related or not, with a heat grid of where they sit and a sortable, searchable table with
+  every passage and evidence excerpt; the manuscript with every quoted problem highlighted by severity and the skills'
+  comments beside it; the corrected version as track changes, with what was held back or could not be
+  placed; the comparison with the reference review; the journals, with each venue's AI policy as icons
+  (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
+  held against the paper); word-level diffs of the edits; the
+  simulated reviewers (their recommendation per journal, every concern with its suggestion and the
+  adjudication's verdict, grouped by who can act) and the readers' paths; and what could not be checked. Each tab has an address, so
+  `dashboard.html#manuscript` opens the annotated paper itself. Evidence keeps file names only, never
+  local paths. It follows the system light or dark theme.
+- `summary.json`: every derived count, with the evidence files' hashes.
+
+The pattern counts come from the deslop checker (`../manuscript-deslop/scripts/style_profile.py`) run on
+the reviewed text, the working copy and the corrected version. A count is a place to look, never a
+verdict; say so wherever the counts are quoted.
 
 Counts come from the records, never from supplied totals: confirmed problems, candidates, dismissed
 flags, applied and proposed edits are separate units, and a problem found by three skills is one
@@ -107,8 +119,8 @@ problem. Do not add a quality score, an improvement percentage or a detection ra
 
 Reconcile every displayed total with `summary.json`. Open the dashboard in an available browser: every
 tab, the filters, a row's evidence, an edit's diff, both themes and a phone-width window; fix layout or
-runtime errors before handover. Inspect the PNG at its display size. If no browser is available, say
-that interactive behaviour was not checked.
+runtime errors before handover. If no browser is available, say that interactive behaviour was not
+checked.
 
 Write a short `report.md`: the run and its coverage, what the main counts mean, the problems that
 matter most, what the comparison shows when there is one, and links to the dashboard, the inventory and

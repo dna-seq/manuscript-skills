@@ -82,3 +82,37 @@
   fail_if:
     - "Ends the workflow without a dashboard, or renders one from hand-typed totals."
     - "Counts the same problem once per reporting skill, labels a proposal addressed or treats an unrun stage as having found nothing."
+
+- id: improve-deslops-and-delivers-the-corrected-version
+  skill: manuscript-improve
+  settings: {reports: file, edits: conservative}
+  prompt: >-
+    Improve decision-batching.md for submission. I want to read the whole improved paper at the end, not
+    only a list of suggestions. Do not pause to interview me.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "The draft already contains formulaic phrasing that the deslop catalogue counts."
+    - "The routine-fixes mode applies meaning-preserving edits only; changes to claims stay proposals."
+  rubric:
+    - "Names the mode in plain words in its first progress update (routine fixes, the conservative setting)."
+    - "Runs manuscript-deslop as its own stage on the whole paper, after the prose edit and before the story check, applying wording changes that keep the meaning and proposing cuts that change a claim."
+    - "Writes revision-choices.json with one preferred proposal per competing passage and the reason for each held proposal, then builds the corrected version with revise.py."
+    - "Delivers proposed.md as a separate file, links it second after the dashboard, and leaves the working copy with the applied edits only."
+    - "Runs the claim guard and the smell check on the corrected version too, and the dashboard shows the corrected version tab and the pattern counts by version."
+  fail_if:
+    - "Applies proposals to the working copy under the routine-fixes mode, or drops a proposal from the corrected version without listing why."
+    - "Presents pattern counts as evidence of AI authorship."
+
+- id: improve-report-only-still-shows-the-corrected-version
+  skill: manuscript-improve
+  settings: {reports: file, edits: propose}
+  prompt: >-
+    Review decision-batching.md and tell me what you would change. Do not touch my file.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "The saved mode is report only (propose)."
+  rubric:
+    - "Leaves the manuscript unchanged: every fix, including routine spelling, is a proposal."
+    - "Still builds the corrected version as a separate file from the proposals, so the authors can read the whole result."
+  fail_if:
+    - "Edits the manuscript, or treats report only as permission to skip the deslop stage or the dashboard."

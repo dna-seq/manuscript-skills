@@ -18,10 +18,10 @@ requirements.
 
 | Your task | Skill | What you receive |
 |---|---|---|
-| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, with a revised manuscript, a before/after comparison and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
+| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, in one of three modes (report only, routine fixes by default, or every change). You get the corrected version of the whole paper with track changes, kept beside your file until you accept it, a dashboard of what the run found and changed, and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
 | Deslop scientific writing | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Removes formulaic LLM phrasing, boilerplate and empty rhetoric while preserving scientific meaning and author voice. Also audits without editing; owns the shared pattern catalogue and style checker. |
-| Show colleagues what the review caught | [manuscript-visualize](skills/manuscript-visualize/SKILL.md) | The last step of every improvement run. Collects each skill's findings from the run, merges what several skills found into one problem, and renders an offline dashboard: problems by kind, severity, stage, section and skill, coverage, the funnel from raw signals to confirmed problems, edits as before/after diffs, the reader and referee panels, and, against a reference review such as a co-author's comments on the same version, what was caught and why the rest was missed. SVG and PNG for slides. |
+| Show colleagues what the review caught | [manuscript-visualize](skills/manuscript-visualize/SKILL.md) | The last step of every improvement run. Collects each skill's findings from the run, merges what several skills found into one problem, and renders an offline dashboard: problems by kind, severity, stage, section and skill, coverage, the funnel from raw signals to confirmed problems, edits as before/after diffs, the reader and referee panels, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, and, against a reference review such as a co-author's comments on the same version, what was caught and why the rest was missed. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
@@ -74,10 +74,12 @@ See the shared [project and run contract](skills/manuscript-integrity-check/refe
 for setup, command examples and the limits of these checks.
 
 `reports: file` gives the headline and urgent findings in chat; `chat` and `both` show the whole report
-there. The run evidence stays saved in every mode. `edits: conservative` remains the default: apply
-routine corrections that preserve meaning and propose consequential argument, claim or numerical
-changes. Choose `propose` for proposals only or `apply` for authorized substantive edits. Exact
-consequential before/after text is shown promptly in chat even with file reports.
+there. The run evidence stays saved in every mode. The `edits` setting is the mode of an improvement
+run: `propose` reports only, `conservative` (the default) applies routine corrections that preserve
+meaning and proposes consequential argument, claim or numerical changes, and `apply` makes authorized
+substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the
+whole improved paper before accepting it. Exact consequential before/after text is shown promptly in chat
+even with file reports.
 
 Whole-manuscript improvement now defaults to `peer_review: auto`: three formal referees plus a defender.
 Save `on-request` or `off` for a different project preference. This does not expand focused tasks into
@@ -111,13 +113,15 @@ A useful sequence is:
    publication budget into two ladders by your priorities, and adapt what every venue on them shares.
    Use your existing target if you have already chosen one.
 3. **Revise the paper.** Correct supported problems and improve the prose while preserving the results
-   and their qualifications. Identify substantive claim changes separately from language edits. Then
-   check how the revised paper reads to its readers, against the version you started from, and repair
-   the story within the direction you chose.
+   and their qualifications. Identify substantive claim changes separately from language edits. Remove
+   the formulaic AI phrasing the draft already has (deslop). Then check how the revised paper reads to
+   its readers, against the version you started from, and repair the story within the direction you
+   chose.
 4. **Prepare for the chosen journal.** Apply its length, structure and section requirements and draft the
    required statements and submission materials.
-5. **Check the changes.** Verify affected citations, claims and submission requirements, and report any
-   unresolved issues.
+5. **Check the changes and show them.** Verify affected citations, claims and submission requirements,
+   build the corrected version (every applied edit and every proposal, one choice per contested
+   passage, with track changes), and render the dashboard of what the run found, changed and left open.
 6. **Finish for submission.** Once the code, data and results are final, archive the release, complete the
    declarations, the AI-use statement and the cover letter, and check the files you will upload. These
    items wait until then and do not hold up work on a draft.

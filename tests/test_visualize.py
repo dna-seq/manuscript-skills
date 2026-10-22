@@ -1,4 +1,4 @@
-"""Evidence identity, honest counting and real Vega-Lite rendering for review infographics."""
+"""Evidence identity, honest counting and offline rendering for the review dashboard."""
 from __future__ import annotations
 
 import copy
@@ -11,8 +11,8 @@ import pytest
 from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "skills/manuscript-visualize/scripts/infographic.py"
-spec = importlib.util.spec_from_file_location("infographic", SCRIPT)
+SCRIPT = ROOT / "skills/manuscript-visualize/scripts/dashboard.py"
+spec = importlib.util.spec_from_file_location("dashboard", SCRIPT)
 visualize = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = visualize
 spec.loader.exec_module(visualize)
@@ -31,7 +31,7 @@ def data(tmp_path: Path) -> dict:
         return {"id": cid, "kind": "Reference correction", "section": "Discussion", "summary": f"Edit {cid}",
                 "status": state, "finding_ids": [fid], "before": f"Before {letter}.", "after": f"After {letter}.",
                 "evidence": sources}
-    return {"schema_version": 1, "title": "Review findings", "run_id": "test-run", "scope": "Selected test records.",
+    return {"schema_version": 2, "title": "Review findings", "run_id": "test-run", "scope": "Selected test records.",
             "illustrative": True,
             "coverage": [{"skill": skill, "status": "partial", "note": "Selected sections only.", "evidence": sources}
                          for skill in ("manuscript-reference-check", "manuscript-integrity-check")],
@@ -84,7 +84,7 @@ def test_evidence_identity_and_applied_passages_are_checked(data: dict, tmp_path
         visualize.verify_evidence(inventory, tmp_path)
 
 
-def test_invalid_evidence_writes_no_infographic(data: dict, tmp_path: Path) -> None:
+def test_invalid_evidence_writes_no_dashboard(data: dict, tmp_path: Path) -> None:
     data["findings"][0]["evidence"] = [{"path": "missing.md", "quote": "No report."}]
     source = tmp_path / "input.json"
     source.write_text(json.dumps(data))
@@ -116,16 +116,29 @@ def test_dashboard_inlines_records_as_inert_data_and_keeps_only_file_names(data:
     assert payload["summary"]["counts"]["proposed_edits"] == 1
 
 
-def test_dashboard_render_without_the_static_image(data: dict, tmp_path: Path) -> None:
+def test_the_dashboard_is_the_only_rendering(data: dict, tmp_path: Path) -> None:
     source = tmp_path / "input.json"
     source.write_text(json.dumps(data))
-    summary = visualize.render(source, tmp_path / "out", static=False)
-    assert (tmp_path / "out/dashboard.html").is_file() and not (tmp_path / "out/infographic.png").exists()
+    summary = visualize.render(source, tmp_path / "out")
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["dashboard.html", "summary.json"]
     assert embedded((tmp_path / "out/dashboard.html").read_text())["summary"]["counts"] == summary["counts"]
 
 
+def test_only_the_current_schema_is_accepted(data: dict) -> None:
+    data["schema_version"] = 1
+    with pytest.raises(ValidationError):
+        visualize.Inventory.model_validate(data)
+
+
+def test_an_addition_names_the_passage_it_follows_and_a_replacement_does_not(data: dict) -> None:
+    data["changes"][2].update(before=None, anchor="Before A.")
+    assert visualize.Inventory.model_validate(data).changes[2].anchor == "Before A."
+    data["changes"][2]["before"] = "Before A."
+    with pytest.raises(ValidationError, match="only an addition"):
+        visualize.Inventory.model_validate(data)
+
+
 def reference(data: dict) -> dict:
-    data["schema_version"] = 2
     data["reference"] = {
         "title": "the referee's review", "description": "Comments on the same version.",
         "source": {"path": "review.md", "quote": "The reference is wrong."},
@@ -180,15 +193,13 @@ def test_real_render_preserves_partial_scope_counts_and_previous_attempts(data: 
     source.write_text(json.dumps(data))
     output = tmp_path / "rendered"
     summary = visualize.render(source, output)
-    svg = (output / "infographic.svg").read_text()
-    assert "ILLUSTRATIVE EXAMPLE" in svg and "partial" in svg
-    assert "Confirmed findings" in svg and "Candidate findings" in svg
-    assert (output / "infographic.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    payload = embedded((output / "dashboard.html").read_text())
+    assert payload["inventory"]["illustrative"] and {c["status"] for c in payload["inventory"]["coverage"]} == {"partial"}
     assert json.loads((output / "summary.json").read_text())["counts"] == summary["counts"]
-    original = (output / "infographic.svg").read_bytes()
+    original = (output / "dashboard.html").read_bytes()
     with pytest.raises(ValueError, match="already exist"):
         visualize.render(source, output)
-    assert (output / "infographic.svg").read_bytes() == original
+    assert (output / "dashboard.html").read_bytes() == original
 
 
 def test_empty_findings_are_not_mislabeled_as_complete_review(data: dict) -> None:
@@ -196,16 +207,7 @@ def test_empty_findings_are_not_mislabeled_as_complete_review(data: dict) -> Non
     inventory = visualize.Inventory.model_validate(data)
     summary = visualize.summarize(inventory)
     assert not any(summary["counts"].values())
-    spec = visualize.chart(inventory, summary)
-    assert "No records in this scope" in json.dumps(spec) and "partial" in json.dumps(spec)
-
-
-@pytest.mark.parametrize("count", [0, 1, 6, 51])
-def test_count_axes_never_round_fractional_ticks_into_duplicate_integers(count: int) -> None:
-    spec = visualize.bars("Edits", {"Applied": count}, "#6653a3")
-    ticks = spec["encoding"]["x"]["axis"]["values"]
-    assert ticks[0] == 0 and len(ticks) == len(set(ticks))
-    assert all(isinstance(tick, int) for tick in ticks)
+    assert {item["status"] for item in summary["coverage"]} == {"partial"}
 
 
 def test_worked_input_uses_actual_evidence_and_does_not_invent_edits() -> None:
@@ -355,3 +357,45 @@ def test_a_proposal_linked_to_a_merged_record_follows_it_to_the_record_kept(tmp_
     (proposal,) = [c for c in inventory.changes if c.id == "ST-C1"]
     assert proposal.finding_ids == ["IC-1"] and "journal: Genes" in proposal.summary
     assert inventory.decisions[0].finding_ids == ["IC-1"]
+
+
+def test_collect_reads_each_venue_ai_policy_from_the_ladder_or_the_catalogue(tmp_path: Path) -> None:
+    folder = tmp_path / "manuscript-journal-select"
+    folder.mkdir()
+    header = "ladder,rung,key,name,ai_points,ai_drafting,ai_prompts,ai_records,ai_detection,ai_declaration,ai_counted,ai_extra,ai_reasons,ai_policy_url\n"
+    (folder / "p.journal-ladder.csv").write_text(header + "journals,1,strict,Strict,6,red: banned for the whole paper,"
+                                                 "red: required in the paper,good: not asked for,good: none named,good: Methods,"
+                                                 "unknown: not stated,good: none listed,Six points.,https://strict.example/ai\n")
+    (folder / "p.preprint-ladder.csv").write_text("ladder,rung,key,name\npreprints,1,biorxiv,bioRxiv\n")
+    rows = {v["key"]: v for v in collect.venues(tmp_path)}
+    strict = rows["strict"]["ai_policy"]
+    assert strict["aspects"]["drafting"] == {"level": "red", "text": "banned for the whole paper"}
+    assert strict["source"] == "the run's ladder" and strict["url"] == "https://strict.example/ai"
+    older = rows["biorxiv"]["ai_policy"]  # a ladder from before the AI columns: read from the catalogue
+    assert "venue catalogue" in older["source"] and set(older["aspects"]) == set(collect.ASPECTS)
+    assert visualize.Venue.model_validate(rows["strict"]).ai_policy.aspects["prompts"].level == "red"
+
+
+def test_collect_gives_each_reviewer_concerns_with_suggestions_and_links_them_to_the_problems(tmp_path: Path) -> None:
+    folder = tmp_path / "manuscript-peer-review"
+    folder.mkdir()
+    doc = {"reports": [{"seat": "skeptic", "summary": "Sound, but the ratio is undefined.",
+                        "recommendations": [{"venue": "genes", "recommendation": "major-revision", "reason": "Ratios."}]}],
+           "strengths": [{"seat": "skeptic", "note": "The genome is public."}],
+           "findings": [{"id": "SK-1", "seat": "skeptic", "severity": "major", "concern": "The 172-fold ratio is undefined.",
+                         "change_my_mind": "Define warm runs.", "route": "fixable-in-text", "verdict": "confirmed",
+                         "defence_outcome": "partly answered", "placement": "methods", "cost": "text"}],
+           "adjudication": {}}
+    (folder / "findings.adjudicated.json").write_text(json.dumps(doc))
+    (folder / "findings.merged.json").write_text(json.dumps({**doc, "findings": []}))
+    panel = collect.panel(tmp_path)
+    (reviewer,) = panel["reviewers"]
+    assert reviewer["strengths"] == ["The genome is public."] and reviewer["summary"].startswith("Sound")
+    concern = reviewer["concerns"][0]
+    assert (concern["suggestion"], concern["verdict"], concern["defence"]) == ("Define warm runs.", "confirmed", "partly answered")
+    findings = [{"id": "PR-1", "detail": "Grouped from SK-1 and SM-2.", "summary": "Ratio", "sources": [{"id": "PR-1"}]},
+                {"id": "IC-1", "detail": "", "summary": "Ratio", "sources": [{"id": "IC-1"}, {"id": "PR-1"}]}]
+    mentions = collect.concern_mentions(findings)
+    inventory = {"findings": findings[1:], "panel": panel}  # PR-1 was merged into IC-1
+    collect.link_concerns(inventory, mentions)
+    assert concern["finding_ids"] == ["IC-1"]

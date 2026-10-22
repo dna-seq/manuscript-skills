@@ -1,17 +1,17 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["typer>=0.12", "pydantic>=2.6", "vl-convert-python>=1.9,<2", "markdown-it-py>=3"]
+# dependencies = ["typer>=0.12", "pydantic>=2.6", "markdown-it-py>=3", "pyyaml>=6"]
 # ///
-"""Render evidence-linked review findings and edits as an offline dashboard and a Vega-Lite infographic.
+"""Render evidence-linked review findings and edits as an offline dashboard.
 
-    uv run --script infographic.py findings.json --output-dir infographic
+    uv run --script dashboard.py findings.json --output-dir dashboard [--revision RUN/manuscript-improve/revision]
 
 `dashboard.html` is one self-contained file: headline counts, review coverage, the funnel from raw signals
-to distinct findings, cross-filtered breakdowns, where in the manuscript the findings sit, which skills
-found the same problem, every finding with its evidence, the edits as word-level diffs, the reader and
-referee panels and, when a reference review is supplied, which of its problems the run caught.
-`annotated.html` is the manuscript itself with every quoted problem highlighted in red by severity and
-explained in a margin comment. `infographic.svg` and `.png` are the static summary for slides.
+to distinct findings, cross-filtered breakdowns, the manuscript with every quoted problem highlighted and
+explained in a margin comment, which skills found the same problem, every finding with its evidence, the
+edits as word-level diffs, the corrected version with track changes (from manuscript-improve's revise.py),
+counts of machine-writing patterns by type in each version, the reader and referee panels and, when a
+reference review is supplied, which of its problems the run caught. `summary.json` holds every derived count.
 
 Counts are derived from distinct adjudicated records, never supplied headline totals. Evidence checks
 establish local file/quotation identity, not scientific support or correctness of the adjudication.
@@ -22,7 +22,7 @@ import hashlib
 import html
 import json
 import re
-import textwrap
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from itertools import combinations
@@ -38,6 +38,8 @@ SEVERITIES = ("blocker", "major", "minor", "info", "unknown")
 STAGES = ("now", "writing", "journal", "final", "unknown")
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 TEMPLATE = ASSETS / "dashboard.html"
+DESLOP = Path(__file__).resolve().parents[2] / "manuscript-deslop"
+AUTHOR_NOTE = re.compile(r"\[AUTHORS:[^\]]*\]")
 app = typer.Typer(add_completion=False)
 
 
@@ -90,12 +92,15 @@ class Change(Record):
     finding_ids: list[Identity] = Field(default_factory=list)
     before: str | None = None
     after: str | None = None
+    anchor: str | None = None
     evidence: Annotated[list[Evidence], Field(min_length=1)]
 
     @model_validator(mode="after")
     def has_text(self) -> Change:
         if not any(text and text.strip() for text in (self.before, self.after)):
             raise ValueError(f"Change {self.id} needs before or after text.")
+        if self.anchor is not None and self.before is not None:
+            raise ValueError(f"Change {self.id} replaces a passage; only an addition names an anchor.")
         return self
 
 
@@ -149,8 +154,32 @@ class Reader(Record):
     path: list[Step] = Field(default_factory=list)  # the sections in the order the reader visited them
 
 
+class Concern(Record):
+    """One concern of a simulated reviewer, with what would settle it and what the adjudication decided."""
+    id: Text
+    severity: str = ""  # the reviewer's own: major, optional or uncertain
+    location: str = ""
+    concern: Text
+    suggestion: str = ""  # what would change the reviewer's mind
+    route: str = ""  # fixable-in-text, author-required or policy
+    placement: str = ""  # where the fix goes, to cost readers least
+    cost: str = ""  # text, reanalysis or new work
+    defence: str = ""  # how far the authors' defence answered it
+    verdict: str = ""  # the adjudication: confirmed, downgraded or refuted
+    verdict_evidence: str = ""
+    finding_ids: list[Identity] = Field(default_factory=list)  # the inventory's problems that carry it
+
+
+class Reviewer(Record):
+    seat: Text
+    summary: str = ""
+    strengths: list[str] = Field(default_factory=list)
+    concerns: list[Concern] = Field(default_factory=list)
+
+
 class Panel(Record):
     recommendations: list[Recommendation] = Field(default_factory=list)
+    reviewers: list[Reviewer] = Field(default_factory=list)
     readers: list[Reader] = Field(default_factory=list)
 
 
@@ -159,7 +188,7 @@ class Manuscript(Record):
     version: str = ""
     sha256: str = ""
     sections: list[Text] = Field(default_factory=list)
-    path: str = ""  # the reviewed text, relative to the inventory, for the annotated copy
+    path: str = ""  # the reviewed text, relative to the inventory, for the manuscript view
 
 
 MISS_REASONS = ("no-skill-covers", "skill-did-not-look", "judged-differently", "input-missing",
@@ -197,6 +226,19 @@ class Reference(Record):
     matches: list[Match] = Field(default_factory=list)
 
 
+class AiAspect(Record):
+    level: Literal["good", "warning", "red", "unknown"]
+    text: str = ""
+
+
+class AiPolicy(Record):
+    """A venue's AI policy, aspect by aspect (manuscript-journal-adapt's `ai_flags`), with where it was read."""
+    aspects: dict[str, AiAspect]
+    reasons: list[str] = Field(default_factory=list)
+    url: str = ""
+    source: str = ""
+
+
 class Venue(Record):
     """One rung of a journal or preprint ladder from manuscript-journal-select."""
     ladder: Literal["journals", "preprints"]
@@ -215,6 +257,7 @@ class Venue(Record):
     ai_points: int | None = None
     ai_tier: str = ""
     ai_for_this_use: str = ""
+    ai_policy: AiPolicy | None = None
     fee: str = ""
     preprint_rule: str = ""
     why: str = ""
@@ -222,7 +265,7 @@ class Venue(Record):
 
 
 class Inventory(Record):
-    schema_version: Literal[1, 2] = 1
+    schema_version: Literal[2]
     title: Text
     run_id: Text
     scope: Text
@@ -256,6 +299,10 @@ class Inventory(Record):
         for decision in self.decisions:
             if unknown := set(decision.finding_ids) - known:
                 raise ValueError(f"Decision {decision.id} links unknown findings: {sorted(unknown)}")
+        for reviewer in self.panel.reviewers if self.panel else []:
+            for concern in reviewer.concerns:
+                if unknown := set(concern.finding_ids) - known:
+                    raise ValueError(f"Reviewer concern {concern.id} links unknown findings: {sorted(unknown)}")
         for finding in self.findings:
             if set(finding.skills) - skills:
                 raise ValueError(f"Finding {finding.id} names a skill absent from coverage.")
@@ -393,90 +440,6 @@ def summarize(data: Inventory) -> dict:
     }
 
 
-def metric(label: str, count: int, color: str) -> dict:
-    return {"width": 205, "height": 90, "data": {"values": [{"count": count, "label": label}]},
-            "layer": [
-                {"mark": {"type": "text", "align": "left", "fontSize": 46, "fontWeight": "bold", "color": color},
-                 "encoding": {"x": {"value": 0}, "y": {"value": 30}, "text": {"field": "count"}}},
-                {"mark": {"type": "text", "align": "left", "fontSize": 14, "color": "#374151"},
-                 "encoding": {"x": {"value": 0}, "y": {"value": 76}, "text": {"field": "label"}}},
-            ]}
-
-
-def bars(title: str, counts: dict[str, int], color: str) -> dict:
-    rows = [{"label": label, "count": count} for label, count in counts.items()]
-    if not rows:
-        return {"width": 300, "height": 80, "title": title, "data": {"values": [{}]},
-                "mark": {"type": "text", "text": "No records in this scope", "color": "#4b5563", "fontSize": 14}}
-    maximum = max(counts.values()) + 1
-    step = max(1, (maximum + 4) // 5)
-    encoding = {
-        "y": {"field": "label", "type": "nominal", "sort": "-x", "title": None,
-              "axis": {"labelLimit": 200}},
-        "x": {"field": "count", "type": "quantitative", "title": "Number of records",
-              "scale": {"zero": True, "domainMax": maximum},
-              "axis": {"values": list(range(0, maximum + 1, step)), "format": "d"}},
-        "tooltip": [{"field": "label", "title": "Type"}, {"field": "count", "title": "Records"}],
-    }
-    return {"width": 300, "height": max(90, len(rows) * 32), "title": title, "data": {"values": rows},
-            "encoding": encoding,
-            "layer": [{"mark": {"type": "bar", "color": color, "cornerRadiusEnd": 3}},
-                      {"mark": {"type": "text", "align": "left", "dx": 5, "fontSize": 13},
-                       "encoding": {"text": {"field": "count"}}}]}
-
-
-def note(lines: list[str]) -> dict:
-    wrapped = [part for line in lines for part in textwrap.wrap(line, width=112)]
-    return {"width": 880, "height": max(25, len(wrapped) * 19),
-            "data": {"values": [{"text": line, "line": i} for i, line in enumerate(wrapped)]},
-            "mark": {"type": "text", "align": "left", "baseline": "top", "fontSize": 13, "color": "#374151"},
-            "encoding": {"x": {"value": 0}, "y": {"field": "line", "type": "ordinal", "axis": None,
-                         "scale": {"padding": 0}}, "text": {"field": "text"}}}
-
-
-def chart(data: Inventory, summary: dict) -> dict:
-    counts = summary["counts"]
-    coverage = [f"{item.skill.removeprefix('manuscript-')}: {item.status}. {item.note}" for item in data.coverage]
-    titles = textwrap.wrap(("ILLUSTRATIVE EXAMPLE — " if data.illustrative else "") + data.title, width=65)
-    rows = [
-        {"hconcat": [metric("Confirmed findings", counts["confirmed_findings"], "#305b96"),
-                     metric("Findings addressed", counts["addressed_findings"], "#17735e"),
-                     metric("Applied edits", counts["applied_edits"], "#6653a3"),
-                     metric("Candidate findings", counts["candidate_findings"], "#a46415")], "spacing": 20},
-        {"hconcat": [bars("Confirmed findings by type", summary["by_category"], "#305b96"),
-                     bars("Confirmed findings by severity", summary["by_severity"], "#6386ae")], "spacing": 60},
-        {"hconcat": [bars("Confirmed findings: current status", summary["by_resolution"], "#6386ae"),
-                     bars("Edits recorded", {"Applied": counts["applied_edits"],
-                                              "Proposed": counts["proposed_edits"]}, "#6653a3")], "spacing": 60},
-    ]
-    caught = []
-    if bench := summary["benchmark"]:
-        rows.append({"hconcat": [bars(f"{data.reference.title}: {bench['items']} problems",
-                                      {"Matched": bench["full"], "Partly matched": bench["partial"],
-                                       "Not caught": bench["missed"]}, "#305b96"),
-                                 bars("Confirmed findings by stage", summary["by_stage"], "#6386ae")],
-                     "spacing": 60})
-        caught = [f"Compared with {data.reference.title}: {bench['full']} matched, {bench['partial']} partly "
-                  f"matched and {bench['missed']} not caught of {bench['items']} problems it raised. "
-                  f"{bench['confirmed_without_counterpart']} confirmed findings have no counterpart there."]
-    rows.append(note([f"Run: {data.run_id}", *coverage,
-                      f"Dismissed flags: {counts['dismissed_flags']}. Unknown resolution: {counts['resolution_unknown']}.",
-                      *caught, *data.limitations,
-                      "Counts describe this review scope, not detection accuracy or publication readiness.",
-                      "One finding is counted once across skills; edits and findings are separate units."]))
-    return {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "background": "#ffffff", "padding": 28,
-        "title": {"text": titles, "subtitle": textwrap.wrap(data.scope, width=105), "anchor": "start",
-                  "fontSize": 25, "subtitleFontSize": 14, "subtitlePadding": 14, "offset": 24},
-        "spacing": 28,
-        "vconcat": rows,
-        "config": {"font": "DejaVu Sans", "view": {"stroke": None},
-                   "title": {"anchor": "start", "fontSize": 15, "color": "#172b43"},
-                   "axis": {"labelFontSize": 12, "titleFontSize": 12, "gridColor": "#e5e7eb"}},
-    }
-
-
 def inline(document: dict) -> str:
     """JSON for a script element: escaping "<" means neither "</script>" nor "<!--" can end or confuse it."""
     text = json.dumps(document, ensure_ascii=False)
@@ -504,11 +467,29 @@ def skill_of(path: str) -> str:
     return next((part for part in Path(path).parts if part.startswith("manuscript-")), "")
 
 
-def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, mode: str = "full") -> str:
-    """The template with the inventory inlined as JSON and the reviewed text rendered for the manuscript view.
+def writing_patterns(versions: list[tuple[str, str, str, str]]) -> dict:
+    """How often each machine-writing pattern of the deslop catalogue occurs in each version of the text.
 
-    Evidence keeps its file name and the skill folder it came from, never a local path. `mode="paper"` is the
-    annotated manuscript alone."""
+    A hit is a place to look, never a verdict: human writers use these too."""
+    sys.path.insert(0, str(DESLOP / "scripts"))
+    import style_profile
+
+    smells, kobak = style_profile.load_smells(), style_profile.load_kobak()
+    groups = dict(re.findall(r"^## ([A-Z])\. (.+)$", (DESLOP / "references" / "llm-smells.md").read_text(encoding="utf-8"), re.M))
+    out = []
+    for key, label, text, suffix in versions:
+        # Notes to the authors ("[AUTHORS: ...]") are removed before submission and are not the paper's prose.
+        profile = style_profile.profile_text(AUTHOR_NOTE.sub("", text), suffix == ".tex", smells, kobak)
+        out.append({"key": key, "label": label, "words": profile["metrics"]["words"], "totals": profile["smell_totals"]})
+    used = sorted({sid for version in out for sid in version["totals"]}, key=lambda sid: (sid[0], int(sid[1:] or 0)))
+    return {"versions": out, "patterns": [{"id": sid, "name": smells[sid]["name"], "group": groups.get(sid[0], "")} for sid in used]}
+
+
+def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, revision: dict | None = None,
+                   writing: dict | None = None) -> str:
+    """The template with the inventory inlined as JSON and the reviewed and corrected texts rendered as HTML.
+
+    Evidence keeps its file name and the skill folder it came from, never a local path."""
     payload = data.model_dump(mode="json")
     for item in [*payload["coverage"], *payload["findings"], *payload["changes"]]:
         for source in item["evidence"]:
@@ -523,50 +504,60 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, mod
     if payload["manuscript"]:
         payload["manuscript"].pop("path", None)
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
-    document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "mode": mode,
-                "has_paper": bool(paper), "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
-    title = f"Annotated: {data.manuscript.title}" if mode == "paper" and data.manuscript else data.title
+    corrected = {key: value for key, value in revision.items() if key != "body_html"} if revision else None
+    document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
+                "revision": corrected, "writing": writing,
+                "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")
-    return (template.replace("__TITLE__", html.escape(title)).replace("__MANUSCRIPT_HTML__", paper)
+    return (template.replace("__TITLE__", html.escape(data.title)).replace("__MANUSCRIPT_HTML__", paper)
+            .replace("__REVISION_HTML__", revision["body_html"] if revision else "")
             .replace("__INVENTORY_JSON__", inline(document)))
 
 
-def render(source: Path, output_dir: Path, static: bool = True) -> dict:
+def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict:
     data = Inventory.model_validate_json(source.read_text(encoding="utf-8"))
-    hashes = verify_evidence(data, source.resolve().parent)
+    base = source.resolve().parent
+    hashes = verify_evidence(data, base)
     summary = summarize(data)
     summary["evidence_sha256"] = hashes
     summary["inventory_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
-    spec = chart(data, summary)
-    base = source.resolve().parent
-    outputs: dict[str, str | bytes] = {"dashboard.html": dashboard_html(data, summary, base),
-                                       "infographic.vl.json": json.dumps(spec, ensure_ascii=False, indent=2) + "\n",
-                                       "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
+    versions = []
     if data.manuscript and data.manuscript.path:
-        outputs["annotated.html"] = dashboard_html(data, summary, base, mode="paper")
-    if static:
-        import vl_convert as vlc
-
-        # Compile before creating outputs. All chart data is inline and static rendering permits no remote URLs.
-        outputs["infographic.svg"] = vlc.vegalite_to_svg(spec, allowed_base_urls=[])
-        outputs["infographic.png"] = vlc.vegalite_to_png(spec, scale=2, allowed_base_urls=[])
+        path = (base / data.manuscript.path).resolve()
+        versions.append(("original", f"Reviewed version{f' ({data.manuscript.version})' if data.manuscript.version else ''}",
+                         path.read_text(encoding="utf-8"), path.suffix.lower()))
+    corrected = None
+    if revision is not None:
+        corrected = json.loads((revision / "revision.json").read_text(encoding="utf-8"))
+        if corrected.get("inventory_sha256") != summary["inventory_sha256"]:
+            raise ValueError("The corrected version was built from another inventory; rebuild it with revise.py from this one.")
+        suffix = versions[0][3] if versions else ".md"
+        versions += [("revised", "After the applied edits", (revision / "revised.md").read_text(encoding="utf-8"), suffix),
+                     ("proposed", "Corrected version", (revision / "proposed.md").read_text(encoding="utf-8"), suffix)]
+        summary["revision"] = {key: len(corrected[key]) for key in ("applied", "proposed_in_this_version", "held",
+                                                                       "alternatives", "not_placed")}
+        summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]
+    writing = writing_patterns(versions) if versions else None
+    if writing:
+        summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}
+                                       for v in writing["versions"]}
+    outputs = {"dashboard.html": dashboard_html(data, summary, base, corrected, writing),
+               "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
     if any((output_dir / name).exists() for name in outputs):
         raise ValueError("Output files already exist; choose a new output directory to retain the previous attempt.")
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, value in outputs.items():
-        if isinstance(value, bytes):
-            (output_dir / name).write_bytes(value)
-        else:
-            (output_dir / name).write_text(value, encoding="utf-8")
+        (output_dir / name).write_text(value, encoding="utf-8")
     return summary
 
 
 @app.command()
 def main(source: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
          output_dir: Annotated[Path, typer.Option("--output-dir")],
-         static: Annotated[bool, typer.Option(help="Also write the SVG and PNG infographic")] = True) -> None:
+         revision: Annotated[Path | None, typer.Option(help="The corrected version: revise.py's output folder",
+                                                       exists=True, file_okay=False)] = None) -> None:
     try:
-        summary = render(source, output_dir, static)
+        summary = render(source, output_dir, revision)
     except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     typer.echo(json.dumps({"output_dir": str(output_dir.resolve()), "counts": summary["counts"],

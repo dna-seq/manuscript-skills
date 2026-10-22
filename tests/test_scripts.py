@@ -393,6 +393,17 @@ We then compared our calls with the GIAB truth set. Recall was 0.97 for SNVs and
 indels were in homopolymers longer than 8 bp, which the short reads could not span."""
 
 
+@pytest.mark.parametrize("text, counted", [
+    ("Beyond technical extensions, the larger experiment is social: we encourage the community to share modules.", True),
+    ("The larger experiment used 40 genomes and a smaller one used 4.", False),
+])
+def test_a_reframe_pivot_a_human_reviewer_caught_is_counted(text: str, counted: bool) -> None:
+    # Regression from the blind v0.3 run: the reviewer flagged "the larger experiment is social" as LLM style
+    # and the deslop stage, reading, missed it.
+    doc = profile.profile_text(f"# Future\n\n{text}\n", False, profile.load_smells(), profile.load_kobak())
+    assert ("H10" in doc["smell_totals"]) is counted
+
+
 def test_profile_ranks_the_sloppy_paragraph_and_skips_references() -> None:
     doc = profile.profile_text(SLOPPY, False, profile.load_smells(), profile.load_kobak())
     paras = doc["paragraphs"]
@@ -1095,6 +1106,25 @@ def test_ladder_csv_has_fixed_columns_and_leaves_unknowns_empty(task_record: Pat
     assert fresh["facts_from_record"] == "jif;name" and fresh["jif"] == "7.0"
     assert {r["priorities"] for r in rows} == {"speed"} and {r["ladder"] for r in rows} == {"journals"}
     assert {r["chosen_rung"] for r in rows} == {""}  # no order recorded yet
+
+
+def test_ladder_flags_each_part_of_an_ai_policy_and_names_the_red_flags(task_record: Path) -> None:
+    import csv as csv_module
+    import io
+
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
+                                             "--format", "csv"])
+    by_key = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.output))}
+    strict, calm, fresh = by_key["strict"], by_key["calm"], by_key["fresh"]
+    assert strict["ai_drafting"].startswith("red: banned for the whole paper")
+    assert strict["ai_counted"].startswith("red:") and int(strict["ai_red_flags"]) >= 2
+    assert calm["ai_red_flags"] == "0" and calm["ai_drafting"] == "good: allowed if declared"
+    assert fresh["ai_red_flags"] == "" and fresh["ai_prompts"] == "unknown: not researched"
+    table = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed"]).output
+    assert "| AI-policy red flags |" in table and "⚑ AI drafting: banned for the whole paper" in table
+    assert "Not known: the AI policy has not been researched." in table
 
 
 def test_ladder_csv_shows_the_recorded_order_beside_the_sorted_one(task_record: Path) -> None:

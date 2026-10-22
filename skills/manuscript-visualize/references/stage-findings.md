@@ -58,7 +58,10 @@ authors' document; this file is the same findings in a form a script can count.
   files.
 - `changes` uses the inventory's change record ([data-contract.md](data-contract.md#changes-and-evidence))
   for proposals a skill drafted; applied edits are recorded with `runs.py change` and collected from the
-  run manifest.
+  run manifest. A proposal's `before` is copied from the working copy exactly; an addition has `before:
+  null` and `anchor`, the verbatim passage it goes after, so the corrected version can place it. A move is
+  two records with the same summary: the deletion where the text was (`after: null`) and the addition, with
+  its anchor, where it goes. A record whose before and after are the same text changes nothing.
 - Categories, in these words: References; Claims and evidence; Numbers and statistics; Methods and
   reproducibility; Text versus code; Reporting and availability; Figures and tables; Writing and
   clarity; Story and structure; Ethics, privacy and scope; Journal fit; Submission package.

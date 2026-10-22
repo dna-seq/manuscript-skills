@@ -26,6 +26,15 @@ and checks under `manuscript-deslop/`. Honour the saved `edits` policy and reque
   its section and suggest a fix when useful; leave the source unchanged.
 - **Check another skill's writing.** Use the same catalogue and checker for an edited manuscript or a
   report. Reuse that skill's scope and run without starting another editing or setup interview.
+- **A stage of manuscript-improve.** Cover the whole paper, on the working copy after the prose edit and
+  before the story stage. The prose edit's smell check only keeps its own edits from adding patterns;
+  this stage removes the ones the draft already had. Apply what the `edits` policy allows (under
+  `conservative`, wording changes that keep the meaning) and propose the rest, such as a cut that
+  weakens or narrows a claim. Inside a passage another stage has a pending proposal for, do not apply
+  an edit: add your version as a proposal for the same passage, so the authors choose one. Write
+  `findings.json` as the [stage findings](../manuscript-visualize/references/stage-findings.md) describe:
+  one record per problem (a pattern repeated through a section is one record), category "Writing and
+  clarity", severity `minor` or `info`, and every applied or proposed edit as a change record.
 
 Respect an explicit choice of another installed skill. This skill handles scientific writing; an
 unqualified request to humanize unrelated prose does not by itself select it. Within this plugin,

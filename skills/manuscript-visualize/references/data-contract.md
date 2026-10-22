@@ -1,7 +1,7 @@
 # Inventory data contract
 
-`scripts/infographic.py` accepts UTF-8 JSON, schema version 1 or 2; `scripts/collect.py` writes version 2
-from a run. Relative evidence paths resolve from the inventory's directory. Evidence files are read
+`scripts/dashboard.py` accepts UTF-8 JSON, schema version 2, which `scripts/collect.py` writes from a
+run. Relative evidence paths resolve from the inventory's directory. Evidence files are read
 locally; neither manuscript text nor chart data is sent to a service. Only the Python dependency
 installation needs network access when uncached.
 
@@ -15,22 +15,23 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `1` or `2`. Version 1 files remain valid; the version 2 fields below are optional. |
+| `schema_version` | `2`. |
 | `title` | Descriptive title; avoid a claim about measured detection performance. |
 | `run_id` | Existing run identifier, or a descriptive identifier for a report without a manifest. |
 | `scope` | Versions and review scope, including whether findings are selected or the review is partial. |
 | `coverage` | One record per relevant skill: `skill`, `status`, `note`, `evidence`. |
 | `findings` | One record per underlying problem; an empty list means no recorded findings within this stated scope. |
 | `changes` | One record per distinct proposed or applied edit, independently of finding counts. |
-| `limitations` | Plain-language limitations to retain in the graphic and dashboard. |
+| `limitations` | Plain-language limitations to retain in the dashboard. |
 | `illustrative` | Optional Boolean, default false. Set true for synthetic examples; every output labels them. |
-| `manuscript` | v2: `title`, `version`, `sha256` and `sections` in manuscript order, for the heat grid. |
-| `signals` | v2: raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
-| `dismissed` | v2: flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
-| `not_checked` | v2: checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
-| `decisions` | v2: choices only the authors can make: `id`, `summary`, `finding_ids`. |
-| `panel` | v2: `readers` (`seat`, `takeaway`, `stopped_at`, `next`) and referee `recommendations` (`seat`, `venue`, `recommendation`, `reason`). |
-| `reference` | v2: a review to compare with; [below](#reference-review). |
+| `manuscript` | `title`, `version`, `sha256` and `sections` in manuscript order, for the heat grid. |
+| `signals` | raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
+| `dismissed` | flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
+| `not_checked` | checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
+| `decisions` | choices only the authors can make: `id`, `summary`, `finding_ids`. |
+| `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
+| `reference` | a review to compare with; [below](#reference-review). |
+| `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused` and `unknown`. A completed
 command is not evidence that its skill covered the whole manuscript. Coverage needs at least one
@@ -58,7 +59,8 @@ Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment
 
 A change has `id`, `kind`, `section`, `summary`, `status` (`applied` or `proposed`), `finding_ids`,
 `before`, `after` and `evidence`. Use null for the before text of an addition or after text of a deletion;
-at least one must contain text. Applied before/after text must occur in its cited evidence files.
+at least one must contain text. An addition names `anchor`, the verbatim passage it follows, so that
+the corrected version can place it; a replacement has no anchor. Applied before/after text must occur in its cited evidence files.
 An applied edit must be checked against the accepted revision, not inferred from a comparison's
 `shown_in_chat` field. Independent prose improvements may have an empty `finding_ids` list.
 

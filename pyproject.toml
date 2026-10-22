@@ -17,7 +17,7 @@ dev = [
     "beautifulsoup4>=4.12",
     "pillow>=10",
     "filelock>=3",
-    "vl-convert-python>=1.9,<2",
+    "markdown-it-py>=3",
 ]
 
 [tool.uv]
