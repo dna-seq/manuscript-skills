@@ -453,7 +453,9 @@ __REVISION_HTML__
   if (inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
   if (inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
   if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
-  if (inv.panel && (inv.panel.readers.length || inv.panel.recommendations.length || (inv.panel.reviewers || []).length)) tabs.push(['panel', 'Reviewers and readers', null]);
+  if (inv.panel && (inv.panel.recommendations.length || (inv.panel.reviewers || []).length))
+    tabs.push(['reviewers', 'Reviewers', (inv.panel.reviewers || []).reduce((n, r) => n + r.concerns.length, 0) || null]);
+  if (inv.panel && inv.panel.readers.length) tabs.push(['readers', 'Readers', null]);
   tabs.push(['coverage', 'Coverage and limits', null]);
   const app = document.getElementById('app'), nav = document.getElementById('nav'), panels = {};
   for (const [key, label, n] of tabs) {
@@ -471,7 +473,9 @@ __REVISION_HTML__
     if (key === 'manuscript') requestAnimationFrame(layoutRail);
     if (location.hash.slice(1) !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
-  window.addEventListener('hashchange', () => { const key = location.hash.slice(1); if (panels[key] && key !== current) selectTab(key); });
+  const OLD = {panel: panels.reviewers ? 'reviewers' : 'readers'};  // the tab that held both before 0.9.1
+  const address = () => { const key = location.hash.slice(1); return OLD[key] || key; };
+  window.addEventListener('hashchange', () => { const key = address(); if (panels[key] && key !== current) selectTab(key); });
 
   // ---------- shared filters (Problems and Manuscript) ----------
   const F = {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: '', ai: ''};
@@ -1094,8 +1098,9 @@ __REVISION_HTML__
   })();
 
   // ---------- panel ----------
-  if (panels.panel) (function panel() {
-    const p = panels.panel, P = inv.panel;
+  if (panels.reviewers || panels.readers) (function panel() {
+    let p = panels.reviewers || panels.readers;
+    const P = inv.panel;
     const ROUND_LABEL = {'': 'Default panel', readers: 'Default panel'};
     const roundOf = r => r.round || '';
     const rounds = [...new Set(P.readers.map(roundOf))];
@@ -1199,7 +1204,8 @@ __REVISION_HTML__
     }
 
     if (P.readers.length) {
-      p.append(h('h2', {class: 'sec', style: 'margin-top: 24px'}, 'Simulated readers'));
+      p = panels.readers;
+      p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'Simulated readers'));
       if (rounds.length > 1) {
         const pick = h('select', {'aria-label': 'Reader panel'}, rounds.map(r => h('option', {value: r, selected: r === best ? true : null},
           `${ROUND_LABEL[r] || r} (${P.readers.filter(x => roundOf(x) === r).length} readers${P.readers.some(x => roundOf(x) === r && x.path.length) ? ', reading paths' : ''})`)));
@@ -1246,7 +1252,7 @@ __REVISION_HTML__
   window.addEventListener('resize', () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(layoutRail); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutRail);
   refresh();
-  const asked = location.hash.slice(1);
+  const asked = address();
   selectTab(panels[asked] ? asked : 'overview');
 })();
 </script>

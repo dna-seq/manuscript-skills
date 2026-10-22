@@ -102,7 +102,8 @@ uv run --script scripts/dashboard.py RUN/manuscript-visualize/findings.json \
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits; the
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
-  adjudication's verdict, grouped by who can act) and the readers' paths; and what could not be checked. Each tab has an address, so
+  adjudication's verdict, grouped by who can act); the readers' paths, in a tab of their own; and what
+  could not be checked. Each tab has an address, so
   `dashboard.html#manuscript` opens the annotated paper itself. Evidence keeps file names only, never
   local paths. It follows the system light or dark theme.
 - `summary.json`: every derived count, with the evidence files' hashes.
