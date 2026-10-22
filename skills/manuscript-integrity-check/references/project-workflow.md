@@ -151,7 +151,9 @@ coordinator instead of reading the paper. These rules hold in every skill that r
 5. **Record how each seat ran.** Register its output with `--isolation fresh-agent`, or `--isolation
    one-agent` under the fallback below. `runs.py validate` refuses a completed story or peer-review stage
    whose reader, referee, seat or defence output does not say, and the dashboard shows which seats were
-   not independent.
+   not independent. For a run registered before this rule, `runs.py isolation RUN --skill SKILL --path
+   PATH --isolation fresh-agent --basis "..."` records how an output already in the run was produced,
+   with what shows it; a record already made is never changed.
 6. **Fallback only when the host cannot start agents at all**, not because a stage was delegated, is slow
    or runs in the background (a host that reports completion can run seats in the background). Then one
    agent reads once per seat, in order, writes each seat's answer before taking the next and never revises

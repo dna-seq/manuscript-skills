@@ -334,6 +334,31 @@ def execute(ctx: typer.Context, run: Path, skill: Annotated[str, typer.Option('-
 
 @app.command()
 @serialized
+def isolation(run: Path, skill: Annotated[str, typer.Option('--skill')], path: Annotated[str, typer.Option('--path')],
+              isolation: Annotated[Isolation, typer.Option('--isolation')],
+              basis: Annotated[str, typer.Option('--basis', help='What shows how it ran: a manifest note, the briefs')]) -> None:
+    """Record how a reader, referee, seat or defence output already in the run was produced, for a run registered
+    before outputs had to say it. Only a missing record is filled, with its basis and date; one already recorded
+    is never changed."""
+    data = read(run)
+    entry = ensure_skill(data, skill)
+    item = next((a for a in entry['artifacts'] if a['path'] == path), None)
+    if item is None or item['role'] not in PANEL:
+        raise typer.BadParameter(f"{path} is not a reader, referee, seat or defence output of {skill} in this run.")
+    if item.get('isolation') in ISOLATION_LABEL:
+        raise typer.BadParameter(f"{path} already records how it ran ({ISOLATION_LABEL[item['isolation']]}).")
+    item['isolation'] = isolation.value
+    item['isolation_recorded'] = {'recorded_at': now(), 'basis': basis}
+    entry['issues'].append({'kind': 'isolation_recorded_later', 'recorded_at': now(),
+                            'message': f"{path}: recorded later as {ISOLATION_LABEL[isolation.value]}. Basis: {basis}"})
+    if isolation == Isolation.one_agent:
+        entry['issues'].append({'kind': 'not_independent', 'recorded_at': now(), 'message':
+            f"{item.get('seat') or item['role']}: read by one agent in turn, not independent; its agreement with other seats is not corroboration."})
+    save(run, data)
+
+
+@app.command()
+@serialized
 def issue(run: Path, skill: Annotated[str, typer.Option('--skill')],
           kind: Annotated[str, typer.Option('--kind')], message: Annotated[str, typer.Option('--message')]) -> None:
     """Record a contradiction, blocked source, failed check or later resolution without erasing earlier evidence."""
