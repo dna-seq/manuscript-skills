@@ -1,27 +1,29 @@
 # Manuscript Skills
 
-Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of fourteen focused skills: review a manuscript
-before submission, check its references, reporting and statistics, clarify which ethics and privacy
-rules apply, simulate the referees of a target journal, improve the prose, remove formulaic AI phrasing,
-make the paper interesting to its readers again without changing its science or direction, choose where to preprint and
-submit, prepare for a journal, answer referees after a decision, visualize what the reviews caught and
-changed, or keep track of who revised each passage and which AI edits no person has reviewed yet.
-They work with manuscripts written with or without AI assistance.
+Skills that help scientists prepare manuscripts for publication, for
+[Claude Code](https://claude.com/claude-code) and [Codex](https://github.com/openai/codex) (AI assistants
+that work with the files on your computer). They review a draft, check its references, simulate the
+referees of a target journal, edit the prose, choose and prepare for a journal, and answer the referees
+after a decision. They work with manuscripts written with or without AI assistance.
 
-The aim is to help you publish sound research with less avoidable delay, expense and paperwork. Journal
-recommendations take account of the research you have done, the validation you can afford and your
-publication priorities. You decide which journal to pursue and how to handle uncertain or burdensome
-requirements.
+Start with `manuscript-improve`. One request runs the relevant checks and edits across the whole paper
+and ends with a corrected version and a dashboard of what the run found. For a single task, use
+[one of the fourteen focused skills](#choose-the-task-you-need).
+
+The aim is to help you publish sound research with less avoidable delay, expense and paperwork. You
+decide which journal to pursue and how to handle uncertain or burdensome requirements. Made by
+[DNA Seq](https://github.com/dna-seq) and released under the MIT licence.
 
 ## What a run gives you
 
 ![The Overview of a manuscript-improve dashboard: 114 confirmed problems, what to fix now, the journals to target, AI-policy red flags, the corrected version and the coverage of every skill](docs/images/dashboard-overview.png)
 
-Every `manuscript-improve` run ends with one offline file, `manuscript-dashboard.html`. This one is from
-a blind run on a real software paper (draft v0.3 of Just-DNA-Lite), compared afterwards with a co-author's
-review of the same draft: 114 confirmed problems, each counted once however many skills found it, sorted
-by what to fix now, and the corrected version of the whole paper beside the original.
+Every `manuscript-improve` run ends with `manuscript-dashboard.html`, one file that opens offline in a
+browser. The dashboard above is from a run on draft v0.3 of a real software paper, Just-DNA-Lite. The
+run found 114 confirmed problems, each counted once however many skills found it, and sorted them by
+what to fix now. A co-author had reviewed the same draft separately; the run saw neither that review nor
+any later version of the paper. Of the co-author's 125 points, the run found 79 (27 of them only in
+part) and missed 46.
 
 <table>
 <tr>
@@ -29,158 +31,78 @@ by what to fix now, and the corrected version of the whole paper beside the orig
 <td width="50%"><img src="docs/images/dashboard-revised.png" alt="The corrected version as track changes, with the list of applied and proposed edits"><br><b>The corrected version</b> as track changes: routine fixes applied, every substantive change a proposal you accept or not.</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/images/dashboard-journals.png" alt="The three chosen journals with their AI policies as icons"><br><b>The journals</b> chosen by your priorities, each AI rule as an icon, with a red flag for a drafting ban, required prompts or records of AI changes, a detector, or declared use held against you.</td>
-<td width="50%"><img src="docs/images/dashboard-reviewers.png" alt="The simulated reviewers' concerns, each with its suggestion and the adjudication's verdict"><br><b>The simulated reviewers</b>: a recommendation per journal and every concern with its suggestion, the verdict and who can act on it.</td>
+<td width="50%"><img src="docs/images/dashboard-journals.png" alt="The three chosen journals with their AI policies as icons"><br><b>The journals</b> chosen by your priorities, each AI rule shown as an icon, and a red flag for rules that can cost you, such as a ban on AI drafting or an AI detector.</td>
+<td width="50%"><img src="docs/images/dashboard-reviewers.png" alt="The simulated reviewers' concerns, each with its suggestion and the adjudication's verdict"><br><b>The simulated reviewers</b>: a recommendation per journal, and every concern with its suggestion, whether it held up when checked against the paper, and who can act on it.</td>
 </tr>
 </table>
 
+## Quick start
+
+1. **Install the plugin.** In Claude Code, run:
+
+   ```bash
+   claude plugin marketplace add dna-seq/dna-seq-claude-marketplace
+   claude plugin install manuscript-skills@dna-seq
+   ```
+
+   In Codex, install **manuscript-skills** from the **DNA Seq Genomics** marketplace. The checks also
+   need [uv](https://docs.astral.sh/uv/), a small tool that runs the plugin's Python scripts.
+2. **Share the manuscript, its supplements and its code.** Start the assistant in the manuscript's
+   folder or give it the file paths. Markdown, plain text and LaTeX (with its bibliography files) are
+   read directly; for Word or Google Docs, provide an export or use a document connection the assistant
+   has. With the code repository, the paper's numbers and descriptions of its software are checked
+   against the code, results and run logs.
+3. **Ask in plain words**, for example:
+
+   > Use manuscript-improve to improve this paper for submission. Show the before/after changes and
+   > identify any decisions I need to make.
+
+   By default a run applies routine fixes and proposes every substantive change. Ask for a report only
+   if you want nothing applied.
+
+On first use the assistant asks only for what it cannot find (the manuscript files, any code repository
+and where to save reports) and remembers the answers for that manuscript.
+
 ## Choose the task you need
 
-| Your task | Skill | What you receive |
+| Your task | Skill | What you get |
 |---|---|---|
-| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | A coordinated workflow using the relevant skills below, in one of three modes (report only, routine fixes by default, or every change). You get the corrected version of the whole paper with track changes, kept beside your file until you accept it, a dashboard of what the run found and changed, and one summary of what is left, grouped by when it can be done, with the decisions that are yours. |
-| Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
-| Deslop scientific writing | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Removes formulaic LLM phrasing, boilerplate and empty rhetoric while preserving scientific meaning and author voice. Also audits without editing; owns the shared pattern catalogue and style checker. |
-| Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The last step of every improvement run. Collects each skill's findings from the run, merges what several skills found into one problem, and renders an offline dashboard: problems by kind, severity, stage, section and skill, coverage, the funnel from raw signals to confirmed problems, edits as before/after diffs, the reader and referee panels, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, and, against a reference review such as a co-author's comments on the same version, what was caught and why the rest was missed. |
-| Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
-| Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
-| Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
-| Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | A report of unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and applicable submission requirements, with suggested fixes, grouped by when each can be done. |
-| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | The reports three simulated referees would send from your target journal (or each of the top three on your ladder), each with a recommendation, strengths, and major and minor concerns that quote the paper; then the list of what to fix, in the order you can act on it, with the work only you can do. No scores or acceptance predictions. It can also draft your report on a paper you were invited to referee. |
-| Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ladders, preprint servers and journals, ordered by your priorities (speed, reach, AI-policy burden, cost) after checking scientific fit, validation requirements, fees and the agreements that pay them, open-science preferences, review timing and AI policies, with the rule that decides each venue quoted and linked to its page; and what every venue on the ladders asks for, so the shared sections can be adapted before you choose. |
-| Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Changes to length, structure and required statements, shown before and after, plus submission materials and a concise AI-use disclosure where needed. What waits until the code and results are final is listed separately. |
-| Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | An assessment of which clinical, ethics or privacy requirements apply, with the policy text quoted and linked, precise wording and drafts of scope clarifications or replies to policy questions. |
-| Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A plan of the referees' comments in their own numbering with the decisions you need to make, a point-by-point response letter tied to the changes you made, and a check that the revision addresses each comment. |
-| See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | Revision marks in a Markdown or LaTeX manuscript checked and reported: the passages each review comment changed, in how many rounds and by whom, the prose no round has read, the AI edits no person has reviewed since, a heat map and a review PDF with those edits shaded, and a PDF build from the clean copy measured against a page limit. |
-| List the people behind the marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots, proposed for you to confirm, so that an unlisted name never counts as a person's review. |
+| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | The skills below as one workflow, ending with the corrected paper as track changes beside your file, a dashboard, and the decisions left to you. |
+| Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and your voice. Each sentence is checked: no claim grows stronger, no number, citation, scientific term, qualifier or null result changes, and no AI phrasing is added. |
+| Remove AI phrasing ("deslop") | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Stock LLM phrasing, boilerplate and empty rhetoric cut while the science and your voice stay, or only a list of the patterns. |
+| Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | Simulated readers say where they would stop reading; edits then fix the opening, the result headlines and where caveats sit. The science and every caveat stay, and a change of direction is only ever offered as options. |
+| Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | Unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and submission requirements, with suggested fixes. |
+| Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Each reference's identity and authors, retractions, withdrawn preprints and preprints since published, and whether the sources support the claims that carry the paper, with the passage quoted. |
+| Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines for your study design (CONSORT, STROBE, PRISMA, ARRIVE and others). It also checks that your data, code and software can be found, and how statistics are reported. |
+| Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | Reports from three simulated referees at your target journal, each quoting the paper, then what to fix first, including the work only you can do. No scores or acceptance odds. It can also draft your report when you are the referee. |
+| Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | Which clinical, ethics or privacy requirements apply, with the policy quoted and linked, and drafts of scope clarifications or replies to policy questions. |
+| Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. |
+| Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Length, structure and required statements adapted to the journal and shown before and after, plus submission materials and an AI-use disclosure where needed. |
+| Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A revision plan in the referees' own numbering with the decisions you need to make, a point-by-point response letter, and a check that the revision answers each comment. |
+| Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest. |
+| See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, and a PDF measured against a page limit. |
+| List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
 
-You can request any of these independently. Editing a paragraph does not require a full manuscript
-review. A full submission review includes reference checks where relevant.
+Each skill also works on its own: a paragraph edit needs no full manuscript review, and a full
+submission review includes the reference checks where relevant. Skills cover the whole paper by default;
+you can ask for selected sections or one stage at a time instead.
 
-**Each skill works across the whole paper by default for the task you request.** You can ask to work
-through selected sections or review one stage at a time, and change that preference as you go.
+## What leaves your computer
 
-## Start with your manuscript
+- Reference and availability checks look up public identifiers online: DOIs, PMIDs, accessions,
+  package names and links in the text. A reference without a working identifier is searched in Crossref
+  by its own text. Nothing else from the manuscript is sent.
+- Journal requirements are read from the journals' own pages.
+- AI-text detector checks run only when you ask. The default detector runs on your computer; a hosted
+  one requires your agreement before the manuscript is sent to it.
+- Reports, the corrected version and the dashboard are saved in the manuscript project or the output
+  folder you chose, with the evidence behind each finding. Unrelated downloads may still use temporary
+  storage.
 
-Once the plugin is installed, share your manuscript with the assistant and describe what you want done.
-You can use ordinary language or name a skill from the table above.
+## More details
 
-The skills read Markdown, plain text and LaTeX directly; with LaTeX, include the bibliography files,
-because the reference checks read them. For Word or Google Docs, use a document connection your
-assistant has, or provide an export, and for a passage edit paste the passage.
-
-Add the context that matters to your request: a target journal, article type, publication budget or
-deadline, for example. For journal selection, explain which additional analyses or experiments are
-feasible. If you have already received an editorial decision, include the relevant comments. The
-assistant uses what you provide and asks about missing facts that would change its answer.
-
-On first use with a manuscript project, the assistant asks only for missing context: the authoritative
-manuscript and supplements, connected code repositories (none or unknown are valid), and the folder in
-which to save skill runs. Choices are saved in `.manuscript-skills.yaml` in that manuscript project and
-reused by every skill. A later skill or revision does not restart the questions. An explicit request or
-a material inconsistency, such as a missing source or inaccessible destination, prompts only the needed
-question. Related papers can be linked without sharing or overwriting their separate choices.
-
-Current conversation instructions override saved project choices; project choices override global
-defaults in `~/.config/manuscript-skills/settings.yaml` on Linux. `project.py resolve SOURCE --json`
-reads that hierarchy without changing it. A one-run override is not a lasting preference.
-
-Every run has an index and one subfolder per applied skill. Reports, actual reader/referee responses,
-checks, contradictions, blocked sources, failed attempts and before/after passages remain inspectable.
-The reply links the index and reports. Failed commands survive a successful retry; unrun and incomplete
-stages are labeled. `runs.py validate RUN --final` checks delivery artifacts and panel coverage. It
-cannot establish scientific correctness or verify that the conversation actually displayed an excerpt.
-See the shared [project and run contract](skills/manuscript-integrity-check/references/project-workflow.md)
-for setup, command examples and the limits of these checks.
-
-`reports: file` gives the headline and urgent findings in chat; `chat` and `both` show the whole report
-there. The run evidence stays saved in every mode. The `edits` setting is the mode of an improvement
-run: `propose` reports only, `conservative` (the default) applies routine corrections that preserve
-meaning and proposes consequential argument, claim or numerical changes, and `apply` makes authorized
-substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the
-whole improved paper before accepting it. Exact consequential before/after text is shown promptly in chat
-even with file reports.
-
-Whole-manuscript improvement now defaults to `peer_review: auto`: three formal referees plus a defender.
-Save `on-request` or `off` for a different project preference. This does not expand focused tasks into
-peer review. Story review has its own simulated readers: by default a skimmer, a potential user and an
-informed outsider, or the audiences you save for the project (`project.py configure ROOT --reader
-"clinician: ..." --reader ...`). Each reads in its own order, and the panel reports where each would
-close the paper, not just where attention dipped. They do not replace scientific referees.
-
-Questions do not stop independent work. The assistant collects proposals and missing facts while
-finishing the checks and edits it can complete without your answers. If asynchronous questions are
-available, it can ask while continuing; otherwise it presents the remaining decisions together after
-that work is done. Only the dependent work waits, and silence never counts as approval. You can still
-request a pause or a checkpoint after each section or stage.
-
-## Improve a manuscript from draft to submission
-
-Use `manuscript-improve` to coordinate the focused skills:
-
-> Use manuscript-improve to improve this paper for submission. Review the claims and references, check
-> applicable policies, recommend suitable journals, edit the prose and adapt the paper to the chosen
-> journal. Use our existing context, show the before/after changes and identify any decisions I need
-> to make.
-
-A useful sequence is:
-
-1. **Review the draft and references.** Identify unsupported claims, citation problems, inconsistent
-   numbers, reporting gaps and missing material through the integrity, reference and reporting checks.
-   The project's referee policy then supplies a simulated panel, automatically by default for this full workflow.
-2. **Resolve scope and choose a journal.** Use policy-fit assessment where the study raises clinical,
-   ethics or privacy questions, then order the preprint servers and journals that fit your research and
-   publication budget into two ladders by your priorities, and adapt what every venue on them shares.
-   Use your existing target if you have already chosen one.
-3. **Revise the paper.** Correct supported problems and improve the prose while preserving the results
-   and their qualifications. Identify substantive claim changes separately from language edits. Remove
-   the formulaic AI phrasing the draft already has (deslop). Then check how the revised paper reads to
-   its readers, against the version you started from, and repair the story within the direction you
-   chose.
-4. **Prepare for the chosen journal.** Apply its length, structure and section requirements and draft the
-   required statements and submission materials.
-5. **Check the changes and show them.** Verify affected citations, claims and submission requirements,
-   build the corrected version (every applied edit and every proposal, one choice per contested
-   passage, with track changes), and render the dashboard of what the run found, changed and left open.
-6. **Finish for submission.** Once the code, data and results are final, archive the release, complete the
-   declarations, the AI-use statement and the cover letter, and check the files you will upload. These
-   items wait until then and do not hold up work on a draft.
-
-The skills contribute to the same manuscript and share findings across these steps. Some tasks may
-already be complete or unnecessary for your study. By default, the assistant works across the whole
-paper and continues through the authorised stages. Preparing a manuscript does not itself submit it
-to a journal. When a decision arrives, `manuscript-reviewer-response` takes over: it plans the revision
-from the referees' comments, drafts the response letter and checks it against the revised manuscript.
-
-For work that spans several sessions, the assistant can keep a small
-[shared record](skills/manuscript-integrity-check/references/manuscript-record.md) beside the manuscript
-with the chosen journal or the ladders, your priorities, completed checks and open issues, so that later
-steps reuse earlier work. It is created when the work spans sessions, when journal selection records
-your priorities and ladders, or when you ask for it. Everything you are meant to open (a saved report, a
-ladder, a heat map, a response letter) stays in the project or its configured output folder. The run
-retains the evidence behind its findings; unrelated downloads may still use temporary storage.
-
-## Choose how to review the work
-
-You can ask for review points when using an individual skill or the full workflow:
-
-- **By section:** "Edit the whole paper, section by section. Show before/after changes for each section
-  and wait for my response before moving on." You can also name a single subsection to work on.
-- **By stage:** "Use manuscript-improve one stage at a time. Cover the whole paper at each stage and
-  let me review the findings or changes before continuing."
-- **Before applying edits:** "Prepare proposed changes separately. Show me the original and proposed
-  text, and wait for me to accept them before updating the manuscript."
-- **With an interview:** "Interview me about the decisions we need to make." This can cover journal
-  priorities, scientific wording, restructuring or how to handle review findings. You can limit the
-  interview to one decision or stage.
-
-Before/after review uses a diff, tracked changes where available or the original and revised passage.
-For a stage such as journal selection, you review the recommendations and tradeoffs. Accepted edits
-and decisions carry into the next step; you can ask to revisit them. Section review, stage checkpoints
-and interviews start when you request them. Otherwise, the assistant completes the whole-paper task
-using the supplied context and asks only for missing information that changes the work.
-
-## Requests you can reuse
+<details>
+<summary><b>Example requests</b></summary>
 
 For a prose edit:
 
@@ -193,8 +115,8 @@ For deslop:
 > uncertainty, numbers and citations. Show the consequential changes.
 
 Use `manuscript-deslop` for a focused pattern check or cleanup, and `manuscript-prose-edit` for broader
-language editing. You can also ask to identify the patterns without editing. If another plugin supplies
-a humanizer, selecting `manuscript-deslop` identifies this plugin's manuscript-specific workflow.
+language editing; either can list the patterns without editing. If another installed plugin also offers
+a "humanizer", name `manuscript-deslop` to get this plugin's version, written for manuscripts.
 
 For the review dashboard (manuscript-improve builds it at the end of every run):
 
@@ -222,10 +144,10 @@ For journal selection:
 > text, so explain the relevant writing policies too.
 
 Journal selection first asks a short batch of priorities (speed, reach, AI-policy burden, cost, who
-pays the fee) unless you have already given them, and keeps them in the shared record. You can also ask
-for a fuller interview: what AI did in each section, which AI-policy burdens you refuse, and where named
-colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed since it
-was last read.
+pays the fee) unless you have already given them, and keeps them in the shared record. You can ask for a
+fuller interview instead: what AI did in each section, which AI-policy burdens you refuse, and where
+named colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed
+since it was last read.
 
 For adaptation to a journal:
 
@@ -269,51 +191,143 @@ For a scope or ethics question:
 The policy-fit skill also helps with preprint screening decisions, including papers referred between
 bioRxiv and medRxiv, and drafts factual clarifications based on the notices you received.
 
-## How to interpret the results
+</details>
 
-Reports quote the passage each finding is about and name its section, link anything you need to open (a
-DOI, a database record, a journal's policy page), and are written in plain sentences. The work is grouped
-by when you can do it: first the science and the evidence, then the writing, then what depends on the
-chosen journal, and last what waits until the code, data and results are final, such as archive DOIs,
-declarations, the AI-use statement and the cover letter. Those last items are not problems with a draft.
+<details>
+<summary><b>The full workflow, step by step</b></summary>
+
+A request that names every stage:
+
+> Use manuscript-improve to improve this paper for submission. Review the claims and references, check
+> applicable policies, recommend suitable journals, edit the prose and adapt the paper to the chosen
+> journal. Use our existing context, show the before/after changes and identify any decisions I need
+> to make.
+
+The stages:
+
+1. **Review the draft and references.** The integrity, reference and reporting checks find unsupported
+   claims, citation problems, inconsistent numbers, reporting gaps and missing material. A panel of
+   simulated referees reviews the draft too, by default for this full workflow.
+2. **Resolve scope and choose a journal.** Where the study raises clinical, ethics or privacy questions,
+   the policy-fit assessment says which rules apply. The preprint servers and journals that fit your
+   research and publication budget are then ordered into two ladders by your priorities, and the
+   sections every venue on them shares are adapted. An existing target is used if you have one.
+3. **Revise the paper.** Supported problems are corrected and the prose improved, with the results and
+   their qualifications preserved; substantive claim changes are kept apart from language edits. Then
+   the formulaic AI phrasing the draft already has is removed (deslop), and the story is checked against
+   the version you started from and repaired within the direction you chose.
+4. **Prepare for the chosen journal.** Its length, structure and section requirements are applied, and
+   the required statements and submission materials drafted.
+5. **Check the changes and show them.** Affected citations, claims and submission requirements are
+   verified. The corrected version holds every applied edit and every proposal as track changes, with
+   one choice per contested passage, and the dashboard shows what the run found, changed and left open.
+6. **Finish for submission.** Once the code, data and results are final: archive the code release with a
+   DOI, complete the declarations, the AI-use statement and the cover letter, and check the files you
+   will upload. These items wait until then and do not hold up work on a draft.
+
+The skills work on the same manuscript and share findings across these stages. Some stages may already be
+done or unnecessary for your study. Preparing a manuscript does not submit it to a journal. When a
+decision arrives, `manuscript-reviewer-response` takes over: it plans the revision from the referees'
+comments, drafts the response letter and checks it against the revised manuscript.
+
+For work that spans several sessions, the assistant can keep a small
+[shared record](skills/manuscript-integrity-check/references/manuscript-record.md) beside the manuscript:
+the chosen journal or the ladders, your priorities, completed checks and open issues, so later steps
+reuse earlier work. It is created when the work spans sessions, when journal selection records your
+priorities and ladders, or when you ask for it.
+
+</details>
+
+<details>
+<summary><b>Stopping to review: by section, by stage, or before edits</b></summary>
+
+By default the assistant completes the whole-paper task from the context you gave and asks only for
+missing information that changes the work. You can ask it to stop for review instead, with a single
+skill or the full workflow:
+
+- **By section:** "Edit the whole paper, section by section. Show before/after changes for each section
+  and wait for my response before moving on." You can also name a single subsection to work on.
+- **By stage:** "Use manuscript-improve one stage at a time. Cover the whole paper at each stage and
+  let me review the findings or changes before continuing."
+- **Before applying edits:** "Prepare proposed changes separately. Show me the original and proposed
+  text, and wait for me to accept them before updating the manuscript."
+- **With an interview:** "Interview me about the decisions we need to make." This can cover journal
+  priorities, scientific wording, restructuring or how to handle review findings, or only one decision
+  or stage.
+
+Changes are shown as a diff, as tracked changes where available, or as the original and revised passage;
+for a stage such as journal selection, you review the recommendations and tradeoffs. Accepted edits and
+decisions carry into the next step, and you can ask to revisit them.
+
+While it waits for your answers, the assistant finishes the checks and edits that do not depend on them.
+If it can ask while it works, it does; otherwise it presents the remaining decisions together at the end.
+Only the dependent work waits, and silence never counts as approval.
+
+</details>
+
+<details>
+<summary><b>What to share and which context to add</b></summary>
+
+The skills read Markdown, plain text and LaTeX directly; with LaTeX, include the bibliography files,
+because the reference checks read them. For Word or Google Docs, use a document connection your
+assistant has or provide an export. For a passage edit, paste the passage.
+
+Include the supplements and, when the paper describes software or analyses, its code repository. The
+simulated referees and the reference check read the supplementary files, including their reference
+lists. With the repository, a number that matches no table, a quoted version or a description of what
+the software ships is checked against the project's own files (benchmark tables, run logs, release tags,
+the code that writes the output) before it is reported, and the assistant asks you only what those files
+leave open. The code is context for the review; the skills do not edit it.
+
+Add the context that matters to your request, for example a target journal, article type, publication
+budget or deadline. For journal selection, say which additional analyses or experiments are feasible.
+If you have already received an editorial decision, include the relevant comments. The assistant uses
+what you provide and asks about missing facts that would change its answer.
+
+</details>
+
+<details>
+<summary><b>How to read the results, and their limits</b></summary>
+
+Reports quote the passage each finding is about, name its section, and link anything you need to open
+(a DOI, a database record, a journal's policy page). The work is grouped by when you can do it: first
+the science and the evidence, then the writing, then what depends on the chosen journal, and last what
+waits until the code, data and results are final, such as archive DOIs, declarations, the AI-use
+statement and the cover letter. Those last items are not problems with a draft.
 
 You decide how to handle a journal's policy. If something you ask for conflicts with a journal's rule,
 for example a ban on drafting text with AI, the assistant still does it, names the conflict once with its
 practical consequence and lists it with your other decisions.
 
 Prose editing aims to preserve your scientific meaning, including uncertainty and limitations. The
-assistant reviews the changes and uses checks that can flag altered numbers, citations and terminology,
-and claims that became stronger or lost a qualifier. These checks help catch mistakes; you should still
-review the edited text before using it. A request for "punchier" wording improves the prose without
-raising the certainty of a claim.
+checks can flag altered numbers, citations and terminology, and claims that became stronger or lost a
+qualifier. They help catch mistakes; review the edited text before you use it. A request for "punchier"
+wording improves the prose without raising the certainty of a claim.
 
-The simulated referee panel shows objections early, while you can still act on them. The referees
-review for a real journal whose pages were read for them, and each writes the report a referee would
-send: a recommendation (accept, minor revision, major revision or reject), a summary, strengths, and
-major and minor concerns. A second part turns those reports into your list of what to fix, in the order
-above. Every concern quotes the passage it is about and is checked against the rest of the paper before
-it reaches you. Because the panel has never been calibrated against real editorial decisions, it gives
-no scores, acceptance odds or predicted editorial decision, and its recommendations are labelled as
-coming from simulated referees. Concerns that need new analyses or data are listed for you to decide on;
-nothing is added to the paper on your behalf.
+The simulated referees show objections early, while you can still act on them. Each reviews for a real
+journal whose pages were read for it, and writes the report a referee would send: a recommendation
+(accept, minor revision, major revision or reject), a summary, strengths, and major and minor concerns.
+Every concern quotes the passage it is about and is checked against the rest of the paper before it
+reaches you, and a second part turns the reports into your list of what to fix, in the order above. The
+panel has never been calibrated against real editorial decisions, so it gives no scores, acceptance odds
+or predicted decision, and its recommendations are labelled as coming from simulated referees. Concerns
+that need new analyses or data are listed for you to decide on; nothing is added to the paper on your
+behalf. The story skill's simulated readers do not replace scientific referees either.
 
 Reporting guidelines are checked when they fit your study design; a missing checklist item is a
-requirement only when your target journal asks for that guideline. Reference and availability checks
-look up public identifiers online (DOIs, PMIDs, accessions, package names, and links written in the
-text); for a reference without a working identifier, the reference's own text is searched in Crossref,
-and a match stays a candidate for you to confirm. The rest of the manuscript is not sent anywhere. Data
-under controlled access, such as dbGaP or EGA, is reported as restricted, which the check accepts as a
-legitimate route.
+requirement only when your target journal asks for that guideline. Data under controlled access, such
+as dbGaP or EGA, is reported as restricted, which the availability check accepts as a legitimate route.
 
-Reference checking distinguishes a source's identity from its support for a particular sentence. A DOI
+Reference checking keeps a source's identity apart from its support for a particular sentence: a DOI
 that resolves to the right paper does not establish that the paper supports your claim. The assistant
-reads the relevant source material and identifies what it could not verify; a failed lookup alone is
-not evidence that a reference was invented.
+reads the relevant source material and says what it could not verify; a failed lookup alone is not
+evidence that a reference was invented. A Crossref match for a reference without a working identifier
+stays a candidate for you to confirm.
 
 Journal coverage is strongest in bioinformatics, genomics, genetics and aging research. The catalogue
 also includes preprint servers and policy notes for machine-learning conferences. Entries have sources
-and dates, but some are incomplete and policies change. The assistant checks current requirements that
-affect its recommendations and reports material uncertainties. Review-time comparisons distinguish
+and dates, but some are incomplete and policies change, so the assistant checks the current requirements
+that affect its recommendations and reports material uncertainties. Review-time comparisons distinguish
 initial editorial decisions from decisions after external peer review.
 
 For ethics and privacy questions, the assessment depends on what the study actually did, the data used
@@ -322,40 +336,60 @@ involving recruited participants can raise different requirements. Applicable ex
 a missing declaration alone does not establish that an approval was required.
 
 AI-use statements draw on your account of what the tools did and the journal's required fields and
-exemptions. Optional AI-text detector checks run only when requested. Their scores measure style and are
-often wrong: they cannot show who wrote a passage, and a low score guarantees nothing at submission. A
-hosted detector requires your agreement before the manuscript is sent to that service.
+exemptions. Detector scores measure style and are often wrong: they cannot show who wrote a passage,
+and a low score guarantees nothing at submission.
 
-## Installation
-
-Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all fifteen skills.
-
-In **Codex**, install it from the **DNA Seq Genomics** marketplace.
+</details>
 
 <details>
-<summary>Installation commands for Claude Code</summary>
+<summary><b>Settings and saved runs</b></summary>
 
-From the DNA Seq marketplace:
+On first use with a manuscript project, the assistant saves your answers in `.manuscript-skills.yaml`
+in that project, and every skill reuses them, so a later skill or revision does not restart the
+questions. It asks again only when you request it or something no longer matches, such as a missing
+source or a destination it cannot reach. Related papers can be linked without sharing or overwriting
+their separate choices.
 
-```bash
-claude plugin marketplace add dna-seq/dna-seq-claude-marketplace
-claude plugin install manuscript-skills@dna-seq
-```
+Ask the assistant to change a setting for one request or for the project. What you say in the
+conversation overrides the project's saved choices, and those override your global defaults in
+`~/.config/manuscript-skills/settings.yaml` on Linux. A one-run override is not a lasting preference.
 
-Or directly from this repository:
+| Setting | Choices (default first) | What it changes |
+|---|---|---|
+| `edits` | `conservative`, `propose`, `apply` | How much an improvement run changes by itself. `conservative` applies routine corrections that preserve meaning and proposes consequential argument, claim or numerical changes; `propose` only reports; `apply` makes authorised substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the whole improved paper before accepting it, and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
+| `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |
+| `readers` | a skimmer, a potential user and an informed outsider | Who reads the paper for `manuscript-story`. Each reads in its own order and says where it would close the paper, not just where attention dipped. Save your own audiences with `project.py configure ROOT --reader "clinician: ..." --reader ...`. |
+
+Every run has an index and one subfolder per applied skill. Reports, the simulated readers' and
+referees' actual responses, checks, contradictions, blocked sources, failed attempts and before/after
+passages stay there to inspect, and the assistant's reply links the index and reports. Failed commands
+are kept after a successful retry, and stages that did not run or did not finish are labelled.
+`runs.py validate RUN --final` checks the delivered files and panel coverage; it cannot establish
+scientific correctness or verify that the conversation actually displayed an excerpt.
+`project.py resolve SOURCE --json` shows the settings in force without changing them. The shared
+[project and run contract](skills/manuscript-integrity-check/references/project-workflow.md) has setup,
+command examples and the limits of these checks.
+
+</details>
+
+<details>
+<summary><b>Other ways to install, and what else the checks need</b></summary>
+
+To install in Claude Code directly from this repository instead of the DNA Seq marketplace:
 
 ```bash
 claude plugin marketplace add dna-seq/manuscript-skills
 claude plugin install manuscript-skills@manuscript-skills
 ```
 
-</details>
+The plugin installs all fifteen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
+the computer running the assistant; their dependencies install on first use. Building a PDF from a
+marked manuscript also needs the document tools [pandoc](https://pandoc.org/) and
+[tectonic](https://tectonic-typesetting.github.io/), which uv does not install. Looking up references
+and current journal policies requires internet access. Ask the assistant to check the setup if needed.
 
-The automated checks require [uv](https://docs.astral.sh/uv/) on the computer running the assistant;
-their dependencies install on first use. Building a PDF from a marked manuscript also needs
-[pandoc](https://pandoc.org/) and [tectonic](https://tectonic-typesetting.github.io/), which uv does not
-install. Ask the assistant to check the setup if needed. Looking up
-references and current journal policies requires internet access.
+</details>
 
 ## Development
 
