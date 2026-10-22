@@ -1028,6 +1028,20 @@ def ladder(
                        f"| {_sentence(_jif(v))} | {_sentence(work)} | {verdict(v, ai_use)} "
                        f"| {_sentence(fee_eur(v)[1])} | {_preprint_cell(v, venues, journal, preprints)} |")
         typer.echo(printed[-1])
+    if Priority.speed in priorities:
+        # Publishers count first decisions over different papers: with desk rejections, after peer review only,
+        # or over published papers only. Ranking such figures against each other orders the counting, not the speed.
+        kinds = {}
+        for v in rows:
+            m = _first_decision(v)
+            if m:
+                kinds.setdefault(", ".join(str(m[k]) for k in ("statistic", "population") if m.get(k)) or "not described",
+                                 []).append(_name(v))
+        if len(kinds) > 1:
+            typer.echo("\nThe first-decision figures are not like for like: " + "; ".join(
+                f"{_and(names)}: {kind}" for kind, names in kinds.items()) + ". Before letting speed decide between "
+                "these journals, compare a like-for-like measure, such as submission to publication for a sample of "
+                "recent papers in each, and say in the report which order that gives.")
     for p in priorities:
         missing = [_name(v) for v in rows if priority_value(v, p, journal) is None]
         if missing:

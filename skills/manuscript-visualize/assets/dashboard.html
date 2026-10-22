@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f1f0ec; --ink: #0b0b0b; --ink-2: #52514e;
+  --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-ink: #1c5cab; --focus: #2a78d6; --deemph: #c3c2b7;
+  /* One meaning for colour: severity, on a single red scale. */
+  --sev-blocker: #8f1f1f; --sev-major: #d03b3b; --sev-minor: #ec835a; --sev-info: #f0b9a3; --sev-unknown: #c3c2b7;
+  --hl-blocker: rgba(208,59,59,0.46); --hl-major: rgba(208,59,59,0.28); --hl-minor: rgba(236,131,90,0.22);
+  --hl-info: rgba(236,131,90,0.10); --hl-unknown: rgba(195,194,183,0.35); --hl-active: #8f1f1f;
+  --b-full: #2a78d6; --b-partial: #1baf7a; --b-missed: #eb6834;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --heat-1: #fbe3dc; --heat-2: #f6c2b3; --heat-3: #ef9a85; --heat-4: #e06b57; --heat-5: #c4433a; --heat-6: #8f1f1f;
+  --heat-ink-lo: #0b0b0b; --heat-ink-hi: #ffffff;
+  --ins: rgba(27,175,122,0.20); --del: rgba(227,73,72,0.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-ink: #86b6ef; --focus: #6da7ec; --deemph: #52514e;
+    --sev-blocker: #ffb0b0; --sev-major: #e66767; --sev-minor: #ec835a; --sev-info: #8a5a48; --sev-unknown: #52514e;
+    --hl-blocker: rgba(230,103,103,0.55); --hl-major: rgba(230,103,103,0.36); --hl-minor: rgba(236,131,90,0.30);
+    --hl-info: rgba(236,131,90,0.14); --hl-unknown: rgba(82,81,78,0.5); --hl-active: #ffb0b0;
+    --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
+    --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
+    --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
+    --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --accent-ink: #86b6ef; --focus: #6da7ec; --deemph: #52514e;
+  --sev-blocker: #ffb0b0; --sev-major: #e66767; --sev-minor: #ec835a; --sev-info: #8a5a48; --sev-unknown: #52514e;
+  --hl-blocker: rgba(230,103,103,0.55); --hl-major: rgba(230,103,103,0.36); --hl-minor: rgba(236,131,90,0.30);
+  --hl-info: rgba(236,131,90,0.14); --hl-unknown: rgba(82,81,78,0.5); --hl-active: #ffb0b0;
+  --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
+  --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
+  --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
+  --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26);
+}
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.app { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--surface); border-right: 1px solid var(--grid); padding: 18px 14px 24px; display: flex; flex-direction: column; gap: 16px; }
+.side h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); margin: 0 0 6px; font-weight: 650; }
+.brand strong { display: block; font-size: 14px; line-height: 1.3; }
+.brand span { display: block; color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+.nav { display: grid; gap: 2px; }
+.nav button { text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 10px; cursor: pointer; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.nav button:hover { background: var(--surface-2); }
+.nav button[aria-selected="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.nav .n { color: var(--ink-2); font-variant-numeric: tabular-nums; font-weight: 400; }
+.filters { display: grid; gap: 6px; }
+.filters input, .filters select { width: 100%; background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+.filters .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
+.ghost { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
+.ghost:hover { background: var(--surface-2); }
+.legend { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.legend .item { display: flex; gap: 8px; align-items: center; background: none; border: 0; padding: 2px 0; text-align: left; cursor: pointer; color: inherit; }
+.legend .item.on { color: var(--ink); font-weight: 600; }
+.toc { display: grid; gap: 1px; font-size: 12.5px; }
+.toc button { background: none; border: 0; text-align: left; padding: 3px 6px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; color: var(--ink-2); }
+.toc button:hover { background: var(--surface-2); color: var(--ink); }
+.toc button.sub { padding-left: 18px; }
+.toc .dots { display: inline-flex; gap: 2px; align-items: center; flex: none; }
+.toc .dot { width: 7px; height: 7px; border-radius: 50%; }
+.main { min-width: 0; padding: 0 28px 48px; }
+header.top { padding: 24px 0 6px; max-width: 1200px; }
+header.top h1 { font-size: 24px; line-height: 1.25; margin: 0 0 6px; font-weight: 650; }
+.meta { color: var(--ink-2); margin: 0; font-size: 14px; }
+.scope { color: var(--ink-2); margin: 6px 0 0; max-width: 90ch; }
+.notice { border: 1px solid var(--border); border-left: 4px solid var(--warning); background: var(--surface); border-radius: 8px; padding: 10px 14px; margin: 12px 0; max-width: 1200px; }
+.panel { max-width: 1200px; }
+.panel[hidden] { display: none; }
+.panel.wide { max-width: none; }
+h2.sec { font-size: 20px; margin: 28px 0 10px; font-weight: 650; }
+h3 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); margin-top: 18px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.kpi .label { color: var(--ink-2); font-size: 13px; }
+.kpi .value { font-size: 32px; font-weight: 650; line-height: 1.15; margin: 4px 0 2px; }
+.kpi .sub { color: var(--ink-2); font-size: 13px; }
+.kpi.hero { grid-column: span 2; }
+.kpi.hero .value { font-size: 52px; }
+@media (max-width: 480px) { .kpi.hero { grid-column: span 1; } }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px 5px 8px; font-size: 13px; }
+.chip .icon { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; color: #0b0b0b; }
+.chip .count { color: var(--ink-2); }
+.st-good .icon { background: var(--good); } .st-warning .icon { background: var(--warning); }
+.st-critical .icon { background: var(--critical); color: #fff; } .st-muted .icon { background: var(--grid); color: var(--ink); }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 4px; border: 1px solid var(--ink-2); border-radius: 4px; font: 700 10px/1 system-ui, sans-serif; letter-spacing: 0.02em; color: var(--ink); background: var(--surface); vertical-align: middle; margin-right: 3px; }
+.bars { display: grid; gap: 2px; }
+.bar-row { display: grid; grid-template-columns: minmax(90px, 38%) 1fr; gap: 10px; align-items: center; padding: 4px 6px; border-radius: 6px; border: 0; background: none; text-align: left; width: 100%; }
+button.bar-row { cursor: pointer; }
+button.bar-row:hover, .bar-row.active { background: var(--surface-2); }
+.bar-row.active .bar-label { font-weight: 650; }
+.bar-label { color: var(--ink); font-size: 13px; display: flex; gap: 6px; align-items: center; overflow-wrap: anywhere; }
+.bar-track { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.bar-fill { display: block; height: 16px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar-value { font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
+.stack { display: flex; gap: 2px; height: 18px; flex: 1; }
+.stack span { display: block; height: 100%; }
+.stack span:last-child { border-radius: 0 4px 4px 0; }
+.leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin: 0 0 10px; }
+.leg span { display: inline-flex; gap: 6px; align-items: center; }
+.empty { color: var(--ink-2); font-style: italic; margin: 6px 0; }
+.note { color: var(--ink-2); font-size: 13px; margin: 8px 0 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+th button { background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--surface-2); }
+tr.detail td { background: var(--surface-2); }
+tr.detail[hidden] { display: none; }
+.sev { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.tag { display: inline-block; border: 1px solid var(--border); border-radius: 6px; padding: 0 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; margin: 1px 2px 1px 0; }
+.link { color: var(--accent-ink); background: none; border: 0; padding: 0; cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+blockquote { margin: 8px 0; padding: 4px 0 4px 12px; border-left: 3px solid var(--axis); white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-grid { display: grid; gap: 10px; }
+.detail-grid dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+.detail-grid dd { margin: 0 0 6px; overflow-wrap: anywhere; }
+.said { margin: 6px 0; }
+.said .who { font-size: 12px; color: var(--ink-2); display: flex; gap: 4px; align-items: center; }
+.said blockquote { margin: 2px 0 0; font-size: 13px; }
+details > summary { cursor: pointer; color: var(--ink-2); }
+.diff { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.diff ins { background: var(--ins); text-decoration: underline; text-decoration-thickness: 1px; }
+.diff del { background: var(--del); text-decoration: line-through; }
+.edit { margin: 0 0 16px; }
+.edit header { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; margin-bottom: 8px; }
+.heat td.cell { text-align: center; font-variant-numeric: tabular-nums; min-width: 44px; }
+.heat th.row-head { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); font-weight: 500; white-space: normal; min-width: 160px; }
+.reader { display: grid; gap: 4px; }
+/* The manuscript view */
+.paper-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; margin-top: 16px; }
+article.paper { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px 36px; font: 16px/1.65 Georgia, "Times New Roman", serif; min-width: 0; }
+article.paper h1 { font-size: 24px; line-height: 1.3; } article.paper h2 { font-size: 20px; margin-top: 32px; } article.paper h3 { font-size: 17px; }
+article.paper table { border-collapse: collapse; width: 100%; font: 13px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; margin: 14px 0; }
+article.paper th, article.paper td { border: 1px solid var(--grid); padding: 5px 8px; text-transform: none; letter-spacing: 0; color: var(--ink); white-space: normal; }
+article.paper code { font-size: 0.88em; background: var(--surface-2); padding: 0 3px; border-radius: 3px; }
+article.paper a { color: var(--accent-ink); }
+article.paper blockquote { color: var(--ink-2); white-space: normal; }
+mark.hl { color: inherit; background: var(--hl-unknown); border-bottom: 2px solid var(--sev-unknown); cursor: pointer; border-radius: 2px; }
+mark.hl.s-blocker { background: var(--hl-blocker); border-bottom-color: var(--sev-blocker); }
+mark.hl.s-major { background: var(--hl-major); border-bottom-color: var(--sev-major); }
+mark.hl.s-minor { background: var(--hl-minor); border-bottom-color: var(--sev-minor); }
+mark.hl.s-info { background: var(--hl-info); border-bottom: 2px dotted var(--sev-minor); }
+mark.hl.candidate { border-bottom-style: dashed; }
+mark.hl.active { outline: 2px solid var(--hl-active); outline-offset: 1px; }
+mark.hl.off { background: none; border-bottom: 0; cursor: auto; }
+sup.ref { font: 600 10px system-ui, sans-serif; color: var(--ink-2); margin-left: 2px; cursor: pointer; white-space: nowrap; }
+sup.ref .badge { height: 14px; min-width: 18px; font-size: 9px; margin-right: 1px; }
+sup.ref.off { display: none; }
+aside.rail { position: relative; min-width: 0; }
+.comment { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--sev-unknown); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; cursor: pointer; }
+aside.rail .comment { position: absolute; left: 0; right: 0; }
+aside.rail .comment.active { z-index: 3; box-shadow: 0 0 0 2px var(--hl-active), 0 8px 24px rgba(0,0,0,0.18); }
+.comment.s-blocker { border-left-color: var(--sev-blocker); } .comment.s-major { border-left-color: var(--sev-major); }
+.comment.s-minor { border-left-color: var(--sev-minor); } .comment.s-info { border-left-color: var(--sev-info); }
+.comment.active { box-shadow: 0 0 0 2px var(--hl-active); }
+.comment h4 { margin: 0 0 4px; font-size: 13px; font-weight: 650; }
+.comment .tags { color: var(--ink-2); font-size: 12px; margin: 2px 0 4px; }
+.comment p { margin: 4px 0; }
+.comment[hidden] { display: none; }
+.general .list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 10px; }
+/* Journals */
+.venues { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.venue .rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; margin-right: 8px; }
+.venue .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; margin: 10px 0; }
+.venue .facts dt { color: var(--ink-2); }
+.venue .facts dd { margin: 0; }
+tr.chosen td { background: var(--surface-2); }
+.mini { display: inline-block; height: 8px; border-radius: 0 3px 3px 0; background: var(--accent); vertical-align: middle; margin-right: 6px; }
+#tooltip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); max-width: 320px; font-size: 13px; }
+#tooltip .tip-value { font-weight: 650; }
+#tooltip .tip-label { color: var(--ink-2); }
+footer { color: var(--ink-2); font-size: 13px; border-top: 1px solid var(--grid); margin-top: 32px; padding-top: 12px; max-width: 1200px; }
+@media (max-width: 1100px) { .paper-layout { grid-template-columns: 1fr; } aside.rail .comment { position: static; } }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--grid); }
+  .nav { grid-auto-flow: column; overflow-x: auto; }
+  .main { padding: 0 16px 40px; }
+  .side .wide-only { display: none; }
+  article.paper { padding: 18px 16px; }
+}
+@media print {
+  .side, #tooltip, .ghost { display: none !important; }
+  .app { grid-template-columns: 1fr; }
+  .panel[hidden] { display: block !important; }
+  tr.detail[hidden] { display: table-row !important; }
+  .paper-layout { grid-template-columns: 1fr; }
+  aside.rail .comment { position: static; break-inside: avoid; }
+  body { background: #fff; }
+  .card, .kpi, .table-wrap { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="side" aria-label="Navigation and filters">
+    <div class="brand"><strong id="brand-title"></strong><span id="brand-meta"></span></div>
+    <nav class="nav" id="nav" role="tablist" aria-orientation="vertical"></nav>
+    <section><h2>Filter</h2><div class="filters" id="filters"></div></section>
+    <section class="wide-only"><h2>Severity</h2><div class="legend" id="legend-sev"></div></section>
+    <section class="wide-only"><h2>Found by</h2><div class="legend" id="legend-skill"></div></section>
+    <section id="toc-box" class="wide-only"><h2>Manuscript sections</h2><div class="toc" id="toc"></div></section>
+    <button class="ghost" id="theme" type="button" aria-label="Switch colour theme">Theme: auto</button>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <h1 id="title"></h1>
+      <p class="meta" id="meta"></p>
+      <p class="scope" id="scope"></p>
+    </header>
+    <div id="notices"></div>
+    <main id="app"></main>
+    <footer id="footer"></footer>
+  </div>
+</div>
+<div id="tooltip" role="tooltip" hidden></div>
+<template id="paper-src">
+__MANUSCRIPT_HTML__
+</template>
+<script type="application/json" id="inventory">__INVENTORY_JSON__</script>
+<script>
+(() => {
+  'use strict';
+  const D = JSON.parse(document.getElementById('inventory').textContent);
+  const inv = D.inventory, S = D.summary, counts = S.counts, PAPER_ONLY = D.mode === 'paper';
+  const SEV = ['blocker', 'major', 'minor', 'info', 'unknown'];
+  const SEV_LABEL = {blocker: 'Blocker', major: 'Major', minor: 'Minor', info: 'Optional', unknown: 'Not assessed'};
+  const STAGE = ['now', 'writing', 'journal', 'final', 'unknown'];
+  const STAGE_LABEL = {now: 'Fix now: science and evidence', writing: 'Then the writing', journal: 'Once the journal is chosen',
+                       final: 'Before submission', unknown: 'Stage not set'};
+  const STAGE_SHORT = {now: 'Fix now', writing: 'Writing', journal: 'Journal', final: 'Before submission', unknown: 'Not set'};
+  const STATUS = {completed: ['✓', 'Completed', 'good'], reused: ['↺', 'Reused', 'good'], partial: ['◐', 'Partial', 'warning'],
+                  blocked: ['✕', 'Blocked', 'critical'], not_run: ['–', 'Not run', 'muted'], unknown: ['?', 'Unknown', 'muted']};
+  const REC = {'accept': 'Accept', 'minor-revision': 'Minor revision', 'major-revision': 'Major revision', 'reject': 'Reject'};
+  const MATCH = {full: 'Matched', partial: 'Partly matched', missed: 'Not caught'};
+  const MISS = {'no-skill-covers': 'No skill covers it', 'skill-did-not-look': 'In a skill\'s remit, not looked at',
+                'judged-differently': 'Looked at, judged differently', 'input-missing': 'Needed input the run lacked',
+                'wording-preference': 'A wording preference', 'later-decision': 'A decision made after this version',
+                unexplained: 'Not yet explained'};
+  // Which skill found a problem is shown by its badge, never by colour.
+  const SKILL = {'manuscript-integrity-check': ['IC', 'Integrity check'], 'manuscript-reference-check': ['RF', 'Reference check'],
+    'manuscript-reporting-check': ['RP', 'Reporting check'], 'manuscript-peer-review': ['PR', 'Simulated referees'],
+    'manuscript-policy-fit': ['PF', 'Policy fit'], 'manuscript-story': ['ST', 'Story and readers'],
+    'manuscript-journal-select': ['JS', 'Journal selection'], 'manuscript-journal-adapt': ['JA', 'Journal adaptation'],
+    'manuscript-prose-edit': ['PE', 'Prose edit'], 'manuscript-deslop': ['DS', 'Deslop'], 'manuscript-improve': ['IM', 'Workflow'],
+    'manuscript-reviewer-response': ['RR', 'Reviewer response'], 'manuscript-revision-marks': ['RM', 'Revision marks']};
+  const short = s => String(s).replace(/^manuscript-/, '');
+  const skillName = s => (SKILL[s] || [null, short(s)])[1];
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
+
+  function h(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'style') e.style.cssText = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? '' : v);
+    }
+    for (const kid of kids.flat(Infinity)) {
+      if (kid == null || kid === false) continue;
+      e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+    }
+    return e;
+  }
+  const store = {
+    get(key) { try { return window.localStorage.getItem(key); } catch (err) { return null; } },
+    set(key, value) { try { window.localStorage.setItem(key, value); } catch (err) { /* private window */ } },
+  };
+  const themeButton = document.getElementById('theme');
+  function applyTheme(mode) {
+    if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode;
+    else delete document.documentElement.dataset.theme;
+    themeButton.textContent = `Theme: ${mode}`;
+    store.set('review-dashboard-theme', mode);
+  }
+  let theme = store.get('review-dashboard-theme') || 'auto';
+  applyTheme(theme);
+  themeButton.addEventListener('click', () => { theme = {auto: 'light', light: 'dark', dark: 'auto'}[theme] || 'auto'; applyTheme(theme); });
+
+  const tip = document.getElementById('tooltip');
+  function showTip(target, lines) {
+    tip.replaceChildren(...lines.filter(Boolean).map((line, i) => h('div', {class: i ? 'tip-label' : 'tip-value'}, line)));
+    tip.hidden = false;
+    const r = target.getBoundingClientRect();
+    const x = Math.max(8, Math.min(r.left + r.width / 2 - tip.offsetWidth / 2, window.innerWidth - tip.offsetWidth - 8));
+    let y = r.top - tip.offsetHeight - 8;
+    if (y < 8) y = r.bottom + 8;
+    tip.style.left = `${x}px`;
+    tip.style.top = `${y}px`;
+  }
+  function withTip(el, lines) {
+    el.addEventListener('pointerenter', () => showTip(el, typeof lines === 'function' ? lines() : lines));
+    el.addEventListener('pointerleave', () => { tip.hidden = true; });
+    el.addEventListener('focus', () => showTip(el, typeof lines === 'function' ? lines() : lines));
+    el.addEventListener('blur', () => { tip.hidden = true; });
+    return el;
+  }
+  const badge = skill => withTip(h('span', {class: 'badge', 'aria-label': skillName(skill)}, (SKILL[skill] || [short(skill).slice(0, 2).toUpperCase()])[0]), [skillName(skill)]);
+  const badges = skills => [...new Set(skills)].map(badge);
+
+  // Sections in manuscript order; a finding's section maps to one by its number, then by its name.
+  const clean = s => String(s).replace(/[*#_`]/g, '').replace(/\s+/g, ' ').trim();
+  const SECTIONS = (inv.manuscript && inv.manuscript.sections || []).map(clean);
+  const OTHER = 'Other or whole manuscript';
+  const numberOf = s => (clean(s).match(/^(?:section\s+)?(\d+(?:\.\d+)*)\b/i) || [])[1];
+  function sectionOf(f) {
+    const text = clean(f.section), num = numberOf(text);
+    if (num) {
+      const hit = SECTIONS.find(s => numberOf(s) === num);
+      if (hit) return hit;
+    }
+    const lower = text.toLowerCase();
+    const named = SECTIONS.filter(s => {
+      const name = s.replace(/^\d+(?:\.\d+)*\.?\s*/, '').toLowerCase();
+      return name.length > 3 && (lower.includes(name) || name.includes(lower));
+    }).sort((a, b) => b.length - a.length);
+    return named[0] || (SECTIONS.length ? OTHER : text);
+  }
+  const findings = inv.findings.map(f => ({...f, _section: sectionOf(f)}));
+  const byId = new Map(findings.map(f => [f.id, f]));
+  const refLinks = new Map(), refState = new Map();
+  if (inv.reference) for (const m of inv.reference.matches) {
+    refState.set(m.reference_id, m);
+    for (const id of m.finding_ids) refLinks.set(id, [...(refLinks.get(id) || []), m.reference_id]);
+  }
+  const editsFor = id => inv.changes.filter(c => c.finding_ids.includes(id));
+  const sevRank = s => SEV.indexOf(s), stageRank = s => STAGE.indexOf(s);
+  const sevBadge = sev => h('span', {class: 'sev'}, h('span', {class: 'swatch', style: `background: var(--sev-${sev})`}), SEV_LABEL[sev]);
+  function statusChip(skill, status, note, n) {
+    const [icon, label, tone] = STATUS[status] || STATUS.unknown;
+    return withTip(h('span', {class: `chip st-${tone}`, tabindex: 0}, h('span', {class: 'icon', 'aria-hidden': 'true'}, icon),
+      skill ? [badge(skill), h('strong', null, skillName(skill))] : null, label,
+      n != null ? h('span', {class: 'count'}, `· ${plural(n, 'problem')}`) : null), [label, note]);
+  }
+  function barChart(rows, opts = {}) {
+    const box = h('div', {class: 'bars'});
+    if (!rows.length || rows.every(r => !r.count)) { box.append(h('p', {class: 'empty'}, opts.empty || 'Nothing in this selection.')); return box; }
+    const max = Math.max(...rows.map(r => r.count), 1);
+    for (const r of rows) {
+      const pick = opts.onPick;
+      const fill = h('span', {class: 'bar-fill', style: `width: calc((100% - 3.2em) * ${r.count / max}); background: ${r.color || opts.color || 'var(--accent)'}`});
+      const row = h(pick ? 'button' : 'div', {class: 'bar-row' + (opts.active === r.key ? ' active' : ''), type: pick ? 'button' : null,
+        'aria-pressed': pick ? String(opts.active === r.key) : null, tabindex: pick ? null : 0,
+        'aria-label': `${r.label}: ${plural(r.count, opts.unit || 'problem')}`, onclick: pick ? () => pick(r.key) : null},
+        h('span', {class: 'bar-label'}, r.lead || null, r.swatch ? h('span', {class: 'swatch', style: `background: ${r.swatch}`}) : null, r.label),
+        h('span', {class: 'bar-track'}, fill, h('span', {class: 'bar-value'}, r.text || String(r.count))));
+      withTip(row, [r.text || plural(r.count, opts.unit || 'problem'), r.hint || r.label + (pick ? (opts.active === r.key ? ' · select again to clear' : ' · select to filter') : '')]);
+      box.append(row);
+    }
+    return box;
+  }
+  function stackRow(label, parts, total) {
+    const bar = h('span', {class: 'stack'});
+    for (const p of parts) if (p.count) bar.append(withTip(h('span', {tabindex: 0, style: `width: ${p.count / total * 100}%; background: ${p.color}`, 'aria-label': `${label}, ${p.label}: ${p.count}`}), [String(p.count), `${label} · ${p.label}`]));
+    return h('div', {class: 'bar-row'}, h('span', {class: 'bar-label'}, label),
+      h('span', {class: 'bar-track'}, bar, h('span', {class: 'bar-value'}, parts.filter(p => p.count).map(p => p.count).join(' / '))));
+  }
+  const kpi = (label, value, sub, hero) => h('div', {class: 'kpi' + (hero ? ' hero' : '')}, h('div', {class: 'label'}, label), h('div', {class: 'value'}, String(value)), sub ? h('div', {class: 'sub'}, sub) : null);
+  const card = (title, ...body) => h('section', {class: 'card'}, title ? h('h3', null, title) : null, ...body);
+  const link = (text, onclick, label) => h('button', {class: 'link', type: 'button', onclick, 'aria-label': label || null}, text);
+  function said(sources) {
+    return sources.map(s => h('div', {class: 'said'}, h('div', {class: 'who'}, s.skill ? [badge(s.skill), skillName(s.skill)] : null, `· ${s.path}`), h('blockquote', null, s.quote)));
+  }
+
+  // ---------- header ----------
+  const m = inv.manuscript;
+  document.getElementById('title').textContent = (inv.illustrative ? 'Illustrative example: ' : '') + (PAPER_ONLY && m ? `Annotated manuscript: ${m.title}` : inv.title);
+  document.title = PAPER_ONLY && m ? `Annotated: ${m.title}` : inv.title;
+  document.getElementById('meta').textContent = [m && m.title && !PAPER_ONLY ? `${m.title}${m.version ? ` (${m.version})` : ''}` : (m && m.version) || null,
+    `Run ${inv.run_id}`, `Generated ${D.generated}`].filter(Boolean).join(' · ');
+  document.getElementById('scope').textContent = inv.scope;
+  document.getElementById('brand-title').textContent = m ? m.title : inv.title;
+  document.getElementById('brand-meta').textContent = [m && m.version, inv.run_id].filter(Boolean).join(' · ');
+  const notices = document.getElementById('notices');
+  if (inv.illustrative) notices.append(h('div', {class: 'notice'}, 'Illustrative example: these records are synthetic and describe no real manuscript.'));
+  const incomplete = inv.coverage.filter(c => !['completed', 'reused'].includes(c.status));
+  if (incomplete.length && !PAPER_ONLY) notices.append(h('div', {class: 'notice'},
+    `Coverage is not complete: ${incomplete.map(c => `${skillName(c.skill)} ${(STATUS[c.status] || STATUS.unknown)[1].toLowerCase()}`).join(', ')}. ` +
+    'Problems an unfinished check would have found are unknown, not zero.'));
+
+  // ---------- navigation ----------
+  const live = findings.filter(f => f.assessment !== 'dismissed');
+  const tabs = PAPER_ONLY ? [['paper', 'Manuscript', live.length]] : [['overview', 'Overview'], ['findings', 'Problems', live.length]];
+  if (!PAPER_ONLY && D.has_paper) tabs.push(['paper', 'Manuscript', null]);
+  if (!PAPER_ONLY && inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
+  if (!PAPER_ONLY && inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
+  if (!PAPER_ONLY && inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
+  if (!PAPER_ONLY && inv.panel && (inv.panel.readers.length || inv.panel.recommendations.length)) tabs.push(['panel', 'Readers and referees', null]);
+  if (!PAPER_ONLY) tabs.push(['coverage', 'Coverage and limits', null]);
+  const app = document.getElementById('app'), nav = document.getElementById('nav'), panels = {};
+  for (const [key, label, n] of tabs) {
+    nav.append(h('button', {type: 'button', role: 'tab', id: `tab-${key}`, 'aria-controls': `panel-${key}`, onclick: () => selectTab(key)}, h('span', null, label), n != null ? h('span', {class: 'n'}, String(n)) : null));
+    panels[key] = h('section', {class: 'panel' + (key === 'paper' ? ' wide' : ''), role: 'tabpanel', id: `panel-${key}`, 'aria-labelledby': `tab-${key}`, hidden: true});
+    app.append(panels[key]);
+  }
+  let current = null;
+  function selectTab(key) {
+    current = key;
+    for (const [k] of tabs) {
+      panels[k].hidden = k !== key;
+      document.getElementById(`tab-${k}`).setAttribute('aria-selected', String(k === key));
+    }
+    if (key === 'paper') requestAnimationFrame(layoutRail);
+    store.set('review-dashboard-tab', key);
+  }
+
+  // ---------- shared filters (Problems and Manuscript) ----------
+  const F = {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: ''};
+  const searchText = f => [f.id, f.summary, f.detail, f.action, f.quote, f.section, f.category, f.skills.join(' '),
+    (refLinks.get(f.id) || []).join(' '), f.sources.map(s => s.id).join(' '), f.evidence.map(e => e.quote).join(' ')].join(' ').toLowerCase();
+  for (const f of findings) f._text = searchText(f);
+  function pass(f, except) {
+    if (F.assessment && except !== 'assessment' && f.assessment !== F.assessment) return false;
+    if (!F.assessment && f.assessment === 'dismissed') return false;
+    if (F.severity && except !== 'severity' && f.severity !== F.severity) return false;
+    if (F.stage && except !== 'stage' && f.stage !== F.stage) return false;
+    if (F.category && except !== 'category' && f.category !== F.category) return false;
+    if (F.skill && except !== 'skill' && !f.skills.includes(F.skill)) return false;
+    if (F.section && except !== 'section' && f._section !== F.section) return false;
+    if (F.q && !f._text.includes(F.q.toLowerCase())) return false;
+    return true;
+  }
+  const options = (values, label) => [h('option', {value: ''}, label), ...values.map(([v, t]) => h('option', {value: v}, t))];
+  const search = h('input', {type: 'search', placeholder: 'Search problems, quotes, IDs', 'aria-label': 'Search problems'});
+  const selects = {
+    assessment: h('select', {'aria-label': 'Assessment'}, options([['confirmed', 'Confirmed only'], ['candidate', 'Candidates only'], ['dismissed', 'Dismissed flags']], 'Confirmed and candidates')),
+    severity: h('select', {'aria-label': 'Severity'}, options(SEV.map(s => [s, SEV_LABEL[s]]), 'Any severity')),
+    stage: h('select', {'aria-label': 'When it can be fixed'}, options(STAGE.map(s => [s, STAGE_LABEL[s]]), 'Any stage')),
+    category: h('select', {'aria-label': 'Kind of problem'}, options([...new Set(findings.map(f => f.category))].sort().map(c => [c, c]), 'Any kind')),
+    skill: h('select', {'aria-label': 'Found by'}, options(inv.coverage.map(c => [c.skill, skillName(c.skill)]), 'Found by any skill')),
+  };
+  const shown = h('span', {role: 'status'});
+  const reset = h('button', {class: 'ghost', type: 'button', onclick: () => { Object.assign(F, {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: ''}); refresh(); }}, 'Reset');
+  search.addEventListener('input', () => { F.q = search.value.trim(); refresh(); });
+  for (const [dim, el] of Object.entries(selects)) el.addEventListener('change', () => { F[dim] = el.value; refresh(); });
+  document.getElementById('filters').append(search, ...Object.values(selects), h('div', {class: 'row'}, shown, reset));
+  const toggle = (dim, value) => { F[dim] = F[dim] === value ? '' : value; refresh(); };
+
+  const legendSev = document.getElementById('legend-sev');
+  const legendSkill = document.getElementById('legend-skill');
+  function drawLegends() {
+    legendSev.replaceChildren(...SEV.filter(s => findings.some(f => f.severity === s)).map(s => h('button', {class: 'item' + (F.severity === s ? ' on' : ''), type: 'button', onclick: () => toggle('severity', s)},
+      h('span', {class: 'swatch', style: `background: var(--sev-${s})`}), SEV_LABEL[s], h('span', {class: 'n'}, ` ${findings.filter(f => pass(f, 'severity') && f.severity === s).length}`))));
+    const used = [...new Set(findings.flatMap(f => f.skills))];
+    legendSkill.replaceChildren(...used.map(s => h('button', {class: 'item' + (F.skill === s ? ' on' : ''), type: 'button', onclick: () => toggle('skill', s)}, badge(s), skillName(s),
+      h('span', {class: 'n'}, ` ${findings.filter(f => pass(f, 'skill') && f.skills.includes(s)).length}`))));
+  }
+
+  function refresh() {
+    search.value = F.q;
+    for (const [dim, el] of Object.entries(selects)) el.value = F[dim];
+    const n = findings.filter(f => pass(f)).length;
+    shown.textContent = `${n} of ${live.length} shown`;
+    drawLegends();
+    drawToc();
+    if (panels.findings) drawFindings();
+    if (panels.paper) applyPaperFilters();
+  }
+
+  // ---------- table of contents ----------
+  const tocBox = document.getElementById('toc-box'), toc = document.getElementById('toc');
+  function drawToc() {
+    if (!SECTIONS.length) { tocBox.hidden = true; return; }
+    const visible = findings.filter(f => pass(f, 'section'));
+    toc.replaceChildren(...[...SECTIONS, OTHER].map(sec => {
+      const here = visible.filter(f => f._section === sec);
+      if (sec === OTHER && !here.length) return null;
+      const dots = h('span', {class: 'dots'}, SEV.filter(s => here.some(f => f.severity === s)).map(s => h('span', {class: 'dot', style: `background: var(--sev-${s})`})), here.length ? h('span', {class: 'n'}, ` ${here.length}`) : null);
+      return h('button', {type: 'button', class: /^\d+\.\d+/.test(sec) ? 'sub' : null, onclick: () => goToSection(sec), title: `${sec}: ${plural(here.length, 'problem')}`},
+        h('span', null, sec.length > 46 ? sec.slice(0, 44) + '…' : sec), dots);
+    }));
+  }
+
+  // ---------- the manuscript view: the reviewed text, each quoted problem highlighted ----------
+  let paper = null, rail = null, generalList = null;
+  const placed = [], general = [], cards = new Map(), located = new Set();
+  function buildPaper() {
+    if (!D.has_paper || paper) return;
+    const p = panels.paper;
+    const intro = h('p', {class: 'note', style: 'margin-top: 0'}, 'Each highlight is a passage a skill quoted when it reported a problem; its comment is beside it. Colour shows severity only; the badges show which skills found it. A dashed underline marks a candidate the authors still need to check. This is the reviewed version, before any edit of this run.');
+    generalList = h('div', {class: 'list'});
+    const generalBox = h('details', {class: 'card general'}, h('summary', null, 'Comments on the whole manuscript, on missing content, or whose passage was not found'), generalList);
+    paper = h('article', {class: 'paper', id: 'paper'});
+    paper.append(document.getElementById('paper-src').content.cloneNode(true));
+    rail = h('aside', {class: 'rail', 'aria-label': 'Comments'});
+    p.append(intro, generalBox, h('div', {class: 'paper-layout'}, paper, rail));
+    highlightAll();
+    generalBox.hidden = !general.length;
+    generalBox.querySelector('summary').textContent += ` (${general.length})`;
+    paper.addEventListener('click', e => { const t = e.target.closest('[data-note]'); if (t && !t.classList.contains('off')) activate(t.dataset.note, 'note'); });
+    paper.addEventListener('keydown', e => { const t = e.target.closest('mark[data-note]'); if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); activate(t.dataset.note, 'note'); } });
+  }
+  const BLOCK = /^(P|LI|TD|TH|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE|TR)$/;
+  const SPACE = new Set([' ', '\n', '\t', '\r', '\f', '\v']);
+  const fold = c => c.replace(/[‘’‛′]/g, "'").replace(/[“”„″]/g, '"').replace(/[‐-―−]/g, '-').replace(/ /g, ' ').toLowerCase();
+  let flat = '', mapNode = [], mapOff = [], nodes = [];
+  function index() {
+    const parts = [];
+    mapNode = []; mapOff = []; nodes = [];
+    let lastBlock = null, space = true;
+    const walker = document.createTreeWalker(paper, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement.closest('sup.ref')) continue;
+      let block = node.parentElement;
+      while (block && block !== paper && !BLOCK.test(block.tagName)) block = block.parentElement;
+      if (lastBlock && block !== lastBlock && !space) { parts.push(' '); mapNode.push(-1); mapOff.push(-1); space = true; }
+      lastBlock = block;
+      const raw = node.nodeValue, folded = fold(raw), same = folded.length === raw.length, k = nodes.push(node) - 1;
+      for (let i = 0; i < raw.length; i++) {
+        const c = same ? folded[i] : fold(raw[i]);
+        if (SPACE.has(c)) { if (!space) { parts.push(' '); mapNode.push(k); mapOff.push(i); space = true; } continue; }
+        for (const ch of c) { parts.push(ch); mapNode.push(k); mapOff.push(i); }
+        space = false;
+      }
+    }
+    flat = parts.join('');
+  }
+  const cleanQuote = q => fold(String(q)).replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*|__|`/g, '').replace(/(^|[\s(])[*_]|[*_](?=[\s).,;:]|$)/g, '$1')
+    .replace(/\\([\\`*_{}\[\]()#+\-.!|])/g, '$1').replace(/\|/g, ' ').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim();
+  function locate(quote) {
+    const parts = cleanQuote(quote).split(/\s*(?:\.\.\.|…)\s*/).filter(p => p.length >= 4);
+    const spans = [];
+    let from = 0;
+    for (const part of parts) {
+      let at = flat.indexOf(part, from), len = part.length;
+      if (at < 0) {
+        const head = part.split(' ').slice(0, 8).join(' ');
+        if (head.length >= 20) { at = flat.indexOf(head, from); len = head.length; }
+      }
+      if (at < 0) return spans.length ? spans : null;
+      spans.push([at, at + len]);
+      from = at + len;
+    }
+    return spans.length ? spans : null;
+  }
+  function wrap([start, end], f) {
+    const pieces = [];
+    for (let i = start; i < end; i++) {
+      if (mapNode[i] < 0) continue;
+      const node = nodes[mapNode[i]], off = mapOff[i], last = pieces[pieces.length - 1];
+      if (last && last.node === node) last.to = off + 1; else pieces.push({node, from: off, to: off + 1});
+    }
+    const marks = [];
+    for (const piece of pieces) {
+      let node = piece.node;
+      if (piece.to < node.nodeValue.length) node.splitText(piece.to);
+      if (piece.from > 0) node = node.splitText(piece.from);
+      const mark = h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0});
+      withTip(mark, () => [`${f.id} · ${SEV_LABEL[f.severity]}`, f.summary, 'Found by ' + f.skills.map(skillName).join(', ')]);
+      node.parentNode.insertBefore(mark, node);
+      mark.append(node);
+      marks.push(mark);
+    }
+    return marks;
+  }
+  function commentCard(f, unlocated) {
+    return h('div', {class: `comment s-${f.severity}`, 'data-note': f.id, tabindex: 0, role: 'note'},
+      h('h4', null, badges(f.skills), ` ${f.id} · ${f.summary}`),
+      h('div', {class: 'tags'}, [SEV_LABEL[f.severity], STAGE_LABEL[f.stage], f.category, f.assessment === 'candidate' ? 'candidate: needs a check' : null,
+        f.decision ? 'authors\' decision' : null, unlocated ? 'passage not found in the text' : null].filter(Boolean).join(' · ')),
+      f.detail ? h('p', null, f.detail) : null,
+      f.action ? h('p', null, h('strong', null, 'What to do: '), f.action) : null,
+      f.evidence.length ? h('details', null, h('summary', null, 'In the skills\' own words'), said(f.evidence)) : null,
+      panels.findings ? h('p', null, link('Open in the problem table', e => { e.stopPropagation(); openFinding(f.id); })) : null);
+  }
+  function highlightAll() {
+    const ordered = [...findings].sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
+    for (const f of ordered) {
+      if (!f.quote) { general.push(f); continue; }
+      index();
+      const spans = locate(f.quote);
+      const marks = spans ? spans.flatMap(span => wrap(span, f)) : [];
+      if (!marks.length) { general.push({...f, _unlocated: true}); continue; }
+      marks[marks.length - 1].after(h('sup', {class: 'ref', 'data-note': f.id, 'aria-hidden': 'true'}, badges(f.skills), f.id));
+      placed.push({f, marks});
+      located.add(f.id);
+    }
+    for (const {f} of placed) { const c = commentCard(f); cards.set(f.id, c); rail.append(c); }
+    for (const f of general) { const c = commentCard(f, f._unlocated); cards.set(f.id, c); generalList.append(c); }
+    for (const [id, c] of cards) {
+      c.addEventListener('click', () => activate(id, 'text'));
+      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(id, 'text'); } });
+    }
+  }
+  function applyPaperFilters() {
+    if (!paper) return;
+    for (const f of findings) {
+      const on = pass(f);
+      const c = cards.get(f.id);
+      if (c) c.hidden = !on;
+      for (const el of paper.querySelectorAll(`[data-note="${CSS.escape(f.id)}"]`)) el.classList.toggle('off', !on);
+    }
+    layoutRail();
+  }
+  function layoutRail() {
+    if (!rail || current !== 'paper') return;
+    if (!window.matchMedia('(min-width: 1101px)').matches) { rail.style.height = ''; for (const c of cards.values()) c.style.top = ''; return; }
+    const top0 = rail.getBoundingClientRect().top + window.scrollY;
+    let bottom = 0;
+    const items = placed.filter(p => !cards.get(p.f.id).hidden)
+      .map(p => ({c: cards.get(p.f.id), top: p.marks[0].getBoundingClientRect().top + window.scrollY - top0})).sort((a, b) => a.top - b.top);
+    for (const item of items) { const top = Math.max(item.top, bottom); item.c.style.top = `${top}px`; bottom = top + item.c.offsetHeight + 8; }
+    rail.style.height = `${bottom}px`;
+  }
+  function activate(id, scrollTo) {
+    for (const el of document.querySelectorAll('.active')) if (el.matches('mark, .comment')) el.classList.remove('active');
+    layoutRail();
+    const c = cards.get(id), marks = paper.querySelectorAll(`mark[data-note="${CSS.escape(id)}"]`);
+    marks.forEach(mk => mk.classList.add('active'));
+    if (c) c.classList.add('active');
+    // Float the active comment beside its passage, above the comments the layout pushed down there.
+    if (c && marks[0] && rail.contains(c) && window.matchMedia('(min-width: 1101px)').matches) {
+      c.style.top = `${marks[0].getBoundingClientRect().top - rail.getBoundingClientRect().top}px`;
+    }
+    if (scrollTo === 'note' && c) c.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    if (scrollTo === 'text') (marks[0] || c) && (marks[0] || c).scrollIntoView({block: 'center', behavior: 'smooth'});
+  }
+  function openInPaper(id) {
+    if (!D.has_paper) return;
+    const f = byId.get(id);
+    if (f && !pass(f)) Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: ''});
+    selectTab('paper');
+    refresh();
+    requestAnimationFrame(() => activate(id, 'text'));
+  }
+  function goToSection(sec) {
+    if (!D.has_paper) { toggle('section', sec); return; }
+    selectTab('paper');
+    const target = [...paper.querySelectorAll('h1, h2, h3, h4')].find(el => clean(el.textContent).toLowerCase() === sec.toLowerCase());
+    (target || paper).scrollIntoView({block: 'start', behavior: 'smooth'});
+  }
+  if (D.has_paper) buildPaper();
+
+  // ---------- overview ----------
+  if (panels.overview) (function overview() {
+    const p = panels.overview;
+    const confirmed = findings.filter(f => f.assessment === 'confirmed');
+    const serious = confirmed.filter(f => f.severity === 'blocker' || f.severity === 'major');
+    const sev = SEV.filter(s => S.by_severity[s]).map(s => `${S.by_severity[s]} ${SEV_LABEL[s].toLowerCase()}`).join(' · ');
+    const tiles = [kpi('Distinct problems confirmed', counts.confirmed_findings, sev || 'none in this scope', true),
+      kpi('Fix now', (S.by_stage || {}).now || 0, 'confirmed problems with the science or evidence'),
+      kpi('Blockers and major', serious.length, 'confirmed, any stage'),
+      kpi('Candidates to verify', counts.candidate_findings, 'need the authors or a check that could not run'),
+      kpi('Edits', counts.applied_edits, `applied · ${counts.proposed_edits} proposed`),
+      kpi('Found by two or more skills', S.found_by_several_skills, 'confirmed problems, each counted once')];
+    if (S.decisions) tiles.push(kpi('Decisions for the authors', S.decisions, 'choices only the authors can make'));
+    const b = S.benchmark;
+    if (b) tiles.push(kpi('Caught of the reference review', `${b.full + b.partial} of ${b.items}`, `${b.full} matched, ${b.partial} partly, ${b.missed} not caught`));
+    if ((S.chosen_venues || []).length) tiles.push(kpi('Journals to target', S.chosen_venues.length, S.chosen_venues.join(' · ')));
+    p.append(h('div', {class: 'kpis'}, tiles));
+    p.append(h('h2', {class: 'sec'}, 'Review coverage'));
+    p.append(h('div', {class: 'chips'}, inv.coverage.map(c => statusChip(c.skill, c.status, c.note, S.by_skill[c.skill] || 0))));
+    p.append(h('p', {class: 'note'}, 'Each chip shows how far the skill got and how many confirmed problems it reported. A problem found by two skills counts for both chips but once in every total.'));
+    const grid = h('div', {class: 'grid', style: 'margin-top: 20px'});
+    const funnel = [];
+    if (S.signals) funnel.push({key: 'signals', label: 'Raw signals screened', count: S.signals, color: 'var(--deemph)', hint: 'Scanner hits, referee proposals and reader concerns before merging and checking'});
+    funnel.push({key: 'distinct', label: 'Distinct problems recorded', count: live.length, color: 'var(--deemph)'},
+      {key: 'confirmed', label: 'Confirmed', count: counts.confirmed_findings, color: 'var(--accent)'},
+      {key: 'candidate', label: 'Candidates', count: counts.candidate_findings, color: 'var(--deemph)'},
+      {key: 'dismissed', label: 'Dismissed as false or out of scope', count: counts.dismissed_flags, color: 'var(--deemph)'});
+    grid.append(card('From raw signals to distinct problems', barChart(funnel, {unit: 'record'}),
+      h('p', {class: 'note'}, 'Signals and problems are different units: one problem often rests on several signals, and many signals are repeats or false alarms.')));
+    grid.append(card('Confirmed problems by when they can be fixed', barChart(STAGE.filter(s => (S.by_stage || {})[s]).map(s => ({key: s, label: STAGE_LABEL[s], count: S.by_stage[s]})), {unit: 'problem'})));
+    p.append(grid);
+    p.append(h('h2', {class: 'sec'}, 'The most serious confirmed problems'));
+    const top = [...serious].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || stageRank(a.stage) - stageRank(b.stage)).slice(0, 15);
+    if (!top.length) p.append(h('p', {class: 'empty'}, 'No confirmed blocker or major problem in this scope.'));
+    else p.append(h('div', {class: 'table-wrap'}, h('table', null,
+      h('thead', null, h('tr', null, ['Found by', 'ID', 'Severity', 'When', 'Section', 'Problem', ''].map(t => h('th', null, t)))),
+      h('tbody', null, top.map(f => h('tr', null, h('td', null, badges(f.skills)), h('td', null, link(f.id, () => openFinding(f.id))), h('td', null, sevBadge(f.severity)),
+        h('td', null, STAGE_SHORT[f.stage]), h('td', null, f.section), h('td', null, f.summary),
+        h('td', null, located.has(f.id) ? link('in the text', () => openInPaper(f.id), `Show ${f.id} in the manuscript`) : null)))))));
+    if (serious.length > top.length) p.append(h('p', {class: 'note'}, `${serious.length - top.length} more in Problems.`));
+    const decisions = inv.decisions.length ? inv.decisions : findings.filter(f => f.decision && f.assessment !== 'dismissed').map(f => ({id: f.id, summary: f.summary, finding_ids: [f.id]}));
+    if (decisions.length) {
+      p.append(h('h2', {class: 'sec'}, 'Decisions for the authors'));
+      p.append(h('ul', null, decisions.map(d => h('li', null, h('strong', null, d.id), ' ', d.summary, ' ', d.finding_ids.filter(id => byId.has(id) && id !== d.id).map(id => [' ', link(id, () => openFinding(id))])))));
+    }
+  })();
+
+  // ---------- problems ----------
+  let sortKey = 'severity', sortDir = 1;
+  const expanded = new Set();
+  const charts = h('div', {class: 'grid'}), heat = h('div', {style: 'margin-top: 16px'}), tableBox = h('div', {style: 'margin-top: 16px'});
+  if (panels.findings) panels.findings.append(h('p', {class: 'note', style: 'margin: 16px 0 12px'}, 'The filters in the sidebar apply here and in the manuscript. Select a bar or a section to filter by it.'), charts, heat, tableBox);
+  const tally = (list, key) => list.reduce((acc, f) => { for (const k of [].concat(key(f))) acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  function drawFindings() {
+    const visible = findings.filter(f => pass(f));
+    const unit = F.assessment === 'candidate' ? 'candidate' : F.assessment === 'dismissed' ? 'dismissed flag' : F.assessment ? 'confirmed problem' : 'problem';
+    const cat = tally(findings.filter(f => pass(f, 'category')), f => f.category);
+    const sev = tally(findings.filter(f => pass(f, 'severity')), f => f.severity);
+    const stg = tally(findings.filter(f => pass(f, 'stage')), f => f.stage);
+    const skl = tally(findings.filter(f => pass(f, 'skill')), f => [...new Set(f.skills)]);
+    charts.replaceChildren(
+      card('By kind of problem', barChart(Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({key: k, label: k, count: n})), {unit, active: F.category, onPick: k => toggle('category', k)})),
+      card('By severity', barChart(SEV.filter(s => sev[s]).map(s => ({key: s, label: SEV_LABEL[s], count: sev[s], color: `var(--sev-${s})`})), {unit, active: F.severity, onPick: k => toggle('severity', k)})),
+      card('By when the authors can act', barChart(STAGE.filter(s => stg[s]).map(s => ({key: s, label: STAGE_LABEL[s], count: stg[s]})), {unit, active: F.stage, onPick: k => toggle('stage', k)})),
+      card('By the skill that found it', barChart(Object.entries(skl).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({key: k, label: skillName(k), lead: badge(k), count: n})), {unit, active: F.skill, onPick: k => toggle('skill', k)}),
+        h('p', {class: 'note'}, 'A problem several skills found counts once in each of their bars, so these bars add up to more than the total.')));
+    if (S.skill_pairs.length) charts.append(card('Confirmed problems found by more than one skill',
+      barChart(S.skill_pairs.slice(0, 8).map(pr => ({key: pr.skills.join('+'), label: pr.skills.map(skillName).join(' + '), lead: badges(pr.skills), count: pr.count})), {unit: 'shared problem'}),
+      h('p', {class: 'note'}, `${S.found_by_several_skills} of ${counts.confirmed_findings} confirmed problems were reported independently by two or more skills (full scope, whatever the filters).`)));
+    drawHeat(findings.filter(f => pass(f, 'section')));
+    drawTable(visible);
+  }
+  function drawHeat(list) {
+    const rows = SECTIONS.length ? [...SECTIONS, OTHER] : [...new Set(list.map(f => f._section))];
+    const grid = {};
+    for (const f of list) { grid[f._section] = grid[f._section] || {}; grid[f._section][f.severity] = (grid[f._section][f.severity] || 0) + 1; }
+    const used = rows.filter(r => grid[r]), cols = SEV.filter(s => used.some(r => grid[r][s]));
+    if (!used.length) { heat.replaceChildren(); return; }
+    const max = Math.max(...used.flatMap(r => cols.map(c => grid[r][c] || 0)), 1);
+    const level = n => Math.min(6, Math.max(1, Math.ceil(n / max * 6)));
+    const body = used.map(r => {
+      const total = cols.reduce((a, c) => a + (grid[r][c] || 0), 0);
+      const head = h('th', {class: 'row-head', scope: 'row'}, h('button', {class: 'link', type: 'button', style: `text-decoration: none; color: inherit; font-weight: ${F.section === r ? 700 : 500}`, onclick: () => toggle('section', r)}, r));
+      return h('tr', null, head, cols.map(c => {
+        const n = grid[r][c] || 0;
+        if (!n) return h('td', {class: 'cell'});
+        const l = level(n);
+        return withTip(h('td', {class: 'cell', tabindex: 0, style: `background: var(--heat-${l}); color: var(${l >= 4 ? '--heat-ink-hi' : '--heat-ink-lo'})`}, String(n)), [plural(n, 'problem'), `${r} · ${SEV_LABEL[c]}`]);
+      }), h('td', {class: 'num'}, String(total)));
+    });
+    heat.replaceChildren(card('Where in the manuscript', h('div', {class: 'table-wrap heat'}, h('table', null,
+      h('thead', null, h('tr', null, h('th', null, 'Section, in manuscript order'), cols.map(c => h('th', {class: 'num'}, SEV_LABEL[c])), h('th', {class: 'num'}, 'Total'))),
+      h('tbody', null, body))), h('p', {class: 'note'}, 'Darker cells hold more problems. Select a section to filter by it; the sidebar lists the same sections and opens them in the manuscript.')));
+  }
+  const COLS = [['skills', 'Found by'], ['id', 'ID'], ['severity', 'Severity'], ['stage', 'When'], ['category', 'Kind'], ['section', 'Section'], ['summary', 'Problem'], ['assessment', 'Status']];
+  if (inv.reference) COLS.push(['reference', 'In the review']);
+  COLS.push(['text', '']);
+  function sortValue(f, key) {
+    if (key === 'severity') return sevRank(f.severity) * 10 + stageRank(f.stage);
+    if (key === 'stage') return stageRank(f.stage) * 10 + sevRank(f.severity);
+    if (key === 'section') { const i = SECTIONS.indexOf(f._section); return i < 0 ? 999 : i; }
+    if (key === 'skills') return -f.skills.length;
+    if (key === 'reference') return (refLinks.get(f.id) || []).length ? 0 : 1;
+    if (key === 'text') return located.has(f.id) ? 0 : 1;
+    return String(f[key] || '').toLowerCase();
+  }
+  function drawTable(list) {
+    const rows = [...list].sort((a, b) => { const x = sortValue(a, sortKey), y = sortValue(b, sortKey); return (x < y ? -1 : x > y ? 1 : 0) * sortDir || a.id.localeCompare(b.id, undefined, {numeric: true}); });
+    const head = h('tr', null, COLS.map(([key, label]) => h('th', {'aria-sort': sortKey === key ? (sortDir > 0 ? 'ascending' : 'descending') : null},
+      label ? h('button', {type: 'button', onclick: () => { sortDir = sortKey === key ? -sortDir : 1; sortKey = key; drawTable(list); }}, label + (sortKey === key ? (sortDir > 0 ? ' ↑' : ' ↓') : '')) : null)));
+    const body = h('tbody');
+    for (const f of rows) {
+      const open = expanded.has(f.id);
+      const detail = h('tr', {class: 'detail', id: `detail-${f.id}`, hidden: !open}, h('td', {colspan: COLS.length}, findingDetail(f)));
+      const row = h('tr', {class: 'row', id: `finding-${f.id}`, tabindex: 0, 'aria-expanded': String(open), 'aria-controls': `detail-${f.id}`},
+        h('td', null, badges(f.skills)), h('td', null, h('strong', null, f.id)), h('td', null, sevBadge(f.severity)), h('td', null, STAGE_SHORT[f.stage]),
+        h('td', null, f.category), h('td', null, f.section), h('td', null, f.summary, f.decision ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'decision') : null),
+        h('td', null, f.assessment === 'confirmed' ? (f.resolution === 'addressed' ? 'Addressed' : 'Open') : f.assessment === 'candidate' ? 'Candidate' : 'Dismissed'),
+        inv.reference ? h('td', null, (refLinks.get(f.id) || []).map(r => h('span', {class: 'tag'}, r))) : null,
+        h('td', null, located.has(f.id) ? link('in the text', e => { e.stopPropagation(); openInPaper(f.id); }, `Show ${f.id} in the manuscript`) : null));
+      const flip = () => { const now = detail.hidden; detail.hidden = !now; row.setAttribute('aria-expanded', String(now)); if (now) expanded.add(f.id); else expanded.delete(f.id); };
+      row.addEventListener('click', flip);
+      row.addEventListener('keydown', e => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flip(); } });
+      body.append(row, detail);
+    }
+    tableBox.replaceChildren(rows.length ? h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, head), body)) : h('p', {class: 'empty'}, 'No problems match these filters.'));
+  }
+  function findingDetail(f) {
+    const dl = h('dl', {class: 'detail-grid'});
+    const add = (label, ...value) => { if (value.some(v => v != null && v !== '' && !(Array.isArray(v) && !v.length))) dl.append(h('dt', null, label), h('dd', null, ...value)); };
+    add('The passage', f.quote ? h('blockquote', null, f.quote) : null, located.has(f.id) ? link('Show it in the manuscript', () => openInPaper(f.id)) : null);
+    add('What is wrong', f.detail);
+    add('What to do', f.action);
+    add('In the skills\' own words', said(f.evidence));
+    add('Kind, section and stage', `${f.category} · ${f.section} · ${STAGE_LABEL[f.stage]} · ${SEV_LABEL[f.severity]}`);
+    add('Merged from', f.sources.map(s => h('span', {class: 'tag'}, `${skillName(s.skill)}: ${s.id}`)));
+    add('Edits for it', editsFor(f.id).map(c => h('div', null, h('strong', null, c.id), ` (${c.status}) ${c.summary}`)));
+    if (inv.reference) add('In the reference review', (refLinks.get(f.id) || []).map(r => {
+      const item = inv.reference.items.find(i => i.id === r), match = refState.get(r);
+      return h('div', null, h('strong', null, r), ` (${MATCH[match.match].toLowerCase()}) ${item ? item.summary : ''}`);
+    }));
+    return dl;
+  }
+  function openFinding(id) {
+    const f = byId.get(id);
+    if (!f || !panels.findings) return;
+    Object.assign(F, {assessment: f.assessment === 'dismissed' ? 'dismissed' : '', severity: '', stage: '', category: '', skill: '', section: '', q: id});
+    expanded.add(id);
+    selectTab('findings');
+    refresh();
+    const row = document.getElementById(`finding-${id}`);
+    if (row) { row.scrollIntoView({block: 'center'}); row.focus({preventScroll: true}); }
+  }
+
+  // ---------- comparison with a reference review ----------
+  if (panels.reference) (function reference() {
+    const p = panels.reference, R = inv.reference, b = S.benchmark;
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, `Compared with ${R.title}`), h('p', {class: 'scope', style: 'margin-top: 0'}, R.description));
+    p.append(h('div', {class: 'kpis'}, kpi('Problems it raised', b.items, `${b.substantive} change a fact, claim, method or reference`, true),
+      kpi('Matched', b.full, 'the run reported the same problem'), kpi('Partly matched', b.partial, 'the run found part of it'),
+      kpi('Not caught', b.missed, 'no finding of the run corresponds'),
+      kpi('Substantive problems caught', `${b.substantive_caught} of ${b.substantive}`, 'matched fully or in part'),
+      kpi('Confirmed findings it lacks', b.confirmed_without_counterpart, 'raised by the run only; not judged here')));
+    const parts = [['full', 'Matched', 'var(--b-full)'], ['partial', 'Partly matched', 'var(--b-partial)'], ['missed', 'Not caught', 'var(--b-missed)']];
+    const legend = h('div', {class: 'leg'}, parts.map(([, label, color]) => h('span', null, h('span', {class: 'swatch', style: `background: ${color}`}), label)));
+    const sum = v => Object.values(v).reduce((a, c) => a + c, 0);
+    const rows = Object.entries(b.by_category).sort((x, y) => sum(y[1]) - sum(x[1]));
+    const total = Math.max(...rows.map(([, v]) => sum(v)), 1);
+    const stacks = h('div', {class: 'bars'}, rows.map(([cat, v]) => {
+      const row = stackRow(cat, parts.map(([k, label, color]) => ({label, color, count: v[k] || 0})), sum(v));
+      row.querySelector('.stack').style.flex = `0 0 calc((100% - 5em) * ${sum(v) / total})`;
+      return row;
+    }));
+    const reasons = Object.entries(b.miss_reasons || {}), owners = Object.entries(b.missed_by_owner || {}).sort((x, y) => y[1] - x[1]);
+    p.append(h('div', {class: 'grid', style: 'margin-top: 16px'}, card('By kind of problem', legend, stacks, h('p', {class: 'note'}, 'Values after each bar: matched / partly matched / not caught.')),
+      reasons.length ? card('Why the rest was not caught in full', barChart(reasons.map(([k, n]) => ({key: k, label: MISS[k] || k, count: n,
+        color: k === 'skill-did-not-look' || k === 'judged-differently' ? 'var(--b-missed)' : 'var(--deemph)'})), {unit: 'item'}),
+        h('p', {class: 'note'}, 'Orange marks misses a skill could have caught: the problem was in its remit. Grey ones needed something no skill had, or are not defects.')) : null,
+      owners.length ? card('Substantive misses by the skill whose remit covers them', barChart(owners.map(([k, n]) => ({key: k, label: skillName(k), lead: SKILL[k] ? badge(k) : null, count: n})), {unit: 'item'}), h('p', {class: 'note'}, 'Where to improve the skills first.')) : null));
+    const state = id => (refState.get(id) || {match: 'missed'}).match;
+    const filter = h('select', {'aria-label': 'Match'}, options([['full', 'Matched'], ['partial', 'Partly matched'], ['missed', 'Not caught'], ['short', 'Not caught in full']], 'Every item'));
+    const origin = h('select', {'aria-label': 'Origin'}, options([...new Set(R.items.map(i => i.origin))].map(o => [o, o]), 'Every origin'));
+    const box = h('div');
+    function draw() {
+      const items = R.items.filter(i => (!filter.value || state(i.id) === filter.value || (filter.value === 'short' && state(i.id) !== 'full')) && (!origin.value || i.origin === origin.value));
+      box.replaceChildren(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['ID', 'Origin', 'Kind', 'Section', 'Problem raised', 'In this run', 'Findings', 'Why', 'Why not caught in full'].map(t => h('th', null, t)))),
+        h('tbody', null, items.map(i => {
+          const s = state(i.id), match = refState.get(i.id);
+          return h('tr', null, h('td', null, h('strong', null, i.id)), h('td', null, i.origin), h('td', null, i.category, i.substantive ? null : h('span', {class: 'tag', style: 'margin-left: 4px'}, 'wording')),
+            h('td', null, i.section), h('td', null, i.summary), h('td', null, h('span', {class: 'sev'}, h('span', {class: 'swatch', style: `background: var(--b-${s})`}), MATCH[s])),
+            h('td', null, match ? match.finding_ids.map(id => [link(id, () => openFinding(id)), ' ']) : null), h('td', null, match ? match.note : ''),
+            h('td', null, s === 'full' ? '' : [i.miss_reason ? h('strong', null, MISS[i.miss_reason]) : h('span', {class: 'note'}, MISS.unexplained),
+              i.owner ? h('span', {style: 'margin-left: 4px'}, SKILL[i.owner] ? badge(i.owner) : h('span', {class: 'tag'}, short(i.owner))) : null, i.miss_note ? h('div', null, i.miss_note) : null]));
+        })))));
+    }
+    filter.addEventListener('change', draw); origin.addEventListener('change', draw);
+    p.append(h('h2', {class: 'sec'}, 'Every problem it raised'), h('div', {class: 'filters', style: 'display: flex; gap: 8px; max-width: 520px; margin-bottom: 12px'}, filter, origin), box);
+    draw();
+    p.append(h('p', {class: 'note'}, `Source: ${R.source.path}. A match is an adjudicated judgement that a finding names the same problem. "Not caught" means no finding of this run corresponds; it does not say the item was right. Findings without a counterpart are not false alarms by default: the reference review is one reading, not a complete list of the manuscript's problems.`));
+  })();
+
+  // ---------- journals ----------
+  if (panels.journals) (function journals() {
+    const p = panels.journals;
+    const ladder = inv.venues.filter(v => v.ladder === 'journals').sort((a, b) => a.rung - b.rung);
+    const preprints = inv.venues.filter(v => v.ladder === 'preprints').sort((a, b) => a.rung - b.rung);
+    const chosen = ladder.filter(v => v.chosen);
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'The journals to target'),
+      h('p', {class: 'note', style: 'margin-top: 0'}, 'From manuscript-journal-select, ordered by the authors\' priorities. Facts were read on each journal\'s own pages; time to a first decision is measured differently by each publisher, so compare it with care.'));
+    const facts = v => h('dl', {class: 'facts'}, [['Article type', v.article_type], ['Impact factor', v.impact_factor != null ? `${v.impact_factor}${v.impact_factor_year ? ` (${v.impact_factor_year})` : ' (year not shown)'}` : ''],
+      ['First decision', v.first_decision_days != null ? `${v.first_decision_days} days` : 'not published'], ['AI-policy work', v.ai_points != null ? `${v.ai_points} point${v.ai_points === 1 ? '' : 's'}, ${v.ai_tier}` : ''],
+      ['For this paper\'s AI use', v.ai_for_this_use], ['Fee', v.fee], ['Fit', v.fits]].filter(([, x]) => x).map(([k, x]) => [h('dt', null, k), h('dd', null, x)]));
+    p.append(h('div', {class: 'venues'}, chosen.map((v, i) => h('section', {class: 'card venue'}, h('h3', null, h('span', {class: 'rank'}, String(i + 1)), v.name), facts(v),
+      v.why ? h('p', {class: 'note'}, v.why) : null, v.url ? h('p', {class: 'note'}, v.url) : null))));
+    const maxIf = Math.max(...ladder.map(v => v.impact_factor || 0), 1), maxDays = Math.max(...ladder.map(v => v.first_decision_days || 0), 1);
+    p.append(h('div', {class: 'grid', style: 'margin-top: 16px'},
+      card('Impact factor', barChart(ladder.filter(v => v.impact_factor != null).map(v => ({key: v.key, label: v.name, count: v.impact_factor, text: String(v.impact_factor), color: v.chosen ? 'var(--accent)' : 'var(--deemph)', hint: v.impact_factor_year ? `Journal Citation Reports ${v.impact_factor_year}` : 'year not shown on the journal page'})), {unit: 'point'}),
+        h('p', {class: 'note'}, 'Blue bars are the three chosen journals.')),
+      card('Days to a first decision', barChart(ladder.filter(v => v.first_decision_days != null).map(v => ({key: v.key, label: v.name, count: v.first_decision_days, text: `${v.first_decision_days} d`, color: v.chosen ? 'var(--accent)' : 'var(--deemph)', hint: v.speed_measure || 'measure not recorded'})), {unit: 'day'}),
+        h('p', {class: 'note'}, 'Shorter is faster. Hover a bar for what the publisher counts: some include desk rejections, some count only published papers.'))));
+    p.append(h('h2', {class: 'sec'}, 'The whole journal ladder'));
+    const rows = ladder.map(v => h('tr', {class: v.chosen ? 'chosen' : null}, h('td', {class: 'num'}, String(v.rung)), h('td', {class: 'num'}, v.tool_rung != null && v.tool_rung !== v.rung ? String(v.tool_rung) : ''),
+      h('td', null, h('strong', null, v.name), v.chosen ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'chosen') : null),
+      h('td', null, withTip(h('span', {tabindex: 0}, v.fits || '—'), [v.fits, v.fits_reason])),
+      h('td', {class: 'num'}, v.impact_factor != null ? [h('span', {class: 'mini', style: `width: ${v.impact_factor / maxIf * 60}px`}), String(v.impact_factor)] : '—'),
+      h('td', {class: 'num'}, v.first_decision_days != null ? withTip(h('span', {tabindex: 0}, h('span', {class: 'mini', style: `width: ${v.first_decision_days / maxDays * 60}px; background: var(--deemph)`}), `${v.first_decision_days} d`), [`${v.first_decision_days} days`, v.speed_measure]) : '—'),
+      h('td', null, v.ai_points != null ? withTip(h('span', {tabindex: 0}, `${v.ai_points} · ${v.ai_tier}`), ['AI-policy work for this paper', v.ai_for_this_use]) : '—'),
+      h('td', null, v.fee || '—'), h('td', null, v.preprint_rule ? withTip(h('span', {tabindex: 0}, v.preprint_rule.length > 60 ? v.preprint_rule.slice(0, 58) + '…' : v.preprint_rule), ['Preprints', v.preprint_rule]) : '—')));
+    p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, [['Rank', 'num'], ['Tool rank', 'num'], ['Journal'], ['Fit'], ['Impact factor', 'num'], ['First decision', 'num'], ['AI-policy work'], ['Fee'], ['Preprints']].map(([t, c]) => h('th', {class: c || null}, t)))), h('tbody', null, rows))));
+    p.append(h('p', {class: 'note'}, '"Tool rank" is the order the ladder tool gave when the selection reordered it; the reasons are in the journal-selection report. AI-policy work counts what the journal\'s AI rules ask of a paper with this AI use: 1 light, 2–3 moderate, 4 or more heavy.'));
+    if (preprints.length) {
+      p.append(h('h2', {class: 'sec'}, 'Preprint servers'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, ['Rank', 'Server', 'Fit', 'AI-policy work'].map(t => h('th', null, t)))),
+        h('tbody', null, preprints.map(v => h('tr', null, h('td', {class: 'num'}, String(v.rung)), h('td', null, h('strong', null, v.name)), h('td', null, withTip(h('span', {tabindex: 0}, v.fits || '—'), [v.fits, v.fits_reason])),
+          h('td', null, v.ai_points != null ? `${v.ai_points} · ${v.ai_tier}` : '—')))))));
+    }
+  })();
+
+  // ---------- edits ----------
+  function tokens(text) { return String(text || '').match(/\s+|[^\s]+/g) || []; }
+  function wordDiff(a, b) {
+    const A = tokens(a), B = tokens(b), n = A.length, k = B.length;
+    if (n * k > 4e6) return null;
+    const dp = Array.from({length: n + 1}, () => new Uint32Array(k + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = k - 1; j >= 0; j--) dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    const out = [];
+    const push = (op, t) => { const last = out[out.length - 1]; if (last && last[0] === op) last[1] += t; else out.push([op, t]); };
+    let i = 0, j = 0;
+    while (i < n && j < k) { if (A[i] === B[j]) { push('=', A[i]); i++; j++; } else if (dp[i + 1][j] >= dp[i][j + 1]) push('-', A[i++]); else push('+', B[j++]); }
+    while (i < n) push('-', A[i++]);
+    while (j < k) push('+', B[j++]);
+    return out;
+  }
+  if (panels.edits) (function edits() {
+    const p = panels.edits, kinds = tally(inv.changes, c => c.kind);
+    const rivals = new Map();
+    for (const group of S.competing_proposals || []) for (const id of group) rivals.set(id, group.filter(x => x !== id));
+    p.append(h('div', {class: 'kpis'}, kpi('Applied', counts.applied_edits, 'checked against the revised manuscript', true),
+      kpi('Proposed', counts.proposed_edits, 'awaiting the authors'), kpi('Linked to a problem', inv.changes.filter(c => c.finding_ids.length).length, 'the rest are independent improvements'),
+      kpi('Competing proposals', (S.competing_proposals || []).length, 'passages two stages rewrite differently: choose one')));
+    p.append(h('div', {class: 'grid', style: 'margin-top: 16px'}, card('Edits by kind', barChart(Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({key: k, label: k, count: n})), {unit: 'edit'}))));
+    p.append(h('h2', {class: 'sec'}, 'Every edit, before and after'), h('p', {class: 'note'}, 'Removed words are struck through; added words are underlined on a tinted background.'));
+    for (const c of inv.changes) {
+      const diff = c.before != null && c.after != null ? wordDiff(c.before, c.after) : null;
+      const view = h('div', {class: 'diff'});
+      if (diff) for (const [op, t] of diff) view.append(op === '=' ? document.createTextNode(t) : h(op === '+' ? 'ins' : 'del', null, t));
+      else view.append(c.before == null ? h('ins', null, c.after) : c.after == null ? h('del', null, c.before) : `${c.before}\n→\n${c.after}`);
+      p.append(h('article', {class: 'card edit'},
+        h('header', null, h('strong', null, c.id), h('span', {class: 'tag'}, c.status === 'applied' ? 'Applied' : 'Proposed'), h('span', {class: 'tag'}, c.kind), h('span', {class: 'note', style: 'margin: 0'}, c.section),
+          rivals.has(c.id) ? h('span', {class: 'tag', style: 'border-color: var(--sev-major); color: var(--ink)'}, `competes with ${rivals.get(c.id).join(', ')}`) : null),
+        h('p', {style: 'margin: 0 0 8px'}, c.summary, c.finding_ids.length ? [' · for ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : ' · independent improvement'),
+        view,
+        h('details', null, h('summary', null, 'Before and after in full, and the evidence'),
+          h('div', {class: 'grid', style: 'margin-top: 8px'}, h('div', null, h('h3', null, 'Before'), h('blockquote', null, c.before == null ? '(addition)' : c.before)),
+            h('div', null, h('h3', null, 'After'), h('blockquote', null, c.after == null ? '(deletion)' : c.after))), said(c.evidence))));
+    }
+  })();
+
+  // ---------- panel ----------
+  if (panels.panel) (function panel() {
+    const p = panels.panel, P = inv.panel;
+    const ROUND_LABEL = {'': 'Default panel', readers: 'Default panel'};
+    const roundOf = r => r.round || '';
+    const rounds = [...new Set(P.readers.map(roundOf))];
+    const best = [...rounds].sort((a, b) => P.readers.filter(r => roundOf(r) === b && r.path.length).length - P.readers.filter(r => roundOf(r) === a && r.path.length).length)[0];
+    const readerBox = h('div');
+    function drawReaders(round) {
+    const p = readerBox;
+    p.replaceChildren();
+    const readers = P.readers.filter(r => roundOf(r) === round);
+    if (readers.length) {
+      const finished = r => /^finished$/i.test(r.left);
+      // Readers follow their own path: skipping a section is not leaving. Map every step to a top-level section.
+      const TOP = SECTIONS.filter(sec => !/^\d+\.\d+/.test(sec));
+      const FIG = 'Figures and tables';
+      const topOf = name => {
+        if (/^\s*(fig(ure)?|table)s?\b/i.test(clean(name))) return FIG;
+        const sec = sectionOf({section: name}), num = numberOf(sec);
+        return (num && TOP.find(t => numberOf(t) === num.split('.')[0])) || (TOP.includes(sec) ? sec : null);
+      };
+      const mapped = readers.filter(r => r.path.length).map(r => {
+        const steps = r.path.map(st => ({top: topOf(st.section), how: st.how})).filter(st => st.top);
+        const leftTop = r.left && !finished(r) ? topOf(r.left) : null;
+        let cut = steps.length;
+        if (leftTop) { const i = steps.map(st => st.top).lastIndexOf(leftTop); cut = i < 0 ? steps.length : i + 1; }
+        const before = steps.slice(0, cut), state = {};
+        for (const st of before) if (state[st.top] !== 'read') state[st.top] = st.how === 'skipped' ? (state[st.top] || 'skipped') : 'read';
+        if (leftTop) state[leftTop] = 'left';
+        return {r, state};
+      });
+      if (mapped.length && TOP.length) {
+        const cols = [...TOP, ...(mapped.some(m => m.state[FIG]) ? [FIG] : [])];
+        const parts = [['read', 'Read or skimmed', 'var(--accent)'], ['skipped', 'Skipped', 'var(--deemph)'], ['left', 'Left the paper here', 'var(--sev-major)'], ['none', 'Never got there', 'var(--grid)']];
+        const rows = cols.map(sec => stackRow(sec, parts.map(([k, label, color]) => ({label, color, count: mapped.filter(m => (m.state[sec] || 'none') === k).length})), mapped.length));
+        const grid = h('table', null, h('thead', null, h('tr', null, h('th', null, 'Reader'), cols.map(sec => h('th', {class: 'num', title: sec}, numberOf(sec) || sec.slice(0, 10))))),
+          h('tbody', null, mapped.map(({r, state}) => h('tr', null, h('th', {scope: 'row', style: 'text-transform: none; letter-spacing: 0; color: var(--ink); white-space: normal'}, r.seat),
+            cols.map(sec => { const st = state[sec]; return withTip(h('td', {class: 'cell', tabindex: 0, style: st ? `background: ${st === 'left' ? 'var(--hl-major)' : st === 'read' ? 'var(--surface-2)' : 'transparent'}` : ''},
+              st === 'left' ? '✕' : st === 'read' ? '●' : st === 'skipped' ? '–' : ''), [{read: 'Read or skimmed', skipped: 'Skipped', left: 'Left the paper here'}[st] || 'Never got there', `${r.seat} · ${sec}`]); })))));
+        p.append(card('Where readers went, and where they left', h('div', {class: 'leg'}, parts.map(([, label, color]) => h('span', null, h('span', {class: 'swatch', style: `background: ${color}`}), label))),
+          h('div', {class: 'bars'}, rows),
+          h('div', {class: 'table-wrap heat', style: 'margin-top: 12px'}, grid),
+          h('p', {class: 'note'}, `Each reader follows their own path: a skipped section is not a lost reader. ● read or skimmed, – skipped, ✕ left the paper there, blank never reached. ${readers.length - mapped.length ? `${readers.length - mapped.length} readers in this round recorded no path and are not shown.` : ''}`)));
+      }
+      const odd = r => r.left && !finished(r) && /try|cite/i.test(r.next);
+      p.append(h('div', {class: 'grid', style: 'margin-top: 16px'}, readers.map(r => card(r.seat, h('div', {class: 'reader'},
+        h('div', null, h('strong', null, 'Would tell a colleague: '), r.takeaway),
+        h('div', null, h('strong', null, r.left ? (finished(r) ? 'Read to the end; dipped at: ' : 'Would leave at: ') : 'Attention dropped at: '), r.left && !finished(r) ? r.stopped_at : (r.dips.join(', ') || r.stopped_at)),
+        r.next ? h('div', null, h('strong', null, 'Next: '), r.next) : null,
+        odd(r) ? h('div', {class: 'note', style: 'color: var(--sev-major)'}, 'Inconsistent: a reader who leaves before the end cannot try or cite the work.') : null,
+        !r.left ? h('div', {class: 'note'}, 'Recorded before the funnel format: where this reader would leave is unknown.') : null)))));
+      p.append(h('p', {class: 'note'}, 'Simulated readers are agents given only the reading copy; they are not human participants.'));
+    }
+    }
+    if (P.readers.length) {
+      p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'Simulated readers'));
+      if (rounds.length > 1) {
+        const pick = h('select', {'aria-label': 'Reader panel'}, rounds.map(r => h('option', {value: r, selected: r === best ? true : null},
+          `${ROUND_LABEL[r] || r} (${P.readers.filter(x => roundOf(x) === r).length} readers${P.readers.some(x => roundOf(x) === r && x.path.length) ? ', reading paths' : ''})`)));
+        pick.addEventListener('change', () => drawReaders(pick.value));
+        p.append(h('div', {class: 'filters', style: 'max-width: 420px; margin-bottom: 12px'}, pick));
+      }
+      p.append(readerBox);
+      drawReaders(best);
+    }
+
+    if (P.recommendations.length) {
+      const venues = [...new Set(P.recommendations.map(r => r.venue))], seats = [...new Set(P.recommendations.map(r => r.seat))];
+      const vname = key => (inv.venues.find(v => v.key === key) || {}).name || key;
+      p.append(h('h2', {class: 'sec'}, 'Simulated referees: recommendation per journal'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, h('th', null, 'Referee'), venues.map(v => h('th', null, vname(v))))),
+        h('tbody', null, seats.map(s => h('tr', null, h('th', {scope: 'row', style: 'text-transform: none; letter-spacing: 0; color: var(--ink)'}, s), venues.map(v => {
+          const rec = P.recommendations.find(r => r.seat === s && r.venue === v);
+          return h('td', null, rec ? [h('strong', null, REC[rec.recommendation]), h('div', {class: 'note', style: 'margin: 2px 0 0'}, rec.reason)] : '');
+        })))))));
+      p.append(h('p', {class: 'note'}, 'Recommendations are the referees\' own, before the authors answer. No acceptance probability is implied.'));
+    }
+  })();
+
+  // ---------- coverage ----------
+  if (panels.coverage) (function coverage() {
+    const p = panels.coverage;
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'What each skill covered'));
+    p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, ['Skill', 'Status', 'Coverage', 'Confirmed problems', 'Evidence'].map(t => h('th', null, t)))),
+      h('tbody', null, inv.coverage.map(c => h('tr', null, h('td', null, badge(c.skill), ' ', skillName(c.skill)), h('td', null, statusChip(null, c.status, c.note)),
+        h('td', null, c.note), h('td', {class: 'num'}, String(S.by_skill[c.skill] || 0)), h('td', null, c.evidence.map(e => h('div', {class: 'note', style: 'margin: 0'}, e.path)))))))));
+    if (inv.not_checked.length) {
+      p.append(h('h2', {class: 'sec'}, 'What could not be checked'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, ['Skill', 'Check', 'Why', 'What it leaves open'].map(t => h('th', null, t)))),
+        h('tbody', null, inv.not_checked.map(n => h('tr', null, h('td', null, badge(n.skill)), h('td', null, n.check), h('td', null, n.why), h('td', null, n.leaves_open)))))));
+    }
+    if (inv.signals.length) {
+      p.append(h('h2', {class: 'sec'}, 'Raw signals screened'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, h('tr', null, h('th', null, 'Skill'), h('th', null, 'Check'), h('th', {class: 'num'}, 'Signals'), h('th', null, 'File'))),
+        h('tbody', null, inv.signals.map(s => h('tr', null, h('td', null, badge(s.skill)), h('td', null, s.check), h('td', {class: 'num'}, String(s.count)), h('td', null, s.note)))))));
+    }
+    if (inv.dismissed.length || findings.some(f => f.assessment === 'dismissed')) {
+      p.append(h('h2', {class: 'sec'}, `Dismissed flags (${counts.dismissed_flags})`));
+      p.append(h('ul', null, inv.dismissed.map(d => h('li', null, badge(d.skill), ` ${d.summary}. `, h('span', {class: 'note'}, d.why))),
+        findings.filter(f => f.assessment === 'dismissed').map(f => h('li', null, h('strong', null, f.id), `: ${f.summary}`))));
+    }
+    p.append(h('h2', {class: 'sec'}, 'Limits of these counts'));
+    p.append(h('ul', null, [...inv.limitations,
+      'Counts describe this review scope, not detection accuracy, scientific quality or publication readiness.',
+      'One problem is counted once across skills; edits and problems are separate units; candidates and dismissed flags are never added to the confirmed total.',
+      'Every quote and evidence excerpt was checked to occur verbatim in its file when this page was built; whether it supports the finding is the reviewers\' judgement.'].map(t => h('li', null, t))));
+  })();
+
+  document.getElementById('footer').textContent = `Built from ${plural(findings.length, 'record')} and ${plural(inv.changes.length, 'edit')} in run ${inv.run_id}. Evidence excerpts are embedded; the original files need not accompany this page. Generated ${D.generated}.`;
+  let pending = null;
+  window.addEventListener('resize', () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(layoutRail); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutRail);
+  refresh();
+  const saved = store.get('review-dashboard-tab');
+  selectTab(tabs.some(([k]) => k === saved) ? saved : tabs[0][0]);
+})();
+</script>
+</body>
+</html>

@@ -191,6 +191,18 @@ distinction; it cannot validate results without their raw outputs. Report a miss
 archive separately from a demonstrated numerical error, and never substitute an older round's values
 merely because those are the files available.
 
+When the paper describes an input file differently from the project's records (another caller version,
+other record counts), ask first whether the benchmark used the file the paper cites at all: a different
+genome, or a different export of it, explains every number at once. A deposited VCF's header settles the
+caller, its version and the build without a download: stream its first lines
+(`curl -sL URL | gzip -dc | head -n 300`).
+
+The paper's description of what the software ships is checked against the project's data as well as its
+code: what each module or dataset contains and was built from (its spec, curation notes, source tables),
+which reference panel and release a score or percentile uses, the defaults a user gets (`modules.yaml`, the
+settings the interface starts with). A description the files contradict is a "Fix now" finding with the
+file and line that settle it; one the files cannot settle is a question for the authors.
+
 ### Step 4: reporting, availability and venue requirements
 
 Ethics, privacy, clinical-scope and regulatory applicability (including authors' own public genomes) are

@@ -113,6 +113,10 @@ class Reference(BaseModel):
     url_status: Optional[str] = None  # the url field's answer: "ok HTTP 200", "dead HTTP 404", "blocked ...", "unknown ..."
     resolved_title: Optional[str] = None
     resolved_year: Optional[str] = None
+    # Where a title search found the record: its journal names, volume and pages, compared with the entry's
+    resolved_venues: list[str] = []
+    resolved_volume: Optional[str] = None
+    resolved_pages: Optional[str] = None
     resolved_first_author: Optional[str] = None
     first_author_found: Optional[bool] = None
     title_similarity: Optional[float] = None
@@ -2153,10 +2157,16 @@ def _search_crossref(client: httpx.Client, ref: Reference) -> None:
     """No identifier: ask Crossref for the best bibliographic match and report how well it fits."""
     items = _crossref_title_search(client, ref.text, rows=1)
     if items:
-        ref.resolved_title = _fetched((items[0].get("title") or [""])[0])
-        ref.doi = items[0].get("DOI")
-        authors = items[0].get("author") or []
+        item = items[0]
+        ref.resolved_title = _fetched((item.get("title") or [""])[0])
+        ref.doi = item.get("DOI")
+        authors = item.get("author") or []
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
+        ref.resolved_venues = [_fetched(v) for v in [*(item.get("container-title") or []), *(item.get("short-container-title") or [])] if v]
+        ref.resolved_volume = str(item["volume"]) if item.get("volume") else None
+        ref.resolved_pages = str(item["page"]) if item.get("page") else None
+        parts = (item.get("issued") or {}).get("date-parts") or [[None]]
+        ref.resolved_year = str(parts[0][0]) if parts and parts[0] and parts[0][0] else None
     elif items is None:
         ref.lookup_notes.append("Crossref search did not answer.")
     ref.status = "no_identifier"
@@ -2348,6 +2358,27 @@ def id_url(kind: str, value: str) -> str:
             "arxiv": f"https://arxiv.org/abs/{value}"}.get(kind, value)
 
 
+def _record_conflicts(ref: Reference) -> list[str]:
+    """Where a title search's best record disagrees with the entry: journal, year, volume, first page.
+
+    A real but loosely cited work disagrees in one place (an abbreviated journal, a print year); a record that
+    differs in two or more is a different work, and the entry may cite a paper that does not exist."""
+    entry = _fold(ref.text)
+    out = []
+    venues = [_fold(v) for v in ref.resolved_venues if v]
+    if venues and not any(v and v in entry for v in venues):
+        out.append(f"journal (the record is in {ref.resolved_venues[0]})")
+    years = {int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", ref.text)}
+    if ref.resolved_year and years and all(abs(int(ref.resolved_year) - y) > 1 for y in years):
+        out.append(f"year (the record is from {ref.resolved_year})")
+    if ref.resolved_volume and re.search(r"\b\d+\s*\(\d+\)", ref.text) and not re.search(rf"\b{re.escape(ref.resolved_volume)}\b", ref.text):
+        out.append(f"volume (the record's is {ref.resolved_volume})")
+    first = (re.match(r"[A-Za-z]?\d+", ref.resolved_pages or "") or [None])[0]
+    if first and re.search(r"\b\d+\s*[-–]\s*\d+\b", ref.text) and not re.search(rf"\b{re.escape(first)}\b", ref.text):
+        out.append(f"pages (the record's are {ref.resolved_pages})")
+    return out
+
+
 def _reference_findings(refs: list[Reference], online: bool = False, unidentified: str = "strict") -> list[Finding]:
     """Findings per reference. `unidentified="strict"` (the default) never lets an entry with no identifier pass:
     a Crossref match is a candidate to confirm, at least minor; "lax" lets a close match fall to info."""
@@ -2419,7 +2450,17 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
             weak = (ref.title_similarity or 0) < 0.6
             best = (f"Crossref's best match is {doi_url(ref.doi)}, “{ref.resolved_title}” ({_share(ref.title_similarity)})"
                     if ref.resolved_title and ref.doi else "")
-            if weak and not ref.first_author_found:
+            # A title or author match that hides another journal, volume and pages: the entry names a work no one published.
+            conflicts = _record_conflicts(ref) if best and not (weak and not ref.first_author_found) else []
+            if len(conflicts) >= 2:
+                add(ref, Severity.major,
+                    f"The entry carries no DOI, PubMed ID or arXiv id, and the closest published record is a different "
+                    f"work: {best} differs from the entry in its {', '.join(conflicts)}. No record matching this "
+                    f"entry was found, so it may combine details of several papers or cite one that does not exist.",
+                    why="A reference that matches no published work cannot support the claim it is cited for.",
+                    suggestion="Find the work the sentence relies on by its title, journal, volume and pages, cite it with its "
+                               "identifier, or remove the entry.")
+            elif weak and not ref.first_author_found:
                 add(ref, Severity.major,
                     "The entry carries no DOI, PubMed ID or arXiv id, and Crossref holds no close match for it"
                     + (f" (the best, {doi_url(ref.doi)}, “{ref.resolved_title}”, is a different work)"
@@ -3137,7 +3178,9 @@ def _reference_rows(refs: list[Reference]) -> list[str]:
         entry = _quote(ref.text, width=90)[0]
         found = STATUS_WORDS.get(ref.status, ref.status)
         if ref.status == "no_identifier":
-            found = ("no identifier, and Crossref's best match fits" if (ref.title_similarity or 0) >= 0.6 else
+            fits = (ref.title_similarity or 0) >= 0.6 or ref.first_author_found
+            found = ("no identifier, and Crossref's closest record is a different work" if fits and len(_record_conflicts(ref)) >= 2 else
+                     "no identifier, and Crossref's best match fits" if (ref.title_similarity or 0) >= 0.6 else
                      "no identifier, and no close match in Crossref")
         notes = []
         if ref.published_version:

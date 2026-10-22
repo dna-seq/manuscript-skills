@@ -349,3 +349,27 @@ def test_killing_a_real_command_preserves_partial_output_and_attempt_metadata(ma
     entry=runs.read(run)['skills']['manuscript-prose-edit']
     assert [(c['attempt'],c['state'],c['exit_code']) for c in entry['commands']] == [(1,'interrupted',None),(2,'finished',0)]
     assert output.read_text() == 'partial output\n'
+
+
+def test_exec_runs_where_it_was_called_so_relative_paths_resolve_for_the_caller(tmp_path, monkeypatch) -> None:
+    """The 2026-10-22 run: a relative script path resolved against the project folder and failed."""
+    import importlib.util, json, sys
+    from typer.testing import CliRunner
+
+    scripts = Path(__file__).resolve().parents[1] / "skills/manuscript-integrity-check/scripts"
+    sys.path.insert(0, str(scripts))
+    spec = importlib.util.spec_from_file_location("runs_cwd", scripts / "runs.py")
+    runs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runs)
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "run.json").write_text(json.dumps({"run_id": "R", "started_at": "now", "inputs": [], "skills": {},
+                                              "context": {"project_root": str(tmp_path / "elsewhere")}}))
+    caller = tmp_path / "caller"
+    caller.mkdir()
+    (caller / "hello.txt").write_text("here")
+    monkeypatch.chdir(caller)
+    result = CliRunner().invoke(runs.app, ["exec", str(run), "--skill", "manuscript-story", "--", "cat", "hello.txt"])
+    assert result.exit_code == 0, result.output
+    command = json.loads((run / "run.json").read_text())["skills"]["manuscript-story"]["commands"][0]
+    assert command["cwd"] == str(caller.resolve()) and (run / "manuscript-story/commands/0001.stdout.txt").read_text() == "here"

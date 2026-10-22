@@ -22,8 +22,13 @@ them.
 
 ## The seats
 
-Adapt the seats to the readers the record names (`story.readers`): when the authors name specific
-audiences, give each seat one of them. Otherwise use these three.
+The authors choose who reads. Use, in this order: the readers saved for the project
+(`readers` in `.manuscript-skills.yaml`, set with `project.py configure ROOT --reader "clinician: a
+hospital physician who orders genetic tests" --reader ...`), the readers the record names
+(`story.readers`), or these three defaults. Ask once, at first use, only when the paper's audience is
+unclear: one question listing the defaults and a few alternatives that fit the paper (a bioinformatician,
+a wet-lab biologist, a clinician, a biology student, an informed enthusiast, a random curious person),
+and save the answer. Each seat reads the whole paper, so more than five or six costs more than it adds.
 
 1. **The skimmer.** A busy researcher in the field deciding, from a preprint feed or a table of contents,
    whether to read on. Reads the title, the Abstract, every figure and table caption, the first sentence of
@@ -34,15 +39,40 @@ audiences, give each seat one of them. Otherwise use these three.
    clinician-scientist without bioinformatics training; for a method paper, a domain scientist who would
    use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them.
 
+A seat the authors name gets a brief in the same form: who the reader is, why they opened the paper, and
+the order they read in (a skim like the skimmer's, or the whole paper).
+
+## Reading is a funnel, along each reader's own path
+
+Readers do not read in page order. A skimmer reads the Abstract and the figures; a clinician jumps from
+the Abstract to the results and the Discussion; a potential user goes to the methods and the
+availability statement; many skip the Methods entirely. Each seat reads in the order a reader of its kind
+would, and records its **path**: the sections it visited, in that order, each read, skimmed or skipped.
+Skipping a section is not leaving. **Leaving** is closing the paper: the place on the path where a real
+reader of this kind would stop and not come back. Before that, each **dip** is a passage where attention
+dropped and came back. After leaving, the seat may read on for the panel (to report what it would have
+missed), but its verdict, `next`, follows from where it left. A reader who left before reaching what it
+came for can only stop, bookmark the paper or forward it to someone better placed; "try it" and "cite it"
+need a reader who got that far.
+
 ## What each seat returns
 
 ```yaml
-seat: skimmer | user | outsider          # or the reader named in story.readers
-stopped_at:                              # where attention dropped, or "finished"
-  section: "4.2 PRS Computation"
-  quote: "the first sentence where it dropped, verbatim"
+seat: skimmer | user | outsider | the reader the authors named
+path:                                    # the sections in the order this reader visited them
+  - {section: "Abstract", how: read}     # read | skimmed | skipped
+  - {section: "Figure 1", how: skimmed}
+  - {section: "2. Platform Architecture", how: skipped}
+  - {section: "5. Benchmarking and Validation", how: read}
+left:                                    # where on that path a real reader of this kind would close the paper
+  section: "5.2 PRS Computation"         # or "finished" when they reached the end of their path
+  quote: "the sentence where they gave up, verbatim"
   why: "one sentence in the reader's own terms"
-takeaway: "the one sentence I would tell a colleague about this paper"
+dips:                                    # attention dropped and came back, before leaving
+  - section: "2.2"
+    quote: "verbatim"
+    why: "one sentence"
+takeaway: "the one sentence I would tell a colleague about this paper, from what I read before leaving"
 remembered: ["up to three things I would still remember tomorrow"]
 wanted:                                  # what I looked for and did not find
   - looked_for: "what a report looks like"
@@ -51,12 +81,12 @@ stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
     section: "2.2"
     problem: "undefined term | assumed knowledge | lost the thread | repetition | too many numbers"
-next: "read the full text | try it | cite it | forward it | stop here"
-because: "one sentence"
+next: "stop here | bookmark | forward it | read the full text | try it | cite it"
+because: "one sentence; a reader who left before what it came for cannot try or cite it"
 ```
 
 No scores, ratings or predictions. Quotes are verbatim; a seat that cannot point to a passage says where
-it looked.
+it looked. The parent checks that `next` agrees with `left` and returns a seat's answer that does not.
 
 ## Prompt for a seat
 
@@ -69,8 +99,11 @@ it looked.
 
 - Put the three takeaways beside `story.remember`, the sentence the authors want readers to keep. Where
   they differ, quote both: that difference is the main finding of the panel.
-- List the places attention dropped, by section; two seats stopping at the same passage is a strong
-  signal, one seat is a place to read.
+- Draw the funnel along each reader's path: how many seats were still in the paper at each step, and
+  which sections each skipped. Where readers leave is the main thing to fix, and two seats leaving at
+  the same passage is a strong signal; a section most readers skip is only a problem when what they
+  came for is in it.
+- List the dips by section; they are places to read, not places readers were lost.
 - Merge what readers wanted and did not find; each item is a question for the story tests (an output not
   shown, a difference from a known tool not stated).
 - Collect stumbles into a list of terms to define at first use or keep out of the Abstract.

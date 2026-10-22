@@ -3,7 +3,7 @@ name: manuscript-improve
 description: >-
   Improve a manuscript from draft to submission by coordinating scientific review, reference and
   reporting checks, project-configured simulated peer review, policy fit, journal selection, prose editing, a check
-  of how the paper reads to its readers, and journal adaptation, and later the response to referees. Use for explicit whole-workflow requests or
+  of how the paper reads to its readers, and journal adaptation, ending with a dashboard of what the run found, changed and left open, and later the response to referees. Use for explicit whole-workflow requests or
   requests that combine several services, including optional section-by-section work, stage review with
   before/after comparisons, or an "interview me" decision process. Use an individual manuscript skill for
   one service: "prepare this for journal X" alone belongs to manuscript-journal-adapt.
@@ -66,9 +66,17 @@ unaffordable validation requirement can justify settling journal fit before edit
 | Check how it reads | [manuscript-story](../manuscript-story/SKILL.md) reads the revised paper as its readers do, against the version before this workflow, and repairs the story within the direction the authors recorded: a stake in the opening, one headline per result, real output shown, caveats kept but placed where they cost readers least. A change of direction is only offered as options. Run it after the revision stage, and whenever referee-driven changes have accumulated. |
 | Prepare for the chosen journal | Use [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) for the actual article type and submission stage: scope, length and abstract format, required sections and the reporting checklist that journal asks for. Statements whose contents depend on final code and results can be drafted now and are finished in the last stage. Resolve the target before making incompatible journal-specific changes; before that, only the requirements every venue on the ladders shares are adapted. |
 | Verify the revision | Recheck affected claims, references, cross-section consistency and applicable submission requirements. Compare against the retained version with `../manuscript-prose-edit/scripts/guard.py ORIGINAL FINAL --revision`, resolve unintended drift and identify what remains unverified. Run the required smell check on the revised text, `../manuscript-deslop/scripts/style_profile.py FINAL --before ORIGINAL --check`, and read it against the pattern list the check prints. Compare how it reads with `../manuscript-story/scripts/reader_metrics.py FINAL --before ORIGINAL` and show the authors what moved. |
+| Show what the workflow found and did (always, last) | [manuscript-visualize](../manuscript-visualize/SKILL.md) collects every stage's `findings.json`, merges the problems several skills found, dismisses what did not hold and renders the dashboard: problems by kind, severity, stage and section, coverage, edits as diffs, the panels, and what could not be checked. |
 | Finish for submission, once the code, data and results are final | Archive the release and quote its DOI and version, finalise the data availability statement, declarations, AI-use statement and cover letter with manuscript-journal-adapt, remove revision markers if the authors want that, and run the submission-package check in manuscript-integrity-check. Do this when the authors say they are about to submit; until then these items are listed last and are not blockers for the draft. |
 | After a decision | [manuscript-reviewer-response](../manuscript-reviewer-response/SKILL.md) plans the revision from the decision letter in the referees' own numbering, drafts the response letter and verifies that the revision addresses each comment. This is a separate request, after real reviews arrive. |
 | Track who revised what (where the manuscript keeps revision marks) | [manuscript-revision-marks](../manuscript-revision-marks/SKILL.md) keeps the `@rev` marks current through every stage, lists the AI edits no person has reviewed and the prose no round has read, and builds the PDF from the clean copy against the page limit; [manuscript-mark-people](../manuscript-mark-people/SKILL.md) sets up who counts as a person. Never introduced into a project that does not use marks unless the authors ask. |
+
+Stages that write proposals (story, prose edit, journal adaptation) work from the review stages'
+confirmed findings: run them after those stages, or reconcile their proposals with the findings before
+handover, so that no proposal restates what a check refuted (a feature the code lacks, a peak that was
+not measured). Where two stages rewrite the same passage, the dashboard lists them as competing; give the
+authors one choice per passage rather than stacked edits. Policy fit's venue-specific part runs after
+journal selection has named the journals.
 
 Select only relevant work within these stages. A software paper does not automatically need clinical
 review, a settled journal does not need a new shortlist, and already verified references do not need
@@ -119,10 +127,15 @@ Make the original-to-final comparison accessible. In an iterative workflow, stat
 version and next requested step using the conversation or existing project conventions; no new tracking
 files are required.
 
-When the authors ask to show colleagues what the workflow caught or changed, use
-[manuscript-visualize](../manuscript-visualize/SKILL.md) on this run's saved reports, adjudications and
-before/after evidence. Its infographics separate distinct findings, applied edits, proposals and
-remaining work, with the actual coverage visible. Reuse the evidence rather than rerunning the review.
+Every stage writes `findings.json` beside its report, as
+[stage findings](../manuscript-visualize/references/stage-findings.md) describes, including the stages run
+by reviewer agents. The last step of every run of this workflow is
+[manuscript-visualize](../manuscript-visualize/SKILL.md) on the same run: collect the stages' findings,
+merge what several skills found into one record each, dismiss what did not hold, and render the
+dashboard into `RUN/manuscript-visualize/`. Link the dashboard first in the summary: it is how the
+authors and their colleagues see what the workflow caught, changed and left open, with the actual
+coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,
+with its reason; its unfound problems are unknown, not zero.
 
 Optional detector checks keep their companion skill's request boundary. Formal referee simulation uses
 project `peer_review`: `auto` by default in this full workflow, `on-request` only on request, or `off`;

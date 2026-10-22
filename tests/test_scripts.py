@@ -1576,3 +1576,24 @@ def test_journal_select_eval_cases_are_complete_and_their_files_exist() -> None:
         assert case["rubric"] and case["fail_if"], case["id"]
         for name in case["files"]:
             assert (ROOT / "evals" / name).is_file(), (case["id"], name)
+
+
+def test_ladder_warns_when_first_decision_figures_count_different_papers(task_record: Path) -> None:
+    """The 2026-10-22 run: desk decisions at one publisher were ranked against post-review decisions at another."""
+    from typer.testing import CliRunner
+
+    data = yaml.safe_load(task_record.read_text())
+    data["venue_facts"]["calm"]["review_speed"][0]["population"] = "including desk rejections"
+    data["venue_facts"]["strict"]["review_speed"][0]["population"] = "after peer review, published papers only"
+    task_record.write_text(yaml.safe_dump(data))
+    result = CliRunner().invoke(venues.app, ["ladder", "--only", "calm", "--only", "strict", "--priority", "speed",
+                                             "--record", str(task_record)])
+    assert result.exit_code == 0, result.output
+    assert "not like for like" in result.output and "including desk rejections" in result.output
+    same = yaml.safe_load(task_record.read_text())
+    for key in ("calm", "strict"):
+        same["venue_facts"][key]["review_speed"][0]["population"] = "including desk rejections"
+    task_record.write_text(yaml.safe_dump(same))
+    again = CliRunner().invoke(venues.app, ["ladder", "--only", "calm", "--only", "strict", "--priority", "speed",
+                                            "--record", str(task_record)])
+    assert "not like for like" not in again.output

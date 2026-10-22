@@ -63,3 +63,22 @@
     - "Keeps changes to the argument as reviewable proposals, showing exact before/after text in the chat even though reports is file."
   fail_if:
     - "Resets the edit policy, treats invoking manuscript-improve as permission for substantive rewrites, or blocks the workflow on a settings interview."
+
+- id: improve-ends-with-the-dashboard
+  skill: manuscript-improve
+  settings: {reports: file, edits: conservative}
+  prompt: >-
+    Improve decision-batching.md in place and give me something I can show my co-authors afterwards.
+    Do not pause to interview me.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "The two routine errors and the unverified Introduction claims are found by more than one stage."
+    - "No journal is chosen, so the journal-dependent stages cannot run."
+  rubric:
+    - "Each stage that ran writes findings.json beside its report, and the last step runs manuscript-visualize on the same run."
+    - "The inventory counts a problem two stages found once, with both skills and both source IDs kept, and records the merge in merges.json."
+    - "The routine corrections appear as applied edits only after the revised file is checked; the Introduction changes stay proposals."
+    - "Coverage shows the journal-dependent stages as not run with their reason, and the summary links the dashboard first."
+  fail_if:
+    - "Ends the workflow without a dashboard, or renders one from hand-typed totals."
+    - "Counts the same problem once per reporting skill, labels a proposal addressed or treats an unrun stage as having found nothing."

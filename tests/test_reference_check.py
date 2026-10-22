@@ -674,7 +674,8 @@ def test_reference_json_keeps_every_earlier_field() -> None:
     added = {"retraction", "retraction_source", "retraction_notice", "is_preprint", "published_version", "withdrawn",
              "withdrawn_source", "resolved_authors", "author_check", "author_notes", "author_severity", "lookup_notes"}
     from_cite_check = {"url", "other_ids", "cited_title", "other_id_checks", "url_status", "title_check"}
-    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check
+    from_title_search = {"resolved_venues", "resolved_volume", "resolved_pages"}
+    assert set(scan.Reference(line=1, text="x").model_dump()) == earlier | added | from_cite_check | from_title_search
 
 
 def test_an_arxiv_paper_whose_title_contains_error_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1003,3 +1004,25 @@ def test_a_preprint_and_its_published_version_are_not_called_different_works(oth
     (finding,) = [f for f in scan._reference_findings([ref], online=True) if "different titles" in f.message]
     assert finding.severity == severity
     assert ("preprint" in finding.message) == (severity == scan.Severity.minor)
+
+
+def test_a_title_match_from_another_journal_volume_and_pages_is_a_different_work() -> None:
+    """The 2026-10-22 run on Paper 1 v0.3: an invented entry whose title half-matched a real paper was filed as fitting."""
+    invented = scan.Reference(
+        line=1, status="no_identifier", doi="10.1093/eurpub/ckz246", title_similarity=0.77, first_author_found=True,
+        text="Whitley, K. V., et al. (2020). Direct-to-consumer genetic testing: an updated systematic review. "
+             "European Journal of Human Genetics, 28(8), 1063–1074",
+        resolved_title="European citizens' perspectives on direct-to-consumer genetic testing: an updated systematic review",
+        resolved_venues=["European Journal of Public Health", "Eur J Public Health"], resolved_volume="30",
+        resolved_pages="1049-1056", resolved_year="2019")
+    (finding,) = [f for f in scan._reference_findings([invented], online=True) if "no DOI" in f.message]
+    assert finding.severity == scan.Severity.major and "different work" in finding.message
+    assert "journal" in finding.message and "pages" in finding.message
+    abbreviated = scan.Reference(
+        line=1, status="no_identifier", doi="10.1056/nejmp1316367", title_similarity=1.0, first_author_found=True,
+        text="Annas, G. J., & Elias, S. (2014). 23andMe and the FDA. NEJM, 370(11), 985–988",
+        resolved_title="23andMe and the FDA", resolved_venues=["New England Journal of Medicine", "N Engl J Med"],
+        resolved_volume="370", resolved_pages="985-988", resolved_year="2014")
+    assert scan._record_conflicts(abbreviated) == ["journal (the record is in New England Journal of Medicine)"]
+    (kept,) = [f for f in scan._reference_findings([abbreviated], online=True) if "no DOI" in f.message]
+    assert kept.severity == scan.Severity.minor and "different work" not in kept.message

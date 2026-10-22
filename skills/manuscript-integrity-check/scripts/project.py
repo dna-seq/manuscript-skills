@@ -72,7 +72,7 @@ def read(path: Path) -> dict[str, Any]:
         return {}
     if data.get("schema_version") != 1:
         raise ProjectError(f"{path}: unsupported project schema_version; preserve the file and resolve the conflict.")
-    for key in ("manuscripts", "code_roots", "connected_documents", "related_manuscripts"):
+    for key in ("manuscripts", "code_roots", "connected_documents", "related_manuscripts", "readers", "referees"):
         if key not in data or (key == "code_roots" and data[key] is None):
             continue
         if not isinstance(data[key], list) or any(not isinstance(v, str) or not v.strip() for v in data[key]):
@@ -195,6 +195,9 @@ def configure(
     output_url: str | None = None,
     document: Annotated[list[str] | None, typer.Option("--document")] = None,
     related_manuscript: Annotated[list[str] | None, typer.Option("--related-manuscript")] = None,
+    reader: Annotated[list[str] | None, typer.Option("--reader", help="A reader seat for manuscript-story, e.g. 'clinician: orders genetic tests'; repeat")] = None,
+    referee: Annotated[list[str] | None, typer.Option("--referee", help="An extra referee seat for manuscript-peer-review; repeat")] = None,
+    default_panels: Annotated[bool, typer.Option("--default-panels", help="Forget saved readers and referees")] = False,
     reports: str | None = None,
     edits: str | None = None,
     peer_review: str | None = None,
@@ -217,6 +220,14 @@ def configure(
         for key, locations in (("connected_documents", document), ("related_manuscripts", related_manuscript)):
             if locations is not None:
                 data[key] = [stored_location(path.parent, v) for v in locations]
+        if default_panels:
+            data.pop("readers", None)
+            data.pop("referees", None)
+        for key, seats, limit in (("readers", reader, 8), ("referees", referee, 2)):
+            if seats:
+                if len(seats) > limit:
+                    raise ProjectError(f"At most {limit} {key}: every seat reads the whole paper.")
+                data[key] = [seat.strip() for seat in seats]
         choices = data.setdefault("settings", settings.effective(settings.load(settings.settings_path())) | {"peer_review": "auto"})
         for key, choice in {"reports": reports, "edits": edits, "peer_review": peer_review}.items():
             if choice is None:

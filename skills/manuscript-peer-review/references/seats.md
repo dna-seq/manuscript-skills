@@ -128,6 +128,8 @@ and fairness filter as every other seat: hostile, never unfair.
   the reproducibility remit as well.
 - **custom:<name>**: a seat the authors ask for (for example `custom:clinician` or
   `custom:statistician`), with a one- or two-sentence remit from them.
+  Seats saved for the project (`referees` in `.manuscript-skills.yaml`, set with `project.py configure
+  ROOT --referee "statistician: ..."`) join every panel as custom seats, within the five-seat cap.
 
 ## Quick pass (for an integrity audit)
 

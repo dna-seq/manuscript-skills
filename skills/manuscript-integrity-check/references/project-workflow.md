@@ -57,6 +57,10 @@ skill never expands into full peer review because of this default. A story task 
 readers. Explicitly asking for referees overrides `off` for that invocation. Save a lasting choice with
 `configure PROJECT_FOLDER --peer-review on-request`, not a made-up global YAML key.
 
+Who reads the paper is the authors' choice too: `configure PROJECT_FOLDER --reader "clinician: a hospital
+physician who orders genetic tests" --reader ...` saves the story panel's readers, and `--referee` adds
+up to two custom referee seats; `--default-panels` returns to the default seats.
+
 For linked papers use `--related-manuscript LOCATION` and record their relationship in the scientific
 shared record. Companions keep their own project choices. Read both when publication order, overlapping
 claims, cross-citations, shared releases or preprint updates depend on the relationship.
@@ -80,7 +84,11 @@ registered by the next attempt, with their unknown original exit status clearly 
 Write conclusions, checks and failed attempts under `RUN/SKILL/`, not in a disposable scratch folder.
 Each skill gets a generated `README.md` linking its evidence and showing its status. Save the actual
 author-facing report as `report.md` or another descriptive filename. Only the skill-root `README.md`
-is reserved; source READMEs can be retained under evidence subfolders. Register outputs, including files
+is reserved; source READMEs can be retained under evidence subfolders. Beside the report, write the same
+findings as `findings.json` ([stage findings](../../manuscript-visualize/references/stage-findings.md)):
+one record per distinct problem with its verbatim passage, severity, stage and evidence, plus what was
+dismissed and what could not be checked. `manuscript-visualize` counts the run from these files and
+never infers that a skill without one found nothing. Register outputs, including files
 already written there:
 
 ```bash
@@ -100,6 +108,13 @@ and source/edited comparisons as `comparison`. Preserve blocked sources, disagre
 their interpretation and any later resolution. `exec` records attempt metadata before launch and streams stdout/stderr directly to durable files;
 it records the true exit code on completion. Interrupted attempts keep their partial output and unknown exit status; it never treats a zero exit code as scientific validation. Retain a failed attempt when rerunning
 successfully. Evidence cannot be silently overwritten; register the next attempt under a new filename.
+
+When a stage runs as a delegated agent, the host may refuse to let it create report files (one harness
+answers "subagents should return findings as text"). Then the agent returns the finished report as text,
+or leaves it in scratch, and the coordinator saves it unchanged under the stage's folder and records an
+issue saying so; it never rewrites the report while copying it. Stages that run at the same time and
+browse each open their own browser tab: a shared tab navigated by another stage loses the page a
+stage was reading.
 
 Large downloads and unrelated intermediates can still use scratch. Anything needed to inspect or
 reproduce a reported conclusion belongs in the run folder: actual seat reports, check outputs, source

@@ -38,3 +38,21 @@
   fail_if:
     - "Presents the hypothetical counts as verified real manuscript results."
     - "Counts the reference twice, labels a proposal applied or infers detection performance."
+
+- id: visualize-run-against-a-reference-review
+  skill: manuscript-visualize
+  prompt: >-
+    We have a finished improvement run on v0.3 and the comments our co-author made on the same version.
+    Build the dashboard and show how many of his points the run caught and which it missed.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "The run's findings and the co-author's comments are separate records; neither is supplied as matched pairs."
+    - "Some comments are wording-only, and some run findings have no counterpart among the comments."
+  rubric:
+    - "Collects the run with collect.py, adjudicates merges in merges.json and freezes the inventory before matching it to the comments."
+    - "Matches each comment at most once (full or partial, listing every finding), and keeps wording-only items marked as not substantive."
+    - "Shows matched, partly matched and not-caught counts by kind of problem, and describes run-only findings as not judged rather than as false alarms."
+    - "Opens the dashboard in a browser and checks the comparison tab, the filters and both themes."
+  fail_if:
+    - "Calls the share caught a recall, sensitivity or accuracy of the skills without a stated reference scope."
+    - "Edits the run's findings after reading the comments without recording why."

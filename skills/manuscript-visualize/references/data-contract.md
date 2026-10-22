@@ -1,28 +1,36 @@
-# Infographic data contract
+# Inventory data contract
 
-`scripts/infographic.py` accepts UTF-8 JSON, schema version 1. Relative evidence paths resolve from the
-input JSON's directory. Evidence files are read locally; neither manuscript text nor chart data is
-sent to a service. Only the Python dependency installation needs network access when uncached.
+`scripts/infographic.py` accepts UTF-8 JSON, schema version 1 or 2; `scripts/collect.py` writes version 2
+from a run. Relative evidence paths resolve from the inventory's directory. Evidence files are read
+locally; neither manuscript text nor chart data is sent to a service. Only the Python dependency
+installation needs network access when uncached.
 
 The input is an adjudicated inventory, not an automatic conversion of every scanner message into an
-error. Read the reports and revision before preparing it. The renderer computes totals from records
-and rejects duplicate IDs, unknown finding links, unsupported status values, absent evidence and
-quotations absent from their source. It cannot establish semantic support or recognize two different
-IDs assigned to the same underlying issue; that is the preparing agent's responsibility.
+error. The renderer computes totals from records and rejects duplicate IDs, unknown finding links,
+unsupported status values, absent evidence and quotations absent from their source. It cannot establish
+semantic support or recognise two different IDs assigned to the same underlying issue; that is the
+adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per-problem)).
 
 ## Top-level fields
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `1`. |
+| `schema_version` | `1` or `2`. Version 1 files remain valid; the version 2 fields below are optional. |
 | `title` | Descriptive title; avoid a claim about measured detection performance. |
 | `run_id` | Existing run identifier, or a descriptive identifier for a report without a manifest. |
 | `scope` | Versions and review scope, including whether findings are selected or the review is partial. |
 | `coverage` | One record per relevant skill: `skill`, `status`, `note`, `evidence`. |
 | `findings` | One record per underlying problem; an empty list means no recorded findings within this stated scope. |
 | `changes` | One record per distinct proposed or applied edit, independently of finding counts. |
-| `limitations` | Plain-language limitations to retain in the graphic and HTML. |
-| `illustrative` | Optional Boolean, default false. Set true for synthetic examples; the graphic labels them. |
+| `limitations` | Plain-language limitations to retain in the graphic and dashboard. |
+| `illustrative` | Optional Boolean, default false. Set true for synthetic examples; every output labels them. |
+| `manuscript` | v2: `title`, `version`, `sha256` and `sections` in manuscript order, for the heat grid. |
+| `signals` | v2: raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
+| `dismissed` | v2: flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
+| `not_checked` | v2: checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
+| `decisions` | v2: choices only the authors can make: `id`, `summary`, `finding_ids`. |
+| `panel` | v2: `readers` (`seat`, `takeaway`, `stopped_at`, `next`) and referee `recommendations` (`seat`, `venue`, `recommendation`, `reason`). |
+| `reference` | v2: a review to compare with; [below](#reference-review). |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused` and `unknown`. A completed
 command is not evidence that its skill covered the whole manuscript. Coverage needs at least one
@@ -31,9 +39,8 @@ record, and each finding's `skills` must appear in it.
 ## Findings
 
 Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment`, `resolution`,
-`skills` and `evidence`. Use short, consistent category names such as References, Claims and evidence,
-Numbers and statistics, Reporting, Availability, Writing, Story and structure, or Policy and journal.
-Preserve meaningful distinctions; categories are not fixed by the renderer.
+`skills` and `evidence`, and in version 2 optionally `stage`, `quote`, `detail`, `action`, `decision` and
+`sources`. Use the category names of [stage findings](stage-findings.md#rules).
 
 - `severity`: `blocker`, `major`, `minor`, `info` or `unknown`. Map an existing report's equivalent
   labels explicitly; do not infer a major scientific problem from a style hit.
@@ -43,6 +50,9 @@ Preserve meaningful distinctions; categories are not fixed by the renderer.
 - `resolution`: `open`, `addressed` or `unknown`. Addressed requires a confirmed finding and at least
   one linked applied edit with evidence. Do not mark a proposal addressed.
 - `skills`: all reporting skills, with the finding counted once even when several skills found it.
+- `stage`: `now`, `writing`, `journal`, `final` or `unknown`, as in the authors' order of work.
+- `quote`: the manuscript passage, verbatim; `null` for an absence.
+- `sources`: the raw records merged into this one, as `{skill, id}`, so each count can be traced.
 
 ## Changes and evidence
 
@@ -54,10 +64,10 @@ An applied edit must be checked against the accepted revision, not inferred from
 
 Every evidence record has `path` and `quote`, both nonempty. The quote must occur verbatim in the
 local UTF-8 source. Reference the report's finding and, for an applied edit, the actual retained
-before/after comparison or source versions. Use more than one evidence record when needed. The HTML
-embeds excerpts and source filenames so colleagues can inspect the basis without access to the local
+before/after comparison or source versions. Use more than one evidence record when needed. The
+dashboard embeds excerpts and file names so colleagues can inspect the basis without the local
 checkout; `summary.json` also retains source hashes. Full paths and unrelated source contents are not
-embedded into the chart.
+embedded.
 
 For example, a report that states "One citation names the wrong paper." could support this finding:
 
@@ -78,14 +88,49 @@ For example, a report that states "One citation names the wrong paper." could su
 This is a schema illustration, not a real result. Use the actual report's words, location, assessment
 and severity, and include its skill in coverage. Add change records only when there is edit evidence.
 
+## Reference review
+
+`reference` compares the run with another review of the same version:
+
+```json
+{
+  "title": "the referee's review",
+  "description": "Robi Tacutu's 39 comments and 26 suggested-edit paragraphs on v0.3, recovered from the revision history.",
+  "source": {"path": "reference-items.json", "quote": "a verbatim line of that file"},
+  "items": [{"id": "C16", "origin": "reviewer", "kind": "comment", "summary": "...", "category": "Text versus code",
+             "section": "3.2", "substantive": true}],
+  "matches": [{"reference_id": "C16", "finding_ids": ["IC-4"], "match": "full", "note": "Same percentile method."}]
+}
+```
+
+Each item is one problem the reference raised, with the same category words. `substantive` is false
+for wording-only items. For an item the run did not catch in full, `miss_reason` says why and `owner`
+names the skill whose remit covers it, so each miss points at the skill to improve:
+
+| `miss_reason` | Meaning |
+|---|---|
+| `no-skill-covers` | No skill's remit includes this kind of problem. |
+| `skill-did-not-look` | A skill's remit covers it and the run did not examine it. |
+| `judged-differently` | The run examined the passage and judged it acceptable, or dismissed the flag. |
+| `input-missing` | Catching it needed something the run did not have (a file, a source, the authors' knowledge). |
+| `wording-preference` | The reviewer's preferred wording; not a defect in the text. |
+| `later-decision` | A change of scope or plan made after this version, not a problem in it. |
+
+`miss_note` gives the specific reason in a sentence. A fully matched item has no miss reason. Each item has at most one match record, listing every finding that answers it;
+an item without one counts as not caught. A match never rests on a dismissed flag. The renderer counts
+matched, partly matched and not caught items overall, by category and among substantive items, and the
+confirmed findings no item matches.
+
 ## Counting rules
 
-The four headline values are confirmed findings, confirmed findings addressed, applied edits and
-candidate findings. Dismissed flags, proposed edits and confirmed findings with unknown resolution
-stay separate in the report. Status and category charts count confirmed findings only. Change charts
-count edits only. A finding with three sources is one finding, and five applied edits linked to one
-finding are five edits but at most one addressed finding.
+The headline values are confirmed problems, problems to fix now, blockers and major problems,
+candidates, applied and proposed edits, and problems several skills found. Dismissed flags, proposed
+edits and confirmed problems with unknown resolution stay separate. Status, category, stage and section
+charts count confirmed problems by default; the dashboard's filter can show candidates or dismissed
+flags instead, never added to them. Change charts count edits only. A finding with three sources is one
+finding, and five applied edits linked to one finding are five edits but at most one addressed finding.
+The skill chart counts attribution, so its bars add up to more than the total.
 
 Do not sum per-skill attribution as independent discoveries, compare unequal scopes, or label the
-fraction addressed as a detector's accuracy. Without a known ground truth, a run cannot show how many
-problems the skills missed.
+fraction addressed as a detector's accuracy. Without a reference, a run cannot show how many problems
+the skills missed; with one, the missed count is relative to that reference only.

@@ -147,9 +147,9 @@ the whole paper).
   quotable either.
 - Start each seat as a fresh subagent with the seat brief from
   [seats.md](references/seats.md#the-seat-brief), never as a fork of this conversation. Launch all seats
-  in one message as blocking (foreground) calls, so that they run in parallel and you receive every
-  result (in Claude Code, `run_in_background: false`). Never start them in the background, and never end
-  your turn while a seat is running. Retry a seat that fails to start (for example at a concurrency
+  in one message, so that they run in parallel, and receive every result before merging: as blocking
+  calls, or in the background where the host reports each agent's completion (a coordinator running other
+  stages meanwhile). Never merge, adjudicate or end the workflow while a seat is still running. Retry a seat that fails to start (for example at a concurrency
   limit). Before merging, check that each seat's `findings.json` exists, parses and ends with its
   `report`; ask a seat that left the report out to add it, and never write one for it.
 - **Fallback.** When the host cannot start subagents, or a seat still fails after a retry, run that seat

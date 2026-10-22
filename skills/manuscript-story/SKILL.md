@@ -3,8 +3,9 @@ name: manuscript-story
 description: >-
   Make a manuscript more engaging while preserving its science, journal fit and the authors' chosen
   direction. Use when the paper is boring, harder to read after revisions, needs stronger
-  storytelling, or should be compared with an earlier version. Run fresh skimmer, potential-user and
-  informed-outsider readers; compare reading measures and relevant neighboring papers; edit
+  storytelling, or should be compared with an earlier version. Run fresh readers (skimmer, potential
+  user and informed outsider, or the audiences the authors chose), each on its own reading path;
+  compare reading measures and relevant neighboring papers; edit
   openings, result headlines, real worked examples, caveat placement and the ending. Show
   consequential before/after passages and retain the readers' actual reports and disagreements.
   Propose changes of theme or audience as author decisions. Use manuscript-prose-edit for language-
@@ -67,11 +68,15 @@ drift: report it with the before and after text and offer to restore it or to re
    uv run --script scripts/reader_metrics.py v1.md v2.md v3.md --label v1 --label v2 --label v3
    ```
 
-2. **The reader panel.** Three readers who have never seen the paper read it as its audience would
-   ([reader-panel.md](references/reader-panel.md)): a skimmer, a potential user and an informed
-   outsider. Each says where they stopped, the one sentence they would tell a colleague, what they
-   wanted and did not get, and the terms that stopped them. Use independent agents when the harness
-   offers them; give each only the manuscript and its seat.
+2. **The reader panel.** Readers who have never seen the paper read it as its audience would
+   ([reader-panel.md](references/reader-panel.md)): the readers saved for the project (`readers`,
+   chosen by the authors: a clinician, a biology student, a random curious person), or by default a
+   skimmer, a potential user and an informed outsider. Each reads in the order its kind would (figures
+   first, straight to the results, Methods skipped) and records that path; skipping is not leaving.
+   Each says where on its path a real reader would close the paper, where attention only dipped, the
+   one sentence they would tell a colleague, what they wanted and did not get, and the terms that
+   stopped them; a reader who left before what it came for cannot try or cite the work. Use independent agents when the harness offers them; give each only
+   the manuscript and its seat.
 3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake, the gap, the one idea,
    a headline per result, a worked example of real output, where the caveats sit, what the paper argues
    against, how it ends, and whether it tells how the authors did the project or why a reader should

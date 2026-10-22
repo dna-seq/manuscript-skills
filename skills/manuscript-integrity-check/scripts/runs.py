@@ -251,7 +251,10 @@ def add(run: Path, skill: Annotated[str, typer.Option('--skill')],
 @app.command('exec', context_settings={'allow_extra_args': True, 'ignore_unknown_options': True})
 @serialized
 def execute(ctx: typer.Context, run: Path, skill: Annotated[str, typer.Option('--skill')], cwd: Path | None = None) -> None:
-    """Capture a real command: exec RUN --skill NAME -- PROGRAM ARGS. Preserve failures and return its exit code."""
+    """Capture a real command: exec RUN --skill NAME -- PROGRAM ARGS. Preserve failures and return its exit code.
+
+    The command runs where exec was called, so relative paths mean what they mean to the caller; --cwd
+    runs it elsewhere. The directory is recorded with the attempt."""
     if not ctx.args:
         raise typer.BadParameter('Supply a command after --.')
     run = run.resolve()
@@ -272,7 +275,7 @@ def execute(ctx: typer.Context, run: Path, skill: Annotated[str, typer.Option('-
             entry['issues'].append({'kind': 'interrupted_attempt', 'message': f"Recovered an unregistered command log: {relative}; original exit status is unknown.", 'recorded_at': now()})
     numbers = [int(p.name.split('.')[0]) for p in previous if p.name.split('.')[0].isdigit()]
     number = max([len(entry['commands']), *numbers]) + 1
-    working = (cwd or Path(data['context']['project_root'])).resolve()
+    working = (cwd or Path.cwd()).resolve()
     stdout_path, stderr_path = (folder / f'{number:04d}.{label}.txt' for label in ('stdout', 'stderr'))
     command = {'attempt': number, 'argv': ctx.args, 'cwd': str(working), 'state': 'running',
                'exit_code': None, 'outputs': [p.relative_to(run).as_posix() for p in (stdout_path, stderr_path)], 'recorded_at': now()}

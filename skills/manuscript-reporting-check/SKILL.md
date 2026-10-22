@@ -136,12 +136,19 @@ Read every finding in context and discard false positives. Then do what the scri
 every dataset behind a result has a location, that a resolving accession is the right dataset, and what
 the venue's live page asks. Read [availability.md](references/availability.md).
 
+Curated content the paper ships (annotation modules, gene or variant panels, scoring weights, reference
+panels) is data the reader cannot judge without its provenance: for each item, the papers and databases it
+was built from with their versions or access dates, how entries were selected and weighted, and who curated
+it. A table in the paper or a supplement is the usual form; a list of module names alone is a reporting gap.
+
 ## 4. Check statistics reporting
 
 Read [statistics-reporting.md](references/statistics-reporting.md) and work through the analyses that
 carry the claims: n as the independent unit, biological versus technical replicates, the test for each
 comparison, multiple-testing correction, effect sizes with intervals, SD versus SEM versus CI, software
-versions and seeds. Arithmetic (GRIM, P values recomputed from test statistics, numbers that disagree
+versions and seeds. When a result is agreement with a comparator tool, check that the comparator got the
+same inputs (chromosomes, variant identifiers, score files, filters): a difference in what the comparator
+was given explains disagreement before the method does, and the paper should say it. Arithmetic (GRIM, P values recomputed from test statistics, numbers that disagree
 between sections) is **manuscript-integrity-check's numbers check**
 (`../manuscript-integrity-check/scripts/number_check.py`); run or reuse it rather than recomputing here.
 
