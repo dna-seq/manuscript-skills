@@ -1,9 +1,10 @@
 # Manuscript Skills
 
 Skills for Claude Code and Codex that help scientists prepare manuscripts for publication. Start with
-`manuscript-improve` for the full workflow, or choose one of fourteen focused skills: review a manuscript
-before submission, check its references, reporting and statistics, clarify which ethics and privacy
-rules apply, simulate the referees of a target journal, improve the prose, remove formulaic AI phrasing,
+`manuscript-improve` for the full workflow, or choose one of fifteen focused skills: review a manuscript
+before submission, check its references, reporting and statistics, review its figures as they will be
+printed, clarify which ethics and privacy rules apply, simulate the referees of a target journal, improve
+the prose, remove formulaic AI phrasing,
 make the paper interesting to its readers again without changing its science or direction, choose where to preprint and
 submit, prepare for a journal, answer referees after a decision, visualize what the reviews caught and
 changed, or keep track of who revised each passage and which AI edits no person has reviewed yet.
@@ -47,6 +48,7 @@ No question for you is ever written into the paper's text, where it could be sub
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and author voice, with a check, sentence by sentence, that no edit strengthened a claim, dropped a qualifier or null result, or changed numbers, citations or scientific terms, and a required check that the edit added no machine-written pattern and left no run of one. |
 | Deslop scientific writing | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Removes formulaic LLM phrasing, boilerplate and empty rhetoric while preserving scientific meaning and author voice. Also audits without editing; owns the shared pattern catalogue and style checker. |
 | Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The last step of every improvement run. Collects each skill's findings from the run, merges what several skills found into one problem, and renders an offline dashboard: problems by kind, severity, stage, section and skill, coverage, the funnel from raw signals to confirmed problems, edits as before/after diffs, the reader and referee panels, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, and, against a reference review such as a co-author's comments on the same version, what was caught and why the rest was missed. |
+| Review the figures | [manuscript-figures](skills/manuscript-figures/SKILL.md) | Every figure looked at as it will be printed: at the journal's column width, in greyscale and as colour-blind readers see it, with the text size and line weight measured where the figure keeps them as vectors. Each figure is checked against its caption, the numbers in the text and tables, the order it is cited in and, where your project has it, the code that draws it. You get a verdict per figure (keep, change, or move to the supplement) and the figures worth adding, each with its reason, within the journal's figure limit, and a redrawn draft from your own code when you allow it to run. Which figures the paper has stays your decision; your figure files are never overwritten. Simulated referees and readers see the figures too. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | How the paper reads to the people it is for: a panel of fresh readers, reading measures compared with your earlier version, and a comparison with the closest papers and with well-told papers of the same format; then story edits within the direction you chose (the stake up front, one headline per result, your real output shown, every caveat kept but placed where it costs readers least), each checked against the science, the journal's format and screening, and machine-written patterns. A change of direction, such as leading with privacy instead of speed, is only ever offered as options. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Verification of each reference's identity and authors, retractions, withdrawn preprints and preprints that have since been published, and whether the cited sources support the claims that carry the paper, with the supporting passage quoted and how many claims were checked. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines that fit your study design, a check that the data, code and software you name can actually be found, and a review of how statistics are reported. |
@@ -133,6 +135,7 @@ A useful sequence is:
 1. **Review the draft and references.** Identify unsupported claims, citation problems, inconsistent
    numbers, reporting gaps and missing material through the integrity, reference and reporting checks.
    The project's referee policy then supplies a simulated panel, automatically by default for this full workflow.
+   Every figure is looked at as it will be printed and checked against its caption, the text and its code.
 2. **Resolve scope and choose a journal.** Use policy-fit assessment where the study raises clinical,
    ethics or privacy questions, then order the preprint servers and journals that fit your research and
    publication budget into two ladders by your priorities, and adapt what every venue on them shares.
@@ -211,6 +214,12 @@ For the review dashboard (manuscript-improve builds it at the end of every run):
 
 > Give me the corrected version as a Word document with the review as comments, so my co-authors can
 > accept or reject each change.
+
+For the figures:
+
+> Check our figures as they will look in Bioinformatics: can every label be read in print, do the
+> numbers match the text, and which figures should go to the supplement? Our plotting code is in
+> analysis/. Don't change the figure files.
 
 For the story:
 
@@ -336,7 +345,7 @@ hosted detector requires your agreement before the manuscript is sent to that se
 
 ## Installation
 
-Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all fifteen skills.
+Install **manuscript-skills** as a plugin in Claude Code or Codex. The plugin includes all sixteen skills.
 
 In **Codex**, install it from the **DNA Seq Genomics** marketplace.
 

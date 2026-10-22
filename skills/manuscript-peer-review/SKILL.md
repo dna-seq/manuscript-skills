@@ -44,6 +44,7 @@ Checkable problems belong to other skills. Reuse their results; do not re-run th
 | Citation identity, retractions, source support; "first", "novel" and "only" claims ([claim-support.md](../manuscript-reference-check/references/claim-support.md#priority-and-absence-claims)) | manuscript-reference-check |
 | Reporting guidelines, data, code and software availability, statistics reporting | manuscript-reporting-check |
 | Ethics, consent, privacy and clinical-scope applicability | manuscript-policy-fit |
+| How each figure reads in print (legibility, colour, layout), captions, citation order, the code that draws it | manuscript-figures |
 
 When `manuscript-record.yaml` lists one of these as a current check (same manuscript sha256, or the
 changed sections lie outside its scope), or its findings are in the conversation, cite its result where a
@@ -139,8 +140,9 @@ the whole paper).
   durable run folder (`$WORK` below). Register the actual reports and task briefs under the shared
   run-output contract. The `reports` setting controls how much is also presented in chat (step 7).
 - Give each seat its own workspace holding only: a reading copy of the manuscript with HTML comments,
-  LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; a
-  copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
+  LaTeX comments and revision markers removed, as an editor would see it; the supplementary files; the
+  figures as images (`figures/`, from `../manuscript-figures/scripts/figures.py workspace`), so the seat
+  looks at them as a referee does; a copy of [finding-schema.md](references/finding-schema.md); `venue.md` from step 2; and the questions
   of any domain module loaded for that seat, as `domain-questions.md` (no other seat sees them). Nothing else: no
   `manuscript-record.yaml`, no other seat's output, no cover letter, earlier reviews, notes or the
   authors' view of their paper. Quotes are still checked against the original, where comments are not

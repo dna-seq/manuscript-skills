@@ -65,7 +65,7 @@ priority words in the paper ("first", "novel", "only") are judged as that file's
 ## 5. Defence pass
 
 Start one fresh subagent, the defender, as a blocking call like the seats, with the reading copy, the
-supplementary files and the findings stripped of seat names (renumber ids that name a seat), group
+supplementary files, the figures (`figures/`, as the seats had them) and the findings stripped of seat names (renumber ids that name a seat), group
 counts and severities, so that numbers cannot sway it. It never sees the referees' reports, their
 recommendations or `venue.md`: a defender that knows a referee recommended rejection argues against the
 rejection, not against the finding. For each finding it first tests the premise:

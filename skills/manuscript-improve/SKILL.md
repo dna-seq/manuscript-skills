@@ -2,8 +2,9 @@
 name: manuscript-improve
 description: >-
   Improve a manuscript from draft to submission by coordinating scientific review, reference and
-  reporting checks, project-configured simulated peer review, policy fit, journal selection, prose editing,
-  removing formulaic AI phrasing, a check of how the paper reads to its readers, and journal adaptation,
+  reporting checks, project-configured simulated peer review, a review of the figures as printed, policy
+  fit, journal selection, prose editing, removing formulaic AI phrasing, a check of how the paper reads to
+  its readers, and journal adaptation,
   ending with the corrected version of the manuscript and a dashboard of what the run found, changed and
   left open, and later the response to referees. Use for explicit whole-workflow requests or
   requests that combine several services, including optional section-by-section work, stage review with
@@ -71,6 +72,7 @@ unaffordable validation requirement can justify settling journal fit before edit
 |---|---|
 | Review the draft and evidence | [manuscript-integrity-check](../manuscript-integrity-check/SKILL.md) identifies scientific and submission problems, including numbers and their arithmetic; [manuscript-reference-check](../manuscript-reference-check/SKILL.md) verifies the identity of every reference and checks support for claims in its priority order (load-bearing claims, borrowed numbers, "first" claims); [manuscript-reporting-check](../manuscript-reporting-check/SKILL.md) checks the reporting guidelines that fit the study design, statistics reporting, and whether data, code and software are available. Run each mechanical check once and reuse it. |
 | Anticipate referees (project policy; automatic by default for this full workflow) | [manuscript-peer-review](../manuscript-peer-review/SKILL.md) gives referee-style judgement on contribution, design and claims, reusing the checks above rather than repeating them. Its author-required items are the authors' decision; its fixable-in-text items feed the revision stage, each with the placement that costs readers least. |
+| Review the figures | [manuscript-figures](../manuscript-figures/SKILL.md) renders every figure at its printed size and looks at it (legibility at the column width, colour for colour-blind readers, clutter, resolution), checks each against its caption, the text, the tables and the code that draws it, and recommends which figures to keep, change, move to the supplement or add, each with its reason. It uses the chosen journal's figure rules, or what the ladder's venues share, once journal fit has named them. Which figures the paper has is the authors' decision; caption and citation fixes join the revision like any text edit. A figure-led paper also gets the figures referee in the panel, and every referee and reader sees the figures as images. |
 | Establish policy and journal fit | [manuscript-policy-fit](../manuscript-policy-fit/SKILL.md) resolves study-specific scope and applicable requirements when relevant. [manuscript-journal-select](../manuscript-journal-select/SKILL.md) gives a preprint ladder and a journal ladder ordered by the authors' priorities, and what every venue on them asks for, if no target is settled or the author requests alternatives. Reuse an existing choice. |
 | Revise the paper | Correct supported defects within the authorised scope and use [manuscript-prose-edit](../manuscript-prose-edit/SKILL.md) for clarity and author voice. Preserve results and qualifications; distinguish substantive claim corrections from language changes. Obtain author facts or decisions when a correction depends on them, and insert facts the authors supply under the prose-edit contract's "Author-supplied content" rule (§1). |
 | Remove formulaic phrasing | [manuscript-deslop](../manuscript-deslop/SKILL.md) reads the whole revised paper for formulaic LLM phrasing, boilerplate and empty rhetoric and removes it under the edit policy. The prose edit's smell check only keeps its own edits from adding patterns; this stage removes the ones the draft already had. Run it after the prose edit and before the story check, on the same working copy. Its findings are writing findings, never scientific errors. |
@@ -89,7 +91,7 @@ their own, so start the seats and readers from this session even when another ag
 workspaces and briefs; a stage agent never reads as the panel itself because it could not start one. Give
 them nothing from this run: not the findings so far, not the authors' messages, not what the run changed.
 
-Stages that write proposals (story, prose edit, deslop, journal adaptation) work from the review stages'
+Stages that write proposals (figures, story, prose edit, deslop, journal adaptation) work from the review stages'
 confirmed findings: run them after those stages, or reconcile their proposals with the findings before
 handover, so that no proposal restates what a check refuted (a feature the code lacks, a peak that was
 not measured). They copy each proposal's before-text from the current working copy, and an addition names

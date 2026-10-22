@@ -39,7 +39,7 @@ TERMINAL = {"completed", "partial", "blocked", "not_run", "reused"}
 PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF", "manuscript-reporting-check": "RP",
           "manuscript-peer-review": "PR", "manuscript-policy-fit": "PF", "manuscript-journal-select": "JS",
           "manuscript-journal-adapt": "JA", "manuscript-prose-edit": "PE", "manuscript-deslop": "DS",
-          "manuscript-story": "ST", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
+          "manuscript-story": "ST", "manuscript-figures": "FG", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
 SKIP = {"findings.json", "merges.json"}
 OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
@@ -184,6 +184,32 @@ def story(run: Path) -> dict | None:
     except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
         return None
     return doc if isinstance(doc, dict) else None
+
+
+def figures(run: Path, out_dir: Path) -> dict | None:
+    """The figures stage's verdicts, recommendations and new figures, with its image paths made relative to the
+    inventory, so the dashboard can embed them."""
+    path = run / "manuscript-figures" / "findings.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8")).get("figures") if path.is_file() else None
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        return None
+    if not isinstance(doc, dict):
+        return None
+    for item in doc.get("items") or []:
+        for key in ("image", "proposed_image"):
+            if item.get(key):
+                item[key] = relative(Path(item[key]) if Path(item[key]).is_absolute() else path.parent / item[key], out_dir)
+    return doc
+
+
+def link_figures(inventory: dict) -> None:
+    """A figure's problems follow a merged record to the one kept; a dismissed one is dropped."""
+    final = {(source["skill"], source["id"]): finding["id"] for finding in inventory["findings"]
+             for source in finding.get("sources") or []}
+    for record in [*(inventory["figures"] or {}).get("items", []), *(inventory["figures"] or {}).get("new", [])]:
+        ids = [final.get(("manuscript-figures", fid)) for fid in record.get("finding_ids") or []]
+        record["finding_ids"] = list(dict.fromkeys(fid for fid in ids if fid))
 
 
 def isolation(data: dict | None) -> tuple[dict[str, str], dict[str, str]]:
@@ -471,7 +497,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "limitations": limitation or [], "manuscript": manuscript(run, data, version, out_dir),
         "signals": signals(run), "dismissed": records["dismissed"], "not_checked": records["not_checked"],
         "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run),
-        "story": story(run),
+        "story": story(run), "figures": figures(run, out_dir),
     }
     mentions = concern_mentions(inventory["findings"])
     if merge:
@@ -481,6 +507,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
             typer.echo(f"The merge file could not be applied; nothing was written.\n{exc}", err=True)
             raise typer.Exit(1) from exc
     link_concerns(inventory, mentions)
+    link_figures(inventory)
     if reference:
         ref = json.loads(reference.read_text(encoding="utf-8"))
         source = ref["source"]

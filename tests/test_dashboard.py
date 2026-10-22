@@ -457,3 +457,75 @@ def test_local_images_are_embedded_so_the_dashboard_is_one_file(tmp_path: Path) 
                                      ".md", [tmp_path / "elsewhere", tmp_path])
     assert 'src="data:image/png;base64,' in page and "https://example.org/a.png" in page
     assert 'title="Not embedded: figures/gone.png was not found or is over 8 MB"' in page
+
+
+def figures_record(**extra) -> dict:
+    return {"limit": {"count": 2, "counts": "figures", "source": "the journal's guidelines"},
+            "items": [{"id": "Figure 1", "image": "fig1.png", "verdict": "keep"},
+                      {"id": "Figure 2", "image": "missing.png", "verdict": "move-to-supplement", "why": "It defends a setting.",
+                       "finding_ids": ["F2"], **extra},
+                      {"id": "Figure S1", "verdict": "change",
+                       "recommendations": [{"kind": "visual", "change": "Label the lines.", "why": "The legend is far away."}]}],
+            "new": [{"title": "An overview", "why": "No figure shows the steps.", "finding_ids": ["F3"]}]}
+
+
+def test_figure_verdicts_are_counted_and_an_addition_counts_against_the_limit(data: dict) -> None:
+    data["figures"] = figures_record()
+    summary = visualize.summarize(visualize.Inventory.model_validate(data))
+    assert summary["figures"] == {"figures": 3, "by_verdict": {"keep": 1, "change": 1, "move-to-supplement": 1}, "new": 1,
+                                  "main_now": 2, "main_if_accepted": 2, "limit": 2}
+
+
+@pytest.mark.parametrize("mutation", ["unknown-link", "duplicate", "verdict"])
+def test_figure_records_must_link_real_problems_and_use_known_verdicts(data: dict, mutation: str) -> None:
+    data["figures"] = figures_record()
+    if mutation == "unknown-link":
+        data["figures"]["new"][0]["finding_ids"] = ["absent"]
+    elif mutation == "duplicate":
+        data["figures"]["items"].append(copy.deepcopy(data["figures"]["items"][0]))
+    else:
+        data["figures"]["items"][0]["verdict"] = "remove"
+    with pytest.raises(ValidationError):
+        visualize.Inventory.model_validate(data)
+
+
+def test_figure_images_are_embedded_and_a_missing_one_says_so(data: dict, tmp_path: Path) -> None:
+    (tmp_path / "fig1.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    data["figures"] = figures_record()
+    inventory = visualize.Inventory.model_validate(data)
+    page = visualize.dashboard_html(inventory, visualize.summarize(inventory), tmp_path)
+    items = embedded(page)["inventory"]["figures"]["items"]
+    assert items[0]["image_data"].startswith("data:image/png;base64,") and items[0]["image"] == "fig1.png"
+    assert items[1]["image_data"] == "" and items[1]["image_note"] == "Not embedded: missing.png was not found."
+    assert str(tmp_path) not in page and "['figures', 'Figures'" in page
+
+
+def test_collect_carries_the_figures_with_their_images_and_follows_merged_problems(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    run = synthetic_run(tmp_path)
+    stage = run / "manuscript-figures"
+    (stage / "figures" / "figure-1").mkdir(parents=True)
+    (stage / "figures" / "figure-1" / "view.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    (stage / "README.md").write_text("# manuscript-figures\n\nStatus: **completed**. Covered.\n")
+    (stage / "report.md").write_text("Figure 1 prints its labels at 2 pt. Figure 2 is never cited.")
+    (stage / "findings.json").write_text(json.dumps({"findings": [
+        {"id": "FG-1", "category": "Figures and tables", "section": "2. Methods", "quote": "We join by rsID.", "summary": "Labels print at 2 pt",
+         "severity": "major", "stage": "writing", "confidence": "confirmed", "evidence": [{"path": "report.md", "quote": "Figure 1 prints its labels at 2 pt."}]},
+        {"id": "FG-2", "category": "Figures and tables", "section": "2. Methods", "quote": None, "summary": "Figure 2 is never cited",
+         "severity": "minor", "stage": "writing", "confidence": "confirmed", "evidence": [{"path": "report.md", "quote": "Figure 2 is never cited."}]}],
+        "figures": {"items": [{"id": "Figure 1", "image": "figures/figure-1/view.png", "verdict": "change", "finding_ids": ["FG-1", "FG-2"]}]}}))
+    manifest = json.loads((run / "run.json").read_text())
+    manifest["skills"]["manuscript-figures"] = {"status": "completed", "reason": "Covered.", "artifacts": [], "issues": [], "changes": [], "commands": []}
+    (run / "run.json").write_text(json.dumps(manifest))
+    merges = tmp_path / "merges.json"
+    merges.write_text(json.dumps({"merge": [{"keep": "IC-1", "ids": ["FG-1"]}], "dismiss": [{"id": "FG-2", "why": "It is cited in a footnote."}]}))
+    out = run / "manuscript-dashboard/findings.json"
+    result = CliRunner().invoke(collect.app, [str(run), "--output", str(out), "--merge", str(merges)])
+    assert result.exit_code == 0, result.output
+    inventory = visualize.Inventory.model_validate_json(out.read_text())
+    figure = inventory.figures.items[0]
+    assert figure.image == "../manuscript-figures/figures/figure-1/view.png" and (out.parent / figure.image).is_file()
+    assert figure.finding_ids == ["IC-1"]  # merged into the integrity check's record; the dismissed flag is dropped
+    page = visualize.dashboard_html(inventory, visualize.summarize(inventory), out.parent)
+    assert embedded(page)["inventory"]["figures"]["items"][0]["image_data"].startswith("data:image/png;base64,")

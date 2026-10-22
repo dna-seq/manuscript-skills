@@ -230,6 +230,19 @@ button.rev-item { cursor: pointer; } button.rev-item:hover, .rev-item.active { b
 .ai-grid td { vertical-align: top; min-width: 120px; }
 .ai-tag { display: inline-block; border: 1px solid var(--ink-2); border-radius: 4px; padding: 0 4px; font: 700 10px/16px system-ui, sans-serif; margin-left: 4px; color: var(--ink); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Figures */
+.figs { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.fig.wide { grid-column: 1 / -1; }
+.fig.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fig header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.fig .pics { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.fig figure { margin: 0; }
+.fig img { display: block; width: 100%; height: auto; background: #fff; border: 1px solid var(--grid); border-radius: 6px; cursor: zoom-in; }
+.fig.wide img { cursor: zoom-out; }
+.fig figcaption { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.fig h4 { font-size: 13px; margin: 12px 0 4px; }
+.fig ul { margin: 0; padding-left: 18px; }
+.fig li { margin-bottom: 4px; }
 @media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment { position: static; } .rev-list { position: static; max-height: none; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -305,6 +318,7 @@ __REVISION_HTML__
   const SKILL = {'manuscript-integrity-check': ['\u2713', 'Integrity check'], 'manuscript-reference-check': ['[1]', 'Reference check'],
     'manuscript-reporting-check': ['\u2630', 'Reporting check'], 'manuscript-peer-review': ['\u2696\uFE0E', 'Simulated reviewers'],
     'manuscript-policy-fit': ['\u00A7', 'Policy fit'], 'manuscript-story': ['\u263A\uFE0E', 'Story and readers'],
+    'manuscript-figures': ['\u25A3', 'Figures'],
     'manuscript-journal-select': ['\u2606', 'Journal selection'], 'manuscript-journal-adapt': ['\u21C4', 'Journal adaptation'],
     'manuscript-prose-edit': ['\u00B6', 'Prose edit'], 'manuscript-deslop': ['\u2702\uFE0E', 'Deslop'], 'manuscript-improve': ['\u2699\uFE0E', 'Workflow'],
     'manuscript-reviewer-response': ['\u21A9\uFE0E', 'Reviewer response'], 'manuscript-revision-marks': ['\u270E', 'Revision marks']};
@@ -477,6 +491,10 @@ __REVISION_HTML__
   if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
   if (inv.panel && (inv.panel.recommendations.length || (inv.panel.reviewers || []).length))
     tabs.push(['reviewers', 'Reviewers', (inv.panel.reviewers || []).reduce((n, r) => n + r.concerns.length, 0) || null]);
+  // Figures: each figure as rendered, its verdict, problems and recommendations, and the figures to add.
+  const FIG = inv.figures || {limit: null, items: [], new: []};
+  const figureFindings = findings.filter(f => f.assessment !== 'dismissed' && (f.category === 'Figures and tables' || f.skills.includes('manuscript-figures')));
+  if (FIG.items.length || FIG.new.length || figureFindings.length) tabs.push(['figures', 'Figures', FIG.items.length || null]);
   // Story: the story stage's direction, tests, edits and the narrative changes only the authors can choose.
   const fromStory = c => (c.evidence || []).some(e => e.skill === 'manuscript-story') || /^(ST-|story\.)/.test(c.id);
   const storyFindings = findings.filter(f => f.assessment !== 'dismissed' && f.skills.includes('manuscript-story'));
@@ -500,6 +518,7 @@ __REVISION_HTML__
     if (key === 'manuscript') requestAnimationFrame(layoutRail);
     if (location.hash.slice(1).split('/')[0] !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
+  let openFigure = null;
   const OLD = {panel: panels.reviewers ? 'reviewers' : 'readers'};  // the tab that held both before 0.9.1
   // An address names a tab, and optionally one item in it: #manuscript/IC-1 opens the paper at that problem,
   // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version.
@@ -513,6 +532,7 @@ __REVISION_HTML__
     if (item && key === 'manuscript' && byId.has(item)) openInPaper(item);
     else if (item && key === 'findings' && byId.has(item)) openFinding(item);
     else if (item && key === 'revised' && openRevised) openRevised(item);
+    else if (item && key === 'figures' && openFigure) openFigure(item);
     else if (key !== current) selectTab(key);
     return true;
   }
@@ -1180,6 +1200,96 @@ __REVISION_HTML__
   })();
 
   // ---------- panel ----------
+  // ---------- figures ----------
+  if (panels.figures) (function figuresTab() {
+    const p = panels.figures;
+    const VERDICT = {keep: ['✓', 'Keep', 'good'], change: ['✎', 'Change', 'warning'], 'move-to-supplement': ['↘', 'Move to the supplement', 'muted']};
+    const slug = id => String(id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const isMain = f => !/^(?:supplementary\s+)?figure\s+S\d/i.test(f.id);
+    const main = FIG.items.filter(isMain);
+    const moved = main.filter(f => f.verdict === 'move-to-supplement');
+    const after = main.length - moved.length + FIG.new.length;
+    const count = v => FIG.items.filter(f => f.verdict === v).length;
+    const problemList = ids => {
+      const linked = ids.map(id => byId.get(id)).filter(Boolean);
+      return linked.length ? h('ul', null, linked.map(f => h('li', null, sevBadge(f.severity), ' ', link(f.id, () => openFinding(f.id)), ` ${f.summary}.`,
+        f.action ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, f.action) : null))) : null;
+    };
+    p.append(h('div', {class: 'kpis'},
+      kpi('Figures reviewed', FIG.items.length, `${main.length} in the main text`, true),
+      kpi('To change', count('change'), 'in what they show or how'),
+      kpi('Move to the supplement', count('move-to-supplement'), 'your decision'),
+      kpi('New figures proposed', FIG.new.length, 'your decision'),
+      kpi('Figure and table problems', figureFindings.length, 'linked from each figure below')));
+    p.append(h('p', {class: 'note'}, 'Each figure as it was rendered for the review, what it should tell a reader, the problems found by looking at it and at its caption, code and citations, and what to change. Select a figure to see it larger. A redrawn draft is a proposal from your own code and data, shown beside your figure; your figure files are unchanged.'));
+    if (FIG.limit) {
+      const over = after > FIG.limit.count || main.length > FIG.limit.count;
+      p.append(h('div', {class: over ? 'notice' : 'card', style: 'margin-top: 12px'},
+        `The journal allows ${FIG.limit.count} ${FIG.limit.counts} in the main text. The paper has ${plural(main.length, 'main-text figure')}; with the moves and additions proposed here it would have ${after}.`,
+        FIG.limit.source ? h('div', {class: 'note', style: 'margin: 4px 0 0'}, `Limit from: ${FIG.limit.source}`) : null));
+    }
+    if (moved.length || FIG.new.length) {
+      p.append(h('h2', {class: 'sec'}, 'Needs your decision: which figures the paper has'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Moving a figure to the supplement or adding one changes what readers see first, so each is a proposal for you; nothing has been moved or added.'));
+      p.append(h('ul', null, moved.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' to the supplement', f.why ? `: ${f.why}` : '.')),
+        FIG.new.map(n => h('li', {style: 'margin-bottom: 6px'}, h('strong', null, `Add: ${n.title}`), `. ${n.why}`, n.replaces ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, `To stay within the limit: ${n.replaces}`) : null))));
+    }
+    if (FIG.items.length) {
+      p.append(h('h2', {class: 'sec'}, 'Each figure'));
+      const grid = h('div', {class: 'figs'});
+      for (const f of FIG.items) {
+        const [icon, label, tone] = VERDICT[f.verdict];
+        const box = h('article', {class: 'card fig', id: `fig-${slug(f.id)}`});
+        const picture = (data, note, caption) => data
+          ? h('figure', null, h('img', {src: data, alt: `${f.id}${caption ? ', ' + caption : ''}`, onclick: () => box.classList.toggle('wide')}), h('figcaption', null, caption))
+          : note ? h('p', {class: 'empty'}, note) : null;
+        const recs = kind => f.recommendations.filter(r => r.kind === kind);
+        box.append(...[
+          h('header', null, h('h3', {style: 'margin: 0'}, f.id), h('span', {class: `chip st-${tone}`}, h('span', {class: 'icon', 'aria-hidden': 'true'}, icon), label)),
+          h('div', {class: 'pics'}, picture(f.image_data, f.image_note, f.proposed_image_data ? 'As submitted' : ''),
+            picture(f.proposed_image_data, f.proposed_image_note, 'Redrawn draft (a proposal)')),
+          f.caption ? h('details', {style: 'margin-top: 8px'}, h('summary', null, 'Caption'), h('blockquote', null, f.caption)) : null,
+          f.message ? h('p', null, h('strong', null, 'What it should tell a reader: '), f.message) : null,
+          f.why ? h('p', null, h('strong', null, `${label}: `), f.why) : null,
+          f.finding_ids.length ? [h('h4', null, 'Problems'), problemList(f.finding_ids)] : null,
+          ...[['content', 'Change what it shows'], ['visual', 'Change how it shows it']].map(([kind, title]) => recs(kind).length
+            ? [h('h4', null, title), h('ul', null, recs(kind).map(r => h('li', null, r.change, h('div', {class: 'note', style: 'margin: 2px 0 0'}, `Why: ${r.why}`))))] : null),
+          f.code ? h('p', {class: 'note'}, `Drawn by ${f.code}.`) : null].flat(Infinity).filter(x => x != null && x !== false));
+        grid.append(box);
+      }
+      p.append(grid);
+    }
+    if (FIG.new.length) {
+      p.append(h('h2', {class: 'sec'}, 'Figures to add'));
+      p.append(h('div', {class: 'grid'}, FIG.new.map(n => card(n.title,
+        n.kind ? h('div', {class: 'tag'}, n.kind) : null,
+        n.shows ? h('p', null, h('strong', null, 'Shows: '), n.shows) : null,
+        h('p', null, h('strong', null, 'Why: '), n.why),
+        n.source ? h('p', null, h('strong', null, 'Built from: '), n.source) : null,
+        n.placement ? h('p', null, h('strong', null, 'Goes: '), n.placement) : null,
+        n.replaces ? h('p', null, h('strong', null, 'To stay within the limit: '), n.replaces) : null,
+        problemList(n.finding_ids)))));
+    }
+    const linked = new Set([...FIG.items, ...FIG.new].flatMap(f => f.finding_ids));
+    const rest = figureFindings.filter(f => !linked.has(f.id));
+    if (rest.length) {
+      p.append(h('h2', {class: 'sec'}, 'Other figure and table problems'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['ID', 'Severity', 'Section', 'Problem'].map(t => h('th', null, t)))),
+        h('tbody', null, rest.map(f => h('tr', null, h('td', null, link(f.id, () => openFinding(f.id))), h('td', null, sevBadge(f.severity)),
+          h('td', null, f.section), h('td', null, f.summary)))))));
+    }
+    openFigure = id => {
+      selectTab('figures');
+      const el = document.getElementById(`fig-${slug(id)}`);
+      if (!el) return;
+      el.scrollIntoView({block: 'start', behavior: motion()});
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1600);
+      if (location.hash.slice(1) !== `figures/${encodeURIComponent(id)}`) try { history.replaceState(null, '', `#figures/${encodeURIComponent(id)}`); } catch (err) { /* a sandboxed frame */ }
+    };
+  })();
+
   // ---------- story ----------
   if (panels.story) (function story() {
     const p = panels.story, St = inv.story || {direction: '', confirmed: false, drift: '', tests: [], options: []};

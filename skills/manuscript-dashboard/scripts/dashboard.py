@@ -333,6 +333,52 @@ class Story(Record):
     options: list[StoryOption] = Field(default_factory=list)
 
 
+class FigureChange(Record):
+    """One recommended change to a figure, in its content or in how it shows it, with the reason."""
+    kind: Literal["content", "visual"]
+    change: Text
+    why: Text
+
+
+class FigureItem(Record):
+    """One figure as manuscript-figures reviewed it. Which figures exist is the authors' decision."""
+    id: Text  # "Figure 2", "Figure S1"
+    caption: str = ""
+    image: str = ""  # the figure as rendered, relative to the inventory; embedded in the dashboard
+    verdict: Literal["keep", "change", "move-to-supplement"]
+    message: str = ""  # the one thing a reader should take from it
+    why: str = ""  # the reason for the verdict
+    recommendations: list[FigureChange] = Field(default_factory=list)
+    proposed_image: str = ""  # a redrawn draft from the authors' code: a proposal beside their figure, never in its place
+    code: str = ""  # the code that draws it, when the project has it
+    finding_ids: list[Identity] = Field(default_factory=list)
+
+
+class NewFigure(Record):
+    """A figure the paper does not have and its readers need: a decision for the authors."""
+    title: Text
+    kind: str = ""  # a schematic overview, the real output a user sees, a key result now only in a table
+    shows: str = ""
+    why: Text
+    placement: str = ""
+    source: str = ""  # what it is built from: a table, the authors' output files; never invented data
+    replaces: str = ""  # what goes to the supplement to keep within the limit
+    finding_ids: list[Identity] = Field(default_factory=list)
+
+
+class FigureLimit(Record):
+    count: Annotated[int, Field(ge=0)]
+    counts: str = "figures"  # or "figures and tables", as the venue counts display items
+    source: str = ""  # the venue's page or the record that gives it
+
+
+class Figures(Record):
+    """The figures stage: each figure's verdict and recommendations, and the figures to add."""
+    limit: FigureLimit | None = None
+    items: list[FigureItem] = Field(default_factory=list)
+    new: list[NewFigure] = Field(default_factory=list)
+
+
 class Inventory(Record):
     schema_version: Literal[2]
     title: Text
@@ -352,6 +398,7 @@ class Inventory(Record):
     reference: Reference | None = None
     venues: list[Venue] = Field(default_factory=list)
     story: Story | None = None
+    figures: Figures | None = None
 
     @model_validator(mode="after")
     def reconcile(self) -> Inventory:
@@ -378,6 +425,13 @@ class Inventory(Record):
                 raise ValueError(f"Finding {finding.id} names a skill absent from coverage.")
             if finding.resolution == "addressed" and (finding.assessment != "confirmed" or finding.id not in applied):
                 raise ValueError(f"Addressed finding {finding.id} needs confirmation and a linked applied edit.")
+        if self.figures:
+            ids = [item.id for item in self.figures.items]
+            if len(ids) != len(set(ids)):
+                raise ValueError("Two figure records share an ID.")
+            for record in [*self.figures.items, *self.figures.new]:
+                if unknown := set(record.finding_ids) - known:
+                    raise ValueError(f"Figure {getattr(record, 'id', None) or record.title} links unknown findings: {sorted(unknown)}")
         rungs = [(venue.ladder, venue.rung) for venue in self.venues]
         if len(rungs) != len(set(rungs)):
             raise ValueError("Two venues share a rung of the same ladder.")
@@ -478,6 +532,18 @@ def competing(changes: list[Change]) -> list[list[str]]:
     return [ids for ids in groups.values() if len(ids) > 1]
 
 
+def figure_counts(figures: Figures | None) -> dict | None:
+    """How many figures got each verdict, the new ones proposed, and the main-text count before and after."""
+    if not figures:
+        return None
+    verdicts = Counter(item.verdict for item in figures.items)
+    main = [item for item in figures.items if not re.match(r"(?i)^(?:supplementary\s+)?figure\s+S\d", item.id)]
+    return {"figures": len(figures.items), "by_verdict": ordered(verdicts, ("keep", "change", "move-to-supplement")),
+            "new": len(figures.new), "main_now": len(main),
+            "main_if_accepted": len(main) - sum(item.verdict == "move-to-supplement" for item in main) + len(figures.new),
+            "limit": figures.limit.count if figures.limit else None}
+
+
 def summarize(data: Inventory) -> dict:
     confirmed = [finding for finding in data.findings if finding.assessment == "confirmed"]
     pairs = Counter(pair for f in confirmed for pair in combinations(sorted(set(f.skills)), 2))
@@ -506,6 +572,7 @@ def summarize(data: Inventory) -> dict:
         "benchmark": benchmark(data),
         "chosen_venues": [v.name for v in sorted(data.venues, key=lambda v: v.rung) if v.chosen],
         "competing_proposals": competing(data.changes),
+        "figures": figure_counts(data.figures),
         "coverage": [item.model_dump(exclude={"evidence"}) for item in data.coverage],
     }
 
@@ -579,6 +646,16 @@ def writing_patterns(versions: list[tuple[str, str, str, str]]) -> dict:
     return {"versions": out, "patterns": [{"id": sid, "name": smells[sid]["name"], "group": groups.get(sid[0], "")} for sid in used]}
 
 
+def image_data(base: Path, name: str) -> tuple[str, str]:
+    """A figure image as a data URI, so the dashboard stays one file; or why it could not be embedded."""
+    path = (base / name).resolve()
+    if not (path.is_file() and path.suffix.lower() in IMAGE_TYPES):
+        return "", f"Not embedded: {Path(name).name} was not found."
+    if path.stat().st_size > IMAGE_LIMIT:
+        return "", f"Not embedded: {Path(name).name} is over 8 MB."
+    return f"data:{IMAGE_TYPES[path.suffix.lower()]};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}", ""
+
+
 def image_folders(base: Path, path: Path) -> list[Path]:
     """Where the manuscript's relative image paths point: beside the reviewed copy, then beside the original the
     run snapshotted (run.json sits above the inventory's folder)."""
@@ -604,6 +681,11 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
             source["path"] = Path(source["path"]).name
     if payload["reference"]:
         payload["reference"]["source"]["path"] = Path(payload["reference"]["source"]["path"]).name
+    for item in (payload["figures"] or {}).get("items", []):
+        for key in ("image", "proposed_image"):
+            if item[key]:
+                item[f"{key}_data"], item[f"{key}_note"] = image_data(base, item[key]) if base is not None else ("", "")
+                item[key] = Path(item[key]).name
     paper = ""
     if base is not None and data.manuscript and data.manuscript.path:
         path = (base / data.manuscript.path).resolve()

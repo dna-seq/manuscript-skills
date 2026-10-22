@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript figures"
+  short_description: "Review each figure as printed and recommend what to keep, change, move or add"
+  default_prompt: "Use $manuscript-figures to review every figure of our manuscript as readers will see it in print: legibility at the journal's column width, colour for colour-blind readers, captions, numbers against the text, citation order and the code that draws each figure. Recommend which figures to keep, change, move to the supplement or add, each with its reason, and leave the choice of which figures the paper has to us."

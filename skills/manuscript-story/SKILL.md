@@ -75,7 +75,7 @@ drift: report it with the before and after text and offer to restore it or to re
    first, straight to the results, Methods skipped) and records that path; skipping is not leaving.
    Each says where on its path a real reader would close the paper, where attention only dipped, the
    one sentence they would tell a colleague, what they wanted and did not get, and the terms that
-   stopped them; a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript and its seat
+   stopped them; a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
    ([independence is required](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
 3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake, the gap, the one idea,
    a headline per result, a worked example of real output, where the caveats sit, what the paper argues

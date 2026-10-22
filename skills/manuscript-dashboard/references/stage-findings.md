@@ -35,7 +35,7 @@ authors' document; this file is the same findings in a form a script can count.
 
 - IDs start with the skill's prefix and are unique within the file: IC integrity-check, RF
   reference-check, RP reporting-check, PR peer-review, PF policy-fit, JS journal-select, JA
-  journal-adapt, PE prose-edit, DS deslop, ST story, IM improve. Collect namespaces a clash it
+  journal-adapt, PE prose-edit, DS deslop, ST story, FG figures, IM improve. Collect namespaces a clash it
   still finds (`RP.RC-1`) rather than lose a record.
 - One record per distinct problem. Group a root cause with its symptoms; never one record per scanner
   hit. Repeats across skills are expected: the merge step joins them.
@@ -74,3 +74,7 @@ authors' document; this file is the same findings in a form a script can count.
 - Categories, in these words: References; Claims and evidence; Numbers and statistics; Methods and
   reproducibility; Text versus code; Reporting and availability; Figures and tables; Writing and
   clarity; Story and structure; Ethics, privacy and scope; Journal fit; Submission package.
+- Two stages add an object of their own beside the findings, which collect carries into the inventory:
+  manuscript-story's `story` (its SKILL.md, "What goes to the dashboard") and manuscript-figures' `figures`
+  (its SKILL.md, section 4; [data contract](data-contract.md#figures)), with image paths relative to the
+  stage's folder.

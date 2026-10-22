@@ -5,7 +5,8 @@ description: >-
   authors and colleagues: distinct problems by kind, severity, stage, section and skill, what each
   skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
   corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
-  simulated reviewers' concerns and suggestions and the readers' paths, and, when a reference review
+  figures with their verdicts and recommendations, the simulated reviewers' concerns and suggestions and
+  the readers' paths, and, when a reference review
   exists (a human referee's comments on the same version), which of its problems the run caught and
   missed. manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
   earlier run or a focused skill's results. Formerly manuscript-visualize. New reviews and scientific
@@ -107,6 +108,8 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
   one click; none is in the text); the comparison with the reference review; the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
+  figures (each one as rendered, with its verdict, problems and recommended changes, a redrawn draft beside
+  it when there is one, the figures to add and the venue's limit; `#figures/Figure%202` opens one); the
   story (the direction, the story tests, the edits that keep the direction and the narrative changes only
   the authors can choose); the
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
