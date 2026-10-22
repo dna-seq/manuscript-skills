@@ -43,7 +43,8 @@ PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF"
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
 SKIP = {"findings.json", "merges.json"}
 OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
-CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "evidence")
+CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "why", "comment",
+                 "evidence")
 app = typer.Typer(add_completion=False)
 
 

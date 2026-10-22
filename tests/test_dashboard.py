@@ -529,3 +529,19 @@ def test_collect_carries_the_figures_with_their_images_and_follows_merged_proble
     assert figure.finding_ids == ["IC-1"]  # merged into the integrity check's record; the dismissed flag is dropped
     page = visualize.dashboard_html(inventory, visualize.summarize(inventory), out.parent)
     assert embedded(page)["inventory"]["figures"]["items"][0]["image_data"].startswith("data:image/png;base64,")
+
+
+def test_collect_keeps_a_proposals_reasoning_and_question(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    run = synthetic_run(tmp_path)
+    doc = json.loads((run / "manuscript-integrity-check/findings.json").read_text())
+    doc["changes"] = [{"id": "IC-C1", "kind": "Proposed edit", "section": "2. Methods", "summary": "Name the join key",
+                       "status": "proposed", "before": "We join by rsID.", "after": "We join by position.",
+                       "why": "The code joins by position.", "comment": "Which genome build?",
+                       "evidence": [{"path": "report.md", "quote": "The join key contradicts the code."}]}]
+    (run / "manuscript-integrity-check/findings.json").write_text(json.dumps(doc))
+    out = run / "manuscript-dashboard/findings.json"
+    assert CliRunner().invoke(collect.app, [str(run), "--output", str(out)]).exit_code == 0
+    change = next(c for c in visualize.Inventory.model_validate_json(out.read_text()).changes if c.id == "IC-C1")
+    assert (change.summary, change.why, change.comment) == ("Name the join key", "The code joins by position.", "Which genome build?")
