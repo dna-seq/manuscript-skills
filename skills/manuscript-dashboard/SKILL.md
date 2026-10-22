@@ -106,7 +106,8 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
   adjudication's verdict, grouped by who can act); the readers' paths, in a tab of their own; and what
   could not be checked. Each tab has an address, so
-  `manuscript-dashboard.html#manuscript` opens the annotated paper itself. Evidence keeps file names only, never
+  `manuscript-dashboard.html#manuscript` opens the annotated paper itself, and `#manuscript/IC-1` the
+  paper at that problem (`#findings/IC-1` its row, `#revised/PE-C3` that change). Evidence keeps file names only, never
   local paths. It follows the system light or dark theme.
 - `summary.json`: every derived count, with the evidence files' hashes.
 

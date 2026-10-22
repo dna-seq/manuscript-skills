@@ -14,6 +14,26 @@ recommendations take account of the research you have done, the validation you c
 publication priorities. You decide which journal to pursue and how to handle uncertain or burdensome
 requirements.
 
+## What a run gives you
+
+![The Overview of a manuscript-improve dashboard: 114 confirmed problems, what to fix now, the journals to target, AI-policy red flags, the corrected version and the coverage of every skill](docs/images/dashboard-overview.png)
+
+Every `manuscript-improve` run ends with one offline file, `manuscript-dashboard.html`. This one is from
+a blind run on a real software paper (draft v0.3 of Just-DNA-Lite), compared afterwards with a co-author's
+review of the same draft: 114 confirmed problems, each counted once however many skills found it, sorted
+by what to fix now, and the corrected version of the whole paper beside the original.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/dashboard-manuscript.png" alt="The manuscript with each problem highlighted by severity and the skills' comments in the margin"><br><b>The paper itself</b>, each problem highlighted where a skill quoted it, with what is wrong and what to do beside it.</td>
+<td width="50%"><img src="docs/images/dashboard-revised.png" alt="The corrected version as track changes, with the list of applied and proposed edits"><br><b>The corrected version</b> as track changes: routine fixes applied, every substantive change a proposal you accept or not.</td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/dashboard-journals.png" alt="The three chosen journals with their AI policies as icons"><br><b>The journals</b> chosen by your priorities, each AI rule as an icon, with a red flag for a drafting ban, required prompts or records of AI changes, a detector, or declared use held against you.</td>
+<td width="50%"><img src="docs/images/dashboard-reviewers.png" alt="The simulated reviewers' concerns, each with its suggestion and the adjudication's verdict"><br><b>The simulated reviewers</b>: a recommendation per journal and every concern with its suggestion, the verdict and who can act on it.</td>
+</tr>
+</table>
+
 ## Choose the task you need
 
 | Your task | Skill | What you receive |

@@ -421,6 +421,9 @@ __REVISION_HTML__
     return h('div', {class: 'bar-row'}, h('span', {class: 'bar-label'}, label),
       h('span', {class: 'bar-track'}, bar, h('span', {class: 'bar-value'}, parts.filter(p => p.count).map(p => p.count).join(' / '))));
   }
+  // Scrolling is smooth when someone clicks, instant for an address opened with the page (#manuscript/IC-1).
+  let loaded = false;
+  const motion = () => loaded ? 'smooth' : 'auto';
   const kpi = (label, value, sub, hero) => h('div', {class: 'kpi' + (hero ? ' hero' : '')}, h('div', {class: 'label'}, label), h('div', {class: 'value'}, String(value)), sub ? h('div', {class: 'sub'}, sub) : null);
   const card = (title, ...body) => h('section', {class: 'card'}, title ? h('h3', null, title) : null, ...body);
   const link = (text, onclick, label) => h('button', {class: 'link', type: 'button', onclick, 'aria-label': label || null}, text);
@@ -471,11 +474,25 @@ __REVISION_HTML__
       document.getElementById(`tab-${k}`).setAttribute('aria-selected', String(k === key));
     }
     if (key === 'manuscript') requestAnimationFrame(layoutRail);
-    if (location.hash.slice(1) !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
+    if (location.hash.slice(1).split('/')[0] !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
   const OLD = {panel: panels.reviewers ? 'reviewers' : 'readers'};  // the tab that held both before 0.9.1
-  const address = () => { const key = location.hash.slice(1); return OLD[key] || key; };
-  window.addEventListener('hashchange', () => { const key = address(); if (panels[key] && key !== current) selectTab(key); });
+  // An address names a tab, and optionally one item in it: #manuscript/IC-1 opens the paper at that problem,
+  // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version.
+  const address = () => {
+    const [key, item] = location.hash.slice(1).split('/');
+    return [OLD[key] || key, item ? decodeURIComponent(item) : ''];
+  };
+  function openAddress() {
+    const [key, item] = address();
+    if (!panels[key]) return false;
+    if (item && key === 'manuscript' && byId.has(item)) openInPaper(item);
+    else if (item && key === 'findings' && byId.has(item)) openFinding(item);
+    else if (item && key === 'revised' && openRevised) openRevised(item);
+    else if (key !== current) selectTab(key);
+    return true;
+  }
+  window.addEventListener('hashchange', openAddress);
 
   // ---------- shared filters (Problems and Manuscript) ----------
   const F = {assessment: '', severity: '', stage: '', category: '', skill: '', section: '', q: '', ai: ''};
@@ -687,8 +704,8 @@ __REVISION_HTML__
     if (c && marks[0] && rail.contains(c) && window.matchMedia('(min-width: 1101px)').matches) {
       c.style.top = `${marks[0].getBoundingClientRect().top - rail.getBoundingClientRect().top}px`;
     }
-    if (scrollTo === 'note' && c) c.scrollIntoView({block: 'nearest', behavior: 'smooth'});
-    if (scrollTo === 'text') (marks[0] || c) && (marks[0] || c).scrollIntoView({block: 'center', behavior: 'smooth'});
+    if (scrollTo === 'note' && c) c.scrollIntoView({block: 'nearest', behavior: motion()});
+    if (scrollTo === 'text') (marks[0] || c) && (marks[0] || c).scrollIntoView({block: 'center', behavior: motion()});
   }
   function openInPaper(id) {
     if (!D.has_paper) return;
@@ -702,7 +719,7 @@ __REVISION_HTML__
     if (!D.has_paper) { toggle('section', sec); return; }
     selectTab('manuscript');
     const target = [...paper.querySelectorAll('h1, h2, h3, h4')].find(el => clean(el.textContent).toLowerCase() === sec.toLowerCase());
-    (target || paper).scrollIntoView({block: 'start', behavior: 'smooth'});
+    (target || paper).scrollIntoView({block: 'start', behavior: motion()});
   }
   if (D.has_paper) buildPaper();
 
@@ -821,7 +838,7 @@ __REVISION_HTML__
       for (const el of items.values()) el.classList.remove('active');
       lit = [...article.querySelectorAll(`[data-c="${at.get(id)}"]`)];
       for (const el of lit) el.classList.add('flash');
-      if (lit[0]) lit[0].scrollIntoView({block: 'center', behavior: 'smooth'});
+      if (lit[0]) lit[0].scrollIntoView({block: 'center', behavior: motion()});
       const item = items.get(id);
       if (item) { item.classList.add('active'); item.scrollIntoView({block: 'nearest'}); }
     }
@@ -1252,8 +1269,8 @@ __REVISION_HTML__
   window.addEventListener('resize', () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(layoutRail); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutRail);
   refresh();
-  const asked = address();
-  selectTab(panels[asked] ? asked : 'overview');
+  if (!openAddress()) selectTab('overview');
+  requestAnimationFrame(() => requestAnimationFrame(() => { loaded = true; }));
 })();
 </script>
 </body>
