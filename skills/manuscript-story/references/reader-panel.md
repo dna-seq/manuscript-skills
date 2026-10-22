@@ -69,7 +69,7 @@ need a reader who got that far.
 ## What each seat returns
 
 ```yaml
-seat: skimmer | user | outsider | the reader the authors named
+seat: skimmer | potential-user | informed-outsider | the name of a reader saved for the project
 path:                                    # the sections in the order this reader visited them
   - {section: "Abstract", how: read}     # read | skimmed | skipped
   - {section: "Figure 1", how: skimmed}

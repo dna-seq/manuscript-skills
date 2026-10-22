@@ -2,9 +2,10 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12", "pillow>=10", "pymupdf>=1.24,<2"]  # 2.x adds onnxruntime and numpy; 1.x is one wheel
 # ///
-"""Find a manuscript's figures and show each one at the size it will be printed.
+"""Find a manuscript's figures and tables, in the paper and its supplement, and show each figure at the size
+it will be printed.
 
-    uv run --script figures.py inventory PAPER.md --output-dir RUN/manuscript-figures/figures
+    uv run --script figures.py inventory PAPER.md --supplement SUPP.md --output-dir RUN/manuscript-figures/figures
     uv run --script figures.py inventory main.tex --output-dir OUT --column-mm 89 --min-pt 7
     uv run --script figures.py workspace PAPER.md --into SEAT_WORKSPACE/figures
 
@@ -19,10 +20,14 @@ finds each figure's files, caption and label, and writes for each figure:
   protanopia, simulated after Machado et al. 2009), to judge legibility, greyscale print and colour choice.
 
 It measures the smallest text and the thinnest line as printed, exactly, where a PDF or SVG keeps them as
-vectors (a raster's text is judged on the sheet), and the resolution of a raster at its printed width. It
-lists every citation of each figure with its section and line, and figures never cited, first cited out of
-order, or cited but absent. `figures.json` holds the records, `figures.md` lists them with the screening
-notes: each a place to look, not a verdict.
+vectors (a raster's text is judged on the sheet), and the resolution of a raster at its printed width. A
+figure that has a caption but no image file is listed too. For each table (a Markdown pipe table or a LaTeX
+table environment) it gives the columns and rows, the width it needs printed at the table font, and the
+columns that mix decimal places, hold numbers under a header with no unit, or have empty cells. It lists
+every citation of each figure and table, in the paper and the supplement, with its section and line, and
+items never cited, first cited out of order, or cited but absent. Supplementary items (`--supplement`, or
+numbered S1, S2...) are measured against the supplement's looser minimums. `figures.json` holds the records,
+`figures.md` lists them with the screening notes: each a place to look, not a verdict.
 
 `workspace` gives a simulated referee or reader the figures as PNG images with an index of numbers,
 captions and file names, and nothing else, so the seat looks for itself.
@@ -73,22 +78,33 @@ class Source:
 
 @dataclass
 class Figure:
+    """A display item: a figure or a table, in the main text or the supplement."""
     number: str  # "2", "S1", or "" when the manuscript gives none
     order: int
-    start: int  # the span of the figure and its caption in the text
+    start: int  # the span of the item and its caption in the text
     end: int
     files: list[str] = field(default_factory=list)
     caption: str = ""
     labels: list[str] = field(default_factory=list)
     wide: bool = False
+    kind: str = "figure"  # figure | table
+    part: str = "main"  # main | supplement
+    source: str = ""  # the file of the manuscript it is in
+    cells: list[list[str]] = field(default_factory=list)  # a table's rows, header first
+    columns: int = 0
+    rows: int = 0  # a table's body rows
+
+    @property
+    def noun(self) -> str:
+        return "Figure" if self.kind == "figure" else "Table"
 
     @property
     def id(self) -> str:
-        return f"Figure {self.number}" if self.number else f"Unnumbered figure {self.order}"
+        return f"{self.noun} {self.number}" if self.number else f"Unnumbered {self.kind} {self.order}"
 
     @property
     def slug(self) -> str:
-        return f"figure-{self.number.lower()}" if self.number else f"figure-u{self.order}"
+        return f"{self.kind}-{self.number.lower()}" if self.number else f"{self.kind}-u{self.order}"
 
 
 def blank(text: str, pattern: re.Pattern[str]) -> str:
@@ -152,10 +168,14 @@ MD_IMAGE = re.compile(r"!\[(?P<alt>(?:[^\[\]]|\[[^\]]*\])*)\]\(\s*<?(?P<src>[^)\
                       r"|<img\b[^>]*?\bsrc=[\"'](?P<html>[^\"']+)[\"']", re.I)
 
 
-def caption_number(block: str) -> str | None:
-    """The number a caption gives itself ("**Figure 2.**", "Figure S1:", "Supplementary Figure 3."). A sentence
+LABEL = {"figure": r"(?:Figure|Fig\.?)", "table": r"Table"}
+TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
+
+
+def caption_number(block: str, kind: str = "figure") -> str | None:
+    """The number a caption gives itself ("**Figure 2.**", "Table S1:", "Supplementary Table 3."). A sentence
     that starts "Figure 2 shows" is not a caption: a caption's label is set off by markup or punctuation."""
-    m = re.match(r"^\s*(?P<open>[*_]{1,2})?\s*(?P<supp>Supplementary\s+)?(?:Figure|Fig\.?)\s*(?P<num>S?\d+)\s*(?P<punct>[.:|])?",
+    m = re.match(rf"^\s*(?P<open>[*_]{{1,2}})?\s*(?P<supp>Supplementary\s+)?{LABEL[kind]}\s*(?P<num>S?\d+)\s*(?P<punct>[.:|])?",
                  block, re.I)
     if not m or not (m.group("open") or m.group("punct")):
         return None
@@ -163,52 +183,118 @@ def caption_number(block: str) -> str | None:
     return f"S{number}" if m.group("supp") and not number.startswith("S") else number
 
 
-def parse_markdown(source: Source) -> list[Figure]:
+def pipe_table(block: str) -> tuple[int, list[list[str]]] | None:
+    """Where a pipe table starts in a paragraph (a header row, then a rule) and its rows, header first."""
+    lines = block.split("\n")
+    for i in range(len(lines) - 1):
+        if lines[i].strip().startswith("|") and TABLE_RULE.match(lines[i + 1]):
+            body = [l for l in lines[i:] if l.strip().startswith("|") and not TABLE_RULE.match(l)]
+            rows = [[c.strip() for c in re.split(r"(?<!\\)\|", l.strip().strip("|"))] for l in body]
+            return sum(len(l) + 1 for l in lines[:i]), rows
+    return None
+
+
+def parse_markdown(source: Source, part: str = "main") -> list[Figure]:
     """A paragraph with images is a figure; its caption is the paragraph after it (or before it) that starts
-    "Figure N", else the image's alt text."""
+    "Figure N", else the image's alt text. A "Figure N." paragraph with no image is a figure whose file is
+    missing. A pipe table is a table; its caption is the "Table N" paragraph before it (or after it)."""
     paragraphs = [(m.start(), m.end(), m.group(0)) for m in re.finditer(r"(?:[^\n]*\S[^\n]*(?:\n|$))+", source.text)]
-    figures: list[Figure] = []
+    items: list[Figure] = []
+    used: set[int] = set()
+    name = source.path.name
+
+    def caption_near(index: int, kind: str, order: tuple[int, int]) -> int | None:
+        for i in (index + order[0], index + order[1]):
+            if 0 <= i < len(paragraphs) and i not in used and caption_number(paragraphs[i][2], kind) is not None \
+                    and not MD_IMAGE.search(paragraphs[i][2]) and not pipe_table(paragraphs[i][2]):
+                return i
+        return None
+
     for index, (start, end, block) in enumerate(paragraphs):
+        if table := pipe_table(block):
+            at, cells = table
+            item = Figure("", 0, start, end, kind="table", part=part, source=name, cells=cells,
+                          columns=max(len(r) for r in cells), rows=len(cells) - 1)
+            lead = block[:at].strip()
+            if lead and caption_number(lead, "table") is not None:
+                item.caption, item.number = lead, caption_number(lead, "table") or ""
+            elif (c := caption_near(index, "table", (-1, 1))) is not None:
+                used.add(c)
+                cap_start, cap_end, caption = paragraphs[c]
+                item.caption, item.number = caption.strip(), caption_number(caption, "table") or ""
+                item.start, item.end = min(start, cap_start), max(end, cap_end)
+            used.add(index)
+            items.append(item)
+            continue
         images = list(MD_IMAGE.finditer(block))
         if not images:
             continue
-        figure = Figure("", len(figures) + 1, start, end, files=[m.group("src") or m.group("html") for m in images])
+        figure = Figure("", 0, start, end, files=[m.group("src") or m.group("html") for m in images], part=part, source=name)
         figure.labels = [l for m in images for l in re.findall(r"#(fig[:\-][\w:.\-]+)", m.group("attrs") or "")]
-        around = [i for i in (index + 1, index - 1) if 0 <= i < len(paragraphs) and caption_number(paragraphs[i][2]) is not None
-                  and not MD_IMAGE.search(paragraphs[i][2]) and not any(f.start <= paragraphs[i][0] < f.end for f in figures)]
-        if around:
-            cap_start, cap_end, caption = paragraphs[around[0]]
+        if (c := caption_near(index, "figure", (1, -1))) is not None:
+            used.add(c)
+            cap_start, cap_end, caption = paragraphs[c]
             figure.caption, figure.number = caption.strip(), caption_number(caption) or ""
             figure.start, figure.end = min(start, cap_start), max(end, cap_end)
         elif len(images) == 1 and (images[0].group("alt") or "").strip():
             figure.caption = images[0].group("alt").strip()
             figure.number = caption_number(figure.caption) or ""
-        figures.append(figure)
-    if figures and not any(f.number for f in figures):
-        for n, figure in enumerate(figures, 1):  # numbered in order of appearance, as pandoc does
-            figure.number = str(n)
-    return figures
+        used.add(index)
+        items.append(figure)
+    for index, (start, end, block) in enumerate(paragraphs):  # a caption whose figure has no image
+        if index not in used and caption_number(block) is not None:
+            items.append(Figure(caption_number(block) or "", 0, start, end, caption=block.strip(), part=part, source=name))
+    items.sort(key=lambda f: f.start)
+    for kind in ("figure", "table"):
+        mine = [f for f in items if f.kind == kind]
+        if mine and not any(f.number for f in mine):
+            for n, item in enumerate(mine, 1):  # numbered in order of appearance, as pandoc does
+                item.number = str(n)
+    return number_items(items, part)
+
+
+def number_items(items: list[Figure], part: str) -> list[Figure]:
+    """Each kind counted in its own order; in a supplement file a plain number is a supplementary one (S2)."""
+    for kind in ("figure", "table"):
+        for n, item in enumerate((f for f in items if f.kind == kind), 1):
+            item.order = n
+            if part == "supplement" and item.number and not item.number.startswith("S"):
+                item.number = f"S{item.number}"
+            if item.number.startswith("S"):
+                item.part = "supplement"
+    return items
 
 
 TEX_FIGURE = re.compile(r"\\begin\{(?P<env>figure\*?|SCfigure\*?|wrapfigure)\}(?P<body>.*?)\\end\{(?P=env)\}", re.S)
+TEX_TABLE = re.compile(r"\\begin\{(?P<env>table\*?|sidewaystable\*?)\}(?P<body>.*?)\\end\{(?P=env)\}", re.S)
 TEX_GRAPHICS = re.compile(r"\\(?:includegraphics|includesvg)\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}")
-TEX_SUPPLEMENT = re.compile(r"\\renewcommand\s*\{?\\thefigure\}?\s*\{\s*S")
+TEX_SUPPLEMENT = {"figure": re.compile(r"\\renewcommand\s*\{?\\thefigure\}?\s*\{\s*S"),
+                  "table": re.compile(r"\\renewcommand\s*\{?\\thetable\}?\s*\{\s*S")}
+TEX_TABULAR = re.compile(r"\\begin\{(?:tabular\*?|tabularx|longtable|tabulary)\}(?:\{[^}]*\})?\s*\{((?:[^{}]|\{[^{}]*\})*)\}(.*?)\\end\{", re.S)
 
 
-def parse_latex(source: Source) -> list[Figure]:
-    """Each figure environment, numbered in order; after \\renewcommand{\\thefigure}{S...} they are S1, S2..."""
-    switch = next((m.start() for m in TEX_SUPPLEMENT.finditer(source.text)), len(source.text))
-    figures, counts = [], {"": 0, "S": 0}
-    for match in TEX_FIGURE.finditer(source.text):
-        body, prefix = match.group("body"), "S" if match.start() > switch else ""
-        counts[prefix] += 1
-        figure = Figure(f"{prefix}{counts[prefix]}", len(figures) + 1, match.start(), match.end(),
-                        files=[f.strip() for f in TEX_GRAPHICS.findall(body)], labels=re.findall(r"\\label\{([^}]+)\}", body),
-                        wide=match.group("env").endswith("*"))
-        if caption := re.search(r"\\caption\*?\s*(?:\[[^\]]*\])?", body):
-            figure.caption = latex_plain(braced(body, caption.end()))
-        figures.append(figure)
-    return figures
+def parse_latex(source: Source, part: str = "main") -> list[Figure]:
+    """Each figure and table environment, numbered in order; after \\renewcommand{\\thefigure}{S...} (or
+    \\thetable) they are S1, S2..."""
+    items, counts = [], {("figure", ""): 0, ("figure", "S"): 0, ("table", ""): 0, ("table", "S"): 0}
+    for kind, pattern in (("figure", TEX_FIGURE), ("table", TEX_TABLE)):
+        switch = next((m.start() for m in TEX_SUPPLEMENT[kind].finditer(source.text)), len(source.text))
+        for match in pattern.finditer(source.text):
+            body, prefix = match.group("body"), "S" if match.start() > switch or part == "supplement" else ""
+            counts[(kind, prefix)] += 1
+            item = Figure(f"{prefix}{counts[(kind, prefix)]}", 0, match.start(), match.end(), kind=kind, part=part, source=source.path.name,
+                          files=[f.strip() for f in TEX_GRAPHICS.findall(body)] if kind == "figure" else [],
+                          labels=re.findall(r"\\label\{([^}]+)\}", body), wide=match.group("env").endswith("*"))
+            if caption := re.search(r"\\caption\*?\s*(?:\[[^\]]*\])?", body):
+                item.caption = latex_plain(braced(body, caption.end()))
+            if kind == "table" and (tab := TEX_TABULAR.search(body)):
+                spec = re.sub(r"\{[^{}]*\}", "", tab.group(1))
+                rows = [r for r in re.split(r"\\\\", tab.group(2)) if r.strip() and not re.fullmatch(r"\s*\\(?:hline|toprule|midrule|bottomrule)\s*", r)]
+                item.cells = [[latex_plain(c).strip() for c in r.split("&")] for r in rows]
+                item.columns, item.rows = len(re.findall(r"[lcrpmbXS]", spec)), max(len(item.cells) - 1, 0)
+            items.append(item)
+    items.sort(key=lambda f: f.start)
+    return number_items(items, part)
 
 
 def resolve(name: str, source: Source) -> Path | None:
@@ -226,14 +312,16 @@ def resolve(name: str, source: Source) -> Path | None:
 
 # ---------- citations ----------
 
-TEXT_CITE = re.compile(r"(?P<supp>Supplementary\s+)?(?:Figures?|Figs?\.?)\s*(?P<list>S?\d+[a-zA-Z]?(?:\s*(?:[-–—]|,|and|&)\s*S?\d+[a-zA-Z]?)*)", re.I)
-REF_CITE = re.compile(r"\\(?:c|C|auto|sub|name)?ref\*?\{([^}]+)\}|@(fig[:\-][\w:.\-]+)")
+NUMBER_LIST = r"(?P<list>S?\d+[a-zA-Z]?(?:\s*(?:[-–—]|,|and|&)\s*S?\d+[a-zA-Z]?)*)"
+TEXT_CITE = {"figure": re.compile(r"(?P<supp>Supplementary\s+)?(?:Figures?|Figs?\.?)\s*" + NUMBER_LIST, re.I),
+             "table": re.compile(r"(?P<supp>Supplementary\s+)?Tables?\s*" + NUMBER_LIST, re.I)}
+REF_CITE = re.compile(r"\\(?:c|C|auto|sub|name)?ref\*?\{([^}]+)\}|@((?:fig|tab|tbl)[:\-][\w:.\-]+)")
 HEADING = {"markdown": re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M),
            "latex": re.compile(r"\\(?:sub)*section\*?\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}")}
 
 
 def cited_numbers(supp: bool, listing: str) -> list[str]:
-    """"2", "2a, 3", "2–4", "S1 and S3" as figure numbers; a range counts every figure in it."""
+    """"2", "2a, 3", "2–4", "S1 and S3" as item numbers; a range counts every item in it."""
     parts, numbers = re.findall(r"S?\d+|[-–—]", listing, re.I), []
     for i, part in enumerate(parts):
         if part in "-–—" and 0 < i < len(parts) - 1:
@@ -246,55 +334,132 @@ def cited_numbers(supp: bool, listing: str) -> list[str]:
     return numbers
 
 
-def citations(source: Source, figures: list[Figure]) -> list[dict]:
-    """Every mention of a figure outside its own caption, in text order, with its section and line."""
-    by_number = {f.number: f for f in figures if f.number}
-    by_label = {label: f for f in figures for label in f.labels}
+def citations(source: Source, items: list[Figure], part: str = "main") -> list[dict]:
+    """Every mention of a figure or table in one file of the manuscript, outside its own caption, in text order,
+    with its section and line, and whether the mention is in the main text or the supplement."""
+    by_number = {(f.kind, f.number): f for f in items if f.number}
+    by_label = {label: f for f in items for label in f.labels}
+    here = [f for f in items if f.source == source.path.name]
     heads = [(m.start(), latex_plain(m.group(1)) if source.kind == "latex" else re.sub(r"[*_`]", "", m.group(1)))
              for m in HEADING[source.kind].finditer(source.text)]
     found = []
 
-    def add(number: str, figure: Figure | None, at: int, label: str = "") -> None:
-        if figure is not None and figure.start <= at < figure.end:
+    def add(kind: str, number: str, item: Figure | None, at: int, label: str = "") -> None:
+        if item is not None and item.source == source.path.name and item.start <= at < item.end:
             return  # the caption's own "Figure 2."
-        caption = next((f.id for f in figures if f.start <= at < f.end), "")
-        found.append({"id": figure.id if figure else (number if label else f"Figure {number}"), "exists": figure is not None, "offset": at,
-                      "label": label, "in_caption_of": caption, "where": source.where(at),
+        caption = next((f.id for f in here if f.start <= at < f.end), "")
+        noun = "Figure" if kind == "figure" else "Table"
+        found.append({"id": item.id if item else (number if label else f"{noun} {number}"), "kind": kind, "exists": item is not None,
+                      "offset": at, "part": part, "label": label, "in_caption_of": caption, "where": source.where(at),
                       "section": next((t for s, t in reversed(heads) if s <= at), "Before the first heading")})
 
-    for m in TEXT_CITE.finditer(source.text):
-        for number in cited_numbers(bool(m.group("supp")), m.group("list")):
-            add(number, by_number.get(number), m.start())
+    for kind, pattern in TEXT_CITE.items():
+        for m in pattern.finditer(source.text):
+            # Within the supplement, "Figure 1" is its own Figure S1.
+            for number in cited_numbers(bool(m.group("supp")) or part == "supplement", m.group("list")):
+                add(kind, number, by_number.get((kind, number)), m.start())
     for m in REF_CITE.finditer(source.text):
         for label in (x.strip() for x in (m.group(1) or m.group(2)).split(",")):
-            if label in by_label or label.startswith("fig"):  # a section, table or equation label is not ours
-                add(label, by_label.get(label), m.start(), label)
-    return sorted(found, key=lambda c: c["offset"])
+            if label in by_label or label.startswith(("fig", "tab", "tbl")):  # a section or equation label is not ours
+                kind = by_label[label].kind if label in by_label else ("figure" if label.startswith("fig") else "table")
+                add(kind, label, by_label.get(label), m.start(), label)
+    return sorted(found, key=lambda c: (c["part"] != "main", c["offset"]))
 
 
-def citation_problems(figures: list[Figure], cites: list[dict]) -> list[dict]:
-    """Figures never cited in the text, cited only in another caption, first cited out of order, or cited but absent."""
+def citation_problems(items: list[Figure], cites: list[dict]) -> list[dict]:
+    """Items never cited, cited only in another caption, a main-text item first cited out of order, a
+    supplementary item the main text never points to, or an item cited but absent."""
     body = [c for c in cites if c["exists"] and not c["in_caption_of"]]
     first: dict[str, dict] = {}
     for c in body:
         first.setdefault(c["id"], c)
     notes = []
-    for figure in figures:
-        if figure.id not in first:
-            captions = sorted({c["in_caption_of"] for c in cites if c["id"] == figure.id and c["in_caption_of"]})
-            notes.append({"check": "citation", "figure": figure.id, "note": f"{figure.id} is cited only in the caption of {', '.join(captions)}, never in the text."
-                          if captions else f"{figure.id} is never cited in the text."})
-    main = sorted((f for f in figures if f.number.isdigit() and f.id in first), key=lambda f: first[f.id]["offset"])
-    for i, figure in enumerate(main):
-        if lower := [g for g in main[i + 1:] if int(g.number) < int(figure.number)]:
-            c = first[figure.id]
-            notes.append({"check": "citation", "figure": figure.id,
-                          "note": f"{figure.id} is first cited before {lower[0].id} ({c['section']}, {c['where']})."})
+    for item in items:
+        if item.id not in first:
+            captions = sorted({c["in_caption_of"] for c in cites if c["id"] == item.id and c["in_caption_of"]})
+            notes.append({"check": "citation", "figure": item.id, "note": f"{item.id} is cited only in the caption of {', '.join(captions)}, never in the text."
+                          if captions else f"{item.id} is never cited, in the paper or the supplement." if item.part == "supplement"
+                          else f"{item.id} is never cited in the text."})
+        elif item.part == "supplement" and first[item.id]["part"] != "main":
+            notes.append({"check": "citation", "figure": item.id,
+                          "note": f"{item.id} is cited only within the supplement; the main text never points a reader to it."})
+        elif item.part == "main" and first[item.id]["part"] != "main":
+            notes.append({"check": "citation", "figure": item.id, "note": f"{item.id} is cited only in the supplement, never in the main text."})
+    for kind in ("figure", "table"):
+        main = sorted((f for f in items if f.kind == kind and f.number.isdigit() and f.id in first and first[f.id]["part"] == "main"),
+                      key=lambda f: first[f.id]["offset"])
+        for i, item in enumerate(main):
+            if lower := [g for g in main[i + 1:] if int(g.number) < int(item.number)]:
+                c = first[item.id]
+                notes.append({"check": "citation", "figure": item.id,
+                              "note": f"{item.id} is first cited before {lower[0].id} ({c['section']}, {c['where']})."})
     for c in cites:
         if not c["exists"] and not any(n["figure"] == c["id"] and n["note"].startswith("The text cites") for n in notes):
-            what = f"a figure labelled {c['label']}" if c["label"] else c["id"]
+            what = f"a {c['kind']} labelled {c['label']}" if c["label"] else c["id"]
             notes.append({"check": "citation", "figure": c["id"], "note": f"The text cites {what}, which does not exist ({c['section']}, {c['where']})."})
     return notes
+
+
+# ---------- tables ----------
+
+UNIT = re.compile(r"%|×|\bx\b|\(\s*(?:[µu]?s|ms|min|h|days?|MB|GB|kB|KB|bp|kb|Mb|mm|cm|kg|g|mg|ml|°C|fold|n|N)\s*\)|"
+                  r"\b(?:n|N|count|number|rank|score|ratio|fold|speed-?ups?|version|ID|id|r|p|rate|percent|year|days?|seconds?|minutes?|hours?)\b", re.I)
+NUMBER = re.compile(r"^[~≈<>±+−-]?\s*\d[\d,]*(?:\.(\d+))?\s*(?:[%×x]|[a-zA-Zµ]{1,3})?(?:\s*(?:±|\(|\[).*)?$")
+
+
+CELL_UNIT = re.compile(r"%|×|\d\s*(?:[µu]?s|ms|min|h|MB|GB|kB|KB|bp|kb|mm|cm|kg|mg|ml|x|°C)\b")
+
+
+def measured(values: list[str]) -> bool:
+    """A column of measurements that needs a unit: decimals beyond the range of a proportion or a correlation,
+    with no unit in the cells. Counts, ranks, percentages and coefficients do not."""
+    if any(CELL_UNIT.search(v) for v in values):
+        return False
+    numbers = [m.group(0) for v in values if (m := re.search(r"[-−]?\d[\d,]*(?:\.\d+)?", v))]
+    decimals = [float(n.replace(",", "").replace("−", "-")) for n in numbers if "." in n]
+    return bool(decimals) and any(abs(x) > 1 for x in decimals)
+
+
+def cell_text(cell: str) -> str:
+    """A cell as printed: links reduced to their text, emphasis and code marks dropped."""
+    cell = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", cell)
+    return re.sub(r"[*_`]|\\\|", lambda m: "|" if m.group(0) == "\\|" else "", cell).strip()
+
+
+def table_notes(item: Figure, settings: dict) -> tuple[dict, list[str]]:
+    """What a table needs printed and what to look at: its width at the table font against the column and the
+    page, columns that mix decimal places, numbers under a header with no unit, empty cells, length."""
+    cells = [[cell_text(c) for c in row] for row in item.cells]
+    record: dict[str, Any] = {"columns": item.columns, "rows": item.rows}
+    if not cells:
+        return record, ["has no rows the script could read: check it by reading"]
+    char_mm, pad_mm = 0.5 * settings["table_pt"] * 25.4 / 72, 2.5  # an average character at the table font; padding per column
+    width = max(len(r) for r in cells)
+    natural = sum(max((len(r[i]) for r in cells if i < len(r)), default=0) * char_mm + pad_mm for i in range(width))
+    wrapped = sum(max((len(w) for r in cells if i < len(r) for w in (r[i].split() or [""])), default=0) * char_mm + pad_mm for i in range(width))
+    fits = "column" if natural <= settings["column_mm"] else "page" if natural <= settings["page_mm"] else \
+        "page, with wrapped columns" if wrapped <= settings["page_mm"] else "neither"
+    record |= {"natural_mm": round(natural), "wrapped_mm": round(wrapped), "fits": fits}
+    notes = []
+    if fits == "neither":
+        notes.append(f"needs about {wrapped:.0f} mm at {settings['table_pt']:g} pt even with every column wrapped, wider than the page "
+                     f"({settings['page_mm']:g} mm): split it, turn it, or move part of it to the supplement")
+    header, body = cells[0], cells[1:]
+    for i, name in enumerate(header):
+        values = [r[i] for r in body if i < len(r) and r[i]]
+        numbers = [NUMBER.match(v) for v in values]
+        if len(values) >= 2 and sum(bool(n) for n in numbers) >= len(values) / 2:
+            places = sorted({len(n.group(1) or "") for n in numbers if n and "." in n.group(0)})
+            if len(places) > 1:
+                notes.append(f"column “{name}” gives numbers to {', '.join(map(str, places))} decimal places")
+            if not UNIT.search(name) and measured(values):
+                notes.append(f"column “{name}” holds measured values, and neither its header nor its cells name a unit")
+    empty = sum(1 for r in body for i in range(width) if i >= len(r) or not r[i] or r[i] in {"-", "–", "—"})
+    if empty:
+        notes.append(f"has {empty} empty or dashed cells: say whether each means zero, not measured or not applicable")
+    if item.part == "main" and item.rows > settings["max_rows"]:
+        notes.append(f"has {item.rows} rows: a reader of the main text needs the rows that carry the claim; the rest can go to the supplement")
+    return record, notes
 
 
 # ---------- rendering and measuring ----------
@@ -421,79 +586,123 @@ def refuse_existing(path: Path) -> None:
         raise typer.Exit(1)
 
 
-def find_figures(paper: Path) -> tuple[Source, list[Figure]]:
+def find_figures(paper: Path, part: str = "main") -> tuple[Source, list[Figure]]:
     source = read_source(paper)
-    return source, parse_latex(source) if source.kind == "latex" else parse_markdown(source)
+    return source, parse_latex(source, part) if source.kind == "latex" else parse_markdown(source, part)
 
 
 @app.command()
 def inventory(
     paper: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="The manuscript, Markdown or LaTeX")],
     output_dir: Annotated[Path, typer.Option("--output-dir", help="Where the images, figures.json and figures.md go")],
+    supplement: Annotated[list[Path] | None, typer.Option("--supplement", exists=True, dir_okay=False,
+                                                          help="A supplementary file, Markdown or LaTeX; repeatable")] = None,
     column_mm: Annotated[float, typer.Option(help="The venue's single-column width, mm")] = 85.0,
     page_mm: Annotated[float, typer.Option(help="The venue's full-page width, for a figure that spans the page, mm")] = 178.0,
     min_pt: Annotated[float, typer.Option(help="The smallest printed text the venue allows, pt")] = 6.0,
     min_line_pt: Annotated[float, typer.Option(help="The thinnest printed line to accept, pt")] = 0.25,
     min_dpi: Annotated[int, typer.Option(help="The lowest resolution of a raster image as printed, dpi")] = 300,
+    supplement_min_pt: Annotated[float, typer.Option(help="The smallest text accepted in a supplementary figure, pt")] = 5.0,
+    supplement_min_dpi: Annotated[int, typer.Option(help="The lowest resolution accepted in a supplementary figure, dpi")] = 150,
+    table_pt: Annotated[float, typer.Option(help="The font size tables are printed at, pt")] = 8.0,
+    max_rows: Annotated[int, typer.Option(help="Rows above which a main-text table is noted as long")] = 30,
 ) -> None:
-    """Find every figure, render it as printed, measure it, and list its citations."""
+    """Find every figure and table in the paper and its supplement, render each figure as printed, measure it,
+    measure each table, and list their citations."""
     refuse_existing(output_dir / "figures.json")
-    source, figures = find_figures(paper)
-    settings = {"column_mm": column_mm, "page_mm": page_mm, "min_pt": min_pt, "min_line_pt": min_line_pt, "min_dpi": min_dpi}
-    cites = citations(source, figures)
-    records, notes = [], citation_problems(figures, cites)
-    for figure in figures:
-        width_mm = page_mm if figure.wide else column_mm
+    sources, items = [], []
+    for path, part in [(paper, "main"), *((p, "supplement") for p in supplement or [])]:
+        source, found = find_figures(path, part)
+        sources.append((source, part))
+        items += found
+    settings = {"column_mm": column_mm, "page_mm": page_mm, "min_pt": min_pt, "min_line_pt": min_line_pt, "min_dpi": min_dpi,
+                "supplement_min_pt": supplement_min_pt, "supplement_min_dpi": supplement_min_dpi, "table_pt": table_pt, "max_rows": max_rows}
+    looser = settings | {"min_pt": supplement_min_pt, "min_dpi": supplement_min_dpi}
+    cites = sorted((c for source, part in sources for c in citations(source, items, part)), key=lambda c: (c["part"] != "main", c["offset"]))
+    records, notes = [], citation_problems(items, cites)
+    by_name = {source.path.name: source for source, _ in sources}
+    for item in items:
+        source = by_name[item.source]
+        supp = item.part == "supplement"
+        own = [c for c in cites if c["id"] == item.id]
+        record = {"id": item.id, "kind": item.kind, "part": item.part, "label": item.labels[0] if item.labels else "",
+                  "caption": item.caption, "where": source.where(item.start),
+                  "cited": [{k: c[k] for k in ("section", "where", "in_caption_of", "part")} for c in own]}
+        if item.kind == "table":
+            measured, problems = table_notes(item, settings)
+            record |= measured
+            notes += [{"check": "table", "figure": item.id, "note": f"{item.id} {p}."} for p in problems]
+            records.append(record)
+            continue
+        width_mm = page_mm if item.wide or supp else column_mm
         files = []
-        for name in figure.files:
+        if not item.files:
+            notes.append({"check": "file", "figure": item.id,
+                          "note": f"{item.id} has a caption but no image in the manuscript, so there is nothing to render: review the caption, and say that the image is missing."})
+        for name in item.files:
             path = resolve(name, source)
             pages, problem = pages_of(path, output_dir) if path else ([], "was not found")
             if problem:
                 files.append({"path": name, "problem": problem})
-                notes.append({"check": "file", "figure": figure.id, "note": f"{figure.id}: {name} {problem}."})
+                notes.append({"check": "file", "figure": item.id, "note": f"{item.id}: {name} {problem}."})
             for page in pages:
-                folder = output_dir / figure.slug / (path.stem if len(figure.files) > 1 else "") / (f"page-{page.page}" if len(pages) > 1 else "")
-                measured, problems = measure(page, folder, width_mm, settings)
+                folder = output_dir / item.slug / (path.stem if len(item.files) > 1 else "") / (f"page-{page.page}" if len(pages) > 1 else "")
+                measured, problems = measure(page, folder, width_mm, looser if supp else settings)
                 at = f"{name}, page {page.page}" if len(pages) > 1 else name
-                notes += [{"check": "size", "figure": figure.id, "note": f"{figure.id}: {at} {p}."} for p in problems]
+                notes += [{"check": "size", "figure": item.id, "note": f"{item.id}: {at} {p}."} for p in problems]
                 files.append({"path": name, **measured, "view": (folder / "view.png").relative_to(output_dir).as_posix(),
                               "sheet": (folder / "sheet.png").relative_to(output_dir).as_posix()})
-        own = [c for c in cites if c["id"] == figure.id]
-        records.append({"id": figure.id, "label": figure.labels[0] if figure.labels else "", "caption": figure.caption,
-                        "where": source.where(figure.start), "printed_mm": width_mm,
-                        "printed_width": "page (figure*)" if figure.wide else "column", "files": files,
-                        "cited": [{k: c[k] for k in ("section", "where", "in_caption_of")} for c in own]})
+        records.append(record | {"printed_mm": width_mm, "files": files,
+                                 "printed_width": "page (supplement)" if supp else "page (figure*)" if item.wide else "column"})
     for leftover in output_dir.glob("*.from-eps.pdf"):
         leftover.unlink()
-    document = {"paper": str(paper), "settings": settings, "figures": records, "findings": notes}
+    document = {"paper": str(paper), "supplements": [str(p) for p in supplement or []], "settings": settings,
+                "items": records, "findings": notes}
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "figures.json").write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (output_dir / "figures.md").write_text(markdown(document), encoding="utf-8")
-    typer.echo(json.dumps({"output_dir": str(output_dir.resolve()), "figures": len(records), "notes": len(notes)}, indent=2))
+    count = lambda kind, part: sum(r["kind"] == kind and r["part"] == part for r in records)
+    typer.echo(json.dumps({"output_dir": str(output_dir.resolve()), "figures": count("figure", "main"), "tables": count("table", "main"),
+                           "supplementary_figures": count("figure", "supplement"), "supplementary_tables": count("table", "supplement"),
+                           "notes": len(notes)}, indent=2))
 
 
 def markdown(document: dict) -> str:
     s = document["settings"]
-    lines = [f"# Figures of {Path(document['paper']).name}", "",
-             f"Measured printed {s['column_mm']:g} mm wide (one column; {s['page_mm']:g} mm for a figure that spans the page), "
-             f"against {s['min_pt']:g} pt text, {s['min_line_pt']:g} pt lines and {s['min_dpi']} dpi. Open each sheet: it is the "
-             "figure at its printed size, in greyscale and under red-green colour blindness. Every note is a place to look.", ""]
-    for r in document["figures"]:
-        lines += [f"## {r['id']}" + (f" ({r['label']})" if r["label"] else ""), "", f"- Where: {r['where']}; printed {r['printed_mm']:g} mm wide",
-                  f"- Caption: {' '.join(r['caption'].split()) or '(none found)'}"]
-        for f in r["files"]:
-            if "problem" in f:
-                lines.append(f"- {f['path']}: {f['problem']}")
-                continue
-            size = (f"smallest text {f['min_text_pt']:g} pt" if f.get("min_text_pt") else "no vector text") if f["vector"] \
-                else f"{f['dpi']} dpi as printed"
-            line = f"; thinnest line {f['min_line_pt']:g} pt" if f.get("min_line_pt") is not None else ""
-            lines.append(f"- {f['path']}" + (f" page {f['page']}" if f["page"] > 1 else "") + f": {size}{line}. [sheet]({f['sheet']}), [view]({f['view']})")
-        body = [c for c in r["cited"] if not c["in_caption_of"]]
-        lines.append(f"- Cited {'once' if len(body) == 1 else f'{len(body)} times'} in the text" + (f", first in {body[0]['section']} ({body[0]['where']})" if body else ""))
-        lines += [f"- Note: {n['note']}" for n in document["findings"] if n["figure"] == r["id"]] + [""]
-    if other := [n for n in document["findings"] if n["figure"] not in {r["id"] for r in document["figures"]}]:
-        lines += ["## Citations of figures that do not exist", ""] + [f"- {n['note']}" for n in other] + [""]
+    lines = [f"# Figures and tables of {Path(document['paper']).name}" + (" and its supplement" if document["supplements"] else ""), "",
+             f"Main-text figures measured printed {s['column_mm']:g} mm wide (one column; {s['page_mm']:g} mm for a figure that spans the page), "
+             f"against {s['min_pt']:g} pt text, {s['min_line_pt']:g} pt lines and {s['min_dpi']} dpi; supplementary figures at the page width "
+             f"against {s['supplement_min_pt']:g} pt and {s['supplement_min_dpi']} dpi. Tables measured at {s['table_pt']:g} pt. Open each sheet: "
+             "it is the figure at its printed size, in greyscale and under red-green colour blindness. Every note is a place to look.", ""]
+    for part, title in (("main", "Main text"), ("supplement", "Supplement")):
+        mine = [r for r in document["items"] if r["part"] == part]
+        if not mine:
+            continue
+        lines += [f"## {title}", ""]
+        for r in mine:
+            lines += [f"### {r['id']}" + (f" ({r['label']})" if r["label"] else ""), "", f"- Where: {r['where']}",
+                      f"- Caption: {' '.join(r['caption'].split()) or '(none found)'}"]
+            if r["kind"] == "table":
+                if "natural_mm" in r:
+                    lines.append(f"- {r['columns']} columns, {r['rows']} rows; about {r['natural_mm']} mm wide at {s['table_pt']:g} pt unwrapped, "
+                                 f"{r['wrapped_mm']} mm with every column wrapped; fits: {r['fits']}")
+            else:
+                lines.append(f"- Printed {r['printed_mm']:g} mm wide" + ("" if r["files"] else "; no image file"))
+                for f in r["files"]:
+                    if "problem" in f:
+                        lines.append(f"- {f['path']}: {f['problem']}")
+                        continue
+                    size = (f"smallest text {f['min_text_pt']:g} pt" if f.get("min_text_pt") else "no vector text") if f["vector"] \
+                        else f"{f['dpi']} dpi as printed"
+                    line = f"; thinnest line {f['min_line_pt']:g} pt" if f.get("min_line_pt") is not None else ""
+                    lines.append(f"- {f['path']}" + (f" page {f['page']}" if f["page"] > 1 else "") + f": {size}{line}. [sheet]({f['sheet']}), [view]({f['view']})")
+            body = [c for c in r["cited"] if not c["in_caption_of"]]
+            main_cites = [c for c in body if c["part"] == "main"]
+            lines.append(f"- Cited {len(main_cites)} times in the main text" + (f", first in {main_cites[0]['section']} ({main_cites[0]['where']})" if main_cites else "")
+                         + (f"; {len(body) - len(main_cites)} times in the supplement" if len(body) > len(main_cites) else ""))
+            lines += [f"- Note: {n['note']}" for n in document["findings"] if n["figure"] == r["id"]] + [""]
+    if other := [n for n in document["findings"] if n["figure"] not in {r["id"] for r in document["items"]}]:
+        lines += ["## Citations of items that do not exist", ""] + [f"- {n['note']}" for n in other] + [""]
     return "\n".join(lines)
 
 
@@ -509,7 +718,7 @@ def workspace(
     into.mkdir(parents=True, exist_ok=True)
     source, figures = find_figures(paper)
     lines = ["# Figures", "", "Each figure of the manuscript as an image. Open one when your reading reaches it, as you would look at it on the page.", ""]
-    for figure in figures:
+    for figure in (f for f in figures if f.kind == "figure"):
         names = []
         for n, name in enumerate(figure.files, 1):
             path = resolve(name, source)

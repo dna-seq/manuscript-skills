@@ -34,7 +34,8 @@ and checks under `manuscript-deslop/`. Honour the saved `edits` policy and reque
   an edit: add your version as a proposal for the same passage, so the authors choose one. Write
   `findings.json` as the [stage findings](../manuscript-dashboard/references/stage-findings.md) describe:
   one record per problem (a pattern repeated through a section is one record), category "Writing and
-  clarity", severity `minor` or `info`, and every applied or proposed edit as a change record.
+  clarity", severity `minor` or `info`, and every proposed edit as a change record. Record each applied
+  edit once, with `runs.py change`, not in `findings.json`.
 
 Respect an explicit choice of another installed skill. This skill handles scientific writing; an
 unqualified request to humanize unrelated prose does not by itself select it. Within this plugin,

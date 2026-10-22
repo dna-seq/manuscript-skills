@@ -43,7 +43,7 @@ PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF"
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
 SKIP = {"findings.json", "merges.json"}
 OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
-CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "evidence")
+CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "why", "comment", "evidence")
 app = typer.Typer(add_completion=False)
 
 
@@ -111,6 +111,8 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
             if not evidence and record.get("quote"):
                 evidence = [{"path": relative(snapshot, out_dir), "quote": record["quote"]}]
             web = " Sources read: " + "; ".join(record["_web"]) + "." if record.get("_web") else ""
+            if record.get("looked_in"):  # an absence says where the skill searched
+                web += " Looked in: " + "; ".join(map(str, record["looked_in"])) + "."
             found["findings"].append({
                 "id": fid, "category": record.get("category") or "Uncategorised",
                 "section": record.get("section") or "Whole manuscript", "summary": record["summary"],
@@ -378,11 +380,11 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
     for skill, seat in data["skills"].items():
         for number, change in enumerate(seat["changes"], 1):
             path = run / change["path"]
-            parts = re.match(r"# (.*?)\n\nReason: (.*?)\n\n## Before\n\n(.*)\n\n## After\n\n(.*)\Z",
+            parts = re.match(r"# (.*?)\n\nReason: (.*?)\n\n(?:Comment: (.*?)\n\n)?## Before\n\n(.*)\n\n## After\n\n(.*)\Z",
                              path.read_text(encoding="utf-8"), re.S)
             if not parts:
                 continue
-            section, reason, before, after = parts.groups()
+            section, reason, comment, before, after = parts.groups()
             before = None if before.strip() == "(No previous block.)" else before.strip()
             after = None if after.strip() == "(Block removed.)" else after.strip()
             if before is not None and before in text:
@@ -392,7 +394,7 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             first = re.match(r"(.+?[.!?])(?:\s|$)", reason.strip())
             summary = first.group(1) if first else reason.strip()
             out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "section": section,
-                        "summary": summary, "why": reason.strip() if reason.strip() != summary else "",
+                        "summary": summary, "why": reason.strip() if reason.strip() != summary else "", "comment": (comment or "").strip(),
                         "finding_ids": [], "before": before, "after": after,
                         "evidence": [{"path": relative(path, out_dir), "quote": reason.strip() or (after or before)[:200]}]})
     replayed = text == current

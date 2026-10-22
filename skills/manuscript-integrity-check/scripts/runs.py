@@ -40,6 +40,7 @@ class Role(str, Enum):
     referee = 'referee'
     seat = 'seat'
     defence = 'defence'
+    critic = 'critic'  # the deslop reflection loop's critic, a seat like the others
     adjudication = 'adjudication'
     check = 'check'
     comparison = 'comparison'
@@ -52,7 +53,7 @@ class Role(str, Enum):
 ROLES = {role.value for role in Role}
 # Outputs of a simulated reader, referee, quick-pass seat or defender: each records how it ran (project-workflow.md,
 # "Independent readers and referees").
-PANEL = {'reader', 'referee', 'seat', 'defence'}
+PANEL = {'reader', 'referee', 'seat', 'defence', 'critic'}
 
 
 class Isolation(str, Enum):
@@ -102,6 +103,16 @@ def within(run: Path, relative: str) -> Path:
 
 # Skills that were renamed: older runs keep the former name, and new records may still be added under it.
 FORMER_NAMES = {"manuscript-visualize": "manuscript-dashboard"}
+
+
+DEFAULT_READERS = {'skimmer', 'potential-user', 'informed-outsider'}
+
+
+def expected_readers(data: dict[str, Any]) -> set[str]:
+    """The story panel's seats: the readers saved for the project when the run started, else the default three."""
+    project = data.get('context', {}).get('project')
+    saved = project.get('readers') if isinstance(project, dict) else None
+    return {re.sub(r"[^a-z0-9]+", "-", str(r).split(":")[0].strip().lower()).strip("-") for r in saved} if saved else DEFAULT_READERS
 
 
 def skill_name(name: str) -> str:
@@ -214,8 +225,8 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
                     errors.append(f"{name}: {item['path']} does not record whether it ran as a fresh agent (--isolation)")
             if name == 'manuscript-story':
                 seats = {item['seat'] for item in entry['artifacts'] if item['role'] == 'reader'}
-                if not {'skimmer', 'potential-user', 'informed-outsider'} <= seats:
-                    errors.append(f"{name}: missing independent reader reports")
+                if not expected_readers(data) <= seats:
+                    errors.append(f"{name}: missing independent reader reports ({', '.join(sorted(expected_readers(data) - seats))})")
             if name == 'manuscript-peer-review':
                 if entry.get('review_mode', 'full') == 'quick':
                     seats = {item['seat'] for item in entry['artifacts'] if item['role'] == 'seat'}
@@ -371,7 +382,8 @@ def issue(run: Path, skill: Annotated[str, typer.Option('--skill')],
 @serialized
 def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
            section: Annotated[str, typer.Option('--section')], reason: Annotated[str, typer.Option('--reason')], before: Path | None = None,
-           after: Path | None = None, shown_in_chat: bool = False) -> None:
+           after: Path | None = None, shown_in_chat: bool = False,
+           comment: Annotated[str, typer.Option(help="A question for the authors about this edit; never put it in the text")] = "") -> None:
     """Save exact consequential before/after text. Omit before for an addition, after for a deletion."""
     if before is None and after is None:
         raise typer.BadParameter('Supply before, after, or both.')
@@ -380,7 +392,7 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
     relative = f"{skill}/changes/{len(entry['changes']) + 1:04d}.md"
     path = within(run, relative)
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = f"# {section}\n\nReason: {reason}\n\n## Before\n\n"
+    text = f"# {section}\n\nReason: {reason}\n\n" + (f"Comment: {' '.join(comment.split())}\n\n" if comment.strip() else "") + "## Before\n\n"
     text += before.read_text(encoding='utf-8') if before else '(No previous block.)\n'
     text += '\n\n## After\n\n'
     text += after.read_text(encoding='utf-8') if after else '(Block removed.)\n'

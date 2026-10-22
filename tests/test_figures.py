@@ -118,7 +118,7 @@ def test_latex_follows_inputs_graphicspath_figure_star_refs_and_ignores_comments
     assert source.where(found[0].start) == "part.tex line 1"
     notes = [n["note"] for n in figures.citation_problems(found, figures.citations(source, found))]
     assert "The text cites a figure labelled fig:gone, which does not exist (Intro, main.tex line 3)." in notes
-    assert "Figure S1 is never cited in the text." in notes and not any("fig:old" in n for n in notes)
+    assert "Figure S1 is never cited, in the paper or the supplement." in notes and not any("fig:old" in n for n in notes)
 
 
 def vector_pdf(path: Path, width_pt: float = 1152, size: float = 9, line: float = 0.5) -> Path:
@@ -177,10 +177,13 @@ def test_the_seeded_fixture_shows_an_uncited_figure_and_the_clean_control_shows_
     assert notes_of(tmp_path / "seeded") == ["Figure 4 is never cited in the text."]
     assert notes_of(tmp_path / "clean") == []
     document = json.loads((tmp_path / "seeded" / "figures.json").read_text())
-    assert [f["id"] for f in document["figures"]] == ["Figure 1", "Figure 2", "Figure 3", "Figure 4"]
-    assert (tmp_path / "seeded" / document["figures"][1]["files"][0]["sheet"]).is_file()
+    assert [f["id"] for f in document["items"]] == ["Figure 1", "Figure 2", "Figure 3", "Table 1", "Figure 4"]
+    figure_2 = document["items"][1]
+    assert (tmp_path / "seeded" / figure_2["files"][0]["sheet"]).is_file()
     # The script cannot see that Figure 2's labels are unreadable: it is a sharp raster. Looking at the sheet can.
-    assert document["figures"][1]["files"][0]["dpi"] > 300
+    assert figure_2["files"][0]["dpi"] > 300
+    table = document["items"][3]
+    assert (table["kind"], table["part"], table["columns"], table["rows"], table["fits"]) == ("table", "main", 3, 2, "column")
     again = runner.invoke(figures.app, ["inventory", str(FIXTURES / "seeded" / "paper.md"), "--output-dir", str(tmp_path / "seeded")])
     assert again.exit_code == 1 and "exists" in again.output
 
@@ -193,7 +196,7 @@ def test_the_latex_fixture_measures_vector_text_and_finds_a_missing_label(tmp_pa
     assert any(n.startswith("Figure 1: runtime has text as small as") and "the minimum used is 7 pt" in n for n in notes)
     assert "The text cites a figure labelled fig:peak, which does not exist (Discussion, main.tex line 15)." in notes
     document = json.loads((tmp_path / "out" / "figures.json").read_text())
-    assert document["figures"][1]["printed_mm"] == 178.0 and document["figures"][1]["printed_width"] == "page (figure*)"
+    assert document["items"][1]["printed_mm"] == 178.0 and document["items"][1]["printed_width"] == "page (figure*)"
 
 
 def test_a_seat_workspace_gets_the_figures_and_their_captions_and_nothing_else(tmp_path: Path) -> None:
@@ -217,3 +220,89 @@ def test_eval_cases_are_well_formed_and_use_files_that_exist() -> None:
         assert all((ROOT / "evals" / f).is_file() for f in case["files"]), case["id"]
     assert {c["skill"] for c in cases} == {"manuscript-figures", "manuscript-peer-review"}
     assert any(all("/clean/" in f for f in c["files"]) for c in cases)  # the clean control
+
+
+TABLES = """# A paper
+
+## Results
+
+Runtimes are in Table 2 and the agreement in Table 1; Figure 1 has no image yet.
+
+**Table 1.** Agreement with the reference (2,184 variants).
+
+| Tool | Agreement | Disagreement |
+|---|---|---|
+| Varlens | 2,171 (99.4%) | 13 |
+| Server | 2,160 (98.9%) | 24 |
+
+**Table 2.** Runtime of each configuration.
+
+| Configuration | Runtime | Peak | Note |
+|---|---|---|---|
+| warm | 38.9 | 512.25 | |
+| cold | 203.3 | 640.5 | first run |
+
+**Figure 1.** The upload page.
+
+Details are in Supplementary Table 1.
+"""
+
+SUPPLEMENT = """# Supplementary material
+
+**Table 1.** Every run.
+
+| Run | Seconds |
+|---|---|
+| 1 | 38.2 (s) |
+
+![](low.png)
+
+**Figure 1.** A screenshot of the settings page, as in Figure 1 of this supplement.
+
+As Figure S1 shows, the settings are the defaults.
+"""
+
+
+def test_tables_are_measured_and_a_caption_without_an_image_is_a_figure_with_no_file(tmp_path: Path) -> None:
+    (tmp_path / "paper.md").write_text(TABLES)
+    result = runner.invoke(figures.app, ["inventory", str(tmp_path / "paper.md"), "--output-dir", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+    document = json.loads((tmp_path / "out" / "figures.json").read_text())
+    assert [(r["id"], r["kind"]) for r in document["items"]] == [("Table 1", "table"), ("Table 2", "table"), ("Figure 1", "figure")]
+    notes = notes_of(tmp_path / "out")
+    assert "Table 2 is first cited before Table 1 (Results, paper.md line 5)." in notes
+    assert "Table 2 column “Runtime” holds measured values, and neither its header nor its cells name a unit." in notes
+    assert "Table 2 column “Peak” gives numbers to 1, 2 decimal places." in notes
+    assert "Table 2 has 1 empty or dashed cells: say whether each means zero, not measured or not applicable." in notes
+    assert not any(n.startswith("Table 1 column") for n in notes)  # counts and percentages carry their own meaning
+    assert any(n.startswith("Figure 1 has a caption but no image") for n in notes)
+    assert "The text cites Table S1, which does not exist (Results, paper.md line 23)." in notes
+
+
+def test_a_table_wider_than_the_page_and_a_long_main_table_are_noted() -> None:
+    wide = figures.Figure("1", 1, 0, 0, kind="table", cells=[["A" * 30] * 8, ["word " * 2] * 8], columns=8, rows=1)
+    long = figures.Figure("2", 2, 0, 0, kind="table", cells=[["a", "b"]] + [["1", "2"]] * 40, columns=2, rows=40)
+    settings = {"column_mm": 85, "page_mm": 178, "table_pt": 8, "max_rows": 30}
+    record, notes = figures.table_notes(wide, settings)
+    assert record["fits"] == "neither" and any("wider than the page" in n for n in notes)
+    assert any("has 40 rows" in n for n in figures.table_notes(long, settings)[1])
+    long.part = "supplement"
+    assert not any("rows" in n for n in figures.table_notes(long, settings)[1])  # length is fine in the supplement
+
+
+def test_the_supplement_is_read_numbered_s_and_held_to_looser_minimums(tmp_path: Path) -> None:
+    (tmp_path / "paper.md").write_text(TABLES)
+    (tmp_path / "supplement.md").write_text(SUPPLEMENT)
+    png(tmp_path / "low.png", width=1500, height=900)  # 214 dpi across the 178 mm page: below 300, above 150
+    result = runner.invoke(figures.app, ["inventory", str(tmp_path / "paper.md"), "--supplement", str(tmp_path / "supplement.md"),
+                                         "--output-dir", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+    document = json.loads((tmp_path / "out" / "figures.json").read_text())
+    supp = {r["id"]: r for r in document["items"] if r["part"] == "supplement"}
+    assert set(supp) == {"Table S1", "Figure S1"} and supp["Figure S1"]["printed_width"] == "page (supplement)"
+    notes = notes_of(tmp_path / "out")
+    assert not any(n.startswith("Figure S1: low.png is") for n in notes)  # 214 dpi passes the supplement's 150
+    assert "Figure S1 is cited only within the supplement; the main text never points a reader to it." in notes
+    assert not any("caption of Figure S1" in n for n in notes)  # within the supplement, "Figure 1." is its own Figure S1
+    assert not any("Table S1" in n and "does not exist" in n for n in notes)
+    assert "## Supplement" in (tmp_path / "out" / "figures.md").read_text()

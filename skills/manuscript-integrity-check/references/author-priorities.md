@@ -446,9 +446,10 @@ these rules.
 
 No skill writes a placeholder or a note to the authors into the manuscript, the working copy, a proposal or
 the corrected version: no `[AUTHORS: ...]`, `[TODO]`, `[TBD]`, `XX`, `[insert ...]`, `[citation needed]`,
-no HTML or LaTeX comment and no plausible value standing in for the real one. Text in the manuscript can be
-submitted by mistake, and a comment in a LaTeX or Markdown source travels with it to arXiv or a journal's
-system. A question the authors must answer goes beside the text, where it cannot be shipped:
+no HTML or LaTeX comment carrying a note or a question to the authors, and no plausible value standing in
+for the real one. Text in the manuscript can be submitted by mistake, and a comment in a LaTeX or Markdown
+source travels with it to arXiv or a journal's system. Revision marks (`<!-- @rev ... -->`) kept under the
+project's own rules are a separate matter ([manuscript-revision-marks](../../manuscript-revision-marks/SKILL.md)). A question the authors must answer goes beside the text, where it cannot be shipped:
 
 - **About a passage that exists** ("is this planned?", "which authors contributed equally?"): a decision for
   the authors in the report, with the passage quoted.

@@ -63,8 +63,8 @@ submitted by mistake.
    > Use manuscript-improve to improve this paper for submission. Show the before/after changes and
    > identify any decisions I need to make.
 
-   By default a run applies routine fixes and proposes every substantive change. Ask for a report only
-   if you want nothing applied.
+   By default a run applies routine fixes and proposes every substantive change; story edits that keep
+   the direction you chose count as routine. Ask for a report only if you want nothing applied.
 
 On first use the assistant asks only for what it cannot find (the manuscript files, any code repository
 and where to save reports) and remembers the answers for that manuscript.
@@ -73,14 +73,14 @@ and where to save reports) and remembers the answers for that manuscript.
 
 | Your task | Skill | What you get |
 |---|---|---|
-| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | The skills below as one workflow, ending with the corrected paper as track changes beside your file, a dashboard, and the decisions left to you. |
+| Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | The skills below as one workflow, ending with the corrected paper (a separate file in the run folder, also shown as track changes), a dashboard, and the decisions left to you. |
 | Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and your voice. Each sentence is checked: no claim grows stronger, no number, citation, scientific term, qualifier or null result changes, and no AI phrasing is added. |
 | Remove AI phrasing ("deslop") | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Stock LLM phrasing, boilerplate and empty rhetoric cut while the science and your voice stay, or only a list of the patterns. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | Simulated readers say where they would stop reading; edits then fix the opening, the result headlines and where caveats sit. The science and every caveat stay, and a change of direction is only ever offered as options. |
 | Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | Unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and submission requirements, with suggested fixes. |
 | Check the references | [manuscript-reference-check](skills/manuscript-reference-check/SKILL.md) | Each reference's identity and authors, retractions, withdrawn preprints and preprints since published, and whether the sources support the claims that carry the paper, with the passage quoted. |
 | Check reporting standards and availability | [manuscript-reporting-check](skills/manuscript-reporting-check/SKILL.md) | An item-by-item check against the reporting guidelines for your study design (CONSORT, STROBE, PRISMA, ARRIVE and others). It also checks that your data, code and software can be found, and how statistics are reported. |
-| Review the figures | [manuscript-figures](skills/manuscript-figures/SKILL.md) | Every figure seen as it will be printed: at the journal's column width, in greyscale and as colour-blind readers see it. Each is checked against its caption, the text and tables, the order it is cited in and the code that draws it. You get a verdict per figure (keep, change or move to the supplement) and the figures worth adding; your figure files are never overwritten. |
+| Review the figures and tables | [manuscript-figures](skills/manuscript-figures/SKILL.md) | Every figure seen as it will be printed (at the journal's column width, in greyscale and as colour-blind readers see it) and every table as it is set (width, units, precision, empty cells), in the paper and its supplement. Each is checked against its caption, the text, the order it is cited in and the code that draws it; main-text items get the full review, supplementary ones a lighter one. You get a verdict per item (keep, change, or move to or from the supplement) and the figures worth adding; your files are never overwritten. |
 | Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | Reports from three simulated referees at your target journal, each quoting the paper, then what to fix first, including the work only you can do. No scores or acceptance odds. It can also draft your report when you are the referee. |
 | Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | Which clinical, ethics or privacy requirements apply, with the policy quoted and linked, and drafts of scope clarifications or replies to policy questions. |
 | Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. |
@@ -235,9 +235,10 @@ The stages:
    the version you started from and repaired within the direction you chose.
 4. **Prepare for the chosen journal.** Its length, structure and section requirements are applied, and
    the required statements and submission materials drafted.
-5. **Check the changes and show them.** Affected citations, claims and submission requirements are
-   verified. The corrected version holds every applied edit and every proposal as track changes, with
-   one choice per contested passage, and the dashboard shows what the run found, changed and left open.
+5. **Check the changes and show them.** The corrected version is built with every applied edit and
+   every proposal as track changes, with one choice per contested passage. The affected citations,
+   claims and submission requirements are then verified in it, and the dashboard shows what the run
+   found, changed and left open.
 6. **Finish for submission.** Once the code, data and results are final: archive the code release with a
    DOI, complete the declarations, the AI-use statement and the cover letter, and check the files you
    will upload. These items wait until then and do not hold up work on a draft.
@@ -373,7 +374,7 @@ conversation overrides the project's saved choices, and those override your glob
 
 | Setting | Choices (default first) | What it changes |
 |---|---|---|
-| `edits` | `conservative`, `propose`, `apply` | How much an improvement run changes by itself. `conservative` applies routine corrections that preserve meaning and proposes consequential argument, claim or numerical changes; `propose` only reports; `apply` makes authorised substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the whole improved paper before accepting it, and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `edits` | `conservative`, `propose`, `apply` | How much an improvement run changes by itself. `conservative` applies routine corrections that preserve meaning (for the story stage, also edits that keep the direction you recorded) and proposes consequential argument, claim or numerical changes; `propose` only reports; `apply` makes authorised substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the whole improved paper before accepting it, and exact consequential before/after text is shown promptly in the chat, even with file reports. |
 | `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |
 | `readers` | a skimmer, a potential user and an informed outsider | Who reads the paper for `manuscript-story`. Each reads in its own order and says where it would close the paper, not just where attention dipped. Save your own audiences with `project.py configure ROOT --reader "clinician: ..." --reader ...`. |

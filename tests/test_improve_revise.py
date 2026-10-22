@@ -268,14 +268,33 @@ def test_notes_to_the_authors_become_comments_and_never_reach_the_text(tmp_path:
         document, {"IC-C1": ["Which genome build do the positions use?"]})
 
 
-def test_a_note_already_in_the_working_copy_is_listed_for_removal() -> None:
+def test_a_note_an_applied_edit_left_leaves_the_corrected_version_as_a_comment() -> None:
     data = inventory()
     data["changes"] = [change("PE.C1", "applied", "We use HuggingFace for data.",
                               "We use Hugging Face [AUTHORS: which version?] for data.")]
     working = ORIGINAL.replace("We use HuggingFace for data.", "We use Hugging Face [AUTHORS: which version?] for data.")
-    _, record = revise.build(ORIGINAL, working, viz.Inventory.model_validate(data), {})
-    assert [n["note"] for n in record["notes_in_text"]] == ["[AUTHORS: which version?]"]
-    assert record["notes_in_text"][0]["line"] == 5
+    document, record = revise.build(ORIGINAL, working, viz.Inventory.model_validate(data), {})
+    assert "[AUTHORS" not in document.current() and "We use Hugging Face for data." in document.current()
+    assert {"ids": ["PE.C1"], "question": "which version?"}.items() <= next(c for c in record["comments"] if c["ids"] == ["PE.C1"]).items()
+    assert record["notes_in_text"] == [] and [n["line"] for n in record["notes_in_working_copy"]] == [5]
+
+
+def test_a_note_in_the_authors_own_draft_is_listed_not_removed() -> None:
+    original = ORIGINAL.replace("It is fast.", "It is fast. [AUTHORS: add the timing table]")
+    document, record = revise.build(original, original, viz.Inventory.model_validate({**inventory(), "changes": []}), {})
+    assert "[AUTHORS: add the timing table]" in document.current()
+    assert [n["note"] for n in record["notes_in_text"]] == ["[AUTHORS: add the timing table]"]
+
+
+@pytest.mark.parametrize("deleted, working", [
+    ("This tool plays a crucial role in annotation.", ORIGINAL.replace(" This tool plays a crucial role in annotation.", "")),
+    ("This tool plays a crucial role in annotation. ", ORIGINAL.replace("This tool plays a crucial role in annotation. ", "")),
+])
+def test_an_applied_deletion_is_placed_back_from_the_words_around_it(deleted: str, working: str) -> None:
+    raw = inventory()
+    raw["changes"] = [change("DS.C1", "applied", deleted, None)]
+    document, record = revise.build(ORIGINAL, working, viz.Inventory.model_validate(raw), {})
+    assert document.previous() == ORIGINAL and document.current() == working and record["applied"] == ["DS.C1"]
 
 
 def test_the_command_puts_each_question_on_its_edit_and_the_dashboard_lists_them(run: Path) -> None:

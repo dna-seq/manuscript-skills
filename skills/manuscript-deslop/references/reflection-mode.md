@@ -6,8 +6,8 @@ time:
 
 - the **writer** edits under the contract and fixes the findings the orchestrator accepted;
 - the **guard** runs after every writer pass and checks that no content changed;
-- the **critic** is a new subagent every round. It reads only the current text, cold, and reports what still
-  reads as machine-written, unclear or unsupported, each finding under a catalogue ID.
+- the **critic** is a new subagent every round. It reads only a saved copy of the current text, cold, and
+  reports what still reads as machine-written, unclear or unsupported, each finding under a catalogue ID.
 
 Use it when the author requests reflection mode or independent agents. It can help with an important
 section that still has concrete writing problems; section type or past AI use does not make it
@@ -48,7 +48,8 @@ detector score.
 
 The critic must read the section as a reviewer would, so it gets **only**:
 
-- the current text of the section;
+- a saved copy of the current text of the section in its own workspace, which it opens from there (the
+  brief gives the path; the orchestrator never pastes an extract into the brief);
 - the field, the venue if known, and the paths to this skill's `llm-smells.md` and the companion
   [claim ladders](../../manuscript-prose-edit/references/claim-ladders.md).
 
@@ -62,14 +63,17 @@ never a fork of the orchestrator: a fork inherits everything the orchestrator re
 The writer gets the section, the accepted findings, the contract and the authors' writing sample if one exists.
 It does not need the critic's identity or rejected findings.
 
-## Traceability without a log file
+## Traceability
 
 Every critic finding carries an ID from the catalogue (`llm-smells.md`: A1, B5, C16, H3, I1, ...) or
 `CLAIM`. The writer's change table cites the ID for every change. The summary to the authors groups the
 changes by what they are, with the ID only in parentheses ("participle tails cut in 4 places (A9); one
 name kept per object in 2 places (B7); 'drives' kept and flagged (I1)").
-That ID is the provenance of each fix. Do not write a ledger, transcript or per-round log file: the
-author priorities rule them out, and the diff plus the grouped summary are the record.
+That ID is the provenance of each fix. Keep each critic's brief exactly as sent and its output in the
+stage's run folder, and register them as any seat's are (the output with `runs.py add --role critic
+--isolation fresh-agent`, under [Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
+Write no other ledger, transcript or per-round log file: the author priorities rule them out, and the
+diff plus the grouped summary are the record.
 
 ## Spawning the agents
 
@@ -91,15 +95,10 @@ phrase, and one sentence on why it is a problem here. For claims, use these ids,
 Respect each entry's "Leave it when". Do not flag field terms in their technical sense, passive voice in
 Methods, "we", or a single connector. Never ask for a claim to be made stronger.
 
-{optional: "A third-party detector rated the paragraphs that begin with these words as most AI-like: '...',
-'...'. Treat this as a hint of where to look, not as a finding: report only what you can name with an id."}
-
 Do not rewrite anything. Output JSON: [{"id": "...", "quote": "...", "why": "...",
 "severity": "high|medium|low"}]. "high" = a reviewer would comment on it; "low" = style only.
-Section:
-<<<
-{text}
->>>
+The section is in {section_file}. Open the files in your workspace and the two references above, and
+nothing else.
 ```
 
 ### Writer prompt
@@ -138,7 +137,7 @@ Section:
 3. After each writer pass, run `guard.py SECTION DRAFT` against the original section. Revert every protected
    change the authors did not ask for, and read every warning yourself. Then run the smell check
    (`scripts/style_profile.py DRAFT --before SECTION --check`) and fix what it lists before the critic
-   reads the draft; give each critic the check's reading list along with the text.
+   reads the draft; save the draft and the check's reading list in the critic's workspace.
 4. Merge the change tables into one summary for the authors: the changes grouped by what they are, in plain
    words with the finding IDs in parentheses (as under "Traceability" above), then the flagged sentences,
    each quoted with its section and ordered by when the authors can act, claim questions first under "Fix
@@ -149,14 +148,14 @@ Section:
 
 If the authors want a detector's view, use the companion prose-edit skill's `scripts/detector_setup.py check`
 and `scripts/detect.py` (see its [detector APIs](../../manuscript-prose-edit/references/detector-apis.md)
-for setup and data handling); its flagged windows can go to the critic as
-a hint. Three rules:
+for setup and data handling); its flagged windows go to the writer in round 1 with the ranked smells,
+never to the critic, which is given no hint where to look. Three rules:
 
 - **Opt-in and confidentiality.** Sending an unpublished manuscript to a third party may breach the
   authors' and their co-authors' confidentiality, and some detectors keep or train on what they receive.
   Run a remote detector only when the authors say so for this text, and prefer one that runs locally.
-- **A hint, not a target.** A high score means "the critic should look here". The fix is still a named
-  smell or an unsupported claim; if the critic finds none, the paragraph stays as it is.
+- **A hint, not a target.** A high score means "look here". The fix is still a named smell or an
+  unsupported claim; if none is found there, the paragraph stays as it is.
 - **Never loop on the score.** Detector scores move with ordinary professional editing of human text
   (0% to 100% false positives across 13 detectors; Park et al. 2026), so chasing one degrades the paper.
 

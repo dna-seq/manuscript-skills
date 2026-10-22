@@ -128,9 +128,10 @@ alone tells them nothing they can check.
 ## Optional independent reflection
 
 Use [reflection-mode.md](../manuscript-deslop/references/reflection-mode.md) only when the user requests reflection mode or
-independent agents. A new critic subagent each round reads only the current text, never the authors'
-self-assessment, the writer's notes or what the last round fixed, and cites a catalogue ID for each finding
-so every fix is traceable without a log file. The summary for the authors describes each kind of change in
+independent agents. A new critic subagent each round reads only a saved copy of the current text in its
+own workspace, never the authors' self-assessment, the writer's notes or what the last round fixed, and
+cites a catalogue ID for each finding so every fix is traceable. Each critic's brief and output are kept
+and registered like any seat's (`runs.py add --role critic --isolation fresh-agent`). The summary for the authors describes each kind of change in
 plain words, with the ID only in parentheses. The guard runs after each writer pass. The loop stops after a
 round with no accepted finding, and after two rounds at most.
 

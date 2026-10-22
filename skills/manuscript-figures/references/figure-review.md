@@ -1,4 +1,4 @@
-# Reviewing one figure
+# Reviewing one figure (main text)
 
 Look first, then read. Open the figure's `sheet.png`: its first panel is the figure at the size it will be
 printed, and that panel is what a reader of the journal sees. `view.png` is for details. A note from
@@ -59,6 +59,47 @@ notebooks count). Read it:
 A declarative spec (Vega-Lite, a ggplot object saved with its data) is the code and the data together:
 check its marks, encodings, transforms and data the same way.
 
+# Reviewing one table
+
+Tables carry most of the numbers in many papers, so read each one as it is set on the page: the
+`figures.md` line gives its columns, rows and the width it needs at the table font.
+
+- **It fits.** At the table font it fits the column or the page; a table wider than the page turns,
+  splits, wraps its widest column, or moves its detail to the supplement.
+- **Headers.** Every column names its quantity and its unit (seconds, MB, %), once in the header rather
+  than in every cell; a ratio or a correlation says what it compares.
+- **Numbers.** One precision per quantity, to the digits the measurement supports; aligned on the decimal
+  point; a value given with its spread says what the spread is; totals add up.
+- **Cells.** An empty cell, a dash or "n/a" means one thing, said in a footnote: zero, not measured, or
+  not applicable.
+- **Abbreviations and notes.** Every abbreviation and symbol is defined in a footnote under the table,
+  so the table stands alone.
+- **The claim.** Say in a sentence what the table shows a reader. A reader should find the rows or the
+  column that carry the claim without reading every cell: order the rows by the comparison, put the
+  paper's own result first or mark it. A key result that sits only in a table may read better as a
+  figure; a table that repeats a figure can go.
+- **Agreement.** Every number in it agrees with the text and the figures that give the same quantity;
+  quote both sides of a disagreement.
+- **Citations.** Cited in the text, first in numerical order, and each citing sentence claims what the
+  table shows.
+- **Length.** A main-text table is as long as its claim needs; the full listing (every run, every
+  variant, every setting) goes to the supplement with a sentence in the text.
+
+# Supplementary figures and tables
+
+The supplement is held to a lighter standard: it serves the reader who wants the detail, and nobody
+judges the paper by its polish. Check that each supplementary figure and table:
+
+- can be read at the page width (the script's looser minimums: 5 pt text, 150 dpi), with axes and columns
+  labelled and units given;
+- has a caption that lets it stand alone: what is shown, n, what the error bars or the cells mean;
+- agrees with the numbers in the paper;
+- is cited from the main text, not only from within the supplement, so a reader can find it.
+
+One message per item, design polish, a shared palette and style, and the order of citation within the
+supplement are not asked of supplementary items; note them only when they hide a result. Recommend moving
+an item to the main text when the paper's claim rests on it.
+
 ## Recommendations
 
 Each recommendation names the figure, the change and the reason, with the measurement or passage behind it.
@@ -75,7 +116,10 @@ Each recommendation names the figure, the change and the reason, with the measur
 | A tool paper with no example of output | A figure of real output from the authors' files | "What would I see?" is the potential user's first question. |
 | A figure that defends a choice | Move it to the supplement, keep one sentence in the text | "The text already says in one sentence that the result does not depend on the cut-off." |
 | More figures than the venue allows | Name which move to the supplement or merge | The limit, quoted with its source. |
+| A table wider than the page | Turn it, split it, or move the detail to the supplement | "Table 3 needs about 240 mm at 8 pt; the page is 178 mm." |
+| A long table in the main text | Keep the rows that carry the claim, move the full listing to the supplement | "Table 4 lists every one of 96 scores; the text uses the median and three outliers." |
+| A key result only in a supplementary table | Bring it into the main text, as a table or a figure | "The headline speed-up rests on Table S2." |
 
-Moving, adding, merging and splitting figures are decisions for the authors (`decision: true`). A caveat a
+Moving, adding, merging and splitting figures and tables are decisions for the authors (`decision: true`). A caveat a
 figure carries moves with it and is never lost; evidence that would change a reader's conclusion stays in
 the main text.

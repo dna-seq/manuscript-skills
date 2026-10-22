@@ -424,3 +424,10 @@ def test_how_an_earlier_panel_output_ran_is_recorded_once_with_its_basis(manuscr
     assert any(i['kind'] == 'isolation_recorded_later' for i in recorded['issues'])
     again = CliRunner().invoke(runs.app, ['isolation', str(run), '--skill', 'manuscript-peer-review', *path, '--isolation', 'one-agent', *basis])
     assert again.exit_code != 0 and 'already records' in again.output
+
+
+def test_a_story_stage_expects_the_readers_saved_for_the_project_and_a_critic_records_how_it_ran() -> None:
+    assert runs.expected_readers({'context': {}}) == {'skimmer', 'potential-user', 'informed-outsider'}
+    saved = {'context': {'project': {'readers': ['clinician: a hospital physician', 'Bio student: a second-year student']}}}
+    assert runs.expected_readers(saved) == {'clinician', 'bio-student'}
+    assert 'critic' in runs.PANEL and runs.Role('critic')

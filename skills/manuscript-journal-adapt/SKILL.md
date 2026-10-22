@@ -72,7 +72,8 @@ uv run --script scripts/venues.py common KEY KEY KEY --record REC.yaml
 Apply its "Adapt now" items to the manuscript in place: sections a venue requires (one that a single venue
 requires usually costs the others nothing), abstract headings and length limits when every venue states the
 same, rules every venue's guidelines share, and single-venue rules that cost the others nothing (alt text,
-dataset citations). Leave its "Choose per venue" items (differing abstract formats, section orders, length
+dataset citations). Apply them as the `edits` setting allows: under report only every item is a proposal,
+and under routine fixes a substantial restructuring is one. Leave its "Choose per venue" items (differing abstract formats, section orders, length
 limits, reference styles) for the choice, or follow the first rung when the authors ask; offer the shortest
 limit as an option with its cost, never as a default. Its "At the end" items wait with the other end-stage
 work. Never create a per-venue copy of the manuscript to cover the ladder.
@@ -126,7 +127,9 @@ is complete. Before upload, the submission-package check in `manuscript-integrit
 comments, hidden text and leaked secrets in the files the venue will publish. For a revised submission,
 `manuscript-reviewer-response` owns the response letter; apply only the venue's revision-stage formatting
 here. A request to adapt the manuscript covers
-routine formatting and content-preserving reorganisation. Apply these and show a diff. Flag changes to
+routine formatting and content-preserving reorganisation. Apply these as the `edits` setting allows
+(under `propose` every change is a proposal; under `conservative` a substantial restructuring is one) and
+show a diff. Flag changes to
 scientific meaning or decisions needing facts the authors have; do not require a second approval for
 every heading, paragraph move or disclosure already authorised.
 
@@ -174,8 +177,8 @@ name it once among the uses in the statement's draft, alongside what the authors
 
 When the authors give the tools they used, fill them in the statement at once (tool, developer, the model
 versions they name, how one tool checked another) and ask in the report for what they have not said, such
-as which parts of the work each tool was used for. A statement that is still mostly gaps is held, not put into
-the manuscript as a frame of notes
+as which parts of the work each tool was used for. A statement that cannot read complete without a
+missing fact is held, with its questions as comments; it never goes into the manuscript as a frame of notes
 ([Questions for the authors are comments, never text](../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 
 ## Report the adaptation

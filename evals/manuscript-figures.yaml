@@ -153,3 +153,25 @@
   fail_if:
     - "Gives the seats only the figure legends when the figure files are available."
     - "Puts manuscript-figures' findings or measurements into a seat's workspace."
+
+- id: figures-tables-and-supplement
+  skill: manuscript-figures
+  settings: {reports: chat, edits: conservative}
+  prompt: >-
+    Check the figures and tables in tables/paper.md and its supplement, tables/supplement.md.
+  files: [fixtures/manuscript-figures/tables/paper.md, fixtures/manuscript-figures/tables/supplement.md]
+  planted:
+    - "The paper's evidence is in two tables; its one figure is a caption with no image file."
+    - "Table 2 gives runtimes and memory with no unit in the header or the cells, mixes decimal places, has empty Note cells, and is cited before Table 1."
+    - "The Abstract's 38.9 s warm runtime disagrees with Table 2's 31.4 s."
+    - "Supplementary Figure S1 is cited only within the supplement and has no image; Supplementary Table S1 is cited from the main text."
+  rubric:
+    - "Runs figures.py inventory with --supplement and reviews the tables, not only the figures, instead of reporting that the paper has no figures."
+    - "Reports Table 2's missing units, mixed precision, empty cells and citation order, each quoted with its table, and the runtime that disagrees with the Abstract, both values quoted."
+    - "Says Figure 1 has a caption but no image, and treats adding one as the authors' decision."
+    - "Holds the supplement to the lighter standard: legible, labelled, captioned, consistent and cited from the main text; notes that Figure S1 is cited only within the supplement, without asking it for design polish."
+    - "Gives each figure and table a verdict with its reason, main text first, and writes findings.json with kind and part on every item."
+  fail_if:
+    - "Reports that there is nothing to review because the paper has no figure files."
+    - "Holds supplementary items to the main-text standard, or ignores the supplement."
+    - "Edits a table's numbers or adds a figure in paper.md."

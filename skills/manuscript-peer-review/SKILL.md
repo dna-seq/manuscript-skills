@@ -167,11 +167,11 @@ the whole paper).
 
 ## Step 4: check the finding contract and resolve prior work
 
-Merge the seats' JSON into one file, keeping each finding's `seat` and putting each seat's `report`,
-with its `seat`, in `reports`, and run (from this skill directory):
+Merge the seats' JSON into one file, `$WORK/findings.merged.json`, keeping each finding's `seat` and
+putting each seat's `report`, with its `seat`, in `reports`, and run (from this skill directory):
 
 ```bash
-uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.md --supplement SUPPLEMENT.md \
+uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --supplement SUPPLEMENT.md \
     --md "$WORK/check.md" --json "$WORK/check.json"
 ```
 
@@ -200,9 +200,9 @@ Follow [adjudication.md](references/adjudication.md):
 
 1. Apply the claim-consequence gate and the fairness filter (no "not novel" without a named, resolved
    prior work; no "run experiment X" unless the claim needs it; no "not state of the art" as such).
-2. Run a defence pass: a fresh blocking subagent with the reading copy and the findings, stripped of seat
-   names and counts, and without the referees' reports or `venue.md`. It first tests each finding's
-   premise against its quote, then looks for where the paper already answers it.
+2. Run a defence pass: a fresh subagent, started like the seats, with the reading copy and the findings,
+   stripped of seat names and counts, and without the referees' reports or `venue.md`. It first tests
+   each finding's premise against its quote, then looks for where the paper already answers it.
 3. Set a verdict with `verdict_evidence` on every finding. A premise the quoted text does not support is
    refuted. A partly answered finding is narrowed to the part left open, then confirmed, or downgraded
    when that part no longer threatens the claim. Agreement between seats is not confirmation.
@@ -217,7 +217,8 @@ Follow [adjudication.md](references/adjudication.md):
    ([adjudication.md](references/adjudication.md#9-the-referees-recommendations)): when the defence
    refuted or narrowed what it rests on, its report says so in one sentence; the recommendation stays as
    the referee gave it.
-6. Rerun `check_findings.py --adjudicated`; every reported finding and report must pass.
+6. Write the adjudicated findings, with the `reports`, to `$WORK/findings.adjudicated.json` and rerun
+   `check_findings.py --adjudicated` on it; every reported finding and report must pass.
 
 ## Step 6 (optional): robustness and model diversity
 
@@ -260,7 +261,10 @@ report about a page, Part 2 a page or two with one item per root cause. The full
 is available on request, in the same plain form.
 
 **Where the review goes** follows the saved manuscript-project destination. Retain it and all
-seat/defence/adjudication outputs in this skill's run folder. The `reports` choice controls chat:
+seat/defence/adjudication outputs in this skill's run folder. Beside the report, write `findings.json`
+in the [stage-findings format](../manuscript-dashboard/references/stage-findings.md), one record per
+adjudicated concern that stands (confirmed or downgraded), merged by root cause as in Part 2; the
+referees' reports stay in `findings.adjudicated.json`. The `reports` choice controls chat:
 `file` gives links, the journal recommendations and urgent findings; `chat` and `both` show the whole
 report too. See [output-format.md](references/output-format.md#saving-and-the-shared-record).
 

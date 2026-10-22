@@ -108,10 +108,14 @@ two outcomes, so the extra reading is proportionate to them:
 - **`partial` and `blocked`** need neither: a `partial` already tells the authors to narrow the claim, and a
   `blocked` never counts as support.
 
-Start the skeptic yourself; it is part of this check, so the user does not need to ask for subagents. Only
-where the host cannot start subagents, do the skeptic read in-context, starting from the claim, the reference
-and the source only, and say in the report that the second reading was done in the same session. The skeptic's
-instructions:
+Start the skeptic yourself; it is part of this check, so the user does not need to ask for subagents. It is a
+seat like a referee's and follows [Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees):
+a fresh agent whose whole context is its brief (the claims, the sources and the instructions below), the brief
+saved and the output registered with `runs.py add --role seat --seat skeptic --isolation fresh-agent`. A
+delegated stage that cannot start agents hands the brief back to the coordinator, which starts the skeptic.
+Only where the host cannot start agents at all, do the skeptic read in-context, starting from the claim, the
+reference and the source only, record `--isolation one-agent`, and say in the report that the second reading
+was done in the same session and is not independent. The skeptic's instructions:
 
 - Default to `rejected`. Confirm only by quoting the passage that carries the claim, verbatim.
 - Check what was measured, on whom and under what conditions, against what the sentence says. A source's

@@ -318,10 +318,11 @@ __REVISION_HTML__
   const SKILL = {'manuscript-integrity-check': ['\u2713', 'Integrity check'], 'manuscript-reference-check': ['[1]', 'Reference check'],
     'manuscript-reporting-check': ['\u2630', 'Reporting check'], 'manuscript-peer-review': ['\u2696\uFE0E', 'Simulated reviewers'],
     'manuscript-policy-fit': ['\u00A7', 'Policy fit'], 'manuscript-story': ['\u263A\uFE0E', 'Story and readers'],
-    'manuscript-figures': ['\u25A3', 'Figures'],
+    'manuscript-figures': ['\u25A3', 'Figures and tables'],
     'manuscript-journal-select': ['\u2606', 'Journal selection'], 'manuscript-journal-adapt': ['\u21C4', 'Journal adaptation'],
     'manuscript-prose-edit': ['\u00B6', 'Prose edit'], 'manuscript-deslop': ['\u2702\uFE0E', 'Deslop'], 'manuscript-improve': ['\u2699\uFE0E', 'Workflow'],
-    'manuscript-reviewer-response': ['\u21A9\uFE0E', 'Reviewer response'], 'manuscript-revision-marks': ['\u270E', 'Revision marks']};
+    'manuscript-reviewer-response': ['\u21A9\uFE0E', 'Reviewer response'], 'manuscript-revision-marks': ['\u270E', 'Revision marks'],
+    'manuscript-mark-people': ['\u263B\uFE0E', 'People behind the marks']};
   const short = s => String(s).replace(/^manuscript-/, '');
   const skillName = s => (SKILL[s] || [null, short(s)])[1];
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
@@ -482,7 +483,7 @@ __REVISION_HTML__
 
   // ---------- navigation ----------
   const live = findings.filter(f => f.assessment !== 'dismissed');
-  // Each tab has an address (dashboard.html#manuscript), so a link can open the annotated paper directly.
+  // Each tab has an address (manuscript-dashboard.html#manuscript), so a link can open the annotated paper directly.
   const tabs = [['overview', 'Overview'], ['findings', 'Problems', live.length]];
   if (D.has_paper) tabs.push(['manuscript', 'Manuscript', null]);
   if (R) tabs.push(['revised', 'Corrected version', R.proposed_in_this_version.length + R.applied.length]);
@@ -494,7 +495,7 @@ __REVISION_HTML__
   // Figures: each figure as rendered, its verdict, problems and recommendations, and the figures to add.
   const FIG = inv.figures || {limit: null, items: [], new: []};
   const figureFindings = findings.filter(f => f.assessment !== 'dismissed' && (f.category === 'Figures and tables' || f.skills.includes('manuscript-figures')));
-  if (FIG.items.length || FIG.new.length || figureFindings.length) tabs.push(['figures', 'Figures', FIG.items.length || null]);
+  if (FIG.items.length || FIG.new.length || figureFindings.length) tabs.push(['figures', 'Figures and tables', FIG.items.length || null]);
   // Story: the story stage's direction, tests, edits and the narrative changes only the authors can choose.
   const fromStory = c => (c.evidence || []).some(e => e.skill === 'manuscript-story') || /^(ST-|story\.)/.test(c.id);
   const storyFindings = findings.filter(f => f.assessment !== 'dismissed' && f.skills.includes('manuscript-story'));
@@ -836,7 +837,7 @@ __REVISION_HTML__
     return h('div', null, h('h2', {class: 'sec'}, 'Machine-writing patterns by type'),
       W.patterns.length ? h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, head), h('tbody', null, rows)))
         : h('p', {class: 'empty'}, 'No pattern of the catalogue occurs in these texts.'),
-      h('p', {class: 'note'}, 'Counted by the deslop style checker in each version, leaving out the [AUTHORS: …] notes the corrected version carries for the authors. A hit is a place to look, never a verdict: people write these too, and the deslop stage keeps a use whose catalogue exception applies. Patterns that only reading finds are not counted here.'));
+      h('p', {class: 'note'}, 'Counted by the deslop style checker in each version, leaving out any [AUTHORS: …] note still in the text. A hit is a place to look, never a verdict: people write these too, and the deslop stage keeps a use whose catalogue exception applies. Patterns that only reading finds are not counted here.'));
   }
 
   // ---------- the corrected version: every applied and chosen proposed edit, as track changes ----------
@@ -1203,41 +1204,48 @@ __REVISION_HTML__
   // ---------- figures ----------
   if (panels.figures) (function figuresTab() {
     const p = panels.figures;
-    const VERDICT = {keep: ['✓', 'Keep', 'good'], change: ['✎', 'Change', 'warning'], 'move-to-supplement': ['↘', 'Move to the supplement', 'muted']};
+    const VERDICT = {keep: ['✓', 'Keep', 'good'], change: ['✎', 'Change', 'warning'], 'move-to-supplement': ['↘', 'Move to the supplement', 'muted'],
+      'move-to-main-text': ['↗', 'Move to the main text', 'muted']};
     const slug = id => String(id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const isMain = f => !/^(?:supplementary\s+)?figure\s+S\d/i.test(f.id);
-    const main = FIG.items.filter(isMain);
-    const moved = main.filter(f => f.verdict === 'move-to-supplement');
-    const after = main.length - moved.length + FIG.new.length;
+    const isMain = f => f.part ? f.part === 'main' : !/^(?:supplementary\s+)?(?:figure|table)\s+S\d/i.test(f.id);
+    const isTable = f => f.kind === 'table';
+    const main = FIG.items.filter(isMain), supplement = FIG.items.filter(f => !isMain(f));
+    // A venue counts figures, or figures and tables together, as its display items.
+    const counted = FIG.limit && /table/i.test(FIG.limit.counts) ? f => true : f => !isTable(f);
+    const moved = main.filter(f => f.verdict === 'move-to-supplement'), promoted = supplement.filter(f => f.verdict === 'move-to-main-text');
+    const after = main.filter(counted).length - moved.filter(counted).length + promoted.filter(counted).length + FIG.new.length;
     const count = v => FIG.items.filter(f => f.verdict === v).length;
+    const kinds = list => [[list.filter(f => !isTable(f)).length, 'figure'], [list.filter(isTable).length, 'table']].filter(([n]) => n).map(([n, k]) => plural(n, k)).join(' and ') || 'none';
     const problemList = ids => {
       const linked = ids.map(id => byId.get(id)).filter(Boolean);
       return linked.length ? h('ul', null, linked.map(f => h('li', null, sevBadge(f.severity), ' ', link(f.id, () => openFinding(f.id)), ` ${f.summary}.`,
         f.action ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, f.action) : null))) : null;
     };
     p.append(h('div', {class: 'kpis'},
-      kpi('Figures reviewed', FIG.items.length, `${main.length} in the main text`, true),
+      kpi('Figures and tables reviewed', FIG.items.length, `main text: ${kinds(main)} · supplement: ${kinds(supplement)}`, true),
       kpi('To change', count('change'), 'in what they show or how'),
-      kpi('Move to the supplement', count('move-to-supplement'), 'your decision'),
+      kpi('Move to or from the supplement', count('move-to-supplement') + count('move-to-main-text'), 'your decision'),
       kpi('New figures proposed', FIG.new.length, 'your decision'),
       kpi('Figure and table problems', figureFindings.length, 'linked from each figure below')));
-    p.append(h('p', {class: 'note'}, 'Each figure as it was rendered for the review, what it should tell a reader, the problems found by looking at it and at its caption, code and citations, and what to change. Select a figure to see it larger. A redrawn draft is a proposal from your own code and data, shown beside your figure; your figure files are unchanged.'));
+    p.append(h('p', {class: 'note'}, 'Each figure as it was rendered for the review and each table as it is set, what it should tell a reader, the problems found by looking at it and at its caption, code and citations, and what to change. The main text gets the full review; the supplement a lighter one (legible, labelled, captioned, consistent with the paper, cited from the main text). Select a figure to see it larger. A redrawn draft is a proposal from your own code and data, shown beside your figure; your files are unchanged.'));
     if (FIG.limit) {
       const over = after > FIG.limit.count || main.length > FIG.limit.count;
       p.append(h('div', {class: over ? 'notice' : 'card', style: 'margin-top: 12px'},
-        `The journal allows ${FIG.limit.count} ${FIG.limit.counts} in the main text. The paper has ${plural(main.length, 'main-text figure')}; with the moves and additions proposed here it would have ${after}.`,
+        `The journal allows ${FIG.limit.count} ${FIG.limit.counts} in the main text. The paper has ${main.filter(counted).length}; with the moves and additions proposed here it would have ${after}.`,
         FIG.limit.source ? h('div', {class: 'note', style: 'margin: 4px 0 0'}, `Limit from: ${FIG.limit.source}`) : null));
     }
-    if (moved.length || FIG.new.length) {
-      p.append(h('h2', {class: 'sec'}, 'Needs your decision: which figures the paper has'),
-        h('p', {class: 'note', style: 'margin-top: 0'}, 'Moving a figure to the supplement or adding one changes what readers see first, so each is a proposal for you; nothing has been moved or added.'));
+    if (moved.length || promoted.length || FIG.new.length) {
+      p.append(h('h2', {class: 'sec'}, 'Needs your decision: which figures and tables the paper has'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Moving an item to or from the supplement or adding one changes what readers see first, so each is a proposal for you; nothing has been moved or added.'));
       p.append(h('ul', null, moved.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' to the supplement', f.why ? `: ${f.why}` : '.')),
+        promoted.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' to the main text', f.why ? `: ${f.why}` : '.')),
         FIG.new.map(n => h('li', {style: 'margin-bottom: 6px'}, h('strong', null, `Add: ${n.title}`), `. ${n.why}`, n.replaces ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, `To stay within the limit: ${n.replaces}`) : null))));
     }
-    if (FIG.items.length) {
-      p.append(h('h2', {class: 'sec'}, 'Each figure'));
+    for (const [list, title] of [[main, 'In the main text'], [supplement, 'In the supplement']]) {
+      if (!list.length) continue;
+      p.append(h('h2', {class: 'sec'}, `${title}: ${kinds(list)}`));
       const grid = h('div', {class: 'figs'});
-      for (const f of FIG.items) {
+      for (const f of list) {
         const [icon, label, tone] = VERDICT[f.verdict];
         const box = h('article', {class: 'card fig', id: `fig-${slug(f.id)}`});
         const picture = (data, note, caption) => data
@@ -1246,7 +1254,7 @@ __REVISION_HTML__
         const recs = kind => f.recommendations.filter(r => r.kind === kind);
         box.append(...[
           h('header', null, h('h3', {style: 'margin: 0'}, f.id), h('span', {class: `chip st-${tone}`}, h('span', {class: 'icon', 'aria-hidden': 'true'}, icon), label)),
-          h('div', {class: 'pics'}, picture(f.image_data, f.image_note, f.proposed_image_data ? 'As submitted' : ''),
+          isTable(f) ? null : h('div', {class: 'pics'}, picture(f.image_data, f.image_note, f.proposed_image_data ? 'As submitted' : ''),
             picture(f.proposed_image_data, f.proposed_image_note, 'Redrawn draft (a proposal)')),
           f.caption ? h('details', {style: 'margin-top: 8px'}, h('summary', null, 'Caption'), h('blockquote', null, f.caption)) : null,
           f.message ? h('p', null, h('strong', null, 'What it should tell a reader: '), f.message) : null,

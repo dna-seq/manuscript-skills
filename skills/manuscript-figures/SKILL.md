@@ -1,24 +1,39 @@
 ---
 name: manuscript-figures
 description: >-
-  Review a manuscript's figures as its readers see them: render each figure at its printed size and look
-  at it (legibility at the column width, axes and units, colour for colour-blind readers and greyscale
-  print, clutter, consistent style, panel labels, resolution against the venue's rules), then check its
-  content (one message, a complete caption, numbers that agree with the text and tables, cited in order
-  and for a claim it shows) and, where the project has it, the code that draws it. Recommend which
-  figures to keep, change or move to the supplement and which to add, each with its reason; which figures
-  the paper has stays the authors' decision. Use for "check our figures", figure-led papers, "which
-  figures should go to the supplement", and as the figures stage of manuscript-improve. It does not screen
-  images for duplication or manipulation.
+  Review a manuscript's figures and tables, in the paper and its supplement, as its readers see them:
+  render each figure at its printed size and look at it (legibility at the column width, axes and units,
+  colour for colour-blind readers and greyscale print, clutter, consistent style, panel labels, resolution
+  against the venue's rules), measure each table (width at the table font, units, precision, empty cells,
+  length), then check content (one message, a complete caption, numbers that agree with the text, cited in
+  order and for a claim it shows) and, where the project has it, the code that draws a figure. Main-text
+  items get the full review; supplementary ones a lighter one. Recommend what to keep, change, move to or
+  from the supplement and add, each with its reason; which display items the paper has stays the authors'
+  decision. Use for "check our figures" or "our tables", figure- or table-led papers, "what should go to
+  the supplement", and as the figures and tables stage of manuscript-improve. It does not screen images
+  for duplication or manipulation.
 ---
 
-# Review the figures as readers see them
+# Review the figures and tables as readers see them
 
-Many readers look at the figures before they read a sentence, and a referee judges a result by the figure
-that shows it. A caption can be right while the figure is unreadable in print, and a figure can be
-beautiful while it shows something other than what the text says. This skill looks at every figure as
-printed, checks it against its caption, the text and the code that drew it, and tells the authors what to
-keep, change, move or add.
+Many readers look at the figures and tables before they read a sentence, and a referee judges a result by
+the display item that shows it. A caption can be right while the figure is unreadable in print, a table can
+be complete while no reader finds the row that carries the claim, and either can show something other
+than what the text says. This skill looks at every figure as printed and at every table as set on the
+page, in the paper and its supplement, checks each against its caption, the text and the code that drew
+it, and tells the authors what to keep, change, move or add. A paper whose evidence sits in tables gets a
+table review, not a report that it has no figures.
+
+## Main text first, the supplement to a lighter standard
+
+The main text's figures and tables are what readers and referees judge the paper by, so they get the
+whole review below: printed legibility against the venue's rules, one message each, design and colour,
+citation order, the venue's limit on display items. Supplementary figures and tables serve the reader who
+wants the detail. They need to be readable at the page width, labelled with units, captioned so they stand
+alone, consistent with the numbers in the paper and cited from the main text; design polish, one message
+per item and a shared style are not asked of them, and their text and resolution are measured against
+looser minimums. A supplementary item that carries a claim the paper makes may be recommended for the
+main text; a main-text item that serves a referee more than a reader, for the supplement.
 
 Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md),
 including [readers first, referees second](../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second),
@@ -30,23 +45,30 @@ resolve saved manuscript-project choices (including the connected code folders),
 questions, and keep this skill's report, renders and failures in its subfolder of the run. This applies to
 direct invocations too.
 
-## 1. Render the figures at their printed size
+## 1. Find every figure and table; render the figures at their printed size
 
 Looking is the review; the script does what looking cannot. A model or a person sees pixels, not
 millimetres: a 3,000-pixel plot looks sharp on screen while its labels print at 2 pt in a column. From this
 skill directory:
 
 ```bash
-uv run --script scripts/figures.py inventory PAPER.md --output-dir RUN/manuscript-figures/figures \
+uv run --script scripts/figures.py inventory PAPER.md --supplement SUPPLEMENT.md --output-dir RUN/manuscript-figures/figures \
   --column-mm 85 --page-mm 178 --min-pt 6 --min-dpi 300
 ```
 
-It reads Markdown or LaTeX (following `\input`), finds each figure's files, caption and label, and writes
-per figure `sheet.png` (the printed size in colour, greyscale and two simulated red-green colour
-blindnesses) and `view.png` (300 dpi, for details). It measures text size and line weight exactly where a
-PDF or SVG keeps them as vectors, the resolution of a raster as printed, and lists uncited figures,
-citations out of order and citations of figures that do not exist. `figures.md` lists every figure with
-these notes; each note is a place to look, not a finding.
+It reads Markdown or LaTeX (following `\input`), the paper and each `--supplement` file, and finds every
+figure (its files, caption and label) and every table (a pipe table or a `table` environment, with its
+caption). For each figure it writes `sheet.png` (the printed size in colour, greyscale and two simulated
+red-green colour blindnesses) and `view.png` (300 dpi, for details), and measures text size and line
+weight exactly where a PDF or SVG keeps them as vectors, and the resolution of a raster as printed. A
+caption with no image is listed as a figure whose file is missing. For each table it gives the columns and
+rows, the width it needs at the table font (`--table-pt`, 8 pt) against the column and the page, and the
+columns that mix decimal places, hold measured values with no unit, or have empty cells. Supplementary
+items (from a `--supplement` file, or numbered S1, S2) are measured at the page width against
+`--supplement-min-pt` and `--supplement-min-dpi` (5 pt and 150 dpi by default). It lists items never
+cited, a supplementary item only the supplement cites, citations out of order and citations of items that
+do not exist. `figures.md` lists every item, main text first; each note is a place to look, not a
+finding.
 
 Take the widths, the smallest text, the resolution and the number of figures from the chosen journal's
 rules, which [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) owns: the record's
@@ -57,11 +79,13 @@ manuscript, convert it first (`pandoc paper.docx -t gfm --extract-media=. -o pap
 that exists only as a PDF, open its pages directly and judge sizes against the page width. Register the
 output with `runs.py add --role check`.
 
-## 2. Look at each figure, then read it against the paper
+## 2. Look at each figure and read each table, then read them against the paper
 
 Open every `sheet.png` and `view.png` (in Claude Code the Read tool shows images; in Codex, `view_image`),
-and the original file when a detail needs it. Then work through [the checklist](references/figure-review.md)
-for each figure:
+and the original file when a detail needs it; read every table as it is set. Then work through
+[the checklist](references/figure-review.md) for each figure, [the one for tables](references/figure-review.md#reviewing-one-table)
+for each table, and the [lighter standard](references/figure-review.md#supplementary-figures-and-tables)
+for the supplement's items:
 
 - **As printed**: can every label, tick, legend and panel letter be read on the sheet's first panel? Axes
   labelled with units, scales stated (a log axis labelled, bars starting at zero), compared panels on
@@ -79,13 +103,19 @@ for each figure:
   permission or a project instruction that allows it; then run it through `runs.py exec`, writing only into
   the run folder. A screenshot or drawing has no code: say so, and check it by looking.
 
-Reuse what other stages of the run found about a figure (a number integrity-check recomputed, a referee's
-concern about a panel) instead of redoing it; the dashboard merges the records.
+- **Each table**: does it fit the printed page at the table font, or must it turn, split or wrap; does
+  every column header name its quantity and unit; one precision per quantity; abbreviations defined in a
+  footnote; what an empty or dashed cell means; can a reader find the rows that carry the claim, or would
+  that result read better as a figure; does every number agree with the text and the figures.
+
+Reuse what other stages of the run found about a figure or table (a number integrity-check recomputed, a
+referee's concern about a panel) instead of redoing it; the dashboard merges the records.
 
 ## 3. Recommend: keep, change, move, add
 
-Give each figure a verdict, **keep**, **change** or **move to the supplement**, and propose the figures the
-paper lacks, every one with its reason ([patterns and examples](references/figure-review.md#recommendations)):
+Give each figure and table a verdict, **keep**, **change**, **move to the supplement** or, for a
+supplementary item that carries a claim of the paper, **move to the main text**, and propose the figures
+the paper lacks, every one with its reason ([patterns and examples](references/figure-review.md#recommendations)):
 
 - **Change** what it shows (split a figure with two messages, show the points behind a bar of means, plot
   what the caption says) or how (chart type, encoding, order by value, direct labels instead of a legend,
@@ -124,12 +154,13 @@ Run the required smell check on the report.
 Beside it, `findings.json` follows [stage findings](../manuscript-dashboard/references/stage-findings.md):
 IDs `FG-1`, `FG-2`..., category "Figures and tables", the quote the caption or the citing sentence
 verbatim (an absence has `quote: null` and `looked_in`). It also gives a `figures` object, which the
-dashboard's Figures tab shows with each figure's image:
+dashboard's Figures tab shows with each figure's image, main text first. Each item says its `kind`
+(`figure` or `table`) and its `part` (`main` or `supplement`); a table has no image:
 
 ```json
 "figures": {
   "limit": {"count": 6, "counts": "figures", "source": "the journal's author guidelines, https://..."},
-  "items": [{"id": "Figure 3", "caption": "**Figure 3.** Association of 1.2 million variants with grip strength ...",
+  "items": [{"id": "Figure 3", "kind": "figure", "part": "main", "caption": "**Figure 3.** Association of 1.2 million variants with grip strength ...",
              "image": "figures/figure-3/view.png", "verdict": "change",
              "message": "Two loci pass genome-wide significance, and only one replicates",
              "why": "The chromosome labels print at about 3 pt, and the replication is told only in Table 2.",

@@ -21,16 +21,18 @@ such as a statement that waits for the journal choice) and an anchor for an addi
      "anchor": [{"id": "JA-C1", "after": "verbatim passage the addition follows"}]}
 
 A proposal is applied only where its before-text, or an addition's anchor, occurs exactly once in the
-text built so far and does not straddle another edit; every other proposal is listed with its reason.
+working copy and does not overlap another proposal; one that still has a gap for a fact only the authors
+have waits for their answer. Every proposal not applied is listed with its reason.
 
 Outputs: revised.md (the working copy), proposed.md (every chosen proposal applied), changes.md (the same
 as CriticMarkup against the original, with the questions for the authors as comments) and revision.json:
 what was applied, held, left as an alternative or not placed, the questions for the authors, and the
-track-changes view that manuscript-dashboard shows as the dashboard's Revised paper.
+track-changes view that manuscript-dashboard shows in the dashboard's Corrected version tab.
 
 No note to the authors goes into the text. A question comes as a proposal's `comment`; a `[AUTHORS: ...]` note
 a stage left in a proposal's text is lifted out of it and becomes a comment too, so the corrected version
-never carries one. A note already in the working copy (in an applied edit) is listed for removal.
+never carries one; so does a note that came with an applied edit. A note the authors' own draft has is listed
+for them to remove.
 """
 from __future__ import annotations
 
@@ -181,7 +183,27 @@ class Document:
             raise Unplaced("its text is not in the working copy" if not count else f"its text occurs {count} times")
         head, tail = trim(before, after)
         start = text.index(after) + head
-        end = start + len(after) - head - tail
+        self.mark(start, start + len(after) - head - tail, before[head:len(before) - tail], cid)
+
+    def undo_deletion(self, before: str, original: str, cid: str) -> None:
+        """Mark an applied deletion: the deleted text is found in the original, and its place in the text as it
+        stood before the later edits by the words around it (a space the deletion took with it allowed for)."""
+        if (count := original.count(before)) != 1:
+            raise Unplaced("its deleted text is not in the original" if not count else f"its deleted text occurs {count} times in the original")
+        text, at = self.previous(), original.index(before)
+        for width in (80, 40, 20, 10):
+            left, right = original[max(0, at - width):at], original[at + len(before):at + len(before) + width]
+            for lead, rest in ((left, right), (left.rstrip(), right), (left, right.lstrip()), (left.rstrip(), right.lstrip())):
+                if lead + rest and text.count(lead + rest) == 1:
+                    spot = text.index(lead + rest) + len(lead)
+                    self.mark(spot, spot, left[len(lead):] + before + right[:len(right) - len(rest)], cid)
+                    return
+        raise Unplaced("the place it was deleted from could not be found in the working copy")
+
+    def mark(self, start: int, end: int, old: str, cid: str) -> None:
+        """Turn [start, end) of the text as it stood before the later edits into an applied edit whose original
+        text was `old`; an edit a later stage changed again joins that edit."""
+        text = self.previous()
         bounds, offset = [], 0
         for piece in self.pieces:
             bounds.append((offset, offset + len(piece.previous)))
@@ -198,7 +220,7 @@ class Document:
         for i in range(first, last + 1):
             piece, (a, b) = self.pieces[i], bounds[i]
             current.append(piece.text[max(lo, a) - a:min(hi, b) - a] if piece.status == "text" else piece.new)
-        merged = Piece(old=text[lo:start] + before[head:len(before) - tail] + text[end:hi], new="".join(current),
+        merged = Piece(old=text[lo:start] + old + text[end:hi], new="".join(current),
                        base="".join(current), ids=[cid, *(x for i in range(first, last + 1) for x in self.pieces[i].ids)],
                        status="applied")
         lead = Piece(text=self.pieces[first].text[:lo - bounds[first][0]]) if self.pieces[first].status == "text" else None
@@ -301,8 +323,9 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
     for change in reversed(applied):  # newest first, so an edit a later stage changed again is still found
         try:
             if change.after is None:
-                raise Unplaced("a deletion cannot be located in the working copy")
-            document.undo(change.before or "", change.after, change.id)
+                document.undo_deletion(change.before or "", original, change.id)
+            else:
+                document.undo(change.before or "", change.after, change.id)
         except Unplaced as reason:
             unplaced[change.id] = f"Applied edit not found in the working copy: {reason}."
     if document.previous() != original:
@@ -343,6 +366,13 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
             document.propose(at, at, addition, change.id)
         except Unplaced as reason:
             unplaced[change.id] = str(reason)
+    # A note to the authors that came with an applied edit leaves the corrected version as a comment; a note the
+    # authors' own draft already had is theirs, and is listed below.
+    for piece in document.pieces:
+        if piece.status != "text" and (spans := viz.author_notes(piece.new)):
+            asked = [re.sub(r"^\[AUTHORS:\s*|\]$", "", piece.new[a:b]).strip() for a, b in spans]
+            questions[piece.ids[0]] = [*questions.get(piece.ids[0], []), *asked]
+            piece.new = viz.strip_notes(piece.new)
     in_text = {cid for piece in document.pieces for cid in piece.ids}
     record = {
         "applied": [c.id for c in applied if c.id in in_text],
@@ -353,9 +383,11 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
         "comments": [{"ids": [cid], "question": question, "section": changes[cid].section, "placed": cid in in_text,
                       "passage": (changes[cid].before or anchors.get(cid) or changes[cid].anchor or "")[:400]}
                      for cid, asked in questions.items() for question in asked],
-        # Notes already in the text came with applied edits: the working manuscript holds them and they must go.
+        # Notes the authors' draft already had: the working manuscript holds them, and they must go before submission.
         "notes_in_text": [{"note": document.current()[a:b], "line": document.current().count("\n", 0, a) + 1}
                           for a, b in viz.author_notes(document.current())],
+        # Notes that came with applied edits are in the working copy too; the corrected version holds them as comments.
+        "notes_in_working_copy": [{"note": revised[a:b], "line": revised.count("\n", 0, a) + 1} for a, b in viz.author_notes(revised)],
         "changes": {cid: {"section": c.section, "summary": c.summary, "kind": c.kind, "status": c.status,
                           "finding_ids": c.finding_ids} for cid, c in changes.items()},
     }

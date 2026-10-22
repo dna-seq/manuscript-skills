@@ -34,8 +34,10 @@ These change how the paper tells its story, within the recorded direction:
   theme, built from facts the paper already has or a verified source.
 - A headline sentence, in plain words, before a result's numbers; one number the reader keeps.
 - Connected sentences: each follows from the last by cause, contrast or time.
-- A worked example of real output (a report row, a figure of what a user sees), built from the authors'
-  own files or runs, replacing an abstract description of the same thing.
+- A worked example of real output in the text (a report row), built from the authors' own files or runs,
+  replacing an abstract description of the same thing. A new or moved figure, such as one of what a user
+  sees, is a proposal for the authors, since which figures the paper has is their decision
+  ([manuscript-figures](../../manuscript-figures/SKILL.md)).
 - Caveats moved to where they cost the reader least (below), and defensive detail moved to the
   supplement or the response letter.
 - Repetition cut: the same disclaimer, the same pointer to a companion paper, said once.

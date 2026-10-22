@@ -10,7 +10,7 @@
 to distinct findings, cross-filtered breakdowns, the manuscript with every quoted problem highlighted and
 explained in a margin comment, which skills found the same problem, every finding with its evidence, the
 edits as word-level diffs, the corrected version with track changes (from manuscript-improve's revise.py),
-counts of machine-writing patterns by type in each version, the reader and referee panels and, when a
+counts of machine-writing patterns by type in each version, the simulated reviewers and readers and, when a
 reference review is supplied, which of its problems the run caught. `summary.json` holds every derived count.
 
 Counts are derived from distinct adjudicated records, never supplied headline totals. Evidence checks
@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
 from urllib.parse import unquote
-from typing import Annotated, Literal
+from typing import Any, Annotated, Literal
 
 import typer
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -341,17 +341,28 @@ class FigureChange(Record):
 
 
 class FigureItem(Record):
-    """One figure as manuscript-figures reviewed it. Which figures exist is the authors' decision."""
-    id: Text  # "Figure 2", "Figure S1"
+    """One figure or table as manuscript-figures reviewed it. Which display items exist is the authors' decision."""
+    id: Text  # "Figure 2", "Table 3", "Figure S1"
+    kind: Literal["figure", "table"] = "figure"
+    part: Literal["main", "supplement"] = "main"  # the main text gets the full review, the supplement a lighter one
     caption: str = ""
-    image: str = ""  # the figure as rendered, relative to the inventory; embedded in the dashboard
-    verdict: Literal["keep", "change", "move-to-supplement"]
+    image: str = ""  # the figure as rendered, relative to the inventory; embedded in the dashboard (a table has none)
+    verdict: Literal["keep", "change", "move-to-supplement", "move-to-main-text"]
     message: str = ""  # the one thing a reader should take from it
     why: str = ""  # the reason for the verdict
     recommendations: list[FigureChange] = Field(default_factory=list)
     proposed_image: str = ""  # a redrawn draft from the authors' code: a proposal beside their figure, never in its place
     code: str = ""  # the code that draws it, when the project has it
     finding_ids: list[Identity] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def part_from_number(cls, values: Any) -> Any:
+        """A record written before items said their part: Figure S1 and Table S2 are supplementary."""
+        if isinstance(values, dict) and "part" not in values and \
+                re.match(r"(?i)^(?:supplementary\s+)?(?:figure|table)\s+S\d", str(values.get("id", ""))):
+            return {**values, "part": "supplement"}
+        return values
 
 
 class NewFigure(Record):
@@ -533,14 +544,22 @@ def competing(changes: list[Change]) -> list[list[str]]:
 
 
 def figure_counts(figures: Figures | None) -> dict | None:
-    """How many figures got each verdict, the new ones proposed, and the main-text count before and after."""
+    """How many figures and tables got each verdict, the new figures proposed, and the main-text display items
+    the venue counts (figures, or figures and tables together) before and after the proposed moves."""
     if not figures:
         return None
     verdicts = Counter(item.verdict for item in figures.items)
-    main = [item for item in figures.items if not re.match(r"(?i)^(?:supplementary\s+)?figure\s+S\d", item.id)]
-    return {"figures": len(figures.items), "by_verdict": ordered(verdicts, ("keep", "change", "move-to-supplement")),
+    tables_count = bool(figures.limit and "table" in figures.limit.counts.lower())
+    counted = [item for item in figures.items if item.kind == "figure" or tables_count]
+    main = [item for item in counted if item.part == "main"]
+    promoted = [item for item in counted if item.part == "supplement" and item.verdict == "move-to-main-text"]
+    kinds = Counter((item.kind, item.part) for item in figures.items)
+    return {"items": len(figures.items), "figures": kinds[("figure", "main")] + kinds[("figure", "supplement")],
+            "tables": kinds[("table", "main")] + kinds[("table", "supplement")],
+            "supplementary": kinds[("figure", "supplement")] + kinds[("table", "supplement")],
+            "by_verdict": ordered(verdicts, ("keep", "change", "move-to-supplement", "move-to-main-text")),
             "new": len(figures.new), "main_now": len(main),
-            "main_if_accepted": len(main) - sum(item.verdict == "move-to-supplement" for item in main) + len(figures.new),
+            "main_if_accepted": len(main) - sum(item.verdict == "move-to-supplement" for item in main) + len(promoted) + len(figures.new),
             "limit": figures.limit.count if figures.limit else None}
 
 
@@ -730,6 +749,9 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         corrected.setdefault("notes_in_text", [{"note": proposed[a:b], "line": proposed.count("\n", 0, a) + 1}
                                                for a, b in author_notes(proposed)])
         corrected["text"] = proposed
+        # The proposals the corrected version holds back are out of play, so they join no competing group.
+        held = {h["id"] for h in corrected.get("held", [])}
+        summary["competing_proposals"] = competing([c for c in data.changes if c.id not in held])
         summary["revision"] = {key: len(corrected[key]) for key in ("applied", "proposed_in_this_version", "held",
                                                                        "alternatives", "not_placed")}
         summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]

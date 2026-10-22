@@ -53,8 +53,8 @@ record, not a reason to restart setup. Independent checks continue while a mappi
 
 `peer_review` is a project setting: `auto` (default) runs formal referees for a whole-manuscript
 improvement workflow; `on-request` runs them when requested; `off` skips that optional stage. A focused
-skill never expands into full peer review because of this default. A story task still runs its three
-readers. Explicitly asking for referees overrides `off` for that invocation. Save a lasting choice with
+skill never expands into full peer review because of this default. A story task still runs its
+readers (the default three, or the readers saved for the project). Explicitly asking for referees overrides `off` for that invocation. Save a lasting choice with
 `configure PROJECT_FOLDER --peer-review on-request`, not a made-up global YAML key.
 
 Who reads the paper is the authors' choice too: `configure PROJECT_FOLDER --reader "clinician: a hospital
@@ -140,8 +140,9 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    never as the defender.
 2. **The session that can start agents starts them.** A delegated agent often cannot start agents of its
    own (Claude Code's subagents cannot). In `manuscript-improve` the coordinator starts every referee seat,
-   reader and defender itself, even when it delegates the rest of those stages; a stage agent that cannot
-   start agents prepares the workspaces and briefs and hands them back, and never reads as the seats itself.
+   reader, defender and critic itself, even when it delegates the rest of those stages; a stage agent that
+   cannot start agents prepares the workspaces and briefs and hands them back, and never reads as the
+   seats itself.
 3. **The brief is the skill's template, filled, and nothing else**: the journal, article type, study
    design, remit, or the reader's description in the authors' words. Give paths to the workspace files,
    never extracts the coordinator chose. Save each brief exactly as sent beside the seat's report.
@@ -154,11 +155,12 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    not independent. For a run registered before this rule, `runs.py isolation RUN --skill SKILL --path
    PATH --isolation fresh-agent --basis "..."` records how an output already in the run was produced,
    with what shows it; a record already made is never changed.
-6. **Fallback only when the host cannot start agents at all**, not because a stage was delegated, is slow
-   or runs in the background (a host that reports completion can run seats in the background). Then one
-   agent reads once per seat, in order, writes each seat's answer before taking the next and never revises
-   an earlier one. Record `--isolation one-agent`, label each such seat "read by one agent in turn, not
-   independent" in the report, and never count agreement between such seats as corroboration.
+6. **Fallback only when the host cannot start agents at all**, or when a seat still fails after one retry
+   (that seat alone falls back), not because a stage was delegated, is slow or runs in the background (a
+   host that reports completion can run seats in the background). Then one agent reads once per seat, in
+   order, writes each seat's answer before taking the next and never revises an earlier one. Record
+   `--isolation one-agent`, label each such seat "read by one agent in turn, not independent" in the
+   report, and never count agreement between such seats as corroboration.
 
 ## Before/after and honest handover
 

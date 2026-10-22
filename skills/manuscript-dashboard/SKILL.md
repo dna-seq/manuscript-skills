@@ -37,7 +37,7 @@ uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/finding
 
 It takes coverage from `run.json`, the manuscript's title and sections from its snapshot, each skill's
 findings, dismissed flags and unrun checks, the check outputs as raw signal counts, the readers' reports
-and the referees' recommendations. A change recorded with `runs.py change` counts as applied only when
+and the simulated reviewers' recommendations, concerns and suggestions. A change recorded with `runs.py change` counts as applied only when
 the revised manuscript holds its after-text and no longer holds its before-text. A skill that wrote no
 `findings.json` contributes its coverage and nothing else: read its report and add its findings by hand,
 or record why it has none. A missing file never means the skill found nothing.
@@ -50,9 +50,9 @@ write those decisions in `RUN/manuscript-dashboard/merges.json` and collect agai
 
 ```json
 {
-  "merge": [{"keep": "IC-3", "ids": ["RC-2", "ST-5"], "summary": "optional better wording"}],
+  "merge": [{"keep": "IC-3", "ids": ["RF-2", "ST-5"], "summary": "optional better wording"}],
   "update": [{"id": "RP-4", "assessment": "confirmed", "evidence": [{"path": "../manuscript-integrity-check/report.md", "quote": "..."}]}],
-  "dismiss": [{"id": "SC-7", "why": "A module name, not hype."}],
+  "dismiss": [{"id": "DS-7", "why": "A module name, not hype."}],
   "decisions": [{"id": "D1", "summary": "Narrow the speed claim or rerun the benchmark", "finding_ids": ["IC-3"]}],
   "change_links": [{"change": "prose-edit.C1", "finding_ids": ["IC-2"]}],
   "addressed": ["IC-2"]

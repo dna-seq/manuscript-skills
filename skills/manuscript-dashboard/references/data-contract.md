@@ -24,14 +24,15 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `changes` | One record per distinct proposed or applied edit, independently of finding counts. |
 | `limitations` | Plain-language limitations to retain in the dashboard. |
 | `illustrative` | Optional Boolean, default false. Set true for synthetic examples; every output labels them. |
-| `manuscript` | `title`, `version`, `sha256` and `sections` in manuscript order, for the heat grid. |
+| `manuscript` | `title`, `version`, `sha256`, `sections` in manuscript order, for the heat grid, and `path`, the reviewed text relative to the inventory, for the manuscript view. |
 | `signals` | raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
 | `dismissed` | flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
 | `not_checked` | checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
 | `decisions` | choices only the authors can make: `id`, `summary`, `finding_ids`. |
-| `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
+| `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`, `isolation`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, `isolation`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
 | `reference` | a review to compare with; [below](#reference-review). |
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
+| `story` | optional, from `manuscript-story`: the direction, the story tests and the options only the authors can choose; [below](#story). |
 | `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused` and `unknown`. A completed
@@ -59,7 +60,7 @@ Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment
 ## Changes and evidence
 
 A change has `id`, `kind`, `section`, `summary`, `status` (`applied` or `proposed`), `finding_ids`,
-`before`, `after`, `why`, `comment` and `evidence`. `comment` is a question for the authors about the edit, shown
+`before`, `after`, `anchor`, `why`, `comment` and `evidence`. `comment` is a question for the authors about the edit, shown
 beside it and never written into the text. `why` is the reasoning in one to three sentences: what was wrong
 and why the new wording fixes it; the `summary` is only its title. For an applied edit, `collect.py` takes
 `why` from the reason recorded with `runs.py change`, whose first sentence becomes the summary. Use null for the before text of an addition or after text of a deletion;
@@ -144,15 +145,17 @@ the skills missed; with one, the missed count is relative to that reference only
 ## Figures
 
 `figures` is optional and comes from `manuscript-figures`' `findings.json`: `limit` (`count`, `counts`, which
-is "figures" or "figures and tables", and `source`), `items` (one per figure: `id`, `caption`, `image`,
-`verdict` of `keep`, `change` or `move-to-supplement`, `message`, `why`, `recommendations` each with `kind`
+is "figures" or "figures and tables", and `source`), `items` (one per figure or table: `id`, `kind` of
+`figure` or `table`, `part` of `main` or `supplement`, `caption`, `image` (a figure's), `verdict` of `keep`,
+`change`, `move-to-supplement` or `move-to-main-text`, `message`, `why`, `recommendations` each with `kind`
 `content` or `visual`, `change` and `why`, `proposed_image`, `code` and `finding_ids`) and `new` (figures to add:
 `title`, `kind`, `shows`, `why`, `placement`, `source`, `replaces`, `finding_ids`). `collect.py` makes the image
 paths relative to the inventory and follows each finding link to the record kept after merging; the renderer
 embeds the images, so the dashboard stays one file, and says when one could not be found or is over 8 MB.
-`summary.json` counts the verdicts, the new figures and the main-text figures now and if the authors accept
-every move and addition. Which figures the paper has is the authors' decision: moves and additions are
-listed as decisions, never counted as applied.
+`summary.json` counts the verdicts, the new figures and the main-text display items now and if the authors
+accept every move and addition (tables count when the venue counts figures and tables together). Which
+figures and tables the paper has is the authors' decision: moves and additions are listed as decisions,
+never counted as applied.
 
 ## Story
 

@@ -46,11 +46,12 @@ SENTINEL = re.compile("(\\d+)|(\\d+)|[]")
 SENTENCE = re.compile(r"(?<=[.!?])(?=\s)")
 PREFIX = {"IC": "integrity-check", "RF": "reference-check", "RP": "reporting-check", "PR": "peer-review",
           "PF": "policy-fit", "JS": "journal-select", "JA": "journal-adapt", "PE": "prose-edit", "DS": "deslop",
-          "ST": "story", "IM": "improve", "RR": "reviewer-response", "RM": "revision-marks"}
+          "ST": "story", "FG": "figures", "IM": "improve", "RR": "reviewer-response", "RM": "revision-marks", "MP": "mark-people"}
 NAME = {"integrity-check": "Integrity check", "reference-check": "Reference check", "reporting-check": "Reporting check",
         "peer-review": "Simulated reviewers", "policy-fit": "Policy fit", "journal-select": "Journal selection",
         "journal-adapt": "Journal adaptation", "prose-edit": "Prose edit", "deslop": "Deslop", "story": "Story",
-        "improve": "Workflow", "reviewer-response": "Reviewer response", "revision-marks": "Revision marks"}
+        "figures": "Figures and tables", "improve": "Workflow", "reviewer-response": "Reviewer response",
+        "revision-marks": "Revision marks", "mark-people": "People behind the marks"}
 SEVERITY = {"blocker": "Blocker", "major": "Major", "minor": "Minor", "info": "Optional", "unknown": "Severity not assessed"}
 WHEN = {"now": "fix now", "writing": "then the writing", "journal": "once the journal is chosen",
         "final": "before submission", "unknown": "stage not set"}

@@ -92,7 +92,7 @@
   files: [fixtures/manuscript-prose-edit/decision-batching.md]
   planted:
     - "The draft already contains formulaic phrasing that the deslop catalogue counts."
-    - "The routine-fixes mode applies meaning-preserving edits only; changes to claims stay proposals."
+    - "The routine-fixes mode applies meaning-preserving edits, and story edits that keep the authors' recorded direction; changes to claims stay proposals."
   rubric:
     - "Names the mode in plain words in its first progress update (routine fixes, the conservative setting)."
     - "Runs manuscript-deslop as its own stage on the whole paper, after the prose edit and before the story check, applying wording changes that keep the meaning and proposing cuts that change a claim."

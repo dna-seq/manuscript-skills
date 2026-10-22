@@ -472,8 +472,20 @@ def figures_record(**extra) -> dict:
 def test_figure_verdicts_are_counted_and_an_addition_counts_against_the_limit(data: dict) -> None:
     data["figures"] = figures_record()
     summary = visualize.summarize(visualize.Inventory.model_validate(data))
-    assert summary["figures"] == {"figures": 3, "by_verdict": {"keep": 1, "change": 1, "move-to-supplement": 1}, "new": 1,
+    assert summary["figures"] == {"items": 3, "figures": 3, "tables": 0, "supplementary": 1,
+                                  "by_verdict": {"keep": 1, "change": 1, "move-to-supplement": 1}, "new": 1,
                                   "main_now": 2, "main_if_accepted": 2, "limit": 2}
+
+
+def test_tables_count_against_a_limit_on_display_items_and_a_supplementary_item_can_move_up(data: dict) -> None:
+    data["figures"] = figures_record()
+    data["figures"]["limit"]["counts"] = "figures and tables"
+    data["figures"]["items"] += [{"id": "Table 1", "kind": "table", "verdict": "keep"},
+                                 {"id": "Table S2", "kind": "table", "verdict": "move-to-main-text", "why": "The headline rests on it."}]
+    summary = visualize.summarize(visualize.Inventory.model_validate(data))["figures"]
+    assert (summary["tables"], summary["supplementary"], summary["main_now"], summary["main_if_accepted"]) == (2, 2, 3, 4)
+    data["figures"]["limit"]["counts"] = "figures"
+    assert visualize.summarize(visualize.Inventory.model_validate(data))["figures"]["main_now"] == 2  # tables not counted
 
 
 @pytest.mark.parametrize("mutation", ["unknown-link", "duplicate", "verdict"])
@@ -497,7 +509,7 @@ def test_figure_images_are_embedded_and_a_missing_one_says_so(data: dict, tmp_pa
     items = embedded(page)["inventory"]["figures"]["items"]
     assert items[0]["image_data"].startswith("data:image/png;base64,") and items[0]["image"] == "fig1.png"
     assert items[1]["image_data"] == "" and items[1]["image_note"] == "Not embedded: missing.png was not found."
-    assert str(tmp_path) not in page and "['figures', 'Figures'" in page
+    assert str(tmp_path) not in page and "['figures', 'Figures and tables'" in page
 
 
 def test_collect_carries_the_figures_with_their_images_and_follows_merged_problems(tmp_path: Path) -> None:
@@ -529,3 +541,28 @@ def test_collect_carries_the_figures_with_their_images_and_follows_merged_proble
     assert figure.finding_ids == ["IC-1"]  # merged into the integrity check's record; the dismissed flag is dropped
     page = visualize.dashboard_html(inventory, visualize.summarize(inventory), out.parent)
     assert embedded(page)["inventory"]["figures"]["items"][0]["image_data"].startswith("data:image/png;base64,")
+
+
+def test_collect_keeps_a_proposal_s_reason_and_question_and_an_absence_s_search(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    run = synthetic_run(tmp_path)
+    doc = json.loads((run / "manuscript-integrity-check/findings.json").read_text())
+    doc["findings"][1].update(quote=None, looked_in=["Methods", "Supplement S2"],
+                              evidence=[{"path": "report.md", "quote": "The Abstract figure differs."}])
+    doc["changes"] = [{"id": "IC-C1", "kind": "Claim correction", "section": "2. Methods", "summary": "Give the join key",
+                       "status": "proposed", "finding_ids": ["IC-1"], "before": "We join by rsID.", "after": "We join by position.",
+                       "why": "The code joins by position and genotype.", "comment": "Is rsID still offered as an option?",
+                       "evidence": [{"path": "report.md", "quote": "The join key contradicts the code."}]}]
+    (run / "manuscript-integrity-check/findings.json").write_text(json.dumps(doc))
+    note = run / "manuscript-prose-edit/changes/0001.md"
+    note.write_text(note.read_text().replace("Reason: Fix 1\n\n", "Reason: Fix 1\n\nComment: Which runtime does the Abstract mean?\n\n"))
+    out = run / "manuscript-dashboard/findings.json"
+    result = CliRunner().invoke(collect.app, [str(run), "--output", str(out)])
+    assert result.exit_code == 0, result.output
+    inventory = visualize.Inventory.model_validate_json(out.read_text())
+    proposal = next(c for c in inventory.changes if c.id == "IC-C1")
+    assert proposal.why.startswith("The code joins") and proposal.comment == "Is rsID still offered as an option?"
+    assert proposal.summary == "Give the join key"  # the reason and the question are not folded into the summary
+    assert next(c for c in inventory.changes if c.id == "prose-edit.C1").comment == "Which runtime does the Abstract mean?"
+    assert "Looked in: Methods; Supplement S2." in next(f for f in inventory.findings if f.id == "IC-2").detail

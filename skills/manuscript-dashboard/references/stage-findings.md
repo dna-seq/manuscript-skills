@@ -35,12 +35,14 @@ authors' document; this file is the same findings in a form a script can count.
 
 - IDs start with the skill's prefix and are unique within the file: IC integrity-check, RF
   reference-check, RP reporting-check, PR peer-review, PF policy-fit, JS journal-select, JA
-  journal-adapt, PE prose-edit, DS deslop, ST story, FG figures, IM improve. Collect namespaces a clash it
-  still finds (`RP.RC-1`) rather than lose a record.
+  journal-adapt, PE prose-edit, DS deslop, ST story, FG figures, IM improve, RR reviewer-response, RM
+  revision-marks, MP mark-people. Collect namespaces a clash it still finds (`RP.RC-1`) rather than lose a
+  record.
 - One record per distinct problem. Group a root cause with its symptoms; never one record per scanner
   hit. Repeats across skills are expected: the merge step joins them.
 - `quote` is copied from the authoritative manuscript exactly, never paraphrased. An absence has
-  `quote: null` and says in `looked_in` where the skill searched.
+  `quote: null` and says in `looked_in` where the skill searched; collect adds the places to the finding's
+  detail.
 - `confidence: confirmed` means the skill verified the problem against the manuscript, the project's
   code or files, or a source it read; `candidate` means it needs the authors or a check that could not
   run. A simulated reader's concern is confirmed only as reader feedback, never as a scientific error.

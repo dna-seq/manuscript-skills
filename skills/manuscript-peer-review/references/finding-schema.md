@@ -186,13 +186,15 @@ is proportionate, resolve identifiers, or score anything. Those are adjudication
 ## Running it
 
 ```bash
-uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.md --md "$WORK/check.md" --json "$WORK/check.json"
-uv run --script scripts/check_findings.py "$WORK/findings.json" PAPER.tex -s supplement.md -s sections/methods.tex
-uv run --script scripts/check_findings.py "$WORK/adjudicated.json" PAPER.md --adjudicated
+uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --md "$WORK/check.md" --json "$WORK/check.json"
+uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.tex -s supplement.md -s sections/methods.tex
+uv run --script scripts/check_findings.py "$WORK/findings.adjudicated.json" PAPER.md --adjudicated
 ```
 
-`$WORK` is the durable skill-run folder for the review's evidence (SKILL.md, step 3). Exit code 0 when
-every finding, strength and report meets the contract, 1 when any does not, 2 for unusable input
-(malformed JSON, a manuscript that is not Markdown, LaTeX or text). For a multi-file LaTeX project, pass
+`$WORK` is the durable skill-run folder for the review's evidence (SKILL.md, step 3). The merged and
+adjudicated files have names of their own because the stage's `findings.json`, for the dashboard, is
+written beside them (SKILL.md, step 7). Exit code 0 when every finding, strength and report meets the
+contract, 1 when any does not, 2 for unusable input (malformed JSON, a manuscript that is not Markdown,
+LaTeX or text). For a multi-file LaTeX project, pass
 the `\input` files with `-s` or flatten the project first. Convert `.docx` with `pandoc -t gfm` and
 quote the converted text.
