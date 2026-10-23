@@ -330,13 +330,30 @@ the report goes.
 Decide in this order: what the authors say in this conversation ("just show it here", "save it as a
 file"); the manuscript project's saved choices and instructions (`CLAUDE.md`, `AGENTS.md`); the global saved
 setting returned by `settings.py resolve --json`; otherwise `file`. Read settings at startup as above; do not make work wait
-for a settings interview. If a preference is needed, batch the questions `settings.py questions` prints
-with other unresolved decisions, following the rule on independent work. Save the answer with
+for a settings interview. On first use, ask the `preferences` the project resolver returns (the questions
+`settings.py questions` prints, less those already answered) in the first-use batch, with other unresolved
+decisions and following the rule on independent work. Say each recommended answer and its reason, and let the
+authors accept them all in one reply. Save the answer with
 `project.py configure PROJECT --reports <choice>` for a lasting manuscript-project preference, or
 `settings.py set reports <choice>` only for an explicitly global change. Say its scope and how to change it ("say 'reports in the chat from now on'"). A request for one report ("show this one here") applies
 to that report only; save a choice only when the authors state it as lasting ("from now on", "always").
 Do not ask when the authors said to run without questions or the host cannot ask; use the defaults
 without saving them.
+
+**Keep: everything or results, one setting for every skill.** The `keep` setting decides which of a run's
+files stay in its folder once the run ends; it never changes what a run records while it works.
+
+- `everything` (default, and the recommendation): every file stays: the referees' and readers' reports,
+  the checks and their output, the commands and the before/after of each edit. A resumed run and the
+  dashboard read them instead of repeating the work, and every finding can be traced to what produced it.
+- `results`: when the run is finished and validates, `runs.py pack RUN` leaves the run index, each skill's
+  README and report, the dashboard and the corrected version, and moves everything else into
+  `evidence.zip` in the same folder. Nothing is deleted; `runs.py unpack RUN` restores the files before a
+  run continues or the dashboard is collected again.
+
+Ask it with the other first-use preferences and save the answer with `project.py configure PROJECT --keep
+<choice>`, or `settings.py set keep <choice>` only for an explicitly global change. A request about one run
+("keep everything this time") applies to that run only.
 
 **Edit the authors' files in place; ask before adding new ones.** When asked to update the manuscript or
 one of the authors' planning documents (a venue strategy, a submission plan), change that file. Do not

@@ -36,6 +36,12 @@ and the first progress update names it in plain words:
   stage's edits that keep the authors' recorded direction; propose substantive revisions for approval.
 - **Every change** (`apply`): apply substantive revisions too, within the authors' direction.
 
+The same update says which files the run will keep, from the `keep` setting: every intermediate file
+(`everything`, the default), or the results with the rest packed into one archive (`results`), and how to
+change it ("say 'keep only the results'"). When the preferences are still unanswered on first use, the
+first update asks them as the [project contract](../manuscript-integrity-check/references/project-workflow.md#ask-once-for-a-manuscript-project)
+describes and the run carries on with the defaults.
+
 Every mode ends with the corrected version as a separate file (see the end of this skill), so the
 authors can read the whole improved paper before they accept it. A request to use this skill or "improve
 the manuscript" does not change the mode.
@@ -190,7 +196,9 @@ document (`export_docx.py`: tracked changes by stage, the problems and questions
 work in Word or Google Docs. Link the dashboard first in the
 summary and the corrected version second: they are how the authors and their colleagues see what the
 workflow caught, changed and left open, with the actual coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,
-with its reason; its unfound problems are unknown, not zero.
+with its reason; its unfound problems are unknown, not zero. When `keep` is `results`, pack the run
+(`runs.py pack RUN`) after the final validation, as the very last step: the dashboard, the corrected
+version and the reports stay in place and the rest goes into `evidence.zip`.
 
 Optional detector checks keep their companion skill's request boundary. Formal referee simulation uses
 project `peer_review`: `auto` by default in this full workflow, `on-request` only on request, or `off`;

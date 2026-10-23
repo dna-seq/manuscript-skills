@@ -14,15 +14,27 @@ On first use, ask one short batch only for the missing `questions` returned by t
 - Which folder/files or connected documents are the authoritative manuscript and supplements?
 - Which code repositories are connected? None or unknown is a valid answer. Do not require code for a
   prose-only task. A code location is context, not permission to edit it.
-- Where should the review outputs go? Offer a concrete `reviews/` folder under the manuscript project.
-  For cloud storage, establish its URL and a local working folder; the helper does not upload files.
+- Where should the review outputs go? Recommend a concrete `reviews/` folder in the manuscript's folder,
+  with the resolver's reason: the runs stay with the paper, where the authors and co-authors look, and
+  later runs and the next revision reuse them. For cloud storage, establish its URL and a local working
+  folder; the helper does not upload files.
+- How should the skills work? These are the resolver's `preferences`, the settings nobody has chosen for
+  this project or globally: `edits`, `reports` and `keep`. Ask them as one question that names each
+  recommended answer with its `why` (routine fixes applied and the rest proposed; reports saved as files
+  with the headline in the chat; every intermediate file kept, because later steps and the dashboard read
+  them and every finding can be traced back), so that "yes" accepts them all and the authors change only
+  what they want. Save what they answer with `configure --edits ... --reports ... --keep ...`.
 
 Use answers already supplied in the conversation or project instructions. Show inferred locations in
 the batch rather than asking the author to rediscover them. Continue independent read-only work while
-required answers are pending. Do not silently turn a guess into a saved author choice.
+required answers are pending. Preferences never hold up a run: until they are answered the defaults
+apply, unsaved, and the next run asks again. "Use your recommendations" is an answer, saved like any
+other. Do not silently turn a guess into a saved author choice; setup copies only the choices saved
+globally, never the defaults.
 
 Save stated choices with `project.py configure PROJECT_FOLDER --manuscript SOURCE --code CODE_FOLDER
---output-dir reviews`. Repeat `--manuscript` for supplements and `--code` for multiple repositories;
+--output-dir reviews --edits conservative --reports file --keep everything`, giving only the settings the
+authors answered. Repeat `--manuscript` for supplements and `--code` for multiple repositories;
 use `--no-code` or `--unknown-code` when that is the answer. Locations are relative to PROJECT_FOLDER. A supplied manuscript folder needs its main source file
 identified before a run can snapshot it; code locations may be folders.
 `--document URL` records a connected document, and `--output-url URL` a cloud destination. A remote
@@ -37,10 +49,11 @@ outside run folders. It preserves unrelated keys when updating an explicit choic
 ## Reuse choices and resolve actual conflicts
 
 Precedence: explicit current conversation instructions, project choices/instructions, global settings,
-then defaults. `project.py resolve ... --reports chat --edits propose` applies a conversation override
-without saving it; the same options on `configure` save an explicit lasting project choice. Project
-setup snapshots the current report/edit defaults so a later global change does not silently alter an
-existing manuscript's choices. A global change is for other projects unless explicitly applied here.
+then defaults. `project.py resolve ... --reports chat --edits propose --keep results` applies a conversation
+override without saving it; the same options on `configure` save an explicit lasting project choice.
+Project setup copies the choices saved globally into the new project, so a later global change does not
+silently alter an existing manuscript's choices; it never copies a default nobody chose. A global change is
+for other projects unless explicitly applied here.
 
 Do not repeat setup for another skill, a resumed run or a new revision of the same paper.
 When the author explicitly identifies a new revision as this same manuscript, update the relevant source
@@ -121,6 +134,8 @@ reproduce a reported conclusion belongs in the run folder: actual seat reports, 
 identifiers, coverage, contradictions and failures. Do not retain credentials or unrelated personal
 data. A concise combined workflow summary links the per-skill folders; it does not replace them.
 The `reports` setting controls how much report text is also shown in chat; run evidence stays inspectable.
+The `keep` setting decides only what stays visible once the run ends (see the handover below); a run
+records the same evidence whichever it is.
 Stable project documents, such as the scientific record and venue planning document, remain in place;
 register the version used or produced in this run rather than moving their authoritative masters.
 
@@ -184,6 +199,14 @@ statuses, missing panel artifacts, changed manuscript snapshots without a change
 unacknowledged before/after records. It does not prove scientific correctness, independence of seats,
 completeness of edit classification or actual delivery in chat. Review those directly. Partial work can
 have a valid handover while the manifest still says `workflow_complete: false`.
+
+When the effective `keep` is `results`, the last step, after the final validation and after the dashboard
+is rendered, is `runs.py pack RUN`. It refuses a run that does not validate; it leaves `run.json`, the
+README files, every registered `report`, the dashboard (`manuscript-dashboard/*.html` and `*.docx`) and the
+corrected version (`manuscript-improve/revision/proposed.md` and `changes.md`), plus any `--keep PATTERN`,
+and moves everything else into `evidence.zip`, recording each file's hash. `validate` checks packed files
+inside the archive. Every other writer refuses a packed run (exit 3): run `runs.py unpack RUN` first to
+continue it, add evidence or collect the dashboard again. With `everything`, never pack.
 
 Link the run index and each important report in the reply, state remaining gaps and show consequential
 excerpts as the work proceeds. Never label an incomplete reference audit or missing panel complete.

@@ -5,8 +5,8 @@
 # ///
 """User-wide defaults for manuscript skills; saved manuscript-project choices take precedence.
 
-Use project.py for ordinary skill startup and project preferences. Project setup snapshots these global
-report/edit defaults once; later changes here do not silently replace a manuscript's saved choices.
+Use project.py for ordinary skill startup and project preferences. Project setup copies the choices saved
+here into a new project once; later changes here do not silently replace a manuscript's saved choices.
 Use this script to change an explicitly global preference, or to inspect defaults for new projects.
 The precedence and run-artifact contract live in ../references/author-priorities.md and project-workflow.md.
 
@@ -15,6 +15,7 @@ The precedence and run-artifact contract live in ../references/author-priorities
     uv run --script settings.py resolve --json       # effective saved choices or defaults, without questions
     uv run --script settings.py set reports chat     # save a choice the authors stated
     uv run --script settings.py set edits conservative
+    uv run --script settings.py set keep results     # pack a finished run's evidence into one archive
     uv run --script settings.py unset reports        # forget it; the default applies until chosen again
     uv run --script settings.py questions [--json]   # the one-time question for each setting not yet chosen
 
@@ -51,13 +52,13 @@ HEADER = ("# manuscript-skills settings: global defaults, overridden by saved ma
 class Setting:
     question: str
     options: dict[str, str]  # value -> what choosing it means, in the authors' terms
-    default: str  # effective when unset; using it does not save it
+    default: str  # effective when unset, and the recommended answer; using it does not save it
+    why: str  # why the default is recommended, said with the question
 
 
 SETTINGS: dict[str, Setting] = {
     "reports": Setting(
-        question="Where should the manuscript skills put their reports (reviews, audits, check results)? "
-                 "This is the global default for new manuscript projects; saved project choices take precedence.",
+        question="Where should the manuscript skills put their reports (reviews, audits, check results)?",
         options={
             "file": "Save each report in the manuscript project's run folder, and give the "
                     "headline and the most urgent points in the chat.",
@@ -65,11 +66,12 @@ SETTINGS: dict[str, Setting] = {
             "both": "Save the file, and also show the full report in the chat.",
         },
         default="file",
+        why="The chat stays short enough to follow, and the full reports are saved where you and your co-authors "
+            "can open them. Consequential before/after changes are shown in the chat whatever you choose.",
     ),
     "edits": Setting(
         question="Which manuscript changes may the skills apply without your approval? "
-                 "Independent checks and permitted edits continue while proposals await your decision. "
-                 "This is the global default for new manuscript projects; saved project choices take precedence.",
+                 "Independent checks and permitted edits continue while proposals await your decision.",
         options={
             "conservative": "Apply routine corrections that preserve meaning; propose changes to arguments, "
                             "claims, emphasis, numerical content and substantial structure for approval.",
@@ -79,6 +81,22 @@ SETTINGS: dict[str, Setting] = {
                      "before and after in the chat; never invent facts or decisions.",
         },
         default="conservative",
+        why="Routine fixes save you work, and nothing that changes what the paper claims, reports or "
+            "emphasises is applied without your approval.",
+    ),
+    "keep": Setting(
+        question="When a run ends, which of its files should stay in the run folder?",
+        options={
+            "everything": "Keep every file the run produced: each referee's and reader's report, every check "
+                          "and its output, the commands that ran and the before/after of each edit.",
+            "results": "Keep the run index, each skill's report, the dashboard and the corrected version, and "
+                       "pack everything else into one evidence.zip in the same folder. Nothing is deleted, and "
+                       "a run that continues unpacks it first.",
+        },
+        default="everything",
+        why="The intermediate files are how the work holds together: a resumed run and the dashboard read what "
+            "earlier steps kept instead of repeating them, and every finding can be traced to the check, "
+            "referee or reader behind it. Choose results if you only want to see the outcome.",
     ),
 }
 
@@ -170,6 +188,7 @@ def questions(data: dict[str, Any], every: bool = False) -> list[dict[str, Any]]
         current = value(data, key)
         if current is None or every:
             out.append({"key": key, "question": setting.question, "current": current, "default": setting.default,
+                        "recommended": setting.default, "why": setting.why,
                         "options": [{"value": v, "meaning": m} for v, m in setting.options.items()]})
     return out
 

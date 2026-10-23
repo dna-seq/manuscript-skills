@@ -9,6 +9,10 @@ Use start once, reuse the returned run directory across companion skills, and ad
 overwriting earlier attempts. exec captures a real command's stdout, stderr and exit status. A successful
 command does not establish scientific support. validate checks artifacts, not the truth of a report or
 whether an agent really showed a passage in chat.
+
+When the project's `keep` setting is `results`, pack is the run's last step: it moves everything except the
+run index, the skills' READMEs and reports, the dashboard and the corrected version into evidence.zip, and
+validate then checks each packed file inside the archive. unpack restores them before a run continues.
 """
 
 from __future__ import annotations
@@ -20,7 +24,9 @@ import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -63,6 +69,12 @@ class Isolation(str, Enum):
 
 ISOLATION_LABEL = {'fresh-agent': 'fresh agent', 'one-agent': 'one agent in turn, not independent'}
 SKILLS = Path(__file__).resolve().parents[2]
+ARCHIVE = 'evidence.zip'
+# What the authors open after a run, kept beside the archive by pack (fnmatch patterns; * crosses folders).
+DELIVERABLES = ('manuscript-dashboard/*.html', 'manuscript-dashboard/*.docx',
+                'manuscript-improve/revision/proposed.md', 'manuscript-improve/revision/changes.md')
+# Commands that may run on a packed run; every other writer needs the files back first.
+WHEN_PACKED = {'validate', 'pack', 'unpack'}
 P = ParamSpec('P')
 T = TypeVar('T')
 
@@ -75,6 +87,10 @@ def serialized(function: Callable[P, T]) -> Callable[P, T]:
         run = arguments['run'].resolve()
         try:
             with FileLock(run / '.writer.lock', timeout=0):
+                if function.__name__ not in WHEN_PACKED and read(run).get('packed'):
+                    typer.echo(f"This run's evidence is packed in {ARCHIVE}; run `runs.py unpack {run}` before "
+                               "adding to it. Nothing was changed.", err=True)
+                    raise typer.Exit(3)
                 return function(*args, **kwargs)
         except Timeout as exc:
             typer.echo(f"Run is busy: {run}. Retry this operation after the active writer finishes; no evidence was overwritten.", err=True)
@@ -130,6 +146,13 @@ def save(run: Path, data: dict[str, Any]) -> None:
     Path(handle.name).replace(run / "run.json")
     index = [f"# Manuscript skill run {data['run_id']}", "", f"Started: {data['started_at']}", "",
              "Command exit status and scientific adjudication are separate. Partial and unrun work remains visible.", ""]
+    packed = (data.get('packed') or {}).get('files', {})
+
+    def link(name: str, path: str, text: str | None = None) -> str:
+        """A skill README's link to one of its files, or where it is when the run is packed."""
+        relative = Path(path).relative_to(name).as_posix()
+        return f"{text or relative} (in [{ARCHIVE}](../{ARCHIVE}))" if path in packed else f"[{text or relative}]({relative})"
+
     for name, seat in data["skills"].items():
         folder = run / name
         folder.mkdir(exist_ok=True)
@@ -137,20 +160,21 @@ def save(run: Path, data: dict[str, Any]) -> None:
         if name == 'manuscript-peer-review':
             lines.append(f"Review mode: {seat.get('review_mode', 'full')}.\n")
         for item in seat["artifacts"]:
-            relative = Path(item["path"]).relative_to(name).as_posix()
-            lines.append(f"- {item['role']}: [{relative}]({relative})" + (f" — seat: {item['seat']}" if item.get('seat') else "")
+            lines.append(f"- {item['role']}: {link(name, item['path'])}" + (f" — seat: {item['seat']}" if item.get('seat') else "")
                          + (f" ({ISOLATION_LABEL[item['isolation']]})" if item.get('isolation') in ISOLATION_LABEL else ""))
         for issue in seat["issues"]:
             lines.extend(["", f"- **{issue['kind']}**: {issue['message']}"])
         for number, command in enumerate(seat['commands'], 1):
-            paths = [Path(p).relative_to(name).as_posix() for p in command['outputs']]
-            links = ', '.join(f'[{Path(p).name}]({p})' for p in paths)
+            links = ', '.join(link(name, p, Path(p).name) for p in command['outputs'])
             lines.extend(['', f"- Command {command.get('attempt', number)}: {command.get('state', 'finished')}, exit {command['exit_code']}; {links}"])
         for change in seat["changes"]:
-            lines.extend(["", f"- Change: [{change['section']}]({Path(change['path']).relative_to(name).as_posix()}); "
+            lines.extend(["", f"- Change: {link(name, change['path'], change['section'])}; "
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
         (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s).")
+    if packed:
+        index.extend(["", (f"The evidence ({len(packed)} files) is packed in [{ARCHIVE}]({ARCHIVE}), as the project's "
+                           "`keep` setting asks; `runs.py unpack` restores it.")])
     index.extend(["", "[Run manifest](run.json) contains effective settings, source hashes and all recorded attempts."])
     (run / "README.md").write_text("\n".join(index) + "\n", encoding="utf-8")
 
@@ -191,11 +215,29 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
     return item
 
 
+def archived(run: Path, data: dict[str, Any]) -> dict[str, str]:
+    """In a packed run, the sha256 of every file in its archive, read back from the archive itself."""
+    packed = data.get('packed')
+    path = within(run, packed['archive']) if packed else None
+    if path is None or not path.is_file():
+        return {}
+    with zipfile.ZipFile(path) as archive:
+        return {name: hashlib.sha256(archive.read(name)).hexdigest() for name in archive.namelist()}
+
+
 def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
     errors = []
+    packed = archived(run, data)
+    if data.get('packed') and not packed:
+        errors.append(f"Missing or unreadable evidence archive: {data['packed']['archive']}")
+
+    def stored(path: Path) -> str | None:
+        """The file's sha256, on disk or in the archive; None when it is in neither."""
+        return digest(path) if path.is_file() else packed.get(path.relative_to(run.resolve()).as_posix())
+
     for source in data['inputs']:
         path = within(run, source['snapshot'])
-        if not path.is_file() or digest(path) != source['sha256']:
+        if stored(path) != source['sha256']:
             errors.append(f"Missing or changed source snapshot: {source['snapshot']}")
         original = Path(source['original'])
         if not original.is_file():
@@ -212,7 +254,7 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
             except ValueError as exc:
                 errors.append(f"{name}: {exc}")
                 continue
-            if not path.is_file() or digest(path) != item['sha256']:
+            if stored(path) != item['sha256']:
                 errors.append(f"Missing or changed evidence: {item['path']}")
         roles = [item['role'] for item in entry['artifacts']]
         if entry['status'] in TERMINAL - {'not_run'} and 'report' not in roles:
@@ -240,7 +282,7 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
                 errors.append(f"{name}: a command has no recorded completion")
         for change in entry['changes']:
             path = within(run, change['path'])
-            if not path.is_file() or digest(path) != change['sha256']:
+            if stored(path) != change['sha256']:
                 errors.append(f"Missing or changed before/after: {change['path']}")
             if final and not change['shown_in_chat']:
                 errors.append(f"{name}: consequential change not acknowledged as shown in chat: {change['section']}")
@@ -249,9 +291,11 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
 
 @app.command()
 def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], project: Path | None = None,
-          reports: str | None = None, edits: str | None = None, peer_review: str | None = None) -> None:
+          reports: str | None = None, edits: str | None = None, keep: str | None = None,
+          peer_review: str | None = None) -> None:
     """Start a unique run under the saved destination. Print its absolute directory; never overwrite a run."""
-    overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'peer_review': peer_review}.items() if v is not None}
+    overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'keep': keep,
+                                    'peer_review': peer_review}.items() if v is not None}
     ctx = projects.context(target, project, overrides)
     if ctx['status'] != 'ready':
         typer.echo(json.dumps(ctx, indent=2))
@@ -450,6 +494,90 @@ def validate(run: Path, final: bool = False) -> None:
                            'problems': errors, 'index': str(run.resolve() / 'README.md')}, indent=2))
     if errors:
         raise typer.Exit(1)
+
+
+def kept(data: dict[str, Any], relative: str, extra: list[str]) -> bool:
+    """Whether pack leaves a file in place: the manifest, the generated READMEs, the reports and the deliverables."""
+    names = {'run.json', 'README.md', ARCHIVE, *(f'{name}/README.md' for name in data['skills'])}
+    names |= {item['path'] for entry in data['skills'].values() for item in entry['artifacts'] if item['role'] == 'report'}
+    return relative.startswith('.') or relative in names or any(fnmatch(relative, p) for p in (*DELIVERABLES, *extra))
+
+
+@app.command()
+@serialized
+def pack(run: Path, keep: Annotated[list[str] | None, typer.Option(
+        '--keep', help="Another file to leave in place, as a path in the run (fnmatch pattern); repeat")] = None) -> None:
+    """Pack a finished run's evidence into evidence.zip, leaving the index, the reports, the dashboard and the
+    corrected version in place. For the `keep: results` setting; run it last, after validate --final passes."""
+    run = run.resolve()
+    data = read(run)
+    if data.get('packed'):
+        typer.echo(f"Already packed in {ARCHIVE}.")
+        return
+    errors = problems(run, data, final=True)
+    if errors:
+        typer.echo('Pack a run only once it validates (runs.py validate RUN --final):\n' + '\n'.join(errors), err=True)
+        raise typer.Exit(1)
+    files = {}
+    for path in sorted(p for p in run.rglob('*') if p.is_file()):
+        relative = path.relative_to(run).as_posix()
+        if not kept(data, relative, keep or []):
+            files[relative] = digest(path)
+    if not files:
+        typer.echo('Nothing to pack.')
+        return
+    partial = run / f'.{ARCHIVE}.partial'
+    with zipfile.ZipFile(partial, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for relative in files:
+            archive.write(run / relative, relative)
+    with zipfile.ZipFile(partial) as archive:
+        if any(hashlib.sha256(archive.read(r)).hexdigest() != sha for r, sha in files.items()):
+            partial.unlink()
+            typer.echo('The archive did not read back identically; nothing was packed.', err=True)
+            raise typer.Exit(1)
+    partial.replace(run / ARCHIVE)
+    data['packed'] = {'archive': ARCHIVE, 'sha256': digest(run / ARCHIVE), 'packed_at': now(), 'files': files}
+    save(run, data)  # the manifest records the archive before any original is removed
+    for relative in files:
+        (run / relative).unlink()
+    for folder in sorted((p for p in run.rglob('*') if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+        if not any(folder.iterdir()):
+            folder.rmdir()
+    left = sorted(p.relative_to(run).as_posix() for p in run.rglob('*') if p.is_file() and not p.name.startswith('.'))
+    typer.echo(f"Packed {len(files)} files into {run / ARCHIVE}; left in place: {', '.join(left)}")
+
+
+@app.command()
+@serialized
+def unpack(run: Path) -> None:
+    """Restore a packed run's files from evidence.zip, so the run can continue; the archive goes once they are back."""
+    run = run.resolve()
+    data = read(run)
+    packed = data.get('packed')
+    if not packed:
+        typer.echo('This run is not packed.')
+        return
+    path = within(run, packed['archive'])
+    with zipfile.ZipFile(path) as archive:
+        bodies = {relative: archive.read(relative) for relative in packed['files']}
+    for relative, body in bodies.items():
+        target = within(run, relative)
+        if hashlib.sha256(body).hexdigest() != packed['files'][relative]:
+            typer.echo(f"{relative} changed inside {ARCHIVE}; nothing was restored.", err=True)
+            raise typer.Exit(1)
+        if target.exists() and digest(target) != packed['files'][relative]:
+            typer.echo(f"{relative} exists with other contents; nothing was restored or overwritten.", err=True)
+            raise typer.Exit(1)
+    for relative, body in bodies.items():
+        target = within(run, relative)
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open('xb') as output:
+                output.write(body)
+    del data['packed']
+    save(run, data)
+    path.unlink()
+    typer.echo(f"Restored {len(bodies)} files; the run can continue.")
 
 
 if __name__ == '__main__':

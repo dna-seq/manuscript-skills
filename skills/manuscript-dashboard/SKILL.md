@@ -29,7 +29,9 @@ and state their scope and unknown coverage rather than inventing a complete run.
 ## 1. Collect the inventory
 
 Every skill of the run writes `findings.json` beside its report ([stage findings](references/stage-findings.md)).
-Collect drafts the inventory from those files and the run manifest:
+Collect drafts the inventory from those files and the run manifest. A run whose evidence was packed
+(its index names `evidence.zip`) is unpacked first with `../manuscript-integrity-check/scripts/runs.py
+unpack RUN`, and packed again at the end when the project's `keep` is still `results`.
 
 ```bash
 uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/findings.draft.json --version v0.3

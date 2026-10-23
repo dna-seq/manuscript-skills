@@ -8,6 +8,11 @@
 `resolve PAPER --json` discovers the nearest .manuscript-skills.yaml without writing.
 `configure ROOT ...` saves answers once; repeat it only for explicit lasting changes.
 Conversation overrides on resolve affect this invocation, never the saved configuration.
+
+`questions` are the locations a run cannot start without. `preferences` are the settings nobody has chosen
+for this project (here or globally), each with its recommended answer and why: ask them in the same
+first-use batch, but never wait for them, since their defaults are safe. A setting reaches the project
+file only as an answer: setup copies the choices saved globally, never the defaults.
 """
 
 from __future__ import annotations
@@ -27,6 +32,9 @@ import settings
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 CONFIG = ".manuscript-skills.yaml"
 PEER_REVIEW = ("auto", "on-request", "off")
+OUTPUT_DIR = "reviews"
+OUTPUT_WHY = ("A reviews/ folder in the manuscript's folder keeps every run with the paper: you and your co-authors "
+              "find the reports where the paper is, and later runs and the next revision can reuse them.")
 
 
 class ProjectError(ValueError):
@@ -131,10 +139,13 @@ def context(target: str, project: Path | None = None, overrides: dict[str, str] 
     for key, question in (
         ("manuscripts", "Which files or connected documents are the authoritative manuscript and supplements?"),
         ("code_roots", "Which code repositories are connected? None or unknown are valid answers."),
-        ("output_dir", "Where should inspectable skill runs be saved? Suggested local folder: reviews/."),
+        ("output_dir", f"Where should inspectable skill runs be saved? Recommended: {OUTPUT_DIR}/ in the manuscript's folder."),
     ):
         if key not in data:
-            questions.append({"key": key, "question": question})
+            questions.append({"key": key, "question": question}
+                             | ({"recommended": OUTPUT_DIR, "why": OUTPUT_WHY} if key == "output_dir" else {}))
+    saved = data.get("settings", {})
+    preferences = [q for q in settings.questions(global_data) if q["key"] not in saved]
     issues = []
     root = path.parent
     requested = target if is_remote(target) else str(Path(target).expanduser().resolve())
@@ -160,7 +171,7 @@ def context(target: str, project: Path | None = None, overrides: dict[str, str] 
     return {"status": "conflict" if issues else "setup_required" if questions else "ready",
             "project_file": str(path), "project_root": str(root), "project": data,
             "effective": effective, "sources": sources, "output_dir": str(output) if output else None,
-            "questions": questions, "issues": issues}
+            "questions": questions, "preferences": preferences, "issues": issues}
 
 
 @app.command()
@@ -169,11 +180,13 @@ def resolve(
     project: Annotated[Path | None, typer.Option(help="Explicit manuscript-project folder")] = None,
     reports: str | None = None,
     edits: str | None = None,
+    keep: str | None = None,
     peer_review: str | None = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Read the project, effective settings and only genuinely missing setup questions. Never writes."""
-    overrides = {k: v for k, v in {"reports": reports, "edits": edits, "peer_review": peer_review}.items() if v is not None}
+    overrides = {k: v for k, v in {"reports": reports, "edits": edits, "keep": keep,
+                                    "peer_review": peer_review}.items() if v is not None}
     try:
         result = context(target, project, overrides)
     except ProjectError as exc:
@@ -200,6 +213,7 @@ def configure(
     default_panels: Annotated[bool, typer.Option("--default-panels", help="Forget saved readers and referees")] = False,
     reports: str | None = None,
     edits: str | None = None,
+    keep: str | None = None,
     peer_review: str | None = None,
 ) -> None:
     """Save stated project choices. Omitted fields survive; use only for explicit lasting choices."""
@@ -228,8 +242,12 @@ def configure(
                 if len(seats) > limit:
                     raise ProjectError(f"At most {limit} {key}: every seat reads the whole paper.")
                 data[key] = [seat.strip() for seat in seats]
-        choices = data.setdefault("settings", settings.effective(settings.load(settings.settings_path())) | {"peer_review": "auto"})
-        for key, choice in {"reports": reports, "edits": edits, "peer_review": peer_review}.items():
+        if "settings" not in data:  # a new project starts from the choices saved globally, never the defaults
+            global_data = settings.load(settings.settings_path())
+            data["settings"] = {key: settings.value(global_data, key) for key in settings.SETTINGS
+                                if settings.value(global_data, key)}
+        choices = data["settings"]
+        for key, choice in {"reports": reports, "edits": edits, "keep": keep, "peer_review": peer_review}.items():
             if choice is None:
                 continue
             if key == "peer_review":
@@ -238,6 +256,8 @@ def configure(
             else:
                 settings._check(key, choice)
             choices[key] = choice
+        if not choices:
+            data.pop("settings")
         write(path, data)
     except (ProjectError, settings.SettingsError, OSError) as exc:
         typer.echo(str(exc), err=True)

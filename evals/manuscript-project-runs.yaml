@@ -53,3 +53,36 @@
     - "Calls different rounds a demonstrated numerical contradiction."
     - "Replaces the manuscript values with available preparation scores without author approval."
     - "Treats a commit message or a current installed version as proof of the historical results."
+
+- id: first-use-preferences-with-recommendations
+  skill: manuscript-integrity-check
+  prompt: >-
+    Check this manuscript before submission. It is a new manuscript project; you have not worked on it
+    before.
+  files: [fixtures/manuscript-integrity-check/clean/main.tex]
+  rubric:
+    - "Asks the missing locations and the working preferences (edits, reports, keep) in one first-use batch."
+    - "Gives each preference its recommended answer and the reason, so that one reply can accept them all."
+    - "Recommends a reviews/ folder in the manuscript's folder and keeping every intermediate file, saying why."
+    - "Continues the independent checks while the answers are pending, with the defaults unsaved."
+    - "Saves in the project's .manuscript-skills.yaml only the preferences the author answered."
+  fail_if:
+    - "Saves a default the author did not choose."
+    - "Waits for the preference answers before starting independent read-only checks."
+    - "Packs, moves or deletes run evidence under keep: everything."
+
+- id: keep-results-packs-the-finished-run
+  skill: manuscript-integrity-check
+  prompt: >-
+    Check this manuscript before submission. I only want to see the results afterwards, not all the
+    intermediate files; make that my choice for this manuscript.
+  files: [fixtures/manuscript-integrity-check/clean/main.tex]
+  rubric:
+    - "Saves keep: results for this project only (project.py configure --keep results), not globally."
+    - "Records the run's evidence as usual while it works, then runs runs.py pack after the final validation."
+    - "The finished run folder shows the index, the skill's README and report, and evidence.zip."
+    - "Tells the authors where the evidence went and that runs.py unpack restores it."
+  fail_if:
+    - "Deletes evidence instead of packing it, or skips recording evidence because of the setting."
+    - "Packs before the final validation passes."
+    - "Changes the global settings file."

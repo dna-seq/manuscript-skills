@@ -66,8 +66,11 @@ submitted by mistake.
    By default a run applies routine fixes and proposes every substantive change; story edits that keep
    the direction you chose count as routine. Ask for a report only if you want nothing applied.
 
-On first use the assistant asks only for what it cannot find (the manuscript files, any code repository
-and where to save reports) and remembers the answers for that manuscript.
+On first use the assistant asks, in one batch, only for what it cannot find (the manuscript files, any
+code repository and where to save the runs) and how you want it to work: how much it may change by
+itself, whether full reports also appear in the chat, and whether to keep every intermediate file. Each
+question comes with the recommended answer and the reason for it, so one "yes" accepts them all. The
+answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every skill reuses them.
 
 ## Choose the task you need
 
@@ -90,8 +93,9 @@ and where to save reports) and remembers the answers for that manuscript.
 | See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, and a PDF measured against a page limit. |
 | List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
 
-Each skill also works on its own: a paragraph edit needs no full manuscript review, and a full
-submission review includes the reference checks where relevant. Skills cover the whole paper by default;
+manuscript-improve runs the other skills as its stages, so you do not need to run them first. Each
+skill also works on its own when you want only that service: a paragraph edit needs no full manuscript
+review, and a full submission review includes the reference checks where relevant. Skills cover the whole paper by default;
 you can ask for selected sections or one stage at a time instead.
 
 ## What leaves your computer
@@ -105,6 +109,27 @@ you can ask for selected sections or one stage at a time instead.
 - Reports, the corrected version and the dashboard are saved in the manuscript project or the output
   folder you chose, with the evidence behind each finding. Unrelated downloads may still use temporary
   storage.
+
+## What a run leaves in your folder
+
+Each run gets its own folder, by default under `reviews/` in the manuscript's folder. It holds:
+
+- the run index (`README.md`), which links everything below;
+- each skill's report and, for an improvement run, the dashboard and the corrected version of the paper;
+- the evidence behind each finding: every simulated referee's and reader's report, each check and its
+  output, the commands that ran and the before and after of each edit.
+
+The evidence is many files, often more than a hundred for one skill. It is kept because the work depends
+on it: a resumed run and the dashboard read it instead of repeating the work, and you can trace any
+finding to the check, referee or reader behind it. This is the recommended setting, `keep: everything`.
+If you only want to see the outcome, choose `keep: results`: once a run is finished, everything except
+the index, the reports, the dashboard and the corrected version is packed into one `evidence.zip` in the
+same folder, and unpacked again if the run continues. Nothing is deleted. The assistant asks which you
+prefer on first use; to change it later, say "keep only the results" or "keep everything".
+
+A few documents you asked for go beside the manuscript instead: the corrected version as
+`<manuscript>.proposed.md`, and the journal ladder, venue requirements and shared record from journal
+selection.
 
 ## More details
 
@@ -364,7 +389,8 @@ and a low score guarantees nothing at submission.
 
 On first use with a manuscript project, the assistant saves your answers in `.manuscript-skills.yaml`
 in that project, and every skill reuses them, so a later skill or revision does not restart the
-questions. It asks again only when you request it or something no longer matches, such as a missing
+questions. Only what you answered is saved: a setting you skipped uses its default, unsaved, until you
+choose. It asks again only when you request it or something no longer matches, such as a missing
 source or a destination it cannot reach. Related papers can be linked without sharing or overwriting
 their separate choices.
 
@@ -376,6 +402,7 @@ conversation overrides the project's saved choices, and those override your glob
 |---|---|---|
 | `edits` | `conservative`, `propose`, `apply` | How much an improvement run changes by itself. `conservative` applies routine corrections that preserve meaning (for the story stage, also edits that keep the direction you recorded) and proposes consequential argument, claim or numerical changes; `propose` only reports; `apply` makes authorised substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the whole improved paper before accepting it, and exact consequential before/after text is shown promptly in the chat, even with file reports. |
 | `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
+| `keep` | `everything`, `results` | What stays in a run's folder once it ends. `everything` keeps every intermediate file, which later steps and the dashboard read and which let you trace each finding; `results` keeps the index, the reports, the dashboard and the corrected version, and packs the rest into `evidence.zip` (see [What a run leaves in your folder](#what-a-run-leaves-in-your-folder)). |
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |
 | `readers` | a skimmer, a potential user and an informed outsider | Who reads the paper for `manuscript-story`. Each reads in its own order and says where it would close the paper, not just where attention dipped. Save your own audiences with `project.py configure ROOT --reader "clinician: ..." --reader ...`. |
 

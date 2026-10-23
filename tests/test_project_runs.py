@@ -63,7 +63,35 @@ def test_first_use_asks_missing_context_without_writing(manuscript: Path) -> Non
     data = json.loads(result.output)
     assert data['status'] == 'setup_required'
     assert {q['key'] for q in data['questions']} == {'manuscripts', 'code_roots', 'output_dir'}
+    output = next(q for q in data['questions'] if q['key'] == 'output_dir')
+    assert output['recommended'] == 'reviews' and output['why']
+    # The working preferences are asked in the same batch, each with its recommended answer and why.
+    assert [(q['key'], q['recommended']) for q in data['preferences']] == [
+        ('reports', 'file'), ('edits', 'conservative'), ('keep', 'everything')]
+    assert all(q['why'] for q in data['preferences'])
     assert not (manuscript.parent / projects.CONFIG).exists()
+
+
+def test_preferences_never_block_a_run_and_are_saved_only_as_answers(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    saved = yaml.safe_load((manuscript.parent / projects.CONFIG).read_text())
+    assert 'settings' not in saved  # the defaults are not answers
+    data = json.loads(resolve(manuscript).output)
+    assert data['status'] == 'ready' and {q['key'] for q in data['preferences']} == {'reports', 'edits', 'keep'}
+    start(manuscript)  # a pending preference never holds up the work
+    assert configure(manuscript, '--keep', 'results').exit_code == 0
+    data = json.loads(resolve(manuscript).output)
+    assert data['effective']['keep'] == 'results' and data['sources']['keep'] == 'project'
+    assert {q['key'] for q in data['preferences']} == {'reports', 'edits'}
+
+
+def test_a_new_project_copies_the_choices_saved_globally_and_does_not_ask_them(manuscript: Path) -> None:
+    global_file = projects.settings.settings_path()
+    global_file.parent.mkdir(parents=True)
+    global_file.write_text('keep: results\n')
+    assert [q['key'] for q in json.loads(resolve(manuscript).output)['preferences']] == ['reports', 'edits']
+    assert configure(manuscript).exit_code == 0
+    assert yaml.safe_load((manuscript.parent / projects.CONFIG).read_text())['settings'] == {'keep': 'results'}
 
 
 def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> None:
@@ -71,14 +99,15 @@ def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> N
     for _ in range(3):
         data = json.loads(resolve(manuscript).output)
         assert data['status'] == 'ready' and not data['questions']
-        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'peer_review': 'auto'}
+        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'keep': 'everything',
+                                     'peer_review': 'auto'}
     for skill in ('manuscript-prose-edit', 'manuscript-deslop', 'manuscript-dashboard', 'manuscript-journal-select'):
         run = start(manuscript, skill)
         assert runs.read(run)['context']['project_file'] == str(manuscript.parent / projects.CONFIG)
 
 
 def test_conversation_override_is_transient_and_project_outlives_global_change(manuscript: Path) -> None:
-    assert configure(manuscript).exit_code == 0
+    assert configure(manuscript, '--reports', 'file', '--edits', 'conservative').exit_code == 0
     original = (manuscript.parent / projects.CONFIG).read_bytes()
     global_file = projects.settings.settings_path()
     global_file.parent.mkdir(parents=True)
@@ -431,3 +460,58 @@ def test_a_story_stage_expects_the_readers_saved_for_the_project_and_a_critic_re
     saved = {'context': {'project': {'readers': ['clinician: a hospital physician', 'Bio student: a second-year student']}}}
     assert runs.expected_readers(saved) == {'clinician', 'bio-student'}
     assert 'critic' in runs.PANEL and runs.Role('critic')
+
+
+def _finished_run(manuscript: Path) -> Path:
+    """A completed prose-edit run with a report, a command, a before/after, a dashboard and a stray workspace file."""
+    assert configure(manuscript, '--keep', 'results').exit_code == 0
+    run = start(manuscript)
+    report = manuscript.parent / 'report.md'
+    report.write_text('Full findings with actual coverage.')
+    assert add(run, report).exit_code == 0
+    command = runner.invoke(runs.app, ['exec', str(run), '--skill', 'manuscript-prose-edit', '--', sys.executable, '-c', "print('check')"])
+    assert command.exit_code == 0, command.output
+    assert runner.invoke(runs.app, ['change', str(run), '--skill', 'manuscript-prose-edit', '--section', 'Abstract',
+                                    '--reason', 'Clearer.', '--after', str(report), '--shown-in-chat']).exit_code == 0
+    (run / 'manuscript-prose-edit/workspace').mkdir()
+    (run / 'manuscript-prose-edit/workspace/brief.md').write_text('A seat brief.')
+    (run / 'manuscript-dashboard/dashboard').mkdir(parents=True)
+    (run / 'manuscript-dashboard/dashboard/manuscript-dashboard.html').write_text('<html></html>')
+    assert finish(run).exit_code == 0
+    return run
+
+
+def test_pack_leaves_the_results_and_validates_the_evidence_inside_the_archive(manuscript: Path) -> None:
+    run = _finished_run(manuscript)
+    result = runner.invoke(runs.app, ['pack', str(run)])
+    assert result.exit_code == 0, result.output
+    left = sorted(p.relative_to(run).as_posix() for p in run.rglob('*') if p.is_file() and not p.name.startswith('.'))
+    assert left == ['README.md', 'evidence.zip', 'manuscript-dashboard/dashboard/manuscript-dashboard.html',
+                    'manuscript-prose-edit/README.md', 'manuscript-prose-edit/report.md', 'run.json']
+    packed = runs.read(run)['packed']['files']
+    assert {'inputs/01-paper.md', 'manuscript-prose-edit/changes/0001.md',
+            'manuscript-prose-edit/workspace/brief.md'} <= set(packed)
+    assert 'evidence.zip' in (run / 'README.md').read_text()
+    assert 'in [evidence.zip](../evidence.zip)' in (run / 'manuscript-prose-edit/README.md').read_text()
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
+    # A packed run takes no new evidence until it is unpacked.
+    refused = add(run, manuscript.parent / 'report.md', 'check', 'manuscript-prose-edit', '--name', 'later.md')
+    assert refused.exit_code == 3 and 'unpack' in refused.output
+    assert runner.invoke(runs.app, ['unpack', str(run)]).exit_code == 0
+    assert not (run / 'evidence.zip').exists() and 'packed' not in runs.read(run)
+    assert (run / 'manuscript-prose-edit/workspace/brief.md').read_text() == 'A seat brief.'
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
+    assert add(run, manuscript.parent / 'report.md', 'check', 'manuscript-prose-edit', '--name', 'later.md').exit_code == 0
+
+
+def test_pack_refuses_an_unfinished_run_and_a_lost_archive_fails_validation(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    result = runner.invoke(runs.app, ['pack', str(run)])
+    assert result.exit_code == 1 and 'still running' in result.output
+    assert not (run / 'evidence.zip').exists()
+    finished = _finished_run(manuscript)
+    assert runner.invoke(runs.app, ['pack', str(finished)]).exit_code == 0
+    (finished / 'evidence.zip').unlink()
+    result = runner.invoke(runs.app, ['validate', str(finished), '--final'])
+    assert result.exit_code == 1 and 'evidence archive' in result.output
