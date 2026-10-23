@@ -435,6 +435,28 @@ def test_every_reader_and_referee_records_whether_it_ran_as_a_fresh_agent(manusc
     assert any('does not record whether it ran as a fresh agent' in e for e in runs.problems(run, runs.read(run)))
 
 
+def test_other_models_are_a_saved_project_choice_and_each_seat_records_its_model(manuscript: Path) -> None:
+    """--other-model saves the models the panels also run on (manuscript-other-models), --one-model forgets them, and
+    a referee registered with --model shows it in the manifest and the skill's README."""
+    assert configure(manuscript, '--other-model', 'codex/gpt-5.6-sol', '--other-model', 'claude').exit_code == 0
+    assert json.loads(resolve(manuscript).output)['project']['other_models'] == ['codex/gpt-5.6-sol', 'claude']
+    bad = configure(manuscript, '--other-model', 'Codex CLI')
+    assert bad.exit_code == 2 and 'CLI/MODEL' in bad.output
+    assert configure(manuscript, '--other-model', 'codex', '--one-model').exit_code == 2
+    report = manuscript.parent / 'findings.json'
+    report.write_text('[]')
+    run = start(manuscript, 'manuscript-peer-review')
+    assert add(run, report, 'referee', 'manuscript-peer-review', '--seat', 'skeptic@codex', '--isolation', 'fresh-agent',
+               '--model', 'codex/gpt-5.6-sol', '--name', 'referees/skeptic@codex.json').exit_code == 0
+    [item] = runs.read(run)['skills']['manuscript-peer-review']['artifacts']
+    assert item['model'] == 'codex/gpt-5.6-sol' and item['seat'] == 'skeptic@codex'
+    assert 'seat: skeptic@codex (fresh agent), on codex/gpt-5.6-sol' in (run / 'manuscript-peer-review/README.md').read_text()
+    assert configure(manuscript, '--one-model').exit_code == 0
+    assert 'other_models' not in json.loads(resolve(manuscript).output)['project']
+    (manuscript.parent / '.manuscript-skills.yaml').write_text('schema_version: 1\nother_models: codex\n')
+    assert resolve(manuscript).exit_code == 2
+
+
 def test_how_an_earlier_panel_output_ran_is_recorded_once_with_its_basis(manuscript: Path, tmp_path: Path) -> None:
     assert configure(manuscript).exit_code == 0
     run = start(manuscript, 'manuscript-peer-review')

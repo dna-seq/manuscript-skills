@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -33,6 +34,8 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 CONFIG = ".manuscript-skills.yaml"
 PEER_REVIEW = ("auto", "on-request", "off")
 OUTPUT_DIR = "reviews"
+# A seat on another model, run by manuscript-other-models: a CLI, or a CLI and the model it should use.
+OTHER_MODEL = re.compile(r"[a-z][a-z0-9-]*(/[\w.:@\[\]-]+)?")
 OUTPUT_WHY = ("A reviews/ folder in the manuscript's folder keeps every run with the paper: you and your co-authors "
               "find the reports where the paper is, and later runs and the next revision can reuse them.")
 
@@ -85,6 +88,9 @@ def read(path: Path) -> dict[str, Any]:
             continue
         if not isinstance(data[key], list) or any(not isinstance(v, str) or not v.strip() for v in data[key]):
             raise ProjectError(f"{path}: {key} must be a list of non-empty locations.")
+    if "other_models" in data and (not isinstance(data["other_models"], list)
+                                   or any(not isinstance(v, str) or not OTHER_MODEL.fullmatch(v) for v in data["other_models"])):
+        raise ProjectError(f"{path}: other_models must be a list of CLI or CLI/MODEL names, such as codex/gpt-5.6-sol.")
     if "manuscripts" in data and not data["manuscripts"]:
         raise ProjectError(f"{path}: manuscripts cannot be empty.")
     for key in ("output_dir", "output_url"):
@@ -211,6 +217,8 @@ def configure(
     reader: Annotated[list[str] | None, typer.Option("--reader", help="A reader seat for manuscript-story, e.g. 'clinician: orders genetic tests'; repeat")] = None,
     referee: Annotated[list[str] | None, typer.Option("--referee", help="An extra referee seat for manuscript-peer-review; repeat")] = None,
     default_panels: Annotated[bool, typer.Option("--default-panels", help="Forget saved readers and referees")] = False,
+    other_model: Annotated[list[str] | None, typer.Option("--other-model", help="Also run the panels' seats on this CLI, or CLI/MODEL (manuscript-other-models); repeat")] = None,
+    one_model: Annotated[bool, typer.Option("--one-model", help="Forget the other models: seats run on the host only")] = False,
     reports: str | None = None,
     edits: str | None = None,
     keep: str | None = None,
@@ -237,6 +245,14 @@ def configure(
         if default_panels:
             data.pop("readers", None)
             data.pop("referees", None)
+        if other_model and one_model:
+            raise ProjectError("Choose --other-model or --one-model, not both.")
+        if one_model:
+            data.pop("other_models", None)
+        if other_model:
+            if bad := [v for v in other_model if not OTHER_MODEL.fullmatch(v.strip())]:
+                raise ProjectError(f"Not a CLI or CLI/MODEL name: {', '.join(bad)} (for example codex/gpt-5.6-sol).")
+            data["other_models"] = list(dict.fromkeys(v.strip() for v in other_model))
         for key, seats, limit in (("readers", reader, 8), ("referees", referee, 2)):
             if seats:
                 if len(seats) > limit:

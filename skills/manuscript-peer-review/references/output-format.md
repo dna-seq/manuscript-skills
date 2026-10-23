@@ -137,8 +137,10 @@ Omit when empty.>
 
 - <Each missing input and its consequence, e.g. "Supplementary Table S1 was not supplied, so the test
   set's composition was judged from the Methods alone.">
-<When the stakes justify it, one sentence offering the robustness check or referees on another model
-family, with their cost (options.md).>
+<Which models the referees ran on, when more than one ("The three referees ran on Claude Opus 5.5 and
+again on GPT-5.6-Sol through Codex CLI"), and any seat that failed on one. When the stakes justify it,
+one sentence offering the robustness check or referees on another model family, with their cost
+(options.md).>
 ```
 
 ## Content rules
@@ -227,7 +229,7 @@ family, with their cost (options.md).>
   supplied; figures available only as images or not at all; code not run; cited sources paywalled or
   not read; prior work whose identifiers could not be resolved; the journal's guidelines for reviewers
   not found, so its form and recommendation options were assumed; referees run one after another by one
-  agent; one model family; no reviewer questions for the paper's field.
+  agent; one model family (or which models, when several); no reviewer questions for the paper's field.
 - **Run the smell check before handing it over** (required):
   `uv run --script ../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`, then read
   the report against the pattern list it prints, from the `manuscript-deslop` catalogue

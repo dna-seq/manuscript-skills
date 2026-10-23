@@ -29,7 +29,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `dismissed` | flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
 | `not_checked` | checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
 | `decisions` | choices only the authors can make: `id`, `summary`, `finding_ids`. |
-| `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`, `isolation`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, `isolation`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
+| `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`, `isolation`, `model`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, `isolation`, `model`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
 | `reference` | a review to compare with; [below](#reference-review). |
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
 | `story` | optional, from `manuscript-story`: the direction, the story tests and the options only the authors can choose; [below](#story). |

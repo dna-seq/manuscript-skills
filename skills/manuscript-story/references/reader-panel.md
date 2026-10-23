@@ -19,7 +19,10 @@ requires: a new agent per reader, never a fork of the coordinator and never one 
 started by the session that can start agents (in manuscript-improve, the coordinator itself). Give it the
 manuscript, its figures as images and its seat's brief, nothing else: not the record, not
 the authors' notes or messages, not earlier reports, not the other seats' answers, not this skill's other
-files, and no summary or hint from the coordinator. Record each reader with `--isolation fresh-agent`. Only
+files, and no summary or hint from the coordinator. Record each reader with `--isolation fresh-agent`. When the authors chose more than one model, each reader
+also reads on each chosen model, as `skimmer@codex`, through
+[manuscript-other-models](../../manuscript-other-models/SKILL.md), recorded with `--model`; readers on
+different models are reported side by side, never averaged. Only
 when the host cannot start agents at all, read once per seat, in order, do not revise one seat's answer
 after reading as the next, record `--isolation one-agent` and say in the report that these readers were not
 independent. A seat that has read the authors' intentions can no longer tell them whether the text conveys

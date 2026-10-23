@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript other models"
+  short_description: "Run the simulated referees and readers on more than one model, through the CLIs you already use"
+  default_prompt: "Use $manuscript-other-models to show which other models I can use from here, check that Claude Code is signed in, and run our referee panel on Claude Code as well as here."

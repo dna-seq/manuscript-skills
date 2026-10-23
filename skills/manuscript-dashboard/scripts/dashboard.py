@@ -194,6 +194,7 @@ class Reader(Record):
     round: str = ""  # which panel, when a run has more than one
     path: list[Step] = Field(default_factory=list)  # the sections in the order the reader visited them
     isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
+    model: str = ""  # the model that read it (codex/gpt-5.6-sol); "" when the run did not record it
 
 
 class Concern(Record):
@@ -216,6 +217,7 @@ class Reviewer(Record):
     seat: Text
     summary: str = ""
     isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
+    model: str = ""  # the model that read it (codex/gpt-5.6-sol); "" when the run did not record it
     strengths: list[str] = Field(default_factory=list)
     concerns: list[Concern] = Field(default_factory=list)
 

@@ -224,8 +224,10 @@ Follow [adjudication.md](references/adjudication.md):
 
 Offer these when the stakes justify the cost ([options.md](references/options.md)): a meaning-equivalent
 rewrite of the sections behind confirmed findings, to separate substance from wording (a changed verdict
-marks a misread risk); seats on other model families, recorded and never called independent, and only
-with consent to send the manuscript to another provider.
+marks a misread risk); seats on other models, recorded and never called independent, and only with consent
+to send the manuscript to another provider. When the authors asked for more than one model, or the project
+saves `other_models`, this is not optional: run every seat on each chosen model as well, from step 3, with
+[manuscript-other-models](../manuscript-other-models/SKILL.md).
 
 ## Step 7: give the result
 

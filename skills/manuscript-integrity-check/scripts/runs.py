@@ -161,7 +161,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
             lines.append(f"Review mode: {seat.get('review_mode', 'full')}.\n")
         for item in seat["artifacts"]:
             lines.append(f"- {item['role']}: {link(name, item['path'])}" + (f" — seat: {item['seat']}" if item.get('seat') else "")
-                         + (f" ({ISOLATION_LABEL[item['isolation']]})" if item.get('isolation') in ISOLATION_LABEL else ""))
+                         + (f" ({ISOLATION_LABEL[item['isolation']]})" if item.get('isolation') in ISOLATION_LABEL else "")
+                         + (f", on {item['model']}" if item.get('model') else ""))
         for issue in seat["issues"]:
             lines.extend(["", f"- **{issue['kind']}**: {issue['message']}"])
         for number, command in enumerate(seat['commands'], 1):
@@ -186,7 +187,7 @@ def ensure_skill(data: dict[str, Any], name: str) -> dict[str, Any]:
 
 def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str,
              destination: str | None = None, seat: str | None = None, allow_empty: bool = False,
-             isolation: str | None = None) -> dict[str, Any]:
+             isolation: str | None = None, model: str | None = None) -> dict[str, Any]:
     if role not in ROLES:
         raise ValueError(f"Unknown evidence role: {role}")
     if role in PANEL and isolation not in ISOLATION_LABEL:
@@ -206,6 +207,8 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
             shutil.copyfileobj(original, output)
     item = {"path": target.relative_to(run.resolve()).as_posix(), "role": role, "seat": seat,
             "sha256": digest(target), "recorded_at": now()}
+    if model:  # the model that produced it, as manuscript-other-models names it: codex/gpt-5.6-sol
+        item["model"] = model
     if role in PANEL:
         item["isolation"] = isolation
         if isolation == 'one-agent':
@@ -324,15 +327,17 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
 @serialized
 def add(run: Path, skill: Annotated[str, typer.Option('--skill')],
         file: Annotated[Path, typer.Option('--file')], role: Role = Role.other,
-        name: str | None = None, seat: str | None = None, isolation: Isolation | None = None) -> None:
-    """Retain an actual output with its role. --seat identifies a reader or referee, and --isolation says whether it
-    ran as a fresh agent; files cannot be overwritten."""
+        name: str | None = None, seat: str | None = None, isolation: Isolation | None = None,
+        model: Annotated[str | None, typer.Option(help="The model that produced it, e.g. codex/gpt-5.6-sol")] = None) -> None:
+    """Retain an actual output with its role. --seat identifies a reader or referee, --isolation says whether it
+    ran as a fresh agent and --model which model read it; files cannot be overwritten."""
     run = run.resolve()
     data = read(run)
     if role.value in PANEL and isolation is None:
         raise typer.BadParameter(f"A {role.value} output records how it ran: --isolation fresh-agent (a new agent whose only "
                                  "context was its brief) or --isolation one-agent (the fallback when the host cannot start agents).")
-    item = artifact(run, data, skill, file, role.value, name, seat, isolation=isolation.value if isolation else None)
+    item = artifact(run, data, skill, file, role.value, name, seat, isolation=isolation.value if isolation else None,
+                    model=model.strip() if model and model.strip() else None)
     save(run, data)
     typer.echo(str(run / item['path']))
 

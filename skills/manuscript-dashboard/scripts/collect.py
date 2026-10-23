@@ -215,16 +215,17 @@ def link_figures(inventory: dict) -> None:
         record["finding_ids"] = list(dict.fromkeys(fid for fid in ids if fid))
 
 
-def isolation(data: dict | None) -> tuple[dict[str, str], dict[str, str]]:
+def isolation(data: dict | None) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
     """How each reader (by its file) and each referee (by its seat) ran, as runs.py recorded it: a fresh agent, or
-    one agent reading as every seat in turn."""
+    one agent reading as every seat in turn, and the model that read it when the run recorded one."""
     by_path, by_seat = {}, {}
     for name in ("manuscript-story", "manuscript-peer-review"):
         for item in ((data or {}).get("skills", {}).get(name) or {}).get("artifacts", []):
             if item.get("isolation") and item.get("role") in {"reader", "referee", "seat"}:
-                by_path[item["path"]] = item["isolation"]
+                ran = {"isolation": item["isolation"], "model": str(item.get("model") or "")}
+                by_path[item["path"]] = ran
                 if item.get("seat"):
-                    by_seat[item["seat"]] = item["isolation"]
+                    by_seat[item["seat"]] = ran
     return by_path, by_seat
 
 
@@ -245,7 +246,7 @@ def panel(run: Path, data: dict | None = None) -> dict:
                         "stopped_at": where or "Finished", "next": str(doc.get("next") or ""),
                         "left": str(left.get("section") or "") if left else "", "dips": dips, "path": path_steps,
                         "round": path.parent.name if path.parent.name != "readers" else "",
-                        "isolation": by_path.get(path.relative_to(run).as_posix(), "")})
+                        **by_path.get(path.relative_to(run).as_posix(), {})})
     recommendations, reviewers = [], []
     # The adjudicated file carries each concern's verdict; earlier stages of the same review lack it.
     candidates = sorted(run.glob("manuscript-peer-review/**/*.json"),
@@ -265,7 +266,7 @@ def panel(run: Path, data: dict | None = None) -> dict:
                 if rec.get("recommendation") in {"accept", "minor-revision", "major-revision", "reject"}:
                     recommendations.append({"seat": seat, "venue": rec["venue"],
                                             "recommendation": rec["recommendation"], "reason": rec.get("reason") or "No reason given."})
-            reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""), "isolation": by_seat.get(seat, ""),
+            reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""), **by_seat.get(seat, {}),
                               "strengths": [str(s.get("note") or s.get("quote")) for s in strengths if s["seat"] == seat],
                               "concerns": [{"id": str(c.get("id") or f"{seat}-{n}"), "severity": str(c.get("severity") or ""),
                                             "location": str(c.get("location") or ""), "concern": str(c["concern"]),

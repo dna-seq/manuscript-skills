@@ -96,6 +96,9 @@ brief, never a fork of this conversation, as [Independent readers and referees](
 Delegated agents often cannot start agents of their own, so start the seats, readers and critics from this
 session even when another agent prepares the stage's workspaces and briefs; a stage agent never reads as the panel itself because it could not start one. Give
 them nothing from this run: not the findings so far, not the authors' messages, not what the run changed.
+When the authors asked for more than one model, or the project saves `other_models`, the coordinator also
+starts each seat on each chosen model, and the critics on the chosen model, with
+[manuscript-other-models](../manuscript-other-models/SKILL.md), at the same time as the host's seats.
 
 Stages that write proposals (figures, policy fit, story, prose edit, deslop, journal adaptation) work from the review stages'
 confirmed findings: run them after those stages, or reconcile their proposals with the findings before

@@ -116,7 +116,7 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
   the authors can choose); the
   simulated reviewers (their recommendation per journal, every concern with its suggestion and the
   adjudication's verdict, grouped by who can act); the readers' paths by section and subsection, in a tab
-  of their own; whether each reader and reviewer ran as a fresh agent; and what
+  of their own; whether each reader and reviewer ran as a fresh agent, and on which model; and what
   could not be checked. Each tab has an address, so
   `manuscript-dashboard.html#manuscript` opens the annotated paper itself, and `#manuscript/IC-1` the
   paper at that problem (`#findings/IC-1` its row, `#revised/PE-C3` that change). Evidence keeps file names only, never

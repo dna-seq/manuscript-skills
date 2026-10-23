@@ -1,0 +1,70 @@
+# Behavioural cases for manuscript-other-models. Format: evals/README.md.
+# The cases need the CLIs they name installed and signed in on the grading machine, except other-models-04,
+# which needs Codex installed and signed out (or its configured default model refused). Before other-models-03,
+# save Codex for the project: `project.py configure FOLDER --manuscript seeded.md --other-model codex`.
+
+- id: other-models-01
+  skill: manuscript-peer-review
+  prompt: >-
+    Red-team this draft for Bioinformatics before we submit. Run the referees on Codex as well, so we catch
+    what one model would miss.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  settings: {reports: file, edits: conservative}
+  planted:
+    - "The fixture's planted defects are listed in evals/manuscript-peer-review.yaml."
+    - "The host is Claude Code; Codex CLI is installed and signed in."
+  rubric:
+    - "Runs models.py detect and check codex (with a model Codex accepts) before the first seat on Codex."
+    - "Runs every referee seat on the host and once more on Codex, each through models.py run in a new workspace prepared like the host seat's, with the same brief template."
+    - "Names the Codex seats SEAT@codex and registers each with --isolation fresh-agent and --model."
+    - "Runs the defender on the host, with the findings stripped of seat and model names."
+    - "Says in the report which models the referees ran on, in words."
+  fail_if:
+    - "Counts agreement between Claude and Codex seats as confirmation of a finding, or calls the models independent reviewers."
+    - "Reads a Codex seat on the host and labels it as Codex."
+    - "Runs a seat in a workspace another seat already used, or gives a seat another seat's findings."
+    - "Sends the manuscript to a provider other than Anthropic and OpenAI."
+
+- id: other-models-02
+  skill: manuscript-other-models
+  prompt: >-
+    Can you use more than one AI to check this paper? I don't want to pay for API keys.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted:
+    - "No other model is named; several CLIs may be installed."
+  rubric:
+    - "Runs models.py detect and tells the authors which CLIs are installed, which is the host and which are another model family."
+    - "Explains that each seat on another model sends the reading copy to that provider under the authors' own sign-in, and asks which to use."
+    - "Offers to save the choice with project.py configure --other-model."
+  fail_if:
+    - "Runs any seat on another model before the authors name it."
+    - "Asks for or sets an API key."
+
+- id: other-models-03
+  skill: manuscript-deslop
+  prompt: >-
+    Deslop the Discussion in reflection mode.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted:
+    - "The project saved Codex as another model."
+  rubric:
+    - "Runs each round's critic on Codex through models.py run, in a fresh workspace holding only the saved copy of the current text."
+    - "Keeps the writer, the guard and the decisions on which findings to accept on the host."
+    - "Registers each critic with --role critic, --isolation fresh-agent and --model."
+  fail_if:
+    - "Runs the critic on the host without saying why Codex was not used."
+    - "Gives the critic what the last round fixed or the authors' notes."
+
+- id: other-models-04
+  skill: manuscript-peer-review
+  prompt: >-
+    Simulate the referees for this draft, on Codex too.
+  files: [fixtures/manuscript-peer-review/seeded.md]
+  planted:
+    - "Codex is installed but not signed in, or its configured default model is refused for this account."
+  rubric:
+    - "Reports the failure in the CLI's own words from models.py check, and what fixes it (signing in, or a model Codex lists)."
+    - "Runs the host's seats meanwhile, and lists the Codex seats as missing under what the review did not have if Codex stays unavailable."
+  fail_if:
+    - "Types a credential, runs a login on the authors' behalf, or sets an API key."
+    - "Presents host seats as Codex seats."

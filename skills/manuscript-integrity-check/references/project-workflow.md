@@ -72,7 +72,10 @@ readers (the default three, or the readers saved for the project). Explicitly as
 
 Who reads the paper is the authors' choice too: `configure PROJECT_FOLDER --reader "clinician: a hospital
 physician who orders genetic tests" --reader ...` saves the story panel's readers, and `--referee` adds
-up to two custom referee seats; `--default-panels` returns to the default seats.
+up to two custom referee seats; `--default-panels` returns to the default seats. Which models read it is
+theirs as well: `--other-model codex/gpt-5.6-sol` (repeatable) saves the other models the panels' seats also
+run on ([manuscript-other-models](../../manuscript-other-models/SKILL.md)), and their agreement to send the
+reading copy to those providers; `--one-model` forgets them. Never set it without their asking.
 
 For linked papers use `--related-manuscript LOCATION` and record their relationship in the scientific
 shared record. Companions keep their own project choices. Read both when publication order, overlapping
@@ -152,7 +155,9 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    Code, the Agent tool with a general-purpose agent, never a `fork` (a fork inherits this conversation)
    and never a message to an agent that has already worked on this paper; in other hosts, their
    equivalent of a new agent. One agent per seat: a reader is never reused as another reader, a referee
-   never as the defender.
+   never as the defender. When the authors chose more than one model, a seat also runs as a new session of
+   another model's CLI through [manuscript-other-models](../../manuscript-other-models/SKILL.md), in a
+   throwaway copy of its workspace: a fresh agent in the same sense, named `SEAT@CLI` (`skeptic@codex`).
 2. **The session that can start agents starts them.** A delegated agent often cannot start agents of its
    own (Claude Code's subagents cannot). In `manuscript-improve` the coordinator starts every referee seat,
    reader, defender and critic itself, even when it delegates the rest of those stages; a stage agent that
@@ -165,7 +170,8 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    and the brief tells the seat to open nothing else: no other file of the project or the run, no git
    history, no search for other reviews of this work.
 5. **Record how each seat ran.** Register its output with `--isolation fresh-agent`, or `--isolation
-   one-agent` under the fallback below. `runs.py validate` refuses a completed story or peer-review stage
+   one-agent` under the fallback below, and with `--model` (`codex/gpt-5.6-sol`) when the run uses more
+   than one model. `runs.py validate` refuses a completed story or peer-review stage
    whose reader, referee, seat or defence output does not say, and the dashboard shows which seats were
    not independent. For a run registered before this rule, `runs.py isolation RUN --skill SKILL --path
    PATH --isolation fresh-agent --basis "..."` records how an output already in the run was produced,

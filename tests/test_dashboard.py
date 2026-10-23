@@ -450,6 +450,23 @@ def test_collect_shows_which_reader_ran_as_a_fresh_agent(tmp_path: Path) -> None
     assert "Read by one agent in turn, not independently" in page
 
 
+def test_collect_shows_the_model_each_reader_ran_on(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    run = synthetic_run(tmp_path)
+    manifest = json.loads((run / "run.json").read_text())
+    manifest["skills"]["manuscript-story"]["artifacts"].append(
+        {"path": "manuscript-story/readers/skimmer.md", "role": "reader", "seat": "skimmer", "isolation": "fresh-agent",
+         "model": "codex/gpt-5.6-sol"})
+    (run / "run.json").write_text(json.dumps(manifest))
+    out = run / "manuscript-dashboard/findings.json"
+    assert CliRunner().invoke(collect.app, [str(run), "--output", str(out)]).exit_code == 0
+    inventory = visualize.Inventory.model_validate_json(out.read_text())
+    assert inventory.panel.readers[0].model == "codex/gpt-5.6-sol"
+    page = visualize.dashboard_html(inventory, visualize.summarize(inventory))
+    assert "codex/gpt-5.6-sol" in page and "` Model: ${r.model}.`" in page  # the page names it beside the seat
+
+
 def test_local_images_are_embedded_so_the_dashboard_is_one_file(tmp_path: Path) -> None:
     (tmp_path / "figures").mkdir()
     (tmp_path / "figures" / "fig 1.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")

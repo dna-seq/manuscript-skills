@@ -49,6 +49,8 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 SEATS = ("claims-novelty", "evidence-statistics", "reproducibility", "champion", "skeptic",
          "desk-editor", "software-methods", "genomics", "human-data-clinical", "ai-systems")
+# A seat run on another model by manuscript-other-models carries its CLI after an @: skeptic@codex.
+SEAT_NAME = re.compile(r"(?P<seat>custom:[\w-]+|[a-z-]+)(?:@[a-z][a-z0-9-]*)?")
 SEVERITIES = ("blocker", "major", "optional", "uncertain")
 CONSEQUENCES = ("validity", "support", "scope", "reproducibility", "interpretation")
 ROUTES = ("fixable-in-text", "author-required", "venue", "policy", "dropped")
@@ -409,6 +411,11 @@ def _norm_location(text: str) -> str:
     return " ".join(re.findall(r"\w+", text.casefold()))
 
 
+def _known_seat(seat: str) -> bool:
+    match = SEAT_NAME.fullmatch(seat)
+    return bool(match) and (match["seat"] in SEATS or match["seat"].startswith("custom:"))
+
+
 def _nonempty_str(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -487,8 +494,9 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
         if not _nonempty_str(f.get(key)):
             problems.append(f"It does not give {FIELD_WORDS[key]} ({key} is missing or empty).")
     seat = f.get("seat")
-    if _nonempty_str(seat) and seat not in SEATS and not re.fullmatch(r"custom:[\w-]+", seat):
-        problems.append(f"The referee '{seat}' (seat) is not one of {_words_list(SEATS)}, or custom:<name>.")
+    if _nonempty_str(seat) and not _known_seat(seat):
+        problems.append(f"The referee '{seat}' (seat) is not one of {_words_list(SEATS)}, or custom:<name>, "
+                        "optionally followed by @<cli> for a seat on another model (skeptic@codex).")
     for key, allowed in (("severity", SEVERITIES), ("consequence", CONSEQUENCES), ("route", ROUTES),
                          ("triage", TRIAGE), ("verdict", VERDICTS), ("kind", KINDS), ("cost", COSTS),
                          ("hand_to", HAND_TO), ("stage", STAGE_KEYS)):

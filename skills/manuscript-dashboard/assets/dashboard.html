@@ -1372,10 +1372,12 @@ __REVISION_HTML__
   })();
 
   // How a simulated reader or reviewer ran: a fresh agent sees only its brief; one agent reading as every seat in
-  // turn is not independent, and its agreement with the other seats is not corroboration.
+  // turn is not independent, and its agreement with the other seats is not corroboration. The model is named when
+  // the run recorded it (manuscript-other-models runs seats on more than one).
+  const onModel = r => r.model ? ` Model: ${r.model}.` : '';
   const ranAs = r => r.isolation === 'one-agent'
-    ? h('div', {class: 'notice', style: 'margin: 0 0 6px'}, 'Read by one agent in turn, not independently: its agreement with the others is not corroboration.')
-    : h('div', {class: 'note', style: 'margin: 0 0 6px'}, r.isolation === 'fresh-agent' ? 'Ran as a fresh agent that saw only its brief and the paper.' : 'How it ran was not recorded.');
+    ? h('div', {class: 'notice', style: 'margin: 0 0 6px'}, 'Read by one agent in turn, not independently: its agreement with the others is not corroboration.' + onModel(r))
+    : h('div', {class: 'note', style: 'margin: 0 0 6px'}, (r.isolation === 'fresh-agent' ? 'Ran as a fresh agent that saw only its brief and the paper.' : 'How it ran was not recorded.') + onModel(r));
   if (panels.reviewers || panels.readers) (function panel() {
     let p = panels.reviewers || panels.readers;
     const P = inv.panel;
@@ -1469,7 +1471,8 @@ __REVISION_HTML__
     }
     // ---------- the simulated reviewers: verdict per journal, then what they ask for, then each report ----------
     const reviewers = P.reviewers || [];
-    const seatName = seat => String(seat).replace(/[-_]/g, ' ').replace(/^./, c => c.toUpperCase());
+    // skeptic@codex is the skeptic's seat run on Codex: "Skeptic (on codex)".
+    const seatName = seat => String(seat).replace(/@([\w-]+)$/, ' (on $1)').replace(/[-_]/g, ' ').replace(/^./, c => c.toUpperCase());
     if (P.recommendations.length) {
       const venues = [...new Set(P.recommendations.map(r => r.venue))], seats = [...new Set(P.recommendations.map(r => r.seat))];
       const vname = key => (inv.venues.find(v => v.key === key) || {}).name || key;

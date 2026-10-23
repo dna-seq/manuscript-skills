@@ -8,6 +8,9 @@ time:
 - the **guard** runs after every writer pass and checks that no content changed;
 - the **critic** is a new subagent every round. It reads only a saved copy of the current text, cold, and
   reports what still reads as machine-written, unclear or unsupported, each finding under a catalogue ID.
+  When the authors chose another model, the critic runs on it instead of the host, through
+  [manuscript-other-models](../../manuscript-other-models/SKILL.md): a model is worst at noticing its own
+  family's habits.
 
 Use it when the author requests reflection mode or independent agents. It can help with an important
 section that still has concrete writing problems; section type or past AI use does not make it

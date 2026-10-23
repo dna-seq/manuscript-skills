@@ -89,7 +89,7 @@ each seat's report, with its `seat`, in the list `reports`.
 | Field | Required | Values and meaning |
 |---|---|---|
 | `id` | yes | Unique within the file. A seat prefix helps (`EV-1`, `SK-3`). |
-| `seat` | yes | `claims-novelty`, `evidence-statistics`, `reproducibility`, `champion`, `skeptic`, `desk-editor`, `software-methods`, `genomics`, `human-data-clinical`, `ai-systems`, or `custom:<name>` for a seat the authors added. |
+| `seat` | yes | `claims-novelty`, `evidence-statistics`, `reproducibility`, `champion`, `skeptic`, `desk-editor`, `software-methods`, `genomics`, `human-data-clinical`, `ai-systems`, or `custom:<name>` for a seat the authors added; followed by `@<cli>` for the same seat on another model (`skeptic@codex`). |
 | `location` | yes | Section, paragraph, table, figure or supplementary item, as a reader would find it. |
 | `kind` | no | `present` (default): the problem is in the text. `absence`: something needed is missing. |
 | `quote` | for `present` | Verbatim text from the manuscript or a supplied supplementary file. Copy it; never paraphrase. `...` or `…` may skip words within one passage. At least 3 words or 12 characters. |

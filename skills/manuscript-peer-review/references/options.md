@@ -28,10 +28,13 @@ Never iterate rewrites against the panel to reduce its findings.
 
 ## Model diversity
 
-Seats can run on different model families. It reduces shared blind spots somewhat; it does not make
-the seats independent, and the report never calls them independent on that basis. Record the model used
-for each seat. Send the manuscript to another provider only when the user agrees to that provider, in
-either mode.
+Seats can also run on other models, through the command-line agents the authors already use (Codex CLI,
+Claude Code, Gemini CLI), with [manuscript-other-models](../../manuscript-other-models/SKILL.md): every
+seat runs on the host and once more on each chosen model, as `skeptic@codex`, in a fresh session of its
+own. It reduces shared blind spots somewhat; it does not make the seats independent, and the report never
+calls them independent on that basis or counts agreement between models as confirmation. Record the model
+of every seat (`runs.py add --model`). Send the manuscript to another provider only when the user asks
+for that provider or saved it for the project (`other_models`), in either mode.
 
 ## A separate panel for each journal
 

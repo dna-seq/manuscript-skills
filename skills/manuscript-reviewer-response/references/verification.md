@@ -18,7 +18,8 @@ The order below matters more than the wording. When subagents are available, run
 subagent that receives only the reviews, the original and the revised manuscript (and, for step 1, only the
 reviews). It must not see the response letter, the ledger's `landed` entries or any author summary of the
 revision. Without subagents, finish and write down each step before opening the next input. Model
-diversity is optional and never evidence of independence.
+diversity is optional and never evidence of independence; when the authors ask for it, the fresh subagent
+can run on another model through [manuscript-other-models](../../manuscript-other-models/SKILL.md).
 
 **Without a letter** (the authors want to know whether their revision answers the reviews, or the comments
 are internal review notes or a blocker list), skip the subagent, step 3 and step 4, but still write the

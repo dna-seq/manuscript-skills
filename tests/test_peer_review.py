@@ -239,6 +239,11 @@ def test_each_required_field_is_enforced(field: str) -> None:
     ({"route": "rewrite"}, False),
     ({"seat": "reviewer-3"}, False),
     ({"seat": "custom:clinician"}, True),
+    ({"seat": "skeptic@codex"}, True),  # the same seat run on another model by manuscript-other-models
+    ({"seat": "custom:clinician@gemini"}, True),
+    ({"seat": "skeptic@"}, False),
+    ({"seat": "reviewer-3@codex"}, False),
+    ({"seat": "skeptic@codex/gpt-5.6-sol"}, False),  # the model goes in the run record, not the seat name
     ({"seat": "ai-systems"}, True),  # the domain module added after the Paper 2 smoke run, as its own seat
     ({"triage": "cosmetic"}, False),
     ({"cost": "cheap"}, False),

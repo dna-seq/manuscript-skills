@@ -1,0 +1,444 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["typer>=0.12"]
+# ///
+"""Run one simulated referee, reader, critic or skeptic on another AI model, through a command-line agent the
+authors already use (Claude Code, Codex CLI, Gemini CLI) and its subscription, not an API key.
+
+    uv run --script models.py detect [--json]              # the CLIs installed here, the host, their models
+    uv run --script models.py check codex [--model M]      # one tiny call: is it signed in, is the model accepted?
+    uv run --script models.py run codex --workspace WS --brief BRIEF.md [--model M] [--effort high] [--timeout 3600]
+
+`run` copies WS to a new temporary folder outside every project and starts a new session of the CLI there
+(never a resumed or forked one), with BRIEF as its whole prompt. The session may read and write only inside
+that copy: Claude Code gets the file tools and no shell, Codex its workspace-write sandbox without network,
+Gemini its auto_edit mode. When it ends, the files it created are copied back into WS; a file it was given
+and changed is reported and left as it was. Its last message is saved as WS/seat-answer.md, and
+WS/seat-run.json records the CLI and its version, the model, the exact command, the exit status, the
+duration, the files returned, and where the prompt as sent, the CLI's output and its errors were saved.
+The copy is then deleted. Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md,
+GEMINI.md), its git history and the agent's memory of the project away from the seat.
+
+The path of WS written in BRIEF is replaced by the copy's path, so a brief that names its workspace works.
+
+Exit codes: 0 the session finished and answered; 1 it ran but failed or gave no answer (seat-run.json says
+why); 2 bad arguments, an unknown or missing CLI, or a workspace a seat already ran in; 3 it timed out.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+import tomllib
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Annotated, Any
+
+import typer
+
+app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+RECORD, ANSWER = "seat-run.json", "seat-answer.md"
+MODEL_NAME = re.compile(r"[\w.:@/\[\]-]+")
+PING = "Reply with the single word READY and nothing else."
+
+
+@dataclass(frozen=True)
+class Cli:
+    key: str
+    name: str
+    family: str  # the model family its subscription reaches
+    host_env: tuple[str, ...]  # variables a session of this CLI sets for the commands it runs
+    efforts: tuple[str, ...] = ()
+    models_hint: str = ""
+
+
+CLIS = {
+    "claude": Cli("claude", "Claude Code", "Anthropic", ("CLAUDECODE",), ("low", "medium", "high", "xhigh", "max"),
+                  "an alias (fable, opus, sonnet, haiku) or a full model id"),
+    "codex": Cli("codex", "Codex CLI", "OpenAI", ("CODEX_THREAD_ID", "CODEX_SESSION_ID"),
+                 ("minimal", "low", "medium", "high", "xhigh")),
+    "gemini": Cli("gemini", "Gemini CLI", "Google", ("GEMINI_CLI",), (), "a Gemini model id, e.g. gemini-2.5-pro"),
+}
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def host() -> str | None:
+    """The CLI this command runs inside. Codex and Gemini are checked first: a session started from Claude Code
+    inherits CLAUDECODE, so the innermost host is the one whose own variable is set."""
+    for key in ("codex", "gemini", "claude"):
+        if any(os.environ.get(var) for var in CLIS[key].host_env):
+            return key
+    return None
+
+
+def version(binary: str) -> str:
+    try:
+        done = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    return (done.stdout or done.stderr).strip().splitlines()[0] if (done.stdout or done.stderr).strip() else "unknown"
+
+
+def codex_home() -> Path:
+    return Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+
+
+def codex_models() -> tuple[str | None, list[str]]:
+    """Codex's configured default model and the models it lists for this account (its own cache)."""
+    default = None
+    try:
+        default = tomllib.loads((codex_home() / "config.toml").read_text(encoding="utf-8")).get("model")
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+    try:
+        cache = json.loads((codex_home() / "models_cache.json").read_text(encoding="utf-8"))
+        listed = [m["slug"] for m in cache.get("models", []) if m.get("visibility") == "list" and m.get("slug")]
+    except (OSError, ValueError, AttributeError, TypeError):
+        listed = []
+    return default, listed
+
+
+# --- how each CLI is started, and how its answer is read ------------------------------------------------------
+
+@dataclass
+class Outcome:
+    answer: str = ""
+    error: str = ""
+    models: list[str] = field(default_factory=list)
+    session: str = ""
+    usage: dict[str, Any] = field(default_factory=dict)
+
+
+def claude_argv(model: str | None, effort: str | None, last: Path) -> list[str]:
+    # File tools only, no shell; acceptEdits lets it write inside the copy, and a read or write outside it is refused
+    # in print mode. No MCP servers, skills or saved session.
+    argv = ["claude", "-p", "--output-format", "json", "--tools", "Read,Glob,Grep,Write,Edit",
+            "--permission-mode", "acceptEdits", "--strict-mcp-config", "--disable-slash-commands",
+            "--no-session-persistence"]
+    return argv + (["--model", model] if model else []) + (["--effort", effort] if effort else [])
+
+
+def claude_read(stdout: str, stderr: str, last: Path) -> Outcome:
+    data: Any = None
+    for text in (stdout.strip(), (stdout.strip().splitlines() or [""])[-1]):
+        try:
+            data = json.loads(text)
+            break
+        except json.JSONDecodeError:
+            continue
+    if not isinstance(data, dict):
+        return Outcome(error="Claude Code did not return JSON: " + stdout.strip()[:300])
+    result = str(data.get("result") or "")
+    out = Outcome(models=list(data.get("modelUsage") or {}), session=str(data.get("session_id") or ""),
+                  usage={k: data[k] for k in ("total_cost_usd", "num_turns", "duration_ms") if k in data})
+    if data.get("is_error") or data.get("subtype") not in (None, "success"):
+        out.error = result or str(data.get("subtype") or "Claude Code reported an error.")
+    else:
+        out.answer = result
+    return out
+
+
+def codex_argv(model: str | None, effort: str | None, last: Path) -> list[str]:
+    # workspace-write: it may write inside the copy (and its temporary folder), with no network for commands.
+    argv = ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "workspace-write", "--json",
+            "-o", str(last)]
+    argv += ["-m", model] if model else []
+    argv += ["-c", f"model_reasoning_effort={effort}"] if effort else []
+    return argv + ["-"]
+
+
+def codex_read(stdout: str, stderr: str, last: Path) -> Outcome:
+    out = Outcome()
+    errors = []
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        kind = event.get("type")
+        if kind == "thread.started":
+            out.session = str(event.get("thread_id") or "")
+        elif kind == "turn.completed":
+            out.usage = event.get("usage") or {}
+        elif kind in ("error", "turn.failed"):
+            message = event.get("message") or (event.get("error") or {}).get("message") or ""
+            try:  # Codex wraps the provider's JSON error in a string
+                message = json.loads(message)["error"]["message"]
+            except (ValueError, KeyError, TypeError):
+                pass
+            if message and message not in errors:
+                errors.append(str(message))
+    out.answer = last.read_text(encoding="utf-8").strip() if last.is_file() else ""
+    if not out.answer:
+        out.error = "; ".join(errors) or "Codex gave no final message."
+    return out
+
+
+def gemini_argv(model: str | None, effort: str | None, last: Path) -> list[str]:
+    # auto_edit approves its file edits; a headless run has no one to approve a shell command, so it cannot run one.
+    return ["gemini", "-o", "json", "--approval-mode", "auto_edit"] + (["-m", model] if model else [])
+
+
+def gemini_read(stdout: str, stderr: str, last: Path) -> Outcome:
+    data: Any = None
+    for stream in (stdout, stderr):  # its answer comes on stdout, its error object on stderr after the startup log
+        start = re.search(r"^\{", stream, re.MULTILINE)
+        try:
+            data = json.loads(stream[start.start():]) if start else None
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            break
+    if not isinstance(data, dict):
+        return Outcome(error="Gemini CLI did not return JSON: " + stdout.strip()[:300])
+    out = Outcome(session=str(data.get("session_id") or ""),
+                  models=list((data.get("stats") or {}).get("models") or {}))
+    if data.get("error"):
+        out.error = str(data["error"].get("message") if isinstance(data["error"], dict) else data["error"])
+    else:
+        out.answer = str(data.get("response") or "")
+    return out
+
+
+ADAPTERS: dict[str, tuple[Callable[[str | None, str | None, Path], list[str]], Callable[[str, str, Path], Outcome]]] = {
+    "claude": (claude_argv, claude_read),
+    "codex": (codex_argv, codex_read),
+    "gemini": (gemini_argv, gemini_read),
+}
+
+
+def environment(key: str) -> dict[str, str]:
+    env = dict(os.environ)
+    if key == "claude":
+        env.pop("CLAUDECODE", None)  # Claude Code refuses to start inside a variable it set for its own session
+    return env
+
+
+# --- one session in a throwaway copy -----------------------------------------------------------------------------
+
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def snapshot(folder: Path) -> dict[str, str]:
+    return {p.relative_to(folder).as_posix(): digest(p) for p in sorted(folder.rglob("*")) if p.is_file()}
+
+
+def validate(key: str, model: str | None, effort: str | None) -> Cli:
+    if key not in CLIS:
+        raise typer.BadParameter(f"Unknown CLI {key!r}; use one of {', '.join(CLIS)}.")
+    cli = CLIS[key]
+    if model is not None and not MODEL_NAME.fullmatch(model):
+        raise typer.BadParameter("--model may contain letters, digits and . _ : @ / [ ] - only.")
+    if effort is not None and effort not in cli.efforts:
+        raise typer.BadParameter(f"{cli.name} takes no --effort." if not cli.efforts
+                                 else f"--effort for {cli.name} is one of {', '.join(cli.efforts)}.")
+    if shutil.which(key) is None:
+        raise typer.BadParameter(f"{cli.name} ({key}) is not installed or not on PATH.")
+    return cli
+
+
+def stop(process: subprocess.Popen) -> None:
+    for sig, wait in ((signal.SIGTERM, 10), (signal.SIGKILL, 5)):
+        try:
+            os.killpg(process.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            return
+        try:
+            process.wait(timeout=wait)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | None, timeout: float,
+            stdout_path: Path, stderr_path: Path) -> dict[str, Any]:
+    """Start one fresh session of the CLI in COPY with PROMPT on stdin and wait for it, at most TIMEOUT seconds."""
+    build, read = ADAPTERS[key]
+    last = Path(tempfile.mkdtemp(prefix="manuscript-seat-last-")) / "last-message.txt"
+    argv = build(model, effort, last)
+    argv[0] = shutil.which(argv[0]) or argv[0]
+    started = time.monotonic()
+    record: dict[str, Any] = {"command": argv, "started_at": now()}
+    with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
+        process = subprocess.Popen(argv, cwd=copy, stdin=subprocess.PIPE, stdout=out, stderr=err,
+                                   env=environment(key), start_new_session=True)
+        try:
+            process.stdin.write(prompt.encode("utf-8"))
+            process.stdin.close()
+        except BrokenPipeError:
+            pass
+        try:
+            process.wait(timeout=timeout)
+            timed_out = False
+        except subprocess.TimeoutExpired:
+            stop(process)
+            timed_out = True
+    record |= {"finished_at": now(), "seconds": round(time.monotonic() - started, 1),
+               "exit_code": process.returncode}
+    outcome = read(stdout_path.read_text(encoding="utf-8", errors="replace"),
+                   stderr_path.read_text(encoding="utf-8", errors="replace"), last)
+    shutil.rmtree(last.parent, ignore_errors=True)
+    if timed_out:
+        status, error = "timeout", f"No answer within {timeout:g} seconds; the session was stopped."
+    elif outcome.answer and process.returncode == 0:
+        status, error = "answered", ""
+    else:
+        status = "failed"
+        error = outcome.error or f"{CLIS[key].name} exited with status {process.returncode} and no answer."
+        if not outcome.error and stderr_path.stat().st_size:
+            tail = stderr_path.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-3:]
+            error += " Last error output: " + " | ".join(tail)
+    reported = outcome.models[0] if outcome.models else None
+    configured = codex_models()[0] if key == "codex" and not model else None
+    return record | {"status": status, "error": error, "answer": outcome.answer, "session_id": outcome.session,
+                     "model_requested": model, "models_reported": outcome.models, "usage": outcome.usage,
+                     "model": f"{key}/{reported or model or configured or 'default'}"}
+
+
+def emit(result: dict[str, Any], as_json: bool, lines: list[str]) -> None:
+    typer.echo(json.dumps(result, indent=2) if as_json else "\n".join(lines))
+
+
+# --- commands -----------------------------------------------------------------------------------------------------
+
+@app.command()
+def detect(as_json: Annotated[bool, typer.Option("--json")] = False) -> None:
+    """List the supported CLIs installed here, which one this command runs inside, and the models each offers."""
+    current = host()
+    clis = []
+    for key, cli in CLIS.items():
+        path = shutil.which(key)
+        entry: dict[str, Any] = {"cli": key, "name": cli.name, "family": cli.family, "installed": bool(path),
+                                 "path": path, "version": version(path) if path else None, "host": key == current,
+                                 "other_family": current is not None and cli.family != CLIS[current].family,
+                                 "efforts": list(cli.efforts), "models": cli.models_hint, "notes": []}
+        if key == "codex" and path:
+            default, listed = codex_models()
+            entry["default_model"], entry["models"] = default, listed or entry["models"]
+            if default and listed and default not in listed:
+                entry["notes"].append(f"Its configured default model, {default}, is not among the models it lists for "
+                                      f"this account ({', '.join(listed)}): pass --model.")
+        clis.append(entry)
+    notes = []
+    if os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1":
+        notes.append("This command runs in Codex's sandbox without network: run `models.py check` and `run` with "
+                     "escalated permissions (Codex asks you to approve), or the other CLI cannot reach its model.")
+    result = {"host": current, "host_family": CLIS[current].family if current else None, "clis": clis, "notes": notes}
+    lines = [f"Host: {CLIS[current].name} ({CLIS[current].family})" if current else
+             "Host: not recognised (no Claude Code, Codex or Gemini CLI session variable set)"]
+    for e in clis:
+        if not e["installed"]:
+            lines.append(f"- {e['cli']}: not installed")
+            continue
+        relation = "the host" if e["host"] else "another model family" if e["other_family"] else (
+            "same family as the host: another model, not another family" if current else e["family"])
+        models = ", ".join(e["models"]) if isinstance(e["models"], list) else e["models"]
+        lines.append(f"- {e['cli']}: {e['name']} {e['version']}, {e['family']}; {relation}"
+                     + (f"; models: {models}" if models else ""))
+        lines.extend(f"  note: {n}" for n in e["notes"])
+    lines.extend(f"Note: {n}" for n in notes)
+    emit(result, as_json, lines)
+
+
+@app.command()
+def check(cli: str, model: Annotated[str | None, typer.Option()] = None,
+          effort: Annotated[str | None, typer.Option()] = None,
+          timeout: Annotated[float, typer.Option(help="Seconds")] = 180,
+          as_json: Annotated[bool, typer.Option("--json")] = False) -> None:
+    """One tiny call in an empty folder: is the CLI signed in, and does it accept the model? Sends no manuscript."""
+    info = validate(cli, model, effort)
+    with tempfile.TemporaryDirectory(prefix="manuscript-seat-check-") as folder:
+        base = Path(folder)
+        (base / "copy").mkdir()
+        result = session(cli, base / "copy", PING, model, effort, timeout, base / "stdout", base / "stderr")
+    result = {"cli": cli, "name": info.name, "version": version(cli)} | result
+    ok = result["status"] == "answered"
+    emit(result, as_json, [f"{info.name}: {'ready' if ok else result['status']}, model {result['model']}"
+                           + ("" if ok else f". {result['error']}")])
+    raise typer.Exit(0 if ok else 3 if result["status"] == "timeout" else 1)
+
+
+@app.command()
+def run(cli: str,
+        workspace: Annotated[Path, typer.Option(help="The seat's workspace: everything it may read")],
+        brief: Annotated[Path, typer.Option(help="The seat's brief, sent unchanged as its whole prompt")],
+        model: Annotated[str | None, typer.Option()] = None,
+        effort: Annotated[str | None, typer.Option()] = None,
+        timeout: Annotated[float, typer.Option(help="Seconds before the session is stopped")] = 3600,
+        as_json: Annotated[bool, typer.Option("--json")] = False) -> None:
+    """Run one seat as a fresh session of CLI in a copy of WORKSPACE; copy back the files it wrote."""
+    info = validate(cli, model, effort)
+    workspace = workspace.expanduser().resolve()
+    if not workspace.is_dir():
+        raise typer.BadParameter(f"{workspace} is not a folder.")
+    if (workspace / RECORD).exists():
+        raise typer.BadParameter(f"A seat already ran in {workspace} ({RECORD}); prepare a fresh workspace for each "
+                                 "seat and model.")
+    if not brief.is_file() or not brief.read_text(encoding="utf-8").strip():
+        raise typer.BadParameter(f"{brief} is not a non-empty brief.")
+    given = snapshot(workspace)
+    parent = Path(tempfile.mkdtemp(prefix="manuscript-seat-"))
+    copy = parent / "workspace"
+    try:
+        shutil.copytree(workspace, copy)
+        text = brief.read_text(encoding="utf-8")
+        prompt = text.replace(str(workspace), str(copy))
+        (workspace / "seat-run.prompt.md").write_text(prompt, encoding="utf-8")
+        result = session(cli, copy, prompt, model, effort, timeout,
+                         workspace / "seat-run.stdout.txt", workspace / "seat-run.stderr.txt")
+        after = snapshot(copy)
+        returned, changed = [], []
+        for name, sha in after.items():
+            if name not in given:
+                target = workspace / name
+                if target.exists():  # never overwrite: report it instead
+                    changed.append(name)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(copy / name, target)
+                returned.append(name)
+            elif sha != given[name]:
+                changed.append(name)
+        deleted = [name for name in given if name not in after]
+    finally:
+        shutil.rmtree(parent, ignore_errors=True)
+    answer = result.pop("answer")
+    if answer:
+        (workspace / ANSWER).write_text(answer + "\n", encoding="utf-8")
+    record = {"cli": cli, "name": info.name, "family": info.family, "version": version(cli), "host": host()} | result | {
+        "workspace": str(workspace), "brief": str(brief.resolve()),
+        "workspace_path_in_brief_replaced": text.count(str(workspace)),
+        "prompt": "seat-run.prompt.md", "answer": ANSWER if answer else None,
+        "stdout": "seat-run.stdout.txt", "stderr": "seat-run.stderr.txt",
+        "returned": returned, "changed_not_returned": changed, "deleted_in_copy": deleted}
+    (workspace / RECORD).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    lines = [f"{info.name} ({record['model']}): {record['status']} in {record['seconds']} s"
+             + (f". {record['error']}" if record["error"] else "")]
+    if returned:
+        lines.append("Returned: " + ", ".join(returned))
+    if changed:
+        lines.append("Changed in the copy and not returned (the workspace keeps its own): " + ", ".join(changed))
+    if answer:
+        lines.append(f"Answer: {workspace / ANSWER}")
+    lines.append(f"Record: {workspace / RECORD}")
+    emit(record, as_json, lines)
+    raise typer.Exit({"answered": 0, "timeout": 3}.get(record["status"], 1))
+
+
+if __name__ == "__main__":
+    app()

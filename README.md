@@ -92,6 +92,7 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest. |
 | See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, and a PDF measured against a page limit. |
 | List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
+| Have more than one AI model read the paper | [manuscript-other-models](skills/manuscript-other-models/SKILL.md) | Only when you ask: the simulated referees and readers also read on another model, through the command-line agents you already use and pay for (from Claude Code on Codex, from Codex on Claude Code, or on Gemini), without API keys. Each seat runs in a fresh session that sees only its own copy of the paper, and every report says which model wrote it. |
 
 manuscript-improve runs the other skills as its stages, so you do not need to run them first. Each
 skill also works on its own when you want only that service: a paragraph edit needs no full manuscript
@@ -106,6 +107,9 @@ you can ask for selected sections or one stage at a time instead.
 - Journal requirements are read from the journals' own pages.
 - AI-text detector checks run only when you ask. The default detector runs on your computer; a hosted
   one requires your agreement before the manuscript is sent to it.
+- Simulated referees and readers run on a second AI model only when you ask for it by name or save it for
+  the project. The reading copy of the paper then goes to that model's provider, under your own account
+  with its command-line agent.
 - Reports, the corrected version and the dashboard are saved in the manuscript project or the output
   folder you chose, with the evidence behind each finding. Unrelated downloads may still use temporary
   storage.
@@ -405,6 +409,7 @@ conversation overrides the project's saved choices, and those override your glob
 | `keep` | `everything`, `results` | What stays in a run's folder once it ends. `everything` keeps every intermediate file, which later steps and the dashboard read and which let you trace each finding; `results` keeps the index, the reports, the dashboard and the corrected version, and packs the rest into `evidence.zip` (see [What a run leaves in your folder](#what-a-run-leaves-in-your-folder)). |
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |
 | `readers` | a skimmer, a potential user and an informed outsider | Who reads the paper for `manuscript-story`. Each reads in its own order and says where it would close the paper, not just where attention dipped. Save your own audiences with `project.py configure ROOT --reader "clinician: ..." --reader ...`. |
+| `other_models` | none | Other models the simulated referees, readers and critics also run on, through [manuscript-other-models](skills/manuscript-other-models/SKILL.md): `project.py configure ROOT --other-model codex/gpt-5.6-sol`; `--one-model` returns to the host model alone. Every seat on another model sends the reading copy to its provider. |
 
 Every run has an index and one subfolder per applied skill. Reports, the simulated readers' and
 referees' actual responses, checks, contradictions, blocked sources, failed attempts and before/after
@@ -428,7 +433,7 @@ claude plugin marketplace add dna-seq/manuscript-skills
 claude plugin install manuscript-skills@manuscript-skills
 ```
 
-The plugin installs all sixteen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
+The plugin installs all seventeen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
 the computer running the assistant; their dependencies install on first use. Building a PDF from a
 marked manuscript also needs the document tools [pandoc](https://pandoc.org/) and
 [tectonic](https://tectonic-typesetting.github.io/), which uv does not install. Looking up references
