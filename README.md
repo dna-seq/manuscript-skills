@@ -42,6 +42,38 @@ submitted by mistake.
 </tr>
 </table>
 
+## How it differs from other academic-writing skills
+
+Several popular skill collections also review, edit and reference-check papers. Compared with the
+most-starred of them in October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-each-skill-stands-against-popular-skill-repos-2026-10-24)),
+these parts have no counterpart there:
+
+- **Which rules apply to the study.** [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md)
+  works out which clinical, ethics and privacy requirements apply, including to authors' own public
+  genomes and to papers referred between bioRxiv and medRxiv, and drafts the clarification.
+- **Journals ordered by the authors' priorities, AI rules included.**
+  [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) ranks preprint servers and
+  journals by speed, reach, cost and how strict their AI policies are, with the deciding rule quoted and
+  linked.
+- **Readers as well as referees.** [manuscript-story](skills/manuscript-story/SKILL.md) has simulated
+  readers say where they would stop reading, then repairs the text without dropping a caveat.
+- **AI edits no person has reviewed.** For manuscripts that keep revision marks,
+  [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) shows which passages an AI or
+  agent rewrote that no co-author has checked since.
+- **A run measured against a human review.** Given a co-author's review of the same draft,
+  [the dashboard](skills/manuscript-dashboard/SKILL.md) shows which of its points the run caught and which
+  it missed.
+
+Where other skills do the same job, these parts add a check:
+
+- **Every edit is checked by a script**, sentence by sentence, for a stronger claim, a dropped qualifier
+  or a changed number or citation.
+- **The upload files are checked too:** hidden text and prompts aimed at AI reviewers, LaTeX
+  comments, leaked keys and location data in figures.
+- **Figures are judged as printed:** at the journal's column width, in greyscale and as colour-blind
+  readers see them, against the caption, the text and the code that draws them.
+- **Data and code availability is looked up:** each accession, archive DOI and package name must resolve.
+
 ## Quick start
 
 1. **Install the plugin.** In Claude Code, run:
