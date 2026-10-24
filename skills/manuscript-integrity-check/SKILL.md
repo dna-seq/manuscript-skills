@@ -116,7 +116,7 @@ uv run --script scripts/scan.py PAPER.md --venue <venue-key> --md /tmp/scan.md -
 ```
 
 Add `--online` only when the request covers references (a full audit, a citation check): it resolves every DOI,
-PMID and arXiv id, compares titles and authors, records retraction status and flags preprints since published or
+PMID and arXiv id, compares titles, authors, journal, year, volume and pages, records retraction status and flags preprints since published or
 withdrawn (`../manuscript-reference-check/references/identity-checks.md`). `--venue KEY` checks length limits;
 `--git` only when the authors ask. With `--online`, unidentified reference entries are searched by their text
 (`--search-unidentified`, on by default); that sends bibliographic strings, not the manuscript, to Crossref.

@@ -145,7 +145,7 @@ statement) also passes the smell check, which is required:
 text against the pattern list it prints (prose-edit contract, §5.3). New text is where an adaptation adds
 machine-written prose. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
 lists each change with its section and line. When text moves to another file (a supplement split off,
-a section moved there), pass that file as well so moved text is not reported as removed, and still read
+a section moved there), pass that file with `--moved-to` so moved text is not reported as removed, and still read
 the diff yourself: a guard that passes does not prove nothing was dropped. Revision markers in the text
 stay as they are; when the edits add or bump markers, follow the project's written rules for them (its
 manuscript README or CLAUDE.md) and run its marker lint if it has one. Strip them
@@ -201,7 +201,7 @@ to the manuscript and the report in the same turn and drop the questions they se
 
 ## Shared resources and maintenance
 
-- `scripts/venues.py`: `rank`, `show` and `peers` (PEP 723; `uv run --script`). Reads the shared
+- `scripts/venues.py`: `rank`, `show`, `ladder`, `common` and `peers` (PEP 723; `uv run --script`). Reads the shared
   `../manuscript-integrity-check/references/venues.yaml`; `peers` queries OpenAlex (set `OPENALEX_MAILTO`
   for its polite pool). Keep the companion skills together.
 - [policy-maintenance.md](references/policy-maintenance.md): read when updating the shared catalogue or

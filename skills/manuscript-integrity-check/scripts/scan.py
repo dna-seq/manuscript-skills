@@ -2596,19 +2596,22 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
         if conflicts:
             where = f"{ident[0].upper()}{ident[1:]} leads to “{ref.resolved_title}”, but the entry differs from that record in its "
             if len(conflicts) >= 2:
+                titled = ("The title matches the record, so these details are wrong or come from another paper."
+                          if ref.title_check != "no_title" else
+                          "The entry gives no title to compare, so these details may be wrong or name another paper.")
                 add(ref, Severity.major,
-                    where + f"{', '.join(conflicts[:-1])} and {conflicts[-1]}. The title matches the record, so these "
-                            f"details are wrong or come from another paper.",
+                    where + f"{', '.join(conflicts[:-1])} and {conflicts[-1]}. {titled}",
                     why="Readers who follow the citation details and readers who follow the identifier may reach "
                         "different papers.",
                     suggestion="Check which work the sentence relies on. If it is this record, copy its journal, year, "
                                "volume and pages; if the details name the work meant, correct the identifier.")
             else:
+                # One detail that a registry settles is a correction to count, never a problem to lead with.
                 add(ref, Severity.minor, where + f"{conflicts[0]}.",
                     why="A wrong journal, year, volume or page makes the work harder to find from the citation, and "
                         "copy editors query it.",
                     suggestion="Open the record and copy the detail from it; registries carry errors too, so check "
-                               "the publisher's page if the record looks wrong.")
+                               "the publisher's page if the record looks wrong.", stage=Stage.journal)
         if ref.withdrawn:
             add(ref, Severity.major, f"The cited preprint has been withdrawn by its authors (recorded by "
                                      f"{source_words(ref.withdrawn_source)}).",
@@ -2627,7 +2630,8 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
                 f"Crossref links it to the preprint.",
                 why="Numbers, methods and author lists can change between a preprint and its published version.",
                 suggestion="Open the published record, check that it is the same work and still reports what you "
-                           "cite, then cite it; keep the preprint if you need content the published version dropped.")
+                           "cite, then cite it; keep the preprint if you need content the published version dropped.",
+                stage=Stage.journal)
         elif pv is not None and ref.status not in ("unresolved", "mismatch"):
             where = ", ".join(x for x in (pv.venue, pv.year) if x) or "a journal"
             check = ""
@@ -2644,7 +2648,8 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
                 + f" (recorded by {source_words(pv.source)})." + check,
                 why="Numbers, methods and author lists can change between a preprint and its published version.",
                 suggestion="Cite the published version after confirming it still reports what you cite. Keep the "
-                           "preprint only if you need content the published version dropped.")
+                           "preprint only if you need content the published version dropped.",
+                stage=Stage.journal)
         if ref.title_check == "differs" and ref.status not in ("unresolved", "mismatch"):
             a, b = _strict_title(ref.cited_title or ""), _strict_title(ref.resolved_title or "")
             tail = (" One is the other with a subtitle added or dropped." if a.startswith(b + " ")
@@ -3462,8 +3467,8 @@ def main(
                                                    "match is a candidate to confirm (at least minor); lax: a close "
                                                    "match falls to info")] = "strict",
 ) -> None:
-    """Exit 0 clean, 1 a blocker, 3 (with --online) no blocker but a lookup that did not answer, so the run
-    cannot be called clean; 2 usage."""
+    """Exit 0 no blocker (major and minor findings may remain), 1 a blocker, 3 (with --online) no blocker but a
+    lookup that did not answer, so the run cannot be called clean; 2 usage."""
     if unidentified not in ("strict", "lax"):
         raise typer.BadParameter("--unidentified takes strict or lax")
     if references_only:

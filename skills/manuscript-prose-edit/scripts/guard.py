@@ -1922,7 +1922,7 @@ def main(
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Also write the Markdown report to this file")] = None,
     revision: Annotated[bool, typer.Option("--revision", help="Inventory mode for a revised manuscript: list every "
-                                           "content change with section and line; always exit 0")] = False,
+                                           "content change with section and line; exit 0 unless --authorised finds an unrequested widening")] = False,
     allow_strengthening: Annotated[bool, typer.Option("--allow-strengthening", help="The authors authorised a claim "
                                                       "correction: report claim changes without failing on them")] = False,
     moved_to: Annotated[Optional[list[Path]], typer.Option(

@@ -404,6 +404,8 @@ def test_a_venue_norm_source_must_quote_venue_md(tmp_path: Path) -> None:
     ("Technical replicates are not described.", "The number of technical replicates per sample."),
     ("The standard deviation of the AUC is not given.", "The standard deviation across folds."),
     ("Table 2 gives 212 participants where the abstract gives 221.", "One number, used throughout."),
+    # The 2026-10-24 review of 0.18.0: a concern that describes the paper's own cohort demands nothing.
+    ("The recruitment dates of the external validation cohort are not given.", "The recruitment dates in Methods."),
 ])
 def test_ordinary_requests_raise_no_norm_warning(concern: str, change: str) -> None:
     f = _only(cf.check([_finding(concern=concern, change_my_mind=change)], SEEDED))
@@ -425,6 +427,9 @@ def test_the_venue_option_reaches_the_check(tmp_path: Path) -> None:
     "Figure 2(b) shows the split, and three features are also gene-level constraint metrics (e.g. LOEUF).",
     "The split follows Kircher et al. 2014 and Rentzsch et al. 2019, so gene identity can leak into the test set.",
     "The split leaks gene identity. Because three features are gene-level, test performance can reflect the gene.",
+    # The 2026-10-24 review of 0.18.0: an ordinal inside a compound word is no list.
+    "Second-generation sequencing reads were aligned with BWA, but its version is not stated.",
+    "Also the split leaks gene identity into the test set.",
 ])
 def test_one_problem_in_a_concern_raises_no_bundling_warning(concern: str) -> None:
     f = _only(cf.check([_finding(concern=concern)], SEEDED))

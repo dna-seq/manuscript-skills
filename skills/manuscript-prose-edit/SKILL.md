@@ -121,7 +121,7 @@ uv run --script scripts/guard.py ORIGINAL.md MAIN.md --revision --moved-to SUPPL
 
 It reports every number, citation, identifier, claim-strength, scope, null-result and evidence-status change
 with section and line, in the same JSON fields as an edit (`sentence_changes`, `alignment`, `summary`), and
-always exits 0. `manuscript-reviewer-response` checks each listed change against the response letter;
+exits 0, except with `--authorised`: a claim that widened with no matching entry then exits 1. `manuscript-reviewer-response` checks each listed change against the response letter;
 `manuscript-journal-adapt` and `manuscript-policy-fit` use it to show what their authorised edits changed.
 Present the changes; do not judge them as errors, since the authors chose them. A whole-paper revision can
 list hundreds of changes: give the authors the claim changes first, each quoted with its section, then the

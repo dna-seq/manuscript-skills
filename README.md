@@ -8,7 +8,7 @@ the referees after a decision. They work with manuscripts written with or withou
 
 Start with `manuscript-improve`. One request runs the relevant checks and edits across the whole paper
 and ends with a corrected version and a dashboard of what the run found. For a single task, use
-[one of the fifteen focused skills](#choose-the-task-you-need).
+[one of the sixteen focused skills](#choose-the-task-you-need).
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. You
 decide which journal to pursue and how to handle uncertain or burdensome requirements. Made by
@@ -136,7 +136,8 @@ you can ask for selected sections or one stage at a time instead.
 - Reference and availability checks look up public identifiers online: DOIs, PMIDs, accessions,
   package names and links in the text. A reference without a working identifier is searched in Crossref
   by its own text. Nothing else from the manuscript is sent.
-- Journal requirements are read from the journals' own pages.
+- Journal requirements are read from the journals' own pages. To see where named colleagues publish, journal
+  selection sends their names to OpenAlex, and only on request.
 - AI-text detector checks run only when you ask. The default detector runs on your computer; a hosted
   one requires your agreement before the manuscript is sent to it.
 - Simulated referees and readers run on a second AI model only when you ask for it by name or save it for
@@ -160,7 +161,8 @@ on it: a resumed run and the dashboard read it instead of repeating the work, an
 finding to the check, referee or reader behind it. This is the recommended setting, `keep: everything`.
 If you only want to see the outcome, choose `keep: results`: once a run is finished, everything except
 the index, the reports, the dashboard and the corrected version is packed into one `evidence.zip` in the
-same folder, and unpacked again if the run continues. Nothing is deleted. The assistant asks which you
+same folder, and unpacked again if the run continues. Every file is kept in that archive: the loose copies are
+removed only once it is verified. The assistant asks which you
 prefer on first use; to change it later, say "keep only the results" or "keep everything".
 
 What you open goes beside the manuscript as well, named after it:

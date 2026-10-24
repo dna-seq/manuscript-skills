@@ -119,7 +119,7 @@ keywords or automated thresholds.
 
 When editing is authorised, make the focused changes and review the diff. Preserve results, sample sizes,
 identifiers, citations and scientific meaning. Mark any proposed narrowing of a substantive claim as a
-claim correction, not cosmetic rephrasing. The companion `manuscript-prose-edit/scripts/guard.py` can
+claim correction, not cosmetic rephrasing. The companion `../manuscript-prose-edit/scripts/guard.py` can
 help with selected mechanical changes, but cannot establish policy fit or semantic equivalence. Text you
 write into the manuscript (a scope clarification, an ethics or data statement) passes the required smell
 check, `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`, with a read

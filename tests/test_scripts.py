@@ -1627,3 +1627,17 @@ def test_ladder_warns_when_first_decision_figures_count_different_papers(task_re
     again = CliRunner().invoke(venues.app, ["ladder", "--only", "calm", "--only", "strict", "--priority", "speed",
                                             "--record", str(task_record)])
     assert "not like for like" not in again.output
+
+
+SKILL_NAME = re.compile(r"\bmanuscript-[a-z]+(?:-[a-z]+)*-\s")
+
+
+@pytest.mark.parametrize("skill", sorted(p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")))
+def test_every_skill_description_fits_the_listing(skill: str) -> None:
+    """The 2026-10-24 review: a host may cut a description over 1,024 characters, and a skill name split over a line
+    break folds to "manuscript-reviewer- response", which routes nowhere."""
+    text = (ROOT / "skills" / skill / "SKILL.md").read_text(encoding="utf-8")
+    front = yaml.safe_load(text.split("---", 2)[1])
+    assert front["name"] == skill
+    assert len(front["description"]) <= 1024, len(front["description"])
+    assert SKILL_NAME.search(front["description"]) is None

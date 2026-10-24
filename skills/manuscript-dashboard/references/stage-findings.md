@@ -13,7 +13,7 @@ authors' document; this file is the same findings in a form a script can count.
       "id": "IC-1",
       "category": "Numbers and statistics",
       "section": "5.1 Annotation Speed",
-      "quote": "verbatim passage from the manuscript, at least five words, or null for an absence",
+      "quote": "verbatim passage from the manuscript, at least three words, or null for an absence",
       "looked_in": ["only for an absence: where you searched"],
       "summary": "the problem in at most fifteen words",
       "detail": "what is wrong and why it matters for the paper, one to three sentences",

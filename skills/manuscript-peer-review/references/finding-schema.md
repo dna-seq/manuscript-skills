@@ -163,8 +163,9 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
 - **Prior work.** A concern that says the work is not novel, already done, or omits existing tools or
   prior work must name at least one work with an identifier and `status: verified`, or with
   `status: unverified`.
-- **Where an expectation is written** (a warning): a finding that asks for replication, more samples, an
-  external cohort or what the field "expects" or "requires", and gives no `norm_source`. A `norm_source` that
+- **Where an expectation is written** (a warning): a finding whose `change_my_mind` asks for replication,
+  more samples or an external cohort, or that appeals to what the field "expects" or "requires", and gives
+  no `norm_source`. A concern that only describes the paper's own cohort is no demand. A `norm_source` that
   does not start with `venue:`, `guideline:`, `module:` or `own:` fails; with `--venue venue.md`, so does a
   `venue:` quote that does not occur in venue.md.
 - **One concern per finding** (a warning): a concern that numbers its points, opens a sentence by adding

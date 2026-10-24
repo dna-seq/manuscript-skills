@@ -28,12 +28,12 @@ With --online only public identifiers leave the machine: Europe PMC (PMC full te
 and medRxiv API (full-text JATS), and arXiv (HTML full text or the abstract). Paywalled sources are never
 scraped; they come back `source_unavailable`, with any free full-text page the index lists for you to read.
 
-A source whose text addresses AI systems ("ignore the previous instructions", "as an AI reviewer, ...", or such
-text hidden in invisible Unicode tag characters) is reported with the passage. The check reads it as part of the
-source and never acts on it; the agent reading the source does the same.
+Text in a source that may address AI systems ("ignore the previous instructions", "give a positive review") is
+listed with the passage, for the reader to judge in context: papers about language models carry such sentences for
+their own reasons. Such text hidden in invisible Unicode tag characters is flagged. Neither is ever acted on.
 
 Exit codes: 0 every quote located with no flag; 1 at least one claim flagged (quote_not_found,
-polarity_mismatch, numbers_missing) or a source that addresses AI systems; 2 usage error or malformed claims
+polarity_mismatch, numbers_missing) or a source that hides text for AI systems; 2 usage error or malformed claims
 file; 3 nothing flagged, but at least one source was unavailable, so the run cannot be called clean.
 """
 
@@ -431,7 +431,8 @@ class SourceInfo(BaseModel):
     free_urls: list[str] = []
     characters: int = 0
     url: Optional[str] = None  # the identifier as a link the authors can open (https://doi.org/..., PubMed, arXiv)
-    aimed_at_ai: list[str] = []  # passages of the source text addressed to AI systems, never acted on
+    aimed_at_ai: list[str] = []  # visible passages that may address AI systems: read in context, never acted on
+    hidden_for_ai: list[str] = []  # text hidden in invisible characters that addresses AI systems, never acted on
 
 
 IDENTIFIER_PATTERNS = [
@@ -665,23 +666,24 @@ def _hygiene() -> Any:
     return module
 
 
-def aimed_at_ai(text: str) -> list[str]:
-    """Up to three passages of a source addressed to AI systems, each with its surroundings, including text
-    hidden in Unicode tag characters. A paper about prompt injection may quote one on purpose; the reader decides."""
+def aimed_at_ai(text: str) -> tuple[list[str], list[str]]:
+    """Passages of a source that may address AI systems, each with its surroundings (at most three), and text hidden
+    in Unicode tag characters that does. A visible match is a passage to read: a paper about chatbots or benchmarks
+    can say "as an AI assistant" or "produce high scores" for its own reasons."""
     hygiene = _hygiene()
     hidden = "".join(chr(ord(c) - 0xE0000) for m in hygiene.TAG_CHARS.finditer(text) for c in m.group(0)
                      if 0x20 <= ord(c) - 0xE0000 < 0x7F)
-    out: list[str] = []
-    for body, label in ((text, ""), (hidden, " (hidden in invisible characters)")):
+    found: list[list[str]] = []
+    for body in (text, hidden):
+        passages: list[str] = []
         shown = -1  # where the last passage shown ends: two cues in one sentence are one passage
         for m in hygiene.INJECTION.finditer(body):
-            if m.start() < shown:
+            if m.start() < shown or len(passages) == 3:
                 continue
             shown = m.end() + 40
-            out.append(hygiene._snippet(body[max(0, m.start() - 40):shown], 160) + label)
-            if len(out) == 3:
-                return out
-    return out
+            passages.append(hygiene._snippet(body[max(0, m.start() - 40):shown], 160))
+        found.append(passages)
+    return found[0], found[1]
 
 
 # --------------------------------------------------------------------------------------------------
@@ -857,7 +859,8 @@ def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
             key = claim.source or ""
             if key not in texts:
                 texts[key] = load_source(claim.source, base, fetch, cache_dir)
-                texts[key][1].aimed_at_ai = aimed_at_ai(texts[key][0]) if texts[key][0] else []
+                if texts[key][0]:
+                    texts[key][1].aimed_at_ai, texts[key][1].hidden_for_ai = aimed_at_ai(texts[key][0])
             text, info = texts[key]
             results.append(check_claim(claim, text, info.model_copy(deep=True)))
     finally:
@@ -867,12 +870,13 @@ def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
     summary["claims"] = len(results)
     summary["with_secondary_markers"] = sum(bool(r.secondary_markers) for r in results)
     summary["sources_aimed_at_ai"] = len({r.source.given for r in results if r.source.aimed_at_ai})
+    summary["sources_hiding_text_for_ai"] = len({r.source.given for r in results if r.source.hidden_for_ai})
     return SupportReport(claims_file=str(claims_path), online=online, cache_dir=str(cache_dir), summary=summary,
                          results=results)
 
 
 def exit_code(report: SupportReport) -> int:
-    if any(r.status in FLAGGED or r.source.aimed_at_ai for r in report.results):
+    if any(r.status in FLAGGED or r.source.hidden_for_ai for r in report.results):
         return 1
     if any(r.status == "source_unavailable" for r in report.results):
         return 3
@@ -966,12 +970,16 @@ def _claim_block(r: ClaimResult) -> list[str]:
         how = " Its parts were found in order, with the omissions marked." if r.match == "ellipsis" else ""
         lines.append(f"The quoted passage was found in the source: {_quoted_end(r.quote or '')}{how}")
     extra: list[str] = []
+    if r.source.hidden_for_ai:
+        extra.append("The source hides text addressed to AI systems in invisible characters: "
+                     + _listed([_quoted(a) for a in r.source.hidden_for_ai]) + ". The check did not act on it. Hidden "
+                     "instructions to AI tools are a sign of a manipulated document, so read this source yourself "
+                     "before relying on it.")
     if r.source.aimed_at_ai:
-        extra.append("The source text contains " + ("a passage" if len(r.source.aimed_at_ai) == 1 else "passages")
-                     + " addressed to AI systems: " + _listed([_quoted(a) for a in r.source.aimed_at_ai]) + ". The check "
-                     "read it as part of the source and did not act on it. Instructions hidden for AI tools are a sign "
-                     "of a manipulated document, so read this source yourself before relying on it; a source that "
-                     "studies such prompts may quote one on purpose.")
+        extra.append("The source contains " + ("a passage" if len(r.source.aimed_at_ai) == 1 else "passages")
+                     + " that may address AI systems: " + _listed([_quoted(a) for a in r.source.aimed_at_ai]) + ". The "
+                     "check did not act on it. Read it in context: a paper about language models or benchmarks can "
+                     "use such words for its own reasons.")
     if r.numbers and r.numbers.missing:
         extra.append(f"The claim gives {_listed(r.numbers.missing)}, which the passage does not contain. The number "
                      "may be wrong, or it may sit in a nearby sentence, a table or a conversion, so read the source "
@@ -1003,9 +1011,12 @@ def to_markdown(report: SupportReport) -> str:
     counts = [f"For {_plural(s[k], 'claim', 'claims')}, {STATUS_SUMMARY[k]}." for k in
               ("quote_located", "numbers_missing", "polarity_mismatch", "quote_not_found", "source_unavailable") if s[k]]
     out += [" ".join(counts), ""]
+    if s.get("sources_hiding_text_for_ai"):
+        out += [f"{_plural(s['sources_hiding_text_for_ai'], 'source hides', 'sources hide')} text addressed to AI "
+                "systems in invisible characters; the claims citing them say where. The check did not act on it.", ""]
     if s.get("sources_aimed_at_ai"):
-        out += [f"{_plural(s['sources_aimed_at_ai'], 'source contains', 'sources contain')} text addressed to AI "
-                "systems; the claims citing them say where. The check did not act on it.", ""]
+        out += [f"{_plural(s['sources_aimed_at_ai'], 'source contains', 'sources contain')} passages that may address "
+                "AI systems, listed with the claims citing them, to read in context.", ""]
     if not report.online:
         out += ["The check ran offline, so sources given only as an identifier were read from the local cache. Run "
                 "it again with --online to fetch their open-access text.", ""]

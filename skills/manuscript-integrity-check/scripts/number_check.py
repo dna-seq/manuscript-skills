@@ -33,7 +33,8 @@ and gamma (chi-square) functions computed by continued fractions. No scipy.
     uv run --script number_check.py PAPER.tex --alpha 0.01 --json numbers.json --md numbers.md
     uv run --script number_check.py PAPER.md --assume-integer     # GRIM every mean that states its n
 
-Exit codes: 0 no candidate found; 1 at least one candidate (read each in context); 2 usage error.
+Exit codes: 0 no major or minor candidate (informational ones, such as adjusted p-values, may remain); 1 at least
+one major or minor candidate (read each in context); 2 usage error.
 """
 
 from __future__ import annotations

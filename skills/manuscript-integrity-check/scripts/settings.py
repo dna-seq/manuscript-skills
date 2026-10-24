@@ -90,7 +90,7 @@ SETTINGS: dict[str, Setting] = {
             "everything": "Keep every file the run produced: each referee's and reader's report, every check "
                           "and its output, the commands that ran and the before/after of each edit.",
             "results": "Keep the run index, each skill's report, the dashboard and the corrected version, and "
-                       "pack everything else into one evidence.zip in the same folder. Nothing is deleted, and "
+                       "pack everything else into one evidence.zip in the same folder. Every file is kept in it, and "
                        "a run that continues unpacks it first.",
         },
         default="everything",

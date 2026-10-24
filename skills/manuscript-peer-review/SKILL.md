@@ -5,9 +5,9 @@ description: >-
   quotations, a defence pass and an ordered revision list. Use for pre-submission red-teaming,
   Reviewer 2, desk-editor or methods-reviewer passes, or drafting a report when the user is an
   invited referee. The full panel has three referees plus a defender; a requested quick pass uses
-  two seats. Keep simulated reports separate from real editorial reviews. Use manuscript-reviewer-
-  response for responding to real referees and manuscript-integrity-check for mechanical submission
-  checks.
+  two seats. Keep simulated reports separate from real editorial reviews. Use
+  manuscript-reviewer-response for responding to real referees and manuscript-integrity-check for
+  mechanical submission checks.
 ---
 
 # Simulated peer review

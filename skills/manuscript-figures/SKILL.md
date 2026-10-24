@@ -4,12 +4,11 @@ description: >-
   Review a manuscript's figures and tables, in the paper and its supplement, as its readers see them:
   render each figure at its printed size and look at it (legibility at the column width, axes and units,
   colour for colour-blind readers and greyscale print, clutter, consistent style, panel labels, resolution
-  against the venue's rules), measure each table (width at the table font, units, precision, empty cells,
-  length), then check content (one message, a complete caption, numbers that agree with the text, cited in
-  order and for a claim it shows) and, where the project has it, the code that draws a figure. Main-text
-  items get the full review; supplementary ones a lighter one. Recommend what to keep, change, move to or
-  from the supplement and add, each with its reason; which display items the paper has stays the authors'
-  decision. Use for "check our figures" or "our tables", figure- or table-led papers, "what should go to
+  against the venue's rules), measure each table (width, units, precision, empty cells, length), then check
+  content (one message, a complete caption, numbers that agree with the text, cited in order and for a
+  claim it shows) and, where the project has it, the code that draws a figure. Recommend what to keep,
+  change, move to or from the supplement and add, each with its reason; which display items the paper has
+  stays the authors' decision. Use for "check our figures" or "our tables", figure- or table-led papers, "what should go to
   the supplement", and as the figures and tables stage of manuscript-improve. It does not screen images
   for duplication or manipulation.
 ---

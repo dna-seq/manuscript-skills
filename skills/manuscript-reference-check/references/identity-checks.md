@@ -47,8 +47,8 @@ read its findings without accusing anyone, and how to merge an independent paper
    when it also gives a volume or pages. Journal names match in full, abbreviated word by word (*Nat
    Commun*, *Proc Natl Acad Sci U S A*) or by initials (*NEJM*, *PNAS*); a year within one of the
    record's print or online year passes; digits inside the DOI or a link are never read as a year or pages.
-   One difference is minor; two or more are major, since the details are then wrong or come from another
-   paper. Preprints are left to the published-version check. The same comparison, after a Crossref title
+   One difference is a minor correction to count with the other registry repairs (journal stage, never
+   "Fix now"); two or more are major, since the details are then wrong or come from another paper. Preprints are left to the published-version check. The same comparison, after a Crossref title
    search, tells a loosely cited work from a different one.
 9. **Identifiers in the text.** Outside the reference list, `doi:`, doi.org and arXiv links, `PMID`,
    `arXiv:` and bare URLs in the prose (not in code, comments or verbatim) are resolved and listed with
@@ -63,7 +63,7 @@ and the entries after it may be missing), or a minor one when its key was read a
 failed (the entry is kept with the fields before the problem, as BibTeX keeps it); and a sentence with a
 number and a live cue ("currently", "as of", "to date", "now") but no year is flagged `undated`.
 
-**Exit codes** (`scan.py`): 0 clean; 1 a blocker; 3, with `--online`, no blocker but at least one lookup
+**Exit codes** (`scan.py`): 0 no blocker (major and minor findings still to read); 1 a blocker; 3, with `--online`, no blocker but at least one lookup
 that did not answer (an entry, a further identifier, a url or an identifier in the text), so the run is
 not clean; 2 usage. **`--unidentified strict`** (the default) keeps an entry with no identifier at minor
 or above even when Crossref finds a close match, which stays a candidate to confirm; `--unidentified lax`

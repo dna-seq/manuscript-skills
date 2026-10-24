@@ -11,7 +11,7 @@ goals. Satisfying editors, administrative processes or preferences about AI is n
   requirement, or is optional advice.
 - Apply the rules of the journals actually in play, for the actual article type and submission stage.
   Once a journal is chosen, that is its rules alone. Before the choice, it is what every journal on the
-  authors' ladder shares (the "Adapt now" part of `manuscript-journal-select`'s `venues.py common`):
+  authors' ladder shares (the "Adapt now" part of `venues.py common`, from manuscript-journal-adapt):
   requirements one version of the manuscript can meet for all of them at once, adapted first. Where they
   disagree (length limits, abstract headings, section order), wait for the choice or follow the first
   rung; writing to the strictest limit is an option to offer with its cost, never a default. Use
@@ -283,12 +283,12 @@ date, as for any other source, and say which facts came from a browser reading a
 The agent should perform the checks, lookups, formatting and drafting it can perform. Do not hand the
 author an avoidable research or bookkeeping task. Reuse unchanged checks and existing project conventions;
 do not invent scientific ledgers or revision markers. Preserve actual per-skill outputs, seat reports,
-contradictions and failed checks under the shared [run-output contract](project-workflow.md); these are
-inspectable evidence, not invented process history. The optional shared record in
+contradictions and failed checks under the shared [run-output contract](project-workflow.md): evidence
+anyone can inspect, kept because the work produced it. The optional shared record in
 `manuscript-record.md` holds the current state and keeps no history: create it when the work spans several sessions, when
 the authors ask, or when journal selection records the priorities and venue facts its ladders rest on;
 otherwise, within one session the conversation carries the state. A comment ledger for answering
-referees (`manuscript-reviewer-response`) is part of that task, not a process record. Provide a short
+referees (`manuscript-reviewer-response`) belongs to that task and records its replies. Provide a short
 summary by default, linking the retained per-skill evidence. Extra reviewer passes beyond the selected
 panel remain optional.
 
@@ -348,7 +348,8 @@ files stay in its folder once the run ends; it never changes what a run records 
   dashboard read them instead of repeating the work, and every finding can be traced to what produced it.
 - `results`: when the run is finished and validates, `runs.py pack RUN` leaves the run index, each skill's
   README and report, the dashboard and the corrected version, and moves everything else into
-  `evidence.zip` in the same folder. Nothing is deleted; `runs.py unpack RUN` restores the files before a
+  `evidence.zip` in the same folder. Every file is kept in it (the loose copies are removed once the archive is
+  verified); `runs.py unpack RUN` restores the files before a
   run continues or the dashboard is collected again.
 
 Ask it with the other first-use preferences and save the answer with `project.py configure PROJECT --keep

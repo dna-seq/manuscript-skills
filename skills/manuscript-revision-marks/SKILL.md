@@ -104,7 +104,8 @@ uv run --script scripts/typeset.py md PAPER.tex                 # LaTeX to a Mar
 - The page count is read from tectonic's log and checked against `--cap` (the venue's page limit):
   over the cap is exit 1 with the count; a log with no page count under `--cap` is exit 3, never a
   pass. Report the measured length after every applied change that can move it, not a word estimate.
-- A failed build deletes the PDF an earlier build left, so a stale PDF never reads as current.
+- A build that runs and fails deletes the PDF an earlier build left, so a stale PDF never reads as current. A
+  build refused before it starts (a stale or missing clean twin) leaves it and says it may not match.
 - Every glyph the fonts lack (XeTeX drops it silently) is a warning with its code point; `--strict`
   makes it exit 1. Markdown builds use DejaVu fonts, which carry ≥, ↔ and superscript minus.
 - A file of the target's name that the tool did not write (a hand-written `PAPER.tex` beside

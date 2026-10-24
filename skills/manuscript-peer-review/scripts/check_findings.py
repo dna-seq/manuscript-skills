@@ -401,9 +401,9 @@ _LINTS = {
 _NUMBERED = (re.compile(r"\(\s*(?:1|i|a)\s*\)|(?:^|\s)(?:1|i)[.)]\s", re.IGNORECASE),
              re.compile(r"\(\s*(?:2|ii|b)\s*\)|(?:^|\s)(?:2|ii)[.)]\s", re.IGNORECASE))
 _NEXT_PROBLEM = re.compile(
-    r"(?:^|[.;:]\s+)(?:second(?:ly)?|third(?:ly)?|in addition|additionally|furthermore|moreover|separately|"
-    r"also|another (?:issue|problem|concern|point|limitation|flaw)|a (?:second|further|separate) "
-    r"(?:issue|problem|concern|point|limitation|flaw))\b", re.IGNORECASE)
+    r"(?:^|[.;:]\s+)(?:(?:second(?:ly)?|third(?:ly)?|in addition|additionally|furthermore|moreover|separately|also)"
+    r"\s*[,:]|another (?:issue|problem|concern|point|limitation|flaw)\b|a (?:second|further|separate) "
+    r"(?:issue|problem|concern|point|limitation|flaw)\b)", re.IGNORECASE)
 _ABBREVIATION_END = re.compile(r"\b(?:e\.g|i\.e|et al|cf|vs|Fig|Figs|Eq|Ref|no|approx|ca)\.$", re.IGNORECASE)
 
 
@@ -422,15 +422,20 @@ def _bundled(concern: str) -> Optional[str]:
 
 # A demand that rests on what the field or the journal expects: replication, more samples, an external cohort, a
 # "standard" analysis. It names where that is written (norm_source), or says it is the referee's own expectation.
-_NORM_CUE = re.compile(r"""(?ix)
+# The cohort and sample words are a demand only in what would change the referee's mind; a concern that mentions
+# "the external validation cohort" describes the paper. An appeal to the field's norm is one wherever it stands.
+_NORM_DEMAND = re.compile(r"""(?ix)
     \b(?:replication|independent|external|validation|additional|second|separate)\s+(?:\w+\s+)?
         (?:cohorts?|samples?|datasets?|populations?|data\s+sets?)\b
   | \b(?:external|independent)\s+(?:validation|replication)\b
-  | \breplicat(?:e|ed|ing)\s+(?:the\s+|this\s+|these\s+|its\s+)?(?:finding|result|association|effect|signal|analysis)s?\b
+  | \breplicat(?:e|ed|ing|ion)\s+(?:of\s+|in\s+)?(?:the\s+|this\s+|these\s+|its\s+|an?\s+)?
+        (?:finding|result|association|effect|signal|analysis|independent|second|external)
   | \b(?:larger|bigger|more|additional)\s+(?:\w+\s+)?(?:samples?|participants|patients|cohorts?|subjects|
         individuals|replicates|animals|donors)\b
   | \b(?:increase|expand|enlarge)\w*\s+the\s+(?:sample(?:\s+size)?|cohort|number\s+of\s+(?:samples|participants))\b
-  | \b(?:standard|common|accepted|usual|best|expected)\s+(?:practice|procedure)\b
+""")
+_NORM_APPEAL = re.compile(r"""(?ix)
+    \b(?:standard|common|accepted|usual|best|expected)\s+(?:practice|procedure)\b
   | \b(?:standard|expected|required|customary)\s+in\s+(?:the|this)\s+field\b
   | \bthe\s+field\s+(?:expects|requires|demands)\b
   | \b(?:journals?|reviewers?|referees?|editors?|the\s+community)\s+(?:now\s+|usually\s+|typically\s+)?
@@ -624,6 +629,7 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
         warnings.append(f"The concern may hold more than one problem ({bundled}). Split it into one finding per "
                         "problem, each with its own quote and what would change the referee's mind, so that each can "
                         "be confirmed, refuted and fixed on its own. (one concern per finding)")
+    change = f.get("change_my_mind") if isinstance(f.get("change_my_mind"), str) else ""
     norm = f.get("norm_source")
     if norm is not None:
         named = _NORM_SOURCE.match(norm) if isinstance(norm, str) else None
@@ -640,7 +646,7 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
             elif not sources.venue.locate(quoted):
                 problems.append(f"The source of the expectation (norm_source) quotes venue.md, but \"{_trim(quoted, 80)}\" "
                                 f"does not occur word for word in {sources.venue.path.name}.")
-    elif _NORM_CUE.search(f"{concern} {f.get('change_my_mind') if isinstance(f.get('change_my_mind'), str) else ''}"):
+    elif _NORM_DEMAND.search(change) or _NORM_APPEAL.search(f"{concern} {change}"):
         warnings.append("The finding asks for what the field or the journal expects (replication, more samples, an "
                         "external cohort, a standard analysis) without saying where that expectation is written "
                         "(norm_source): quote venue.md, name the reporting guideline and its item or the domain "
