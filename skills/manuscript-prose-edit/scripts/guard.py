@@ -29,6 +29,8 @@ diff in context.
     uv run --script guard.py ORIGINAL.md PROPOSED.md --revision --authorised requested.yaml  # fail on unrequested widening
     uv run --script guard.py BEFORE.md AFTER.md --moved-to SUPPLEMENT.md  # text moved to another file (repeatable)
     uv run --script guard.py BEFORE.md AFTER.md --relocated               # a story edit: caveats moved on purpose
+        uv run --script guard.py BEFORE.md AFTER.md --only Discussion           # the edit was asked for there only
+    uv run --script guard.py PAPER.md --summary                            # title, Abstract, Conclusions vs body
     uv run --script guard.py ORIGINAL.md FINAL.md --revision --relocated-in RUN/manuscript-story \
         --authorised requested.yaml                                       # only the story stage's changes move caveats
 
@@ -99,12 +101,26 @@ contributions, Acknowledgements and the like) or a cue phrase ("consent was obta
 interests", "funded by", "conceived the study"). A respelled word is not a change; a word an author's credit lost
 is. An `--authorised` entry can cover one (the authors supplied the wording); `--allow-strengthening` never does.
 
+The requested sections (`--only SECTION`, repeatable): the request covered these sections only, named by a heading
+("Discussion" covers its subsections too) or a path of headings ("Results > Speed"), numbering and case set aside. A
+sentence changed, moved, added or deleted anywhere else is listed under `only.outside` and fails, in either mode. A
+name no heading carries is a usage error that lists the sections.
+
+The summary against the body (`--summary`, one manuscript): each sentence of the title, the Abstract (or the text
+before the first heading) and the Conclusions is compared with the body sentences about the same thing (sharing
+three content words and a Dice similarity of 0.25; the Introduction and the back matter are neither summary nor
+body). It fails when the summary claims more than every one of them (a higher rung on either ladder, or generality
+wording) or leaves out a scope, limiting word, null result or evidence status that the closest one states (when that
+one is 0.4 similar or more, and the summary part does not state it in another sentence). A title that names a topic
+claims nothing and is skipped. Summary sentences no body sentence is close to are listed, never failed.
+
 Moved text (`--moved-to FILE`, once per file): a sentence of BEFORE found in FILE is moved, not deleted (alignment
 `moved_to_other_file`); one changed on the way is compared with its copy there (`after_file`, with `after_line` in
 that file), and the whole-text counts do not report as removed what FILE holds (`moved_to`).
 
 Exit codes: 0 no protected change (with --revision: no unrequested widening or declaration when --authorised is
-given, else always), 1 a protected change, 2 usage error.
+given, else always), 1 a protected change or a change outside the `--only` sections (with --summary: a summary
+sentence that claims more than the body or leaves out its limit), 2 usage error.
 """
 
 from __future__ import annotations
@@ -1929,8 +1945,10 @@ NOT_BODY = re.compile(r"^(?:introduction|background|references|bibliography|lite
                       r"(?:data|code|data and code|software) availability|availability|ethics|consent|"
                       r"supplementary|appendix|keywords|abbreviations)\b", re.IGNORECASE)
 # A body sentence is about the same thing as a summary sentence when they share this many content words with a
-# letter in them and reach this Dice similarity of their content words; the closest few are compared.
-SUMMARY_SHARED, SUMMARY_SIMILARITY, SUMMARY_MATCHES = 3, 0.25, 5
+# letter in them and reach this Dice similarity of their content words; the closest few are compared. A limit the
+# summary leaves out counts only against a body sentence this close: "VarRank scores only missense variants" is not
+# the sentence an Abstract's benchmark result restates (seeded peer-review fixture, 0.29).
+SUMMARY_SHARED, SUMMARY_SIMILARITY, SUMMARY_MATCHES, SUMMARY_CLOSE = 3, 0.25, 5, 0.4
 RAISING = ("causal", "evidential", "generality")
 # A title states a claim when it has a word of the ladders or a verb of effect or finding; otherwise it names a topic
 # ("Loss of Foo and tumour growth", "A role for Foo in tumour growth") and claims nothing to compare.
@@ -2011,6 +2029,7 @@ def summary_check(text: str) -> dict[str, object]:
         scored = sorted(((_dice(sx, stems[id(b)]), n, b) for n, b in enumerate(body)
                          if len(_letter_words(sx & stems[id(b)])) >= SUMMARY_SHARED), key=lambda t: (-t[0], t[1]))
         matches = [b for d, _, b in scored if d >= SUMMARY_SIMILARITY][:SUMMARY_MATCHES]
+        close = bool(scored) and scored[0][0] >= SUMMARY_CLOSE
         if not matches:
             unmatched.append({"part": part, "section": x.section, "line": x.line, "sentence": x.text})
             continue
@@ -2025,11 +2044,13 @@ def summary_check(text: str) -> dict[str, object]:
             continue
         for f in against[0]:
             kind = str(f["kind"])
-            if kind in RAISING and supported:
+            if kind in RAISING and supported or kind not in RAISING and not close:
                 continue
             if kind in ("scope", "evidence_status"):
                 keys = _scope_keys if kind == "scope" else _status_keys
                 lost = {k for k, _ in keys(matches[0].text)} - {k for k, _ in keys(x.text)}
+                if kind == "evidence_status" and lost <= {"observed"}:
+                    continue  # "measured" or "observed" describes the method; leaving it out widens nothing
                 if lost and lost <= {k for k, _ in keys(stated[(part, x.section)])}:
                     continue  # the part states it once, in another of its sentences
             findings.append({"kind": kind, "change": f["change"], "part": part, "section": x.section,

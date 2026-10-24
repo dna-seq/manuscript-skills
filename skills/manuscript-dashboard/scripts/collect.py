@@ -290,6 +290,7 @@ def panel(run: Path, data: dict | None = None) -> dict:
                         "round": path.parent.name if path.parent.name != "readers" else "",
                         **by_path.get(path.relative_to(run).as_posix(), {})})
     recommendations, reviewers = [], []
+    bound = criteria(run)
     # The adjudicated file carries each concern's verdict; earlier stages of the same review lack it.
     candidates = sorted(run.glob("manuscript-peer-review/**/*.json"),
                         key=lambda p: (p.name != "findings.adjudicated.json", p.name != "findings.merged.json", str(p)))
@@ -316,11 +317,83 @@ def panel(run: Path, data: dict | None = None) -> dict:
                                             "route": token(c.get("route") or c.get("proposed_route")),
                                             "placement": str(c.get("placement") or ""), "cost": str(c.get("cost") or ""),
                                             "defence": defence(c), "verdict": str(c.get("verdict") or "").strip().lower(),
-                                            "verdict_evidence": str(c.get("verdict_evidence") or "")}
-                                           for n, c in enumerate((c for c in concerns if c["seat"] == seat), 1)]})
+                                            "verdict_evidence": str(c.get("verdict_evidence") or ""),
+                                            "criterion": criterion_ids(c.get("criterion")),
+                                            "off_criterion": str(c.get("off_criterion") or ""),
+                                            "norm_source": str(c.get("norm_source") or "")}
+                                           for n, c in enumerate((c for c in concerns if c["seat"] == seat), 1)],
+                              "criteria": bound.get(seat, [])})
         if reviewers:  # the first file with the reports (the adjudicated one when it exists); the others repeat it
             break
     return {"readers": readers, "recommendations": recommendations, "reviewers": reviewers}
+
+
+def criterion_ids(value: Any) -> list[str]:
+    """A concern's `criterion`, one id or a list ("C2", ["C1", "C3"]), in one spelling."""
+    return [str(x).strip().upper() for x in (value if isinstance(value, list) else [value]) if str(x or "").strip()]
+
+
+def criteria(run: Path) -> dict[str, list[dict]]:
+    """Each reviewer's criteria, written before reading, from the finding check run with --criteria (check_findings.py
+    keeps, per seat, each criterion's concerns and the line saying what was checked). The adjudicated check, when there
+    is one, has the last word."""
+    out: dict[str, list[dict]] = {}
+    files = sorted(run.glob("manuscript-peer-review/**/check*.json"), key=lambda p: ("adjudicated" in p.name, str(p)))
+    for path in files:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        bound = doc.get("criteria") if isinstance(doc, dict) else None
+        if not isinstance(bound, dict):
+            continue
+        for seat, entry in bound.items():
+            items = (entry or {}).get("criteria") or []
+            out[seat] = [{"id": str(c["id"]), "text": str(c["text"]), "concerns": [str(f) for f in c.get("findings") or []],
+                          "checked": str(c.get("checked") or "")} for c in items if c.get("id") and c.get("text")]
+    return out
+
+
+# The worst state of a reference, as the dashboard's reference strip shows it, most serious first.
+REFERENCE_STATES = ("retracted", "wrong", "corrected", "unverified", "not-checked", "fine")
+
+
+def reference_list(run: Path) -> list[dict]:
+    """The manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check or
+    integrity-check folder, the reference check's own first): per entry its worst state, a link to its record and
+    what the scanner found, in its words."""
+    found = [p for folder in ("manuscript-reference-check", "manuscript-integrity-check")
+             for p in sorted(run.glob(f"{folder}/**/*.json"))]
+    for path in found:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        refs = doc.get("references") if isinstance(doc, dict) else None
+        if not isinstance(refs, list) or not refs or not all(isinstance(r, dict) and "status" in r for r in refs):
+            continue
+        notes: dict[tuple[int, str], list[tuple[str, str]]] = {}
+        for f in doc.get("findings") or []:
+            if isinstance(f, dict) and f.get("check") == "references" and f.get("severity") != "info":
+                notes.setdefault((int(f.get("line") or 0), str(f.get("excerpt") or "")[:60]), []).append(
+                    (str(f.get("severity")), str(f.get("message") or "")))
+        out = []
+        for n, ref in enumerate(refs, 1):
+            text = " ".join(str(ref.get("text") or "").split())
+            said = notes.get((int(ref.get("line") or 0), text[:60]), [])
+            status, serious = ref.get("status"), any(sev in ("blocker", "major") for sev, _ in said)
+            state = ("retracted" if status in ("retracted", "concern") or ref.get("retraction") in ("retracted", "concern")
+                     else "wrong" if status in ("mismatch", "unresolved") or serious
+                     else "unverified" if status == "no_identifier"
+                     else "corrected" if said
+                     else "not-checked" if status in ("lookup_failed", "not_checked") else "fine")
+            doi, pmid, arxiv = ref.get("doi"), ref.get("pmid"), ref.get("arxiv")
+            link = (f"https://arxiv.org/abs/{arxiv}" if arxiv else f"https://doi.org/{doi}" if doi and status != "no_identifier"
+                    else f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "")
+            out.append({"n": n, "line": int(ref.get("line") or 0), "text": text[:300] or f"Entry {n}", "state": state,
+                        "link": link, "notes": [message for _, message in said]})
+        return out
+    return []
 
 
 def token(value: Any) -> str:
@@ -653,7 +726,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "signals": signals(run), "dismissed": records["dismissed"],
         "not_checked": records["not_checked"] + ladder_gaps(run, data),
         "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
-        "story": story(run), "figures": figures(run, out_dir),
+        "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run),
     }
     mentions = concern_mentions(inventory["findings"])
     if merge:

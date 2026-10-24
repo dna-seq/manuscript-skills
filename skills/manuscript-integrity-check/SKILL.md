@@ -150,7 +150,12 @@ about to submit, and those items count too. Exit code 1 means a blocker candidat
 means none and, with `--online`, every lookup answered; 3 means no blocker, but a lookup did not answer, so the run
 cannot be called clean. Read every serious and important finding in context and omit false positives (a module named "Superhuman", "discovery" as a
 software term). Severities, stages and the readiness line are provisional: the report judges readiness itself
-(see The report). AI mentions, style counts and absent generic declarations are not by themselves a submission
+(see The report).
+
+For claims beyond their evidence, also run `uv run --script ../manuscript-prose-edit/scripts/guard.py PAPER.md
+--summary`: it lists each title, Abstract or Conclusions sentence that claims more than the body sentences about
+the same thing (a cause where the Results report an association, "in all patients" for one cohort), or leaves out a
+scope, limit or null result the body states. Quote both sentences in the report under "Fix now"; a summary sentence with no close body sentence is only a passage to reread. AI mentions, style counts and absent generic declarations are not by themselves a submission
 barrier.
 
 Script line numbers count lines of the source file. In a file that keeps each paragraph on one line they name a

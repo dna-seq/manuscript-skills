@@ -63,7 +63,10 @@ uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/finding
 It takes coverage from `run.json`, the manuscript's title and sections from its snapshot, each skill's
 findings, dismissed flags and unrun checks, the check outputs as raw signal counts (for the simulated
 referees, what they proposed before adjudication, counted once), the readers' reports, the simulated
-reviewers' recommendations, concerns and suggestions, and journal selection's ladders and record. A stage
+reviewers' recommendations, concerns and suggestions (with the criteria each wrote before reading, from the
+finding check's `criteria`, and where each expectation is written, from `norm_source`), the reference list's
+state per entry (the reference scanner's JSON in the reference-check or integrity-check folder), and journal
+selection's ladders and record. A stage
 still running shows as in progress; manuscript-improve itself, which is running while it collects, is left
 out of the coverage unless it recorded findings of its own. A manuscript that exists only as a connected
 document has no local text to quote: a run started with its reading copy (`runs.py start --reading-copy`)
@@ -163,21 +166,28 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   anyone as it is: data, styles and scripts are inside it, and the manuscript's local images are embedded
   (an image it could not find keeps its path and says so). Which skill found something is shown by an
   icon, with its name in the tooltip and a legend. Its tabs: headline
-  counts, coverage per skill, the funnel from raw signals to confirmed problems and the machine-writing
-  patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
+    counts, coverage per skill, the reference list at a glance (one cell per entry, coloured by its worst state:
+  retracted, points to another work, a detail to correct, no identifier, could not be checked, or fine), the funnel from
+  raw signals to confirmed problems and the machine-writing patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
   skill, and AI-related or not, with a heat grid of where they sit and a sortable, searchable table with
   every passage and evidence excerpt; the manuscript with every quoted problem highlighted by severity and the skills'
   comments beside it; the corrected version as track changes, with what was held back or could not be
   placed, and the questions for the authors as comments beside the passages (marked in yellow, hidden with
-  one click; none is in the text); the comparison with the reference review; the journals, with each venue's AI policy as icons
+    one click; none is in the text), with how the claims moved: each claim the run changed placed on the causal
+  and the evidential ladder, before and after, marked as moved toward the evidence, stronger as a finding
+  asked, or stronger with nothing asking for it (from `requested-claims.yaml` beside the revision folder), and
+  each title, Abstract or Conclusions sentence that claims more than the body (`guard.py --summary`); the
+  comparison with the reference review; the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
   figures (each one as rendered, with its verdict, problems and recommended changes, a redrawn draft beside
   it when there is one, the figures to add and the venue's limit; `#figures/Figure%202` opens one); the
   story (the direction, the story tests, the edits that keep the direction and the narrative changes only
   the authors can choose); the
-  simulated reviewers (their recommendation per journal, every concern with its suggestion and the
-  adjudication's verdict, grouped by who can act); the readers' paths by section and subsection, in a tab
+    simulated reviewers (their recommendation per journal, every concern with its suggestion and the
+  adjudication's verdict, grouped by who can act, where each expectation comes from (the journal, a reporting
+  guideline, the field's checklist or the reviewer's own), and each reviewer's criteria written before reading:
+  raised, checked with nothing found, or not covered); the readers' paths by section and subsection, in a tab
   of their own; whether each reader and reviewer ran as a fresh agent, and on which model; and what
   could not be checked. Each tab has an address, so
   `manuscript-dashboard.html#manuscript` opens the annotated paper itself, and `#manuscript/IC-1` the

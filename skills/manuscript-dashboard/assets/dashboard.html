@@ -90,6 +90,32 @@ h2.sec { font-size: 20px; margin: 28px 0 10px; font-weight: 650; }
 h3 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+/* The claim ladder: one row per claim, its rung before (hollow) and after (filled) on the ladder's scale. */
+.ladder { display: grid; gap: 2px; }
+.ladder-row { display: grid; grid-template-columns: minmax(120px, 32%) 1fr; gap: 10px; align-items: center; padding: 3px 4px; border-radius: 6px; }
+.ladder-row:not(.ladder-head):hover, .ladder-row:focus-visible { background: var(--surface-2); }
+.ladder-label { font-size: 13px; overflow-wrap: anywhere; }
+.ladder-track { position: relative; display: grid; grid-template-columns: repeat(var(--rungs), 1fr); min-height: 22px; align-items: center; }
+.ladder-head .ladder-track { align-items: end; }
+.ladder-track .rung { font-size: 11px; line-height: 1.2; color: var(--ink-2); text-align: center; padding: 0 2px; }
+.ladder-track .cell { height: 22px; border-left: 1px dashed var(--grid); }
+.ladder-track .cell:last-of-type { border-right: 1px dashed var(--grid); }
+.ladder-track .span { position: absolute; top: 9px; height: 4px; border-radius: 2px; }
+.ladder-track .dot { position: absolute; top: 5px; width: 12px; height: 12px; border-radius: 50%; }
+.ladder-track .dot.from { background: var(--surface); border: 2px solid var(--ink-2); }
+.ladder-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.ladder-key .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+/* The reviewers' criteria, written before reading. */
+.crit { width: 100%; border-collapse: collapse; font-size: 13px; }
+.crit td { padding: 4px 6px; vertical-align: top; border-top: 1px solid var(--grid); }
+.crit-mark { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; }
+.crit-mark.raised { background: var(--sev-major); }
+.crit-mark.checked { background: var(--good); }
+.crit-mark.open { background: transparent; border: 2px solid var(--sev-unknown); }
+/* The reference list, one cell per entry in list order. */
+.ref-strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 4px; }
+.ref-cell { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 0; padding: 0; cursor: default; }
+a.ref-cell { cursor: pointer; }
 .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); margin-top: 18px; }
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
 .kpi .label { color: var(--ink-2); font-size: 13px; }
@@ -799,6 +825,7 @@ __REVISION_HTML__
     p.append(h('h2', {class: 'sec'}, 'Review coverage'));
     p.append(h('div', {class: 'chips'}, inv.coverage.map(c => statusChip(c.skill, c.status, c.note, S.by_skill[c.skill] || 0))));
     p.append(h('p', {class: 'note'}, 'Each chip shows how far the skill got and how many confirmed problems it reported. A problem found by two skills counts for both chips but once in every total.'));
+    if ((inv.reference_list || []).length) p.append(referenceStrip(inv.reference_list));
     const grid = h('div', {class: 'grid', style: 'margin-top: 20px'});
     const funnel = [];
     if (S.signals) funnel.push({key: 'signals', label: 'Raw signals screened', count: S.signals, color: 'var(--deemph)', hint: 'Scanner hits, reviewer proposals and reader concerns before merging and checking'});
@@ -847,6 +874,70 @@ __REVISION_HTML__
       W.patterns.length ? h('div', {class: 'table-wrap'}, h('table', null, h('thead', null, head), h('tbody', null, rows)))
         : h('p', {class: 'empty'}, 'No pattern of the catalogue occurs in these texts.'),
       h('p', {class: 'note'}, 'Counted by the deslop style checker in each version, leaving out any [AUTHORS: …] note still in the text. A hit is a place to look, never a verdict: people write these too, and the deslop stage keeps a use whose catalogue exception applies. Patterns that only reading finds are not counted here.'));
+  }
+
+  // The reference list as the reference check left it: one cell per entry, in list order, coloured by its worst state.
+  // A function declaration, since the Overview draws the strip before this point of the script runs.
+  function referenceStrip(list) {
+    const REF_STATE = [['retracted', 'Retracted, or under an expression of concern', 'var(--sev-blocker)'],
+      ['wrong', 'Points to another work, or no record found', 'var(--sev-major)'],
+      ['corrected', 'A detail differs from the record (journal, year, pages, title or authors)', 'var(--sev-minor)'],
+      ['unverified', 'No identifier: a close record is still to be confirmed', 'var(--warning)'],
+      ['not-checked', 'Could not be checked: the registry did not answer', 'var(--sev-unknown)'],
+      ['fine', 'Matches its record', 'var(--good)']];
+    const meta = Object.fromEntries(REF_STATE.map(([k, label, color]) => [k, {label, color}]));
+    const strip = h('div', {class: 'ref-strip', role: 'list'}, list.map(r => withTip(
+      h(r.link ? 'a' : 'span', {class: 'ref-cell', role: 'listitem', tabindex: 0, href: r.link || null, target: r.link ? '_blank' : null, rel: r.link ? 'noopener' : null,
+        style: `background: ${meta[r.state].color}`, 'aria-label': `Reference ${r.n}: ${meta[r.state].label}`}),
+      [`${r.n}. ${r.text.length > 140 ? r.text.slice(0, 138) + '…' : r.text}`, meta[r.state].label, ...r.notes.slice(0, 3)])));
+    const counts = REF_STATE.map(([k, label, color]) => ({k, label, color, n: list.filter(r => r.state === k).length})).filter(x => x.n);
+    return h('div', null, h('h2', {class: 'sec'}, 'The reference list at a glance'),
+      card(null, strip, h('div', {class: 'ladder-key'}, counts.map(x => h('span', null, h('span', {class: 'sw', style: `background: ${x.color}; height: 10px; width: 10px`}), `${x.label}: ${x.n}`))),
+        h('p', {class: 'note'}, `${plural(list.length, 'entry', 'entries')} of the reference list, in order. Point at a cell for the entry and what the reference check found; an entry with an identifier opens its record. A corrected detail is counted with the reference repairs, never a problem to lead with.`)));
+  }
+
+  // How the corrected version moved each claim, on the guard's two ladders, and summary sentences that claim more
+  // than the body. A hollow dot is where a claim stood before (or what the body says), a filled one where it stands now.
+  function claimLadder(C) {
+    const box = h('div', null, h('h2', {class: 'sec'}, 'How the claims moved'));
+    const STATUS = {lowered: ['toward what the evidence shows', 'var(--good)'], asked: ['stronger, as a finding asked', 'var(--warning)'],
+      unasked: ['stronger, and nothing asked for it', 'var(--critical)'], unknown: ['stronger', 'var(--warning)'],
+      summary: ['the summary claims more than the body', 'var(--critical)'], same: ['changed on both sides of the ladder', 'var(--deemph)']};
+    const statusOf = m => m.to < m.from ? 'lowered' : m.to === m.from ? 'same' : !C.requested ? 'unknown' : m.asked_by.length ? 'asked' : 'unasked';
+    const TITLE = {causal: 'The relation each claim states', evidential: 'How certain each claim is'};
+    for (const ladder of ['causal', 'evidential']) {
+      const rows = [...C.moves.filter(m => m.ladder === ladder).map(m => ({...m, status: statusOf(m)})),
+                    ...C.summary.filter(f => f.ladder === ladder).map(f => ({...f, status: 'summary'}))];
+      if (!rows.length) continue;
+      const axis = C.axes[ladder], n = axis.length, at = lv => (lv + 0.5) / n * 100;
+      const grid = h('div', {class: 'ladder', style: `--rungs: ${n}`},
+        h('div', {class: 'ladder-row ladder-head'}, h('span', {class: 'note', style: 'margin: 0'}, 'weaker → stronger'), h('div', {class: 'ladder-track'}, axis.map(r => h('span', {class: 'rung'}, r.label)))));
+      for (const m of rows) {
+        const [label, color] = STATUS[m.status];
+        const lo = Math.min(m.from, m.to), hi = Math.max(m.from, m.to);
+        const track = h('div', {class: 'ladder-track'}, axis.map(() => h('span', {class: 'cell'})),
+          h('span', {class: 'span', style: `left: ${at(lo)}%; width: ${at(hi) - at(lo)}%; background: ${color}`}),
+          h('span', {class: 'dot from', style: `left: calc(${at(m.from)}% - 6px)`}),
+          h('span', {class: 'dot', style: `left: calc(${at(m.to)}% - 6px); background: ${color}`}));
+        const tipLines = m.status === 'summary'
+          ? [m.words, `Summary: "${m.sentence}"`, `Body, ${m.body}: "${m.body_sentence}"`]
+          : [m.words, `Now: "${m.after}"`, `Before: "${m.before}"`, m.asked_by.length ? `Asked for by ${m.asked_by.join(', ')}` : (C.requested && m.to > m.from ? 'No finding or request asked for this.' : null)];
+        grid.append(withTip(h('div', {class: 'ladder-row', tabindex: 0}, h('span', {class: 'ladder-label'}, m.where.replace(/^the /, ''),
+          h('span', {class: 'note'}, ` · ${label}`)), track), tipLines));
+      }
+      const used = [...new Set(rows.map(r => r.status))];
+      box.append(card(TITLE[ladder], grid, h('div', {class: 'ladder-key'}, used.map(k => h('span', null, h('span', {class: 'sw', style: `background: ${STATUS[k][1]}`}), STATUS[k][0])),
+        h('span', null, 'hollow: before, or the body · filled: now, or the summary'))));
+    }
+    const listed = [...C.others.map(o => ({...o, asked: o.asked_by.length ? ` Asked for by ${o.asked_by.join(', ')}.` : ''})),
+                    ...C.summary.filter(f => !f.ladder).map(f => ({...f, asked: '', before: f.body_sentence, after: f.sentence}))];
+    if (listed.length) box.append(card('Scope, limits and null results the claims gained or lost',
+      h('ul', {style: 'margin: 0; padding-left: 18px'}, listed.map(o => h('li', {style: 'margin-bottom: 6px'}, h('strong', null, o.where.replace(/^the /, '').replace(/^./, c => c.toUpperCase())), ': ', o.words, o.asked,
+        h('div', {class: 'note', style: 'margin: 2px 0 0'}, `Now: "${o.after}"`))))));
+    box.append(h('p', {class: 'note'}, C.requested
+      ? 'Each claim the run changed, read by the claim guard against the list of changes the findings and the authors asked for. A claim that grew stronger with nothing asking for it would have failed the final check.'
+      : 'Each claim the run changed, read by the claim guard. The run kept no list of requested claim changes, so a stronger claim is shown without what asked for it.'));
+    return box;
   }
 
   // ---------- the corrected version: every applied and chosen proposed edit, as track changes ----------
@@ -942,6 +1033,7 @@ __REVISION_HTML__
       return el;
     }), true));
     p.append(views, bar, h('div', {class: 'rev-layout'}, article, list));
+    if (D.claims) p.append(claimLadder(D.claims));
     openRevised = id => { selectTab('revised'); requestAnimationFrame(() => show(id)); };
   })();
 
@@ -1517,13 +1609,25 @@ __REVISION_HTML__
                      ['policy', 'Ethics, consent or privacy'], ['dropped', 'Dropped by the adjudication, with the reason'], ['', 'Route not given']];
       const routeOf = c => ROUTE.some(([r]) => r && r === c.route) ? c.route : '';
       const VERDICT = {confirmed: 'upheld', downgraded: 'downgraded', refuted: 'refuted'};
+      // Where an expectation a concern rests on is written (peer review's norm_source).
+      const NORM = {venue: 'asked for by the journal', guideline: 'required by a reporting guideline', module: 'a question of the field\'s checklist', own: 'the reviewer\'s own expectation'};
+      const normOf = c => { const m = /^\s*(venue|guideline|module|own)\s*:\s*([\s\S]*)$/i.exec(c.norm_source || ''); return m ? [m[1].toLowerCase(), m[2].trim()] : null; };
+      const normTag = c => { const m = normOf(c); return m ? withTip(h('span', {class: 'tag', tabindex: 0}, `Expectation: ${NORM[m[0]]}`), ['Where the expectation comes from', m[1]]) : null; };
       const concernItem = c => h('li', {style: 'margin-bottom: 8px'},
-        h('div', null, h('span', {class: 'tag'}, CONCERN_SEV[c.severity] || 'Severity not given'), c.verdict ? withTip(h('span', {class: 'tag', tabindex: 0}, VERDICT[c.verdict] || c.verdict), ['Adjudication', c.verdict_evidence || c.verdict]) : null,
+        h('div', null, h('span', {class: 'tag'}, CONCERN_SEV[c.severity] || 'Severity not given'), c.verdict ? withTip(h('span', {class: 'tag', tabindex: 0}, VERDICT[c.verdict] || c.verdict), ['Adjudication', c.verdict_evidence || c.verdict]) : null, normTag(c),
           c.defence ? h('span', {class: 'tag'}, `Defence: ${c.defence}`) : null, c.location ? h('span', {class: 'note', style: 'margin-left: 4px'}, c.location) : null),
         h('div', null, c.concern, ' ', h('span', {class: 'note'}, `(${c.id})`)),
         c.suggestion ? h('div', null, h('strong', null, 'Suggestion: '), c.suggestion) : null,
         h('div', {class: 'note', style: 'margin: 2px 0 0'}, [c.placement ? `goes in: ${c.placement}` : null, c.cost ? `cost: ${c.cost}` : null].filter(Boolean).join(' · '),
           c.finding_ids.length ? [' · problem ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : null));
+      const norms = concerns.map(normOf).filter(Boolean);
+      if (norms.length) {
+        const NORM_COLOR = {venue: 'var(--accent)', guideline: 'var(--b-partial)', module: 'var(--b-full)', own: 'var(--warning)'};
+        p.append(h('h2', {class: 'sec'}, 'Where the reviewers\' expectations come from'),
+          card(null, barChart(Object.keys(NORM).map(k => ({key: k, label: NORM[k].replace(/^./, c => c.toUpperCase()), count: norms.filter(m => m[0] === k).length, color: NORM_COLOR[k],
+            hint: k === 'own' ? 'Written in neither the journal\'s pages, a reporting guideline nor the field\'s checklist: the reviewer\'s preference, kept optional unless a claim needs it' : 'Quoted or named in the concern'})), {unit: 'concern'}),
+          h('p', {class: 'note'}, 'Concerns that ask for replication, more samples, an external cohort or a standard analysis say where that expectation is written. One that rests on the reviewer\'s own expectation is optional unless a claim needs it.')));
+      }
       p.append(h('h2', {class: 'sec'}, 'What the reviewers suggest'),
         h('p', {class: 'note', style: 'margin-top: 0'}, 'Every concern with the reviewer\'s own suggestion (what would change their mind), grouped by who can act. Each links to the problem it became in this dashboard.'));
       for (const [route, label] of ROUTE) {
@@ -1534,11 +1638,26 @@ __REVISION_HTML__
           h('summary', null, h('strong', null, `${label} (${here.length})`)),
           h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(c => [h('li', {style: 'list-style: none; margin-left: -18px'}, badge('manuscript-peer-review'), ' ', h('em', null, seatName(c.seat))), concernItem(c)]))));
       }
+      // What each reviewer wrote down before reading, and what became of it: raised, checked with nothing found, or neither.
+      const criteriaGrid = r => {
+        if (!(r.criteria || []).length) return null;
+        const offs = r.concerns.filter(c => !c.criterion.length && c.off_criterion);
+        return [h('h3', {style: 'font-size: 14px; margin: 10px 0 4px'}, 'What this reviewer set out to check, before reading'),
+          h('table', {class: 'crit'}, h('tbody', null, r.criteria.map(cr => {
+            const raised = r.concerns.filter(c => cr.concerns.includes(c.id) || c.criterion.includes(cr.id));
+            const state = raised.length ? 'raised' : cr.checked ? 'checked' : 'open';
+            return h('tr', null, h('td', {style: 'width: 18px'}, h('span', {class: `crit-mark ${state}`, 'aria-hidden': 'true'})),
+              h('td', null, cr.text, h('div', {class: 'note', style: 'margin: 2px 0 0'},
+                state === 'raised' ? `Raised: ${raised.map(c => c.id).join(', ')}` : state === 'checked' ? cr.checked.replace(/^./, c => c.toUpperCase()) : 'Not covered: no concern and no line saying what was checked.')));
+          }))),
+          offs.length ? h('p', {class: 'note'}, 'Found while reading, outside these criteria: ', offs.map((c, i) => [i ? '; ' : '', `${c.id} (${c.off_criterion})`])) : null];
+      };
       p.append(h('h2', {class: 'sec'}, 'Each reviewer\'s report'));
       p.append(h('div', {class: 'grid'}, reviewers.map(r => card(seatName(r.seat),
         ranAs(r),
         r.summary ? h('p', {style: 'margin-top: 0'}, r.summary) : null,
         r.strengths.length ? [h('h3', {style: 'font-size: 14px; margin: 8px 0 4px'}, 'Strengths'), h('ul', {style: 'margin: 0; padding-left: 18px'}, r.strengths.map(t => h('li', null, t)))] : null,
+        criteriaGrid(r),
         h('details', {style: 'margin-top: 8px'}, h('summary', null, `${plural(r.concerns.length, 'concern')}: ${r.concerns.filter(isSerious).length} blocker or major`),
           h('ul', {style: 'margin: 8px 0 0; padding-left: 18px'}, r.concerns.map(concernItem)))))));
       p.append(h('p', {class: 'note'}, 'Simulated reviewers are agents given the reading copy and the journal\'s criteria; they are not people. A defence agent then answered each concern for the authors, and an adjudicator decided what stands.'));

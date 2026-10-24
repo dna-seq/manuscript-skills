@@ -981,18 +981,18 @@ CRITERION_LINE = re.compile(r"^\s*(?:[-*+]\s+)?\**\s*(C\d{1,2})\s*\**\s*[.):]\s*
 COPIED_RUN = 12  # words of the manuscript in a row: a criterion that repeats them was written after reading
 
 
-def parse_criteria(text: str) -> tuple[dict[str, str], set[str]]:
+def parse_criteria(text: str) -> tuple[dict[str, str], dict[str, str]]:
     """The criteria a seat wrote before reading (id -> text, in order), and the ids that later got a line saying
-    what was checked (a second line starting with the same id)."""
+    what was checked (a second line starting with the same id), with that line."""
     defined: dict[str, str] = {}
-    covered: set[str] = set()
+    covered: dict[str, str] = {}
     for line in text.splitlines():
         m = CRITERION_LINE.match(line)
         if not m:
             continue
         cid = m.group(1).upper()
         if cid in defined:
-            covered.add(cid)
+            covered.setdefault(cid, m.group(2).strip())
         else:
             defined[cid] = m.group(2).strip()
     return defined, covered
@@ -1042,6 +1042,7 @@ def _check_criteria(criteria: dict[str, str], raw_findings: list[Any], findings:
     out: dict[str, Any] = {}
     for seat, (defined, covered) in parsed.items():
         items = [{"id": cid, "text": text, "findings": cited[seat].get(cid, []), "covered": cid in covered,
+                  "checked": covered.get(cid, ""),
                   "copied": _copied_run(text, runs)} for cid, text in defined.items()]
         out[seat] = {"criteria": items,
                      "unaccounted": [c["id"] for c in items if not c["findings"] and not c["covered"]],

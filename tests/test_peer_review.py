@@ -452,7 +452,8 @@ C2: nothing to raise; checked Methods, Benchmark and Table 2.
 
 def test_criteria_are_parsed_with_their_coverage_lines() -> None:
     defined, covered = cf.parse_criteria(CRITERIA)
-    assert list(defined) == ["C1", "C2", "C3"] and covered == {"C2"}
+    assert list(defined) == ["C1", "C2", "C3"] and list(covered) == ["C2"]
+    assert covered["C2"] == "nothing to raise; checked Methods, Benchmark and Table 2."  # what was checked
     assert defined["C2"] == "A comparison with predictors that does not use the same test set."
 
 

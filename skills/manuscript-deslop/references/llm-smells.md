@@ -1237,7 +1237,9 @@ A claim carries the same strength in the abstract, introduction, results, discus
 soften towards speculation in the Discussion; it never strengthens backwards, so no claim in the abstract
 or conclusion is stronger than the Results paragraph that supports it. A rewrite keeps each finding's
 hedge, tense, population, setting and quantification (a cohort result is not a general law). A hedge lost
-in editing ("may affect" → "affects") is a changed claim; the guard flags it.
+in editing ("may affect" → "affects") is a changed claim; the guard flags it. `guard.py PAPER.md --summary`
+(manuscript-prose-edit) checks the first rule across the paper: a title, Abstract or Conclusions sentence that
+claims more than the body, or leaves out a scope or limit the body states.
 
 ### I7. Defensive writing
 

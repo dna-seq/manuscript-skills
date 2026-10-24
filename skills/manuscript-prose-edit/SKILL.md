@@ -58,6 +58,7 @@ is proposed. Only the choice between new work and a narrower claim is the author
 uv run --script ../manuscript-deslop/scripts/style_profile.py BEFORE.md # before editing: where the patterns are
 uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
 uv run --script scripts/guard.py AFTER.md --against HEAD                # in git: the last commit is BEFORE
+uv run --script scripts/guard.py BEFORE.md AFTER.md --only Discussion   # a request for named sections; repeat --only
 uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID@HEADING] [--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt] [--sample AUTHORS.md]
 ```
 
@@ -74,7 +75,14 @@ removed. Exit 1 marks a protected change: a count change, a stronger claim, a lo
 paragraph or moved to another paragraph, or a declaration. Warnings, which the authors still see: a lowered claim
 (protected instead in a negated sentence), an added qualifier, a changed negation, a deleted sentence, and a
 token moved within its paragraph or into a `--moved-to` file. A deleted sentence that was only a stock phrase is
-not listed; one that said more is listed as "cut as a stock phrase".
+not listed; one that said more is listed as "cut as a stock phrase". When the request named sections ("edit the
+Discussion"), pass each with `--only`: a sentence changed anywhere else fails, so restore it.
+
+After an edit to the Abstract, the title or the Conclusions, or any edit that changes a claim, check the summary
+against the body with `uv run --script scripts/guard.py PAPER.md --summary`: it fails on a summary sentence that
+claims more than the body sentences about the same thing, or leaves out a scope, limit, null result or evidence
+status the closest one states (deslop's I6). Bring the summary down to what the body shows, or give it the
+qualifier; a summary sentence no body sentence is close to is listed for a reading, never failed.
 
 When something asked for a claim change or a declaration (the authors' request, a confirmed finding, a referee's
 comment), list each one in a small file and pass `--authorised FILE`. Each entry gives `passage`, at least three

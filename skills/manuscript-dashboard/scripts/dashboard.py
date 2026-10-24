@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import html
+import importlib.util
 import json
 import re
 import sys
@@ -46,6 +47,7 @@ STAGES = ("now", "writing", "journal", "final", "unknown")
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 TEMPLATE = ASSETS / "dashboard.html"
 DESLOP = Path(__file__).resolve().parents[2] / "manuscript-deslop"
+GUARD = Path(__file__).resolve().parents[2] / "manuscript-prose-edit" / "scripts" / "guard.py"
 app = typer.Typer(add_completion=False)
 
 
@@ -279,6 +281,18 @@ class Concern(Record):
     verdict: str = ""  # the adjudication: confirmed, downgraded or refuted
     verdict_evidence: str = ""
     finding_ids: list[Identity] = Field(default_factory=list)  # the inventory's problems that carry it
+    criterion: list[str] = Field(default_factory=list)  # the criteria the reviewer wrote before reading it falls under
+    off_criterion: str = ""  # why it matters although no criterion anticipated it
+    norm_source: str = ""  # where an expectation it rests on is written: venue:, guideline:, module: or own:
+
+
+class Criterion(Record):
+    """A problem a reviewer wrote down before reading the paper, with the concerns raised under it, or the line saying
+    what the reviewer checked and found nothing."""
+    id: Text
+    text: Text
+    concerns: list[str] = Field(default_factory=list)
+    checked: str = ""
 
 
 class Reviewer(Record):
@@ -288,6 +302,7 @@ class Reviewer(Record):
     model: str = ""  # the model that read it (codex/gpt-5.6-sol); "" when the run did not record it
     strengths: list[str] = Field(default_factory=list)
     concerns: list[Concern] = Field(default_factory=list)
+    criteria: list[Criterion] = Field(default_factory=list)
 
 
 class Panel(Record):
@@ -338,6 +353,17 @@ class Reference(Record):
     matched_by: str = ""  # who matched its items to the run's findings, after the inventory was frozen
     items: Annotated[list[ReferenceItem], Field(min_length=1)]
     matches: list[Match] = Field(default_factory=list)
+
+
+class ListedReference(Record):
+    """One entry of the manuscript's reference list as the reference check left it: its worst state and what was
+    found, in the scanner's own words."""
+    n: int
+    line: int = 0
+    text: Text
+    state: Literal["fine", "corrected", "unverified", "not-checked", "wrong", "retracted"]
+    link: str = ""  # doi.org, PubMed or arXiv
+    notes: list[str] = Field(default_factory=list)
 
 
 class AiAspect(Record):
@@ -481,6 +507,7 @@ class Inventory(Record):
     venues: list[Venue] = Field(default_factory=list)
     story: Story | None = None
     figures: Figures | None = None
+    reference_list: list[ListedReference] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def reconcile(self) -> Inventory:
@@ -768,8 +795,81 @@ def image_folders(base: Path, path: Path) -> list[Path]:
     return folders
 
 
+def _guard() -> Any:
+    """manuscript-prose-edit's claim guard: its ladders and checks draw the claim ladder."""
+    if "dashboard_guard" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("dashboard_guard", GUARD)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["dashboard_guard"] = module  # dataclasses resolve their module through sys.modules
+        spec.loader.exec_module(module)
+    return sys.modules["dashboard_guard"]
+
+
+# The changes a claim can undergo besides a move on a ladder, in the guard's kinds.
+CLAIM_MARKERS = ("generality", "scope", "limitation", "null_result", "evidence_status")
+
+
+def claim_movements(original: str, proposed: str, requested: Path | None) -> dict | None:
+    """How the corrected version moved each claim of the reviewed text: a move on the causal or the evidential ladder
+    (from its rung before to its rung after, with what asked for it when the run recorded its requested claim
+    changes), the scope, limits, null results and generality it gained or lost, and each sentence of the title,
+    Abstract or Conclusions that claims more than the body. None when nothing moved."""
+    import yaml
+
+    guard = _guard()
+    entries = None
+    if requested is not None and requested.is_file():
+        try:
+            entries = guard.parse_authorisations(yaml.safe_load(requested.read_text(encoding="utf-8")))
+        except (yaml.YAMLError, ValueError):
+            entries = None
+    original, proposed = strip_notes(original), strip_notes(proposed)
+    report = guard.compare(original, proposed, revision=True, authorised=entries)
+    title = report.get("title")
+    ladders = {"causal": (guard.CAUSAL, guard.CAUSAL_PLAIN, guard.CAUSAL_WORDS),
+               "evidential": (guard.EVIDENTIAL, guard.EVIDENTIAL_PLAIN, guard.EVIDENTIAL_WORDS)}
+
+    def level(text: str, ladder: str) -> int:
+        rungs, plain, _ = ladders[ladder]
+        return max((lv for lv, _, _ in guard._ladder(text, rungs)), default=plain)
+
+    axes = {}
+    for ladder, (rungs, plain, words) in ladders.items():
+        names = dict(sorted({(r.level, r.name) for r in rungs}))
+        axes[ladder] = [{"level": lv, "label": words.get(name, name) + (" or a plain statement" if lv == plain else "")}
+                        for lv, name in names.items()]
+    moves, others = [], []
+    for c in report["sentence_changes"]:
+        where = guard._section(c, title)
+        line = c["after_line"] or c["before_line"]
+        asked = list(c.get("authorised_by") or [])
+        if c["kind"] in ladders and c["change"] in ("raised", "lowered", "mixed"):
+            moves.append({"ladder": c["kind"], "from": level(c["before"], c["kind"]), "to": level(c["after"], c["kind"]),
+                          "where": where, "line": line, "before": c["before"], "after": c["after"],
+                          "asked_by": asked, "words": guard.describe(c)})
+        elif c["kind"] in CLAIM_MARKERS:
+            others.append({"kind": c["kind"], "change": c["change"], "where": where, "line": line,
+                           "before": c["before"], "after": c["after"], "asked_by": asked, "words": guard.describe(c)})
+    try:
+        checked = guard.summary_check(proposed)
+    except ValueError:  # a text without headings has no Abstract or body to compare
+        checked = {"findings": []}
+    summary = []
+    for f in checked["findings"]:
+        item = {"kind": f["kind"], "where": guard._summary_place(f, title), "sentence": f["sentence"],
+                "body": guard._section({"section": f["body_section"]}, title) + f" (line {f['body_line']})",
+                "body_sentence": f["body_sentence"], "words": guard._summary_problem(f)}
+        if f["kind"] in ladders:
+            item |= {"ladder": f["kind"], "from": level(f["body_sentence"], f["kind"]), "to": level(f["sentence"], f["kind"])}
+        summary.append(item)
+    if not (moves or others or summary):
+        return None
+    return {"axes": axes, "moves": moves, "others": others, "summary": summary, "requested": entries is not None}
+
+
 def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, revision: dict | None = None,
-                   writing: dict | None = None) -> str:
+                   writing: dict | None = None, claims: dict | None = None) -> str:
     """The template with the inventory inlined as JSON and the reviewed and corrected texts rendered as HTML.
 
     Evidence keeps its file name and the skill folder it came from, never a local path."""
@@ -794,7 +894,7 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
     corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
-                "revision": corrected, "writing": writing, "decisions": decision_list(data),
+                "revision": corrected, "writing": writing, "claims": claims, "decisions": decision_list(data),
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")
     return (template.replace("__TITLE__", html.escape(data.title)).replace("__MANUSCRIPT_HTML__", paper)
@@ -814,7 +914,7 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         path = (base / data.manuscript.path).resolve()
         versions.append(("original", f"Reviewed version{f' ({data.manuscript.version})' if data.manuscript.version else ''}",
                          path.read_text(encoding="utf-8"), path.suffix.lower()))
-    corrected = None
+    corrected = claims = None
     if revision is not None:
         corrected = json.loads((revision / "revision.json").read_text(encoding="utf-8"))
         if corrected.get("inventory_sha256") != summary["inventory_sha256"]:
@@ -839,11 +939,20 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]
         summary["revision"] |= {"questions": len(corrected["comments"]), "notes_in_text": len(corrected["notes_in_text"]),
                                 "notes_in_working_copy": len(corrected.get("notes_in_working_copy") or [])}
+        if versions[0][0] == "original":  # the claim ladder compares the reviewed text with the corrected one
+            claims = claim_movements(versions[0][2], proposed, revision.parent / "requested-claims.yaml")
+        if claims:
+            moves = claims["moves"]
+            summary["claims"] = {"lowered": sum(m["to"] < m["from"] for m in moves),
+                                 "raised": sum(m["to"] > m["from"] for m in moves),
+                                 "raised_not_asked": sum(m["to"] > m["from"] and not m["asked_by"] for m in moves)
+                                 if claims["requested"] else None,
+                                 "other": len(claims["others"]), "summary_over_body": len(claims["summary"])}
     writing = writing_patterns(versions) if versions else None
     if writing:
         summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}
                                        for v in writing["versions"]}
-    outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing),
+    outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing, claims),
                "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
     if any((output_dir / name).exists() for name in outputs):
         raise ValueError(f"Output files already exist in {output_dir.name}; render this attempt into "
