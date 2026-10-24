@@ -36,11 +36,29 @@ for it. In a longer paper, check every claim in these classes, in this order:
    [Priority and absence claims](#priority-and-absence-claims));
 5. claims flagged by another skill (a referee's "missing prior work", a citation added in a revision).
 
-The classes are never sampled. Stop there, unless more than one in five of the claims checked came back
-`partial` or `rejected`: a rate that high points to a habit of the draft rather than a few slips, so check the
-remaining cited sentences too, in the order they appear.
+The classes are never sampled. Then check a random sample of the other cited sentences, so that the report can
+say something about the ones nobody checked:
 
-Record coverage in the report as "checked N of M cited sentences" and say how the N were chosen. M counts
+```bash
+uv run --script scripts/sample_claims.py PAPER.md --claims claims.yaml \
+    --out RUN/manuscript-reference-check/claims-sample.yaml [--size 10]
+```
+
+It lists every sentence that carries a citation (the reference list left out), takes away the ones the claims
+file already holds, and draws `--size` of the rest at random, seeded from the manuscript's sha256 unless `--seed`
+is given, so that anyone can repeat the draw. The output is a claims file of its own (`priority: sample`, ids S1,
+S2, ...): locate each sentence's passage and fill `quote` and `source` as for any claim, run support.py on it, and
+record the reading's outcome in each claim's `outcome` (`confirmed`, `partial`, `rejected` or `blocked`; a
+`confirmed` sample claim goes to the skeptic like any other). support.py then reports the share of the sample not
+fully supported, its 95% interval, and how many of the unchecked sentences that range means. `sample_claims.py
+--count` gives the counts alone.
+
+Stop there, unless more than one in five of the claims checked, or of the sample, came back `partial` or
+`rejected`: a rate that high points to a habit of the draft rather than a few slips, so check the remaining cited
+sentences too, in the order they appear.
+
+Record coverage in the report as "checked N of M cited sentences" and say how the N were chosen: so many by
+priority and so many drawn at random from the rest. M counts
 the sentences that carry at least one citation, whatever the citation style: a numbered "[12]", an author-year
 "(Duncan et al., 2019)" or a `\cite{}` key. A citation that supports several sentences is checked for each
 sentence. Never describe a sample as a full check.
@@ -66,7 +84,8 @@ claims:
     quote: "The passage from the source, copied verbatim."   # optional; '...' marks an omission
     source: smith2021.txt       # a text, JATS XML or HTML file (here sources/smith2021.txt), or an identifier:
     # source: doi:10.1038/s41467-019-11112-0   (also pmid:, pmcid:, arxiv:)
-    priority: borrowed-number   # optional: load-bearing | abstract | borrowed-number | first-only | other
+        priority: borrowed-number   # optional: load-bearing | abstract | borrowed-number | first-only | other | sample
+    outcome: confirmed          # optional, after the reading: confirmed | partial | rejected | blocked
 ```
 
 ```bash
@@ -233,7 +252,8 @@ narrowed wording, a replacement source to verify, or what would unblock it). For
 
 Supported claims can be listed briefly, one sentence each with the passage quoted. Then, in sentences:
 
-- coverage: "We checked 8 of the 30 sentences that cite a source", and how they were chosen;
+- coverage: "We checked 18 of the 112 sentences that cite a source: 8 by priority and 10 drawn at random from
+  the other 104", and the sample's estimate in support.py's words, as an estimate, never as a full check;
 - how many claims had each outcome, and for each one found not supported, that a second reading of the
   whole source found no support;
 - which supported claims an independent second reader checked, and whether that reader was a separate agent

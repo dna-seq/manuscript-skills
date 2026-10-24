@@ -36,6 +36,10 @@ Text in a source that may address AI systems ("ignore the previous instructions"
 listed with the passage, for the reader to judge in context: papers about language models carry such sentences for
 their own reasons. Such text hidden in invisible Unicode tag characters is flagged. Neither is ever acted on.
 
+A claims file written by sample_claims.py (a seeded random sample of the cited sentences the priority classes did not
+take) carries a `sample` block; once each sampled claim has the reading's `outcome`, the report gives the share not
+fully supported, its 95% interval and what that means for the cited sentences nobody checked.
+
 Exit codes: 0 every quote located with no flag; 1 at least one claim flagged (quote_not_found,
 polarity_mismatch, numbers_missing) or a source that hides text for AI systems; 2 usage error or malformed claims
 file; 3 nothing flagged, but at least one source was unavailable, so the run cannot be called clean.
@@ -70,7 +74,9 @@ USER_AGENT = ("manuscript-reference-check/1.0 (claim-support check by the author
               "https://github.com/dna-seq/manuscript-skills)")
 STATUSES = ("source_unavailable", "quote_not_found", "polarity_mismatch", "numbers_missing", "quote_located")
 FLAGGED = {"quote_not_found", "polarity_mismatch", "numbers_missing"}
-PRIORITIES = {"load-bearing", "abstract", "borrowed-number", "first-only", "other"}
+PRIORITIES = {"load-bearing", "abstract", "borrowed-number", "first-only", "other", "sample"}
+# The reading's outcome of a claim (references/claim-support.md), recorded by the agent; the script never sets it.
+OUTCOMES = ("confirmed", "partial", "rejected", "blocked")
 MIN_QUOTE_CHARS = 30
 
 
@@ -713,6 +719,7 @@ class ClaimIn(BaseModel):
     quote: Optional[str] = None
     source: Optional[str] = None
     priority: Optional[str] = None
+    outcome: Optional[str] = None  # confirmed | partial | rejected | blocked, after the reading
 
     @field_validator("id", "location", "reference", "source", mode="before")
     @classmethod
@@ -731,6 +738,13 @@ class ClaimIn(BaseModel):
     def _known_priority(cls, value: Optional[str]) -> Optional[str]:
         if value is not None and value not in PRIORITIES:
             raise ValueError(f"must be one of {', '.join(sorted(PRIORITIES))}")
+        return value
+
+    @field_validator("outcome")
+    @classmethod
+    def _known_outcome(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in OUTCOMES:
+            raise ValueError(f"must be one of {', '.join(OUTCOMES)}")
         return value
 
 
@@ -795,6 +809,7 @@ class ClaimResult(BaseModel):
     reference: str
     claim: str
     priority: Optional[str] = None
+    outcome: Optional[str] = None
     status: str
     flags: list[str] = []
     quote: Optional[str] = None
@@ -811,7 +826,8 @@ class ClaimResult(BaseModel):
 
 def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> ClaimResult:
     result = ClaimResult(id=claim.id, location=claim.location, reference=claim.reference, claim=claim.claim,
-                         priority=claim.priority, status="quote_located", quote=claim.quote, source=source)
+                         priority=claim.priority, outcome=claim.outcome, status="quote_located", quote=claim.quote,
+                         source=source)
     if text is not None:
         source.characters = len(text)
     if text is None or not text.strip():
@@ -860,8 +876,49 @@ class SupportReport(BaseModel):
     cache_dir: str
     summary: dict[str, int]
     results: list[ClaimResult]
+    sample: Optional[dict[str, Any]] = None  # the random sample's estimate for the unchecked cited sentences
     note: str = ("Mechanical checks only. A located quote does not show that the source supports the claim, and no "
                  "status here means 'confirmed': a reader decides that from the passage (references/claim-support.md).")
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """The 95% Wilson interval of a proportion k/n, which stays within 0 and 1 for a small sample."""
+    if n == 0:
+        return 0.0, 1.0
+    p = k / n
+    centre, half = p + z * z / (2 * n), z * ((p * (1 - p) + z * z / (4 * n)) / n) ** 0.5
+    return max(0.0, (centre - half) / (1 + z * z / n)), min(1.0, (centre + half) / (1 + z * z / n))
+
+
+def sample_meta(path: Path) -> Optional[dict[str, Any]]:
+    """The `sample` block sample_claims.py writes into a claims file, when the file has one."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+        data = json.loads(raw) if path.suffix.lower() == ".json" else yaml.safe_load(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError):
+        return None
+    meta = data.get("sample") if isinstance(data, dict) else None
+    return meta if isinstance(meta, dict) and isinstance(meta.get("population"), int) else None
+
+
+def estimate(meta: dict[str, Any], results: list["ClaimResult"]) -> dict[str, Any]:
+    """What the sampled sentences say about the cited sentences nobody checked: the share not fully supported among
+    those the reading could judge, its 95% interval, and that range applied to the unchecked rest. Blocked claims
+    are left out of the share; unrated ones keep the estimate from being given."""
+    drawn = [r for r in results if r.priority == "sample"]
+    counts = {o: sum(r.outcome == o for r in drawn) for o in OUTCOMES}
+    unrated = [r.id for r in drawn if r.outcome is None]
+    judged = counts["confirmed"] + counts["partial"] + counts["rejected"]
+    off = counts["partial"] + counts["rejected"]
+    rest = max(0, int(meta["population"]) - len(drawn))
+    out: dict[str, Any] = {**{k: meta.get(k) for k in ("seed", "cited_sentences", "by_priority", "population")},
+                           "drawn": len(drawn), "outcomes": counts, "unrated": unrated, "unchecked": rest}
+    if judged and not unrated:
+        low, high = wilson(off, judged)
+        out |= {"share_not_supported": round(off / judged, 3), "interval": [round(low, 3), round(high, 3)],
+                "unchecked_not_supported": [round(low * rest), round(high * rest)],
+                "check_the_rest": off / judged > 0.2}
+    return out
 
 
 def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
@@ -886,8 +943,9 @@ def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
     summary["with_secondary_markers"] = sum(bool(r.secondary_markers) for r in results)
     summary["sources_aimed_at_ai"] = len({r.source.given for r in results if r.source.aimed_at_ai})
     summary["sources_hiding_text_for_ai"] = len({r.source.given for r in results if r.source.hidden_for_ai})
+    meta = sample_meta(claims_path)
     return SupportReport(claims_file=str(claims_path), online=online, cache_dir=str(cache_dir), summary=summary,
-                         results=results)
+                         results=results, sample=estimate(meta, results) if meta else None)
 
 
 def exit_code(report: SupportReport) -> int:
@@ -1017,6 +1075,37 @@ def _claim_block(r: ClaimResult) -> list[str]:
     return lines + [""]
 
 
+def _sample_lines(e: dict[str, Any]) -> list[str]:
+    """The random sample's estimate, in sentences for the authors."""
+    o = e["outcomes"]
+    lines = ["## A random sample of the other cited sentences", "",
+             f"The priority claims took {_plural(int(e['by_priority'] or 0), 'cited sentence', 'cited sentences')}. Of "
+             f"the other {e['population']}, {e['drawn']} were drawn at random (seed {e['seed']}, so the draw can be "
+             f"repeated) and checked like the rest."]
+    if e["unrated"]:
+        lines.append(f"{_plural(len(e['unrated']), 'sampled sentence has', 'sampled sentences have')} no outcome yet "
+                     f"({_listed(e['unrated'])}): record each reading's outcome before the estimate is given.")
+        return lines + [""]
+    if "share_not_supported" not in e:
+        lines.append(f"None of them could be judged ({o['blocked']} blocked), so the sample gives no estimate.")
+        return lines + [""]
+    judged = o["confirmed"] + o["partial"] + o["rejected"]
+    off = o["partial"] + o["rejected"]
+    low, high = (round(100 * x) for x in e["interval"])
+    few, many = e["unchecked_not_supported"]
+    lines.append(f"Of the {judged} the reading could judge, {off} {'was' if off == 1 else 'were'} not fully supported "
+                 f"by {'its' if judged == 1 else 'their'} source ({round(100 * e['share_not_supported'])}%; with 95% "
+                 f"confidence between {low}% and {high}%)"
+                 + (f"; {o['blocked']} could not be checked" if o["blocked"] else "") + ".")
+    lines.append(f"If the cited sentences nobody checked are like the sample, about {few} to {many} of those "
+                 f"{e['unchecked']} may not be fully supported. This is an estimate from a sample, not a check of each "
+                 "sentence.")
+    if e["check_the_rest"]:
+        lines.append("More than one in five of the sample was not fully supported, which points to a habit of the "
+                     "draft: the remaining cited sentences are checked too, in the order they appear.")
+    return lines + [""]
+
+
 def to_markdown(report: SupportReport) -> str:
     s = report.summary
     out = ["# Do the cited sources contain the quoted passages?", "",
@@ -1036,6 +1125,8 @@ def to_markdown(report: SupportReport) -> str:
     if not report.online:
         out += ["The check ran offline, so sources given only as an identifier were read from the local cache. A run "
                 "with the online lookups fetches their open-access text.", ""]
+    if report.sample:
+        out += _sample_lines(report.sample)
     for status in REPORT_ORDER:
         for r in report.results:
             if r.status == status:

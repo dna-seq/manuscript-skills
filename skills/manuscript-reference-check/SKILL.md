@@ -95,8 +95,11 @@ merge its findings with these.
 Follow [claim-support.md](references/claim-support.md). In short:
 
 1. **Choose and count** as [choose the claims and record coverage](references/claim-support.md#choose-the-claims-and-record-coverage)
-   says: which claims come first, when a paper counts as long, when to stop, and the "checked N of M cited
-   sentences" line.
+      says: which claims come first, when a paper counts as long, when to stop, and the "checked N of M cited
+   sentences" line. Then draw a seeded random sample of the other cited sentences with
+   `uv run --script scripts/sample_claims.py PAPER.md --claims claims.yaml --out RUN/manuscript-reference-check/claims-sample.yaml`
+   and check it like the rest, so the report can estimate how many of the unchecked sentences may not be
+   supported.
 2. **Locate the passage** in the source's full text and write a claims file (claim, location, reference,
    the verbatim passage, the source's text file or identifier).
 3. **Run the mechanical gate on every quoted passage:** `uv run --script scripts/support.py claims.yaml
@@ -207,6 +210,8 @@ optional suggestion is `info`; a check the scan could not run is `unknown`. Coun
 
 - `scripts/support.py`: the mechanical quote, number and polarity gate for claim support, with optional
   open-access fetching (PEP 723; `uv run --script`; exit codes in part 2, step 3).
+- `scripts/sample_claims.py`: the seeded random sample of the cited sentences the priority claims left out,
+  as a claims file whose outcomes support.py turns into an estimate for the unchecked rest.
 - `references/claim-support.md`: the claim-support protocol, the claims-file format and the report.
 - `references/identity-checks.md`: the scanner's reference fields, false alarms, and paper-preflight.
 - `../manuscript-integrity-check/scripts/scan.py`: the shared identity and consistency scanner.
