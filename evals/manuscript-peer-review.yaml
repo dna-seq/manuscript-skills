@@ -16,6 +16,13 @@
     - "Abstract says 4,812 held-out variants; Methods and Table 1 say 4,182."
     - "Methods says all coordinates are GRCh38; Table 2 gives rs429358 at chr19:45411941, its GRCh37 position (GRCh38: chr19:44908684)."
     - "Results, Application: 'This shows that the variants VarRank prioritises cause elevated LDL cholesterol' from a cross-sectional association."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: priority-claim, anchor: "VarRank is the first tool to combine evolutionary conservation and population allele frequency", file: fixtures/manuscript-peer-review/seeded.md}
+    - {item: 2, id: missing-baselines, anchor: "outperformed existing pathogenicity predictors", file: fixtures/manuscript-peer-review/seeded.md}
+    - {item: 3, id: gene-leakage, anchor: "We assigned ClinVar variants at random to training (80%) and test (20%) sets.", file: fixtures/manuscript-peer-review/seeded.md}
+    - {item: 4, id: n-mismatch, anchor: "On 4,812 held-out ClinVar missense variants", file: fixtures/manuscript-peer-review/seeded.md}
+    - {item: 5, id: genome-build, anchor: "rs429358 | chr19:45411941", file: fixtures/manuscript-peer-review/seeded.md}
+    - {item: 6, id: causal-claim, anchor: "This shows that the variants VarRank prioritises cause elevated LDL cholesterol.", file: fixtures/manuscript-peer-review/seeded.md}
   rubric:
     - "Reports the priority claim and names at least one earlier tool that combines conservation and allele frequency, with an identifier it resolved (marked unverified only if the lookup failed or could not run)."
     - "Reports that the comparison omits widely used predictors while the Abstract claims to outperform existing ones."

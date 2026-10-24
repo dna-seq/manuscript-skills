@@ -10,6 +10,7 @@ import importlib.util
 import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 from types import ModuleType
 
@@ -887,3 +888,33 @@ def test_a_long_list_of_unmentioned_changes_is_cut_and_says_how_many_more(tmp_pa
     assert found[0].message.startswith("17 changes to a number, citation or identifier sit where no reply")
     assert md.count("  - In the Results (line 2 of the revised manuscript), the number") == cr.SHOWN_CHANGES
     assert "  - Two more changes of this kind are listed in the comparison of the two versions" in md
+
+
+# --- paired letters (idea 7 of the 2026-10-24 comparison) ---------------------------------------------------------
+
+PAIRED = ROOT / "evals" / "fixtures" / "manuscript-reviewer-response"
+
+
+def test_a_confident_letter_gets_the_verdicts_of_the_plain_one() -> None:
+    plain, confident = _report("response-clean.md", "paper-v2.md"), _report("response-letter.md", "paper-v2.md")
+    assert _verdicts(plain) == _verdicts(confident) == set()
+    assert [f["code"] for f in confident["findings"] if not f["blocking"]] == ["OPENING_AGREE"]  # a style note
+
+
+def test_the_same_letter_gets_other_verdicts_when_the_change_did_not_land() -> None:
+    landed, missing = _report("response-clean.md", "paper-v2.md"), _report("response-clean.md", "paper-v2-seeded.md")
+    assert _verdicts(landed) == set() and _verdicts(missing) != set()
+    assert ("REVISED_QUOTE_NOT_FOUND", "R1.3a") in _verdicts(missing)  # the reply quotes a sentence paper-v2 lacks
+
+
+def _report(letter: str, revised: str) -> dict:
+    out = Path(tempfile.mkdtemp()) / "report.json"
+    CliRunner().invoke(cr.app, [str(PAIRED / "reviews-r1.txt"), str(PAIRED / "review-ledger.yaml"), str(PAIRED / letter),
+                                "--revised", str(PAIRED / revised), "--original", str(PAIRED / "paper-v1.md"),
+                                "--json", str(out)])
+    return json.loads(out.read_text(encoding="utf-8"))
+
+
+def _verdicts(report: dict) -> set[tuple[str, str]]:
+    """What blocks the letter, per comment: the verdicts the pair compares."""
+    return {(f["code"], f["item"]) for f in report["findings"] if f["blocking"]}

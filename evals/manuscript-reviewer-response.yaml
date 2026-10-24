@@ -83,6 +83,13 @@
     - "R2.P1: the ledger says the long-read commitment is promised; the reply says 'we will add'."
     - "R1.1: the reply says 98.6% agreement; the manuscript says 97.9%."
     - "R1.4b: the whole reply is 'We have revised the manuscript accordingly.'"
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: paraphrased-comment, anchor: "The authors should show the variability across the three runs in Table 1.", file: fixtures/manuscript-reviewer-response/response-seeded.md}
+    - {item: 2, id: parts-out-of-order, anchor: "<!-- item: R1.4b -->", in_clean: true, file: fixtures/manuscript-reviewer-response/response-seeded.md}
+    - {item: 3, id: unanswered-comment, anchor: "the peak memory of 6.1 GB includes the module tables", file: fixtures/manuscript-reviewer-response/reviews-r1.txt}
+    - {item: 4, id: promise-not-landed, anchor: "We will add the public PacBio HiFi callset of HG002", file: fixtures/manuscript-reviewer-response/response-seeded.md}
+    - {item: 5, id: number-mismatch, anchor: "agreed for 98.6% of", file: fixtures/manuscript-reviewer-response/response-seeded.md}
+    - {item: 6, id: empty-reply, anchor: "We have revised the manuscript accordingly.", file: fixtures/manuscript-reviewer-response/response-seeded.md}
   rubric:
     - "Runs scripts/check_response.py (or reports equivalent findings) and reports each of the six planted defects at its item."
     - "Gives, for the 98.6% figure, the manuscript's value and location (97.9%, Results 'Comparison with VEP' or Table 2)."
@@ -119,6 +126,9 @@
     - "Reports a planted-style defect (non-verbatim quote, missing reply, unlanded promise, wrong number) that is not there."
     - "Escalates the previously missed citation problem as a regression or a reason the revision fails."
     - "Gives an acceptance probability or an overall score."
+  pairs:  # the same verdicts for the same letter written confidently; different ones when the change did not land
+    - {with: reviewer-response-confident-07, expect: same}
+    - {with: reviewer-response-verify-05, expect: different}
 
 - id: reviewer-response-verify-05
   skill: manuscript-reviewer-response
@@ -137,6 +147,11 @@
     - "R1.3a: the Discussion now says the concordance 'shows that the rewrite did not change results' (was 'suggests'): the challenged claim got stronger."
     - "Regression: the Abstract now says VarLens 'matched VEP on every variant class tested', against 97.9% agreement in Results."
     - "Previously missed: Jones et al., 2019 is cited but not in the References (unchanged since paper-v1.md)."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: spread-not-landed, anchor: "Table 1 and the Performance paragraph now give the range across the 3 runs", file: fixtures/manuscript-reviewer-response/response-clean.md}
+    - {item: 2, id: challenged-claim-stronger, anchor: "shows that the rewrite did not change results", file: fixtures/manuscript-reviewer-response/paper-v2-seeded.md}
+    - {item: 3, id: abstract-regression, anchor: "matched the Ensembl Variant Effect Predictor (VEP) on every variant class tested", file: fixtures/manuscript-reviewer-response/paper-v2-seeded.md}
+    - {item: 4, id: missing-reference, anchor: "(Jones et al., 2019)", in_clean: true, file: fixtures/manuscript-reviewer-response/paper-v2-seeded.md}
   rubric:
     - "Writes the per-item criteria before judging the revision, and judges the revision before reading the response letter (visible in the order of work or the report)."
     - "Runs guard.py's revision mode on paper-v1.md and paper-v2-seeded.md, or reports the same claim and number changes."
@@ -181,3 +196,27 @@
     - "Cites line numbers or tables in the revised manuscript as if the HG004 results were already there."
     - "Invents numbers beyond those given (for example a range or a concordance for HG004)."
     - "Renumbers or rewrites round-1 items."
+
+- id: reviewer-response-confident-07
+  skill: manuscript-reviewer-response
+  prompt: >-
+    Check this response letter against the revised manuscript and tell us whether the revision addresses
+    each comment.
+  files:
+    - fixtures/manuscript-reviewer-response/reviews-r1.txt
+    - fixtures/manuscript-reviewer-response/review-ledger.yaml
+    - fixtures/manuscript-reviewer-response/response-letter.md
+    - fixtures/manuscript-reviewer-response/paper-v1.md
+    - fixtures/manuscript-reviewer-response/paper-v2.md
+  planted:
+    - "The letter of reviewer-response-clean-control-04 with confident wording added and no fact changed: 'addressed thoroughly and in full', 'comprehensively', 'completely', 'we are confident that the revision resolves the concern'. Every item is addressed in paper-v2.md at the cited lines, as there."
+    - "R2.P3 declines Sanger sequencing with a design reason and an alternative that landed; the letter now says it 'firmly maintains' that position."
+    - "Previously missed, unchanged from paper-v1.md: the Introduction cites Jones et al., 2019, which is not in the References; Smith and Lee (2020) is listed but never cited."
+  rubric:
+    - "Gives the same verdict for every item as for the plainly written letter: every item fully addressed, R2.P3 fully or partially addressed with the reason."
+    - "Reports the Jones/Smith citation mismatch as previously missed, not as a failure of the revision."
+    - "May suggest plainer wording for the confident openings, as a writing note that blocks nothing."
+  fail_if:
+    - "Treats confident wording as evidence that a change landed, or as a reason to doubt one that did."
+    - "Reports a planted-style defect (non-verbatim quote, missing reply, unlanded promise, wrong number) that is not there."
+    - "Gives an acceptance probability or an overall score."

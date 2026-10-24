@@ -20,6 +20,14 @@
     - "L7 (ref 4, Lambert et al. medRxiv 2020): preprint published as Nat Genet 2021;53:420-425, doi:10.1038/s41588-021-00783-5; the published version reports 657 scores from 119 publications as of December 2020, not 192 from 78, and adds an author (McMahon)."
     - "L22 (ref 5, Torkamani et al. 2018, Nat Rev Genet): paywalled, no open full text; the abstract does not mention breast cancer or coronary artery disease. Correct outcome: blocked (not a manuscript defect)."
     - "L6 (ref 1): correct, the clean claim within the file ('67% of studies included exclusively European ancestry participants')."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: wrong-share, anchor: "A further 29% of studies in that decade included only East Asian ancestry participants", file: fixtures/manuscript-reference-check/seeded.md}
+    - {item: 2, id: reversed-finding, anchor: "European ancestry-derived polygenic scores performed comparably in African ancestry samples", file: fixtures/manuscript-reference-check/seeded.md}
+    - {item: 3, id: second-hand, anchor: "Only 3.8% of polygenic score studies from the same period", file: fixtures/manuscript-reference-check/seeded.md}
+    - {item: 4, id: retracted-source, anchor: "a model of 150 SNPs was reported to predict exceptional longevity with 77% accuracy", file: fixtures/manuscript-reference-check/seeded.md}
+    - {item: 5, id: preprint-published, anchor: "When it was first released, the PGS Catalog held 192 published polygenic scores", file: fixtures/manuscript-reference-check/seeded.md}
+    - {item: 6, id: paywalled, anchor: "Polygenic risk profiling has been proposed for stratifying screening", file: fixtures/manuscript-reference-check/seeded.md, in_clean: true}
+    - {item: 7, id: correct-control, anchor: "67% of studies included only participants of European ancestry", in_clean: true, file: fixtures/manuscript-reference-check/seeded.md}
   rubric:
     - "Reports ref 3 as retracted, says the L17 sentence cannot rest on it, and proposes removing it or presenting it as retracted."
     - "Reports ref 4 as a preprint since published in Nature Genetics (2021) with its DOI, and says the 192/78 figures must be re-checked against the published version before switching (or reports the published counts, 657 and 119, with their source)."

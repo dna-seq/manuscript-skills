@@ -21,6 +21,12 @@
     - "Data availability: 'Individual-level genotype and phenotype data are available from the corresponding author upon reasonable request.' with no stated reason."
     - "Data availability: GEO accession 'GSE1589O4' (letter O for zero) is malformed."
     - "Code availability: https://github.com/northfield-genetics/urate-assoc with no release, tag, commit or archived copy."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: no-correction, anchor: "Associations with P < 0.05 were considered statistically significant.", file: fixtures/manuscript-reporting-check/seeded-association.md}
+    - {item: 2, id: no-stratification, anchor: "Self-reported ancestry was European for 71%", in_clean: true, file: fixtures/manuscript-reporting-check/seeded-association.md}
+    - {item: 3, id: request-only-data, anchor: "available from the corresponding author upon reasonable request", file: fixtures/manuscript-reporting-check/seeded-association.md}
+    - {item: 4, id: malformed-accession, anchor: "GSE1589O4", file: fixtures/manuscript-reporting-check/seeded-association.md}
+    - {item: 5, id: unarchived-code, anchor: "Analysis scripts are available at https://github.com/northfield-genetics/urate-assoc.", file: fixtures/manuscript-reporting-check/seeded-association.md}
   rubric:
     - "Selects STROBE with STREGA from the study design (cross-sectional genetic association), and treats MINSEQE as applying to (or to be confirmed for) the RNA-sequencing part only."
     - "Reports the missing population-stratification method as a STREGA item gap (12h), quoting where it looked, and links it to the mixed-ancestry sample."

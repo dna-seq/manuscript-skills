@@ -30,6 +30,11 @@
     - "Figure 2 shows 39.1 s for Varlens; the Abstract and Section 3.1 give a median of 31.4 s; the code plots the mean."
     - "Figure 3 uses red and green lines that merge for colour-blind readers, and only defends a setting."
     - "Figure 4 is never cited."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: unreadable-labels, file: fixtures/manuscript-figures/seeded/figures/figure-2-runtime.png}
+    - {item: 2, id: figure-text-mismatch, anchor: "a median of 31.4 s, against 940 s", in_clean: true, file: fixtures/manuscript-figures/seeded/paper.md}
+    - {item: 3, id: red-green, file: fixtures/manuscript-figures/seeded/figures/figure-3-threads.png}
+    - {item: 4, id: uncited-figure, file: fixtures/manuscript-figures/seeded/figures/figure-4-memory.png}
   rubric:
     - "Runs figures.py inventory (or renders the figures at the printed width another way) and looks at every figure; says which column width and minimum text size it used and why."
     - "Reports that Figure 2's labels cannot be read at the printed size, with an approximate printed size, even though the image's resolution is high."

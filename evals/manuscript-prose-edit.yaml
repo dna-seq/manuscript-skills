@@ -83,6 +83,16 @@
     - "Results: '95% CI 0.55–0.83' added to the Southern blot correlation (new numbers)."
     - "Discussion: 'These results suggest that TeloScan may provide a scalable alternative' became 'TeloScan provides the first scalable alternative' (evidential rise, novelty added)."
     - "Discussion: 'beyond European-ancestry samples' removed from the limitation (scope lost)."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: evidential-rise-abstract, anchor: "Our results show that TeloScan is useful for population studies.", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 2, id: citation-added, anchor: "they require high coverage [3, 4]", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 3, id: causal-rise, anchor: "chronological age caused shorter estimated telomere length", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 4, id: status-lost, anchor: "Telomere length did not differ between smokers and non-smokers", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 5, id: null-to-independence, anchor: "TeloScan estimates were independent of sequencing batch", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 6, id: scope-lost-mice, anchor: "In mice, knockout of Tert led to shorter telomeres", file: fixtures/manuscript-prose-edit/original.md}
+    - {item: 7, id: numbers-added, anchor: "r = 0.72, 95% CI 0.55–0.83", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 8, id: evidential-rise-discussion, anchor: "TeloScan provides the first scalable alternative to wet-lab assays.", file: fixtures/manuscript-prose-edit/edited-seeded.md}
+    - {item: 9, id: scope-lost-limitation, anchor: "beyond European-ancestry samples", file: fixtures/manuscript-prose-edit/original.md}
   rubric:
     - "Runs guard.py on the two files (edit mode) or compares them sentence by sentence."
     - "Reports each of the nine planted changes with its section, quoting both versions or naming the words changed; a line number appears only beside the section, never alone."

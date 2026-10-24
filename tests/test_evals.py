@@ -104,3 +104,52 @@ def test_the_command_line_prints_the_folders_and_the_prompt(tmp_path: Path) -> N
     assert "MANUSCRIPT_SKILLS_CONFIG=" in staged.output and "Prompt:" in staged.output
     assert (tmp_path / "run" / "work" / "manuscript.md").is_file()
     assert runner.invoke(stage.app, ["no-such-case"]).exit_code == 2
+
+
+# --- planted items pinned to their files, and paired cases ------------------------------------------------------
+
+EVALS = ROOT / "evals"
+
+
+def _folded(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _clean_twins(path: str) -> list[Path]:
+    """The clean control of a seeded file, by the fixtures' naming: seeded.md and clean.md, a seeded/ folder and
+    clean/, response-seeded.md and response-clean.md, paper-v2-seeded.md and paper-v2.md."""
+    names = {path.replace("seeded", "clean"), path.replace("-seeded", "")} - {path}
+    return [EVALS / n for n in sorted(names) if (EVALS / n).is_file()]
+
+
+ANCHORED = {cid: case for cid, case in CASES.items() if case.get("anchors")}
+
+
+@pytest.mark.parametrize("case_id", sorted(ANCHORED))
+def test_each_planted_item_is_pinned_by_words_that_occur_exactly_once(case_id: str) -> None:
+    """Idea 7 of the 2026-10-24 comparison: a planted item the fixture no longer holds, or holds twice, is caught
+    before any grader reads a run."""
+    case = ANCHORED[case_id]
+    anchors = case["anchors"]
+    assert sorted(a["item"] for a in anchors) == list(range(1, len(case["planted"]) + 1))
+    assert len({a["id"] for a in anchors}) == len(anchors)
+    for a in anchors:
+        assert a.get("file"), (case_id, a["id"], "every anchor names its file")
+        file = EVALS / a["file"]
+        assert file.is_file(), (case_id, a["id"], file)
+        if "anchor" not in a:
+            continue  # a defect in an image, or an absence: the file names where it is
+        text = _folded(file.read_text(encoding="utf-8"))
+        assert text.count(_folded(a["anchor"])) == 1, (case_id, a["id"], text.count(_folded(a["anchor"])))
+        if not a.get("in_clean"):
+            for twin in _clean_twins(a["file"]):
+                assert _folded(a["anchor"]) not in _folded(twin.read_text(encoding="utf-8")), (case_id, a["id"], twin)
+
+
+def test_paired_cases_name_real_partners_with_one_file_apart() -> None:
+    pairs = [(cid, p) for cid, case in CASES.items() for p in case.get("pairs") or []]
+    assert pairs, "the reviewer-response cases name their pairs"
+    for cid, pair in pairs:
+        assert pair["with"] in CASES and pair["expect"] in ("same", "different"), (cid, pair)
+        mine, theirs = set(CASES[cid]["files"]), set(CASES[pair["with"]]["files"])
+        assert len(mine ^ theirs) == 2, (cid, pair["with"], mine ^ theirs)  # one file swapped, the rest shared

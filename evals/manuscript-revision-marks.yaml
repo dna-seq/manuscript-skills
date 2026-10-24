@@ -16,6 +16,10 @@
     - "R1.2 (latest round claude) and C4 (latest round grok) are unreviewed; C1's latest round is anna's."
     - "The Discussion sentence 'The method generalises to other cohorts…' is in no segment: a blind spot."
     - "C4 says rounds=2 but lists one round."
+  anchors:  # each planted item by number: an id, and the words that pin it down in its file (exactly once)
+    - {item: 1, id: unreviewed-rounds, anchor: "<!-- @rev R1.2 rounds=1 by=claude:2026-10-03 -->", file: fixtures/manuscript-revision-marks/seeded.md}
+    - {item: 2, id: blind-spot, anchor: "The method generalises to other cohorts", file: fixtures/manuscript-revision-marks/seeded.md}
+    - {item: 3, id: rounds-miscounted, anchor: "<!-- @rev C4 rounds=2 by=grok:2026-10-05 -->", file: fixtures/manuscript-revision-marks/seeded.md}
   rubric:
     - "Names R1.2 and C4 as unreviewed, and C1 and C3 as reviewed (anna and robi are listed people)."
     - "Names the Discussion's generalisation sentence as a blind spot, separately from the unreviewed segments."
