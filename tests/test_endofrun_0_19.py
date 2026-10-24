@@ -246,6 +246,37 @@ def test_collect_counts_both_the_widening_and_its_reverse_as_applied(tmp_path: P
     assert [r["status"] for r in records] == ["applied", "applied"]
 
 
+def _record(run: Path, skill: str, number: int, before: str, after: str) -> None:
+    path = run / skill / "changes" / f"{number:04d}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"# 1. Introduction\n\nReason: why {skill} {number}\n\n## Before\n\n{before}\n\n## After\n\n{after}\n")
+
+
+@pytest.mark.parametrize("timed", [True, False])
+def test_the_coordinator_s_follow_up_edit_replays_after_the_stage_edit_it_changed(tmp_path: Path, timed: bool) -> None:
+    """manuscript-improve comes first in run.json, but its follow-up to the re-check is recorded last; the replay
+    follows the recorded times, and in a run without them it tries the follow-up again after the stages' edits."""
+    first, stage, follow = "This tool is the first complete annotator for long reads.", \
+        "This tool annotates long reads.", "This tool annotates long-read genomes."
+    _record(tmp_path, "manuscript-improve", 1, stage, follow)
+    _record(tmp_path, "manuscript-prose-edit", 1, first, stage)
+    _record(tmp_path, "manuscript-journal-adapt", 1, "It is fast.", "It is fast.\n\n**Keywords:** reads")
+    times = iter(["2026-10-25T02:00:00+00:00", "2026-10-24T20:00:00+00:00", "2026-10-24T21:00:00+00:00"])
+
+    def entry(skill: str) -> dict:
+        return {"changes": [{"path": f"{skill}/changes/0001.md", **({"recorded_at": next(times)} if timed else {})}]}
+    data = {"skills": {s: entry(s) for s in ("manuscript-improve", "manuscript-prose-edit", "manuscript-journal-adapt")}}
+    current = ORIGINAL.replace(first, follow).replace("It is fast.", "It is fast.\n\n**Keywords:** reads")
+    records = collect.recorded_changes(tmp_path, data, tmp_path, current, ORIGINAL)
+    # The keywords addition keeps its before-text, so only a replay that reaches the revised text counts it applied.
+    assert [r["status"] for r in records] == ["applied", "applied", "applied"]
+    # Listed in replay order, so the corrected version undoes the follow-up before the stage edit it changed.
+    assert [r["id"] for r in records] == ["prose-edit.C1", "journal-adapt.C1", "improve.C1"]
+    inventory_ = inventory([change(r["id"], "applied", r["before"], r["after"]) for r in records])
+    document, _ = revise.build(ORIGINAL, current, viz.Inventory.model_validate(inventory_), {})
+    assert document.previous() == ORIGINAL and document.current() == current
+
+
 def test_a_latex_manuscript_gets_a_latex_corrected_version(tmp_path: Path) -> None:
     tex = "\\section{Introduction}\n\nWe use HuggingFace for data.\n\n\\section{Methods}\n\nIt is fast.\n"
     (tmp_path / "review.md").write_text("The review.")

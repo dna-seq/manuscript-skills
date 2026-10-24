@@ -52,7 +52,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Optional
 
 import typer
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -104,6 +104,12 @@ class Answered(BaseModel):
     verdict: Literal["fully", "partly", "not", "worse", "unchecked"]
     quote: str = ""
     why: str
+
+    @field_validator("quote", mode="before")
+    @classmethod
+    def no_quote(cls, value: Any) -> Any:
+        """The brief asks for no quote with `unchecked`; an agent writes that as null as often as it leaves it out."""
+        return "" if value is None else value
 
 
 class NewProblem(BaseModel):

@@ -119,6 +119,14 @@ def test_a_valid_answer_is_written_for_the_dashboard(run: Path) -> None:
     assert written["concerns"][0]["raised_by"] == ["peer-review", "skeptic"]
 
 
+def test_an_unchecked_problem_may_give_its_quote_as_null(run: Path) -> None:
+    answer = _answer(run, concerns=[{"id": "PR-1", "verdict": "fully", "quote": FIXED, "why": "Fixed."},
+                                    {"id": "PR-2", "verdict": "unchecked", "quote": None, "why": "Not in these texts."}])
+    result = _check(run, answer)
+    assert result.exit_code == 0, result.output
+    assert json.loads((run / "recheck.json").read_text(encoding="utf-8"))["concerns"][1]["quote"] == ""
+
+
 @pytest.mark.parametrize("extra, said", [
     ({"concerns": [{"id": "PR-1", "verdict": "fully", "quote": "Loss of Foo shows nothing at all.", "why": "Fixed."},
                    {"id": "PR-2", "verdict": "unchecked", "why": "Not here."}]}, "does not occur word for word"),

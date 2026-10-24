@@ -661,7 +661,8 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
     text += after.read_text(encoding='utf-8') if after else '(Block removed.)\n'
     with path.open('x', encoding='utf-8') as output:
         output.write(text)
-    entry['changes'].append({'section': section, 'path': relative, 'sha256': digest(path), 'shown_in_chat': shown_in_chat})
+    entry['changes'].append({'section': section, 'path': relative, 'sha256': digest(path), 'shown_in_chat': shown_in_chat,
+                             'recorded_at': now()})
     save(run, data)
     typer.echo(str(path))
 

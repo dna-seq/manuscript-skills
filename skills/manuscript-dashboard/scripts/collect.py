@@ -565,11 +565,13 @@ def ladder_gaps(run: Path, data: dict) -> list[dict]:
 
 
 def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: str) -> list[dict]:
-    """runs.py change records, in the order the skills recorded them. Replayed on the reviewed text, each
-    must find its before-text; when the replay ends on the revised manuscript, every one that took is
-    applied, including an edit a later stage edited again. Otherwise a change counts as applied only when
-    the revised manuscript holds its after-text and not its before-text."""
-    out, text, took = [], start, []
+    """runs.py change records, replayed on the reviewed text in the order they were recorded (by their time; a run
+    from before changes had one goes skill by skill). Each must find its before-text; one that does not yet is tried
+    again after the others, so the coordinator's own follow-up edit, recorded last under manuscript-improve, still
+    replays after the stage edits it changed. When the replay ends on the revised manuscript, every one that took is
+    applied, including an edit a later stage edited again. Otherwise a change counts as applied only when the
+    revised manuscript holds its after-text and not its before-text."""
+    out, order = [], []
     for skill, seat in data["skills"].items():
         for number, change in enumerate(seat["changes"], 1):
             path = run / change["path"]
@@ -580,23 +582,40 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             section, reason, comment, before, after = parts.groups()
             before = None if before.strip() == "(No previous block.)" else before.strip()
             after = None if after.strip() == "(Block removed.)" else after.strip()
-            if before is not None and before in text:
-                text = text.replace(before, after or "", 1)
-                took.append(len(out))
             # The recorded reason is the edit's reasoning; its first sentence is the summary.
             first = re.match(r"(.+?[.!?])(?:\s|$)", reason.strip())
             summary = first.group(1) if first else reason.strip()
+            order.append((change.get("recorded_at") or "", len(out)))
             out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "section": section,
                         "summary": summary, "why": reason.strip() if reason.strip() != summary else "", "comment": (comment or "").strip(),
                         "finding_ids": [], "before": before, "after": after,
                         "evidence": [{"path": relative(path, out_dir), "quote": reason.strip() or (after or before)[:200]}]})
+    # By time only when every record has one; a run recorded before changes carried a time replays skill by skill.
+    if all(time for time, _ in order):
+        order.sort(key=lambda item: item[0])
+    pending = [index for _, index in order]
+    text, took = start, []
+    while pending:
+        waiting = []
+        for index in pending:
+            before, after = out[index]["before"], out[index]["after"]
+            if before is not None and before in text:
+                text = text.replace(before, after or "", 1)
+                took.append(index)
+            elif before is not None:
+                waiting.append(index)
+        if len(waiting) == len(pending):
+            break
+        pending = waiting
     replayed = text == current
     for index, record in enumerate(out):
         before, after = record["before"], record["after"]
         applied = (index in took) if replayed else (after is None or after in current) and (before is None or before not in current)
         record.update(kind="Applied edit" if applied else "Recorded change, not in the revision",
                       status="applied" if applied else "proposed")
-    return out
+    # Listed in the order they replayed, so revise.py, which undoes the applied edits newest first, meets each
+    # edit's after-text before a later edit changed it.
+    return [out[index] for index in [*took, *(i for i in range(len(out)) if i not in took)]]
 
 
 def apply_merges(inventory: dict, merges: dict, out_dir: Path, base: Path) -> None:
