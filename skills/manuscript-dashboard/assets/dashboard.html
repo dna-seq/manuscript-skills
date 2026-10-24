@@ -940,6 +940,47 @@ __REVISION_HTML__
     return box;
   }
 
+  // A problem's resolution after the independent re-check of the corrected version.
+  const RESOLUTION = {addressed: 'Addressed', partly: 'Partly addressed', open: 'Not addressed', worse: 'Made worse', unknown: 'Could not check'};
+
+  // The independent re-check: one fresh agent's verdict on each confirmed problem against the corrected version, the
+  // new problems it found, and the number and reference checks run again on the corrected version.
+  function recheckView(K) {
+    const VERDICT = [['fully', 'Fully addressed', 'var(--good)'], ['partly', 'Partly addressed', 'var(--warning)'],
+      ['not', 'Not addressed', 'var(--sev-minor)'], ['worse', 'Made worse', 'var(--critical)'], ['unchecked', 'Could not check', 'var(--sev-unknown)']];
+    const n = v => K.concerns.filter(c => c.verdict === v).length;
+    const box = h('div', null, h('h2', {class: 'sec'}, 'The independent re-check'));
+    if (!K.current) box.append(h('div', {class: 'notice'}, 'The re-check read an earlier build of the corrected version; edits held or reversed after it are not in what it read.'));
+    box.append(h('div', {class: 'kpis'}, kpi('Problems re-checked', K.concerns.length, `${n('fully')} fully addressed · ${n('partly')} partly · ${n('not')} not`, true),
+      kpi('Made worse by an edit', n('worse'), 'the run holds or reverses each such edit, without asking'),
+      kpi('New problems', K.new_problems.length, `${K.new_problems.filter(p => p.origin === 'introduced').length} introduced by the edits · ${K.new_problems.filter(p => p.origin === 'missed').length} missed earlier`),
+      kpi('Could not check', n('unchecked'), 'need data, a source or a fact these texts do not hold')));
+    // One bar per reviewer or skill that raised the problems, split by verdict.
+    const who = [...new Set(K.concerns.flatMap(c => c.raised_by.length ? c.raised_by : ['not recorded']))];
+    box.append(card('Verdicts by who raised the problem', h('div', {class: 'bars'}, who.map(w => {
+      const mine = K.concerns.filter(c => (c.raised_by.length ? c.raised_by : ['not recorded']).includes(w));
+      return stackRow(w.replace(/@([\w-]+)$/, ' (on $1)'), VERDICT.map(([k, label, color]) => ({label, color, count: mine.filter(c => c.verdict === k).length})), mine.length);
+    })), h('div', {class: 'ladder-key'}, VERDICT.map(([k, label, color]) => h('span', null, h('span', {class: 'sw', style: `background: ${color}; height: 10px; width: 10px`}), label)))));
+    const item = c => h('li', {style: 'margin-bottom: 8px'}, h('strong', null, c.id), byId.has(c.id) ? [' ', link('open', () => openFinding(c.id))] : null,
+      c.section ? h('span', {class: 'note'}, ` · ${c.section}`) : null, h('div', null, c.why), c.quote ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, `Now: "${c.quote}"`) : null);
+    for (const [k, label] of VERDICT.filter(([k]) => k !== 'fully')) {
+      const here = K.concerns.filter(c => c.verdict === k);
+      if (here.length) box.append(h('details', {class: 'card', open: k === 'worse' || k === 'not' || null, style: 'margin-top: 10px'},
+        h('summary', null, h('strong', null, `${label} (${here.length})`)), h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(item))));
+    }
+    if (K.new_problems.length) box.append(card('New problems the re-check found', h('ul', {style: 'margin: 0; padding-left: 18px'}, K.new_problems.map(p => h('li', {style: 'margin-bottom: 6px'},
+      h('span', {class: 'tag'}, p.origin === 'introduced' ? 'introduced by an edit' : 'missed earlier'), p.section ? h('strong', null, `${p.section}: `) : null, p.problem,
+      h('div', {class: 'note', style: 'margin: 2px 0 0'}, `"${p.quote}"`))))));
+    const checks = [['numbers', 'Number checks'], ['references', 'Reference checks']].filter(([k]) => K.numbers[k]);
+    if (checks.length) box.append(card('Number and reference checks, run again on the corrected version', h('ul', {style: 'margin: 0; padding-left: 18px'}, checks.map(([k, label]) => {
+      const c = K.numbers[k];
+      return h('li', null, `${label}: ${plural(c.introduced.length, 'candidate')} the edits introduced, ${c.resolved.length} resolved, ${c.unchanged} unchanged.`,
+        c.introduced.length ? h('ul', null, c.introduced.map(x => h('li', null, x.message))) : null);
+    }))));
+    box.append(h('p', {class: 'note'}, `One ${K.isolation === 'one-agent' ? 'agent read as the re-checker in the same session (not independent)' : 'fresh agent, which took no part in the review or the edits,'}${K.model ? ` on ${K.model}` : ''} read each confirmed problem against the corrected version, with no change reasons or summaries; every quote was checked to occur word for word in the corrected version.`));
+    return box;
+  }
+
   // ---------- the corrected version: every applied and chosen proposed edit, as track changes ----------
   let openRevised = null;
   const inRevision = id => R && (R.applied.includes(id) || R.proposed_in_this_version.includes(id));
@@ -1033,6 +1074,7 @@ __REVISION_HTML__
       return el;
     }), true));
     p.append(views, bar, h('div', {class: 'rev-layout'}, article, list));
+    if (D.recheck) p.append(recheckView(D.recheck));
     if (D.claims) p.append(claimLadder(D.claims));
     openRevised = id => { selectTab('revised'); requestAnimationFrame(() => show(id)); };
   })();
@@ -1112,7 +1154,7 @@ __REVISION_HTML__
       const row = h('tr', {class: 'row', id: `finding-${f.id}`, tabindex: 0, 'aria-expanded': String(open), 'aria-controls': `detail-${f.id}`},
         h('td', null, badges(f.skills)), h('td', null, h('strong', null, f.id), f._ai ? h('span', {class: 'ai-tag', title: 'AI-related'}, 'AI') : null), h('td', null, sevBadge(f.severity)), h('td', null, STAGE_SHORT[f.stage]),
         h('td', null, f.category), h('td', null, f.section), h('td', null, f.summary, f.decision ? h('span', {class: 'tag', style: 'margin-left: 6px'}, 'decision') : null),
-        h('td', null, f.assessment === 'confirmed' ? (f.resolution === 'addressed' ? 'Addressed' : 'Open') : f.assessment === 'candidate' ? 'Candidate' : 'Dismissed'),
+        h('td', null, f.assessment === 'confirmed' ? (f.recheck ? withTip(h('span', {tabindex: 0}, RESOLUTION[f.resolution] || 'Open'), ['Re-checked by a fresh agent', f.recheck.why, f.recheck.quote ? `"${f.recheck.quote}"` : null]) : f.resolution === 'addressed' ? 'Addressed' : 'Open') : f.assessment === 'candidate' ? 'Candidate' : 'Dismissed'),
         inv.reference ? h('td', null, (refLinks.get(f.id) || []).map(r => h('span', {class: 'tag'}, r))) : null,
         h('td', null, located.has(f.id) ? link('in the text', e => { e.stopPropagation(); openInPaper(f.id); }, `Show ${f.id} in the manuscript`) : null));
       const flip = () => { const now = detail.hidden; detail.hidden = !now; row.setAttribute('aria-expanded', String(now)); if (now) expanded.add(f.id); else expanded.delete(f.id); };

@@ -67,8 +67,12 @@ these parts have no counterpart there:
 Where other skills do the same job, these parts add a check:
 
 - **Every edit is checked by a script**, sentence by sentence, for a stronger claim, a dropped qualifier
-  or a changed number or citation, and no declaration (consent, competing interests, funding, who did
-  what) is written or changed without the facts you gave.
+    or a changed number or citation, and no declaration (consent, competing interests, funding, who did
+  what) is written or changed without the facts you gave. The title, Abstract and Conclusions are checked
+  against the body, so the summary never claims more than the Results.
+- **The corrected version is re-checked by a reader who did not write it:** a fresh agent, which took no
+  part in the review or the edits, says for each problem whether the corrected version fixed it, in part or
+  not at all, or made it worse, and the number and reference checks run again; an edit that made something worse is undone before the result is handed over.
 - **The upload files are checked too:** hidden text and prompts aimed at AI reviewers, LaTeX
   comments, leaked keys and location data in figures.
 - **Figures are judged as printed:** at the journal's column width, in greyscale and as colour-blind

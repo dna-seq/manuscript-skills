@@ -366,6 +366,40 @@ class ListedReference(Record):
     notes: list[str] = Field(default_factory=list)
 
 
+class RecheckConcern(Record):
+    """A fresh agent's verdict on one confirmed problem, read against the corrected version (recheck.py)."""
+    id: Identity
+    verdict: Literal["fully", "partly", "not", "worse", "unchecked"]
+    quote: str = ""
+    why: Text
+    section: str = ""
+    summary: str = ""
+    raised_by: list[str] = Field(default_factory=list)
+
+
+class RecheckProblem(Record):
+    origin: Literal["introduced", "missed"]
+    section: str = ""
+    quote: Text
+    problem: Text
+
+
+class Recheck(Record):
+    """The independent re-check of the corrected version: one fresh agent's verdicts and new problems, and the number
+    and reference checks run again on it."""
+    schema_version: Literal[1]
+    proposed_sha256: Text
+    isolation: Literal["fresh-agent", "one-agent"] = "fresh-agent"
+    model: str = ""
+    concerns: list[RecheckConcern]
+    new_problems: list[RecheckProblem] = Field(default_factory=list)
+    numbers: dict[str, Any] = Field(default_factory=dict)
+
+
+# A re-check verdict as the problem's resolution in the dashboard.
+RESOLVED_AS = {"fully": "addressed", "partly": "partly", "not": "open", "worse": "worse", "unchecked": "unknown"}
+
+
 class AiAspect(Record):
     level: Literal["good", "warning", "red", "unknown"]
     text: str = ""
@@ -869,7 +903,7 @@ def claim_movements(original: str, proposed: str, requested: Path | None) -> dic
 
 
 def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, revision: dict | None = None,
-                   writing: dict | None = None, claims: dict | None = None) -> str:
+                   writing: dict | None = None, claims: dict | None = None, recheck: dict | None = None) -> str:
     """The template with the inventory inlined as JSON and the reviewed and corrected texts rendered as HTML.
 
     Evidence keeps its file name and the skill folder it came from, never a local path."""
@@ -880,6 +914,12 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
             source["path"] = Path(source["path"]).name
     if payload["reference"]:
         payload["reference"]["source"]["path"] = Path(payload["reference"]["source"]["path"]).name
+    # The re-check's verdict becomes each problem's resolution on the page; the inventory file keeps its own.
+    for verdict in (recheck or {}).get("concerns", []):
+        for finding in payload["findings"]:
+            if finding["id"] == verdict["id"]:
+                finding["resolution"] = RESOLVED_AS[verdict["verdict"]]
+                finding["recheck"] = {k: verdict[k] for k in ("verdict", "quote", "why")}
     for item in (payload["figures"] or {}).get("items", []):
         for key in ("image", "proposed_image"):
             if item[key]:
@@ -894,7 +934,8 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
     corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
-                "revision": corrected, "writing": writing, "claims": claims, "decisions": decision_list(data),
+                "revision": corrected, "writing": writing, "claims": claims, "recheck": recheck,
+                "decisions": decision_list(data),
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")
     return (template.replace("__TITLE__", html.escape(data.title)).replace("__MANUSCRIPT_HTML__", paper)
@@ -914,7 +955,7 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         path = (base / data.manuscript.path).resolve()
         versions.append(("original", f"Reviewed version{f' ({data.manuscript.version})' if data.manuscript.version else ''}",
                          path.read_text(encoding="utf-8"), path.suffix.lower()))
-    corrected = claims = None
+    corrected = claims = recheck = None
     if revision is not None:
         corrected = json.loads((revision / "revision.json").read_text(encoding="utf-8"))
         if corrected.get("inventory_sha256") != summary["inventory_sha256"]:
@@ -941,6 +982,18 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
                                 "notes_in_working_copy": len(corrected.get("notes_in_working_copy") or [])}
         if versions[0][0] == "original":  # the claim ladder compares the reviewed text with the corrected one
             claims = claim_movements(versions[0][2], proposed, revision.parent / "requested-claims.yaml")
+        found = newest_attempt(revision.parent / "recheck.json", folder=False)
+        if found is not None:
+            checked = Recheck.model_validate_json(found.read_text(encoding="utf-8"))
+            if unknown := {c.id for c in checked.concerns} - {f.id for f in data.findings}:
+                raise ValueError(f"The re-check names problems this inventory does not have: {sorted(unknown)}")
+            # A re-check reads one build; edits held or reversed after it make a later build, which it predates.
+            recheck = checked.model_dump(mode="json") | {"current": checked.proposed_sha256 == corrected["proposed_sha256"]}
+            summary["recheck"] = {"verdicts": {v: sum(c.verdict == v for c in checked.concerns)
+                                               for v in ("fully", "partly", "not", "worse", "unchecked")},
+                                  "introduced": sum(p.origin == "introduced" for p in checked.new_problems),
+                                  "missed": sum(p.origin == "missed" for p in checked.new_problems),
+                                  "current": recheck["current"]}
         if claims:
             moves = claims["moves"]
             summary["claims"] = {"lowered": sum(m["to"] < m["from"] for m in moves),
@@ -952,7 +1005,7 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
     if writing:
         summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}
                                        for v in writing["versions"]}
-    outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing, claims),
+    outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing, claims, recheck),
                "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
     if any((output_dir / name).exists() for name in outputs):
         raise ValueError(f"Output files already exist in {output_dir.name}; render this attempt into "

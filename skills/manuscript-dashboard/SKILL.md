@@ -102,7 +102,10 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
   simulated reader's concern stays reader feedback; a style hit never becomes a scientific error.
 - **Dismiss** with a reason; dismissed flags stay listed and are never counted as problems.
 - A finding is **addressed** only when an applied edit is linked to it and you checked the revision.
-  A proposal does not address anything.
+  A proposal does not address anything. Once the corrected version has its independent re-check
+  (`recheck.json` beside the revision folder, from manuscript-improve's `recheck.py`), the page shows that
+  verdict instead: fully or partly addressed, still open, made worse, or could not check; the inventory
+  file keeps its own resolution.
 - Keep original severities; use `unknown` where a skill did not assess one. The authors read the
   severities as Blocker, Major, Minor ("worth fixing, low stakes"), Optional (`info`: a style preference,
   possible improvement or additional experiment) and Could not be checked (`unknown`); collect maps a
@@ -176,7 +179,10 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
     one click; none is in the text), with how the claims moved: each claim the run changed placed on the causal
   and the evidential ladder, before and after, marked as moved toward the evidence, stronger as a finding
   asked, or stronger with nothing asking for it (from `requested-claims.yaml` beside the revision folder), and
-  each title, Abstract or Conclusions sentence that claims more than the body (`guard.py --summary`); the
+    each title, Abstract or Conclusions sentence that claims more than the body (`guard.py --summary`), and
+  the independent re-check: each confirmed problem's verdict against the corrected version, by who raised it,
+  the new problems it found (introduced by the edits or missed earlier) and the number and reference checks
+  run again on the corrected version (a re-check of an earlier build says so); the
   comparison with the reference review; the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
