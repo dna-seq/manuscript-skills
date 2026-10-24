@@ -131,9 +131,23 @@ the index, the reports, the dashboard and the corrected version is packed into o
 same folder, and unpacked again if the run continues. Nothing is deleted. The assistant asks which you
 prefer on first use; to change it later, say "keep only the results" or "keep everything".
 
-A few documents you asked for go beside the manuscript instead: the corrected version as
-`<manuscript>.proposed.md`, and the journal ladder, venue requirements and shared record from journal
-selection.
+What you open goes beside the manuscript as well, named after it:
+
+- `paper.dashboard.html`, the dashboard of the latest run (each run folder keeps its own);
+- `paper.review.docx`, the same as a Word document with tracked changes and comments. If you already
+  have one, the assistant asks before replacing it, since you may have commented in it;
+- `paper.proposed.md`, the corrected version;
+- from journal selection, the journal ladder, the venue requirements and the shared record.
+
+```
+paper/
+├── paper.md                  your manuscript
+├── paper.dashboard.html      the latest run's dashboard
+├── paper.review.docx         the same in Word, tracked changes and comments
+├── paper.proposed.md         the corrected version
+└── reviews/
+    └── 20261024T101500Z-3f2a91c0/   one folder per run: index, reports, evidence
+```
 
 ## More details
 

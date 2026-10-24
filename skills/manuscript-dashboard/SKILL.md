@@ -161,3 +161,17 @@ matter most, what the comparison shows when there is one, and links to the dashb
 the merge file, and the annotated Word document when it was written. The shared report check is required: run `../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`,
 and read it against its pattern list. Register the report, the inventory, the merge file and the outputs
 with `runs.py add`; keep failed attempts too. Creating the files does not send them to anyone.
+
+Then hand the dashboard and the Word document over beside the manuscript, where the authors open the paper:
+
+```bash
+uv run --script ../manuscript-integrity-check/scripts/runs.py handover RUN
+```
+
+It copies the newest `manuscript-dashboard.html` of the run as `<manuscript stem>.dashboard.html` and the
+newest `.docx` as `<manuscript stem>.review.docx` (`paper.dashboard.html`, `paper.review.docx`). The
+dashboard replaces the previous run's; each run folder keeps its own. A Word file already there that
+differs is never replaced silently, because the authors may have commented in it: the command keeps it,
+exits 4 and names it. Ask the authors in one sentence whether to replace it, and rerun with
+`--replace-docx` only on their yes; otherwise leave it and link the run's copy. A manuscript that is a
+connected document needs `--to FOLDER --stem NAME`. Link the copies beside the manuscript in the reply.

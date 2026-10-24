@@ -537,3 +537,35 @@ def test_pack_refuses_an_unfinished_run_and_a_lost_archive_fails_validation(manu
     (finished / 'evidence.zip').unlink()
     result = runner.invoke(runs.app, ['validate', str(finished), '--final'])
     assert result.exit_code == 1 and 'evidence archive' in result.output
+
+
+def test_handover_puts_the_dashboard_and_word_file_beside_the_manuscript(manuscript: Path) -> None:
+    run = _finished_run(manuscript)
+    (run / 'manuscript-dashboard/manuscript-review.docx').write_bytes(b'first review')
+    result = runner.invoke(runs.app, ['handover', str(run)])
+    assert result.exit_code == 0, result.output
+    html, docx = manuscript.parent / 'paper.dashboard.html', manuscript.parent / 'paper.review.docx'
+    assert html.read_text() == '<html></html>' and docx.read_bytes() == b'first review'
+    assert 'paper.dashboard.html' in (run / 'README.md').read_text()
+    # The next run replaces the dashboard, but a Word file the authors may have commented in only on their say.
+    docx.write_bytes(b'first review, with the authors comments')
+    second = _finished_run(manuscript)
+    (second / 'manuscript-dashboard/dashboard/manuscript-dashboard.html').write_text('<html>second</html>')
+    (second / 'manuscript-dashboard/manuscript-review.docx').write_bytes(b'second review')
+    result = runner.invoke(runs.app, ['handover', str(second)])
+    assert result.exit_code == 4 and '--replace-docx' in result.output
+    assert html.read_text() == '<html>second</html>'
+    assert docx.read_bytes() == b'first review, with the authors comments'
+    assert runner.invoke(runs.app, ['handover', str(second), '--replace-docx']).exit_code == 0
+    assert docx.read_bytes() == b'second review'
+    # A packed run still hands over: its deliverables stay outside the archive.
+    assert runner.invoke(runs.app, ['pack', str(second)]).exit_code == 0
+    assert runner.invoke(runs.app, ['handover', str(second)]).exit_code == 0
+    assert not list(manuscript.parent.glob('.paper-*'))  # no temporary copy left behind
+
+
+def test_handover_without_a_dashboard_says_so(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    result = runner.invoke(runs.app, ['handover', str(start(manuscript))])
+    assert result.exit_code == 1 and 'render them first' in result.output
+    assert not (manuscript.parent / 'paper.dashboard.html').exists()

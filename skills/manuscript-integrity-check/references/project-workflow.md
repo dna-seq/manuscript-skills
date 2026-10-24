@@ -206,6 +206,12 @@ unacknowledged before/after records. It does not prove scientific correctness, i
 completeness of edit classification or actual delivery in chat. Review those directly. Partial work can
 have a valid handover while the manifest still says `workflow_complete: false`.
 
+The deliverables the authors open go beside the manuscript as well as into the run: the corrected version
+as `<stem>.proposed.md`, and the dashboard and its Word version as `<stem>.dashboard.html` and
+`<stem>.review.docx` through `runs.py handover RUN`. The dashboard is replaced on every run; an existing,
+different Word file only on the authors' yes (`--replace-docx`; without it the command exits 4 and keeps
+the file). Run folders stay under the output folder.
+
 When the effective `keep` is `results`, the last step, after the final validation and after the dashboard
 is rendered, is `runs.py pack RUN`. It refuses a run that does not validate; it leaves `run.json`, the
 README files, every registered `report`, the dashboard (`manuscript-dashboard/*.html` and `*.docx`) and the

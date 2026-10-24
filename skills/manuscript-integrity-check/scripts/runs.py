@@ -10,6 +10,10 @@ overwriting earlier attempts. exec captures a real command's stdout, stderr and 
 command does not establish scientific support. validate checks artifacts, not the truth of a report or
 whether an agent really showed a passage in chat.
 
+handover copies the dashboard and its Word version beside the manuscript, as STEM.dashboard.html and
+STEM.review.docx; an existing Word file that differs is replaced only with --replace-docx, once the authors
+agreed, since they may have commented in it.
+
 When the project's `keep` setting is `results`, pack is the run's last step: it moves everything except the
 run index, the skills' READMEs and reports, the dashboard and the corrected version into evidence.zip, and
 validate then checks each packed file inside the archive. unpack restores them before a run continues.
@@ -74,7 +78,10 @@ ARCHIVE = 'evidence.zip'
 DELIVERABLES = ('manuscript-dashboard/*.html', 'manuscript-dashboard/*.docx',
                 'manuscript-improve/revision/proposed.md', 'manuscript-improve/revision/changes.md')
 # Commands that may run on a packed run; every other writer needs the files back first.
-WHEN_PACKED = {'validate', 'pack', 'unpack'}
+WHEN_PACKED = {'validate', 'pack', 'unpack', 'handover'}
+# The run's deliverables handed over beside the manuscript, as STEM + suffix: (pattern in the run, suffix).
+HANDOVER = {'dashboard': ('manuscript-dashboard/*manuscript-dashboard.html', '.dashboard.html'),
+            'docx': ('manuscript-dashboard/*.docx', '.review.docx')}
 P = ParamSpec('P')
 T = TypeVar('T')
 
@@ -173,6 +180,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
         (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s).")
+    for item in data.get('handover', []):
+        index.extend(["", f"Handed over beside the manuscript: {item['path']} (from {item['from']}, {item['handed_over_at']})."])
     if packed:
         index.extend(["", (f"The evidence ({len(packed)} files) is packed in [{ARCHIVE}]({ARCHIVE}), as the project's "
                            "`keep` setting asks; `runs.py unpack` restores it.")])
@@ -499,6 +508,59 @@ def validate(run: Path, final: bool = False) -> None:
                            'problems': errors, 'index': str(run.resolve() / 'README.md')}, indent=2))
     if errors:
         raise typer.Exit(1)
+
+
+def latest(run: Path, pattern: str) -> Path | None:
+    """The most recently written file of the run matching pattern: a re-render goes to a new folder."""
+    found = [p for p in run.rglob('*') if p.is_file() and fnmatch(p.relative_to(run).as_posix(), pattern)]
+    return max(found, key=lambda p: p.stat().st_mtime_ns) if found else None
+
+
+@app.command()
+@serialized
+def handover(run: Path,
+             replace_docx: Annotated[bool, typer.Option(help="Replace an existing, different STEM.review.docx; only "
+                                                        "once the authors agreed")] = False,
+             to: Annotated[Path | None, typer.Option(help="The folder to hand over to; default: the manuscript's")] = None,
+             stem: Annotated[str | None, typer.Option(help="The file-name stem; default: the manuscript's")] = None) -> None:
+    """Copy the dashboard and its Word version beside the manuscript as STEM.dashboard.html and STEM.review.docx.
+
+    The dashboard is replaced on every run; each run's folder keeps its own. A Word file the authors may have
+    commented in is never replaced silently: exit 4 says to ask them, then rerun with --replace-docx."""
+    run = run.resolve()
+    data = read(run)
+    source = Path(data['inputs'][0]['original']) if data['inputs'] else None
+    if source is None and (to is None or stem is None):
+        raise typer.BadParameter('The manuscript is not a local file; give --to FOLDER and --stem NAME.')
+    folder, name = (to or source.parent).resolve(), stem or source.stem
+    done, pending = [], []
+    for kind, (pattern, suffix) in HANDOVER.items():
+        made = latest(run, pattern)
+        if made is None:
+            continue
+        target = folder / f'{name}{suffix}'
+        if target.exists() and digest(target) == digest(made):
+            done.append(target)
+            continue
+        if kind == 'docx' and target.exists() and not replace_docx:
+            pending.append(target)
+            continue
+        folder.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=folder, delete=False, prefix=f'.{name}-', suffix=suffix) as copy:
+            copy.write(made.read_bytes())
+        Path(copy.name).replace(target)
+        data.setdefault('handover', []).append({'path': str(target), 'from': made.relative_to(run).as_posix(),
+                                                'sha256': digest(target), 'handed_over_at': now()})
+        done.append(target)
+    if not done and not pending:
+        typer.echo('No dashboard or Word file in this run to hand over; render them first.', err=True)
+        raise typer.Exit(1)
+    save(run, data)
+    typer.echo(json.dumps({'handed_over': [str(p) for p in done], 'not_replaced': [str(p) for p in pending]}, indent=2))
+    if pending:
+        typer.echo(f"{', '.join(p.name for p in pending)} already exists and differs: the authors may have commented in "
+                   "it. Ask whether to replace it, then rerun with --replace-docx; until then it is kept as it is.", err=True)
+        raise typer.Exit(4)
 
 
 def kept(data: dict[str, Any], relative: str, extra: list[str]) -> bool:

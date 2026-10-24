@@ -196,7 +196,9 @@ by reviewer agents. The last step of every run of this workflow is
 merge what several skills found into one record each, dismiss what did not hold, and render the
 dashboard, with the corrected version, into `RUN/manuscript-dashboard/`, and the same as an annotated Word
 document (`export_docx.py`: tracked changes by stage, the problems and questions as comments) for readers who
-work in Word or Google Docs. Link the dashboard first in the
+work in Word or Google Docs, both handed over beside the manuscript as `<manuscript stem>.dashboard.html` and
+`<manuscript stem>.review.docx` (`runs.py handover RUN`; an existing Word file is replaced only once the
+authors agree). Link the dashboard first in the
 summary and the corrected version second: they are how the authors and their colleagues see what the
 workflow caught, changed and left open, with the actual coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,
 with its reason; its unfound problems are unknown, not zero. When `keep` is `results`, pack the run
