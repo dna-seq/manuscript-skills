@@ -118,11 +118,11 @@ Run the structural check with the guard inventory:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS LEDGER LETTER --revised REVISED --original ORIGINAL \
-    --guard-json RUN/manuscript-reviewer-response/guard.json --md LETTER.check.md \
+    --guard-json RUN/manuscript-reviewer-response/guard.json --md RUN/manuscript-reviewer-response/check.md \
     --json RUN/manuscript-reviewer-response/check.json
 ```
 
-The Markdown report goes beside the letter and a copy is registered in the run, as in SKILL.md.
+The Markdown and JSON stay in the run as evidence; what the authors need goes into the stage's report, as in SKILL.md.
 
 It confirms quotes, coverage, order, locations, quoted revised text, numbers and landed commitments, and
 lists changes in the guard inventory at locations no reply names. An existing claim that now reaches further

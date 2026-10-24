@@ -99,7 +99,8 @@ Respect each entry's "Leave it when". Do not flag field terms in their technical
 Methods, "we", or a single connector. Never ask for a claim to be made stronger.
 
 Do not rewrite anything. Output JSON: [{"id": "...", "quote": "...", "why": "...",
-"severity": "high|medium|low"}]. "high" = a reviewer would comment on it; "low" = style only.
+"severity": "major|minor|info"}]. "major" = a reviewer would comment on it; "info" = style only (the
+shared scale of the [stage findings](../../manuscript-dashboard/references/stage-findings.md)).
 The section is in {section_file}. Open the files in your workspace and the two references above, and
 nothing else.
 ```

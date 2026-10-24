@@ -178,11 +178,11 @@ probability or overall score.
 
 ## The structural check
 
-Commands are relative to this skill directory. Where the files go, one rule: the check's Markdown report,
-which the authors read, goes beside the response letter (`RESPONSE.check.md`), and a copy is registered in
-the run (`runs.py add RUN --skill manuscript-reviewer-response --file RESPONSE.check.md --role check --name
-response.check.md`); the JSON and the guard's comparison are written in the run folder,
-`RUN/manuscript-reviewer-response/`:
+Commands are relative to this skill directory. Where the files go, one rule: the check's Markdown, its JSON and
+the guard's comparison are evidence in the run folder, `RUN/manuscript-reviewer-response/`; what the authors
+need from the check goes into the stage's `report.md`, which the `reports` setting presents (a single-skill
+run also gets a copy beside the manuscript through `runs.py handover RUN --report manuscript-reviewer-response`).
+The response letter and the ledger are the authors' documents and stay beside each other:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml      # plan: the ledger alone
@@ -190,7 +190,7 @@ uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL.md REVISED.md
     --authorised RUN/manuscript-reviewer-response/requested-claims.yaml \
     --json RUN/manuscript-reviewer-response/guard.json
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml RESPONSE.md \
-    --revised REVISED.md --original ORIGINAL.md --md RESPONSE.check.md \
+    --revised REVISED.md --original ORIGINAL.md --md RUN/manuscript-reviewer-response/check.md \
     --json RUN/manuscript-reviewer-response/check.json \
     --guard-json RUN/manuscript-reviewer-response/guard.json   # with the changes no reply mentions
 uv run --script scripts/check_response.py REVIEWS ledger.yaml rebuttal.md --mode rebuttal --max-chars 5000

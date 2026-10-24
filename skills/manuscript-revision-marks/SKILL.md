@@ -110,7 +110,7 @@ register it in the run, as the review draft and the build below are:
 
 ```bash
 uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-revision-marks \
-  --file PAPER.heatmap.html --role report --name PAPER.heatmap.html
+  --file PAPER.heatmap.html --role other --name PAPER.heatmap.html
 ```
 
 `lint` and `report` take `--config PATH` and `--unknown agent|human`. The heat map shades each
@@ -147,7 +147,8 @@ uv run --script scripts/typeset.py md PAPER.tex                 # LaTeX to a Mar
 - A file of the target's name that the tool did not write (a hand-written `PAPER.tex` beside
   `PAPER.md`) is never overwritten: exit 2. `--out` always names a `.pdf`.
 - The PDF stays beside the manuscript (or at `--out`); register it in the run like the heat map
-  (`runs.py add ... --role report --name PAPER.pdf`), and its log with `--role check`.
+  (`runs.py add ... --role other --name PAPER.pdf`), and its log with `--role check`. The stage's report is
+  still its own `report.md` (the end-of-stage checklist); the heat map and the PDF are documents beside it.
 - `--template` passes a venue's pandoc LaTeX template (Markdown only). A template that reads `mainfont`
   gets DejaVu, which may not be the venue's face; one that sets its own fonts ignores it. A Markdown
   master is expected to have one `#` title heading and `##` sections (the build shifts headings up one
@@ -185,8 +186,8 @@ not run", not a fault in the paper.
    segment per section, with the next free `N` id, `rounds=1`, signed by whoever made the fixes, around
    the whole paragraphs from the first fix to the last, and taking in whole any segment it would
    otherwise cut. That is what "a wording edit outside any segment is still a revision: mark it or say
-   why not" allows for routine edits; an edit left unmarked is named, with the reason, in the run's
-   change record. A manuscript without marks never gets them unless the authors ask.
+   why not" allows for routine edits; no applied edit stays unmarked in a marked master. A manuscript
+   without marks never gets them unless the authors ask.
 3. **Name who did it.** The `by=` entry names who made this round's text: the author's handle, or the
    agent's name when an agent wrote it (your model's name, such as `claude`). Never sign an agent's
    round with a person's name; when the authors say the person approved the passage, add the person's

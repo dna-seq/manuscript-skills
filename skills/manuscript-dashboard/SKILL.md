@@ -50,7 +50,8 @@ each deliverable. Register each attempt under its own name.
 
 ## 1. Collect the inventory
 
-Every skill of the run writes `findings.json` beside its report ([stage findings](references/stage-findings.md)).
+Every finding-producing skill of the run (all but this one, manuscript-improve, manuscript-other-models and
+manuscript-mark-people) writes `findings.json` beside its report ([stage findings](references/stage-findings.md)).
 Collect drafts the inventory from those files and the run manifest. A run whose evidence was packed
 (its index names `evidence.zip`) is unpacked first with `../manuscript-integrity-check/scripts/runs.py
 unpack RUN`, and packed again at the end when the project's `keep` is still `results`.
@@ -238,8 +239,8 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill ma
 and the same for `findings.draft.json`, `merges.json`, `findings.json`, `manuscript-review.docx` and
 `report.md` (`--role report`); keep failed attempts too. Creating the files does not send them to anyone.
 
-Then hand the dashboard, the Word document and the corrected version over beside the manuscript, where the
-authors open the paper:
+Once every stage is finished and `runs.py validate RUN --final` passes, hand the dashboard, the Word
+document and the corrected version over beside the manuscript, where the authors open the paper:
 
 ```bash
 uv run --script ../manuscript-integrity-check/scripts/runs.py handover RUN

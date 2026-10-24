@@ -109,14 +109,17 @@ When the authors asked for more than one model, or the project saves `other_mode
 starts each seat on each chosen model, and the critics on the chosen model, with
 [manuscript-other-models](../manuscript-other-models/SKILL.md), at the same time as the host's seats.
 
+**One stage edits the working copy at a time.** The review stages (integrity, references, reporting, figures, policy fit, peer review) may run side by side, so in this workflow they do not edit the working copy: each records the corrections it can settle as proposals in its `findings.json` (`changes`, with the before, the after, the why and the finding it rests on), and the revise stage applies them under the `edits` setting before the prose edit, recording each with `runs.py change`. The editing stages then run one after another on the same working copy.
+
 Stages that write proposals (figures, policy fit, story, prose edit, deslop, journal adaptation) work from the review stages'
 confirmed findings: run them after those stages, or reconcile their proposals with the findings before
 handover, so that no proposal restates what a check refuted (a feature the code lacks, a peak that was
 not measured). They copy each proposal's before-text from the current working copy, and an addition names
 the passage it follows (`anchor`), so the corrected version can place it. A stage that edits a passage
 another stage has a pending proposal for adds its version as a proposal instead of applying it. Where two
-stages rewrite the same passage, the dashboard lists them as competing; give the authors one choice per
-passage rather than stacked edits. Policy fit's venue-specific part runs after journal selection has
+stages rewrite the same passage, the dashboard lists them as competing; pick one per passage in
+`revision-choices.json` (`prefer`) rather than stacking edits, and keep the others visible as alternatives.
+The authors choose per passage only under `edits: propose` or when they asked to review each change. Policy fit's venue-specific part runs after journal selection has
 named the journals.
 
 Select only relevant work within these stages. A software paper does not automatically need clinical
@@ -174,8 +177,8 @@ inventory, so the end of a run goes in this order:
    holding the proposal or recording the reverse change; when a change was recorded, collect again as
    `findings.2.json` and rebuild into `revision.2`.
 7. Render the dashboard and the Word file from the same attempts.
-8. Write the summary, run the smell check on it, register it, then `runs.py handover`, `finish`,
-   `validate --final` and, when `keep` is `results`, `pack`.
+8. Write the summary, run the smell check on it and register it; `finish` every stage, run
+   `validate --final`, then `runs.py handover` and, when `keep` is `results`, `pack`.
 
 Write `RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
 recommend (`prefer`); the proposals to hold back with the reason (`hold`: a held decision such as a
@@ -254,7 +257,8 @@ Make the original-to-final comparison accessible. In an iterative workflow, stat
 version and next requested step using the conversation or existing project conventions; no new tracking
 files are required.
 
-Every stage writes `findings.json` beside its report, as
+Every finding-producing stage (all but the dashboard, this coordinator, other-models and mark-people) writes
+`findings.json` beside its report, as
 [stage findings](../manuscript-dashboard/references/stage-findings.md) describes, including the stages run
 by reviewer agents. The last step of every run of this workflow is
 [manuscript-dashboard](../manuscript-dashboard/SKILL.md) on the same run: collect the stages' findings,

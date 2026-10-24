@@ -16,8 +16,8 @@ it.
    empty.
 3. Fill `landed` in the ledger with the location of each change in the revised manuscript.
 4. Draft the letter, then run `scripts/check_response.py` and fix every blocking finding, preserving earlier
-   attempts. Its Markdown report goes beside the letter and a copy is registered in the run; its JSON is
-   written in `RUN/manuscript-reviewer-response/` (SKILL.md, "The structural check").
+   attempts. Its Markdown and JSON are written in `RUN/manuscript-reviewer-response/` as evidence, and what
+   the authors need from them goes into the stage's report (SKILL.md, "The structural check").
 
 ## 2. The letter
 

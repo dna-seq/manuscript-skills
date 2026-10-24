@@ -48,7 +48,7 @@ identified before a run can snapshot it; code locations may be folders.
 `--document URL` records a connected document, and `--output-url URL` a cloud destination. A connected
 manuscript can itself be a `--manuscript URL`: export its current version to a local reading copy (Markdown
 or plain text keeps the dashboard readable) and give it with `configure PROJECT --manuscript URL
---reading-copy FILE`, or per run with `runs.py start URL --project PROJECT --reading-copy FILE
+--reading-copy FILE`, or per run with `runs.py start URL --skill SKILL --project PROJECT --reading-copy FILE
 --connected-version ID`. The run snapshots the reading copy with the URL and the version. Without a reading
 copy for the main manuscript, `start` creates no run and says so; a connected supplement without one is
 named in the run index as not snapshotted.

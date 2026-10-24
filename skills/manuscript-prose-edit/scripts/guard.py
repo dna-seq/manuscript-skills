@@ -1768,7 +1768,7 @@ def _analyse(before_text: str, after_text: str, moved: list[tuple[str, str]] | t
                  "moved_to_other_file_changed": sum(1 for g in groups if g.kind == "moved_out"
                                                     and bs[g.before[0]].text != as_[g.after[0]].text),
                  "deleted": counts["deleted"], "inserted": counts["inserted"]}
-    return changes, alignment, {"before": bs, "after": main, "a2b": a2b}
+    return changes, alignment, {"before": bs, "after": main, "a2b": a2b, "groups": groups, "all_after": as_}
 
 
 def _added_in_own_paragraph(rx: re.Pattern[str], parts: dict[str, object]) -> Counter[str]:
@@ -1870,15 +1870,189 @@ def unrequested(report: dict[str, object]) -> list[dict[str, object]]:
             if c["token"] is None and c["kind"] in REQUESTABLE and c["severity"] == "protected" and not c["authorised"]]
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# The requested sections (--only): a sentence changed anywhere else was not asked for
+# ---------------------------------------------------------------------------------------------------------------
+
+def _heading_key(title: str) -> str:
+    """A heading as a requested section is compared with it: numbering, case and spacing set aside."""
+    title = " ".join(title.split())
+    numbered = NUMBERED_HEADING.match(title)
+    return (numbered.group(2) if numbered else title).casefold()
+
+
+def in_sections(s: Sentence, wanted: list[str]) -> bool:
+    """Whether a sentence lies under a requested section: a heading anywhere in its path ("Discussion" takes
+    "Discussion > Limitations" too), or a run of headings written as a path ("Results > Speed")."""
+    path = [_heading_key(p) for p in s.section.split(" > ")] if s.section else []
+    for name in wanted:
+        parts = [_heading_key(p) for p in name.split(">")]
+        if any(path[i:i + len(parts)] == parts for i in range(len(path) - len(parts) + 1)):
+            return True
+    return False
+
+
+def outside_sections(parts: dict[str, object], wanted: list[str]) -> list[dict[str, object]]:
+    """Each changed, moved, deleted or new sentence (or run of them) that lies, before or after the edit, outside the
+    requested sections. A sentence moved to another file is placed by where it was."""
+    bs: list[Sentence] = parts["before"]  # type: ignore[assignment]
+    as_: list[Sentence] = parts["all_after"]  # type: ignore[assignment]
+    out: list[dict[str, object]] = []
+    for g in parts["groups"]:  # type: ignore[union-attr]
+        if g.kind == "equal":
+            continue
+        here = [as_[j] for j in g.after if as_[j].file is None]
+        stray = [x for x in [bs[i] for i in g.before] + here if not in_sections(x, wanted)]
+        if stray:
+            out.append({"alignment": g.kind, "section": stray[0].section, "after_file": None,
+                        "before_line": bs[g.before[0]].line if g.before else None,
+                        "after_line": here[0].line if here else None,
+                        "before": " ".join(bs[i].text for i in g.before), "after": " ".join(x.text for x in here)})
+    return out
+
+
+def _sections_named(sents: list[Sentence], title: Optional[str]) -> list[str]:
+    """The top-level headings of a text, in order, for a usage message."""
+    return list(dict.fromkeys(t for t in (_top_section(x, title) for x in sents) if t))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The summary against the body (--summary): the title, Abstract and Conclusions claim no more than the body states
+# ---------------------------------------------------------------------------------------------------------------
+
+SUMMARY_PART = re.compile(r"^(?:abstract|summary|author summary|lay summary|plain[- ]language summary|"
+                          r"significance(?: statement)?|highlights|key (?:points|findings))\b", re.IGNORECASE)
+CONCLUSION_PART = re.compile(r"^(?:conclusions?|concluding remarks|summary and conclusions?)\b", re.IGNORECASE)
+# Parts that are neither summary nor body: the Introduction states prior work and aims, the back matter declares.
+NOT_BODY = re.compile(r"^(?:introduction|background|references|bibliography|literature cited|acknowledge?ments?|"
+                      r"funding|(?:author )?contributions|competing interests|conflicts? of interest|declarations?|"
+                      r"(?:data|code|data and code|software) availability|availability|ethics|consent|"
+                      r"supplementary|appendix|keywords|abbreviations)\b", re.IGNORECASE)
+# A body sentence is about the same thing as a summary sentence when they share this many content words with a
+# letter in them and reach this Dice similarity of their content words; the closest few are compared.
+SUMMARY_SHARED, SUMMARY_SIMILARITY, SUMMARY_MATCHES = 3, 0.25, 5
+RAISING = ("causal", "evidential", "generality")
+# A title states a claim when it has a word of the ladders or a verb of effect or finding; otherwise it names a topic
+# ("Loss of Foo and tumour growth", "A role for Foo in tumour growth") and claims nothing to compare.
+TITLE_VERB = _rx(r"\b(?:is|are|was|were|has|have|does|do|can|could|may|might|will|would|shows?|reveals?|explains?|"
+                 r"predicts?|improves?|increases?|decreases?|reduces?|raises?|lowers?|slows?|speeds?|accelerates?|"
+                 r"enhances?|impairs?|protects?|prevents?|promotes?|inhibits?|blocks?|regulates?|controls?|drives?|"
+                 r"determines?|underlies|confers?|leads?|affects?|alters?|outperforms?|enables?|identifies|links?|"
+                 r"doubles?|halves?|extends?|shortens?|restores?|rescues?|requires?)\b")
+TEX_TITLE = re.compile(r"\\title(?:\[[^\]]*\])?\{((?:[^{}]|\{[^{}]*\})*)\}")
+YAML_TITLE = re.compile(r"^title:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
+
+
+def _title_sentence(text: str) -> Optional[Sentence]:
+    """The paper's title as a sentence: a front-matter `title`, the one level-1 Markdown heading, or LaTeX's title."""
+    found: Optional[tuple[str, int]] = None
+    front = FRONT_MATTER.match(text)
+    heading = document_title(text)
+    yaml_title = YAML_TITLE.search(front.group(0)) if front else None
+    tex_title = TEX_TITLE.search(text) if _is_latex(text) else None
+    if yaml_title:
+        found = (yaml_title.group(1).strip("'\""), yaml_title.start(1))
+    elif heading:
+        m = re.search(rf"^ {{0,3}}#[ \t]+{re.escape(heading)}", text, re.MULTILINE)
+        found = (heading, m.start() if m else 0)
+    elif tex_title:
+        found = (_clean_title(tex_title.group(1)), tex_title.start())
+    if not found or not re.search(r"[A-Za-z]", found[0]):
+        return None
+    body = " ".join(found[0].split())
+    return Sentence(body, text.count("\n", 0, found[1]) + 1, -1, "Title", _content_words(body), None)
+
+
+def _summary_part(s: Sentence, title: Optional[str], headed: bool) -> Optional[str]:
+    """'title', 'abstract' or 'conclusions' for a sentence of a summary part, else None. In a paper with headings, the
+    text before the first one (under the title) is its abstract."""
+    if s.section == "Title" and s.block == -1:
+        return "title"
+    top = _top_section(s, title)
+    path = [_heading_key(p) for p in (s.section.split(" > ") if s.section else [])]
+    if title and path and path[0] == _heading_key(title):
+        path = path[1:]
+    if any(CONCLUSION_PART.match(p) for p in path):
+        return "conclusions"
+    if (top == "" and headed) or (top and SUMMARY_PART.match(_heading_key(top))):
+        return "abstract"
+    return None
+
+
+def _in_body(s: Sentence, title: Optional[str], headed: bool) -> bool:
+    top = _top_section(s, title)
+    return bool(top) and not NOT_BODY.match(_heading_key(top)) and _summary_part(s, title, headed) is None
+
+
+def summary_check(text: str) -> dict[str, object]:
+    """Each sentence of the title, the Abstract and the Conclusions against the body sentences closest to it: a claim
+    stronger or more general than every one of them, or a scope, limit, null result or evidence status that the
+    closest one states and the summary sentence leaves out. The Introduction and the back matter are neither."""
+    title = document_title(text)
+    sents = segment(text)
+    headed = any(x.section for x in sents)
+    named = _title_sentence(text)
+    summary = ([named] if named else []) + [x for x in sents if _summary_part(x, title, headed)]
+    body = [x for x in sents if _in_body(x, title, headed)]
+    if not summary or not body:
+        raise ValueError("--summary needs a title, an Abstract or Conclusions, and body sections (Results, "
+                         "Discussion) under their own headings")
+    stated: dict[tuple[str, str], str] = {}  # the whole text of each summary part, by (part, section)
+    for x in summary:
+        key = (_summary_part(x, title, headed) or "", x.section)
+        stated[key] = (stated.get(key, "") + " " + x.text).strip()
+    findings: list[dict[str, object]] = []
+    unmatched: list[dict[str, object]] = []
+    pair = Group([0], [0], "changed")
+    stems = {id(x): frozenset(_stem(w) for w in x.words) for x in summary + body}  # "tumours" meets "tumour"
+    for x in summary:
+        part = _summary_part(x, title, headed) or ""
+        sx = stems[id(x)]
+        scored = sorted(((_dice(sx, stems[id(b)]), n, b) for n, b in enumerate(body)
+                         if len(_letter_words(sx & stems[id(b)])) >= SUMMARY_SHARED), key=lambda t: (-t[0], t[1]))
+        matches = [b for d, _, b in scored if d >= SUMMARY_SIMILARITY][:SUMMARY_MATCHES]
+        if not matches:
+            unmatched.append({"part": part, "section": x.section, "line": x.line, "sentence": x.text})
+            continue
+        # The body sentence is "before" and the summary sentence "after": what the summary adds or leaves out.
+        against = [[f for f in _claim_findings(pair, [b], [x]) if f["severity"] == "protected"
+                    and f["kind"] in CLAIM_KINDS] for b in matches]
+        # One body sentence about the same thing that states the claim as strongly, on both ladders and as widely,
+        # supports it; the limits are compared with the closest one.
+        supported = any(not any(f["kind"] in RAISING for f in fs) for fs in against)
+        if part == "title" and not (TITLE_VERB.search(x.text) or _ladder(x.text, CAUSAL)
+                                    or _ladder(x.text, EVIDENTIAL)):
+            continue
+        for f in against[0]:
+            kind = str(f["kind"])
+            if kind in RAISING and supported:
+                continue
+            if kind in ("scope", "evidence_status"):
+                keys = _scope_keys if kind == "scope" else _status_keys
+                lost = {k for k, _ in keys(matches[0].text)} - {k for k, _ in keys(x.text)}
+                if lost and lost <= {k for k, _ in keys(stated[(part, x.section)])}:
+                    continue  # the part states it once, in another of its sentences
+            findings.append({"kind": kind, "change": f["change"], "part": part, "section": x.section,
+                             "line": x.line, "sentence": x.text, "body_section": matches[0].section,
+                             "body_line": matches[0].line, "body_sentence": matches[0].text,
+                             "removed": f["removed"], "added": f["added"], "strength_summary": f["strength_after"],
+                             "strength_body": f["strength_before"]})
+    return {"mode": "summary", "title": title, "summary_sentences": len(summary), "body_sentences": len(body),
+            "findings": findings, "unmatched": unmatched,
+            "summary": {"findings": len(findings), "unmatched": len(unmatched),
+                        "by_kind": dict(Counter(str(f["kind"]) for f in findings))}}
+
+
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
             allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = (),
             relocated: bool = False, authorised: list[dict[str, object]] | None = None,
-            relocated_in: list[str] | None = None) -> dict[str, object]:
+            relocated_in: list[str] | None = None, only: list[str] | None = None) -> dict[str, object]:
     """Compare two versions. `moved` lists (name, text) of the files part of the text was moved to (a
     supplement, say): what is found there counts as moved, not removed. `relocated`: a story edit moved caveats
     on purpose, so the story moves of the module docstring are warnings. `relocated_in`: the folded passages
     (relocation_passages) those moves are limited to; it implies `relocated`. `authorised`: the requested claim
-    changes (parse_authorisations); a widened claim no entry matches is unrequested."""
+    changes (parse_authorisations); a widened claim no entry matches is unrequested. `only`: the sections the request
+    covered; a sentence changed anywhere else is listed in `only.outside` and fails."""
     relocated = relocated or relocated_in is not None
     latex = _is_latex(before_text) or _is_latex(after_text)
     before, after = _prose(before_text, latex), _prose(after_text, latex)
@@ -1894,6 +2068,13 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
                 moved_counts[name] = _moved_items(ib, ia, im)
     changes, alignment, parts = _analyse(before_text, after_text, moved, revision=revision, relocated=relocated,
                                          passages=relocated_in)
+    if only is not None:
+        sents = parts["before"] + parts["after"]  # type: ignore[operator]
+        missing = [name for name in only if not any(in_sections(x, [name]) for x in sents)]
+        if missing:
+            known = _sections_named(sents, document_title(after_text) or document_title(before_text))
+            raise ValueError(f"no section is named {_listed([repr(m) for m in missing])}; the sections are "
+                             f"{_listed(known) if known else 'none (the text has no headings)'}")
     # An item added to a paragraph that already has it (a pronoun given its noun; in a story edit, a headline that
     # repeats its paragraph's number) is not a change of content; the sentence findings still list a moved token.
     repeated: dict[str, dict[str, int]] = {}
@@ -1934,6 +2115,9 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
     }
     if repeated:
         report["repeated_in_paragraph"] = repeated
+    if only is not None:  # only with the flag, so a report without it is unchanged
+        report["only"] = {"sections": list(only), "outside": outside_sections(parts, only)}
+        report["summary"]["outside_scope"] = len(report["only"]["outside"])  # type: ignore[index]
     if relocated:  # only with the flag, so a report without it is unchanged
         report["relocated"] = True
         report["summary"]["relocated"] = sum(1 for c in changes  # type: ignore[index]
@@ -1949,7 +2133,9 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
 
 def exit_code(report: dict[str, object]) -> int:
     """1 when an edit made a protected change; a revision inventory returns 1 only for a claim that widened with
-    no matching request, when the requests were given."""
+    no matching request, when the requests were given. Either fails on a change outside the requested sections."""
+    if (report.get("only") or {}).get("outside"):  # type: ignore[union-attr]
+        return 1
     if report["mode"] == "revision":
         return int(bool(unrequested(report)))
     if report["protected"]:
@@ -2309,12 +2495,34 @@ def to_markdown(report: dict[str, object]) -> str:
                      "change unless the authors asked for it."
                      + (f" {_upper_first(_count_word(len(shown), 'other change needs', 'other changes need'))} "
                         "only to be shown to the authors." if shown else ""))
+    elif (report.get("only") or {}).get("outside"):  # type: ignore[union-attr]
+        n = len(report["only"]["outside"])  # type: ignore[index]
+        lines.append(f"The edit changed {_count_word(n, 'sentence', 'sentences')} outside the requested sections, "
+                     f"listed below; restore {'it' if n == 1 else 'them'}. Within them it changed no content that "
+                     "must be reverted.")
     elif shown:
         lines.append(f"The edit changed no content that must be reverted. "
                      f"{_upper_first(_count_word(len(shown), 'change', 'changes'))} should be shown to the authors.")
     else:
         lines.append("This comparison found no change of content. It cannot prove that the meaning is unchanged, so "
                      "read the edited passages in context.")
+    only = report.get("only")
+    if only:
+        names = _listed([str(n) for n in only["sections"]])  # type: ignore[index]
+        outside = only["outside"]  # type: ignore[index]
+        lines += ["", "## Changes outside the requested sections", ""]
+        if outside:
+            one = len(outside) == 1
+            lines.append(f"The request covered {names} only, so {'this change' if one else f'these {len(outside)} changes'}"
+                         f" elsewhere {'was' if one else 'were'} not asked for: restore the original wording.")
+            for o in outside:
+                lines.append(f"- In {_where(o, title)}:")
+                if o["before"]:
+                    lines.append(f"  - Before the edit: {excerpt(o['before'])}")
+                if o["after"]:
+                    lines.append(f"  - After the edit: {excerpt(o['after'])}")
+        else:
+            lines.append(f"Every changed sentence lies in {names}, as the request asked.")
     level = (" More than half the words changed, so check the meaning and that the edit stayed within the request."
              if rate > CHANGE_STOP else " More than a quarter of the words changed, so reread the text for meaning."
              if rate > CHANGE_WARN else "")
@@ -2394,6 +2602,77 @@ def to_markdown(report: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+SUMMARY_PARTS = {"title": "the title", "abstract": "the Abstract", "conclusions": "the Conclusions"}
+
+
+def _summary_place(f: dict[str, object], title: Optional[str]) -> str:
+    if f["part"] == "title":
+        return f"the title (line {f['line']})"
+    return f"{_section(f, title)} (line {f['line']})"
+
+
+def _summary_problem(f: dict[str, object]) -> str:
+    """What the summary sentence says beyond its body sentence, in plain words."""
+    kind, removed, added = f["kind"], f["removed"], f["added"]
+    if kind in ("causal", "evidential"):
+        words = CAUSAL_WORDS if kind == "causal" else EVIDENTIAL_WORDS
+        measure = "The relation it states is" if kind == "causal" else "Its certainty is"
+        if f["change"] == "raised":
+            return (f"{measure} {_strength_words(f['strength_summary'], words)}, where the body's is "
+                    f"{_strength_words(f['strength_body'], words)}.")
+        return "Its claim differs in strength from the body's and one of them is negated: read both."
+    if kind == "generality":
+        return f"It reaches further than the body: {_quoted_list(added)}."
+    return {"scope": f"It leaves out the scope the body states: {_quoted_list(removed)}.",
+            "limitation": f"It leaves out the limit the body states: {_quoted_list(removed)}.",
+            "null_result": f"It leaves out the null result the body reports: {_quoted_list(removed)}.",
+            "evidence_status": f"It no longer says how the finding was obtained, which the body does: "
+                               f"{_quoted_list(removed)}."}.get(str(kind), "Read it against the body.")
+
+
+def summary_markdown(report: dict[str, object]) -> str:
+    title = report.get("title")  # type: ignore[assignment]
+    findings: list[dict[str, object]] = report["findings"]  # type: ignore[assignment]
+    unmatched: list[dict[str, object]] = report["unmatched"]  # type: ignore[assignment]
+    stronger = [f for f in findings if f["kind"] in RAISING]
+    left_out = [f for f in findings if f["kind"] not in RAISING]
+    lines = ["# Do the title, Abstract and Conclusions claim more than the body?", ""]
+    n = len({(f["section"], f["line"]) for f in findings})
+    if findings:
+        lines.append(f"{_upper_first(_count_word(n, 'sentence', 'sentences'))} of the summary "
+                     f"{'claims' if n == 1 else 'claim'} more than the body or {'leaves' if n == 1 else 'leave'} out "
+                     "a limit the body states. Each is quoted below with the body sentence it was compared with: "
+                     "bring the summary down to what the body shows, or give it the qualifier the body has.")
+    else:
+        lines.append("No sentence of the title, the Abstract or the Conclusions claims more than the body sentences "
+                     "closest to it, or leaves out a limit the closest one states. The check compares wording, so "
+                     "still read the summary against the Results.")
+    lines += ["", f"It compared {_count_word(int(report['summary_sentences']), 'summary sentence', 'summary sentences')}"
+                  f" with {_count_word(int(report['body_sentences']), 'body sentence', 'body sentences')} (the "
+                  "Introduction and the back matter are neither)."
+                  + (f" {_upper_first(_count_word(len(unmatched), 'summary sentence has', 'summary sentences have'))}"
+                     f" no close body sentence and {'is' if len(unmatched) == 1 else 'are'} listed at the end."
+                     if unmatched else ""), ""]
+    for heading, group in (("Claims stronger than the body", stronger),
+                           ("Limits the body states that the summary leaves out", left_out)):
+        if not group:
+            continue
+        lines += [f"## {heading}", ""]
+        for f in group:
+            body = {"section": f["body_section"]}
+            lines += [f"- In {_summary_place(f, title)}: {_summary_problem(f)}",
+                      f"  - The summary: {excerpt(f['sentence'], f['added'])}",
+                      f"  - The body, in {_section(body, title)} (line {f['body_line']}): "
+                      f"{excerpt(f['body_sentence'], f['removed'])}"]
+        lines.append("")
+    if unmatched:
+        lines += ["## Summary sentences with no close body sentence", "",
+                  "No sentence of the body shares enough words with these to be compared. Check that the body "
+                  "states each, or that it is background.", ""]
+        lines += [f"- In {_summary_place(u, title)}: {excerpt(u['sentence'])}" for u in unmatched]
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
 @app.command()
 def main(
     before: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Original, or the edited file with --against")],
@@ -2427,7 +2706,29 @@ def main(
         "for (per entry: passage, at least three words in a row copied from the sentence; finding, or comment with "
         "a referee comment id): a widened claim or a changed declaration no entry matches fails, also with "
         "--revision")] = None,
+    only: Annotated[Optional[list[str]], typer.Option(
+        "--only", help="A section the request covered, by its heading ('Discussion', or a path such as "
+        "'Results > Speed'); repeatable. A sentence changed, moved, added or deleted anywhere else fails")] = None,
+    summary: Annotated[bool, typer.Option(
+        "--summary", help="Check one manuscript: a sentence of the title, the Abstract or the Conclusions that claims "
+        "more than the body sentences closest to it, or leaves out a scope, limit or null result the closest one "
+        "states, fails")] = False,
 ) -> None:
+    if summary:
+        if after is not None or against or revision or only or moved_to or relocated or relocated_in or authorised:
+            raise typer.BadParameter("--summary checks one manuscript on its own: give only the file, and --json or "
+                                     "--md if wanted.")
+        try:
+            result = summary_check(before.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        markdown = summary_markdown(result)
+        if json_out:
+            json_out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+        if md_out:
+            md_out.write_text(markdown, encoding="utf-8")
+        typer.echo(markdown)
+        raise typer.Exit(code=1 if result["findings"] else 0)
     if against:
         before_text, after_text = _git_show(before.resolve(), against), before.read_text(encoding="utf-8")
     elif after is not None:
@@ -2443,8 +2744,12 @@ def main(
         except (yaml.YAMLError, ValueError) as exc:
             raise typer.BadParameter(f"{authorised}: {exc}") from exc
     scope = relocation_passages(relocated_in) if relocated_in else None
-    report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening,
-                     moved=moved, relocated=relocated, authorised=requests, relocated_in=scope)
+    try:
+        report = compare(before_text, after_text, threshold, revision=revision,
+                         allow_strengthening=allow_strengthening, moved=moved, relocated=relocated,
+                         authorised=requests, relocated_in=scope, only=only)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     markdown = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
