@@ -66,3 +66,12 @@ def test_the_end_of_stage_checklist_is_where_the_skills_point() -> None:
     pointing = [path.parent.name for path in ROOT.glob('skills/*/SKILL.md')
                 if 'end-of-stage-checklist' in path.read_text(encoding='utf-8')]
     assert len(pointing) >= 5, pointing
+
+
+def test_the_reader_template_names_no_paper_of_its_own() -> None:
+    """A filled brief copies the answer format; example values that name a real paper's sections or figures
+    tell every reader where to look and what to miss."""
+    panel = (ROOT / 'skills/manuscript-story/references/reader-panel.md').read_text(encoding='utf-8')
+    block = panel.split('## What each seat returns', 1)[1].split('```', 2)[1]
+    assert not re.search(r'section: "\d', block)
+    assert not re.search(r'"Figures? \d', block)

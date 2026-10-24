@@ -74,26 +74,23 @@ need a reader who got that far.
 ```yaml
 seat: skimmer | potential-user | informed-outsider | the name of a reader saved for the project
 path:                                    # the sections in the order this reader visited them
-  - {section: "Abstract", how: read}     # read | skimmed | skipped
-  - {section: "Figure 1", how: skimmed}
-  - {section: "2. Platform Architecture", how: skipped}
-  - {section: "5. Benchmarking and Validation", how: read}
+  - {section: "the section or figure as the paper names it", how: read}     # read | skimmed | skipped
 left:                                    # where on that path a real reader of this kind would close the paper
-  section: "5.2 PRS Computation"         # or "finished" when they reached the end of their path
+  section: "the section"                 # or "finished" when they reached the end of their path
   quote: "the sentence where they gave up, verbatim"
   why: "one sentence in the reader's own terms"
 dips:                                    # attention dropped and came back, before leaving
-  - section: "2.2"
+  - section: "the section"
     quote: "verbatim"
     why: "one sentence"
 takeaway: "the one sentence I would tell a colleague about this paper, from what I read before leaving"
 remembered: ["up to three things I would still remember tomorrow"]
 wanted:                                  # what I looked for and did not find
-  - looked_for: "what a report looks like"
-    looked_in: "Figures 1 to 3, section 2.3"
+  - looked_for: "what I looked for"
+    looked_in: "where I looked"
 stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
-    section: "2.2"
+    section: "the section"
     problem: "undefined term | assumed knowledge | lost the thread | repetition | too many numbers"
 next: "stop here | bookmark | forward it | read the full text | try it | cite it"
 because: "one sentence; a reader who left before what it came for cannot try or cite it"
