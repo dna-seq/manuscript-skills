@@ -47,6 +47,11 @@ Classify it as **polish** (spelling, grammar, clarity of author-written text), *
 rewording and restructuring of author-written text) or **drafting** (the model wrote new sentences or
 sections).
 
+What this run's own stages changed is already recorded, so that part is known without asking: when a statement
+is needed, draft it with `scripts/ai_use.py` ([Disclosure](#disclosure-when-required-or-requested) says when and
+how). It reads the changes this run recorded, by stage, and nothing older, and marks the draft as covering this
+run only. The authors' own use outside the run is one question, asked once.
+
 Do not reconstruct AI use from version history unless the authors ask for that inventory. Many manuscripts
 live in Google Docs or Word, not git, and an AI co-author trailer on a commit often marks automation (pulling
 co-authors' comments from a connected drive, syncing, formatting, conversion), not text the model wrote.
@@ -170,7 +175,19 @@ when requested; venue adaptation does not require style profiling or detector ch
 Follow `../manuscript-integrity-check/references/author-priorities.md` and consult the relevant part of
 `../manuscript-integrity-check/references/disclosure-templates.md`. Check exemptions before adding a
 statement, use known facts and only required fields (dates only where the venue asks for them; never
-reconstruct them from revision markers or version history), and do not create a per-pass record. When the
+reconstruct them from revision markers or version history), and do not create a per-pass record. When a statement is needed, start from this run's record:
+`scripts/ai_use.py RUN --tool TOOL --model MODEL_ID --developer DEVELOPER` writes
+`RUN/manuscript-journal-adapt/ai-use.md` and `ai-use.json`, the draft statement and what each stage changed (from
+the corrected version when the run built one, else from the edits recorded with `runs.py change`), with the kind
+of use as venue rules name it (drafting, revision or polish; the strongest kind the run's changes show, never
+less). The draft says it covers this run only and reads no version history, revision markers or earlier run. The
+authors' own AI use outside this run is the one question it leaves: ask it once, with the run's other questions,
+unless the conversation already answered it, and pass the answer with `--authors-use` ("none" adds nothing, never
+a negative assertion). A later draft in the same run reuses the answer. Without one, the statement keeps a marked
+gap and the work goes on; the gap is listed with the end-stage items. Add `--dates` only for a venue that asks for
+dates. Fit the draft to the venue's template and required fields, and drop the checks sentence where the venue
+exempts such use. When the run will build a corrected version, draft the statement after it, so the edits the
+authors receive are the ones it describes. When the
 authors ask whether a target's AI policy has changed, this skill answers it: run
 `scripts/policy_watch.py check --venue KEY --routes httpx,chrome` (without `--update`, which writes into the
 plugin's own files and belongs to catalogue maintenance), then read with your own browser tool whatever it
@@ -217,6 +234,7 @@ to the manuscript and the report in the same turn and drop the questions they se
 - `scripts/venues.py`: `rank`, `show`, `ladder`, `common` and `peers` (PEP 723; `uv run --script`). Reads the shared
   `../manuscript-integrity-check/references/venues.yaml`; `peers` queries OpenAlex (set `OPENALEX_MAILTO`
   for its polite pool). Keep the companion skills together.
+- `scripts/ai_use.py`: drafts the AI-use statement from what this run's stages changed (see Disclosure).
 - [policy-maintenance.md](references/policy-maintenance.md): read when updating the shared catalogue or
   policy snapshots. `scripts/policy_watch.py` checks cited policy pages for changes in AI passages; its
   `--update` (on `check` and `record`) is maintenance, separate from adapting an individual manuscript.

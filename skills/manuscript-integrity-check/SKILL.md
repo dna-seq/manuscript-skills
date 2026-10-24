@@ -97,7 +97,7 @@ Select the steps the request needs and run each once over unchanged material. Sc
 the report belong in this skill's run folder, `RUN/manuscript-integrity-check/` in the commands below (`RUN` is the
 run directory `runs.py start` printed); the `reports` setting controls presentation in chat, and a full list the
 authors are to open goes beside the manuscript ([where files go](references/author-priorities.md#where-files-go)). Paths are relative to this skill's directory: `scripts/`
-holds `scan.py`, `number_check.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py` and `policy_watch.py` are in
+holds `scan.py`, `number_check.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py`, `policy_watch.py` and `ai_use.py` are in
 `../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.
 
 | Request | Steps |

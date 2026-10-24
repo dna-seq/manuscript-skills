@@ -35,9 +35,10 @@ not mandatory wording; omit model, developer or section detail when neither requ
 
 Add a third sentence only for what the venue specifically asks (dates for JAMA; how output was validated
 for PLOS; code help in Methods for Science, Wiley, Elsevier, ACM). Short is fine; smaller than the actual use
-is not: describe the actual kind of help ("help draft" if a model drafted text). Do not infer the kind of
-use from commit trailers, revision markers or style; accept the author's account and apply the current
-venue's rule. If the author chooses a different interpretation, distinguish that decision from verified
+is not: describe the actual kind of help ("help draft" if a model drafted text). Do not infer the kind of use from commit trailers, revision markers or style; accept the author's account and apply the current
+venue's rule. The changes a manuscript-skills run recorded are the exception, because they are a record of that
+run: `manuscript-journal-adapt` drafts the statement's part for the run from them (`scripts/ai_use.py`), marked as
+covering that run only, and the authors' own use outside it comes from their answer. If the author chooses a different interpretation, distinguish that decision from verified
 compliance and continue without repeating a policy objection.
 
 ## *Bioinformatics* / *Briefings in Bioinformatics* (ISCB policy, OUP)
