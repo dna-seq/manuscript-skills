@@ -113,7 +113,7 @@ class Reference(BaseModel):
     url_status: Optional[str] = None  # the url field's answer: "ok HTTP 200", "dead HTTP 404", "blocked ...", "unknown ..."
     resolved_title: Optional[str] = None
     resolved_year: Optional[str] = None
-    # Where a title search found the record: its journal names, volume and pages, compared with the entry's
+    # The record's journal names, volume and pages (or article number), compared with the entry's
     resolved_venues: list[str] = []
     resolved_volume: Optional[str] = None
     resolved_pages: Optional[str] = None
@@ -143,6 +143,12 @@ class Reference(BaseModel):
     _bib_key: Optional[str] = PrivateAttr(default=None)
     # For an entry of a reference list in the manuscript: the section its list sits in ("References").
     _list: Optional[str] = PrivateAttr(default=None)
+    # A BibTeX entry's own journal, year, volume and pages, compared field by field with the record's.
+    _cited: dict[str, str] = PrivateAttr(default_factory=dict)
+    # The record's print and online years beside `resolved_year` (Crossref's earliest), any of which may be cited,
+    # and its article number when it also gives pages.
+    _record_years: list[str] = PrivateAttr(default_factory=list)
+    _article_number: Optional[str] = PrivateAttr(default=None)
 
 
 class InlineId(BaseModel):
@@ -982,6 +988,7 @@ def _bib_references(bib: Path, errors: Optional[list[tuple[int, str, bool]]] = N
                         cited_title=fields.get("title") or None, url=first.get("url"),
                         other_ids=[f"{k}:{v}" for k, v in ids if first.get(k) != v])
         ref._bib_file, ref._bib_key = bib.name, key
+        ref._cited = {k: fields[k] for k in ("journal", "year", "volume", "pages") if fields.get(k)}
         out.append((key, ref))
     return out
 
@@ -1897,6 +1904,21 @@ def _rxiv_details(client: httpx.Client, ref: Reference, msg: dict) -> None:
         return
 
 
+def _crossref_bibliographic(ref: Reference, msg: dict) -> None:
+    """A Crossref record's journal names, volume, pages (or article number) and print and online years."""
+    ref.resolved_venues = [_fetched(v) for v in [*(msg.get("container-title") or []),
+                                                 *(msg.get("short-container-title") or [])] if v]
+    ref.resolved_volume = str(msg["volume"]) if msg.get("volume") else None
+    pages = msg.get("page") or msg.get("article-number")
+    ref.resolved_pages = str(pages) if pages else None
+    ref._article_number = str(msg["article-number"]) if msg.get("article-number") else None
+    ref._record_years = []
+    for key in ("published-print", "published-online"):
+        parts = (msg.get(key) or {}).get("date-parts") or [[None]]
+        if parts and parts[0] and parts[0][0]:
+            ref._record_years.append(str(parts[0][0]))
+
+
 def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, str, Optional[str]]]:
     """Crossref first; DataCite for dataset, software and preprint DOIs; doi.org for any other agency."""
     r = _get(client, f"https://api.crossref.org/works/{ref.doi}")
@@ -1908,6 +1930,7 @@ def _resolve_doi(client: httpx.Client, ref: Reference) -> Optional[tuple[str, st
         authors = msg.get("author") or []
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
         ref.resolved_authors = _crossref_authors(msg)
+        _crossref_bibliographic(ref, msg)
         state, source, notice = _crossref_notice(msg)
         ref.status = state if state != "none" else "resolved"
         ref.is_preprint = msg.get("type") == "posted-content" or msg.get("subtype") == "preprint"
@@ -1971,6 +1994,10 @@ def _resolve_csl(client: httpx.Client, ref: Reference) -> None:
              a.get("literal") or "" for a in rec.get("author") or [] if isinstance(a, dict)]
     ref.resolved_authors = [n for n in names if n][:200]
     ref.resolved_first_author = _split_author(ref.resolved_authors[0])[0] if ref.resolved_authors else None
+    venues = [rec.get("container-title"), rec.get("container-title-short")]
+    ref.resolved_venues = [_fetched(v) for v in venues if isinstance(v, str) and v.strip()]
+    ref.resolved_volume = str(rec["volume"]) if rec.get("volume") else None
+    ref.resolved_pages = str(rec.get("page") or rec.get("number")) if rec.get("page") or rec.get("number") else None
     ref.status = "resolved"
     ref.lookup_notes.append("doi.org gave the record (the DOI is registered with neither Crossref nor DataCite); "
                             "no retraction registry covers it.")
@@ -2025,6 +2052,9 @@ def _resolve_pmid(client: httpx.Client, ref: Reference) -> Optional[tuple[str, s
     authors = doc.get("authors") or []
     ref.resolved_first_author = authors[0]["name"] if authors else None  # "Lambert SA"
     ref.resolved_authors = [_pubmed_author(a.get("name", "")) for a in authors if a.get("name")][:200]
+    ref.resolved_venues = [v for v in (doc.get("fulljournalname"), doc.get("source")) if v]
+    ref.resolved_volume = doc.get("volume") or None
+    ref.resolved_pages = doc.get("pages") or None
     retracted = "Retracted Publication" in (doc.get("pubtype") or [])
     ref.status = "retracted" if retracted else "resolved"
     return "pubmed", "retracted" if retracted else "none", None
@@ -2164,7 +2194,8 @@ def _search_crossref(client: httpx.Client, ref: Reference) -> None:
         ref.resolved_first_author = (authors[0].get("family") or authors[0].get("name")) if authors else None
         ref.resolved_venues = [_fetched(v) for v in [*(item.get("container-title") or []), *(item.get("short-container-title") or [])] if v]
         ref.resolved_volume = str(item["volume"]) if item.get("volume") else None
-        ref.resolved_pages = str(item["page"]) if item.get("page") else None
+        pages = item.get("page") or item.get("article-number")
+        ref.resolved_pages = str(pages) if pages else None
         parts = (item.get("issued") or {}).get("date-parts") or [[None]]
         ref.resolved_year = str(parts[0][0]) if parts and parts[0] and parts[0][0] else None
     elif items is None:
@@ -2358,23 +2389,94 @@ def id_url(kind: str, value: str) -> str:
             "arxiv": f"https://arxiv.org/abs/{value}"}.get(kind, value)
 
 
+VENUE_SKIP = {"of", "the", "and", "for", "in", "on", "de", "la", "et", "und", "der", "des", "du"}
+# Identifiers and links carry years and digit runs ("fgene.2022.1000667", "s41467-019-11112-0") that are no
+# year, volume or pages of the entry.
+ENTRY_IDS_RE = re.compile(r"\bdoi:\s*\S+|https?://\S+|\b10\.\d{4,9}/\S+|\bPMID:?\s*\d+|\barXiv:\s*\S+", re.IGNORECASE)
+# "28(8)" or "2019;10:3328": the entry gives a volume, so it cites a journal.
+ENTRY_VOLUME_RE = re.compile(r"\b\d+\s*\(\s*[\w–-]+\s*\)|\b\d+\s*:\s*[A-Za-z]?\d+")
+ENTRY_RANGE_RE = re.compile(r"\b\d+\s*[-–]\s*\d+\b")
+
+
+def _abbreviates(short: str, word: str) -> bool:
+    """'natl' abbreviates 'national': the same first letter, then the short form's letters in order."""
+    if not short or not word or short[0] != word[0] or len(short) > len(word):
+        return False
+    rest = iter(word[1:])
+    return all(c in rest for c in short[1:])
+
+
+def _venue_named(entry: str, venue: str) -> bool:
+    """Whether a folded entry names a journal: in full or abbreviated word by word (Nat Commun, Proc Natl Acad
+    Sci U S A), by the opening words of a long name (at least three, and half), or by its initials (NEJM, PNAS).
+    An initial alone never names one: "N" in an author's name is not Nature."""
+    words = [w for w in _fold(venue).split() if w not in VENUE_SKIP]
+    if not words:
+        return False
+    tokens = [t for t in entry.split() if t not in VENUE_SKIP]
+    initials = "".join(w[0] for w in words)
+    if len(words) > 2 and any(len(t) >= 3 and (t == initials or len(t) >= 4 and initials.startswith(t))
+                              for t in tokens):
+        return True
+    need = len(words) if len(words) <= 3 else max(3, (len(words) + 1) // 2)
+    for i in range(len(tokens)):
+        k = 0
+        while k < len(words) and i + k < len(tokens) and (
+                _abbreviates(tokens[i + k], words[k]) or _abbreviates(words[k], tokens[i + k])):
+            k += 1
+        run = tokens[i:i + k]
+        if k >= need and sum(len(t) > 1 for t in run) >= max(1, (k + 1) // 2):
+            return True
+    return False
+
+
+def _first_page(pages: Optional[str]) -> Optional[str]:
+    found = re.match(r"\s*([A-Za-z]?\d+)", pages or "")
+    return found.group(1).lower() if found else None
+
+
 def _record_conflicts(ref: Reference) -> list[str]:
-    """Where a title search's best record disagrees with the entry: journal, year, volume, first page.
+    """Where the entry disagrees with its record (by identifier, or a title search's best match): journal,
+    year, volume, first page or article number.
 
     A real but loosely cited work disagrees in one place (an abbreviated journal, a print year); a record that
-    differs in two or more is a different work, and the entry may cite a paper that does not exist."""
-    entry = _fold(ref.text)
+    differs in two or more is a different work, and the entry may cite a paper that does not exist. A BibTeX
+    entry is compared field by field. A text entry is compared where it gives the detail: its journal only when
+    it also gives a volume or pages, so an entry that names no journal is not called a different one."""
     out = []
-    venues = [_fold(v) for v in ref.resolved_venues if v]
-    if venues and not any(v and v in entry for v in venues):
+    record_years = {int(y) for y in [ref.resolved_year, *ref._record_years] if y and str(y).isdigit()}
+    locators = {x for x in (_first_page(ref.resolved_pages), (ref._article_number or "").lower() or None) if x}
+    if ref._cited:
+        cited = ref._cited
+        journal = _fold(cited.get("journal", ""))
+        if journal and ref.resolved_venues and not any(_venue_named(journal, v) for v in ref.resolved_venues):
+            out.append(f"journal (the record is in {ref.resolved_venues[0]})")
+        years = {int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", cited.get("year", ""))}
+        if record_years and years and all(abs(r - y) > 1 for r in record_years for y in years):
+            out.append(f"year (the record is from {ref.resolved_year or min(record_years)})")
+        volume = cited.get("volume", "").strip().lower()
+        if ref.resolved_volume and volume and volume != ref.resolved_volume.strip().lower():
+            out.append(f"volume (the record's is {ref.resolved_volume})")
+        first = _first_page(cited.get("pages"))
+        if locators and first and first not in locators:
+            out.append(f"pages (the record's are {ref.resolved_pages})")
+        return out
+    text = ENTRY_IDS_RE.sub(" ", ref.text)
+    entry = _fold(text)
+    gives_volume, gives_range = bool(ENTRY_VOLUME_RE.search(text)), bool(ENTRY_RANGE_RE.search(text))
+    if ref.resolved_venues and (gives_volume or gives_range) \
+            and not any(_venue_named(entry, v) for v in ref.resolved_venues):
         out.append(f"journal (the record is in {ref.resolved_venues[0]})")
-    years = {int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", ref.text)}
-    if ref.resolved_year and years and all(abs(int(ref.resolved_year) - y) > 1 for y in years):
-        out.append(f"year (the record is from {ref.resolved_year})")
-    if ref.resolved_volume and re.search(r"\b\d+\s*\(\d+\)", ref.text) and not re.search(rf"\b{re.escape(ref.resolved_volume)}\b", ref.text):
-        out.append(f"volume (the record's is {ref.resolved_volume})")
-    first = (re.match(r"[A-Za-z]?\d+", ref.resolved_pages or "") or [None])[0]
-    if first and re.search(r"\b\d+\s*[-–]\s*\d+\b", ref.text) and not re.search(rf"\b{re.escape(first)}\b", ref.text):
+    years = {int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", text)}
+    if record_years and years and all(abs(r - y) > 1 for r in record_years for y in years):
+        out.append(f"year (the record is from {ref.resolved_year or min(record_years)})")
+    volume = ref.resolved_volume
+    if volume and gives_volume and not re.search(rf"\b{re.escape(volume)}\b", text):
+        out.append(f"volume (the record's is {volume})")
+    # The locator after the volume ("10:3328", "28(8), 1063"), else a page range anywhere in the entry.
+    after = re.search(rf"\b{re.escape(volume)}\s*(?:\(\s*[\w–-]+\s*\))?\s*[:,]\s*([A-Za-z]?\d+)", text) if volume else None
+    if locators and (after.group(1).lower() not in locators if after else
+                     gives_range and not any(re.search(rf"\b{re.escape(x)}\b", text, re.IGNORECASE) for x in locators)):
         out.append(f"pages (the record's are {ref.resolved_pages})")
     return out
 
@@ -2488,6 +2590,25 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
                 why="An identifier lets readers find the work, and many journals' reference styles ask for one.",
                 suggestion="Run the scan with --online to search Crossref, then add the identifier the work has.",
                 stage=Stage.journal)
+        # The identifier leads to the work the entry names; its journal, year, volume and pages should agree too.
+        conflicts = _record_conflicts(ref) if ref.status in ("resolved", "retracted", "concern") \
+            and ref.resolved_venues and not ref.is_preprint else []
+        if conflicts:
+            where = f"{ident[0].upper()}{ident[1:]} leads to “{ref.resolved_title}”, but the entry differs from that record in its "
+            if len(conflicts) >= 2:
+                add(ref, Severity.major,
+                    where + f"{', '.join(conflicts[:-1])} and {conflicts[-1]}. The title matches the record, so these "
+                            f"details are wrong or come from another paper.",
+                    why="Readers who follow the citation details and readers who follow the identifier may reach "
+                        "different papers.",
+                    suggestion="Check which work the sentence relies on. If it is this record, copy its journal, year, "
+                               "volume and pages; if the details name the work meant, correct the identifier.")
+            else:
+                add(ref, Severity.minor, where + f"{conflicts[0]}.",
+                    why="A wrong journal, year, volume or page makes the work harder to find from the citation, and "
+                        "copy editors query it.",
+                    suggestion="Open the record and copy the detail from it; registries carry errors too, so check "
+                               "the publisher's page if the record looks wrong.")
         if ref.withdrawn:
             add(ref, Severity.major, f"The cited preprint has been withdrawn by its authors (recorded by "
                                      f"{source_words(ref.withdrawn_source)}).",

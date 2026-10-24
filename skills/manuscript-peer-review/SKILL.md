@@ -99,7 +99,8 @@ submission to a real one. Take the first that applies, without asking:
    so at the top of the result and offer to rerun for a named journal or for the top of a ladder from
    manuscript-journal-select.
 
-For each journal, write the referees' `venue.md` (one file; one section per journal). Take its facts from
+For each journal, write the referees' `venue.md` (one file in the run folder, `$WORK/venue.md`, with one
+section per journal). Take its facts from
 `../manuscript-journal-adapt/scripts/venues.py show KEY`: the journal's name and the article type, its
 fields and article types, its editorial profile, the rules its editors check on arrival, its validation
 and software requirements, and its length limits. Add what the journal asks its referees when its
@@ -172,14 +173,17 @@ putting each seat's `report`, with its `seat`, in `reports`, and run (from this 
 
 ```bash
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --supplement SUPPLEMENT.md \
-    --criteria SEAT=SEAT_WORKSPACE/criteria.md \
+    --criteria SEAT=SEAT_WORKSPACE/criteria.md --venue "$WORK/venue.md" \
     --md "$WORK/check.md" --json "$WORK/check.json"
 ```
 
 Pass each seat's `criteria.md` with `--criteria SEAT=PATH`, once per seat. The check matches each finding to the criterion
 its seat wrote before reading and warns, without holding anything back, on a major finding outside them, a
 criterion copied from the manuscript (written after reading) and a criterion with neither a finding nor a line
-saying what was checked; ask that seat for the line.
+saying what was checked; ask that seat for the line. `--venue` checks that a finding resting on what the
+journal expects quotes `venue.md` word for word; a demand for replication, more samples or an external cohort
+that says nowhere where its expectation is written is a warning, and adjudication treats it as the referee's
+own expectation.
 
 `PAPER.md` stands for the manuscript as Markdown, LaTeX or plain text; a `.tex` source is checked as it
 is, with its markup and comments handled ([finding-schema.md](references/finding-schema.md#what-the-script-checks)).
@@ -294,8 +298,9 @@ report too. See [output-format.md](references/output-format.md#saving-and-the-sh
 
 ## Files
 
-- `scripts/check_findings.py`: verifies quotes, required fields, allowed values, prior-work identifiers
-  and each referee's report; groups findings and counts seats; after adjudication, flags recommendations
+- `scripts/check_findings.py`: verifies quotes, required fields, allowed values, prior-work identifiers,
+  quotes of `venue.md` behind a field's expectation, and each referee's report; warns on a finding that bundles
+  several problems or asks for what the field expects without saying where it is written; groups findings and counts seats; after adjudication, flags recommendations
   whose findings the defence refuted or narrowed and sorts each referee's findings into its report's
   sections; Markdown and JSON output; no scores.
 - `references/seats.md`: panel choice by study design, seat remits, the quick pass, the seat brief (with

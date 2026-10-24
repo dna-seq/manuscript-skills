@@ -95,7 +95,7 @@ each seat's report, with its `seat`, in the list `reports`.
 | `quote` | for `present` | Verbatim text from the manuscript or a supplied supplementary file. Copy it; never paraphrase. `...` or `…` may skip words within one passage. At least 3 words or 12 characters. |
 | `looked_in` | for `absence` | Non-empty list of the places the seat searched for the missing item. An absence finding may also quote the claim that needs the missing item. |
 | `source` | no | File name of a supplementary file the quote comes from. Without it, the manuscript is searched first, then each supplied supplement. |
-| `concern` | yes | What is wrong, in one or two sentences a referee would write. |
+| `concern` | yes | What is wrong, in one or two sentences a referee would write. One problem per finding: two problems in one passage are two findings, each with its own `change_my_mind`, so that each can be confirmed, refuted and fixed on its own. Findings that share a root cause take one `group` label instead. |
 | `claim` | yes | The claim at stake: its text or location, or a claim id from `manuscript-record.yaml`. |
 | `consequence` | yes | What resolving the concern could change about that claim: `validity`, `support`, `scope`, `reproducibility` or `interpretation`. This is the claim-consequence gate. |
 | `severity` | yes | `blocker`, `major`, `optional` or `uncertain`, as defined in [author-priorities.md](../../manuscript-integrity-check/references/author-priorities.md#findings-and-stopping). A seat proposes it; adjudication may change it. |
@@ -106,6 +106,7 @@ each seat's report, with its `seat`, in the list `reports`.
 | `hand_to` | no | The skill that takes the work: `manuscript-prose-edit`, `manuscript-reference-check`, `manuscript-reporting-check`, `manuscript-integrity-check`, `manuscript-policy-fit`, `manuscript-journal-adapt`, `manuscript-journal-select` or `manuscript-story`. |
 | `placement` | no; with `fixable-in-text` | Where the fix costs readers least: `with-claim` (a doubt about the central claim, said once beside it), `limitations`, `methods`, `supplement` or `response-letter` (defensive detail a referee needs and readers do not). Set in adjudication ([adjudication.md](adjudication.md#7-routes)). |
 | `prior_work` | when the concern asserts prior work | List of `{citation, identifier, status, checked_by}`. `status` is `verified` (the identifier resolved to the named work, in this review's lookup or a current manuscript-reference-check result) or `unverified` (the identifier could not be resolved, or the work has none). Identifiers the manuscript itself gives are resolved too. `verified` needs an identifier: DOI, PMID, arXiv id, ISBN or URL. |
+| `norm_source` | when the finding asks for what the field or the journal expects | Where that expectation is written: `venue: "<words quoted from venue.md>"`, `guideline: <guideline and item>` (`TRIPOD+AI 12`), `module: <domain module and question>`, or `own: <why this referee expects it>` when it is written nowhere the seat was given. Replication, more samples, an external cohort and a "standard" analysis are the usual cases. |
 | `external_claim` | no | `true` forces the prior-work rule; `false` declares that wording such as "existing tools" does not assert prior work (reported as a warning so the adjudicator can look). |
 | `criterion` | expected, or `off_criterion` | The id of the criterion in the seat's `criteria.md` the finding falls under (`C2`; a list when it meets two). The criteria were written before the seat read the paper. |
 | `off_criterion` | instead of `criterion` | Why a problem none of the seat's criteria anticipated matters anyway. With `--criteria`, the check lists a major or blocking finding outside the criteria for the adjudicator; it is not held back. |
@@ -162,6 +163,12 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
 - **Prior work.** A concern that says the work is not novel, already done, or omits existing tools or
   prior work must name at least one work with an identifier and `status: verified`, or with
   `status: unverified`.
+- **Where an expectation is written** (a warning): a finding that asks for replication, more samples, an
+  external cohort or what the field "expects" or "requires", and gives no `norm_source`. A `norm_source` that
+  does not start with `venue:`, `guideline:`, `module:` or `own:` fails; with `--venue venue.md`, so does a
+  `venue:` quote that does not occur in venue.md.
+- **One concern per finding** (a warning): a concern that numbers its points, opens a sentence by adding
+  another ("Second,", "In addition,", "Another problem"), or runs to four sentences or more. Split it.
 - **Fairness warnings** (not failures): a concern resting on state-of-the-art standing, one that asks
   for new work, or one that objects to simplicity. The adjudicator decides; see
   [adjudication.md](adjudication.md#3-fairness-filter).
@@ -197,6 +204,7 @@ is proportionate, resolve identifiers, or score anything. Those are adjudication
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --md "$WORK/check.md" --json "$WORK/check.json"
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.tex -s supplement.md -s sections/methods.tex
 uv run --script scripts/check_findings.py "$WORK/findings.adjudicated.json" PAPER.md --adjudicated
+uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --venue "$WORK/venue.md"
 ```
 
 `$WORK` is the durable skill-run folder for the review's evidence (SKILL.md, step 3). The merged and

@@ -339,6 +339,98 @@ def test_the_simplicity_lint_ignores_trivial_used_about_results(concern: str) ->
     assert not any("simplicity" in w for w in f["warnings"]), f["warnings"]
 
 
+@pytest.mark.parametrize("concern, why", [
+    ("(1) The split leaks gene identity into the test set. (2) The baseline predictors are not named.", "numbers"),
+    ("The split leaks gene identity into the test set; i) features are gene-level and ii) genes repeat.", "numbers"),
+    ("The split leaks gene identity into the test set. Second, the baseline predictors are not named.", "adding"),
+    ("The split leaks gene identity. In addition, Table 2 reports a different n.", "adding"),
+    ("The split leaks gene identity. Another problem is that the baselines are not named.", "adding"),
+    ("The split leaks gene identity. The features are gene-level. The baselines are not named. The n differs "
+     "between the abstract and Table 2.", "sentences"),
+])
+def test_a_concern_that_bundles_several_problems_is_warned_about(concern: str, why: str) -> None:
+    """Idea 12 of the 2026-10-24 comparison: one concern per finding, so each is confirmed and fixed on its own."""
+    f = _only(cf.check([_finding(concern=concern)], SEEDED))
+    assert f["contract"] == "pass"
+    (warning,) = [w for w in f["warnings"] if "one concern per finding" in w]
+    assert {"numbers": "numbers its points", "adding": "adding another point", "sentences": "4 sentences"}[why] in warning
+
+
+VENUE = """# Bioinformatics
+
+Original papers must compare a new method with the current methods on the same benchmark data.
+Validation in an independent dataset is expected for predictive models.
+"""
+
+
+@pytest.mark.parametrize("concern, change", [
+    ("Performance is reported on one cohort only.", "Replication in an independent cohort."),
+    ("The association rests on 212 participants.", "A larger sample or a second cohort."),
+    ("External validation is standard practice for prediction models and is missing here.", "External validation."),
+    ("The field expects a calibration plot for a risk score.", "A calibration plot."),
+    ("Journals now require a replication of the association before publication.", "Replicate the association."),
+])
+def test_a_demand_for_what_the_field_expects_says_where_it_is_written(concern: str, change: str) -> None:
+    """Idea 4 of the 2026-10-24 comparison: a referee's 'the field expects X' is grounded or marked as its own."""
+    f = _only(cf.check([_finding(concern=concern, change_my_mind=change)], SEEDED))
+    assert f["contract"] == "pass"
+    assert any("source of the expectation" in w for w in f["warnings"]), f["warnings"]
+    for grounded in ("guideline: TRIPOD+AI item 12", "own: a single cohort of 212 cannot show the effect generalises",
+                     "module: genomics, Genome build and coordinates"):
+        g = _only(cf.check([_finding(concern=concern, change_my_mind=change, norm_source=grounded)], SEEDED))
+        assert g["contract"] == "pass" and not any("source of the expectation" in w for w in g["warnings"])
+        assert g["norm_source"] == grounded
+
+
+def test_a_venue_norm_source_must_quote_venue_md(tmp_path: Path) -> None:
+    venue = tmp_path / "venue.md"
+    venue.write_text(VENUE, encoding="utf-8")
+    finding = _finding(concern="Performance is reported on one cohort only.",
+                       change_my_mind="Validation in an independent dataset.")
+    quoted = _only(cf.check([{**finding, "norm_source": 'venue: "Validation in an independent dataset is expected"'}],
+                            SEEDED, venue=venue))
+    assert quoted["contract"] == "pass"
+    invented = _only(cf.check([{**finding, "norm_source": "venue: external replication is mandatory"}], SEEDED,
+                              venue=venue))
+    assert invented["contract"] == "fail" and any("does not occur word for word" in p for p in invented["problems"])
+    unchecked = _only(cf.check([{**finding, "norm_source": "venue: external replication is mandatory"}], SEEDED))
+    assert unchecked["contract"] == "pass"  # without --venue the quote cannot be checked, so it is not failed
+    malformed = _only(cf.check([{**finding, "norm_source": "the journal"}], SEEDED))
+    assert malformed["contract"] == "fail" and any("norm_source" in p for p in malformed["problems"])
+
+
+@pytest.mark.parametrize("concern, change", [
+    ("A variant-level random split puts variants from the same gene on both sides.", "Results on a gene-disjoint split."),
+    ("Technical replicates are not described.", "The number of technical replicates per sample."),
+    ("The standard deviation of the AUC is not given.", "The standard deviation across folds."),
+    ("Table 2 gives 212 participants where the abstract gives 221.", "One number, used throughout."),
+])
+def test_ordinary_requests_raise_no_norm_warning(concern: str, change: str) -> None:
+    f = _only(cf.check([_finding(concern=concern, change_my_mind=change)], SEEDED))
+    assert not any("source of the expectation" in w for w in f["warnings"]), f["warnings"]
+
+
+def test_the_venue_option_reaches_the_check(tmp_path: Path) -> None:
+    venue = tmp_path / "venue.md"
+    venue.write_text(VENUE, encoding="utf-8")
+    findings = tmp_path / "findings.json"
+    findings.write_text(json.dumps([_finding(norm_source="venue: must compare a new method with nothing")]),
+                        encoding="utf-8")
+    result = CliRunner().invoke(cf.app, [str(findings), str(SEEDED), "--venue", str(venue)])
+    assert result.exit_code == 1 and "does not occur word for word" in result.output
+
+
+@pytest.mark.parametrize("concern", [
+    "A variant-level random split puts variants from the same gene on both sides.",
+    "Figure 2(b) shows the split, and three features are also gene-level constraint metrics (e.g. LOEUF).",
+    "The split follows Kircher et al. 2014 and Rentzsch et al. 2019, so gene identity can leak into the test set.",
+    "The split leaks gene identity. Because three features are gene-level, test performance can reflect the gene.",
+])
+def test_one_problem_in_a_concern_raises_no_bundling_warning(concern: str) -> None:
+    f = _only(cf.check([_finding(concern=concern)], SEEDED))
+    assert not [w for w in f["warnings"] if "one concern per finding" in w], f["warnings"]
+
+
 # --- criteria written before reading ---------------------------------------------------------------------------
 
 CRITERIA = """# Criteria, written before reading

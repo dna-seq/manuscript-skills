@@ -184,6 +184,9 @@ one sentence offering the robustness check or referees on another model family, 
   draft's readiness unless the authors say they are about to submit. Within a group, order by
   consequence for the claims, then by cost, and put an item that depends on another after it ("after the
   benchmark is rerun, update the numbers in the Abstract"). Omit an empty group.
+- **Say where an expectation comes from.** A request that rests on what the field or the journal expects
+  says so in words: the journal's instructions quoted, the reporting guideline and its item, or "this is
+  the referee's own expectation; the journal's pages read for this review do not ask for it".
 - **Count referees, do not vote.** "Raised by all three referees" describes the panel; agreement is not
   evidence. A concern raised by one referee and confirmed by the text outranks one raised by three and
   narrowed by the defence.

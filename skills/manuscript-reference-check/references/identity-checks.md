@@ -41,7 +41,16 @@ read its findings without accusing anyone, and how to merge an independent paper
    HTML, accents, case and punctuation are set aside; a difference is minor, with a hint when one title is
    the other plus a subtitle. An entry with an identifier but no title field is a minor finding naming the
    work the identifier points to.
-8. **Identifiers in the text.** Outside the reference list, `doi:`, doi.org and arXiv links, `PMID`,
+8. **Journal, year, volume and pages.** When a DOI or PMID leads to a journal article whose title matches,
+   the entry's journal, year, volume and first page (or article number) are compared with that record.
+   A BibTeX entry is compared field by field; a text entry where it gives the detail, and its journal only
+   when it also gives a volume or pages. Journal names match in full, abbreviated word by word (*Nat
+   Commun*, *Proc Natl Acad Sci U S A*) or by initials (*NEJM*, *PNAS*); a year within one of the
+   record's print or online year passes; digits inside the DOI or a link are never read as a year or pages.
+   One difference is minor; two or more are major, since the details are then wrong or come from another
+   paper. Preprints are left to the published-version check. The same comparison, after a Crossref title
+   search, tells a loosely cited work from a different one.
+9. **Identifiers in the text.** Outside the reference list, `doi:`, doi.org and arXiv links, `PMID`,
    `arXiv:` and bare URLs in the prose (not in code, comments or verbatim) are resolved and listed with
    the title each resolves to (`inline_ids` in the JSON, "Identifiers and links in the text" in the
    report) for a person to read against the sentence; no match is attempted. One that does not resolve is
@@ -73,6 +82,7 @@ Earlier fields keep their names and meaning; these were added.
 | `is_preprint`, `published_version` | the published version's DOI, venue, year, how it was found, `title_similarity`, `shared_authors`, its `retraction`, and whether its record was read (`metadata_checked`) |
 | `withdrawn`, `withdrawn_source` | `true`/`false` where arXiv or bioRxiv/medRxiv was asked; `null` = not checked |
 | `resolved_authors`, `author_check`, `author_notes`, `author_severity` | the record's list; `consistent`, `differs` or `not_compared`; what differs; `minor` or `info` |
+| `resolved_venues`, `resolved_volume`, `resolved_pages` | the record's journal names (full, then abbreviated), volume, and pages or article number: from Crossref, PubMed or doi.org for an identifier, or from a title search's best match |
 | `lookup_notes` | which registry did not answer, and what was therefore not checked |
 | `cited_title`, `title_check` | a BibTeX entry's title as cited; `same`, `differs` (passes the fuzzy match, not the strict one), `no_title`, `not_compared` |
 | `other_ids`, `other_id_checks` | the entry's further identifiers (`pmid:123`), and for each its `state` (`ok`, `dead`, `unknown`), `title`, `why` and `same_work` |
@@ -107,7 +117,8 @@ same causes from its measurements on real papers):
   editions. The PGS Catalog preprint has 12 authors, its journal version 13.
 - **Names.** Transliterations (Müller, Mueller, Muller), dropped diacritics (Varré, Varre), particles (van der,
   de la), initials against given names, two-letter surnames (Ng, Li, Xu), group authors and consortia.
-- **Dates.** Online-first against issue year; a conference paper dated by the meeting.
+- **Dates.** Online-first against issue year (one year apart passes; more is flagged, so check the
+  publisher's page before calling it wrong); a conference paper dated by the meeting.
 - **Works the indexes miss.** Theses, reports, standards, software manuals, regional journals, very new and
   very old works. No identifier and no Crossref match is `unverified`, not fabricated: search PubMed and the
   publisher by title, journal, volume and pages before calling a reference invented.
@@ -142,8 +153,7 @@ which returns the best passages of a cited work for an agent to judge by the pro
 
 What it adds: dblp, OpenAlex and (with a key) Semantic Scholar beside Crossref, DataCite, arXiv and PubMed;
 books through Open Library; GitHub, PyPI, CRAN and OpenML existence for software and data in the reference
-list (REF019; Hugging Face is consulted but never reported missing, since it hides private repositories); dead links without an archived copy (REF021); invented venues (REF020); year, venue
-and title field differences (REF012 to REF014); identifiers written so that links break (REF017); duplicate
+list (REF019; Hugging Face is consulted but never reported missing, since it hides private repositories); dead links without an archived copy (REF021); invented venues (REF020); identifiers written so that links break (REF017); duplicate
 and near-duplicate entries (CIT002, CIT004); and `bib fix`, which proposes `.bib` edits as a diff.
 
 ### Merging its findings with ours
@@ -153,6 +163,7 @@ and near-duplicate entries (CIT002, CIT004); and `bib fix`, which proposes `.bib
   resolved and the other could not find is resolved, with a note.
 - REF090 ("cannot determine") and an incomplete run (RUN001, exit 2) mean the entry could not be checked;
   never count them as passed.
+- REF012 to REF014 (year, venue and title differences) are our record-field and strict-title findings.
 - REF015 (preprint published) is our `published_version`; REF018 (arXiv withdrawn) is our `withdrawn`;
   REF004 and REF005 our retraction states; REF010 and REF011 our author differences: a question to check,
   not fabrication.

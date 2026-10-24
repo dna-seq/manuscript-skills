@@ -28,6 +28,12 @@ them. The JSON keeps every field, code and line number for other tools.
     uv run --script check_findings.py findings.json PAPER.tex --supplement supp.md --md check.md --json check.json
     uv run --script check_findings.py findings.json PAPER.md --adjudicated      # also require verdict fields
     uv run --script check_findings.py merged.json PAPER.md --criteria skeptic=skeptic/criteria.md  # per seat
+    uv run --script check_findings.py merged.json PAPER.md --venue venue.md     # check norm_source quotes
+
+A finding that asks for what the field or the journal expects (replication, more samples, an external cohort, a
+standard analysis) says where that is written in `norm_source` (venue:, guideline:, module: or own:); without it
+the check warns, and with --venue a `venue:` quote must occur in venue.md. A concern that numbers its points or
+adds another problem is a warning too: one concern per finding.
 
 With --criteria, each finding is matched to the criteria its seat wrote before reading (`C1.` ... in its
 criteria.md; a later line starting with an id says what was checked). A major finding outside them, a criterion
@@ -389,6 +395,52 @@ _LINTS = {
         "The concern objects to the work being simple, which is not a defect unless a claim depends on more."),
 }
 
+# A concern that lists several problems: "(1) ... (2) ...", "First, ... Second, ...", a sentence opening "In
+# addition," or "Another problem". One finding holds one concern, so each can be confirmed, refuted and fixed
+# on its own.
+_NUMBERED = (re.compile(r"\(\s*(?:1|i|a)\s*\)|(?:^|\s)(?:1|i)[.)]\s", re.IGNORECASE),
+             re.compile(r"\(\s*(?:2|ii|b)\s*\)|(?:^|\s)(?:2|ii)[.)]\s", re.IGNORECASE))
+_NEXT_PROBLEM = re.compile(
+    r"(?:^|[.;:]\s+)(?:second(?:ly)?|third(?:ly)?|in addition|additionally|furthermore|moreover|separately|"
+    r"also|another (?:issue|problem|concern|point|limitation|flaw)|a (?:second|further|separate) "
+    r"(?:issue|problem|concern|point|limitation|flaw))\b", re.IGNORECASE)
+_ABBREVIATION_END = re.compile(r"\b(?:e\.g|i\.e|et al|cf|vs|Fig|Figs|Eq|Ref|no|approx|ca)\.$", re.IGNORECASE)
+
+
+def _bundled(concern: str) -> Optional[str]:
+    """Why a concern seems to hold more than one problem, or None."""
+    if all(rx.search(concern) for rx in _NUMBERED):
+        return "it numbers its points"
+    if _NEXT_PROBLEM.search(concern):
+        return "a sentence opens by adding another point"
+    ends = [m for m in re.finditer(r"[.?!](?=\s+[A-Z(])", concern)
+            if not _ABBREVIATION_END.search(concern[max(0, m.start() - 8):m.end()])]
+    if len(ends) >= 3:
+        return f"it runs to {len(ends) + 1} sentences where one or two state one problem"
+    return None
+
+
+# A demand that rests on what the field or the journal expects: replication, more samples, an external cohort, a
+# "standard" analysis. It names where that is written (norm_source), or says it is the referee's own expectation.
+_NORM_CUE = re.compile(r"""(?ix)
+    \b(?:replication|independent|external|validation|additional|second|separate)\s+(?:\w+\s+)?
+        (?:cohorts?|samples?|datasets?|populations?|data\s+sets?)\b
+  | \b(?:external|independent)\s+(?:validation|replication)\b
+  | \breplicat(?:e|ed|ing)\s+(?:the\s+|this\s+|these\s+|its\s+)?(?:finding|result|association|effect|signal|analysis)s?\b
+  | \b(?:larger|bigger|more|additional)\s+(?:\w+\s+)?(?:samples?|participants|patients|cohorts?|subjects|
+        individuals|replicates|animals|donors)\b
+  | \b(?:increase|expand|enlarge)\w*\s+the\s+(?:sample(?:\s+size)?|cohort|number\s+of\s+(?:samples|participants))\b
+  | \b(?:standard|common|accepted|usual|best|expected)\s+(?:practice|procedure)\b
+  | \b(?:standard|expected|required|customary)\s+in\s+(?:the|this)\s+field\b
+  | \bthe\s+field\s+(?:expects|requires|demands)\b
+  | \b(?:journals?|reviewers?|referees?|editors?|the\s+community)\s+(?:now\s+|usually\s+|typically\s+)?
+        (?:expects?|requires?|demands?)\b
+  | \b(?:is|are)\s+(?:now\s+)?(?:standard|customary|routine|expected\s+practice)\b
+  | \bcommunity\s+standards?\b
+  | \bwidely\s+(?:expected|required)\b
+""")
+_NORM_SOURCE = re.compile(r"^\s*(?P<kind>venue|guideline|module|own)\s*:\s*(?P<text>\S.*)$", re.IGNORECASE | re.DOTALL)
+
 _STOP = set("""about above after again against also among another because been before being between both
 could does doing during each either every from further have having here into itself just more most much
 must neither other otherwise over paper same should since some such than that their them then there these
@@ -431,6 +483,7 @@ class Sources:
     manuscript: Document
     supplements: list[Document]
     unreadable: dict[str, str]  # supplied supplementary file name -> reason it could not be read
+    venue: Optional[Document] = None  # the referees' venue.md, which a `venue:` norm_source quotes
 
     def candidates(self, source: Optional[str]) -> tuple[list[Document], Optional[str]]:
         """Documents to search for a quote, or the reason the quote cannot be checked."""
@@ -566,6 +619,32 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
     for name, (rx, message) in _LINTS.items():
         if rx.search(concern):
             warnings.append(f"{message} (fairness check: {name})")
+    bundled = _bundled(concern)
+    if bundled:
+        warnings.append(f"The concern may hold more than one problem ({bundled}). Split it into one finding per "
+                        "problem, each with its own quote and what would change the referee's mind, so that each can "
+                        "be confirmed, refuted and fixed on its own. (one concern per finding)")
+    norm = f.get("norm_source")
+    if norm is not None:
+        named = _NORM_SOURCE.match(norm) if isinstance(norm, str) else None
+        if not named:
+            problems.append("The source of the expectation (norm_source) must say where it is written: venue: with "
+                            "words quoted from venue.md, guideline: with the guideline and its item, module: with "
+                            "the domain question, or own: with why this referee expects it.")
+        elif named["kind"].lower() == "venue" and sources.venue is not None:
+            quoted = named["text"].strip().strip("\"'“”‘’")
+            words, chars = _quote_size(quoted)
+            if words < MIN_QUOTE_WORDS and chars < MIN_QUOTE_CHARS:
+                problems.append("The source of the expectation (norm_source) quotes too little of venue.md to show "
+                                f"which requirement is meant; quote at least {MIN_QUOTE_WORDS} words.")
+            elif not sources.venue.locate(quoted):
+                problems.append(f"The source of the expectation (norm_source) quotes venue.md, but \"{_trim(quoted, 80)}\" "
+                                f"does not occur word for word in {sources.venue.path.name}.")
+    elif _NORM_CUE.search(f"{concern} {f.get('change_my_mind') if isinstance(f.get('change_my_mind'), str) else ''}"):
+        warnings.append("The finding asks for what the field or the journal expects (replication, more samples, an "
+                        "external cohort, a standard analysis) without saying where that expectation is written "
+                        "(norm_source): quote venue.md, name the reporting guideline and its item or the domain "
+                        "question, or mark it as this referee's own expectation. (source of the expectation)")
 
     if f.get("route") == "dropped" and not _nonempty_str(f.get("drop_reason")):
         problems.append("It is dropped without a reason (drop_reason).")
@@ -596,7 +675,7 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
             "prior_work": prior or [], "contract": contract, "problems": problems,
             "warnings": warnings, "quote": quote_result, "defence": defence_result,
             "quote_text": f.get("quote"), "looked_in": f.get("looked_in"), "hand_to": f.get("hand_to"),
-            "cost": f.get("cost"), "stage": f.get("stage")}
+            "cost": f.get("cost"), "stage": f.get("stage"), "norm_source": f.get("norm_source")}
 
 
 def _check_strength(raw: Any, position: int, sources: Sources) -> dict[str, Any]:
@@ -909,10 +988,11 @@ def _check_criteria(criteria: dict[str, str], raw_findings: list[Any], findings:
 
 
 def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
-          adjudicated: bool = False, criteria: Optional[dict[str, str]] = None) -> dict[str, Any]:
+          adjudicated: bool = False, criteria: Optional[dict[str, str]] = None,
+          venue: Optional[Path] = None) -> dict[str, Any]:
     """Check parsed findings JSON: a list of findings, or an object with findings, strengths and the referees'
     reports (`reports`, a list, in a merged file; `report`, one object, in a seat's own file). `criteria` maps a
-    seat to the text of the criteria.md it wrote before reading."""
+    seat to the text of the criteria.md it wrote before reading; `venue` is the referees' venue.md."""
     raw_reports: list[Any] = []
     if isinstance(data, list):
         raw_findings, raw_strengths = data, []
@@ -930,6 +1010,7 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
     else:
         raise ValueError("expected a JSON list of findings, or an object with a 'findings' list")
     sources = _load_sources(manuscript, list(supplements or []))
+    sources.venue = Document.load(venue) if venue else None
     findings = [_check_finding(f, i, sources, adjudicated) for i, f in enumerate(raw_findings)]
     seen: dict[str, int] = {}
     for f in findings:
@@ -1314,6 +1395,8 @@ def main(
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
     criteria: Annotated[Optional[list[str]], typer.Option("--criteria", help="A seat's criteria.md, as SEAT=PATH "
                         "(repeatable); a bare PATH when the file has one seat's findings")] = None,
+    venue: Annotated[Optional[Path], typer.Option("--venue", exists=True, dir_okay=False,
+                     help="The referees' venue.md: a norm_source starting venue: must quote it")] = None,
 ) -> None:
     """Check findings against the contract and the manuscript; list failures as not yet findings."""
     try:
@@ -1323,7 +1406,7 @@ def main(
         raise typer.Exit(code=2)
     try:
         written = _criteria_files(criteria or [], data)
-        report = check(data, manuscript, supplement, adjudicated, written or None)
+        report = check(data, manuscript, supplement, adjudicated, written or None, venue)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2)

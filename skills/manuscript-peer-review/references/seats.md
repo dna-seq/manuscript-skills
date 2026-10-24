@@ -118,6 +118,9 @@ and fairness filter as every other seat: hostile, never unfair.
 - The comparison or control such a referee would demand first.
 - The weakest link in the chain from data to the headline claim.
 - The sentence most likely to be quoted back in a rejection letter, and why.
+- For a surprising or unusually strong result, the check that rules out an artefact: a genome build or
+  reference mismatch, a sample swap or mislabel, a batch confounded with the condition, leakage between
+  training and test data. Name the check the paper reports, or say that none is reported.
 
 ## Optional seats
 
@@ -192,12 +195,15 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 >    looks at the page: does it show what its legend and the sentences citing it say? For a concern about
 >    a figure, quote its legend or the sentence that cites it, and give the figure and panel as the
 >    location.
-> 3. Write `findings.json` following `finding-schema.md`. Quote the manuscript exactly; for something
->    missing, list where you looked. Raise a concern only if resolving it could change the validity,
+> 3. Write `findings.json` following `finding-schema.md`, one problem per finding. Quote the manuscript
+>    exactly; for something missing, list where you looked. Raise a concern only if resolving it could change the validity,
 >    support, scope, reproducibility or interpretation of a claim, and name that claim. Say what would
 >    change your mind. Do not call the work not novel without naming the prior work and its identifier,
 >    or marking it unverified. Ask for new experiments or data only when the claim needs them, and say
->    whether narrowing the claim would do instead. "Not state of the art" is a concern only when the
+>    whether narrowing the claim would do instead. A request for what the field or the journal expects
+>    (replication, more samples, an external cohort, a standard analysis) says where that is written, in
+>    `norm_source`: words quoted from `venue.md`, a reporting guideline and its item, or a domain question;
+>    otherwise it is marked `own:` with the reason. "Not state of the art" is a concern only when the
 >    paper claims superiority. Give each finding the criterion it falls under (`criterion`: `C2`), or,
 >    for a problem none of your criteria anticipated, `off_criterion` with the reason it matters anyway.
 > 4. Add the paper's strengths to `findings.json` under `strengths`, each with a quote.

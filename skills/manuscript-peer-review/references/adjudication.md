@@ -12,6 +12,8 @@ Run `scripts/check_findings.py` on the merged findings. For each "not yet findin
   longest opening run it found) and recheck;
 - an unchecked prior-work claim: resolve the identifier (section 4);
 - a missing field: ask the seat, or fill it from the seat's own text when it is unambiguous;
+- a finding that holds several problems (the "one concern per finding" warning): split it into one finding
+  per problem, each keeping the seat's quote and words, before the defence pass;
 - anything else: it stays listed as not yet a finding, with the reason. Never drop it silently.
 
 Then read the criteria warnings. A major or blocking finding outside the criteria its seat wrote before
@@ -43,6 +45,12 @@ that passes the gate:
   transparent must show that instead.
 - "Run experiment X" when no claim depends on X. When a claim does need it, always give the cheaper
   alternative of narrowing the claim, and let the authors choose.
+- "The field expects X" (replication, more samples, an external cohort, a standard analysis) with no
+  written source. Check the finding's `norm_source`. A `venue:` quote, a reporting guideline item or a
+  domain question is judged by whether its text covers this article type and this claim. An `own:`
+  expectation, or one with no source that `venue.md`, the guideline and the module do not back, is the
+  referee's preference: it stays `optional` unless a claim needs it (section 2), records `own:` with the
+  reason, and the report says it is the referee's own expectation.
 - "Too simple" or "incremental". Simplicity is a defect only when a claim depends on more.
 - "The authors should have studied a different question", a different organism, population or dataset,
   unless the paper's claims extend to it.
