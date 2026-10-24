@@ -23,8 +23,10 @@ diff in context.
     uv run --script guard.py BEFORE.md AFTER.md
     uv run --script guard.py PAPER.md --against HEAD                      # compare with the committed version
     uv run --script guard.py BEFORE.md AFTER.md --json report.json --md report.md
-    uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # an authorised claim correction
+    uv run --script guard.py BEFORE.md AFTER.md --authorised requested.yaml  # the claim changes a request asked for
+    uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # every claim change authorised at once
     uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json
+    uv run --script guard.py ORIGINAL.md PROPOSED.md --revision --authorised requested.yaml  # fail on unrequested widening
     uv run --script guard.py BEFORE.md AFTER.md --moved-to SUPPLEMENT.md  # text moved to another file (repeatable)
     uv run --script guard.py BEFORE.md AFTER.md --relocated               # caveats moved to other sentences on purpose
 
@@ -32,7 +34,7 @@ Edit mode (default). Exit code 1 when a protected item changed: a count of numbe
 terms, URLs or code; a claim that rose on a ladder or gained novelty or generality wording; a scope,
 null-result or evidence-status marker that disappeared, or a limiting or concessive word that left a surviving
 sentence; or a number, citation or identifier that is new to its sentence and its paragraph, or left them.
-`--allow-strengthening` exempts the claim changes (never the counts or the tokens) when the authors authorised a
+`--allow-strengthening` exempts every claim change (never the counts or the tokens) when the authors authorised a
 claim correction. Lowered claims, added qualifiers, negation changes, deleted sentences and tokens moved within a
 paragraph are warnings: read each one. A deleted sentence that reads as a stock phrase the contract lets an edit
 cut (an empty implication, a mini-conclusion, a filler phrase, signposting; ../manuscript-deslop/references/smell-patterns.yaml) is
@@ -46,16 +48,29 @@ gained beyond them. The finding gets `relocated_to` (a list of {marker, section,
 note naming where the caveat went; one with no such sentence, or reworded so the marker went, stays protected,
 and so does every number, citation or identifier.
 
+Requested claim changes (`--authorised FILE`): a YAML or JSON list of the claim changes something asked for,
+one entry per change: `passage` (verbatim text of the sentence before or after the edit, at least three words),
+`finding` (what asked for it: a finding, proposal or referee comment id, or "authors' request"; a list is
+allowed) and optional `kinds` (the claim kinds it covers, such as causal or scope). A change record with
+`before`, `after` and `finding_ids` (manuscript-dashboard's format) is read as it is. A claim change whose
+sentence contains an entry's passage, or lies inside it, is matched: it gets `authorised_by` (the ids), and a
+widened claim is authorised. Numbers, citations and identifiers are never authorised this way. Entries that
+matched no change are listed (`authorisations.unused`): their edit may not have landed. Every claim change
+gets `authorised_by` when the file is given, empty when nothing matched.
+
 Revision mode (`--revision`): for an original and a revised manuscript where content changes are expected.
-Lists every change of the kinds above with section and line, in the same fields, and always exits 0. It also
-lists every deleted and new sentence and, for each rewritten sentence with no other change, the words it lost
-and gained (kind "wording"), so each change can be shown before and after.
+Lists every change of the kinds above with section and line, in the same fields, and exits 0, except with
+`--authorised`: then a claim that widened (a higher rung, new generality, a lost scope, limiting, null-result or
+evidence-status marker) with no matching entry exits 1, so the run restores its wording without asking anyone.
+It also lists every deleted and new sentence and, for each rewritten sentence with no other change, the words it
+lost and gained (kind "wording"), so each change can be shown before and after.
 
 Moved text (`--moved-to FILE`, once per file): a sentence of BEFORE found in FILE is moved, not deleted (alignment
 `moved_to_other_file`); one changed on the way is compared with its copy there (`after_file`, with `after_line` in
 that file), and the whole-text counts do not report as removed what FILE holds (`moved_to`).
 
-Exit codes: 0 no protected change (always with --revision), 1 a protected change, 2 usage error.
+Exit codes: 0 no protected change (with --revision: no unrequested widening when --authorised is given, else
+always), 1 a protected change, 2 usage error.
 """
 
 from __future__ import annotations
@@ -1359,12 +1374,77 @@ def document_title(text: str) -> Optional[str]:
     return None
 
 
+def _folded(text: str) -> str:
+    """Lower case, straight quotes and single spaces, so a passage copied from either version matches."""
+    text = text.translate(str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'}))
+    return " ".join(text.lower().split())
+
+
+def parse_authorisations(data: object) -> list[dict[str, object]]:
+    """The requested claim changes from a loaded YAML or JSON document: a list of entries, or a mapping with the
+    list under `authorised` (or `changes`, for change records). Each entry gives `passages` (folded), `findings`
+    and `kinds`. Raises ValueError with a message for the user."""
+    if isinstance(data, dict):
+        data = data.get("authorised", data.get("changes"))
+    if data is None:
+        return []
+    if not isinstance(data, list):
+        raise ValueError("the file must hold a list of requested claim changes")
+    entries: list[dict[str, object]] = []
+    for n, raw in enumerate(data, 1):
+        if not isinstance(raw, dict):
+            raise ValueError(f"entry {n} is not a mapping with a passage and what asked for it")
+        given = [str(raw[k]) for k in ("passage", "after", "before") if raw.get(k) and len(str(raw[k]).split()) >= 3]
+        passages = [_folded(p) for p in given]
+        if not passages:
+            raise ValueError(f"entry {n} needs a passage of at least three words, copied from the sentence")
+        by = next((raw[k] for k in ("finding", "findings", "finding_ids", "id") if raw.get(k)), None)
+        findings = [str(x) for x in (by if isinstance(by, list) else [by]) if x]
+        if not findings:
+            raise ValueError(f"entry {n} does not say what asked for the change (a finding, comment or request)")
+        kinds = [str(k) for k in raw.get("kinds") or []]
+        unknown = [k for k in kinds if k not in CLAIM_KINDS]
+        if unknown:
+            raise ValueError(f"entry {n} names unknown claim kinds {unknown}; use {list(CLAIM_KINDS)}")
+        entries.append({"passages": passages, "shown": given[0], "findings": findings, "kinds": kinds})
+    return entries
+
+
+def authorise(changes: list[dict[str, object]], entries: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Match each claim change to the requests whose passage its sentence contains, or lies inside; a matched
+    widening is authorised. Every claim change gets `authorised_by`. Returns the entries that matched nothing."""
+    used = [False] * len(entries)
+    for c in changes:
+        if c["token"] is not None or c["kind"] not in CLAIM_KINDS:
+            continue
+        c["authorised_by"] = []
+        texts = [_folded(str(c[k])) for k in ("before", "after") if c[k]]
+        for n, e in enumerate(entries):
+            if e["kinds"] and c["kind"] not in e["kinds"]:  # type: ignore[operator]
+                continue
+            if any(p in t or (len(t.split()) >= 3 and t in p) for p in e["passages"] for t in texts):  # type: ignore[union-attr]
+                used[n] = True
+                c["authorised_by"] += [f for f in e["findings"] if f not in c["authorised_by"]]  # type: ignore[operator, union-attr]
+                if c["severity"] == "protected":
+                    c["authorised"] = True
+    return [e for e, u in zip(entries, used) if not u]
+
+
+def unrequested(report: dict[str, object]) -> list[dict[str, object]]:
+    """Claims that widened with no matching request, when the requests were given; empty otherwise."""
+    if report.get("authorisations") is None:
+        return []
+    return [c for c in report["sentence_changes"]  # type: ignore[union-attr]
+            if c["token"] is None and c["kind"] in CLAIM_KINDS and c["severity"] == "protected" and not c["authorised"]]
+
+
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
             allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = (),
-            relocated: bool = False) -> dict[str, object]:
+            relocated: bool = False, authorised: list[dict[str, object]] | None = None) -> dict[str, object]:
     """Compare two versions. `moved` lists (name, text) of the files part of the text was moved to (a
     supplement, say): what is found there counts as moved, not removed. `relocated`: caveats were moved to other
-    sentences on purpose, so one whose marker another new or changed sentence holds is a warning."""
+    sentences on purpose, so one whose marker another new or changed sentence holds is a warning. `authorised`:
+    the requested claim changes (parse_authorisations); a widened claim no entry matches is unrequested."""
     latex = _is_latex(before_text) or _is_latex(after_text)
     before, after = _prose(before_text, latex), _prose(after_text, latex)
     elsewhere = "\n\n".join(_prose(text, _is_latex(text)) for _, text in moved)
@@ -1382,6 +1462,7 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
         for c in changes:
             if c["kind"] in CLAIM_KINDS and c["severity"] == "protected":
                 c["authorised"] = True
+    unused = authorise(changes, authorised) if authorised is not None else []
     summary = Counter(f"{c['severity']}" for c in changes)
     report: dict[str, object] = {
         "mode": "revision" if revision else "edit",
@@ -1407,13 +1488,18 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
         report["relocated"] = True
         report["summary"]["relocated"] = sum(1 for c in changes  # type: ignore[index]
                                              if c["relocated_to"] and c["severity"] == "warning")
+    if authorised is not None:  # likewise only with the requests
+        report["authorisations"] = {"entries": len(authorised), "unused": [
+            {"findings": e["findings"], "passage": e["shown"]} for e in unused]}
+        report["summary"]["unrequested"] = len(unrequested(report))  # type: ignore[index]
     return report
 
 
 def exit_code(report: dict[str, object]) -> int:
-    """1 when an edit made a protected change; revision inventories always return 0."""
+    """1 when an edit made a protected change; a revision inventory returns 1 only for a claim that widened with
+    no matching request, when the requests were given."""
     if report["mode"] == "revision":
-        return 0
+        return int(bool(unrequested(report)))
     if report["protected"]:
         return 1
     return int(any(c["severity"] == "protected" and not c["authorised"]
@@ -1616,6 +1702,11 @@ def describe(c: dict[str, object]) -> str:
 
 
 def _action(c: dict[str, object], revision: bool) -> str:
+    by = c.get("authorised_by")
+    if by:
+        return f"Asked for by {_listed([str(x) for x in by])}; it is listed so that the authors see it."  # type: ignore[union-attr]
+    if by is not None and c["severity"] == "protected" and not c["authorised"]:
+        return "Nothing in the list of requested changes asked for this, so restore the original wording."
     if revision:
         return ""
     if c["authorised"]:
@@ -1715,10 +1806,21 @@ def to_markdown(report: dict[str, object]) -> str:
     rate = float(report["change_rate"])  # type: ignore[arg-type]
     lines = ["# Revision inventory: what changed between the two versions" if revision else "# What the edit changed",
              ""]
+    requests = report.get("authorisations")
+    widened = unrequested(report)
     if revision:
         lines.append(f"This is a revision, so content changes are expected. The comparison lists {len(changes)} "
                      "changes, sentence by sentence; check each against the response letter or the authors' "
-                     "instructions. Nothing here fails the run.")
+                     "instructions."
+                     + ("" if requests is None else
+                        f" {_upper_first(_count_word(len(widened), 'claim', 'claims'))} now "
+                        f"{'reaches' if len(widened) == 1 else 'reach'} further than the original and nothing in the "
+                        f"list of requested changes asked for {'it' if len(widened) == 1 else 'them'}: restore the "
+                        "original wording, marked below." if widened else
+                        " Every claim that now reaches further matches a requested change."
+                        if report["summary"]["authorised"] else  # type: ignore[index]
+                        " No claim reaches further than in the original.")
+                     + (" Nothing here fails the run." if requests is None else ""))
     elif open_changes:
         one = len(open_changes) == 1
         lines.append(f"The edit changed content in {_count_word(len(open_changes), 'place', 'places')}, listed below; "
@@ -1768,12 +1870,20 @@ def to_markdown(report: dict[str, object]) -> str:
         lines += [x for c in wording for x in _claim_lines(c, title, revision)] or [  # type: ignore[arg-type]
             "No other sentence lost or gained a word."]
     summary = report.get("summary", {})
-    if summary.get("authorised"):  # type: ignore[union-attr]
+    if summary.get("authorised") and requests is not None:  # type: ignore[union-attr]
+        n = summary["authorised"]  # type: ignore[index]
+        lines += ["", f"{_upper_first(_count_word(n, 'claim change matches', 'claim changes match'))} a requested "
+                      f"change, named beside {'it' if n == 1 else 'each'}. {'It is' if n == 1 else 'They are'} still "
+                      f"listed above so that the authors see {'it' if n == 1 else 'each one'} in place."]
+    elif summary.get("authorised"):  # type: ignore[union-attr]
         n = summary["authorised"]  # type: ignore[index]
         marked = _count_word(n, "claim change is", "claim changes are")
         lines += ["", f"The authors asked for a claim correction, so {marked} marked as authorised. "
                       f"{'It is' if n == 1 else 'They are'} still listed above so that the authors see "
                       f"{'it' if n == 1 else 'each one'} in place."]
+    for e in (requests or {}).get("unused", []):  # type: ignore[union-attr]
+        lines += ["", f"A requested change from {_listed([str(x) for x in e['findings']])} matches no changed "
+                      f"sentence; check that its edit landed: {excerpt(e['passage'])}."]
     lines += ["", "## Counts over the whole text", ""]
     lines += _count_lines(report["protected"]) or [  # type: ignore[arg-type]
         "No number, citation, identifier, link, code span or technical term was added or removed."]
@@ -1822,6 +1932,9 @@ def main(
                                             "lost scope, limiting, null-result or evidence-status marker is a warning "
                                             "when a new or changed sentence, here or in a --moved-to file, holds the "
                                             "same marker. Numbers, citations and identifiers stay protected")] = False,
+    authorised: Annotated[Optional[Path], typer.Option(
+        "--authorised", exists=True, dir_okay=False, help="YAML or JSON list of the claim changes a request asked "
+        "for (passage and finding per entry): a widened claim no entry matches fails, also with --revision")] = None,
 ) -> None:
     if against:
         before_text, after_text = _git_show(before.resolve(), against), before.read_text(encoding="utf-8")
@@ -1831,8 +1944,14 @@ def main(
         raise typer.BadParameter("Give the edited file as the second argument, or name the git version to "
                                  "compare with in --against.")
     moved = [(path.name, path.read_text(encoding="utf-8")) for path in moved_to or []]
+    requests = None
+    if authorised is not None:
+        try:
+            requests = parse_authorisations(yaml.safe_load(authorised.read_text(encoding="utf-8")))
+        except (yaml.YAMLError, ValueError) as exc:
+            raise typer.BadParameter(f"{authorised}: {exc}") from exc
     report = compare(before_text, after_text, threshold, revision=revision, allow_strengthening=allow_strengthening,
-                     moved=moved, relocated=relocated)
+                     moved=moved, relocated=relocated, authorised=requests)
     markdown = to_markdown(report)
     if json_out:
         json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")

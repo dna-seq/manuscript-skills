@@ -244,8 +244,10 @@ Exit code 1 means a protected change. Revert unintended content drift, resolve h
 yourself (a unit respelled, a citation reformatted), and flag actual content decisions outside the request.
 Warnings (a claim lowered, a qualifier added, a negation changed, a number moved within its paragraph) are
 changes the authors must see when they stand; list them with the edit. When the authors asked for a claim
-correction, rerun with `--allow-strengthening`: the claim changes are still listed, marked authorised, and
-numbers and citations still fail. `--relocated` is for an edit that moves caveats on purpose, to the end of their result, the Limitations or the
+correction, list it (a passage from the sentence and their request) in a file and rerun with `--authorised FILE`:
+that change is listed with its request, any other widened claim still fails, and numbers and citations still
+fail. Restore an unrequested widening yourself as drift; the authors are not asked about it.
+`--allow-strengthening` authorises every claim change at once, only when the request covers the whole text. `--relocated` is for an edit that moves caveats on purpose, to the end of their result, the Limitations or the
 supplement: each lost marker must reappear, with the same key, in another inserted or changed sentence or in a
 `--moved-to` file, one occurrence per lost marker and never from a sentence that only swapped one marker of that
 kind for another, and a matched finding becomes a warning whose `relocated_to` names the section, line, file and

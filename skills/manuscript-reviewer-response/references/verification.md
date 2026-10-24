@@ -116,8 +116,10 @@ uv run --script scripts/check_response.py REVIEWS LEDGER LETTER --revised REVISE
 ```
 
 It confirms quotes, coverage, order, locations, quoted revised text, numbers and landed commitments, and
-lists changes in the guard inventory at locations no reply names. It cannot judge responsiveness; steps
-1 to 3 do that.
+lists changes in the guard inventory at locations no reply names. An existing claim that now reaches further
+fails wherever it is, also where a reply names the place: it is `made worse` evidence for its item unless a
+referee asked for the stronger claim (then the inventory was run with `--authorised` listing it). It cannot
+judge responsiveness; steps 1 to 3 do that.
 
 ## Report
 

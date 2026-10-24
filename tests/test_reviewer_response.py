@@ -420,6 +420,25 @@ def test_guard_inventory_changes_are_reconciled_with_the_letters_locations(tmp_p
             "\u201cA long-read genome took 12.6 minutes.\u201d") in cr.to_markdown(report)
 
 
+def test_a_claim_that_widened_fails_even_where_a_reply_points(tmp_path: Path) -> None:
+    """R1.3a's planted change: the challenged Discussion claim went from 'suggests' to 'shows'. Naming the place in
+    a reply does not excuse it; a requested change (guard.py --authorised) does."""
+    original, seeded = V1.read_text(encoding="utf-8"), V2_SEEDED.read_text(encoding="utf-8")
+    path = _write(tmp_path, "guard.json", json.dumps(guard.compare(original, seeded, revision=True)))
+    report = _run(revised=V2_SEEDED, guard_json=path)
+    widened = [f for f in report.findings if f.code == "CLAIM_WIDENED"]
+    assert len(widened) == 1 and widened[0].blocking and widened[0].stage == "now"
+    assert [d["after"] for d in widened[0].details] == [
+        "The concordance with the previous release shows that the rewrite did not change results."]
+    assert ("  - In the Discussion (line 87 of the revised manuscript), the claim became stronger (“suggests” "
+            "became “shows”)") in cr.to_markdown(report)
+    # the same change, requested: the comparison marks it, and the letter check accepts it
+    requested = guard.parse_authorisations([{"passage": "the rewrite did not change results", "finding": "R1.3a"}])
+    path = _write(tmp_path, "guard-requested.json",
+                  json.dumps(guard.compare(original, seeded, revision=True, authorised=requested)))
+    assert not [f for f in _run(revised=V2_SEEDED, guard_json=path).findings if f.code == "CLAIM_WIDENED"]
+
+
 def test_deleted_text_counts_as_mentioned_when_the_letter_cites_its_section(tmp_path: Path) -> None:
     """A deletion has no line in the revised manuscript; guard.py reports the rewritten Discussion limitation
     of paper-v1.md ("we tested only two genomes") that way, and the letter cites the Discussion lines that

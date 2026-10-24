@@ -34,11 +34,21 @@ is no automated runner yet.
 
 ## Running a case
 
-1. Start a fresh agent session with the plugin installed and the case's files in the working directory.
-   Give it only the prompt and the files. Never show it the case file, the rubric, earlier outputs or
-   earlier results. Point `MANUSCRIPT_SKILLS_CONFIG` at a new empty folder for each run, so that no case
-   inherits a plugin-wide setting that an earlier run saved. If the case has a `settings` mapping, write
-   only those choices to `settings.yaml` in that folder before starting the agent; otherwise leave it empty.
+1. Stage the case outside the repository:
+
+   ```bash
+   uv run --script evals/stage.py CASE_ID            # or --to an empty folder outside the checkout
+   ```
+
+   It copies the case's files to a new working folder under neutral names (`seeded.md` and `clean.md` both
+   become `manuscript.md`, `edited-seeded.md` becomes `edited.md`, a `seeded/` or `clean/` folder becomes
+   `paper/`), blanks any comment in them that calls the file a fixture or names its condition (keeping the
+   lines, so cited line numbers hold), rewrites the file names in the prompt to match, and writes the case's
+   `settings` to a separate config folder. A name like `seeded.md`, or a working folder inside this
+   repository, tells the agent what it is being tested on. Start a fresh agent session with the plugin
+   installed in the working folder, with `MANUSCRIPT_SKILLS_CONFIG` set to the config folder it printed, so
+   that no case inherits a plugin-wide setting an earlier run saved. Give it only the staged prompt. Never
+   show it the case file, the rubric, earlier outputs or earlier results.
 2. Let it finish. One grader then checks every `rubric` and `fail_if` item against the transcript and any
    files it wrote. A case passes only if every rubric item holds and no `fail_if` item occurred. Numerical
    drift, invented evidence, an unrequested file edit or a false claim that something was checked always
@@ -52,4 +62,6 @@ as the seeded one is not detecting the defects.
 
 The case design follows Boom5426/Nature-Paper-Skills (hidden rubrics, fresh sessions, before and after
 runs) and the seeded-defect manuscripts with clean controls used by several reviewer-simulation projects
-surveyed in `docs/skill-landscape-2026-10.md`.
+surveyed in `docs/skill-landscape-2026-10.md`. Staging under neutral names outside the checkout follows the
+reviewer evaluations of Imbad0202/academic-research-skills (idea only). `tests/test_evals.py` checks that no
+case's staged file names, prompt or file comments give its condition away.

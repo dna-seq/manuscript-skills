@@ -172,8 +172,14 @@ putting each seat's `report`, with its `seat`, in `reports`, and run (from this 
 
 ```bash
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --supplement SUPPLEMENT.md \
+    --criteria SEAT=SEAT_WORKSPACE/criteria.md \
     --md "$WORK/check.md" --json "$WORK/check.json"
 ```
+
+Pass each seat's `criteria.md` with `--criteria SEAT=PATH`, once per seat. The check matches each finding to the criterion
+its seat wrote before reading and warns, without holding anything back, on a major finding outside them, a
+criterion copied from the manuscript (written after reading) and a criterion with neither a finding nor a line
+saying what was checked; ask that seat for the line.
 
 `PAPER.md` stands for the manuscript as Markdown, LaTeX or plain text; a `.tex` source is checked as it
 is, with its markup and comments handled ([finding-schema.md](references/finding-schema.md#what-the-script-checks)).

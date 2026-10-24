@@ -504,6 +504,85 @@ def test_allow_strengthening_authorises_claims_but_never_numbers() -> None:
     assert guard.exit_code(guard.compare(*claim_only, allow_strengthening=True)) == 0
 
 
+WIDENED = ("These results suggest that lower TERT expression limits repair in this cohort. The effect was small.",
+           "These results show that lower TERT expression limits repair. The effect was small.")
+
+
+def test_requested_claim_changes_are_matched_one_by_one() -> None:
+    """Each request authorises the claim changes in its own sentence and kinds; the rest stay unrequested, in an
+    edit and, with the requests given, in a revision inventory too."""
+    evidential_only = guard.parse_authorisations([{"passage": "lower TERT expression limits repair", "finding": "R1.3",
+                                                   "kinds": ["evidential"]}])
+    for revision in (False, True):
+        report = guard.compare(*WIDENED, revision=revision, authorised=evidential_only)
+        by_kind = {c["kind"]: c for c in report["sentence_changes"]}
+        assert by_kind["evidential"]["authorised"] and by_kind["evidential"]["authorised_by"] == ["R1.3"]
+        assert not by_kind["scope"]["authorised"] and by_kind["scope"]["authorised_by"] == []
+        assert [c["kind"] for c in guard.unrequested(report)] == ["scope"]
+        assert guard.exit_code(report) == 1 and report["summary"]["unrequested"] == 1
+    every_kind = guard.parse_authorisations([{"passage": "lower TERT expression limits repair", "finding": "R1.3"}])
+    assert guard.exit_code(guard.compare(*WIDENED, revision=True, authorised=every_kind)) == 0
+    assert guard.exit_code(guard.compare(*WIDENED, authorised=every_kind)) == 0
+    # without the requests a revision inventory never fails, as before
+    assert guard.exit_code(guard.compare(*WIDENED, revision=True)) == 0
+    assert "authorised_by" not in guard.compare(*WIDENED)["sentence_changes"][0]
+
+
+def test_requests_never_authorise_numbers_and_unused_ones_are_listed() -> None:
+    seeded = (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8")
+    sentences = [c for c in guard.compare(ORIGINAL, seeded)["sentence_changes"] if c["token"] is not None]
+    requests = guard.parse_authorisations([{"passage": c["after"] or c["before"], "finding": "IC-1"}
+                                           for c in sentences] + [{"passage": "no sentence says this at all",
+                                                                   "finding": "IC-9"}])
+    report = guard.compare(ORIGINAL, seeded, authorised=requests)
+    assert not any(c["authorised"] for c in report["sentence_changes"] if c["token"] is not None)
+    assert guard.exit_code(report) == 1
+    assert {"findings": ["IC-9"], "passage": "no sentence says this at all"} in report["authorisations"]["unused"]
+    markdown = guard.to_markdown(report)
+    assert ("A requested change from IC-9 matches no changed sentence; check that its edit landed: "
+            "“no sentence says this at all”.") in markdown
+
+
+def test_change_records_are_read_as_requests() -> None:
+    records = {"changes": [{"id": "PE-C4", "finding_ids": ["IC-3", "PR-2"], "status": "applied",
+                            "before": "These results suggest that lower TERT expression limits repair in this cohort.",
+                            "after": "These results show that lower TERT expression limits repair."}]}
+    report = guard.compare(*WIDENED, revision=True, authorised=guard.parse_authorisations(records))
+    assert {tuple(c["authorised_by"]) for c in report["sentence_changes"] if c["kind"] in guard.CLAIM_KINDS} == {
+        ("IC-3", "PR-2")}
+    assert guard.exit_code(report) == 0
+
+
+@pytest.mark.parametrize(("entries", "message"), [
+    ([{"passage": "too short", "finding": "X"}], "at least three words"),
+    ([{"passage": "lower TERT expression limits repair"}], "what asked for the change"),
+    ([{"passage": "lower TERT expression limits repair", "finding": "X", "kinds": ["tone"]}], "unknown claim kinds"),
+    ("not a list", "list of requested claim changes"),
+])
+def test_malformed_requests_say_what_is_wrong(entries: object, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        guard.parse_authorisations(entries)
+
+
+def test_requests_on_the_command_line(tmp_path: Path) -> None:
+    before, after, requests = tmp_path / "a.md", tmp_path / "b.md", tmp_path / "requested.yaml"
+    before.write_text(WIDENED[0], encoding="utf-8")
+    after.write_text(WIDENED[1], encoding="utf-8")
+    requests.write_text("- passage: lower TERT expression limits repair\n  finding: R1.3\n  kinds: [evidential]\n",
+                        encoding="utf-8")
+    runner = CliRunner()
+    unrequested = runner.invoke(guard.app, [str(before), str(after), "--revision", "--authorised", str(requests)])
+    assert unrequested.exit_code == 1, unrequested.output
+    assert ("One claim now reaches further than the original and nothing in the list of requested changes asked for "
+            "it: restore the original wording, marked below.") in unrequested.output
+    assert "Asked for by R1.3; it is listed so that the authors see it." in unrequested.output
+    requests.write_text("- passage: lower TERT expression limits repair\n  finding: R1.3\n", encoding="utf-8")
+    assert runner.invoke(guard.app, [str(before), str(after), "--revision", "--authorised", str(requests)]).exit_code == 0
+    requests.write_text("- passage: two words\n  finding: R1.3\n", encoding="utf-8")
+    bad = runner.invoke(guard.app, [str(before), str(after), "--authorised", str(requests)])
+    assert bad.exit_code == 2 and "at least three words" in bad.output
+
+
 def test_revision_mode_lists_changes_and_never_fails() -> None:
     revised = (FIXTURES / "revised.md").read_text(encoding="utf-8")
     report = guard.compare(ORIGINAL, revised, revision=True)
@@ -628,11 +707,13 @@ def test_a_change_only_the_whole_text_counts_see_is_described_in_a_full_sentence
 
 def test_the_report_names_no_command_line_flags_or_internal_terms() -> None:
     seeded = (FIXTURES / "edited-seeded.md").read_text(encoding="utf-8")
-    for options in ({}, {"allow_strengthening": True}, {"revision": True}, {"relocated": True}):
+    requests = guard.parse_authorisations([{"passage": "no sentence says this at all", "finding": "IC-9"}])
+    for options in ({}, {"allow_strengthening": True}, {"revision": True}, {"relocated": True},
+                    {"authorised": requests}, {"revision": True, "authorised": requests}):
         markdown = guard.to_markdown(guard.compare(ORIGINAL, seeded, **options))
         for internal in ("--allow-strengthening", "--revision", "--relocated", "relocated_to", "protected", "rung",
                          "token_status", "severity", "moved_within_paragraph", "from_elsewhere", "evidential",
-                         "the guard"):
+                         "the guard", "--authorised", "authorised_by", "authorisations", "unrequested"):
             assert internal not in markdown, (options, internal)
     authorised = guard.to_markdown(guard.compare(ORIGINAL, seeded, allow_strengthening=True))
     assert "The authors asked for a claim correction, so nine claim changes are marked as authorised." in authorised

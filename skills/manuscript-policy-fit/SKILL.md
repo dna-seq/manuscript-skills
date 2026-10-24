@@ -124,8 +124,9 @@ help with selected mechanical changes, but cannot establish policy fit or semant
 write into the manuscript (a scope clarification, an ethics or data statement) passes the required smell
 check, `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`, with a read
 against the pattern list it prints (prose-edit contract, §5.3). When the
-authors authorised a claim correction, run it with `--allow-strengthening`: claim changes are then listed
-as authorised, while changed numbers and citations still fail.
+authors authorised a claim correction, list it (a passage from the sentence and their request) and run the
+guard with `--authorised FILE`: that change is then listed as requested, any other widened claim and any changed
+number or citation still fails.
 
 ## Compare venues or resolve a referral loop
 

@@ -27,6 +27,12 @@ them. The JSON keeps every field, code and line number for other tools.
     uv run --script check_findings.py findings.json PAPER.md
     uv run --script check_findings.py findings.json PAPER.tex --supplement supp.md --md check.md --json check.json
     uv run --script check_findings.py findings.json PAPER.md --adjudicated      # also require verdict fields
+    uv run --script check_findings.py merged.json PAPER.md --criteria skeptic=skeptic/criteria.md  # per seat
+
+With --criteria, each finding is matched to the criteria its seat wrote before reading (`C1.` ... in its
+criteria.md; a later line starting with an id says what was checked). A major finding outside them, a criterion
+id the seat never wrote, a criterion that repeats twelve manuscript words in a row (written after reading) and a
+criterion with neither a finding nor a coverage line are warnings for the adjudicator, never failures.
 
 Exit codes: 0 every finding (and strength) meets the contract; 1 at least one is not yet a finding
 (failed, or its quote could not be checked); 2 unusable input (malformed JSON, unsupported file type).
@@ -829,10 +835,84 @@ def _load_sources(manuscript: Path, supplements: list[Path]) -> Sources:
     return Sources(manuscript=Document.load(manuscript), supplements=docs, unreadable=unreadable)
 
 
+# "C1. A split that leaks gene identity" or "- **C2:** ..."; a later line with the same id is its coverage line.
+CRITERION_LINE = re.compile(r"^\s*(?:[-*+]\s+)?\**\s*(C\d{1,2})\s*\**\s*[.):]\s*\**\s*(\S.*)$", re.IGNORECASE)
+COPIED_RUN = 12  # words of the manuscript in a row: a criterion that repeats them was written after reading
+
+
+def parse_criteria(text: str) -> tuple[dict[str, str], set[str]]:
+    """The criteria a seat wrote before reading (id -> text, in order), and the ids that later got a line saying
+    what was checked (a second line starting with the same id)."""
+    defined: dict[str, str] = {}
+    covered: set[str] = set()
+    for line in text.splitlines():
+        m = CRITERION_LINE.match(line)
+        if not m:
+            continue
+        cid = m.group(1).upper()
+        if cid in defined:
+            covered.add(cid)
+        else:
+            defined[cid] = m.group(2).strip()
+    return defined, covered
+
+
+def _copied_run(text: str, runs: set[tuple[str, ...]]) -> Optional[str]:
+    """The first run of COPIED_RUN words the text shares with the manuscript, or None."""
+    words = [t for t, _, _ in _tokens(_stripped(_light(text))) if _is_word(t)]
+    for i in range(len(words) - COPIED_RUN + 1):
+        if tuple(words[i:i + COPIED_RUN]) in runs:
+            return " ".join(words[i:i + COPIED_RUN])
+    return None
+
+
+def _check_criteria(criteria: dict[str, str], raw_findings: list[Any], findings: list[dict[str, Any]],
+                    sources: Sources) -> dict[str, Any]:
+    """Bind each seat's findings to the criteria it wrote before reading. Everything here is a warning for the
+    adjudicator: a major concern under no criterion, a criterion id the seat never wrote, a criterion that repeats
+    the manuscript's wording, a criterion with neither a finding nor a line saying what was checked."""
+    words = [t for t in sources.manuscript.words["stripped"] if _is_word(t)]
+    runs = {tuple(words[i:i + COPIED_RUN]) for i in range(len(words) - COPIED_RUN + 1)}
+    parsed = {seat: parse_criteria(text) for seat, text in criteria.items()}
+    cited: dict[str, dict[str, list[str]]] = {seat: {} for seat in parsed}
+    for raw, f in zip(raw_findings, findings):
+        if not isinstance(raw, dict):
+            continue
+        given = raw.get("criterion")
+        ids = [str(x).strip().upper() for x in (given if isinstance(given, list) else [given]) if _nonempty_str(x)]
+        off = raw.get("off_criterion")
+        f["criterion"], f["off_criterion"] = ids, off if _nonempty_str(off) else None
+        seat = f.get("seat")
+        if seat not in parsed:
+            continue
+        defined = parsed[seat][0]
+        for cid in ids:
+            if cid in defined:
+                cited[seat].setdefault(cid, []).append(f["id"])
+            else:
+                f["warnings"].append(f"It names criterion {cid}, which {_raised_by(seat)} did not write down before "
+                                     "reading.")
+        if f.get("severity") in ("blocker", "major") and not any(cid in defined for cid in ids):
+            f["warnings"].append(
+                f"It falls outside what {_raised_by(seat)} wrote down before reading, for this reason: "
+                f"{_sentence(off)}" if _nonempty_str(off) else
+                f"It names none of the problems {_raised_by(seat)} wrote down before reading and gives no reason; "
+                "read it as a concern found only while reading.")
+    out: dict[str, Any] = {}
+    for seat, (defined, covered) in parsed.items():
+        items = [{"id": cid, "text": text, "findings": cited[seat].get(cid, []), "covered": cid in covered,
+                  "copied": _copied_run(text, runs)} for cid, text in defined.items()]
+        out[seat] = {"criteria": items,
+                     "unaccounted": [c["id"] for c in items if not c["findings"] and not c["covered"]],
+                     "copied": [c["id"] for c in items if c["copied"]]}
+    return out
+
+
 def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
-          adjudicated: bool = False) -> dict[str, Any]:
+          adjudicated: bool = False, criteria: Optional[dict[str, str]] = None) -> dict[str, Any]:
     """Check parsed findings JSON: a list of findings, or an object with findings, strengths and the referees'
-    reports (`reports`, a list, in a merged file; `report`, one object, in a seat's own file)."""
+    reports (`reports`, a list, in a merged file; `report`, one object, in a seat's own file). `criteria` maps a
+    seat to the text of the criteria.md it wrote before reading."""
     raw_reports: list[Any] = []
     if isinstance(data, list):
         raw_findings, raw_strengths = data, []
@@ -859,6 +939,7 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
             f["problems"].append(f"Another finding has the same id, {f['id']}.")
             f["contract"] = "fail"
     strengths = [_check_strength(s, i, sources) for i, s in enumerate(raw_strengths)]
+    bound = _check_criteria(criteria, raw_findings, findings, sources) if criteria else None
     groups = _group(findings, adjudicated)
     counts = {k: sum(f["contract"] == k for f in findings) for k in ("pass", "fail", "not_assessed")}
     panel = sorted({f["seat"] for f in findings if _nonempty_str(f.get("seat"))})
@@ -890,6 +971,7 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
         "reports": reports, "venues": venues, "reports_missing": missing,
         "venues_missing": {seat: vs for seat, vs in partial.items() if vs},
         "by_referee": _by_referee(findings, groups) if adjudicated else None,
+        "criteria": bound,
     }
 
 
@@ -1069,6 +1151,37 @@ def _by_referee_lines(report: dict[str, Any]) -> list[str]:
     return lines + [""]
 
 
+def _criteria_lines(report: dict[str, Any]) -> list[str]:
+    """Per referee: how many problems it wrote down before reading, which ones repeat the manuscript's wording,
+    and which have neither a finding nor a line saying what was checked."""
+    bound = report.get("criteria")
+    if not bound:
+        return []
+    lines = ["## What each referee set out to check", "",
+             "Before reading the paper, each referee wrote down the problems that would count as major for its "
+             "remit. A finding under one of them was looked for; a major one outside them is listed with the "
+             "warnings below.", ""]
+    for seat, b in sorted(bound.items()):
+        items = b["criteria"]
+        if not items:
+            lines.append(f"- {_cap(_raised_by(seat))} wrote down no numbered criteria (C1, C2, ...), so its "
+                         "findings could not be matched to them.")
+            continue
+        with_findings = sum(1 for c in items if c["findings"])
+        line = (f"- {_cap(_raised_by(seat))} wrote down {_plural(len(items), 'criterion', 'criteria')}; "
+                f"{with_findings} led to a finding.")
+        for c in items:
+            if c["copied"]:
+                line += (f" {c['id']} repeats {COPIED_RUN} words of the manuscript in a row (\"{c['copied']}\"), so it "
+                         "was written after reading; weigh its findings as found while reading.")
+        if b["unaccounted"]:
+            ids = _words_list(b["unaccounted"], "and")
+            line += (f" {ids} {'has' if len(b['unaccounted']) == 1 else 'have'} neither a finding nor a line saying "
+                     "what was checked; ask the referee for that line.")
+        lines.append(line)
+    return lines + [""]
+
+
 def to_markdown(report: dict[str, Any]) -> str:
     s = report["summary"]
     adjudicated = report["stage"] == "adjudicated"
@@ -1139,6 +1252,7 @@ def to_markdown(report: dict[str, Any]) -> str:
                 " has no quote."
             lines.append(f"- Strength {st['index']}{who}{quoted} " + " ".join(_sentence(p) for p in st["problems"]))
         lines.append("")
+    lines += _criteria_lines(report)
     warned = [f for f in report["findings"] if f["warnings"]]
     if warned:
         lines += ["## Warnings for the adjudicator", "",
@@ -1168,6 +1282,28 @@ def to_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _criteria_files(given: list[str], data: Any) -> dict[str, str]:
+    """Read --criteria values (SEAT=PATH, or a bare PATH for a file with one seat's findings) into seat -> text."""
+    if not given:
+        return {}
+    raw = data.get("findings", []) if isinstance(data, dict) else data
+    raw = raw if isinstance(raw, list) else []  # malformed findings are reported by check()
+    seats = sorted({f["seat"] for f in raw if isinstance(f, dict) and _nonempty_str(f.get("seat"))})
+    out: dict[str, str] = {}
+    for value in given:
+        seat, sep, path = value.partition("=")
+        if not sep or not SEAT_NAME.fullmatch(seat):
+            if len(seats) != 1:
+                raise ValueError(f"--criteria {value}: name the seat as SEAT=PATH, because the findings come from "
+                                 f"{len(seats)} seats")
+            seat, path = seats[0], value
+        file = Path(path)
+        if not file.is_file():
+            raise ValueError(f"--criteria {value}: {file} is not a file")
+        out[seat] = file.read_text(encoding="utf-8-sig")
+    return out
+
+
 @app.command()
 def main(
     findings: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Findings JSON (schema: references/finding-schema.md)")],
@@ -1176,6 +1312,8 @@ def main(
     adjudicated: Annotated[bool, typer.Option(help="Require verdict fields (after the adjudication pass)")] = False,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the check as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
+    criteria: Annotated[Optional[list[str]], typer.Option("--criteria", help="A seat's criteria.md, as SEAT=PATH "
+                        "(repeatable); a bare PATH when the file has one seat's findings")] = None,
 ) -> None:
     """Check findings against the contract and the manuscript; list failures as not yet findings."""
     try:
@@ -1184,7 +1322,8 @@ def main(
         typer.echo(f"{findings.name}: malformed JSON: {exc}", err=True)
         raise typer.Exit(code=2)
     try:
-        report = check(data, manuscript, supplement, adjudicated)
+        written = _criteria_files(criteria or [], data)
+        report = check(data, manuscript, supplement, adjudicated, written or None)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2)

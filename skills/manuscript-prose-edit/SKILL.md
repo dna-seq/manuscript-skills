@@ -61,8 +61,12 @@ with section and line, a claim that rose or fell on the causal or evidential lad
 wording, a scope qualifier, limiting or concessive word ("only", "albeit", "despite"), null result or
 evidence-status word that disappeared, and a number, citation or identifier the sentence did not have. Exit 1
 marks a protected change: a count change, a stronger claim, a lost qualifier or a token new to its paragraph.
-Lowered claims and moved tokens are warnings. After an authorised claim correction, `--allow-strengthening`
-lists the claim changes as authorised instead of failing; numbers and citations still fail. With `--relocated`, a
+Lowered claims and moved tokens are warnings. When something asked for a claim change (the authors' request, a
+confirmed finding, a referee's comment), list each one in a small file (`passage`: words from the sentence,
+`finding`: what asked for it) and pass `--authorised FILE`: those changes are marked with what asked for them, and
+any other claim that widened still fails, so restore its wording yourself; the authors are not asked. Numbers and
+citations never pass this way. `--allow-strengthening` authorises every claim change at once, only for a request
+that covers the whole text. With `--relocated`, a
 scope qualifier, limiting or concessive word, null result or evidence-status word that left its sentence is a
 warning instead of exit 1 when a new or changed sentence, in the edited text or a `--moved-to` file, holds the
 same marker; a caveat reworded on the way, or one that no such sentence holds, still exits 1, and so does any lost

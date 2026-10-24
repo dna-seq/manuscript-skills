@@ -14,6 +14,12 @@ Run `scripts/check_findings.py` on the merged findings. For each "not yet findin
 - a missing field: ask the seat, or fill it from the seat's own text when it is unambiguous;
 - anything else: it stays listed as not yet a finding, with the reason. Never drop it silently.
 
+Then read the criteria warnings. A major or blocking finding outside the criteria its seat wrote before
+reading is a concern the seat found while reading: it can be right, but confirm it only on verdict evidence
+from the paper, never on the seat's reasoning. Treat a criterion that repeats the manuscript's wording as
+written after reading. A criterion with neither a finding nor a line saying what was checked is a gap in the
+seat's coverage: ask that seat for the line before reporting that nothing was found there.
+
 ## 2. Claim-consequence gate
 
 Keep a finding only if resolving it could change the **validity, support, scope, reproducibility or

@@ -86,8 +86,11 @@ external validation; a sample-specific observation and a population-level statem
 | Any other new sentence, or a rewritten one that lost or gained words | not listed (the checks above still apply) | listed |
 | Negation count changed | warning | listed |
 
-`--allow-strengthening` marks the protected claim changes as authorised (the guard still lists them) when the
-authors asked for a claim correction. It never covers numbers, citations or identifiers.
+`--authorised FILE` marks as authorised the protected claim changes that something asked for, one entry per
+change (a passage from its sentence and the finding, comment or request behind it); the guard still lists them,
+with what asked for each, and every other widened claim fails, in a revision inventory too.
+`--allow-strengthening` authorises every claim change at once, for a request that covers the whole text. Neither
+covers numbers, citations or identifiers.
 
 ## Critic and editor vocabulary
 

@@ -618,7 +618,7 @@ def stage_for(code: str, evidence: list[str]) -> str:
     """When the authors can act on a finding: numbers that disagree and changed claims first; a change that has
     not landed by the kind of evidence it needs; the letter's own shape is writing; a length limit is the
     venue's."""
-    if code in {"NUMBER_NOT_IN_MANUSCRIPT", "UNMENTIONED_CHANGE"}:
+    if code in {"NUMBER_NOT_IN_MANUSCRIPT", "UNMENTIONED_CHANGE", "CLAIM_WIDENED"}:
         return "now"
     if code == "OVER_LIMIT":
         return "journal"
@@ -1004,6 +1004,7 @@ BLOCKING = {
     "QUOTE_PARTIAL", "QUOTE_ELIDED", "QUOTE_WRONG_ITEM", "NO_QUOTE", "ORDER_MISMATCH", "NO_LOCATION", "BLANKET_REPLY",
     "PROMISE_NOT_LANDED", "EARLIER_PROMISE_OPEN", "LANDED_UNRESOLVED", "LOCATION_UNRESOLVED",
     "LOCATION_MISMATCH", "REVISED_QUOTE_NOT_FOUND", "TBD_OPEN", "ROUND_LINK_INVALID", "OVER_LIMIT",
+    "CLAIM_WIDENED",
 }
 
 # (name, the question it answers for the authors, its finding codes, the input it needs, and what it looks at,
@@ -1038,8 +1039,9 @@ CHECKS: list[tuple[str, str, set[str], str | None, str]] = [
     ("placeholders", "Is every placeholder such as [TBD: ...] filled in?", {"TBD_OPEN"}, None, "placeholders"),
     ("rounds", "Are follow-up comments linked to the earlier round, and do their replies refer back to it?",
      {"ROUND_LINK_INVALID", "NO_BACK_REFERENCE"}, "rounds", "the links to earlier rounds"),
-    ("guard", "Does the letter name the place of every change between the two versions of the manuscript?",
-     {"UNMENTIONED_CHANGE"}, "guard",
+    ("guard", "Does the letter name the place of every change between the two versions of the manuscript, with no "
+     "claim reaching further where a reply points?",
+     {"UNMENTIONED_CHANGE", "CLAIM_WIDENED"}, "guard",
      "whether the letter names the place of every change between the two versions of the manuscript"),
     ("length", "Is each referee's section within the character limit?", {"OVER_LIMIT"}, "max_chars",
      "the length of each referee's section"),
@@ -1746,12 +1748,23 @@ class Checker:
                         "manuscript carries printed line numbers, so its changes could not be matched with the places "
                         "the letter names; read the comparison against the letter by hand", False)
             uncovered: dict[str, list[dict[str, object]]] = {"claim": [], "token": []}
+            widened: list[dict[str, object]] = []  # an existing claim that now reaches further
             for c in changes:
                 if not isinstance(c, dict) or c.get("severity") != "protected" or c.get("authorised"):
                     continue
                 token = c.get("token")
                 where = c.get("after_line")
                 section = str(c.get("section") or "")
+                entry = {
+                    "section": _section_words(section, title), "line": where if isinstance(where, int) else None,
+                    "original_line": c.get("before_line"), "kind": c.get("kind"), "change": c.get("change"),
+                    "token": token, "before": str(c.get("before") or ""), "after": str(c.get("after") or ""),
+                    "description": change_words(c)}
+                if token is None and where is not None and c.get("before") and c.get("after"):
+                    # Naming a place accounts for new text and numbers there, not for an existing claim that now
+                    # reaches further; nor does leaving it unmentioned.
+                    widened.append(entry)
+                    continue
                 if self._covered(where if isinstance(where, int) else None, section):
                     continue
                 before = norm(str(c.get("before") or ""))
@@ -1759,11 +1772,15 @@ class Checker:
                     continue  # deleted text that the letter quotes
                 if token is not None and norm(str(token)) in letter_fold and where is None:
                     continue
-                uncovered["token" if token is not None else "claim"].append({
-                    "section": _section_words(section, title), "line": where if isinstance(where, int) else None,
-                    "original_line": c.get("before_line"), "kind": c.get("kind"), "change": c.get("change"),
-                    "token": token, "before": str(c.get("before") or ""), "after": str(c.get("after") or ""),
-                    "description": change_words(c)})
+                uncovered["token" if token is not None else "claim"].append(entry)
+            if widened:
+                one = len(widened) == 1
+                self.add("CLAIM_WIDENED", "manuscript",
+                         f"{_cap(_count(len(widened), 'claim'))} of the original version now "
+                         f"{'reaches' if one else 'reach'} further: a stronger verb, wider wording, or a dropped "
+                         "limit, scope or null result. A reply that names the place does not account for that. "
+                         "Restore the original wording unless a referee asked for the stronger claim; if one did, "
+                         "the reply should say so.", details=widened)
             for kind, entries in uncovered.items():
                 if entries:
                     what = ("what a claim says (its strength, scope or limits)" if kind == "claim"

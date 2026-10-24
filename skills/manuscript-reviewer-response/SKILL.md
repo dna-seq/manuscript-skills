@@ -182,7 +182,11 @@ checks that every ledger item has exactly one reply in the referees' order, unde
 comment, with no orphan replies; that each reply names a location or says nothing changed; that no blanket
 reply ("revised accordingly") or `[TBD]` remains; that every commitment has a landed location in the
 ledger; that named and landed locations, quoted revised text and stated numbers exist in the revised
-manuscript; and, with `--guard-json`, which changes between the versions sit at locations no reply names.
+manuscript; and, with `--guard-json`, which changes between the versions sit at locations no reply names, and
+which existing claims now reach further. A widened claim fails even where a reply names its place: restore
+the original wording, or, when a referee asked for the stronger claim, say so in the reply and list that change
+(a passage from the sentence and the comment id) in a file passed to guard.py with `--authorised`, so the
+comparison marks it as requested. The run resolves this itself; the authors are not asked.
 In the JSON each check is `pass`, `fail` or `not_assessed`, with the reason; reply checks are not assessed
 when the letter has no reply blocks. The Markdown report says the same in words and is the one to show the
 authors: it quotes each comment under the referee's number, quotes the letter or manuscript text a finding

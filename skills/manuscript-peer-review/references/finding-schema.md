@@ -107,6 +107,8 @@ each seat's report, with its `seat`, in the list `reports`.
 | `placement` | no; with `fixable-in-text` | Where the fix costs readers least: `with-claim` (a doubt about the central claim, said once beside it), `limitations`, `methods`, `supplement` or `response-letter` (defensive detail a referee needs and readers do not). Set in adjudication ([adjudication.md](adjudication.md#7-routes)). |
 | `prior_work` | when the concern asserts prior work | List of `{citation, identifier, status, checked_by}`. `status` is `verified` (the identifier resolved to the named work, in this review's lookup or a current manuscript-reference-check result) or `unverified` (the identifier could not be resolved, or the work has none). Identifiers the manuscript itself gives are resolved too. `verified` needs an identifier: DOI, PMID, arXiv id, ISBN or URL. |
 | `external_claim` | no | `true` forces the prior-work rule; `false` declares that wording such as "existing tools" does not assert prior work (reported as a warning so the adjudicator can look). |
+| `criterion` | expected, or `off_criterion` | The id of the criterion in the seat's `criteria.md` the finding falls under (`C2`; a list when it meets two). The criteria were written before the seat read the paper. |
+| `off_criterion` | instead of `criterion` | Why a problem none of the seat's criteria anticipated matters anyway. With `--criteria`, the check lists a major or blocking finding outside the criteria for the adjudicator; it is not held back. |
 | `group` | no | A label shared by findings the seat or adjudicator knows are one concern. |
 | `verdict` | after adjudication | `confirmed`, `refuted` or `downgraded`. |
 | `verdict_evidence` | with every verdict | What settled it: the text that shows the problem or answers it, a recomputation from the paper's own numbers, a checked record. For a partly answered finding, the answering text and the part left open. |
@@ -163,6 +165,12 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
 - **Fairness warnings** (not failures): a concern resting on state-of-the-art standing, one that asks
   for new work, or one that objects to simplicity. The adjudicator decides; see
   [adjudication.md](adjudication.md#3-fairness-filter).
+- **Criteria** (with `--criteria SEAT=PATH`, one per seat; these are warnings and never fail a finding). Each seat's
+  `criteria.md` is read for its numbered criteria (`C1.` ...) and the later lines that start with an id (what
+  was checked). The check warns on a major or blocking finding that names no criterion of its seat (with
+  `off_criterion`, it gives the reason), on a criterion id the seat never wrote, on a criterion that repeats
+  twelve or more words of the manuscript in a row (written after reading), and on a criterion with neither a
+  finding nor a line saying what was checked.
 - **Reports.** Each report names its referee, has a summary, and gives one recommendation per journal
   from the four values, with a reason and the referee's own findings it rests on (a finding another
   referee raised, or one not in the file, fails). A referee who wrote findings but no report is named,

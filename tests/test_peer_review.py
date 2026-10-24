@@ -339,6 +339,71 @@ def test_the_simplicity_lint_ignores_trivial_used_about_results(concern: str) ->
     assert not any("simplicity" in w for w in f["warnings"]), f["warnings"]
 
 
+# --- criteria written before reading ---------------------------------------------------------------------------
+
+CRITERIA = """# Criteria, written before reading
+
+C1. A benchmark split that lets test variants share genes with training variants.
+2. Not a criterion: a numbered line without the C prefix is ignored.
+- **C2:** A comparison with predictors that does not use the same test set.
+C3. We assigned ClinVar variants at random to training (80%) and test (20%) sets and the training set grew.
+
+## What I checked
+C2: nothing to raise; checked Methods, Benchmark and Table 2.
+"""
+
+
+def test_criteria_are_parsed_with_their_coverage_lines() -> None:
+    defined, covered = cf.parse_criteria(CRITERIA)
+    assert list(defined) == ["C1", "C2", "C3"] and covered == {"C2"}
+    assert defined["C2"] == "A comparison with predictors that does not use the same test set."
+
+
+def test_findings_are_bound_to_the_criteria_their_seat_wrote_first() -> None:
+    findings = [_finding(id="EV-1", criterion="C1"),
+                _finding(id="EV-2", criterion="c9", severity="optional"),
+                _finding(id="EV-3", off_criterion="the leak only shows in Table 2's gene counts"),
+                _finding(id="EV-4")]
+    report = cf.check(findings, SEEDED, criteria={"evidence-statistics": CRITERIA})
+    by_id = {f["id"]: f for f in report["findings"]}
+    assert all(f["contract"] == "pass" for f in by_id.values())  # warnings only: nothing is held back
+    assert by_id["EV-1"]["criterion"] == ["C1"] and not by_id["EV-1"]["warnings"]
+    assert any("criterion C9, which a simulated referee (evidence-statistics) did not write down" in w
+               for w in by_id["EV-2"]["warnings"])
+    assert any("for this reason: the leak only shows in Table 2's gene counts." in w for w in by_id["EV-3"]["warnings"])
+    assert any("gives no reason; read it as a concern found only while reading" in w for w in by_id["EV-4"]["warnings"])
+    seat = report["criteria"]["evidence-statistics"]
+    assert [c["findings"] for c in seat["criteria"]] == [["EV-1"], [], []]
+    assert seat["unaccounted"] == ["C3"]  # C2 has its coverage line
+    assert seat["copied"] == ["C3"]  # it repeats the Benchmark sentence, so it was written after reading
+    markdown = cf.to_markdown(report)
+    assert ("- A simulated referee (evidence-statistics) wrote down 3 criteria; 1 led to a finding. C3 repeats 12 "
+            "words of the manuscript in a row") in markdown
+    assert "C3 has neither a finding nor a line saying what was checked" in markdown
+
+
+def test_without_criteria_the_report_is_unchanged() -> None:
+    report = cf.check([_finding(criterion="C1")], SEEDED)
+    assert report["criteria"] is None and "set out to check" not in cf.to_markdown(report)
+
+
+def test_criteria_on_the_command_line(tmp_path: Path) -> None:
+    findings = tmp_path / "findings.json"
+    findings.write_text(json.dumps({"findings": [_finding(id="EV-1", criterion="C1")]}), encoding="utf-8")
+    criteria = tmp_path / "criteria.md"
+    criteria.write_text(CRITERIA, encoding="utf-8")
+    runner = CliRunner()
+    bare = runner.invoke(cf.app, [str(findings), str(SEEDED), "--criteria", str(criteria)])
+    assert bare.exit_code == 0, bare.output
+    assert "What each referee set out to check" in bare.output
+    named = runner.invoke(cf.app, [str(findings), str(SEEDED), "--criteria", f"evidence-statistics={criteria}"])
+    assert named.exit_code == 0 and "wrote down 3 criteria" in named.output
+    two = tmp_path / "two.json"
+    two.write_text(json.dumps([_finding(id="EV-1"), _finding(id="SK-1", seat="skeptic")]), encoding="utf-8")
+    ambiguous = runner.invoke(cf.app, [str(two), str(SEEDED), "--criteria", str(criteria)])
+    assert ambiguous.exit_code == 2 and "name the seat as SEAT=PATH" in ambiguous.output
+
+
 # --- adjudicated stage -----------------------------------------------------------------------------------------
 
 DEFENCE = "Features were standardised on the training set."

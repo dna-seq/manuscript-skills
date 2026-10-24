@@ -185,8 +185,8 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 > leave it to the integrity check.
 >
 > 1. Before opening the manuscript, read `venue.md` and write `criteria.md`: the three to eight problems
->    that, for your remit, this design and the journal's bar, would count as major. Do not edit it after
->    you start reading.
+>    that, for your remit, this design and the journal's bar, would count as major, one per line, numbered
+>    `C1.`, `C2.` and so on, in your own words. Do not edit them after you start reading.
 > 2. Read the whole manuscript, including tables, figure legends and the supplementary files here. Look
 >    at each figure in `figures/` (listed in `figures/index.md`) when the text reaches it, as a referee
 >    looks at the page: does it show what its legend and the sentences citing it say? For a concern about
@@ -198,10 +198,11 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 >    change your mind. Do not call the work not novel without naming the prior work and its identifier,
 >    or marking it unverified. Ask for new experiments or data only when the claim needs them, and say
 >    whether narrowing the claim would do instead. "Not state of the art" is a concern only when the
->    paper claims superiority.
+>    paper claims superiority. Give each finding the criterion it falls under (`criterion`: `C2`), or,
+>    for a problem none of your criteria anticipated, `off_criterion` with the reason it matters anyway.
 > 4. Add the paper's strengths to `findings.json` under `strengths`, each with a quote.
-> 5. For each criterion with nothing to raise, add one line to `criteria.md` saying what you checked
->    and where.
+> 5. For each criterion with nothing to raise, add one line to the end of `criteria.md`, starting with its
+>    id, saying what you checked and where (`C3: nothing to raise; checked Methods, Benchmark and Table 2`).
 > 6. Last, when your findings and strengths are complete, add `report` to `findings.json` as
 >    `finding-schema.md` describes: your summary of the paper and your overall view, as the opening
 >    paragraph of a referee report, and for each journal in `venue.md` the recommendation you would
