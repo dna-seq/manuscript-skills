@@ -179,7 +179,8 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 > referees are in `venue.md`. Study design: <keys>. Your remit: <remit from seats.md>. <If a module is
 > loaded: "Your domain questions are in `domain-questions.md`.">
 >
-> Work only from the files in this directory. Do not look for other reviews of this work, the authors'
+> Work only from the files in this directory; open or run nothing outside it, not even this panel's own
+> scripts (the coordinator checks your quotes). Do not look for other reviews of this work, the authors'
 > notes or their views of it. Unfinished content (a TODO note, a placeholder) is not a referee concern;
 > leave it to the integrity check.
 >

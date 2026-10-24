@@ -43,8 +43,8 @@ champion). A fourth reader then checked every concern against the paper." Say in
 sequential passes by one agent, which are not independent. Name the reviewer questions loaded and why,
 and the earlier checks reused with their date. Offer the five-referee panel after a three-referee one,
 and a separate panel per journal after a ladder run (options.md).>
-These are simulated referees sharing one model; their recommendations are not a prediction of the
-editor's decision.
+These are simulated referees sharing one model (or, when the authors chose more than one, the models
+named above); their recommendations are not a prediction of the editor's decision.
 
 ## Part 1: the referees' reports
 

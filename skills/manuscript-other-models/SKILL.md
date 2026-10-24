@@ -84,7 +84,11 @@ Prepare each seat's workspace and brief exactly as its skill says for a seat on 
 the same reading copy, figures and files, never a folder another seat has worked in. The script refuses a
 workspace a seat already ran in (it holds `seat-run.json`), but it cannot tell a host seat's files from the
 authors'. The brief is the skill's template, filled the same way, saved outside the workspace
-(`briefs/skeptic@codex.md`), and passed unchanged:
+(`briefs/skeptic@codex.md`), and passed unchanged. It names the seat without its model ("You are the
+skeptic"): the seat need not know other models read the paper, and the coordinator adds `@codex` when
+merging (Step 6). When the host's own seats are subagents that start in the session's folder (Claude
+Code's do), the brief names the workspace by its absolute path; use the same wording for the seat on the
+other model, whose copy the script points it at:
 
 ```bash
 uv run --script scripts/models.py run codex --workspace WS --brief BRIEF --model gpt-5.6-sol --timeout 3600
@@ -104,6 +108,8 @@ Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md, GE
 and the agent's memory of the project away from the seat. The authors' personal instructions for the CLI
 (in their home folder) still load. Claude Code refuses to read outside the copy; Codex and Gemini limit
 writes, not reads, so the brief's "work only from the files in this directory" is what keeps them there.
+The host's own subagent seats have no copy and no such limit at all: in a test run, Claude Code subagent
+referees ran the panel's own checker from the plugin folder, which the brief now forbids.
 
 Start the seats on other models together with the host's own seats (in Claude Code as background
 commands; in Codex with a long command timeout), and receive every result before merging. Exit 0 means
@@ -131,8 +137,10 @@ read every seat.
 
 ## Step 6: merge and report
 
-- **Merge as the skill says.** Group findings by root cause; a group names every seat that raised it, with
-  its model.
+- **Merge as the skill says.** Set `seat` to `SEAT@CLI` on every finding, strength and report from a seat on
+  another model, and give each seat's ids its own prefix (`SK-3`, `SKx-3`) so the host's and the other
+  model's copies of a seat cannot collide; update the ids each recommendation rests on to match. Group
+  findings by root cause; a group names every seat that raised it, with its model.
 - **The defender sees no seat or model names**, as it sees no counts.
 - **Count nothing as corroboration.** A concern three models raised is not confirmed by that; one only one
   model raised is not weaker for it. The verdict comes from the quote and the defence.
