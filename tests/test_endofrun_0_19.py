@@ -117,6 +117,22 @@ def test_collect_names_the_next_attempt_and_reads_a_stage_s_newest_findings(tmp_
     assert refused.exit_code == 1 and "write the next attempt as findings.2.json" in refused.output
 
 
+def test_collect_reads_a_null_comment_or_why_on_a_proposal_as_none(tmp_path: Path) -> None:
+    """Stages write `"comment": null` on a proposal with no question; the draft inventory still validates."""
+    run = synthetic_run(tmp_path)
+    found = json.loads((run / "manuscript-integrity-check/findings.json").read_text())
+    found["changes"] = [{"id": "IC-C1", "kind": "Proposed edit", "section": "2. Methods", "summary": "Name the join key",
+                         "status": "proposed", "finding_ids": ["IC-1"], "before": "We join by rsID.",
+                         "after": "We join by position.", "anchor": None, "why": None, "comment": None,
+                         "evidence": [{"path": "report.md", "quote": "The join key contradicts the code."}]}]
+    (run / "manuscript-integrity-check/findings.json").write_text(json.dumps(found))
+    out = run / "manuscript-dashboard/findings.draft.json"
+    result = CliRunner().invoke(collect.app, [str(run), "--output", str(out)])
+    assert result.exit_code == 0, result.output
+    proposal = viz.Inventory.model_validate_json(out.read_text()).changes[0]
+    assert (proposal.comment, proposal.why, proposal.anchor) == ("", "", None)
+
+
 def test_collect_without_merge_warns_when_an_adjudication_lies_beside_it(tmp_path: Path) -> None:
     run = synthetic_run(tmp_path)
     (run / "manuscript-dashboard").mkdir()

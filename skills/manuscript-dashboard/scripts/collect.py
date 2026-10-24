@@ -163,7 +163,8 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
                                          "leaves_open": record.get("leaves_open", "")})
         for record in doc.get("changes", []):
             # Keep the change contract's fields; anything else a skill added (the journal it is for) joins the summary.
-            known = {k: record[k] for k in CHANGE_FIELDS if k in record}
+            # A field written as null is left out, so it takes its default: a null comment means no question.
+            known = {k: record[k] for k in CHANGE_FIELDS if record.get(k) is not None}
             extra = [f"{k.replace('_', ' ')}: {v}" for k, v in record.items() if k not in CHANGE_FIELDS and v not in (None, "", False, [])]
             if extra:
                 known["summary"] = f"{known.get('summary', '')} ({'; '.join(map(str, extra))})".strip()
