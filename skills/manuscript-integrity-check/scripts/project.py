@@ -13,6 +13,16 @@ Conversation overrides on resolve affect this invocation, never the saved config
 for this project (here or globally), each with its recommended answer and why: ask them in the same
 first-use batch, but never wait for them, since their defaults are safe. A setting reaches the project
 file only as an answer: setup copies the choices saved globally, never the defaults.
+
+A global settings file that cannot be read never stops the work: `resolve` still answers `ready` when the
+project is, with `settings_error`, `edits: propose` unless this manuscript or the conversation chose otherwise
+(nothing is applied on a choice nobody can read), and the repair as one item of `decisions`. The file is kept.
+
+A connected (remote) manuscript is read through a local reading copy, an export of the connected document:
+`configure ROOT --manuscript URL --reading-copy FILE` saves where that export is kept (one `--reading-copy` per
+remote `--manuscript`, in the same order), and `runs.py start` snapshots it with the connected version.
+
+Paths in the saved file and in the JSON output use forward slashes on every platform.
 """
 
 from __future__ import annotations
@@ -20,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -54,10 +65,19 @@ def local_path(root: Path, location: str) -> Path:
 
 
 def stored_location(root: Path, location: str) -> str:
+    """How a location is saved: a URL as it is, a local path relative to the project folder with forward
+    slashes, or absolute when it is on another drive (Windows) and has no relative path."""
     if is_remote(location):
         return location
     path = local_path(root, location)
-    return os.path.relpath(path, root)
+    try:
+        return Path(os.path.relpath(path, root)).as_posix()
+    except ValueError:  # Windows: another drive than the project's
+        return path.as_posix()
+
+
+def posix(path: Path | None) -> str | None:
+    return path.as_posix() if path is not None else None
 
 
 def config_path(target: str, project: Path | None = None) -> Path:
@@ -96,6 +116,10 @@ def read(path: Path) -> dict[str, Any]:
     for key in ("output_dir", "output_url"):
         if key in data and (not isinstance(data[key], str) or not data[key].strip()):
             raise ProjectError(f"{path}: {key} must be a non-empty location.")
+    copies = data.get("reading_copies", {})
+    if not isinstance(copies, dict) or any(not isinstance(k, str) or not is_remote(k) or not isinstance(v, str)
+                                           or not v.strip() or is_remote(v) for k, v in copies.items()):
+        raise ProjectError(f"{path}: reading_copies must map each connected manuscript's URL to a local file.")
     if data.get("output_dir") and is_remote(data["output_dir"]):
         raise ProjectError("output_dir must be a local working folder; record a cloud destination as output_url.")
     choices = data.get("settings", {})
@@ -121,12 +145,14 @@ def write(path: Path, data: dict[str, Any]) -> None:
 def context(target: str, project: Path | None = None, overrides: dict[str, str] | None = None) -> dict[str, Any]:
     path = config_path(target, project)
     data = read(path)
-    try:
-        global_data = settings.load(settings.settings_path())
-    except (settings.SettingsError, OSError) as exc:
-        raise ProjectError(str(exc)) from exc
-    effective = settings.effective(global_data) | {"peer_review": "auto"}
-    sources = {key: "global" if settings.value(global_data, key) else "default" for key in settings.SETTINGS}
+    # An unreadable global file never stops the work: its keys fall back to the safe choices, and its repair is
+    # one decision for the authors (author-priorities.md, "Resolve the manuscript project before work").
+    global_file = settings.settings_path()
+    global_data, settings_error = settings.load_or_error(global_file)
+    effective = settings.effective(global_data, unreadable=settings_error is not None) | {"peer_review": "auto"}
+    sources = {key: "global" if settings.value(global_data, key) else
+               "settings_error" if settings_error and key in settings.WHEN_UNREADABLE else "default"
+               for key in settings.SETTINGS}
     sources["peer_review"] = "default"
     for key, choice in data.get("settings", {}).items():
         if key in effective:
@@ -156,6 +182,7 @@ def context(target: str, project: Path | None = None, overrides: dict[str, str] 
     root = path.parent
     requested = target if is_remote(target) else str(Path(target).expanduser().resolve())
     configured = [v if is_remote(v) else str(local_path(root, v)) for v in data.get("manuscripts", [])]
+    configured += [str(local_path(root, v)) for v in data.get("reading_copies", {}).values()]  # a connected one's export
     if configured and requested not in configured:
         issues.append({"scope": "manuscript", "message": "Requested manuscript is not in this project's saved sources; confirm the mapping."})
     for key in ("manuscripts", "code_roots"):
@@ -174,10 +201,13 @@ def context(target: str, project: Path | None = None, overrides: dict[str, str] 
             ancestor = ancestor.parent
         if not ancestor.is_dir() or not os.access(ancestor, os.W_OK):
             issues.append({"scope": "output_dir", "message": f"Output folder cannot be used: {output}"})
+    decisions = [settings.repair_decision(global_file, settings_error, proposing=sources["edits"] == "settings_error")
+                 ] if settings_error else []
     return {"status": "conflict" if issues else "setup_required" if questions else "ready",
-            "project_file": str(path), "project_root": str(root), "project": data,
-            "effective": effective, "sources": sources, "output_dir": str(output) if output else None,
-            "questions": questions, "preferences": preferences, "issues": issues}
+            "project_file": posix(path), "project_root": posix(root), "project": data,
+            "effective": effective, "sources": sources, "output_dir": posix(output),
+            "questions": questions, "preferences": preferences, "issues": issues,
+            "settings_error": settings_error, "decisions": decisions}
 
 
 @app.command()
@@ -198,7 +228,8 @@ def resolve(
     except ProjectError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2) from exc
-    typer.echo(json.dumps(result, indent=2) if as_json else yaml.safe_dump(result, sort_keys=False))
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False) if as_json
+               else yaml.safe_dump(result, sort_keys=False, allow_unicode=True))
     if result["issues"]:
         raise typer.Exit(3)
 
@@ -213,6 +244,9 @@ def configure(
     output_dir: Path | None = None,
     output_url: str | None = None,
     document: Annotated[list[str] | None, typer.Option("--document")] = None,
+    reading_copy: Annotated[list[str] | None, typer.Option(
+        "--reading-copy", help="Where the local export of a connected (URL) manuscript is kept: one per URL "
+                               "--manuscript, in the same order; repeat")] = None,
     related_manuscript: Annotated[list[str] | None, typer.Option("--related-manuscript")] = None,
     reader: Annotated[list[str] | None, typer.Option("--reader", help="A reader seat for manuscript-story, e.g. 'clinician: orders genetic tests'; repeat")] = None,
     referee: Annotated[list[str] | None, typer.Option("--referee", help="An extra referee seat for manuscript-peer-review; repeat")] = None,
@@ -233,6 +267,18 @@ def configure(
         data.setdefault("schema_version", 1)
         if manuscript is not None:
             data["manuscripts"] = [stored_location(path.parent, v) for v in manuscript]
+            # A connected source that is no longer listed loses its saved reading copy.
+            kept = {k: v for k, v in data.get("reading_copies", {}).items() if k in data["manuscripts"]}
+            data["reading_copies"] = kept
+        if reading_copy:
+            remote = [v for v in data.get("manuscripts", []) if is_remote(v)]
+            if len(reading_copy) > len(remote):
+                raise ProjectError(f"{len(reading_copy)} reading copies for {len(remote)} connected manuscript(s); "
+                                   "give one --reading-copy per URL --manuscript, in the same order.")
+            data["reading_copies"] = data.get("reading_copies", {}) | {
+                url: stored_location(path.parent, copy) for url, copy in zip(remote, reading_copy)}
+        if not data.get("reading_copies"):
+            data.pop("reading_copies", None)
         if code is not None or no_code or unknown_code:
             data["code_roots"] = None if unknown_code else [stored_location(path.parent, v) for v in code or []]
         if output_dir is not None:
@@ -259,7 +305,9 @@ def configure(
                     raise ProjectError(f"At most {limit} {key}: every seat reads the whole paper.")
                 data[key] = [seat.strip() for seat in seats]
         if "settings" not in data:  # a new project starts from the choices saved globally, never the defaults
-            global_data = settings.load(settings.settings_path())
+            global_data, settings_error = settings.load_or_error(settings.settings_path())
+            if settings_error:  # nothing to copy; the setup goes on and the file is kept as it is
+                typer.echo(f"{settings_error} No global choice was copied into this project.", err=True)
             data["settings"] = {key: settings.value(global_data, key) for key in settings.SETTINGS
                                 if settings.value(global_data, key)}
         choices = data["settings"]
@@ -278,8 +326,11 @@ def configure(
     except (ProjectError, settings.SettingsError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2) from exc
-    typer.echo(str(path))
+    typer.echo(path.as_posix())
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 whatever the console's code page (Windows)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

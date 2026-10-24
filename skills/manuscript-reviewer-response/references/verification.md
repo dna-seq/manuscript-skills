@@ -55,8 +55,14 @@ for an inventory of what changed, with section and line:
 
 ```bash
 uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL REVISED --revision \
-    --json $SCRATCH/guard.json --md REVISED.changes.md   # the JSON feeds the check; the inventory is for the authors
+    --authorised RUN/manuscript-reviewer-response/requested-claims.yaml \
+    --json RUN/manuscript-reviewer-response/guard.json --md REVISED.changes.md   # the JSON feeds the check; the inventory is for the authors
 ```
+
+`requested-claims.yaml` lists the claims a referee asked to strengthen, each as `- passage: "…"` (at least
+three words copied from the sentence) with `finding: R2.3`, the comment's id; it is `[]` when no referee asked
+for a stronger claim ([SKILL.md](../SKILL.md#the-structural-check)). A widened claim it does not list makes
+guard.py exit 1: restore the wording, or list it when a referee did ask for it.
 
 For each item, give one state, with an anchor (a short verbatim quote and its location in the revised
 manuscript) and one sentence on what changed against the original:
@@ -112,8 +118,11 @@ Run the structural check with the guard inventory:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS LEDGER LETTER --revised REVISED --original ORIGINAL \
-    --guard-json $SCRATCH/guard.json --md LETTER.check.md
+    --guard-json RUN/manuscript-reviewer-response/guard.json --md LETTER.check.md \
+    --json RUN/manuscript-reviewer-response/check.json
 ```
+
+The Markdown report goes beside the letter and a copy is registered in the run, as in SKILL.md.
 
 It confirms quotes, coverage, order, locations, quoted revised text, numbers and landed commitments, and
 lists changes in the guard inventory at locations no reply names. An existing claim that now reaches further
@@ -138,7 +147,7 @@ checked" and why, never a status token.
    "Fix now" (essential items not addressed or made worse, regressions in results, numbers or claims, missing
    analyses), "Then the writing" (wording items, claims to reword, replies the manuscript does not bear out),
    "Once you have chosen the journal" (format, length and reporting items), "Before submission, once the code
-   is final" (archive DOIs, availability statements, declarations, removing revision markers and TODO
+   is final" (archive DOIs, availability statements, declarations, building the upload files from the clean copy of a marked manuscript, removing TODO
    comments). Give each the smallest change that would meet the criterion; within a group, essential items
    and those that others depend on come first.
 3. Previously missed problems, in the same order, each marked as present before the revision.

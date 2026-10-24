@@ -13,8 +13,8 @@ goals. Satisfying editors, administrative processes or preferences about AI is n
   Once a journal is chosen, that is its rules alone. Before the choice, it is what every journal on the
   authors' ladder shares (the "Adapt now" part of `venues.py common`, from manuscript-journal-adapt):
   requirements one version of the manuscript can meet for all of them at once, adapted first. Where they
-  disagree (length limits, abstract headings, section order), wait for the choice or follow the first
-  rung; writing to the strictest limit is an option to offer with its cost, never a default. Use
+  disagree (length limits, abstract headings, section order), wait for the choice or follow the ladder's
+  first choice; writing to the strictest limit is an option to offer with its cost, never a default. Use
   permitted exemptions, free-format submission and concise declarations. Do not import a rule from a
   journal the authors are not considering, or turn a publisher's recommendation into a requirement.
 - Treat burdensome or ambiguous AI policies as a venue-selection cost. Suggest a suitable journal with
@@ -78,9 +78,9 @@ it buys with a referee. In every skill:
 - **The paper's direction is the authors'.** Which theme leads (privacy, a biological question, openness,
   speed) and who the paper is for are recorded in the shared record's `story` entry. No skill changes them
   on its own: a change of direction is always offered as options, under every `edits` setting. Edits that
-  tell the story better within the recorded direction and pass the science, journal and AI-writing checks
-  are routine for `manuscript-story` under `conservative`, as the authors decided; they are proposals under
-  `propose`.
+  tell the story better within the paper's direction (the recorded one or, until the authors confirm one,
+  the direction the text has now) and pass the science, journal and AI-writing checks are routine for
+  `manuscript-story` under `conservative`; they are proposals under `propose`.
 
 Readers never outrank the science or the journal: a reader-friendly change that raises a claim, drops a
 qualification or breaks a venue requirement is not made.
@@ -92,31 +92,49 @@ first-use manuscript/code/output questions, persisted project choices and inspec
 Run `uv run --script ../manuscript-integrity-check/scripts/project.py resolve SOURCE --json` from a
 companion skill (use `scripts/project.py` here). It also resolves global settings, whose standalone reader
 is `settings.py resolve --json`. Use the project-resolved policy and state it briefly in the first update. A request to "improve", "polish",
-"prepare for submission" or use a named skill activates that task; it does not reset the settings or
-grant permission to change everything.
-If the settings file cannot be read, preserve it, continue read-only checks and prepare proposals, and
-collect the repair decision with other questions. Do not overwrite it or treat the error as permission
-for broader edits. Changes explicitly authorised in the conversation can still proceed.
+"prepare for submission" or use a named skill activates that task under the saved `edits` setting; it does
+not reset the settings.
+If the settings file cannot be read, the resolver says so (`settings_error`) and the run continues under
+`edits: propose`, unsaved: preserve the file, carry on with every check and proposal, and list its repair once
+with the other decisions. Do not overwrite it or treat the error as permission for broader edits. Changes
+explicitly authorised in the conversation can still proceed.
 
 **Edits: conservative, propose or apply, one setting for every skill.** The `edits` setting controls
-changes to the authors' documents, independently of where reports go:
+changes to the authors' documents, independently of where reports go. Under every setting the run does the
+work itself: it never hands the authors a list of items to approve one by one unless they chose `propose`.
 
-- `conservative` (default): apply routine spelling, grammar, formatting, broken-link and reference-metadata
-  corrections, and wording changes that preserve meaning. Propose changes to arguments, claims, emphasis,
-  numerical content, and substantial additions, deletions or restructuring; obtain the author's approval
-  before applying them. Calling a claim unsupported or too broad does not make its removal a routine edit.
-  Story edits that keep the authors' recorded direction are routine for `manuscript-story` (see
+- `conservative` (default, routine and evidence-backed fixes): apply routine spelling, grammar, formatting,
+  broken-link and registry-settled reference corrections, and wording changes that preserve meaning. Also
+  apply the corrections that the evidence for a **confirmed** finding settles: a number the data or the
+  project's files settle, a citation corrected, a claim narrowed **by rewording** to what the evidence shows
+  (never by deleting it). Show each before and after in the chat and record it. Changes that no confirmed
+  finding requires (restructuring, a new emphasis, substantial additions or deletions) are proposals in the
+  corrected version. A candidate finding (unconfirmed, or a reader's impression) is never applied. Story
+  edits that keep the paper's direction are routine for `manuscript-story` (see
   [Readers first, referees second](#readers-first-referees-second)); a change of direction never is.
-- `propose`: prepare every change to the authors' documents for approval before applying it. Checks,
-  lookups, proposed text and reports still proceed.
-- `apply`: apply substantive revisions within the requested scope and show consequential before/after
-  text in the chat. This never authorises invented facts, unsupported claims, or decisions only the
-  authors can make, and does not expand a focused service into the full workflow.
+- `propose`: prepare every change to the authors' documents as a proposal they approve one by one; nothing is
+  applied. This is the only per-item mode. Checks, lookups, proposed text and reports still proceed.
+- `apply`: also apply the substantive improvements within the requested scope and the authors' direction,
+  and show consequential before/after text in the chat. This never authorises invented facts, unsupported
+  claims, or decisions only the authors can make, and does not expand a focused service into the full
+  workflow.
+
+**"Fix everything".** "Fix everything", "apply all", "accept all" or "do it all" is an explicit instruction
+for this run (never saved as a setting): apply every proposal of the corrected version, except the held
+decisions below. "Accept all" on a corrected version approves every proposal in it at once.
+
+**Held decisions, under every setting.** Some choices are the authors' whatever they asked: a change of the
+paper's direction; which figures the paper has; a venue's incompatible rules before a venue is chosen; new
+analyses, data or experiments; facts only the authors have (they stay comments, never text); a conflict
+with a journal's policy. List them once, together, at the end of the run with what each would change, and
+let nothing else wait on them. A check that fails (the claim guard, the smell check, a story test, the run
+validation) is the agent's to fix by restoring the wording or dropping the edit and listing it; it never
+becomes a question for the authors.
 
 Follow explicit instructions or approval for a concrete change in the conversation first, then saved manuscript-project choices and project
-instructions, the global saved setting, and the default. A generic improvement request is not an override.
-Approval of one proposal authorises that proposal and its stated consequences, not every pending proposal
-or a lasting change of setting. Save a setting only when the author states a lasting preference, using
+instructions, the global saved setting, and the default. A generic improvement request is not an override
+of the saved setting. Approval of one proposal authorises that proposal and its stated consequences, not a
+lasting change of setting. Save a setting only when the author states a lasting preference, using
 `project.py configure PROJECT --edits <choice>` for this manuscript project. Use
 `settings.py set edits <choice>` only for an explicitly global change.
 
@@ -138,7 +156,8 @@ The author can change how the work proceeds at any point:
   when the author asks. Reuse journal choices and manuscript-level requirements across sections.
 - **Review before applying:** retain the current manuscript and show the proposed text as before/after
   excerpts or a diff in the reply. A proposal too long for the reply goes in one file the authors can open,
-  beside the manuscript (`<manuscript stem>.proposed.md`) or in the folder they name, and is removed once
+  beside the manuscript (`<manuscript stem>.proposal.md`, never the improvement run's corrected version
+  `<stem>.proposed.*`) or in the folder they name, and is removed once
   they have accepted or rejected it. Wait for the author's choice before changing the working
   manuscript. Review-only requests remain findings without applied edits.
 - **Review between steps:** after the requested section or stage, show what changed and wait before
@@ -188,11 +207,16 @@ does not by itself request an interview.
 
 Whole-paper work proceeds through the authorised task under the `edits` policy, without section or stage
 approval stops unless the author asks for them. Preserve existing revision conventions; an iterative workflow does not require
-a new ledger, transcript, marker scheme or per-pass report. Revision markers already in the text (for
-example `<!-- @rev ... -->` comments) stay where they are; add or update them only as the project's own
-written rules say or the authors ask, and strip them only when preparing the files for upload, if the
-authors want that. Reviewer and checking passes read the text with such comments removed, as an editor
-would see it. `manuscript-revision-marks` lints, bumps and strips them and writes that clean copy.
+a new ledger, transcript, marker scheme or per-pass report.
+
+**Revision marks, one rule for every skill.** When the manuscript already carries revision marks (for
+example `<!-- @rev ... -->` comments), every applied edit bumps or opens its segment through
+`manuscript-revision-marks`; routine fixes in a passage without a segment are grouped into one "copy edit"
+round per section rather than one mark each. Marks are never added to a manuscript that has none unless the
+authors ask. The files a venue receives are always the clean copy or a build from it, never the marked
+master; removing the marks from the master for good is the authors' choice. Reviewer and checking passes,
+the claim guard, `revise.py` and the change records read the clean copy, as an editor would see it.
+`manuscript-revision-marks` lints, bumps and strips the marks and writes that clean copy.
 
 ## Minimum useful work
 
@@ -226,30 +250,44 @@ automatically authorise new experiments or repository maintenance.
 Use the manuscript and conversation before asking questions. Ask only for information that changes the
 answer and cannot be obtained from available material; batch remaining questions.
 
-**Check the project before asking.** When the manuscript sits in, or names, a repository with its code,
+### Check the project before asking
+
+When the manuscript sits in, or names, a repository with its code,
 benchmark outputs, result tables, logs or configuration, read those (read-only) before reporting a number,
 version or software behaviour as unexplained. Where a printed value comes from, which runs a figure covers,
 which release is current and what the software outputs are questions the files usually answer. Report what
 the files settled ("the 2,054 MB is the primary genome over warm, full and cold runs in
 `benchmarks/a3/tables.md`, while Table 3 lists full runs only, so say so in the sentence") and ask only what
-they leave open. Quoting the project to the authors is fine; sending them to look it up is not.
+they leave open. Quoting the project to the authors is fine; sending them to look it up is not. A value
+read from the project goes into the paper only when it is tied to the run or release behind the results (the
+tagged release, the benchmark's run log, the commit the paper cites); a lock file or the latest tag shows
+today's project, not necessarily what produced the published numbers, so otherwise it is a proposal that
+quotes its source.
 
-**Do not ask about what needs no decision.** A correction that a registry or the project's own files
+### Do not ask about what needs no decision
+
+A correction that a registry or the project's own files
 settle, with one right answer, is not a finding for the authors: a preprint cited after its journal
 version appeared (title, year, DOI), a shortened title, a missing DOI, a print-versus-online year, a
-name spelled two ways, a scan alarm you cleared. With edit permission, apply them; in
+name spelled two ways or an author list cut short, a scan alarm you cleared. Registries carry errors too:
+apply a correction when two sources agree (two registries, or a registry and the publisher's page);
+otherwise count it as a suggested repair and keep the original. Never ask the authors for a saved copy of a
+page to settle metadata. With edit permission, apply them; in
 a review-only request, prepare them as one patch the authors accept or not. Either way, report them as a
 count and a severity, not item by item: "12 references corrected (4 missing DOIs, 3 shortened titles,
 2 print-versus-online years, 1 preprint now published in *Science*, 2 page ranges); none changes what a
 sentence claims." The itemised list is the diff or the patch, shown when the authors ask. Never put these in
 "Fix now", never phrase them as questions, and leave cleared false alarms out entirely.
 
-Corrections to scientific numbers, interpretations or claim support still follow `edits`, even when
-the evidence settles the discrepancy. Under `conservative`, prepare the exact correction and its
-evidence for approval; do not ask the authors to redo arithmetic or look up a fact you already checked.
+Corrections to scientific numbers, interpretations or claim support follow `edits`: under `conservative`
+and `apply`, a correction that the evidence for a confirmed finding settles is applied and shown before and
+after; under `propose` it is prepared with its evidence. Never ask the authors to redo arithmetic or look up
+a fact you already checked; a script's candidate is checked against the project first, and only a genuinely
+open provenance question goes to them.
 
 A reference that cannot be found in any registry or by search, or whose identifiers belong to another work,
-is not in this class. It may be fabricated, and some journals reject a paper or open an integrity inquiry
+is not in this class ([when a reference may be fabricated](../../manuscript-reference-check/references/identity-checks.md#when-a-reference-may-be-fabricated)).
+It may be fabricated, and some journals reject a paper or open an integrity inquiry
 for a single invented reference. Report each one under "Fix now" with what was searched, even when it is
 uncited or the fix is simply to delete it, and say plainly how serious it is.
 
@@ -258,7 +296,9 @@ when an answer is missing. Existing author permission to edit covers routine edi
 that scope: make them reviewable through a diff, rather than asking for approval sentence by sentence.
 Flag decisions that would change scientific meaning or require facts only the authors know.
 
-**When a page blocks automated reading.** Publisher sites often answer a script with HTTP 403 or a security
+### When a page blocks automated reading
+
+Publisher sites often answer a script with HTTP 403 or a security
 check (Cloudflare's "Just a moment" page), and a fetch tool may return only part of a page or skip what a
 script loads (a fee calculator, an agreements table). That is a reason to change route; record the fact as
 unknown only after the routes below have failed. Try, in this order:
@@ -272,7 +312,9 @@ unknown only after the routes below have failed. Try, in this order:
    `@browser` to a message, in the terminal with `/chrome`), and carry on with the other routes;
 4. an archived copy (the Internet Archive), labelled with its capture date and never presented as the
    current rule;
-5. only then, ask the authors for a saved copy of the page.
+5. only then, and only for a page that decides something the authors need (a venue's rule, a source a
+   load-bearing claim rests on), ask the authors for a saved copy of the page. Reference metadata never
+   needs this: count it as unverified instead.
 
 In the authors' browser, read and look up: open pages, expand sections, choose options in a calculator or a
 search box that only computes or finds something. Do not sign in, accept terms, submit a form or enter
@@ -292,17 +334,21 @@ referees (`manuscript-reviewer-response`) belongs to that task and records its r
 summary by default, linking the retained per-skill evidence. Extra reviewer passes beyond the selected
 panel remain optional.
 
-**Where files go.** Every file is either something the authors use or something only the agent uses, and
+### Where files go
+
+Every file is either something the authors use or something only the agent uses, and
 the two go to different places.
 
-- **What the authors use goes where they can open it.** A skill's outputs (a ladder, the shared record, a
-  heat map, an audit table, a response letter and its ledger, a change inventory, a proposal for review, a
-  report saved as a file under the `reports` setting below, any file the reply tells them to open or
-  rerun) go to the folder the authors name. Without one, they go beside the manuscript source, or in the folder where the
+- **What the authors use goes where they can open it.** A skill's documents (a ladder, the shared record, a
+  heat map, an audit table, a response letter and its ledger, a change inventory, a proposal for review as
+  `<stem>.proposal.md`, any file the reply tells them to open or rerun) go to the folder the authors name.
+  Without one, they go beside the manuscript source, or in the folder where the
   project already keeps that kind of document (its venue strategy, its review files), named after the
-  manuscript and what the file holds (`paper.journal-ladder.csv`, `paper.heatmap.html`). The reply gives
-  each path relative to the project. These outputs are what the skill was asked for, so they need no permission;
-  the rule below on new files concerns new versions and copies of the authors' own documents.
+  manuscript and what the file holds (`paper.journal-ladder.csv`, `paper.heatmap.html`), and they are also
+  registered in the run. The reply gives each path relative to the project. These outputs are what the skill
+  was asked for, so they need no permission; the rule below on new files concerns new versions and copies of
+  the authors' own documents. An improvement run hands over its dashboard, its Word version and the
+  corrected version (`<stem>.proposed` with the manuscript's own extension) through `runs.py handover`.
 - **Retain evidence in the run folder**: reader/referee workspaces, check JSON, comparisons, failed
   attempts and contradictions needed to inspect a conclusion follow [project-workflow.md](project-workflow.md).
   Fetched pages and unrelated intermediates may use scratch; never leave author-needed evidence there.
@@ -315,11 +361,12 @@ it found or recommends: a review, an audit, a check's result, a plan. Where it g
 setting, `reports`, inherited from global defaults and saved per manuscript project. The run always
 retains the report and evidence; this setting controls presentation in the conversation:
 
-- `file`: save the report where "Where files go" says, named after the manuscript and the report
-  (`paper.peer-review.md`, `paper.integrity-check.md`); the reply gives its path, the headline and the
-  most urgent points, with consequential before/after changes still shown in the chat as above, not
-  the whole report. A new run retains its own file; preserve earlier run evidence. Ask before replacing
-  a canonical report the authors have annotated.
+- `file`: the report is `RUN/<skill>/report.md`. In an improvement run the dashboard links every report;
+  in a single-skill run a copy also goes beside the manuscript, named after it and the skill
+  (`paper.reference-check.md`, through `runs.py handover RUN --report <skill>`). The reply gives its path, the
+  headline and the most urgent points, with consequential before/after changes still shown in the chat as
+  above, not the whole report. A new run keeps its own file; a copy the authors annotated is never
+  overwritten (the new one gets a dated name).
 - `chat`: give the whole report in the reply; keep the run's report and evidence inspectable too.
 - `both`: save the file and give the whole report in the reply.
 
@@ -385,10 +432,15 @@ when the selected venue actually requires them or the authors request them.
   Hidden text addressed to AI reviewers is a blocker whatever the venue's wording, because it misleads
   the review itself.
 - **Major:** a concrete threat to validity, interpretation or the paper's prospects at the chosen venue.
+- **Minor:** worth fixing, at low stakes (a wrong page number, an inconsistent term).
 - **Optional:** a style preference, possible improvement or additional experiment. Explain its benefit
   and effort before recommending substantial work; do not make it a condition of submission.
-- **Uncertain / not assessed:** missing evidence, an unavailable source or a check that could not run.
+- **Could not be checked:** missing evidence, an unavailable source or a check that could not run.
   State the practical consequence. Uncertainty alone is not a violation or proof of fabrication.
+
+In `findings.json` and script output these are `blocker`, `major`, `minor`, `info` (Optional) and
+`unknown` (Could not be checked); a script or seat that says `optional` means `info`, and `uncertain` or
+`not_assessed` means `unknown` ([stage findings](../../manuscript-dashboard/references/stage-findings.md)).
 
 ## Order the work by when it can be done
 
@@ -403,9 +455,11 @@ report that mixes "this citation is wrong" with "archive the final code on Zenod
    checklist that journal asks for, abstract format, reference style.
 4. **At the end, once the code, data and results are final.** Archive DOIs and release tags (Zenodo,
    Software Heritage), version numbers quoted in the text, final accession numbers and the data
-   availability statement, declarations, the AI-use statement, cover letter, removing revision markers
-   and TODO comments, checking the upload files for comments, hidden text and leaked secrets, and
-   de-anonymising review links.
+   availability statement, declarations, the AI-use statement, cover letter, building the upload files from
+   the clean copy of a marked manuscript, removing TODO comments, checking the upload files for comments and metadata, and de-anonymising review
+   links. Two things found in this check are never end-stage: text hidden for AI reviewers and a leaked
+   secret go under "Fix now" whatever the stage (a leaked key should be revoked now), so the upload check
+   runs once on a draft's source too.
 
 Label each group in the report ("Fix now", "Then the writing", "Once you have chosen the journal",
 "Before submission, once the code is final"), with the current-work groups first. An end-stage item is
@@ -444,7 +498,7 @@ be understandable by someone who did not write these skills, without opening ano
   `uv run --script ../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`. Rewrite
   what it lists without changing any fact, quote or number, or keep a use whose catalogue entry says to
   leave it and rerun with `--keep ID`. Then read the report against the full pattern list the check prints
-  (every entry of the `manuscript-deslop` catalogue, `../../manuscript-deslop/references/llm-smells.md`, in one
+  (every entry of the `manuscript-deslop` catalogue, `../manuscript-deslop/references/llm-smells.md` from your skill's directory, in one
   line each) and fix what reads as notes or stock phrasing: the counts find only part of it. Quoted
   manuscript text is not counted, and a report may address the authors as "you" and end a finding with the
   question it needs answered. A report is not handed over while the check fails or has not run.

@@ -105,9 +105,12 @@ def test_the_corrected_version_is_tracked_changes_with_the_review_as_comments(tm
     authors = set(re.findall(r'<w:(?:ins|del) [^>]*w:author="([^"]+)"', document))
     assert authors == {"Prose edit", "Integrity check", "Story"}
     assert re.search(r'<w:del [^>]*><w:r>.*?<w:delText[^>]*>rsID', document)
-    assert "Question for the authors (IC-C1): which genome build?" in comments
-    assert "IC-1 · Major, fix now: The join key contradicts the code." in comments
-    assert "2 questions for the authors about JA-C8, a proposal left out of this version until they answer:" in comments
+    # Each comment says what it is about first; the ID follows in parentheses.
+    assert "Question for the authors: which genome build? (IC-C1)" in comments
+    assert "The join key contradicts the code (Major, fix now)." in comments and "(IC-1)" in comments
+    assert ("2 questions for the authors about the proposal \u201cDeclare the AI use\u201d in 2. Methods, left out of this "
+            "version until they answer (JA-C8):") in comments
+    assert "Proposed: Name the real join key. Why:" in comments
     assert "Why: The code joins on position and genotype; rsIDs are not used." in comments
     assert "1 problem about this part whose passage is not quoted in this text:" in comments and "About Cover letter" in comments
     assert document.count("<w:commentRangeStart") == comments.count("<w:comment ")
@@ -122,4 +125,4 @@ def test_without_a_corrected_version_the_reviewed_text_carries_the_problems_only
     assert result.exit_code == 0, result.output
     document, comments = parts(out)
     assert "<w:ins " not in document and "<w:del " not in document and "HuggingFace" in re.sub(r"<[^>]+>", "", document)
-    assert "IC-1 · Major" in comments and "Question for the authors" not in comments
+    assert "(Major, fix now)" in comments and "(IC-1)" in comments and "Question for the authors" not in comments

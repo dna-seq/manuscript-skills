@@ -9,8 +9,9 @@ are noted where they apply.
   Non-Native Academic Writing." arXiv:2608.26710 (27 Aug 2026; the authors say it was presented at EMNLP
   2026). 135,389 pairs of human-written manuscripts by non-native authors, before and after professional
   editing (2018 to 2025), run through 13 detectors. False-positive rates ranged from 0.0% to 100.0% by
-  detector, and professional editing moved scores in both directions. The same author and content can score
-  anywhere.
+  detector on the pre-2023 texts (the abstract's figures; over all years, 0.1% for Binoculars to 100% for
+  log-rank, their Table 18), and professional editing moved scores in both directions. The same author and
+  content can score anywhere.
 - **Detectors are easy to defeat.** Gu Y, Li S, Hu X. "MASH: Evading Black-Box AI-Generated Text Detectors
   via Style Humanization." arXiv:2601.08564 (v2 19 Apr 2026; Findings of ACL 2026): 92% average attack
   success. That weakens detectors as evidence; it is not a recipe for a manuscript.

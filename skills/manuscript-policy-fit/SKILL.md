@@ -28,7 +28,7 @@ Apply the requested task across the whole paper unless the author specifies a na
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
-Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too. End with its [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist): `report.md`, the smell check on it, `findings.json` with the prefix `PF`, and every applied edit recorded with `runs.py change`.
 
 ## Establish the facts that change the answer
 
@@ -116,6 +116,9 @@ keywords or automated thresholds.
 - Preserve actual clinical use, data provenance, consent limits, diagnoses, outcomes and material risks.
   "Research use only" is appropriate only if accurate; it is not a legal exemption. Do not remove real
   human-data facts, relabel real data as synthetic, or fabricate approval/consent to obtain a classification.
+- Draft a declaration (consent, ethics, competing interests, funding, author contributions) only from facts
+  the authors or the project's own files supplied. One that needs a fact nobody gave is a held proposal with
+  the question as its comment, never a plausible default, and an author's credit is never dropped or narrowed.
 
 When editing is authorised, make the focused changes and review the diff. Preserve results, sample sizes,
 identifiers, citations and scientific meaning. Mark any proposed narrowing of a substantive claim as a
@@ -123,10 +126,13 @@ claim correction, not cosmetic rephrasing. The companion `../manuscript-prose-ed
 help with selected mechanical changes, but cannot establish policy fit or semantic equivalence. Text you
 write into the manuscript (a scope clarification, an ethics or data statement) passes the required smell
 check, `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`, with a read
-against the pattern list it prints (prose-edit contract, §5.3). When the
-authors authorised a claim correction, list it (a passage from the sentence and their request) and run the
-guard with `--authorised FILE`: that change is then listed as requested, any other widened claim and any changed
-number or citation still fails.
+against the pattern list it prints ([prose-edit contract, §5.3](../manuscript-prose-edit/references/prose-edit-contract.md#53-the-smell-check)).
+When the authors authorised a claim correction, or supplied the facts of a declaration (consent, ethics,
+approval or exemption) that the edit writes, list each one in `RUN/manuscript-policy-fit/requested-claims.yaml`
+as `- {passage: "a verbatim, contiguous run of at least three words from the sentence", finding: "authors'
+request"}` (or the finding's id) and run the guard with `--authorised RUN/manuscript-policy-fit/requested-claims.yaml`:
+that change is then listed as requested, and any other widened claim and any changed number or citation
+still fails, so restore its wording.
 
 ## Compare venues or resolve a referral loop
 
@@ -136,8 +142,12 @@ and remaining editorial uncertainty. Do not assign invented enforcement probabil
 unresearched venue permissive. The existing AI-policy ranking does not rank ethics or privacy burden.
 
 For a full journal shortlist, pass these policy findings to `manuscript-journal-select` alongside the
-author's validation resources, budget and other priorities. The reference notes here supplement the
-shared venue database; they are not a second ranking engine or an instruction to duplicate venue data.
+author's validation resources, budget and other priorities. Record each venue-specific finding (a server
+that declines tool announcements without results, a journal's rule on identifiable individuals) for that
+venue in the shared record's `venue_facts`, under `other_desk_rules`, with the URL of the page and the date
+read; `manuscript-journal-select` then reruns `ladder` and `common`, so the rule reaches both ladders and the
+requirements file. The reference notes here supplement the shared venue database; they are not a second
+ranking engine or an instruction to duplicate venue data.
 
 For a bioRxiv/medRxiv loop, read both notices and current scope rules. Distinguish a clinical-scope
 decision from insufficient research results, a tool-only announcement, or missing oversight. Prepare a
@@ -157,7 +167,7 @@ declarations and checklist items are present; deciding which of them apply stays
 
 ## Report only what changes a decision
 
-Lead with the likely study classification and the most useful wording fix or venue choice. For each
+Open with one line giving the likely study classification, then the four groups below. For each
 material issue, quote the passage it concerns and name its section (a line number may follow in
 parentheses), then give the possible misreading or actual obligation, its factual basis and the action.
 Quote the policy text a finding rests on with the URL of the page it is on and the date read, and say
@@ -166,11 +176,12 @@ readable phrase; a focused edit can be just revised text and a note. Write as
 [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
 describes: plain words, acronyms spelled out at first use, full sentences.
 
-Order the report as
+Order the issues as
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)
-describes: facts the authors must establish and claims that misdescribe the study first, then wording,
-then requirements of the chosen venue, and last the final declarations (the ethics, consent and data
-availability statements as submitted). The last group is not a blocker for a draft.
+describes: facts the authors must establish and claims that misdescribe the study first, then wording
+(the most useful wording fix leads this group), then requirements of the chosen venue (or, before the choice,
+the venue comparison), and last the final declarations (the ethics, consent and data availability statements
+as submitted). The last group is not a blocker for a draft.
 
 Distinguish **wording ambiguity**, **venue-scope mismatch**, **substantive requirement**, and **unresolved
 fact**, in plain words. State whether an inference is yours or an editor has actually raised it. A user's

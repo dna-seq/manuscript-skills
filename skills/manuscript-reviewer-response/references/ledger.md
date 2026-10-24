@@ -87,13 +87,19 @@ softened restatement is how a reply ends up answering a different question.
 | `asks` | The commitment the referee asks for, in one line. |
 | `evidence` | The evidence that would satisfy it, from the vocabulary below; list several when needed. |
 | `must_fix` | `true` for the editor's conditions, items the editor singles out, and objections to validity, controls, statistics or a central claim (with no editor, these objections only). The authors may add others. Verify mode writes criteria for these first. |
+| `proposed` | The decision the plan proposes: `address`, `decline` or `not-on-point` (with `reason` for the last two). Every item gets one. |
 | `decision` | The authors' decision: `address`, `decline`, `not-on-point`, or `undecided`. |
+| `confirmed` | How the authors decided it: `blanket` (their one confirmation of the proposals covers it; see section 4) or `item` (decided on its own). |
 | `reason` | Required for `decline` and `not-on-point`: the reason as the authors give it (design, scope, data access, a regulatory or ethical limit, time, cost or capacity), or why the comment does not apply. |
 | `hand_to` | The companion skill that drafts part of the answer, by name (see SKILL.md). Older ledgers call it `route`; the check reads both. |
 | `same_as` | The earlier item this one repeats, e.g. `[R2.W1]`; it takes that item's decision and commitments. |
 | `sentence` | For a fragment of one referee sentence: the id of the sentence's first fragment. |
 | `commitments` | What will change: `change`, `target` (where it should go) and `landed` (where it went). |
 | `previous` | From round 2 on: the earlier items this one follows up, as `ROUND:ID`, e.g. `1:R2.P1`. |
+
+A round may also hold `confirmation:`, the authors' one answer to the proposed decisions: `asked` (the
+question as it was put to them), `answer` (their words, verbatim) and `named` (the items the question named:
+every proposed decline and "does not apply", and every item whose answer needs new data or a new analysis).
 
 Evidence vocabulary:
 
@@ -118,11 +124,12 @@ it checks the ledger alone and expects nothing to have landed yet. In a one-shot
 
 ## 4. The authors decide
 
-Present the items to the authors in the referees' order, in a table whose cells are readable phrases: the
-referee and their own number, the comment quoted (shortened with [...] when long), what it asks for, the kind
-of work it needs, whether it is essential, and the proposed handling, with the ledger id in parentheses at
-most. Then ask for a decision per item, listing the decisions grouped by when the work could be done (the
-science and evidence first, then the writing, then the journal's format, then statements at the end):
+Propose a decision for every item, with its rationale, and record it in `proposed`. Present the items to the
+authors in the referees' order, in a table whose cells are readable phrases: the referee and their own
+number, the comment quoted (shortened with [...] when long), what it asks for, the kind of work it needs,
+whether it is essential, and the proposed decision, with the ledger id in parentheses at most, grouped by
+when the work could be done (the science and evidence first, then the writing, then the journal's format,
+then statements at the end). The decisions are:
 
 - **address**, with the target in the manuscript;
 - **decline**, with the reason as the authors give it (design, scope, data access, a regulatory or
@@ -133,11 +140,21 @@ science and evidence first, then the writing, then the journal's format, then st
 - **not on point**, with the reason (the comment rests on a misreading the text should prevent, or
   concerns another paper).
 
-You may propose a decision with its rationale, but the `decision` field stays `undecided` until the
-authors confirm it. Never infer a decision from silence, from the ledger's earlier state or from what is
-easiest. When two referees ask for incompatible things, show both and let the authors choose; the letter
-then explains the choice to both. A "not on point" decision usually still earns a manuscript change: the
-text that allowed the misreading.
+**One confirmation for the whole plan.** Then ask one question the authors can answer for every item at
+once. It names each proposed decline and "does not apply", and each item whose answer needs new data or a
+new analysis, because the letter states the authors' scientific position to the editor and those must not
+pass under a yes nobody read: "All as proposed, including declining Reviewer 2's point 4 and adding the
+public-data replication for Reviewer 1's point 3?" Record the answer once for the round (`confirmation:`
+with `asked`, `answer` and `named`), mark each item it covers `confirmed: blanket` and set its `decision` to
+its proposal. A yes covers the items proposed for change with text alone, and the declines, "does not apply"
+items and new work the question named; nothing else. An item the authors change or decide separately gets
+its own `decision` and `confirmed: item`. `check_response.py` accepts a covered item as decided and keeps a
+decline or new work the question did not name undecided. Authors who want to decide item by item still can.
+
+The `decision` field stays `undecided` until the authors confirm it, one way or the other. Never infer a
+decision from silence, from the ledger's earlier state or from what is easiest. When two referees ask for
+incompatible things, show both and let the authors choose; the letter then explains the choice to both. A
+"not on point" decision usually still earns a manuscript change: the text that allowed the misreading.
 
 An in-silico-only budget is a legitimate constraint. For a request that needs new data the authors
 cannot produce, list the honest options with their cost (rough effort, labelled as an estimate): a
@@ -203,6 +220,10 @@ rounds:
     revised: paper-v2.md
     line_numbers: file lines of paper-v2.md
     plan: revise                    # revise | submit-elsewhere | undecided (the authors' call)
+    confirmation:                   # the authors' one answer to the proposed decisions
+      asked: All as proposed, including declining Reviewer 2's point 4?
+      answer: Yes, all as proposed.
+      named: [R2.4]                 # every decline, "does not apply" and new work the question named
     items:
       - id: R1.2
         referee: Reviewer 1
@@ -212,7 +233,9 @@ rounds:
         asks: The spread across runs for each genome.
         evidence: [table, results-text]
         must_fix: false
+        proposed: address
         decision: address
+        confirmed: blanket            # covered by the round's confirmation
         commitments:
           - change: Range across the 3 runs in Table 1 and the Performance paragraph
             target: Results, Performance; Table 1
@@ -227,6 +250,7 @@ rounds:
         comment: Please add a genome from a third individual, sequenced on any platform, or limit the claims
           about generalisability in the Abstract and Discussion.
         previous: ["1:R2.P1"]
+        proposed: address               # the public-data replication: new work, so the question must name it
         decision: undecided
 ```
 

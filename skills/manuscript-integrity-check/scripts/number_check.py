@@ -43,6 +43,7 @@ import hashlib
 import json
 import math
 import re
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -1666,9 +1667,9 @@ CHECK_TITLES = {"ledger": "The same quantity stated with different values",
 def _alpha_source(source: str) -> str:
     several = re.search(r"states several: ([^;)]+)", source)
     if several:
-        return (f"the usual default, because the text states several levels ({several.group(1)}); give the one that "
-                f"applies with --alpha")
-    return {"stated in the text": "as the text states", "--alpha": "as set with --alpha"}.get(
+        return (f"the usual default, because the text states several levels ({several.group(1)}); the check can be "
+                f"run again at the level that applies")
+    return {"stated in the text": "as the text states", "--alpha": "as set for this check"}.get(
         source, "the usual default, because the text states none")
 
 
@@ -1765,6 +1766,13 @@ def main(
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
 ) -> None:
+    """Exit 0 no major or minor candidate (informational ones may remain), 1 at least one, 2 usage error."""
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     if alpha is not None and not 0 < alpha < 1:
         raise typer.BadParameter("--alpha must be between 0 and 1")
     report = run(path, alpha, assume_integer)

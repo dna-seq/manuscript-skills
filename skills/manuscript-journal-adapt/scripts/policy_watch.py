@@ -10,9 +10,15 @@ so `git log -p` on a snapshot is the history of that policy.
 
     uv run --script policy_watch.py list                         # every watched URL, its venues, last read
     uv run --script policy_watch.py check                        # fetch all, report changed / unchanged / blocked
-    uv run --script policy_watch.py check --venue aging-cell --update   # re-read one venue and store the result
-    uv run --script policy_watch.py check --stale-days 30 --update      # only URLs not read for 30 days
-    uv run --script policy_watch.py record URL saved.html        # a page saved from your browser (challenge pages)
+    uv run --script policy_watch.py check --venue KEY --routes httpx,chrome   # an author's task: read, store nothing
+    uv run --script policy_watch.py check --venue aging-cell --update   # maintenance: re-read one venue and store it
+    uv run --script policy_watch.py check --stale-days 30 --update      # maintenance: URLs not read for 30 days
+    uv run --script policy_watch.py record URL saved.html        # compare a page saved from a browser
+    uv run --script policy_watch.py record URL saved.html --update   # maintenance: also store it as the snapshot
+
+Only `--update` writes, and it writes into the plugin's own references: that is catalogue maintenance, never part
+of an author's task. An archived copy (the Internet Archive route) is dated by its capture and is not the current
+rule; the report says so, and the live page is still to be read.
 
 A page that could not be read is `not_assessed` in the JSON ("Could not be read" in the printed report), never
 `unchanged`. The printed report quotes each changed passage before and after, with the heading it sits under.
@@ -25,9 +31,11 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
@@ -306,6 +314,8 @@ def render(o: "Outcome", names: dict[str, str]) -> list[str]:
     else:
         lines.append(f"  Read with {route_words(o.route)}; {o.blocks} of its passages mention AI."
                      + (f" {o.reason}" if o.reason else ""))
+        if _route_kind(o.route) == "wayback":
+            lines.append("  This is an archived copy, not the current rule: read the live page before relying on it.")
     lines += [f"  - {change}" for change in o.changes[:CHANGES_SHOWN]]
     if len(o.changes) > CHANGES_SHOWN:
         lines.append(f"  - {len(o.changes) - CHANGES_SHOWN} more changes are not shown; `--json FILE` writes "
@@ -341,27 +351,49 @@ def fetch_httpx(url: str) -> Fetched:
         text = _pdf_text(r.content)
         if text is None:
             return Fetched("httpx", status=r.status_code,
-                           reason="got a PDF, and pdftotext (poppler) is not installed to read it")
+                           reason="got a PDF, and pdftotext (poppler) is not installed to read it; read the PDF "
+                                  "with another tool")
         return Fetched("httpx", html=text, status=r.status_code, plain=True)
     if r.status_code >= 400 or _challenged(r.text):
         return Fetched("httpx", status=r.status_code, reason=f"was blocked (HTTP {r.status_code})")
     return Fetched("httpx", html=r.text, status=r.status_code)
 
 
+CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome", "chrome.exe",
+                "msedge", "msedge.exe")
+
+
+def _chrome_paths() -> list[Path]:
+    """Where Chrome, Chromium or Edge (which runs the same headless mode) installs itself outside the PATH."""
+    if sys.platform == "darwin":
+        apps = [Path("/Applications"), Path.home() / "Applications"]
+        return [a / app / "Contents" / "MacOS" / exe for a in apps for app, exe in (
+            ("Google Chrome.app", "Google Chrome"), ("Chromium.app", "Chromium"),
+            ("Microsoft Edge.app", "Microsoft Edge"))]
+    if os.name == "nt":
+        roots = [os.environ.get(v) for v in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
+        return [Path(r) / sub for r in roots if r for sub in (
+            Path("Google") / "Chrome" / "Application" / "chrome.exe", Path("Chromium") / "Application" / "chrome.exe",
+            Path("Microsoft") / "Edge" / "Application" / "msedge.exe")]
+    return []
+
+
 def _chrome() -> Optional[str]:
-    return next((b for b in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
-                 if shutil.which(b)), None)
+    found = next((shutil.which(b) for b in CHROME_NAMES if shutil.which(b)), None)
+    return found or next((str(p) for p in _chrome_paths() if p.is_file()), None)
 
 
 def fetch_chrome(url: str) -> Fetched:
     binary = _chrome()
     if binary is None:
         return Fetched("chrome", reason="could not run, because no Chrome or Chromium is installed")
-    with tempfile.TemporaryDirectory(prefix="policy-watch-") as profile:
+    # On Windows the browser can hold its profile files for a moment after it exits; a leftover temporary
+    # folder is not a failed read.
+    with tempfile.TemporaryDirectory(prefix="policy-watch-", ignore_cleanup_errors=True) as profile:
         run = subprocess.run([binary, "--headless=new", "--disable-gpu", f"--user-data-dir={profile}",
                               "--virtual-time-budget=15000", "--dump-dom", url],
-                             capture_output=True, text=True, timeout=120)
-    if run.returncode != 0 or not run.stdout.strip():
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    if run.returncode != 0 or not (run.stdout or "").strip():
         return Fetched("chrome", reason=f"failed (exit code {run.returncode})")
     if _challenged(run.stdout):
         return Fetched("chrome", reason="was stopped by a challenge page")
@@ -552,8 +584,12 @@ def list_cmd(venue: Annotated[Optional[list[str]], typer.Option(help="Only these
 def check(
     venue: Annotated[Optional[list[str]], typer.Option(help="Only these venue keys (repeatable)")] = None,
     stale_days: Annotated[Optional[int], typer.Option(help="Only URLs not read for this many days")] = None,
-    update: Annotated[bool, typer.Option(help="Write new and changed snapshots and the read dates")] = False,
-    routes: Annotated[str, typer.Option(help="Fetch routes in order: httpx, chrome, wayback")] = "httpx,chrome,wayback",
+    update: Annotated[bool, typer.Option(
+        help="Write new and changed snapshots and the read dates into the plugin's references (catalogue "
+             "maintenance only, never during an author's task)")] = False,
+    routes: Annotated[str, typer.Option(
+        help="Fetch routes in order: httpx, chrome, wayback. In an author's task use httpx,chrome, then the "
+             "agent's own browser tool, before any archived copy")] = "httpx,chrome,wayback",
     workers: Annotated[int, typer.Option(help="Parallel fetches")] = 6,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Also write the outcomes as JSON")] = None,
 ) -> None:
@@ -604,10 +640,12 @@ def record(
     url: Annotated[str, typer.Argument(help="A watched URL")],
     page_file: Annotated[Path, typer.Argument(help="The page saved from a browser (.html) or its text")],
     route: Annotated[str, typer.Option(help="How it was read, e.g. browser, webfetch")] = "browser",
-    update: Annotated[bool, typer.Option(help="Store it as the snapshot")] = True,
+    update: Annotated[bool, typer.Option(
+        help="Also store it as the snapshot in the plugin's references (catalogue maintenance only, never during "
+             "an author's task)")] = False,
 ) -> None:
-    """Compare (and store) a page read by a route this script cannot use: saved from the user's own browser, or
-    read with WebFetch, when a challenge page blocks the scripted routes."""
+    """Compare a page read by a route this script cannot use (saved from the user's own browser, or read with
+    WebFetch, when a challenge page blocks the scripted routes) with the stored passages; --update stores it."""
     index = load_index()
     venues = watched_urls().get(url)
     if venues is None:
@@ -622,4 +660,7 @@ def record(
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # tables, quotes and names print in UTF-8 on every platform
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

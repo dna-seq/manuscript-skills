@@ -57,6 +57,14 @@ def finish(run: Path, skill: str = 'manuscript-prose-edit', status: str = 'compl
     return runner.invoke(runs.app, ['finish', str(run), '--skill', skill, '--status', status, *args])
 
 
+def write_findings(run: Path, skill: str = 'manuscript-prose-edit') -> Path:
+    """The stage's findings.json for the dashboard: nothing found is an empty list, never a missing file."""
+    path = run / skill / 'findings.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'skill': skill, 'findings': [], 'not_checked': []}), encoding='utf-8')
+    return path
+
+
 def test_first_use_asks_missing_context_without_writing(manuscript: Path) -> None:
     result = resolve(manuscript)
     assert result.exit_code == 0
@@ -183,6 +191,9 @@ def test_unique_runs_snapshots_reports_and_detectable_tampering(manuscript: Path
     report.write_text('Full findings with actual coverage.')
     assert finish(run).exit_code == 1  # a completed thought is not a saved report
     assert add(run, report).exit_code == 0
+    refused = finish(run)  # nor is a report without the findings the dashboard counts
+    assert refused.exit_code == 1 and 'no findings.json' in refused.output
+    write_findings(run)
     assert finish(run).exit_code == 0
     assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
     (run / 'manuscript-prose-edit/report.md').write_text('Silently replaced')
@@ -241,8 +252,10 @@ def test_reader_and_referee_completion_requires_real_saved_seat_artifacts(manusc
     assert finish(run, 'manuscript-story').exit_code == 1
     for seat in ('skimmer', 'potential-user', 'informed-outsider'):
         assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
+    write_findings(run, 'manuscript-story')
     assert finish(run, 'manuscript-story').exit_code == 0
     second = start(manuscript, 'manuscript-peer-review')
+    write_findings(second, 'manuscript-peer-review')
     assert add(second, report, 'report', 'manuscript-peer-review').exit_code == 0
     for seat in ('methods', 'skeptic', 'champion'):
         assert add(second, report, 'referee', 'manuscript-peer-review', '--seat', seat, '--name', f'{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
@@ -258,6 +271,7 @@ def test_unshown_change_blocks_handover_and_source_edit_is_detected(manuscript: 
     after = manuscript.parent / 'after.txt'
     after.write_text('Proposed paragraph.')
     assert add(run, after, 'report', 'manuscript-prose-edit', '--name', 'report.md').exit_code == 0
+    write_findings(run)
     original = manuscript.read_text()
     manuscript.write_text(original + '\nAdded paragraph.\n')
     assert finish(run).exit_code == 1
@@ -275,6 +289,7 @@ def test_partial_is_a_valid_handover_without_claiming_complete(manuscript: Path)
     report = manuscript.parent / 'report.md'
     report.write_text('Blocked source; no support verdict.')
     assert add(run, report).exit_code == 0
+    write_findings(run)
     assert finish(run, status='partial').exit_code == 1
     assert finish(run, 'manuscript-prose-edit', 'partial', '--reason', 'Source inaccessible').exit_code == 0
     result=runner.invoke(runs.app, ['validate', str(run), '--final'])
@@ -336,6 +351,7 @@ def test_deleted_source_cannot_silently_pass_final_validation(manuscript: Path) 
     report = manuscript.parent/'report.md'
     report.write_text('Review of source before deletion')
     assert add(run, report).exit_code == 0
+    write_findings(run)
     assert finish(run).exit_code == 0
     manuscript.unlink()
     result = runner.invoke(runs.app, ['validate', str(run), '--final'])
@@ -352,6 +368,7 @@ def test_two_seat_quick_pass_retains_findings_without_fabricating_referee_report
         assert add(run, report, 'seat', 'manuscript-peer-review', '--seat', seat, '--name', f'seats/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
     assert add(run, report, 'defence', 'manuscript-peer-review', '--name', 'defence.md', '--isolation', 'fresh-agent').exit_code == 0
     assert add(run, report, 'adjudication', 'manuscript-peer-review', '--name', 'adjudication.md').exit_code == 0
+    write_findings(run, 'manuscript-peer-review')
     assert finish(run, 'manuscript-peer-review').exit_code == 1
     assert finish(run, 'manuscript-peer-review', 'completed', '--review-mode', 'quick').exit_code == 0
     assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
@@ -398,10 +415,11 @@ def test_exec_runs_where_it_was_called_so_relative_paths_resolve_for_the_caller(
     caller.mkdir()
     (caller / "hello.txt").write_text("here")
     monkeypatch.chdir(caller)
-    result = CliRunner().invoke(runs.app, ["exec", str(run), "--skill", "manuscript-story", "--", "cat", "hello.txt"])
+    result = CliRunner().invoke(runs.app, ["exec", str(run), "--skill", "manuscript-story", "--", sys.executable, "-c",
+                                           "print(open('hello.txt', encoding='utf-8').read(), end='')"])
     assert result.exit_code == 0, result.output
     command = json.loads((run / "run.json").read_text())["skills"]["manuscript-story"]["commands"][0]
-    assert command["cwd"] == str(caller.resolve()) and (run / "manuscript-story/commands/0001.stdout.txt").read_text() == "here"
+    assert command["cwd"] == caller.resolve().as_posix() and (run / "manuscript-story/commands/0001.stdout.txt").read_text() == "here"
 
 
 def test_a_renamed_skill_keeps_its_former_name_in_older_runs() -> None:
@@ -426,6 +444,7 @@ def test_every_reader_and_referee_records_whether_it_ran_as_a_fresh_agent(manusc
         assert add(run, report, 'reader', 'manuscript-story', '--seat', seat, '--name', f'readers/{seat}.md', '--isolation', 'fresh-agent').exit_code == 0
     entry = runs.read(run)['skills']['manuscript-story']
     assert [i['kind'] for i in entry['issues']] == ['not_independent'] and 'skimmer' in entry['issues'][0]['message']
+    write_findings(run, 'manuscript-story')
     assert finish(run, 'manuscript-story').exit_code == 0
     readme = (run / 'manuscript-story/README.md').read_text()
     assert 'seat: skimmer (one agent in turn, not independent)' in readme and 'seat: potential-user (fresh agent)' in readme
@@ -499,6 +518,7 @@ def _finished_run(manuscript: Path) -> Path:
     (run / 'manuscript-prose-edit/workspace/brief.md').write_text('A seat brief.')
     (run / 'manuscript-dashboard/dashboard').mkdir(parents=True)
     (run / 'manuscript-dashboard/dashboard/manuscript-dashboard.html').write_text('<html></html>')
+    write_findings(run)
     assert finish(run).exit_code == 0
     return run
 
@@ -511,7 +531,7 @@ def test_pack_leaves_the_results_and_validates_the_evidence_inside_the_archive(m
     assert left == ['README.md', 'evidence.zip', 'manuscript-dashboard/dashboard/manuscript-dashboard.html',
                     'manuscript-prose-edit/README.md', 'manuscript-prose-edit/report.md', 'run.json']
     packed = runs.read(run)['packed']['files']
-    assert {'inputs/01-paper.md', 'manuscript-prose-edit/changes/0001.md',
+    assert {'inputs/01-paper.md', 'manuscript-prose-edit/changes/0001.md', 'manuscript-prose-edit/findings.json',
             'manuscript-prose-edit/workspace/brief.md'} <= set(packed)
     assert 'evidence.zip' in (run / 'README.md').read_text()
     assert 'in [evidence.zip](../evidence.zip)' in (run / 'manuscript-prose-edit/README.md').read_text()
@@ -547,15 +567,18 @@ def test_handover_puts_the_dashboard_and_word_file_beside_the_manuscript(manuscr
     html, docx = manuscript.parent / 'paper.dashboard.html', manuscript.parent / 'paper.review.docx'
     assert html.read_text() == '<html></html>' and docx.read_bytes() == b'first review'
     assert 'paper.dashboard.html' in (run / 'README.md').read_text()
-    # The next run replaces the dashboard, but a Word file the authors may have commented in only on their say.
+    # The next run replaces the dashboard, but never a Word file the authors may have commented in: its own
+    # goes beside it under a dated name, and the command says so without stopping for a question.
     docx.write_bytes(b'first review, with the authors comments')
     second = _finished_run(manuscript)
     (second / 'manuscript-dashboard/dashboard/manuscript-dashboard.html').write_text('<html>second</html>')
     (second / 'manuscript-dashboard/manuscript-review.docx').write_bytes(b'second review')
     result = runner.invoke(runs.app, ['handover', str(second)])
-    assert result.exit_code == 4 and '--replace-docx' in result.output
+    assert result.exit_code == 0 and '--replace-docx' in result.output and 'kept as it is' in result.output
     assert html.read_text() == '<html>second</html>'
     assert docx.read_bytes() == b'first review, with the authors comments'
+    [dated] = manuscript.parent.glob('paper.review.*.docx')
+    assert dated.read_bytes() == b'second review'
     assert runner.invoke(runs.app, ['handover', str(second), '--replace-docx']).exit_code == 0
     assert docx.read_bytes() == b'second review'
     # A packed run still hands over: its deliverables stay outside the archive.

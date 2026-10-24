@@ -1,4 +1,4 @@
 interface:
   display_name: "Reviewer response"
   short_description: "Plan, draft and verify responses to referees"
-  default_prompt: "Use $manuscript-reviewer-response to plan our revision from this decision letter: split the comments into items in the referees' numbering, record what each asks for, and list the decisions we need to make."
+  default_prompt: "Use $manuscript-reviewer-response to plan our revision from this decision letter: split the comments into items in the referees' numbering, record what each asks for, propose a decision for each, and ask us to confirm them in one answer, naming any comment you propose to decline and any new analysis or data."

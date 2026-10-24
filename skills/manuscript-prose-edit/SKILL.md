@@ -25,6 +25,9 @@ interviews. Read the settings before editing. Collect substantive proposals whil
 independent checks and permitted edits; a pending answer blocks only work that depends on it.
 
 Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+As a stage of `manuscript-improve` (or run alone), finish with the [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist):
+record each applied edit with `runs.py change` (routine fixes grouped as one record per paragraph or section) and
+write `findings.json` with the `PE` prefix.
 
 ## Edit and check the result
 
@@ -33,8 +36,11 @@ rules, and [section-guide.md](references/section-guide.md) when a section's purp
 [manuscript-deslop](../manuscript-deslop/SKILL.md) for the pattern check: it owns the catalogue,
 false-positive exceptions and style profiler. **The smell check is required for every edit**, including a
 short pasted passage saved as before/after files. Run its counts before and after editing, then read the
-edit against the full catalogue list. Resolve added patterns and clusters, or record a reviewed exception
-with `--keep ID` and explain the retained sentences to the authors. A sentence that works can stay.
+edit against the full catalogue list. The check judges only what the edit added (a pattern, or a third use
+under a heading); runs of a pattern the draft already had are the deslop stage's work. Resolve what it lists,
+or keep a reviewed use with `--keep ID@HEADING` (`--keep ID` keeps it everywhere), record it in this skill's
+run folder with `--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt`, and explain the retained
+sentences to the authors. A sentence that works can stay.
 
 Use available author samples (`--sample`) when voice matching helps; do not require samples for an
 ordinary edit. Use this plugin's deslop workflow for these checks; other installed humanizers can have
@@ -43,40 +49,53 @@ rules that conflict with scientific writing or the preservation contract.
 Make the authorised edits, preserve scientific meaning and review the diff in context. The contract's
 **claim ceiling** holds for every request, including "make it punchier" or "sound more confident": improve
 the prose, never raise a claim's certainty, causality, novelty, generality or scope
-([claim-ladders.md](references/claim-ladders.md)). Narrowing a claim is a claim correction the authors must
-see. For file edits:
+([claim-ladders.md](references/claim-ladders.md)). Narrowing a claim to what its evidence shows follows the
+`edits` setting like any claim correction: under `conservative` and `apply` it is applied when a confirmed
+finding supports it, by rewording (never by deleting the claim) and shown before and after; under `propose` it
+is proposed. Only the choice between new work and a narrower claim is the authors'. For file edits:
 
 ```bash
 uv run --script ../manuscript-deslop/scripts/style_profile.py BEFORE.md # before editing: where the patterns are
 uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
 uv run --script scripts/guard.py AFTER.md --against HEAD                # in git: the last commit is BEFORE
-uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID] [--sample AUTHORS.md]
+uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID@HEADING] [--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt] [--sample AUTHORS.md]
 ```
 
 Retain the before/after copies, guard JSON, style reports and adjudication in this skill's run folder under the shared [project-output contract](../manuscript-integrity-check/references/project-workflow.md). Link the report and consequential comparisons; preserve flags and failed checks even when a later revision resolves them.
 
-The guard keeps its whole-text counts of numbers, citations, identifiers and terms, and also aligns the
-sentences of the two versions (split, merged and moved sentences included). For each sentence it reports,
-with section and line, a claim that rose or fell on the causal or evidential ladder, novelty or generality
-wording, a scope qualifier, limiting or concessive word ("only", "albeit", "despite"), null result or
-evidence-status word that disappeared, and a number, citation or identifier the sentence did not have. Exit 1
-marks a protected change: a count change, a stronger claim, a lost qualifier or a token new to its paragraph.
-Lowered claims and moved tokens are warnings. When something asked for a claim change (the authors' request, a
-confirmed finding, a referee's comment), list each one in a small file (`passage`: words from the sentence,
-`finding`: what asked for it) and pass `--authorised FILE`: those changes are marked with what asked for them, and
-any other claim that widened still fails, so restore its wording yourself; the authors are not asked. Numbers and
-citations never pass this way. `--allow-strengthening` authorises every claim change at once, only for a request
-that covers the whole text. With `--relocated`, a
-scope qualifier, limiting or concessive word, null result or evidence-status word that left its sentence is a
-warning instead of exit 1 when a new or changed sentence, in the edited text or a `--moved-to` file, holds the
-same marker; a caveat reworded on the way, or one that no such sentence holds, still exits 1, and so does any lost
-number, citation or identifier. Use it only when the edit moves caveats on purpose (manuscript-story does). The
-guard does not prove semantic equivalence. Resolve false positives yourself when meaning is unchanged and rerun only checks
-affected by the edit. Revision markers
-(`<!-- @rev ... -->`) stay where they are and are added or updated only as the project's written rules say
-([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review));
-the guard ignores them. Where the project keeps them, an applied edit bumps or opens its segment through
-`manuscript-revision-marks`, signed with the name of whoever wrote the round. Return the edited text or a concise file-change summary, the warnings that stand, the
+The guard keeps its whole-text counts of numbers, citations, identifiers and terms (a term added to a paragraph
+that already has it, such as a pronoun given its noun, is not counted), and also aligns the sentences of the two
+versions (split, merged and moved sentences included). For each sentence it reports, with section and line, a
+claim that rose or fell on the causal or evidential ladder, novelty or generality wording, a scope qualifier,
+limiting or concessive word ("only", "albeit", "despite"), null result or evidence-status word that disappeared,
+a number, citation or identifier the sentence did not have, and a declaration only the authors can make
+(consent, ethics approval, competing interests, funding, an author's contribution) that was written, reworded or
+removed. Exit 1 marks a protected change: a count change, a stronger claim, a lost qualifier, a token new to its
+paragraph or moved to another paragraph, or a declaration. Warnings, which the authors still see: a lowered claim
+(protected instead in a negated sentence), an added qualifier, a changed negation, a deleted sentence, and a
+token moved within its paragraph or into a `--moved-to` file. A deleted sentence that was only a stock phrase is
+not listed; one that said more is listed as "cut as a stock phrase".
+
+When something asked for a claim change or a declaration (the authors' request, a confirmed finding, a referee's
+comment), list each one in a small file and pass `--authorised FILE`. Each entry gives `passage`, at least three
+words in a row copied exactly from the sentence before or after the edit, and `finding`, what asked for it (a
+referee comment id such as R2.4 may be given as `comment`). Those changes are marked with what asked for them,
+and any other widened claim or changed declaration still fails, so restore its wording yourself; the authors
+are not asked. Numbers and citations never pass this way. `--allow-strengthening` authorises every claim change
+at once (never a declaration), only for a request that covers the whole text.
+
+`--relocated` is for an edit that moves caveats on purpose (manuscript-story's). A scope, limiting or
+concessive, null-result or evidence-status marker that left its sentence, or went with a deleted one, is a
+warning when another sentence of the same top-level section, about the same thing (at least two content words
+in common), states it, whether it gained the marker in the edit or already had it. A scope qualifier or
+evidence status lost from the Abstract or the Introduction stays protected, and so does a caveat found only in
+another section or a `--moved-to` file, one reworded on the way, and every citation and identifier. A number
+moved to a sentence of its section about the same thing, and a new headline that names nothing its paragraph
+lacks and claims no more than it, are warnings. `--relocated-in RUN/manuscript-story` limits these moves to that
+stage's own changes (manuscript-improve's final check uses it). The guard does not prove semantic equivalence.
+Resolve false positives yourself when meaning is unchanged and rerun only checks affected by the edit. Revision
+markers follow the shared rule ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review),
+"Revision marks"); the guard ignores them. Return the edited text or a concise file-change summary, the warnings that stand, the
 patterns kept on purpose and unresolved content questions; detailed change tables are on request.
 
 For a claim that needs source verification, use `manuscript-reference-check`. Use `manuscript-policy-fit`
@@ -101,10 +120,11 @@ description in parentheses ("participle tails cut in four places (A9)"), never r
 
 List what the edit could not settle by when it can be done
 ([Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)),
-using that section's group labels and leaving out empty groups. A claim that outruns its evidence, a number or
-citation the sentence needs and the text does not give, or a qualifier that may be missing goes under "Fix now"
-with the question for the authors. The prose changes themselves, and choices of wording left to the authors,
-belong to "Then the writing". Word limits and required sections wait for "Once you have chosen the journal".
+using that section's group labels and leaving out empty groups. A claim that outruns its evidence goes under
+"Fix now", narrowed or proposed as the `edits` setting says (above); the authors decide only between new work
+and the narrower claim. A number or citation the sentence needs and the text does not give, or a qualifier that
+may be missing, goes there too, as a comment only the authors can answer. The prose changes themselves, and
+choices of wording left to the authors, belong to "Then the writing". Word limits and required sections wait for "Once you have chosen the journal".
 Stripping revision markers, the declarations and the AI-use statement are end-stage work for "Before
 submission, once the code is final" and are never called blockers for a draft.
 
@@ -119,9 +139,10 @@ uv run --script scripts/guard.py REVISED.md --against v1-submitted --revision
 uv run --script scripts/guard.py ORIGINAL.md MAIN.md --revision --moved-to SUPPLEMENT.md  # text moved to another file is moved, not removed; repeat --moved-to per file
 ```
 
-It reports every number, citation, identifier, claim-strength, scope, null-result and evidence-status change
-with section and line, in the same JSON fields as an edit (`sentence_changes`, `alignment`, `summary`), and
-exits 0, except with `--authorised`: a claim that widened with no matching entry then exits 1. `manuscript-reviewer-response` checks each listed change against the response letter;
+It reports every number, citation, identifier, claim-strength, scope, null-result, evidence-status and
+declaration change with section and line, in the same JSON fields as an edit (`sentence_changes`, `alignment`,
+`summary`), and exits 0; with `--authorised` it exits 1 when a claim widened, or a declaration was written,
+changed or removed, with no matching entry. `manuscript-reviewer-response` checks each listed change against the response letter;
 `manuscript-journal-adapt` and `manuscript-policy-fit` use it to show what their authorised edits changed.
 Present the changes; do not judge them as errors, since the authors chose them. A whole-paper revision can
 list hundreds of changes: give the authors the claim changes first, each quoted with its section, then the
@@ -152,7 +173,8 @@ Then run `scripts/detect.py PAPER --detector <key> --sample AUTHORS.md`, omittin
 available. A hosted detector needs `--allow-remote` and the author's consent for this text. Read
 [detector-apis.md](references/detector-apis.md) for setup and output, and
 [detector-evidence.md](references/detector-evidence.md) for limitations. Treat flagged passages as places
-to reread; use them in a critic pass only if that mode was requested. Tell the authors what a score measures,
+to reread; in reflection mode, when it was requested, they go to the writer in the first round, never to the
+critic. Tell the authors what a score measures,
 with the detector's name in parentheses ("the detector's estimate that a model wrote the passage was 0.91
 (ModernBERT detector)"), and quote each flagged passage's opening with its section.
 

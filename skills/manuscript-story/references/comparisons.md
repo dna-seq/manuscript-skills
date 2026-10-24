@@ -8,10 +8,11 @@ feature comparison: what each tool can do belongs in the paper's own comparison 
 
 ## Neighbours: for positioning
 
-**Choose three to five**, in this order: the predecessors the authors name (ask once, if none are named);
-the closest work the paper already cites or tabulates; the authors' own earlier versions and preprints;
-the papers a reader of the target venue most likely knows; and anything closer that a search finds
-(PubMed, Europe PMC, arXiv and bioRxiv). The authors' own earlier work is an earlier telling of this
+**Choose three to five**, in this order: the predecessors the authors name (in the paper, the record or the
+conversation); the closest work the paper already cites or tabulates; the authors' own earlier versions and
+preprints; the papers a reader of the target venue most likely knows; and anything closer that a search finds
+(PubMed, Europe PMC, arXiv and bioRxiv). Search before asking: only when neither the paper nor a search shows
+a clear predecessor, add the question to the end-of-run questions, and compare with what was found meanwhile. The authors' own earlier work is an earlier telling of this
 paper's story, compared as a version, never as a competitor.
 
 **Read** each one's Abstract and Introduction, and its Conclusion when it has one, from an open-access

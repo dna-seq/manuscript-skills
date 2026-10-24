@@ -14,6 +14,15 @@ A clean run is not a good letter.
 Without a letter it checks the ledger alone (plan mode): every comment verbatim and in the referees' order,
 links between items, a reason for every decline; undecided items are listed, not failed.
 
+Decisions: an item's `decision` is the authors' own, given item by item, or covered by their one
+confirmation of the proposed decisions. Such an item has `proposed` (the decision the plan proposed) and
+`confirmed: blanket`, and its round records the confirmation (`confirmation:` with `asked`, the question as it
+was put, `answer`, the authors' words, and `named`, the items the question named). A blanket confirmation covers
+items the plan proposes to address with text changes only; a proposed decline or "does not apply", and an item
+whose answer needs new data or a new analysis, count as confirmed only when the question named them ("All as
+proposed, including declining R2.4 and adding the replication in R1.3?"). An item it does not cover stays
+undecided.
+
     uv run --script check_response.py REVIEWS LEDGER                    # plan mode: the ledger alone
     uv run --script check_response.py REVIEWS LEDGER LETTER --revised REVISED [--original ORIGINAL]
     uv run --script check_response.py reviews-r1.txt review-ledger.yaml response-r1.md \
@@ -50,6 +59,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from bisect import bisect_right
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
@@ -460,6 +470,8 @@ def load_doc(path: Path) -> Doc:
 # --------------------------------------------------------------------------------------------------------
 
 DECISIONS = {"address", "decline", "not-on-point", "undecided"}
+CONFIRMED = {"blanket", "item"}  # covered by the authors' one confirmation of the proposals, or decided on its own
+NEW_WORK = {"new-data", "new-analysis"}  # an item needing these is never covered by a blanket yes unless named
 EVIDENCE = {"new-data", "new-analysis", "table", "figure", "citation", "methods-text", "results-text",
             "discussion-text", "statement", "wording", "answer", "acknowledge"}
 LETTER_ONLY_EVIDENCE = {"answer", "acknowledge"}
@@ -497,12 +509,20 @@ class Item:
     sentence: str = ""
     label: str = ""    # the referee's own marker ("2", "4a", "Suggestions 2"); empty when the authors added the id
     round: int = 1
+    proposed: str = ""  # the decision the plan proposed to the authors
+    confirmed: str = ""  # "blanket": covered by the round's confirmation; "item": decided on its own
+    not_covered: str = ""  # why the round's confirmation does not cover an item marked blanket
 
 
 @dataclass
 class Round:
     number: int
     items: list[Item]
+    confirmation: dict[str, object] = field(default_factory=dict)  # asked, answer (the authors' words), named
+
+
+def _decision(value: object) -> str:
+    return _text(value).lower().replace("_", "-").replace(" ", "-")
 
 
 def _text(value: object) -> str:
@@ -541,6 +561,10 @@ def load_ledger(path: Path) -> list[Round]:
         raw_items = entry.get("items")
         if not isinstance(raw_items, list) or not raw_items:
             raise InputError(f"In the ledger {path}, round {number} has no items.")
+        confirmation = entry.get("confirmation") or {}
+        if not isinstance(confirmation, dict):
+            raise InputError(f"In the ledger {path}, round {number} has a `confirmation:` that is not a mapping with "
+                             "`asked`, `answer` and `named`.")
         items: list[Item] = []
         seen: set[str] = set()
         for k, raw in enumerate(raw_items):
@@ -556,10 +580,18 @@ def load_ledger(path: Path) -> list[Round]:
             comment = _text(raw.get("comment"))
             if not comment:
                 raise InputError(f"{where} ({item_id}) has no `comment:` text.")
-            decision = (_text(raw.get("decision")).lower().replace("_", "-").replace(" ", "-") or "undecided")
+            decision = _decision(raw.get("decision")) or "undecided"
             if decision not in DECISIONS:
                 raise InputError(f"{where} ({item_id}) has the decision {decision!r}, which is not one of "
                                  f"{', '.join(sorted(DECISIONS))}.")
+            proposed = _decision(raw.get("proposed"))
+            if proposed and proposed not in DECISIONS - {"undecided"}:
+                raise InputError(f"{where} ({item_id}) proposes {proposed!r}, which is not one of "
+                                 f"{', '.join(sorted(DECISIONS - {'undecided'}))}.")
+            confirmed = _text(raw.get("confirmed")).lower()
+            if confirmed and confirmed not in CONFIRMED:
+                raise InputError(f"{where} ({item_id}) has `confirmed: {confirmed}`; use blanket (covered by the round's "
+                                 "confirmation of the proposals) or item (decided on its own).")
             evidence = raw.get("evidence") or []
             evidence = [evidence] if isinstance(evidence, str) else [str(e).strip() for e in evidence]
             commitments: list[Commitment] = []
@@ -577,8 +609,9 @@ def load_ledger(path: Path) -> list[Round]:
                               reason=_text(raw.get("reason")), evidence=evidence,
                               must_fix=bool(raw.get("must_fix")), commitments=commitments, previous=previous,
                               index=k, hand_to=hand_to, same_as=_strings(raw.get("same_as")),
-                              sentence=_text(raw.get("sentence")), label=_text(raw.get("label")), round=number))
-        rounds.append(Round(number, items))
+                              sentence=_text(raw.get("sentence")), label=_text(raw.get("label")), round=number,
+                              proposed=proposed, confirmed=confirmed))
+        rounds.append(Round(number, items, confirmation))
     numbers = [r.number for r in rounds]
     if len(set(numbers)) != len(numbers):
         raise InputError(f"In the ledger {path}, a round number occurs twice.")
@@ -1216,6 +1249,7 @@ class Checker:
         self.not_assessed: list[str] = []
         self.cited: list[Location] = []
         self.undecided: list[Item] = []
+        self.blanket: list[Item] = []  # decisions the authors' one confirmation of the proposals covers
 
     def add(self, code: str, item: str, message: str, line: int | None = None, blocking: bool | None = None,
             details: list[dict[str, object]] | None = None) -> None:
@@ -1280,15 +1314,17 @@ class Checker:
             self.add("LEDGER_ORDER", item.id, "The ledger lists this comment out of the order in which the referees "
                      "wrote it. Move it to its place: the letter follows the referees' order, and the check compares "
                      "the two.")
+        self._apply_confirmation()
         self._check_links()
         plan = self.letter is None
         for item in self.items:
             if item.decision == "undecided":
                 self.undecided.append(item)
                 if not plan:
+                    cover = f" Your confirmation of the proposed decisions does not cover it: {item.not_covered}." if item.not_covered else ""
                     self.add("DECISION_MISSING", item.id, "You have not decided yet whether to make this change, to "
                              "decline it, or to explain that it does not apply. The letter cannot answer the comment "
-                             "until you decide; the check never guesses a decision.")
+                             f"until you decide; the check never guesses a decision.{cover}")
             elif item.decision == "decline" and not item.reason:
                 self.add("REASON_MISSING", item.id, "You decided to decline this, and that is your decision, but the "
                          "ledger gives no reason for the reply to state. Add the reason as you would give it to the "
@@ -1320,6 +1356,32 @@ class Checker:
                     self.add("PROMISED", item.id,
                              f"You promise {what} for a later version ({recorded}). The reply must present it as a "
                              "promise and claim nothing as done.")
+
+    def _apply_confirmation(self) -> None:
+        """An item marked `confirmed: blanket` takes its proposed decision when the round records the authors' answer
+        and the confirmation covers it: a change to the text, or a decline, a "does not apply" or new work that the
+        question named. Otherwise it stays undecided, with the reason."""
+        confirmation = self.round.confirmation
+        answered = bool(_text(confirmation.get("answer")))
+        named = set(_strings(confirmation.get("named")))
+        for item in self.items:
+            if item.confirmed != "blanket":
+                continue
+            decision = item.decision if item.decision != "undecided" else item.proposed
+            if not answered:
+                item.not_covered = "no confirmation is recorded for this round of comments"
+            elif not decision:
+                item.not_covered = "no decision was proposed for it"
+            elif (decision != "address" or set(item.evidence) & NEW_WORK) and item.id not in named:
+                kind = ("new data or a new analysis" if decision == "address" else
+                        "declining it" if decision == "decline" else "finding that it does not apply")
+                item.not_covered = (f"the proposal involves {kind}, which the question you confirmed has to name, "
+                                    "and it did not")
+            if item.not_covered:
+                item.decision = "undecided"
+            else:
+                item.decision = decision
+                self.blanket.append(item)
 
     def _check_links(self) -> None:
         """`same_as` names an earlier item of this round (a repeat, which takes over that item's decision);
@@ -1892,6 +1954,10 @@ def run(reviews: Path, ledger: Path, letter: Path | None = None, *, revised: Pat
         notes = []
         if name == "guard" and guard_note:
             notes.append(_cap(guard_note) + ".")
+        if name == "decisions" and checker.blanket:
+            n = len(checker.blanket)
+            notes.append(f"{_cap(_count(n, 'decision'))} {'comes' if n == 1 else 'come'} from your one confirmation of the "
+                         "proposed decisions.")
         if name == "decisions" and letter_text is None and checker.undecided:
             n = len(checker.undecided)
             notes.append(f"{_cap(_count(n, 'comment'))} still {'waits' if n == 1 else 'wait'} for your decision, as "
@@ -1919,6 +1985,7 @@ def run(reviews: Path, ledger: Path, letter: Path | None = None, *, revised: Pat
                  "file lines" if revised_doc else "n/a")
     undecided = [{"id": it.id, "referee": it.referee, "label": it.label, "comment": it.comment,
                   "must_fix": it.must_fix, "hand_to": it.hand_to, "evidence": it.evidence,
+                  "proposed": it.proposed, "not_covered": it.not_covered,
                   "stage": stage_for("DECISION_MISSING", it.evidence)} for it in checker.undecided]
     report = Report(mode=mode.value, stage="ledger" if letter_text is None else "letter", round=number,
                     items=len(checker.items), blocks=sum(1 for b in blocks if b.item or b.tag or b.quote),
@@ -1987,6 +2054,10 @@ def _decision_lines(u: dict[str, object], report: Report) -> list[str]:
                 "validity.")
     if item.hand_to:
         out += f" Draft its reply with {_listed(item.hand_to)}."
+    if item.proposed:
+        out += f" The plan proposes: {DECISION_WORDS[item.proposed]}."
+    if item.not_covered:
+        out += f" Your confirmation of the proposed decisions does not cover it: {item.not_covered}."
     return [out]
 
 
@@ -2131,4 +2202,7 @@ def main(
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on every platform, a Windows console included
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

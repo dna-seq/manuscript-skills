@@ -19,17 +19,22 @@ A rewritten segment sits between two HTML comments, which renderers and pandoc d
     The rewritten text.
     <!-- @/rev C3 -->
 
-- The id is the comment it answers: capitals, digits, an optional lowercase letter (C3, N1, C3a), or a
-  review-ledger item (R1.2, R2.W1, R1.4a; manuscript-reviewer-response's numbering). Ids are unique per
-  file; one comment answered in several places takes C3a, C3b, grouped as C3 (R1.4a, R1.4b as R1.4).
-- `rounds=` is a whole number of at least 1; `by=` is `name:YYYY-MM-DD`, comma-separated. Both are
-  required, nothing else is allowed, and a count of entries unlike `rounds` is a warning.
+- The id names what the passage answers: a comment (C3), a review-ledger item (R1.2, R2.W1, Ed.P1,
+  R2.P3b; manuscript-reviewer-response's numbering), a finding of the run that asked for the edit
+  (IC-1, RF-3), or N1, N2 for a revision nothing asked for (the authors' own, or a section's copy-edit
+  round). An id opens with a capital letter, holds letters, digits, hyphens and dots, and has a digit
+  somewhere. Ids are unique per file; one comment answered in several places takes C3a, C3b, grouped as
+  C3 (R1.4a, R1.4b as R1.4).
+- `rounds=` counts the passes over the passage, writing or approval; `by=` is `name:YYYY-MM-DD` for
+  each, comma-separated: whoever wrote or approved that round. Both are required, nothing else is
+  allowed, and a count of entries unlike `rounds` is a warning.
 - A mark on a line of its own goes with its line; an inline mark is glued to the text and goes
   alone, so a space beside it is text. Segments with different ids nest. A mark inside code is an
-  example, not a mark. `strip` is the exact inverse: the twin is the file as it was before any mark
-  went in, byte for byte, CRLF and other comments included.
+  example, not a mark. `strip` removes exactly the marks: the twin is the current master with its
+  marks removed, byte for byte, CRLF and other comments included.
 - The twin is `<stem>.clean.md` beside FILE; a build reads the twin, never the marked source.
-- A blind spot is a prose line (a paragraph, a list item, a table row) no segment overlaps.
+- A blind spot is a paragraph (lines no blank line separates: a list or a table is one) that no
+  segment overlaps. Headings, YAML front matter, code and an image alone on its line are not prose.
 - A segment is unreviewed when the last name in its `by=` is not a person: a name the project's
   rev-marks.toml lists in `agents`, or one matching ../references/agent-names.toml, or (with the default
   `unknown = "agent"`) one it lists nowhere. `humans` in rev-marks.toml outranks the agent list. lint
@@ -55,9 +60,13 @@ A `.tex` file carries its marks as LaTeX comments, each on a line of its own, an
   the whole file when there are none) that is not blank, not only a comment, carries a letter or a
   digit outside command names, and is not a line of commands alone (`\\section{…}`, `\\label{…}`,
   `\\begin{figure}`), unless that line opens with a command whose argument is prose (`\\caption`,
-  `\\footnote`, `\\item`, `\\emph`, `\\textbf`, `\\textit`). A sectioning line is a heading, as `#` is.
+  `\\footnote`, `\\item`, `\\emph`, `\\textbf`, `\\textit`). A paragraph is a run of prose lines that
+  no blank line and no line of commands alone separates; a comment line inside it does not end it.
 
 Standard library only. The mark format comes from the manuscript ledger of dna-seq/just-dna-lite.
+
+A PDF or Word file carries no marks this tool can read: `report` on one is exit 3, naming what to check
+instead.
 
 EXIT STATUS  0 clean · 1 errors found, a stale twin, an unknown id · 2 usage, a malformed rev-marks.toml
              · 3 could not run
@@ -76,9 +85,11 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from string import ascii_lowercase
 
-ID_PATTERN = r"[A-Z]+[0-9]+(?:\.[A-Z]*[0-9]+)*[a-z]?"
+# A capital letter, then letters, digits, hyphens and dotted parts, with a digit somewhere: C3, C3a, N1, R1.2,
+# R2.W1, Ed.P1, R2.P3b, R1.6.1, IC-1, RP.RC-1, IC-1.20261024.
+ID_PATTERN = r"(?=\S*[0-9])[A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*(?:\.[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)*"
+ID_EXAMPLES = "C3, C3a, N1, R1.2, Ed.P1, IC-1"
 NAME_PATTERN = r"[A-Za-z][A-Za-z0-9_.-]*"
 CLEAN_SUFFIX = ".clean.md"
 TEX_CLEAN_SUFFIX = ".clean.tex"
@@ -98,8 +109,18 @@ CANDIDATE_START_RE = re.compile(r"<!--[ \t\r\n]*@/?rev\b")
 FENCE_OPEN_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})")
 INLINE_CODE_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=ticks)(?!`)", re.DOTALL)
 KNOWN_KEYS = ("rounds", "by")
-# Lines that carry no prose of their own: headings, rules, table rulers, comment-only lines.
-NON_PROSE_RE = re.compile(r"^\s*(#|-{3,}\s*$|\*{3,}\s*$|\|?[\s:|-]*-{3,}[\s:|-]*\|?\s*$|<!--.*-->\s*$)")
+# Markdown lines that end a paragraph and carry no prose: headings, rules, pandoc's div fences, and an image
+# alone on its line (a figure).
+MD_BREAK_RE = re.compile(r"^\s*(#|-{3,}\s*$|\*{3,}\s*$|_{3,}\s*$|:{3,}|!\[[^\]]*\]\([^)]*\)(?:\{[^}]*\})?\s*$"
+                         r"|<img\b[^>]*>\s*$)")
+# Markdown lines inside a paragraph that carry no prose: a table's ruler, a comment alone (a mark among them).
+MD_ASIDE_RE = re.compile(r"^\s*(\|?[\s:|-]*-{3,}[\s:|-]*\|?\s*$|<!--.*-->\s*$)")
+# Lines that carry no prose of their own, either kind.
+NON_PROSE_RE = re.compile(f"{MD_BREAK_RE.pattern}|{MD_ASIDE_RE.pattern}")
+# YAML front matter: a `---` line opening the file, closed by `---` or `...`.
+FRONT_MATTER_RE = re.compile(r"\A\ufeff?---[ \t]*\r?\n(?:.*?\r?\n)??(?:---|\.\.\.)[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+# Files that are not text: a mark cannot be read from them.
+BINARY_SUFFIXES = {".pdf": "a PDF", ".docx": "a Word file", ".doc": "a Word file", ".odt": "an OpenDocument file"}
 # LaTeX: a mark is a comment whose text opens with @rev or @/rev. Whether its % is escaped is decided
 # by the backslashes just before it: `\%` is a percent sign, `\\%` a line break and then a comment.
 TEX_CANDIDATE_RE = re.compile(r"%[ \t]*@/?rev\b")
@@ -134,7 +155,7 @@ class Code(StrEnum):
     UNKNOWN_KEY = "unknown-key"
     DUPLICATE_KEY = "duplicate-key"
     BAD_ROUNDS = "bad-rounds"
-    BAD_REVIEWER = "bad-reviewer"
+    BAD_BY = "bad-by-entry"
     BAD_DATE = "bad-date"
     UNCLOSED = "unclosed"
     UNOPENED = "unopened"
@@ -142,11 +163,14 @@ class Code(StrEnum):
     SELF_NESTED = "self-nested"
     DUPLICATE_ID = "duplicate-id"
     EMPTY_SEGMENT = "empty-segment"
-    ROUNDS_REVIEWERS_MISMATCH = "rounds-reviewers-mismatch"
+    ROUNDS_BY_MISMATCH = "rounds-by-mismatch"
     AMBIGUOUS_SPACE = "ambiguous-space"
     INLINE_AT_LINE_START = "inline-at-line-start"
     INLINE_MARK = "inline-mark"
     UNCLASSIFIED_NAME = "unclassified-name"
+    # The names before 0.19, kept as aliases: a by= name is whoever wrote or approved a round, not a reviewer.
+    BAD_REVIEWER = "bad-by-entry"
+    ROUNDS_REVIEWERS_MISMATCH = "rounds-by-mismatch"
 
 
 @dataclass(frozen=True)
@@ -179,7 +203,7 @@ class Attributes:
     @property
     def comment_id(self) -> str:
         """The comment this segment answers: `C3a` and `C3b` both answer `C3`."""
-        return self.id.rstrip(ascii_lowercase)
+        return comment_of(self.id)
 
     def render(self, syntax: Syntax = Syntax.MARKDOWN) -> str:
         body = f"@rev {self.id} rounds={self.rounds} by={','.join(e.render() for e in self.by)}"
@@ -223,13 +247,14 @@ class Segment:
 
 @dataclass(frozen=True)
 class Paragraph:
-    """One prose line and whether a segment covers it."""
+    """One paragraph (its prose lines, from the first to the last) and whether a segment covers it."""
 
-    line: int
+    line: int  # its first prose line
     start: int
     end: int
     text: str
     covered: bool
+    lines: tuple[int, ...] = ()  # every prose line in it
 
 
 @dataclass(frozen=True)
@@ -256,6 +281,12 @@ class Marks:
 
     def segment(self, segment_id: str) -> Segment | None:
         return next((s for s in self.segments if s.id == segment_id), None)
+
+
+def comment_of(segment_id: str) -> str:
+    """The comment an id answers: a lowercase letter after a digit splits one comment over places
+    (`C3a`, `R1.4b`); `Ed.P1` and `R1.Minor3` answer themselves."""
+    return re.sub(r"(?<=[0-9])[a-z]$", "", segment_id)
 
 
 def first_words(text: str) -> str:
@@ -341,7 +372,7 @@ def parse_by(value: str, line: int, issues: list[Issue]) -> tuple[Entry, ...] | 
     for item in value.split(","):
         name, sep, day = item.partition(":")
         if not sep or not NAME_RE.match(name):
-            issues.append(error(Code.BAD_REVIEWER, line, f"reviewer entry {item!r} is not name:YYYY-MM-DD"))
+            issues.append(error(Code.BAD_BY, line, f"by= entry {item!r} is not name:YYYY-MM-DD"))
             return None
         on = iso_date(day)
         if on is None:
@@ -376,7 +407,8 @@ def parse_candidate(text: str, start: int, line: int, issues: list[Issue],
         return None
     segment_id = tokens[1]
     if not ID_RE.match(segment_id):
-        issues.append(error(Code.BAD_ID, line, f"id {segment_id!r} does not match {ID_PATTERN} (C3, N1, C3a, R1.2, R2.W1)"))
+        issues.append(error(Code.BAD_ID, line, f"id {segment_id!r} is not an id: a capital letter, then letters,"
+                                               f" digits, hyphens and dots, with a digit somewhere ({ID_EXAMPLES})"))
         return None
     if not opens:
         if len(tokens) != 2:
@@ -414,8 +446,8 @@ def parse_candidate(text: str, start: int, line: int, issues: list[Issue],
         return Mark(True, segment_id, start, end)
     attributes = Attributes(segment_id, int(rounds), by)
     if attributes.rounds != len(attributes.by):
-        issues.append(warning(Code.ROUNDS_REVIEWERS_MISMATCH, line,
-                              f"{segment_id}: rounds={attributes.rounds} but {len(attributes.by)} reviewer entries"))
+        issues.append(warning(Code.ROUNDS_BY_MISMATCH, line,
+                              f"{segment_id}: rounds={attributes.rounds} but {len(attributes.by)} by= entries"))
     return Mark(True, segment_id, start, end, attributes=attributes)
 
 
@@ -510,7 +542,7 @@ def parse(text: str, syntax: Syntax = Syntax.MARKDOWN) -> Marks:
         if m.id in seen:
             issues.append(error(Code.DUPLICATE_ID, m.line,
                                 f"{m.id} is already used on line {seen[m.id]}; give each place its own"
-                                f" id ({m.id.rstrip(ascii_lowercase)}a, …b)"))
+                                f" id ({comment_of(m.id)}a, …b)"))
         else:
             seen[m.id] = m.line
 
@@ -772,7 +804,7 @@ def parse_entry(value: str, today: date) -> Entry:
     """`NAME` or `NAME:YYYY-MM-DD`, the `--by` of `bump`."""
     name, sep, day = value.partition(":")
     if not NAME_RE.match(name):
-        raise ValueError(f"reviewer name {name!r} must match {NAME_PATTERN}")
+        raise ValueError(f"name {name!r} must match {NAME_PATTERN}")
     if not sep:
         return Entry(name, today)
     on = iso_date(day)
@@ -858,24 +890,58 @@ def tex_body(text: str, code: list[tuple[int, int]]) -> tuple[int, int]:
     return lo, hi
 
 
+def front_matter_end(text: str) -> int:
+    """Where a Markdown file's YAML front matter ends; 0 when it has none."""
+    m = FRONT_MATTER_RE.match(text)
+    return m.end() if m else 0
+
+
+def line_kind(raw: str, syntax: Syntax) -> str:
+    """`prose`; `aside`, a line inside a paragraph that carries no prose (a comment alone, a mark among
+    them; a table's ruler); or `break`, a line that ends the paragraph (a heading, a figure, a line of
+    LaTeX commands alone)."""
+    if syntax == Syntax.TEX:
+        if tex_uncommented(raw).strip() == "":
+            return "aside"
+        return "prose" if tex_prose(raw) else "break"
+    body = raw.strip()
+    if MD_ASIDE_RE.match(body):
+        return "aside"
+    return "break" if MD_BREAK_RE.match(body) else "prose"
+
+
 def paragraphs(found: Marks) -> list[Paragraph]:
-    """Every prose line, covered when a segment overlaps it. One paragraph per line is the unit a
-    reader's attention lands on; an uncovered one is a blind spot."""
+    """Every paragraph, covered when a segment overlaps it; an uncovered one is a blind spot. A paragraph
+    is a run of prose lines that no blank line, heading, figure or code separates: the unit a reader's
+    attention lands on. A list or a table without blank lines is one."""
     spans = [(s.open.start, s.close.end) for s in found.segments]
     tex = found.syntax == Syntax.TEX
     code = code_ranges_of(found.text, found.syntax)
-    lo, hi = tex_body(found.text, code) if tex else (0, len(found.text))
+    lo, hi = tex_body(found.text, code) if tex else (front_matter_end(found.text), len(found.text))
     out: list[Paragraph] = []
+    block: list[tuple[int, int, int, str]] = []  # (line number, start, end, text) of each prose line
+
+    def close() -> None:
+        if block:
+            start, end = block[0][1], block[-1][2]
+            out.append(Paragraph(block[0][0], start, end, " ".join(b[3] for b in block),
+                                 any(lo_ < end and start < hi_ for lo_, hi_ in spans), tuple(b[0] for b in block)))
+            block.clear()
+
     offset = 0
     for number, raw in enumerate(found.text.splitlines(keepends=True), start=1):
         start, end = offset, offset + len(raw)
         offset = end
         body = raw.strip()
         if not body or in_ranges(start, code) or not lo <= start < hi:
+            close()
             continue
-        if (not tex_prose(raw)) if tex else NON_PROSE_RE.match(body):
-            continue
-        out.append(Paragraph(number, start, end, body, any(lo_ < end and start < hi_ for lo_, hi_ in spans)))
+        kind = line_kind(raw, found.syntax)
+        if kind == "break":
+            close()
+        elif kind == "prose":
+            block.append((number, start, end, body))
+    close()
     return out
 
 
@@ -884,7 +950,8 @@ def blind_spots(found: Marks) -> list[Paragraph]:
 
 
 def report_rows(found: Marks) -> list[dict[str, str]]:
-    return [{"id": s.id, "rounds": str(s.rounds), "reviewers": ", ".join(e.render() for e in s.attributes.by),
+    """One row per segment; `rounds by` is whoever wrote or approved each round, in order."""
+    return [{"id": s.id, "rounds": str(s.rounds), "rounds by": ", ".join(e.render() for e in s.attributes.by),
              "line": str(s.open.line), "first words": first_words(s.text)} for s in found.segments]
 
 
@@ -902,13 +969,14 @@ def totals(found: Marks) -> dict[str, int]:
 
 def format_report(found: Marks) -> str:
     rows = report_rows(found)
-    heads = ["id", "rounds", "reviewers", "line", "first words"]
+    heads = ["id", "rounds", "rounds by", "line", "first words"]
     widths = {h: max([len(h), *(len(r[h]) for r in rows)]) for h in heads[:-1]}
     lines = ["  ".join([*(h.upper().ljust(widths[h]) for h in heads[:-1]), heads[-1].upper()])]
     for r in rows:
         cells = [r[h].rjust(widths[h]) if h in ("rounds", "line") else r[h].ljust(widths[h]) for h in heads[:-1]]
         lines.append("  ".join([*cells, r["first words"]]))
-    lines += ["", ", ".join(f"{k}: {v}" for k, v in totals(found).items())]
+    lines += ["", ", ".join(f"{k}: {v}" for k, v in totals(found).items()),
+              "A round is one pass over a passage, writing it or approving it; ROUNDS BY names who did each."]
     return "\n".join(lines) + "\n"
 
 
@@ -925,7 +993,8 @@ def format_unreviewed(found: Marks, people: People) -> str:
 
 def format_blind_spots(found: Marks) -> str:
     spots = blind_spots(found)
-    lines = [f"BLIND SPOTS ({len(spots)} of {len(paragraphs(found))} paragraphs no review round has touched)"]
+    lines = [f"BLIND SPOTS ({len(spots)} of {len(paragraphs(found))} paragraphs no round, writing or approval, has"
+             " touched)"]
     width = max((len(str(p.line)) for p in spots), default=4)
     lines += [f"{str(p.line).rjust(width)}  {first_words(p.text)}" for p in spots]
     return "\n".join(lines) + "\n"
@@ -987,7 +1056,7 @@ def render_heatmap(found: Marks, title: str, people: People | None = None) -> st
     body.append(html.escape(found.text[cursor:]))
     rows = "\n".join(
         f'<tr><td><a href="#seg-{html.escape(r["id"])}">{html.escape(r["id"])}</a></td>'
-        f'<td class="num">{r["rounds"]}</td><td>{html.escape(r["reviewers"])}</td>'
+        f'<td class="num">{r["rounds"]}</td><td>{html.escape(r["rounds by"])}</td>'
         f'<td class="num">{r["line"]}</td><td>{"no" if r["id"] in unrev else "yes" if people else ""}</td>'
         f'<td>{html.escape(r["first words"])}</td></tr>'
         for r in report_rows(found))
@@ -1004,9 +1073,12 @@ def render_heatmap(found: Marks, title: str, people: People | None = None) -> st
         f"<title>Revision heat map</title>\n<style>{HEATMAP_CSS}</style>\n</head>\n<body>\n"
         f'<header>\n<h1>Revision heat map</h1>\n<p class="meta">{html.escape(title)} · {summary}</p>\n'
         f'<div class="legend">{legend}</div>\n'
-        '<div class="table-wrap"><table>\n<thead><tr><th>ID</th><th>Rounds</th><th>Reviewers</th>'
+        '<p class="meta">A round is one pass over a passage: writing it or approving it. The shade counts the'
+        ' rounds; a passage is reviewed when a person wrote or approved its latest round.</p>\n'
+        '<div class="table-wrap"><table>\n<thead><tr><th>ID</th><th>Rounds</th><th>Written or approved by</th>'
         f"<th>Line</th><th>Reviewed</th><th>First words</th></tr></thead>\n<tbody>\n{rows}\n</tbody>\n</table></div>\n"
-        '<h2>Blind spots</h2>\n<p class="meta">Paragraphs no review round has touched; unshaded below.</p>\n'
+        '<h2>Blind spots</h2>\n<p class="meta">Paragraphs no round, writing or approval, has touched; unshaded'
+        ' below.</p>\n'
         '<div class="table-wrap"><table class="blind">\n<thead><tr><th>Line</th><th>First words</th></tr></thead>\n'
         f"<tbody>\n{blind}\n</tbody>\n</table></div>\n"
         f'</header>\n<main>\n<div class="doc">{"".join(body)}</div>\n</main>\n</body>\n</html>\n')
@@ -1051,6 +1123,9 @@ def cmd_strip(args) -> int:
         print(f"{path} is already a clean twin; strip its source instead", file=sys.stderr)
         return 1
     target = args.out if args.out is not None else clean_twin_path(path)
+    if target.resolve() == path.resolve():
+        print(f"rev_marks.py: --out {target} is the marked file itself; the clean copy goes elsewhere", file=sys.stderr)
+        return 2
     found = load(path)
     if found is None:
         return 1
@@ -1063,6 +1138,7 @@ def cmd_strip(args) -> int:
         print(f"{target} is current")
         return 0
     if current != clean:
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(clean)
     print(f"wrote {target}")
     return 0
@@ -1134,6 +1210,13 @@ def main(argv: list[str]) -> int:
         if not path.is_file():
             print(f"rev_marks.py: cannot read {path}", file=sys.stderr)
             return 3
+        kind = BINARY_SUFFIXES.get(path.suffix.lower())
+        if kind is not None:
+            print(f"rev_marks.py: not run: {path} is {kind}, and marks are read from the Markdown or LaTeX source."
+                  " A file typeset.py built carries none: it reads the clean twin. For one built elsewhere, check"
+                  " the source it was built from, or extract its text (pdftotext, where installed) and search it"
+                  " for @rev.", file=sys.stderr)
+            return 3
     try:
         return args.run(args)
     except ConfigError as exc:
@@ -1145,4 +1228,7 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main(sys.argv[1:]))

@@ -36,7 +36,7 @@ Apply the requested task across the whole paper unless the author specifies a na
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for requested section or stage review, before/after comparisons and optional interviews.
 
-Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too. End with its [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist): `report.md`, the smell check on it, `findings.json` with the prefix `JA`, and every applied edit recorded with `runs.py change`.
 
 ## AI-use context (only when the decision needs it)
 
@@ -70,13 +70,17 @@ uv run --script scripts/venues.py common KEY KEY KEY --record REC.yaml
 ```
 
 Apply its "Adapt now" items to the manuscript in place: sections a venue requires (one that a single venue
-requires usually costs the others nothing), abstract headings and length limits when every venue states the
-same, rules every venue's guidelines share, and single-venue rules that cost the others nothing (alt text,
-dataset citations). Apply them as the `edits` setting allows: under report only every item is a proposal,
-and under routine fixes a substantial restructuring is one. Leave its "Choose per venue" items (differing abstract formats, section orders, length
-limits, reference styles) for the choice, or follow the first rung when the authors ask; offer the shortest
-limit as an option with its cost, never as a default. Its "At the end" items wait with the other end-stage
-work. Never create a per-venue copy of the manuscript to cover the ladder.
+requires usually costs the others nothing), abstract headings and length limits when every venue's are known
+and the same, rules every venue's guidelines share, and the single-venue rules `common` lists there because
+the catalogue marks them as additions every version can carry (alt text, dataset citations). Take nothing
+else from "Choose per venue" before the choice, even when it looks free. Apply them as the `edits` setting
+allows: under `propose` every item is a proposal; under `conservative` (the default) routine additions and
+formatting are applied and a substantial restructuring is a proposal; under `apply` the restructuring is
+applied too, within the authors' direction. Leave its "Choose per venue" items (differing or partly unknown
+abstract formats, section orders, length limits, reference styles) for the choice, or follow the ladder's
+first choice when the authors ask; offer the shortest limit as an option with its cost, never as a default.
+Its "At the end" items wait with the other end-stage work. Never create a per-venue copy of the manuscript to
+cover the ladder.
 
 ## Adapt to a venue
 
@@ -92,7 +96,10 @@ say which); required sections (data and code availability, archived software DOI
 interests, author contributions); the venue's reference style (identity and support stay with
 `manuscript-reference-check`); AI disclosure in **every** place the venue names with the fields it asks
 for, drafted from `../manuscript-integrity-check/references/disclosure-templates.md` with what the authors
-say the tools did, never guessed; figure rules; required cover-letter points. Separate requirements for
+say the tools did, never guessed; figure rules; required cover-letter points. Declarations (consent, ethics,
+competing interests, funding, author contributions) are drafted only from facts the authors or the project's
+own files supplied: one that needs a fact nobody gave is a held proposal with the question as its comment,
+never a plausible default, and an author's credit is never dropped or narrowed. Separate requirements for
 initial submission from those for revision or acceptance; use free-format submission when allowed. When
 the venue's page does not say what counts toward a word limit (abstract headings, the Contact line,
 tables, figure legends), give the count both ways and say which one the page leaves open. This
@@ -146,7 +153,11 @@ text against the pattern list it prints (prose-edit contract, §5.3). New text i
 machine-written prose. For an adaptation that deliberately changes content, `guard.py BEFORE AFTER --revision`
 lists each change with its section and line. When text moves to another file (a supplement split off,
 a section moved there), pass that file with `--moved-to` so moved text is not reported as removed, and still read
-the diff yourself: a guard that passes does not prove nothing was dropped. Revision markers in the text
+the diff yourself: a guard that passes does not prove nothing was dropped. The guard protects declarations
+(consent, ethics, competing interests, funding, contributions, an AI-use statement under Declarations): list
+each one whose facts the authors supplied in `RUN/manuscript-journal-adapt/requested-claims.yaml` as
+`- {passage: "at least three words in a row from the sentence", finding: "authors' request"}` and pass it
+with `--authorised`; a declaration nobody supplied the facts for stays a held proposal. Revision markers in the text
 stay as they are; when the edits add or bump markers, follow the project's written rules for them (its
 manuscript README or CLAUDE.md) and run its marker lint if it has one. Strip them
 only for the upload files when the authors want that (see author-priorities; `manuscript-revision-marks`
@@ -161,7 +172,9 @@ Follow `../manuscript-integrity-check/references/author-priorities.md` and consu
 statement, use known facts and only required fields (dates only where the venue asks for them; never
 reconstruct them from revision markers or version history), and do not create a per-pass record. When the
 authors ask whether a target's AI policy has changed, this skill answers it: run
-`scripts/policy_watch.py check --venue KEY`, then read the live page for anything it could not reach.
+`scripts/policy_watch.py check --venue KEY --routes httpx,chrome` (without `--update`, which writes into the
+plugin's own files and belongs to catalogue maintenance), then read with your own browser tool whatever it
+could not reach, before any archived copy, which is never the current rule.
 
 When the chosen journal restricts the use the authors describe (a ban on AI drafting, for example), adapt
 the manuscript and draft the statement as asked, under
@@ -193,7 +206,7 @@ List what is left in the order of
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done),
 under its four labels. `show` already separates what can be done once the journal is chosen from what
 waits until the code, data and results are final: the archived release and its DOI, versions quoted in the
-text, the final placement of the AI-use statement, the cover letter, removing revision markers and the
+text, the final placement of the AI-use statement, the cover letter, building the upload files from the clean copy of a marked manuscript and the
 upload check. Those last items are not blockers for the current draft. Put the authors' decisions,
 including any policy conflict, together in one place. Questions come last and only for facts that neither
 the manuscript, the conversation nor the project's files hold. When the authors answer, apply the answers
@@ -205,5 +218,5 @@ to the manuscript and the report in the same turn and drop the questions they se
   `../manuscript-integrity-check/references/venues.yaml`; `peers` queries OpenAlex (set `OPENALEX_MAILTO`
   for its polite pool). Keep the companion skills together.
 - [policy-maintenance.md](references/policy-maintenance.md): read when updating the shared catalogue or
-  policy snapshots. `scripts/policy_watch.py` checks cited policy pages for changes in AI passages;
-  maintenance is separate from adapting an individual manuscript.
+  policy snapshots. `scripts/policy_watch.py` checks cited policy pages for changes in AI passages; its
+  `--update` (on `check` and `record`) is maintenance, separate from adapting an individual manuscript.

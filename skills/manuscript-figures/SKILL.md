@@ -41,8 +41,10 @@ its `venue` and `venue_facts` give the journal's figure rules, its `story` the d
 
 Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md):
 resolve saved manuscript-project choices (including the connected code folders), ask only missing first-use
-questions, and keep this skill's report, renders and failures in its subfolder of the run. This applies to
-direct invocations too.
+questions, and keep this skill's report, renders and failures in its subfolder of the run; end with its
+[end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist)
+(report, smell check, `findings.json` with the prefix `FG`, applied edits recorded, `runs.py finish`). This
+applies to direct invocations too.
 
 ## 1. Find every figure and table; render the figures at their printed size
 
@@ -75,8 +77,23 @@ rules, which [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) ow
 Before a journal is chosen, use what every venue on the ladder shares, or the defaults above (common single-
 and double-column widths, 6 pt, 300 dpi), and say in the report which values were used and why. For a Word
 manuscript, convert it first (`pandoc paper.docx -t gfm --extract-media=. -o paper.md`); for a manuscript
-that exists only as a PDF, open its pages directly and judge sizes against the page width. Register the
-output with `runs.py add --role check`.
+that exists only as a PDF, open its pages directly and judge sizes against the page width. An EPS figure
+needs Ghostscript (`gs`; `gswin64c` on Windows) to render; without it the figure is listed as not rendered.
+A second run of the inventory goes to a new folder (`figures.2`), which the script names when the first
+exists.
+
+Register the outputs with `runs.py add --role check`, each under its path in this skill's folder with
+`--name`: every figure has its own `sheet.png` and `view.png`, so without `--name` the second `view.png`
+lands at the folder's root and is refused as already registered:
+
+```bash
+uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-figures --role check \
+  --file RUN/manuscript-figures/figures/figures.json --name figures/figures.json
+uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-figures --role check \
+  --file RUN/manuscript-figures/figures/figure-3/view.png --name figures/figure-3/view.png
+```
+
+and the same for `figures.md` and each figure's `sheet.png` and `view.png`.
 
 ## 2. Look at each figure and read each table, then read them against the paper
 
@@ -95,9 +112,10 @@ for the supplement's items:
   the caption says what is shown, n, what error bars or bands show, the test, units and abbreviations;
   every number read off the figure agrees with the text and the tables that give it; it is cited in order,
   and each citing sentence claims what the figure shows.
-- **Its code**, where the project has it: find what writes the figure file (`grep -rn FILE_STEM CODE_DIR`,
-  notebooks included), read it, and check it plots what the caption says (the statistic, the samples or
-  runs, the filters and the scale it states) and that the inputs it names exist. A Vega-Lite or other declarative spec
+- **Its code**, where the project has it: find what writes the figure file (search the code folders,
+  notebooks included, for its file name: `grep -rn FILE_STEM CODE_DIR` in a POSIX shell, the editor's search
+  elsewhere), read it, and check it plots what the caption says (the statistic, the samples or runs, the
+  filters and the scale it states) and that the inputs it names exist. A Vega-Lite or other declarative spec
   is the figure's code and data: read its marks, encodings and data. Running the authors' code needs their
   permission or a project instruction that allows it; then run it through `runs.py exec`, writing only into
   the run folder. A screenshot or drawing has no code: say so, and check it by looking.
@@ -130,14 +148,19 @@ the paper lacks, every one with its reason ([patterns and examples](references/f
 - **Respect the venue's limit** on figures or display items (figures and tables together where the venue
   counts them so). An addition over the limit names what moves to make room.
 - **Which figures the paper has is the authors' decision.** Moving, adding, merging or splitting a figure
-  is a finding with `decision: true`, under every `edits` setting; nothing is moved or added for them.
+  is a finding with `decision: true`, under every `edits` setting and also when the authors say "fix
+  everything"; nothing is moved or added for them. These are held decisions: listed once, together, with
+  the run's other decisions at the end, and nothing else waits on them.
 - **A redrawn draft** may be offered when the authors' code exists and may be run: a modified copy of their
   code in `RUN/manuscript-figures/proposed/`, run on the same inputs, its image saved there as
   `figure-2.proposed.png`, shown beside the original in the report and the dashboard. It never replaces or
   overwrites the authors' figure, code or data, and it is never drawn from data the authors did not supply.
-- **Caption and citation fixes** (a missing n, a figure cited out of order) are text edits like any other:
-  applied or proposed as the `edits` setting allows, recorded with `runs.py change` or as proposals in
-  `findings.json`, each with its `why`. A question for the authors is the proposal's `comment`, never a
+- **Caption and citation fixes** follow the `edits` setting like any other text edit. Under the default,
+  a routine fix and a correction that a confirmed finding requires and the evidence settles are applied
+  (a missing n or unit that the data or the code give, a citing sentence that names the wrong panel); each
+  is shown before and after and recorded with `runs.py change`. Under `propose` each is a proposal; under
+  `apply` the improvements are applied too. What needs a fact only the authors have, or renumbers the
+  figures themselves, is a proposal in `findings.json`, with its `why`. A question for the authors is the proposal's `comment`, never a
   placeholder in the text.
 
 ## 4. Report and findings
@@ -174,7 +197,8 @@ dashboard's Figures tab shows with each figure's image, main text first. Each it
 ```
 
 Paths are relative to this stage's folder. Register the report, `findings.json`, the renders and any
-proposed drafts with `runs.py add`, and finish with `runs.py finish`.
+proposed drafts with `runs.py add`, each with `--name` set to that path (`--name figures/figure-3/view.png`,
+`--name proposed/figure-3.proposed.png`), and finish with `runs.py finish`.
 
 ## The panels see the figures
 

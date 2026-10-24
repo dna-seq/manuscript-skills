@@ -5,7 +5,8 @@ What `scripts/check_availability.py` checks, how to read its states, and what re
 ## Run it
 
 ```bash
-uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md --json SCRATCH/avail.json
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md \
+    --json RUN/manuscript-reporting-check/availability.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online   # look every identifier up
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```
@@ -13,11 +14,13 @@ uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # 
 Offline it extracts and classifies; `--online` asks each public archive whether the record exists. Only
 public identifiers leave the machine (accessions, DOIs, repository and package names), never manuscript
 text. `--github-auth` sends `$GITHUB_TOKEN` to GitHub when the unauthenticated limit (60 requests an hour)
-runs out; ask before using it. `--record manuscript-record.yaml` reads the venue from the record. Exit
-code 1 means at least one major finding in the current work; end-stage findings count only with `--final`,
-when the authors say they are about to submit. The Markdown report goes beside the manuscript, or where the
-authors say (`OUT`), and the reply gives its path; retain the JSON evidence in this skill's run
-location.
+runs out; ask before using it. `--record manuscript-record.yaml` reads the venue from the record. Exit codes:
+0 no major finding in the current work and, with `--online`, every well-formed identifier looked up; 1 at least
+one major finding in the current work (end-stage findings count only with `--final`, when the authors say they are
+about to submit); 3 with `--online`, no major finding, but at least one identifier or cited version could not be
+looked up (an anonymised review link, never looked up by design, does not count), so the run cannot be called
+clean; 2 usage error. The Markdown report goes beside the manuscript, or where the authors say (`OUT`), and the
+reply gives its path; the JSON evidence stays in `RUN/manuscript-reporting-check/`.
 
 The Markdown report is written for the authors under the shared rules for the
 [order of work](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
@@ -152,5 +155,9 @@ registration where the venue says so.
 - `manuscript-reference-check` checks the reference list, including data citations there.
 - `manuscript-policy-fit` decides whether consent, privacy or ethics rules restrict sharing; this skill
   only checks that the statement gives the route the restriction implies.
-- Never invent an accession, DOI, tag, licence or access route. Where the statement needs one the authors
-  have not given, ask for it among the questions at the end of the report.
+- Never invent an accession, DOI, tag, licence or access route. Where the statement needs one, look in the
+  project first (a release tag, an archive record the repository links, a deposit receipt); ask the authors only
+  for what the files leave open, among the questions at the end of the report.
+- The links inside availability statements are this script's; every other identifier or link in the prose
+  belongs to the integrity scan (`scan.py`, which skips the statements' lines), and the reference list to
+  `manuscript-reference-check`. Both read an HTTP 405 answer as not checked, never as a dead link.

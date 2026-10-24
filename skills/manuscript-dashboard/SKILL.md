@@ -21,10 +21,32 @@ what each skill covered and what could not be checked. Use the saved run and its
 a dashboard does not ask for another review or another edit.
 
 Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md) and
-reuse the [project and run](../manuscript-integrity-check/references/project-workflow.md). Save the
-inventory, the adjudication, the outputs and the report under `RUN/manuscript-dashboard/`. Older reports
-without a run manifest can still be shown: write the inventory by hand ([data contract](references/data-contract.md))
-and state their scope and unknown coverage rather than inventing a complete run.
+reuse the [project and run](../manuscript-integrity-check/references/project-workflow.md), ending with its
+[end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist)
+(this skill writes no `findings.json` of its own). Save the inventory, the adjudication, the outputs and the
+report under `RUN/manuscript-dashboard/`. Older reports without a run manifest can still be shown: write the
+inventory by hand ([data contract](references/data-contract.md)) and state their scope and unknown coverage
+rather than inventing a complete run.
+
+The files of this skill, in `RUN/manuscript-dashboard/`:
+
+| File | What it is |
+|---|---|
+| `findings.draft.json` | The draft inventory: every stage's records, not yet merged or judged. |
+| `merges.json` | The adjudication: merges, corrections, dismissals, decisions. |
+| `reference.json` | The reference review and its matches, when there is one. |
+| `findings.json` | The adjudicated inventory, collected with `--merge` (and `--reference`); revise.py, the dashboard and the Word file read this one. |
+| `dashboard/` | The rendered dashboard and `summary.json`. |
+| `manuscript-review.docx` | The annotated Word document. |
+
+**Second attempts.** Nothing is overwritten, and every script here (and revise.py) refuses an existing output
+and names the next free one. The next attempt of a file takes a number before its extension
+(`findings.json`, `findings.2.json`, `findings.3.json`; `merges.2.json`; `manuscript-review.2.docx`); of a
+folder, after its name (`dashboard`, `dashboard.2`; manuscript-improve's `revision`, `revision.2`). Keep the
+chain together: revise.py builds from the newest inventory, the dashboard and the Word file take that
+inventory and the revision built from it (both refuse a revision built from another inventory). Collect reads
+each stage's newest `findings.json` attempt, and `runs.py handover` and `pack` take the newest attempt of
+each deliverable. Register each attempt under its own name.
 
 ## 1. Collect the inventory
 
@@ -38,17 +60,25 @@ uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/finding
 ```
 
 It takes coverage from `run.json`, the manuscript's title and sections from its snapshot, each skill's
-findings, dismissed flags and unrun checks, the check outputs as raw signal counts, the readers' reports
-and the simulated reviewers' recommendations, concerns and suggestions. A change recorded with `runs.py change` counts as applied only when
-the revised manuscript holds its after-text and no longer holds its before-text. A skill that wrote no
-`findings.json` contributes its coverage and nothing else: read its report and add its findings by hand,
-or record why it has none. A missing file never means the skill found nothing.
+findings, dismissed flags and unrun checks, the check outputs as raw signal counts (for the simulated
+referees, what they proposed before adjudication, counted once), the readers' reports, the simulated
+reviewers' recommendations, concerns and suggestions, and journal selection's ladders and record. A stage
+still running shows as in progress; manuscript-improve itself, which is running while it collects, is left
+out of the coverage unless it recorded findings of its own. A manuscript that exists only as a connected
+document has no local text to quote: a run started with its reading copy (`runs.py start --reading-copy`)
+has one; for an older run, export a reading copy, register it in the run and pass it with `--manuscript COPY`.
+
+Applied or proposed: collect replays the changes recorded with `runs.py change` on the reviewed text, in
+the order the skills recorded them. When the replay ends on the revised manuscript, every change that found
+its before-text counts as applied, including an edit a later stage edited again. Otherwise a change counts
+as applied only when the revised manuscript holds its after-text and no longer holds its before-text. A
+skill that wrote no `findings.json` contributes its coverage and nothing else: read its report and add its
+findings by hand, or record why it has none. A missing file never means the skill found nothing.
 
 ## 2. Adjudicate: one record per problem
 
 Read the draft against the reports. Collect never decides what is the same problem or what holds;
-write those decisions in `RUN/manuscript-dashboard/merges.json` and collect again under a new name with
-`--merge`:
+write those decisions in `RUN/manuscript-dashboard/merges.json`:
 
 ```json
 {
@@ -69,7 +99,24 @@ write those decisions in `RUN/manuscript-dashboard/merges.json` and collect agai
 - **Dismiss** with a reason; dismissed flags stay listed and are never counted as problems.
 - A finding is **addressed** only when an applied edit is linked to it and you checked the revision.
   A proposal does not address anything.
-- Keep original severities; use `unknown` where a skill did not assess one.
+- Keep original severities; use `unknown` where a skill did not assess one. The authors read the
+  severities as Blocker, Major, Minor ("worth fixing, low stakes"), Optional (`info`: a style preference,
+  possible improvement or additional experiment) and Could not be checked (`unknown`); collect maps a
+  referee's `optional` to `info` and `uncertain` to `unknown`.
+- **Decisions** you write join the stages' own: the dashboard lists every decision in `merges.json`, then
+  each finding marked `decision: true` (a figure to add or move, a direction, new work) that none of them
+  links, so writing one decision never hides the others.
+
+Then collect the adjudicated inventory, `findings.json`, with `--merge` (with a reference review, read step 3
+first: the two go in one collect):
+
+```bash
+uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/findings.json \
+  --merge RUN/manuscript-dashboard/merges.json --version v0.3
+```
+
+A collect without `--merge` warns when a merge file lies beside its output: that inventory has none of the
+merges, dismissals or decisions, so never render or revise from it.
 
 The merge file is part of the evidence: it shows each counting decision. The renderer checks files,
 quotes and links; whether the deduplication and the verdicts are right is the adjudicator's job.
@@ -79,13 +126,26 @@ quotes and links; whether the deduplication and the verdicts are right is the ad
 When the same version was reviewed independently (a human referee's comments, an earlier panel), add
 it as a reference ([data contract](references/data-contract.md#reference-review)) and match each of its
 items to the run's findings: `full` when a finding names the same problem, `partial` when it names part
-of it. Freeze the run's inventory before reading the reference, so the comparison cannot shape the
-findings, and record who matched them. When the reference reviewed an earlier version, run the review
-blind: give the stages that version, the code as of its date and no later versions, reviews or history,
-and pin outside sources to that date (a release tag, an archived page); a finding that rests on a later
-page cannot count as a match. Collect with `--reference reference.json`. The dashboard then
-shows what was caught, partly caught and missed, by kind of problem, and the confirmed findings the
-reference lacks. Those are not false alarms by default: one review is one reading, not ground truth.
+of it. Freeze the run's inventory before reading the reference (the draft and a finished `merges.json`), so
+the comparison cannot shape the findings, and match against the IDs the adjudication keeps (a merged record
+answers to the ID it was merged into; a dismissed flag cannot be a match). Record who matched them in the
+reference file's `matched_by` ("the coordinating agent, after the inventory was frozen", or a co-author's
+name); the dashboard shows it. When the reference reviewed an earlier version, run the review blind: give
+the stages that version, the code as of its date and no later versions, reviews or history, and pin outside
+sources to that date (a release tag, an archived page); a finding that rests on a later page cannot count as
+a match. Then collect once with both files, before revise.py builds the corrected version:
+
+```bash
+uv run --script scripts/collect.py RUN --output RUN/manuscript-dashboard/findings.json \
+  --merge RUN/manuscript-dashboard/merges.json --reference RUN/manuscript-dashboard/reference.json --version v0.3
+```
+
+A collect with `--reference` alone drops the adjudication, and the corrected version built from the earlier
+inventory no longer matches. A reference that arrives after the corrected version was built: collect the next
+attempt with both (`findings.2.json`), rebuild the corrected version from it (`revision.2`) and render again
+(`dashboard.2`, `manuscript-review.2.docx`). The dashboard then shows what was caught, partly caught and
+missed, by kind of problem, and the confirmed findings the reference lacks. Those are not false alarms by
+default: one review is one reading, not ground truth.
 
 ## 4. Render
 
@@ -95,7 +155,8 @@ uv run --script scripts/dashboard.py RUN/manuscript-dashboard/findings.json \
 ```
 
 `--revision` is the corrected version that manuscript-improve builds from this inventory with its
-`revise.py`; the renderer refuses one built from another inventory. Leave it out for a run without one.
+`revise.py`; the renderer refuses one built from another inventory. Leave it out for a run without one. A
+second rendering goes to `dashboard.2`; give it an inventory and the revision built from that same inventory.
 
 - `manuscript-dashboard.html`: one self-contained file that opens offline, on the Overview, and can be sent to
   anyone as it is: data, styles and scripts are inside it, and the manuscript's local images are embedded
@@ -145,7 +206,9 @@ that made it (Story, Prose edit, Journal adaptation), so the authors accept or r
 review is in the margin: each problem as a comment on the passage it quotes (problems whose passage is not in
 the text share one comment on their section's heading), the questions for the authors on their edit, one
 comment per edit, and each edit's reasoning (`--no-reasons` leaves those out, `--no-problems` the problems).
-Nothing is added to the text. Without `--revision` it annotates the reviewed version with the problems only.
+Each comment opens with what it says; the problem's or edit's ID follows in parentheses. Nothing is added to
+the text: an image that could not be embedded is named in a comment where it stands. Without `--revision` it
+annotates the reviewed version with the problems only.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments and
 tracked changes become suggestions. Uploading is sending the paper somewhere, so it waits for the authors to ask.
 
@@ -158,20 +221,36 @@ checked.
 
 Write a short `report.md`: the run and its coverage, what the main counts mean, the problems that
 matter most, what the comparison shows when there is one, and links to the dashboard, the inventory and
-the merge file, and the annotated Word document when it was written. The shared report check is required: run `../manuscript-deslop/scripts/style_profile.py REPORT.md --report --check`,
-and read it against its pattern list. Register the report, the inventory, the merge file and the outputs
-with `runs.py add`; keep failed attempts too. Creating the files does not send them to anyone.
+the merge file, and the annotated Word document when it was written. The shared report check is required:
+`uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/manuscript-dashboard/report.md --report --check`,
+then read the report against the pattern list it prints. Register the report, the inventories, the merge
+file and the outputs with `runs.py add`, giving each output its path inside this skill's folder with
+`--name`, because several attempts and folders hold files of the same name (without it, each file is
+copied to the folder's root and the second `summary.json` is refused as already registered):
 
-Then hand the dashboard and the Word document over beside the manuscript, where the authors open the paper:
+```bash
+uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-dashboard \
+  --file RUN/manuscript-dashboard/dashboard/manuscript-dashboard.html --role other --name dashboard/manuscript-dashboard.html
+uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-dashboard \
+  --file RUN/manuscript-dashboard/dashboard/summary.json --role other --name dashboard/summary.json
+```
+
+and the same for `findings.draft.json`, `merges.json`, `findings.json`, `manuscript-review.docx` and
+`report.md` (`--role report`); keep failed attempts too. Creating the files does not send them to anyone.
+
+Then hand the dashboard, the Word document and the corrected version over beside the manuscript, where the
+authors open the paper:
 
 ```bash
 uv run --script ../manuscript-integrity-check/scripts/runs.py handover RUN
 ```
 
-It copies the newest `manuscript-dashboard.html` of the run as `<manuscript stem>.dashboard.html` and the
-newest `.docx` as `<manuscript stem>.review.docx` (`paper.dashboard.html`, `paper.review.docx`). The
-dashboard replaces the previous run's; each run folder keeps its own. A Word file already there that
-differs is never replaced silently, because the authors may have commented in it: the command keeps it,
-exits 4 and names it. Ask the authors in one sentence whether to replace it, and rerun with
-`--replace-docx` only on their yes; otherwise leave it and link the run's copy. A manuscript that is a
-connected document needs `--to FOLDER --stem NAME`. Link the copies beside the manuscript in the reply.
+It copies the newest attempt of each: the dashboard as `<manuscript stem>.dashboard.html`, the Word file as
+`<manuscript stem>.review.docx` and the corrected version as `<manuscript stem>.proposed<extension>`
+(`paper.dashboard.html`, `paper.review.docx`, `paper.proposed.md`). The dashboard replaces the previous
+run's; each run folder keeps its own. A Word file or corrected version already there that differs is never
+replaced, because the authors may have worked in it: the new one goes beside it under a dated name
+(`paper.review.20261024.docx`) and the command says so. Whether to replace the earlier file is one of the
+optional decisions at the end of the run, never a question that stops it; once the authors say so, rerun
+handover with `--replace-docx` (the Word file) or `--replace-proposed` (the corrected version). A connected manuscript started with its reading copy hands over to the project folder, named after the reading copy; `--to FOLDER --stem NAME` override that. Link the copies
+beside the manuscript in the reply.

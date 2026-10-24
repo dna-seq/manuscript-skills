@@ -50,7 +50,7 @@ each seat's report, with its `seat`, in the list `reports`.
       ]
     },
     {
-      "id": "RP-1",
+      "id": "RE-1",
       "seat": "reproducibility",
       "kind": "absence",
       "location": "Methods, Model",
@@ -88,22 +88,22 @@ each seat's report, with its `seat`, in the list `reports`.
 
 | Field | Required | Values and meaning |
 |---|---|---|
-| `id` | yes | Unique within the file. A seat prefix helps (`EV-1`, `SK-3`). |
-| `seat` | yes | `claims-novelty`, `evidence-statistics`, `reproducibility`, `champion`, `skeptic`, `desk-editor`, `software-methods`, `genomics`, `human-data-clinical`, `ai-systems`, or `custom:<name>` for a seat the authors added; followed by `@<cli>` for the same seat on another model (`skeptic@codex`). |
+| `id` | yes | Unique within the file: the seat's prefix, a hyphen and a number (`EV-1`, `SK-3`), as [below](#finding-ids). |
+| `seat` | yes | `claims-novelty`, `evidence-statistics`, `reproducibility`, `champion`, `skeptic`, `desk-editor`, `software-methods`, `genomics`, `human-data-clinical`, `ai-systems`, `figures`, or `custom:<name>` for a seat the authors added; followed by `@<cli>` for the same seat on another model (`skeptic@codex`). |
 | `location` | yes | Section, paragraph, table, figure or supplementary item, as a reader would find it. |
 | `kind` | no | `present` (default): the problem is in the text. `absence`: something needed is missing. |
-| `quote` | for `present` | Verbatim text from the manuscript or a supplied supplementary file. Copy it; never paraphrase. `...` or `…` may skip words within one passage. At least 3 words or 12 characters. |
+| `quote` | for `present` | Verbatim text from the manuscript or a supplied supplementary file. Copy it; never paraphrase. `...` or `…` may skip words within one passage. At least 3 words or 12 characters (a coordinate such as `chr19:45411941` can anchor a finding; the stage's `findings.json` widens it to at least three words). |
 | `looked_in` | for `absence` | Non-empty list of the places the seat searched for the missing item. An absence finding may also quote the claim that needs the missing item. |
 | `source` | no | File name of a supplementary file the quote comes from. Without it, the manuscript is searched first, then each supplied supplement. |
 | `concern` | yes | What is wrong, in one or two sentences a referee would write. One problem per finding: two problems in one passage are two findings, each with its own `change_my_mind`, so that each can be confirmed, refuted and fixed on its own. Findings that share a root cause take one `group` label instead. |
 | `claim` | yes | The claim at stake: its text or location, or a claim id from `manuscript-record.yaml`. |
 | `consequence` | yes | What resolving the concern could change about that claim: `validity`, `support`, `scope`, `reproducibility` or `interpretation`. This is the claim-consequence gate. |
-| `severity` | yes | `blocker`, `major`, `optional` or `uncertain`, as defined in [author-priorities.md](../../manuscript-integrity-check/references/author-priorities.md#findings-and-stopping). A seat proposes it; adjudication may change it. |
+| `severity` | yes | `blocker`: a scientific defect or a submission barrier the paper cannot go forward with as it stands. `major`: a concrete threat to the validity or interpretation of a headline claim, or to the paper's prospects at the journal. `optional`: worth doing but not a condition of acceptance (a possible improvement, an additional analysis, a style preference). `uncertain`: the referee could not judge it from what it had (a question for the authors). A seat proposes it; adjudication sets it by the consequence for the claim. |
 | `change_my_mind` | yes | The specific evidence, analysis or wording that would resolve the concern. |
 | `route` | yes | Proposed route: `fixable-in-text`, `author-required`, `venue`, `policy` or `dropped`. Adjudication sets the final one. |
 | `drop_reason` | with `dropped` | Why the finding goes no further. |
 | `cost` | no | `text`, `reanalysis` (existing data), `new-data` (new data, experiments or recruitment) or `unknown`. Used to rank. |
-| `hand_to` | no | The skill that takes the work: `manuscript-prose-edit`, `manuscript-reference-check`, `manuscript-reporting-check`, `manuscript-integrity-check`, `manuscript-policy-fit`, `manuscript-journal-adapt`, `manuscript-journal-select` or `manuscript-story`. |
+| `hand_to` | no | The skill that takes the work: `manuscript-prose-edit`, `manuscript-reference-check`, `manuscript-reporting-check`, `manuscript-integrity-check`, `manuscript-policy-fit`, `manuscript-figures`, `manuscript-journal-adapt`, `manuscript-journal-select` or `manuscript-story`. |
 | `placement` | no; with `fixable-in-text` | Where the fix costs readers least: `with-claim` (a doubt about the central claim, said once beside it), `limitations`, `methods`, `supplement` or `response-letter` (defensive detail a referee needs and readers do not). Set in adjudication ([adjudication.md](adjudication.md#7-routes)). |
 | `prior_work` | when the concern asserts prior work | List of `{citation, identifier, status, checked_by}`. `status` is `verified` (the identifier resolved to the named work, in this review's lookup or a current manuscript-reference-check result) or `unverified` (the identifier could not be resolved, or the work has none). Identifiers the manuscript itself gives are resolved too. `verified` needs an identifier: DOI, PMID, arXiv id, ISBN or URL. |
 | `norm_source` | when the finding asks for what the field or the journal expects | Where that expectation is written: `venue: "<words quoted from venue.md>"`, `guideline: <guideline and item>` (`TRIPOD+AI 12`), `module: <domain module and question>`, or `own: <why this referee expects it>` when it is written nowhere the seat was given. Replication, more samples, an external cohort and a "standard" analysis are the usual cases. |
@@ -111,14 +111,37 @@ each seat's report, with its `seat`, in the list `reports`.
 | `criterion` | expected, or `off_criterion` | The id of the criterion in the seat's `criteria.md` the finding falls under (`C2`; a list when it meets two). The criteria were written before the seat read the paper. |
 | `off_criterion` | instead of `criterion` | Why a problem none of the seat's criteria anticipated matters anyway. With `--criteria`, the check lists a major or blocking finding outside the criteria for the adjudicator; it is not held back. |
 | `group` | no | A label shared by findings the seat or adjudicator knows are one concern. |
+| `defence_outcome` | after adjudication, unless `dropped` | What the defence pass returned for the finding, in these words: `premise not supported`, `answered`, `partly answered` or `not answered` ([adjudication.md](adjudication.md#5-defence-pass)). The dashboard counts the concerns the paper already answers from it. |
 | `verdict` | after adjudication | `confirmed`, `refuted` or `downgraded`. |
 | `verdict_evidence` | with every verdict | What settled it: the text that shows the problem or answers it, a recomputation from the paper's own numbers, a checked record. For a partly answered finding, the answering text and the part left open. |
 | `defence_quote` | with `refuted` | The verbatim text that answers the concern; for a premise the quoted text does not support, the finding's own quote or the passage that shows the premise wrong. `defence_source` names a supplementary file when needed. |
-| `triage` | with `confirmed` or `downgraded` | `substance`, `misread-risk` or `polish`. |
-| `stage` | no; set in adjudication | When the authors can act on it: `now` (the science and the evidence), `writing`, `journal` (depends on the chosen venue) or `final` (archive records, release tags, version numbers, declarations: once the code is final, never a blocker for a draft). Without it, the script takes `journal` for the `venue` route, else `writing` for a misread risk or polish, else `now`; a finding with a `hand_to` integrity, reference or reporting check is listed with the other checks unless its stage is `final` ([adjudication.md](adjudication.md#8-merging-triage-and-ranking)). |
+| `narrowed` | after adjudication, when it applies | `true` when adjudication rewrote `concern` and `change_my_mind` to the part the defence left open. Required for a `partly answered` finding that is `confirmed`. |
+| `original_concern` | with `narrowed` | The concern as the referee raised it, kept for the full record and the report's sentence on what the defence answered. |
+| `triage` | with `confirmed` or `downgraded`; may be given with `refuted` | `substance`, `misread-risk` or `polish`. A refuted finding marked `misread-risk` (the answer sits too far from the claim) is listed under the writing. |
+| `stage` | no; set in adjudication | When the authors can act on it: `now` (the science and the evidence), `writing`, `journal` (depends on the chosen venue) or `final` (archive records, release tags, version numbers, declarations: once the code is final, never a blocker for a draft). Without it, the script takes `journal` for the `venue` route, else `writing` for a misread risk or polish, else `now`; a finding on the `policy` route, or with a `hand_to` integrity, reference, reporting, policy-fit or figures check, is listed with the other checks unless its stage is `final`, never under "the science and the evidence" ([adjudication.md](adjudication.md#8-merging-triage-and-ranking)). |
 
 Strengths have `seat`, `location`, `quote` and `note`, all required; their quotes are checked the same
 way.
+
+### Finding ids
+
+Each seat numbers its findings with its own prefix: two capital letters, a hyphen and a number (`EV-1`,
+`EV-2`). The dashboard links a referee's concern to the authors' list only by an id of this form, and the
+prefixes of the run's other skills (IC, RF, RP, PR, PF, JS, JA, PE, DS, ST, FG, IM, RR, RM, MP) are taken.
+
+| Seat | Prefix | Seat | Prefix |
+|---|---|---|---|
+| claims-novelty | CN | desk-editor | DE |
+| evidence-statistics | EV | software-methods | SW |
+| reproducibility | RE | genomics | GE |
+| champion | CH | human-data-clinical | HD |
+| skeptic | SK | ai-systems | AI |
+| figures | FI | `custom:<name>` | two capitals no other seat or skill uses |
+
+The same seat on another model gets the same prefix in its brief; when its findings are merged, the
+CLI's letter is added (C for Claude Code, X for Codex, G for Gemini: `skeptic@codex`'s `SK-1` becomes
+`SKX-1`), so that the copies of a seat never collide. The check names any id that
+does not have this form or takes another skill's prefix.
 
 ## The referee's report
 
@@ -157,22 +180,26 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
   any text file is read, whatever its name). `not_assessed` is not a pass, and the report names each file
   it could not read instead of listing it as searched.
 - **Fields.** Required fields present and non-empty; enumerated fields within their values; ids unique;
-  `looked_in` for absence findings; `drop_reason` for `dropped`; with `--adjudicated`, a verdict on
-  every finding, triage on confirmed and downgraded ones, `verdict_evidence` on every verdict, and a
-  verified `defence_quote` on refuted ones.
+  `looked_in` for absence findings; `drop_reason` for `dropped`; `original_concern` with `narrowed`; with
+  `--adjudicated`, a verdict on every finding, triage on confirmed and downgraded ones, `verdict_evidence`
+  on every verdict, a verified `defence_quote` on refuted ones, a `defence_outcome` on every finding not
+  dropped, and `narrowed` on a confirmed finding the defence partly answered.
 - **Prior work.** A concern that says the work is not novel, already done, or omits existing tools or
   prior work must name at least one work with an identifier and `status: verified`, or with
   `status: unverified`.
 - **Where an expectation is written** (a warning): a finding whose `change_my_mind` asks for replication,
-  more samples or an external cohort, or that appeals to what the field "expects" or "requires", and gives
-  no `norm_source`. A concern that only describes the paper's own cohort is no demand. A `norm_source` that
+  more samples or an external cohort, whose concern asks for one (a word such as "should", "needs" or
+  "lacks" just before it: "should be validated in an external cohort"), or that appeals to what the field
+  "expects" or "requires", and gives no `norm_source`. A concern that only describes the paper's own
+  cohort ("the recruitment dates of the external validation cohort are not given") asks for nothing. A `norm_source` that
   does not start with `venue:`, `guideline:`, `module:` or `own:` fails; with `--venue venue.md`, so does a
   `venue:` quote that does not occur in venue.md.
 - **One concern per finding** (a warning): a concern that numbers its points, opens a sentence by adding
-  another ("Second,", "In addition,", "Another problem"), or runs to four sentences or more. Split it.
+  another ("Second,", "In addition,", "Another problem"; the word followed by a comma or a colon, so
+  "Second-generation sequencing" is not one), or runs to four sentences or more. Split it.
 - **Fairness warnings** (not failures): a concern resting on state-of-the-art standing, one that asks
   for new work, or one that objects to simplicity. The adjudicator decides; see
-  [adjudication.md](adjudication.md#3-fairness-filter).
+  [adjudication.md](adjudication.md#4-fairness-filter).
 - **Criteria** (with `--criteria SEAT=PATH`, one per seat; these are warnings and never fail a finding). Each seat's
   `criteria.md` is read for its numbered criteria (`C1.` ...) and the later lines that start with an id (what
   was checked). The check warns on a major or blocking finding that names no criterion of its seat (with
@@ -184,8 +211,8 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
   referee raised, or one not in the file, fails). A referee who wrote findings but no report is named,
   so that the result says it gave none; a file with no reports at all (a quick pass) is not an error.
   A referee who left out a journal another referee was asked about is named. With `--adjudicated`, each
-  recommendation lists the findings it rests on that the defence refuted, adjudication dropped or
-  narrowed, or that have not met the contract, and each referee's confirmed and downgraded findings are
+  recommendation lists the findings it rests on that the defence refuted, adjudication dropped, narrowed
+  or downgraded, or that have not met the contract, and each referee's confirmed and downgraded findings are
   sorted into the sections of its report: `major` and `blocker` as major concerns (except a finding that
   waits until the code is final), `optional` and end-stage ones as minor concerns, `uncertain` as
   questions for the authors.
@@ -194,7 +221,8 @@ No scores, ratings or acceptance odds anywhere. A quick pass writes no report
   and half the combined vocabulary), or they are absence findings at the same location. Each group
   reports its distinct seats. The count describes the panel; it is not evidence that the concern is
   right. To merge groups that share a root cause, give their findings one `group` label and rerun.
-  With `--adjudicated`, groups are listed by stage, then severity, then position in the manuscript.
+  With `--adjudicated`, groups are listed by stage, then severity, then position in the manuscript; a
+  refuted finding kept as a misread risk is listed under the writing, never in a referee's report.
 
 The script does not judge whether a concern is correct, fair or important, whether a recommendation
 is proportionate, resolve identifiers, or score anything. Those are adjudication steps.
@@ -204,14 +232,20 @@ is proportionate, resolve identifiers, or score anything. Those are adjudication
 ```bash
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --md "$WORK/check.md" --json "$WORK/check.json"
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.tex -s supplement.md -s sections/methods.tex
-uv run --script scripts/check_findings.py "$WORK/findings.adjudicated.json" PAPER.md --adjudicated
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --venue "$WORK/venue.md"
+uv run --script scripts/check_findings.py "$WORK/findings.adjudicated.json" PAPER.md -s supplement.md \
+    --venue "$WORK/venue.md" --adjudicated
 ```
+
+After adjudication, rerun the step 4 command (SKILL.md) on `findings.adjudicated.json`, with the same
+supplementary files, criteria and `venue.md`, plus `--adjudicated`: a quote from a supplementary file the
+rerun was not given cannot be checked.
 
 `$WORK` is the durable skill-run folder for the review's evidence (SKILL.md, step 3). The merged and
 adjudicated files have names of their own because the stage's `findings.json`, for the dashboard, is
 written beside them (SKILL.md, step 7). Exit code 0 when every finding, strength and report meets the
-contract, 1 when any does not, 2 for unusable input (malformed JSON, a manuscript that is not Markdown,
+contract; 1 when a finding is not yet a finding, a strength has no verified quote or a report fails its
+contract; 2 for unusable input (malformed JSON, a manuscript that is not Markdown,
 LaTeX or text). For a multi-file LaTeX project, pass
 the `\input` files with `-s` or flatten the project first. Convert `.docx` with `pandoc -t gfm` and
 quote the converted text.

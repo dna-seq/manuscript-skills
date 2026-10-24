@@ -28,16 +28,19 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `signals` | raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
 | `dismissed` | flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
 | `not_checked` | checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
-| `decisions` | choices only the authors can make: `id`, `summary`, `finding_ids`. |
+| `decisions` | choices only the authors can make, as the adjudication wrote them: `id`, `summary`, `finding_ids`. The dashboard lists these and then every finding with `decision: true` that none of them links; one written decision never hides the stages' own. |
 | `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`, `isolation`, `model`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, `isolation`, `model`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
 | `reference` | a review to compare with; [below](#reference-review). |
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
 | `story` | optional, from `manuscript-story`: the direction, the story tests and the options only the authors can choose; [below](#story). |
 | `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
-Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused` and `unknown`. A completed
-command is not evidence that its skill covered the whole manuscript. Coverage needs at least one
-record, and each finding's `skills` must appear in it.
+Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused`, `in_progress` (the stage was
+still running when the inventory was collected; its evidence quotes its README's title, which does not change
+when it finishes) and `unknown`. A completed command is not evidence that its skill covered the whole
+manuscript. Coverage needs at least one record, and each finding's `skills` must appear in it. `collect.py`
+leaves manuscript-improve out while it is still running (it is the run collecting itself), unless it recorded
+findings of its own.
 
 ## Findings
 
@@ -45,8 +48,10 @@ Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment
 `skills` and `evidence`, and in version 2 optionally `stage`, `quote`, `detail`, `action`, `decision` and
 `sources`. Use the category names of [stage findings](stage-findings.md#rules).
 
-- `severity`: `blocker`, `major`, `minor`, `info` or `unknown`. Map an existing report's equivalent
-  labels explicitly; do not infer a major scientific problem from a style hit.
+- `severity`: `blocker`, `major`, `minor`, `info` or `unknown`, shown as Blocker, Major, Minor, Optional and
+  Could not be checked ([stage findings](stage-findings.md#rules) has the mapping: a referee's `optional` is
+  `info`, `uncertain` is `unknown`). Map an existing report's equivalent labels explicitly; do not infer a
+  major scientific problem from a style hit.
 - `assessment`: `confirmed`, `candidate` or `dismissed`. Confirmed means supported by the recorded
   adjudication in the stated kind of review. It does not upgrade a simulated reader's concern into
   evidence from real readers, or a style preference into a scientific error.
@@ -104,13 +109,15 @@ and severity, and include its skill in coverage. Add change records only when th
   "title": "the referee's review",
   "description": "Robi Tacutu's 39 comments and 26 suggested-edit paragraphs on v0.3, recovered from the revision history.",
   "source": {"path": "reference-items.json", "quote": "a verbatim line of that file"},
+  "matched_by": "the coordinating agent, after the inventory was frozen",
   "items": [{"id": "C16", "origin": "reviewer", "kind": "comment", "summary": "...", "category": "Text versus code",
              "section": "3.2", "substantive": true}],
   "matches": [{"reference_id": "C16", "finding_ids": ["IC-4"], "match": "full", "note": "Same percentile method."}]
 }
 ```
 
-Each item is one problem the reference raised, with the same category words. `substantive` is false
+`matched_by` (optional) says who matched the items to the run's findings; the dashboard shows it beside the
+comparison. Each item is one problem the reference raised, with the same category words. `substantive` is false
 for wording-only items. For an item the run did not catch in full, `miss_reason` says why and `owner`
 names the skill whose remit covers it, so each miss points at the skill to improve:
 
@@ -126,7 +133,8 @@ names the skill whose remit covers it, so each miss points at the skill to impro
 `miss_note` gives the specific reason in a sentence. A fully matched item has no miss reason. Each item has at most one match record, listing every finding that answers it;
 an item without one counts as not caught. A match never rests on a dismissed flag. The renderer counts
 matched, partly matched and not caught items overall, by category and among substantive items, and the
-confirmed findings no item matches.
+confirmed findings no item matches. Give the reference to collect together with the merge file
+(`--merge merges.json --reference reference.json`): the matches name the IDs the adjudication keeps.
 
 ## Counting rules
 

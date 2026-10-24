@@ -101,7 +101,7 @@
     that the edit didn't change the science.
   files: [fixtures/manuscript-prose-edit/original.md, fixtures/manuscript-prose-edit/edited-clean.md]
   planted:
-    - "Clean control: filler and a participle tail cut, 'utilize' to 'use', one sentence split in two and two sentences merged into one; no claim, qualifier, number or citation changed. The guard exits 0 with no sentence finding."
+    - "Clean control: filler and a participle tail cut, 'utilize' to 'use', one sentence split in two and two sentences merged into one; no claim, qualifier, number or citation changed. The guard exits 0; it lists only the two filler cuts, as cut stock phrases."
   rubric:
     - "Runs guard.py or an equivalent sentence-by-sentence comparison."
     - "Concludes that no claim, qualifier, number or citation changed, and names the kinds of edit made."

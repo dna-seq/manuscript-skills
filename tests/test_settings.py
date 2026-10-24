@@ -139,11 +139,30 @@ def test_unset_forgets_one_choice_and_keeps_keys_this_version_does_not_know(cfg:
 def test_a_broken_settings_file_is_reported_and_never_overwritten(cfg: Path, body: str) -> None:
     cfg.parent.mkdir(parents=True)
     cfg.write_text(body, encoding="utf-8")
-    for args in (("get", "reports"), ("show",), ("resolve", "--json"), ("questions",),
-                 ("set", "reports", "file"), ("set", "edits", "apply")):
+    for args in (("get", "reports"), ("show",), ("questions",), ("set", "reports", "file"),
+                 ("set", "edits", "apply"), ("unset", "edits")):
         result = _run(*args)
         assert result.exit_code == 2 and "fix or delete it" in result.output, args
     assert cfg.read_text(encoding="utf-8") == body
+
+
+@pytest.mark.parametrize("body", ["reports: [file\n", "- file\n- chat\n", "edits: apply\n\udcff\n"])
+def test_a_broken_settings_file_never_stops_the_work_and_proposes_until_repaired(cfg: Path, body: str) -> None:
+    """Startup still resolves: the defaults, but nothing applied on a choice nobody can read, and one repair
+    decision for the authors; the file is kept byte for byte."""
+    cfg.parent.mkdir(parents=True)
+    raw = body.encode("utf-8", "surrogateescape")  # the last case is not UTF-8 at all
+    cfg.write_bytes(raw)
+    result = _run("resolve", "--json")
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["effective"] == {"reports": "file", "edits": "propose", "keep": "everything"}
+    assert data["sources"] == {"reports": "default", "edits": "settings_error", "keep": "default"}
+    assert "fix or delete it" in data["settings_error"]
+    [decision] = data["decisions"]
+    assert decision["key"] == "settings_file" and "proposes every change" in decision["question"]
+    assert "Cannot be read" in _run("resolve").output
+    assert cfg.read_bytes() == raw
 
 
 @pytest.mark.parametrize("body", ["", "# only a comment\n", "reports: carrier-pigeon\n", "reports: 3\n"])

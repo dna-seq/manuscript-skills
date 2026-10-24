@@ -4,23 +4,28 @@
 # dependencies = ["typer>=0.12"]
 # ///
 """Run one simulated referee, reader, critic or skeptic on another AI model, through a command-line agent the
-authors already use (Claude Code, Codex CLI, Gemini CLI) and its subscription, not an API key.
+authors already use (Claude Code, Codex CLI, Gemini CLI) and its own sign-in, not an API key: provider key
+variables (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY and the like) are removed from the
+environment each CLI is started with, and seat-run.json names the ones removed, never their values.
 
     uv run --script models.py detect [--json]              # the CLIs installed here, the host, their models
     uv run --script models.py check codex [--model M]      # one tiny call: is it signed in, is the model accepted?
     uv run --script models.py run codex --workspace WS --brief BRIEF.md [--model M] [--effort high] [--timeout 3600]
 
 `run` copies WS to a new temporary folder outside every project and starts a new session of the CLI there
-(never a resumed or forked one), with BRIEF as its whole prompt. The session may read and write only inside
-that copy: Claude Code gets the file tools and no shell, Codex its workspace-write sandbox without network,
-Gemini its auto_edit mode. When it ends, the files it created are copied back into WS; a file it was given
+(never a resumed or forked one), with BRIEF as its whole prompt. The session may write only inside that copy:
+Claude Code gets the file tools and no shell, Codex its workspace-write sandbox without network, Gemini its
+auto_edit mode. Reads are limited by the CLI only for Claude Code, which refuses a file outside the copy; Codex
+and Gemini limit writes, not reads, so for them the brief's instruction to read nothing else is the only read
+boundary. seat-run.json records which (read_isolation: enforced or instruction-only). When it ends, the files it created are copied back into WS; a file it was given
 and changed is reported and left as it was. Its last message is saved as WS/seat-answer.md, and
 WS/seat-run.json records the CLI and its version, the model, the exact command, the exit status, the
 duration, the files returned, and where the prompt as sent, the CLI's output and its errors were saved.
 The copy is then deleted. Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md,
 GEMINI.md), its git history and the agent's memory of the project away from the seat.
 
-The path of WS written in BRIEF is replaced by the copy's path, so a brief that names its workspace works.
+The path of WS written in BRIEF (as the system writes it, or with forward slashes) is replaced by the copy's
+path, so a brief that names its workspace works; otherwise the brief is sent as it is.
 
 Exit codes: 0 the session finished and answered; 1 it ran but failed or gave no answer (seat-run.json says
 why); 2 bad arguments, an unknown or missing CLI, or a workspace a seat already ran in; 3 it timed out.
@@ -35,6 +40,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -51,6 +57,16 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 RECORD, ANSWER = "seat-run.json", "seat-answer.md"
 MODEL_NAME = re.compile(r"[\w.:@/\[\]-]+")
 PING = "Reply with the single word READY and nothing else."
+WINDOWS = os.name == "nt"
+
+# Provider keys and tokens: with one of these set, a CLI can bill an API account instead of the authors' own
+# sign-in. None is passed to any CLI. Only the names of those removed are recorded.
+CREDENTIALS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY", "AZURE_OPENAI_API_KEY",
+               "GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS")
+# Not secrets, but each sends a CLI's requests another way than its own sign-in (a gateway, a cloud account). They
+# are kept, since the authors may rely on them, and named in the record.
+ROUTE_SETTINGS = ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "OPENAI_BASE_URL",
+                  "GOOGLE_GENAI_USE_VERTEXAI")
 
 
 @dataclass(frozen=True)
@@ -61,15 +77,20 @@ class Cli:
     host_env: tuple[str, ...]  # variables a session of this CLI sets for the commands it runs
     efforts: tuple[str, ...] = ()
     models_hint: str = ""
+    # "enforced": the CLI itself refuses to read outside the copy; "instruction-only": it limits writes, and only the
+    # brief's instruction keeps its reads inside the copy.
+    read_isolation: str = "instruction-only"
 
 
 CLIS = {
     "claude": Cli("claude", "Claude Code", "Anthropic", ("CLAUDECODE",), ("low", "medium", "high", "xhigh", "max"),
-                  "an alias (fable, opus, sonnet, haiku) or a full model id"),
+                  "an alias (fable, opus, sonnet, haiku) or a full model id", "enforced"),
     "codex": Cli("codex", "Codex CLI", "OpenAI", ("CODEX_THREAD_ID", "CODEX_SESSION_ID"),
                  ("minimal", "low", "medium", "high", "xhigh")),
     "gemini": Cli("gemini", "Gemini CLI", "Google", ("GEMINI_CLI",), (), "a Gemini model id, e.g. gemini-2.5-pro"),
 }
+READS = {"enforced": "reads limited to the copy by the CLI",
+         "instruction-only": "writes limited to the copy by the CLI; reads only by the brief's instruction"}
 
 
 def now() -> str:
@@ -87,7 +108,8 @@ def host() -> str | None:
 
 def version(binary: str) -> str:
     try:
-        done = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30, check=False)
+        done = subprocess.run([binary, "--version"], capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=30, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return "unknown"
     return (done.stdout or done.stderr).strip().splitlines()[0] if (done.stdout or done.stderr).strip() else "unknown"
@@ -222,10 +244,19 @@ ADAPTERS: dict[str, tuple[Callable[[str | None, str | None, Path], list[str]], C
 
 
 def environment(key: str) -> dict[str, str]:
-    env = dict(os.environ)
+    """The environment a CLI is started with: the session's own, without provider keys, so that the CLI uses its
+    own sign-in."""
+    env = {name: value for name, value in os.environ.items() if name.upper() not in CREDENTIALS}
     if key == "claude":
         env.pop("CLAUDECODE", None)  # Claude Code refuses to start inside a variable it set for its own session
     return env
+
+
+def sign_in() -> dict[str, Any]:
+    """How the CLI was signed in, without any secret: the key variables removed and the route settings left."""
+    names = {name.upper() for name in os.environ}
+    return {"route": "the CLI's own sign-in", "credential_variables_removed": [n for n in CREDENTIALS if n in names],
+            "route_settings_kept": [n for n in ROUTE_SETTINGS if os.environ.get(n)]}
 
 
 # --- one session in a throwaway copy -----------------------------------------------------------------------------
@@ -252,8 +283,29 @@ def validate(key: str, model: str | None, effort: str | None) -> Cli:
     return cli
 
 
+def group_options() -> dict[str, Any]:
+    """Start the CLI in a process group of its own, so that stopping it also stops what it started."""
+    if WINDOWS:
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)}
+    return {"start_new_session": True}
+
+
 def stop(process: subprocess.Popen) -> None:
-    for sig, wait in ((signal.SIGTERM, 10), (signal.SIGKILL, 5)):
+    """Stop the CLI and everything it started: on Windows the whole tree with taskkill, elsewhere its process group,
+    politely first."""
+    if WINDOWS:
+        try:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        try:
+            process.kill()
+            process.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return
+    for sig, wait in ((signal.SIGTERM, 10), (getattr(signal, "SIGKILL", signal.SIGTERM), 5)):
         try:
             os.killpg(process.pid, sig)
         except (ProcessLookupError, PermissionError):
@@ -276,11 +328,11 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
     record: dict[str, Any] = {"command": argv, "started_at": now()}
     with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
         process = subprocess.Popen(argv, cwd=copy, stdin=subprocess.PIPE, stdout=out, stderr=err,
-                                   env=environment(key), start_new_session=True)
+                                   env=environment(key), **group_options())
         try:
             process.stdin.write(prompt.encode("utf-8"))
             process.stdin.close()
-        except BrokenPipeError:
+        except (BrokenPipeError, OSError):
             pass
         try:
             process.wait(timeout=timeout)
@@ -307,7 +359,7 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
     configured = codex_models()[0] if key == "codex" and not model else None
     return record | {"status": status, "error": error, "answer": outcome.answer, "session_id": outcome.session,
                      "model_requested": model, "models_reported": outcome.models, "usage": outcome.usage,
-                     "model": f"{key}/{reported or model or configured or 'default'}"}
+                     "model": f"{key}/{reported or model or configured or 'default'}", "sign_in": sign_in()}
 
 
 def emit(result: dict[str, Any], as_json: bool, lines: list[str]) -> None:
@@ -369,14 +421,15 @@ def check(cli: str, model: Annotated[str | None, typer.Option()] = None,
     result = {"cli": cli, "name": info.name, "version": version(cli)} | result
     ok = result["status"] == "answered"
     emit(result, as_json, [f"{info.name}: {'ready' if ok else result['status']}, model {result['model']}"
-                           + ("" if ok else f". {result['error']}")])
+                           + ("" if ok else f". {result['error']}"), *sign_in_lines(result["sign_in"])])
     raise typer.Exit(0 if ok else 3 if result["status"] == "timeout" else 1)
 
 
 @app.command()
 def run(cli: str,
         workspace: Annotated[Path, typer.Option(help="The seat's workspace: everything it may read")],
-        brief: Annotated[Path, typer.Option(help="The seat's brief, sent unchanged as its whole prompt")],
+        brief: Annotated[Path, typer.Option(help="The seat's brief, sent as its whole prompt; the workspace's "
+                                                 "path in it is replaced by the copy's")],
         model: Annotated[str | None, typer.Option()] = None,
         effort: Annotated[str | None, typer.Option()] = None,
         timeout: Annotated[float, typer.Option(help="Seconds before the session is stopped")] = 3600,
@@ -397,7 +450,10 @@ def run(cli: str,
     try:
         shutil.copytree(workspace, copy)
         text = brief.read_text(encoding="utf-8")
-        prompt = text.replace(str(workspace), str(copy))
+        named = {str(workspace): str(copy), workspace.as_posix(): copy.as_posix()}  # the same on POSIX
+        prompt = text
+        for given_path, copy_path in named.items():
+            prompt = prompt.replace(given_path, copy_path)
         (workspace / "seat-run.prompt.md").write_text(prompt, encoding="utf-8")
         result = session(cli, copy, prompt, model, effort, timeout,
                          workspace / "seat-run.stdout.txt", workspace / "seat-run.stderr.txt")
@@ -421,14 +477,17 @@ def run(cli: str,
     if answer:
         (workspace / ANSWER).write_text(answer + "\n", encoding="utf-8")
     record = {"cli": cli, "name": info.name, "family": info.family, "version": version(cli), "host": host()} | result | {
+        "read_isolation": info.read_isolation, "write_isolation": "enforced",
         "workspace": str(workspace), "brief": str(brief.resolve()),
-        "workspace_path_in_brief_replaced": text.count(str(workspace)),
+        "workspace_path_in_brief_replaced": sum(text.count(given_path) for given_path in named),
         "prompt": "seat-run.prompt.md", "answer": ANSWER if answer else None,
         "stdout": "seat-run.stdout.txt", "stderr": "seat-run.stderr.txt",
         "returned": returned, "changed_not_returned": changed, "deleted_in_copy": deleted}
     (workspace / RECORD).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     lines = [f"{info.name} ({record['model']}): {record['status']} in {record['seconds']} s"
-             + (f". {record['error']}" if record["error"] else "")]
+             + (f". {record['error']}" if record["error"] else ""),
+             f"Isolation: {READS[info.read_isolation]}."]
+    lines += sign_in_lines(record["sign_in"])
     if returned:
         lines.append("Returned: " + ", ".join(returned))
     if changed:
@@ -440,5 +499,24 @@ def run(cli: str,
     raise typer.Exit({"answered": 0, "timeout": 3}.get(record["status"], 1))
 
 
+def sign_in_lines(route: dict[str, Any]) -> list[str]:
+    lines = []
+    if route["credential_variables_removed"]:
+        lines.append("Not passed to the CLI, so that it used its own sign-in: "
+                     + ", ".join(route["credential_variables_removed"]) + ".")
+    if route["route_settings_kept"]:
+        lines.append("Note: " + ", ".join(route["route_settings_kept"]) + " is set, so the CLI may have sent its "
+                     "requests that way rather than through its own sign-in.")
+    return lines
+
+
+def utf8_streams() -> None:
+    """A CLI's answer can hold any character; a Windows console's code page would otherwise fail on it."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 if __name__ == "__main__":
+    utf8_streams()
     app()

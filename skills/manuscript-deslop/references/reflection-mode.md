@@ -114,10 +114,11 @@ paragraphs; match the authors' voice from the sample if one is given.
 
 A finding about claim strength (I1, I2, I6) or a missing anchor (CLAIM) is not yours to fix: do not move
 the claim up or down, and do not invent an anchor. Leave the sentence and add it to "flagged" with the
-current wording, the proposed wording and the question for the authors.
+current wording and, for a claim, the wording narrowed to what its evidence shows (reworded, never deleted);
+for a missing anchor, what the claim needs.
 
 Output: the edited section; then a table | # | original | revision | finding id |; then
-"flagged": the sentences that need the authors, each with the question to ask.
+"flagged": the sentences you left, each with its narrowed wording or what it needs.
 
 Authors' sample (may be empty):
 <<<
@@ -136,7 +137,7 @@ Section:
 1. Split the manuscript into sections and run the loop on one section at a time.
 2. Review each critic finding rather than passing it on mechanically. Accept a finding when it names a
    concrete problem the contract lets the writer fix; reject it when the catalogue entry's "Leave it when"
-   applies, when it is a field convention, or when fixing it would change a claim (send that to the authors).
+   applies, when it is a field convention, or when fixing it would change a claim (a claim correction: below).
 3. After each writer pass, run `guard.py SECTION DRAFT` against the original section. Revert every protected
    change the authors did not ask for, and read every warning yourself. Then run the smell check
    (`scripts/style_profile.py DRAFT --before SECTION --check`) and fix what it lists before the critic
@@ -145,7 +146,10 @@ Section:
    words with the finding IDs in parentheses (as under "Traceability" above), then the flagged sentences,
    each quoted with its section and ordered by when the authors can act, claim questions first under "Fix
    now" ([author priorities](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done)). Apply authorised copy edits and
-   show a diff; ask the author only about unresolved facts or changes in scientific meaning.
+   show a diff. A flagged claim narrowed to its evidence follows the `edits` setting: applied under
+   `conservative` and `apply` when a confirmed finding supports it, shown before and after, and proposed
+   otherwise; only the choice between new work and a narrower claim, and facts only the authors have, go to
+   them.
 
 ## Optional detector notes
 

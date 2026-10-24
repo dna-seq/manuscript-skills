@@ -69,8 +69,9 @@ DETECTORS: dict[str, dict[str, Any]] = {
         "label": "the AI or Not API (free up to 1 million words a month)",
         "repo": None, "kind": "remote", "size_gb": 0, "ram_gb": 0,
         "needs": ["aiornot-key"], "licence": "service terms",
-        "why": "The only free hosted service. The manuscript is sent to the company, so before sending unpublished "
-               "work, get written confirmation that the text is not stored or used for training.",
+        "why": "The only free hosted service. The manuscript is sent to the company, so it runs only when the "
+               "authors agree to send this text. Its documentation says texts are deleted after scoring; its privacy "
+               "policy does not say whether they are used for training.",
     },
 }
 
@@ -86,14 +87,14 @@ PAGES = {
                         "log in and request access; Pangram approves it by hand, and whether it was granted cannot be "
                         "checked offline"),
     "aiornot-key": ("https://www.aiornot.com/dashboard/api",
-                    "sign up, copy the API key, then `export AIORNOT_API_KEY=...`"),
+                    "sign up, copy the API key, then set the AIORNOT_API_KEY environment variable to it"),
 }
 
 
 def _gpu() -> Optional[dict[str, Any]]:
     if shutil.which("nvidia-smi"):
         out = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
-                             capture_output=True, text=True)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
         if out.returncode == 0 and out.stdout.strip():
             name, mem = out.stdout.strip().splitlines()[0].rsplit(",", 1)
             return {"name": name.strip(), "vram_gb": round(int(mem) / 1024, 1), "backend": "cuda"}
@@ -235,5 +236,16 @@ def open_page(name: Annotated[str, typer.Argument(help=f"One of: {', '.join(PAGE
     typer.echo(f"Then {how}.")
 
 
+def _utf8_console() -> None:
+    """Print UTF-8 whatever the console's code page (a Windows console is often cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot change its encoding keeps it
+                pass
+
+
 if __name__ == "__main__":
+    _utf8_console()
     app()

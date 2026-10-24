@@ -194,14 +194,18 @@ one sentence offering the robustness check or referees on another model family, 
   [adjudication.md](adjudication.md#8-merging-triage-and-ranking): a sentence about platform support or a
   missing version number is not major unless a headline claim depends on it.
 - **Separate the authors' work from what an editor or venue asks.** Venue and policy points name the
-  skill that handles them; they are not scientific defects.
+  skill that handles them; they are not scientific defects. Venue points go under "Once you have chosen
+  the journal"; ethics, consent, privacy and clinical-scope points under "Also found, belongs to other
+  checks" (manuscript-policy-fit), never under "Fix now: the science and the evidence".
 - **Answered and dropped concerns** are not items. Say in one sentence how many the paper already
-  answers on a closer reading, and list any misreading they revealed under "Then the writing".
+  answers on a closer reading (what the defence found), and list any misreading they revealed under
+  "Then the writing".
 - **Reused checks and other remits.** Where an integrity, reference or reporting check already recorded
   a point a referee raised, cite it in words ("the integrity check of 15 October 2026 found no archived
   software record") instead of presenting it as new, and say why when the panel judges it differently.
   A confirmed point in another check's remit (a number that disagrees, an availability or declaration
-  statement, a TODO, a citation's identity) is never ranked among the items: it goes under "Also found,
+  statement, a TODO, a citation's identity, an ethics or consent point, a figure's legibility or colour)
+  is never ranked among the items: it goes under "Also found,
   belongs to other checks" when it is current work, or under "Before submission, once the code is final"
   when it waits for the end (a declaration, an archive record), naming the skill either way. Where those
   checks were not run, say so under "What this review did not have" and offer them; do not run them
@@ -256,8 +260,32 @@ report and evidence. New runs preserve earlier reports instead of replacing thei
 canonical author-annotated review is updated only with their authorization; register its current version
 in the run. Link the review and run index in the reply.
 
-When
-`manuscript-record.yaml` exists, add each confirmed concern to `open_issues` (`from:
+When `manuscript-record.yaml` exists, add each confirmed concern to `open_issues` (`from:
 manuscript-peer-review`, its location, a one-line summary in plain words, `route`, `status: open`) and
 one `checks` entry for the review (scope, manuscript sha256, date, output path, a one-line summary).
 Only the authors set an issue to `waived`.
+
+### The stage's findings for the dashboard
+
+Beside the report, write `findings.json` in the
+[stage-findings format](../../manuscript-dashboard/references/stage-findings.md) with the prefix `PR`: one
+record per root cause, as in Part 2, taken from `findings.adjudicated.json`. Its `quote` is the passage
+the concern is about, copied from the manuscript, at least three words (`null`, with `looked_in`, for
+something missing). Its `detail` says what is wrong
+and why it matters, and ends with the ids of the referees' concerns it merges, in parentheses ("(EV-1,
+SK-3)"): the dashboard links each concern to its record by these ids. Its `evidence` quotes the report's
+sentence for the item.
+
+| In the adjudicated findings | In `findings.json` |
+|---|---|
+| `confirmed` or `downgraded`, narrowed or not | a finding, `confidence: confirmed` |
+| `refuted` with triage `misread-risk` | a finding at stage `writing`, `confidence: confirmed`: bring the answer next to the claim |
+| any other `refuted`, and route `dropped` | `dismissed`, with what answered it or the drop reason |
+| route `author-required` (new work, or the narrower claim instead) | `decision: true`; `action` names both, the narrower claim first |
+| route `fixable-in-text`, a claim narrowed to its evidence included | `decision: false`: it follows the `edits` setting |
+| route `venue` | stage `journal`, category "Journal fit" |
+| route `policy`, or a `hand_to` another check ("Also found, belongs to other checks") | the stage the authors can act on it: `now`, `writing` or `final`; `detail` names the skill that handles it; a policy point's category is "Ethics, privacy and scope" |
+| any other stage | the same stage: `now`, `writing`, `journal` or `final` |
+| severity `blocker`, `major`, `optional`, `uncertain` | `blocker`, `major`, `info`, `unknown` |
+| a point the panel could not tie to the text | `dismissed`, saying the passage it quoted is not in the manuscript |
+| a line of "What this review did not have" | `not_checked`, with what it leaves open |

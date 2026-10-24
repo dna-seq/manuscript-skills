@@ -5,39 +5,49 @@
 """Find the people in a manuscript repository, for rev-marks.toml's `humans` list
 (manuscript-revision-marks). It proposes; the authors confirm; only then does it write.
 
-    uv run --script people.py [ROOT]                       # candidates with their evidence, and a proposal
-    uv run --script people.py [ROOT] --write --confirm anna,tom
+    uv run --script people.py [PATH] [--config TOML]          # candidates, their evidence, the one question
+    uv run --script people.py [PATH] --write --confirm anna,tom [--force-name]
 
-ROOT is any folder in the repository (default: the current one); the repository's root is where
-rev-marks.toml lives. Where it looks:
+PATH is the manuscript, or any folder in its repository (default: the current folder). The config is the
+rev-marks.toml revision marks reads for it: the nearest one from PATH up to the repository root, as
+rev_marks.py finds it, or the one --config names; a new one goes to the repository root (outside git,
+into PATH's folder). Where it looks:
 
-- git history: every author and committer (name and email), and Co-authored-by trailers;
-- the names already in revision marks' `by=` lists, in every tracked .md, .markdown and .tex file;
+- git history: every author and committer (name and email), and Co-authored-by trailers. Outside a git
+  repository, or without git, the history is not read, and the survey says so;
+- the names already in revision marks' `by=` lists, in every tracked .md, .markdown and .tex file (outside
+  git, every such file under the folder);
 - author lists: LaTeX `\\author{...}`, Markdown front matter `author:` / `authors:`, CITATION.cff,
   AUTHORS and CODEOWNERS.
 
 Each identity is classified:
 
-- agent: its name, email local part or handle matches the agent list (references/agent-names.toml in
-  manuscript-revision-marks, plus the project's own `agents`), or its email is a bot or AI vendor's
-  no-reply address;
-- person: a git author or committer, or a listed manuscript author, that is not an agent;
+- agent: its email is an AI vendor's or a bot's address (`*-bot@`, `*[bot]@`, `bot@`, the vendors'
+  no-reply addresses), its name or login ends in [bot], its GitHub login is on the agent list
+  (references/agent-names.toml in manuscript-revision-marks, plus the project's own `agents`), or, with
+  no other evidence of a person, its full name or email local part is;
+- person: a git author or committer, or a listed author, whose address is not an AI vendor's or a bot's,
+  even when a word of the name (Devin, Yi, Luna) or the address is also an agent's name: those are listed
+  apart, so the authors see them; and any other identity that is not an agent;
 - unclear: a `by=` handle that no person's identity explains, and that is not an agent.
 
-A `by=` handle is linked to a person when it equals their first name, their email's local part (or
-its first dot-separated part), or their GitHub login, lowercased. The proposal lists the linked
-handles, and for a person with no handle yet the one they would most likely sign with. Nothing here
-decides who is a person: a name is written only with --write and listed in --confirm, and it is
-merged into an existing rev-marks.toml without dropping anything already there.
+A `by=` handle is linked to a person when it equals their first name, their email's local part (or its
+first dot-separated part), or their GitHub login, lowercased. Pre-selected are the handles of people
+whose evidence converges: they sign `by=` entries, commit in git and are listed authors, and the handle
+is not also an agent's name. Everyone else is to confirm, in the same one question. Nothing here decides
+who is a person: a name is written only with --write and listed in --confirm, and it is merged into the
+rev-marks.toml without dropping anything already there. Until then, a name not in `humans` counts as an
+agent, so no passage reads as reviewed by mistake.
 
-Nothing leaves the machine. EXIT STATUS 0 done · 2 usage (a --confirm name the run did not find
-needs --force-name) · 3 could not run (not a git repository, git absent, a malformed rev-marks.toml)
+Nothing leaves the machine. EXIT STATUS 0 done · 2 usage (a --confirm name the run did not find needs
+--force-name), a malformed rev-marks.toml · 3 could not run (PATH unreadable)
 """
 from __future__ import annotations
 
 import argparse
 import fnmatch
 import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -49,14 +59,19 @@ from pathlib import Path
 REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
 MARKED_SUFFIXES = (".md", ".markdown", ".tex")
 # No-reply and bot addresses: a commit or trailer from one of these is an agent's, whatever its name.
+# `*bot@*` would take talbot@ and abbot@: a bot's address has the word on its own.
 AGENT_EMAILS = ("noreply@anthropic.com", "*@anthropic.com", "noreply@openai.com", "*@openai.com",
-                "*[[]bot]@users.noreply.github.com", "*-bot@*", "*bot@*", "cursoragent@cursor.com",
+                "*[[]bot]@*", "*-bot@*", "bot@*", "cursoragent@cursor.com",
                 "*@cursor.com", "noreply@google.com", "*@x.ai", "devin-ai-integration*", "noreply@github.com")
 GITHUB_NOREPLY = re.compile(r"^(?:\d+\+)?(?P<login>[^@]+)@users\.noreply\.github\.com$", re.IGNORECASE)
 TRAILER = re.compile(r"^\s*(?P<name>.*?)\s*<(?P<email>[^>]*)>\s*$")
 SEP, REC = "\x1f", "\x1e"
 # Folders whose files are test data or examples, not the project's own manuscripts.
 SKIPPED_DIRS = {"fixtures", "fixture", "tests", "test", "examples", "example", "vendor", "node_modules", "third_party"}
+# Outside git: folders never walked, and how many files the walk reads at most.
+UNWALKED_DIRS = SKIPPED_DIRS | {"__pycache__", "venv", "site-packages", "build", "dist"}
+MAX_WALKED = 20000
+AUTHOR_FILES = ("CITATION.cff", "AUTHORS", "AUTHORS.md", "AUTHORS.txt", "CONTRIBUTORS", "CONTRIBUTORS.md", "CODEOWNERS")
 PLACEHOLDER_NAMES = {"anonymous", "anonymous author", "anonymous authors", "anonymised", "anonymized", "author",
                      "authors", "first author", "your name", "name surname", "jane doe", "john doe"}
 
@@ -82,6 +97,11 @@ class Identity:
     evidence: list[str] = field(default_factory=list)
     handles: set[str] = field(default_factory=set)  # by= handles linked to this identity
     also: list[str] = field(default_factory=list)  # more emails of the same full name
+    committed: bool = False  # a git author or committer
+    listed: bool = False  # in a manuscript's author list (\author, front matter, CITATION.cff, AUTHORS)
+    why: str = ""  # for an agent: what makes it one
+    agent_words: list[str] = field(default_factory=list)  # for a person: words of the name that are agents' names
+    ambiguous: set[str] = field(default_factory=set)  # linked handles that are also agents' names
 
     @property
     def key(self) -> str:
@@ -101,23 +121,50 @@ class Identity:
 
 
 def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", check=False)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or f"git {' '.join(args)} failed")
     return proc.stdout
 
 
-def is_agent(people, name: str, email: str = "") -> bool:
-    words = [w for w in re.split(r"[\s(),]+", name.lower()) if w]
-    tokens = {name.lower(), "-".join(words), *words[:1]}
-    login = GITHUB_NOREPLY.match(email)
-    if email:
-        tokens.add(email.split("@")[0].lower())
-        if login:
-            tokens.add(login.group("login").lower())
-    if email and any(fnmatch.fnmatchcase(email.lower(), p) for p in AGENT_EMAILS):
-        return True
-    return any(people.known(t) == rm.Kind.AGENT for t in tokens if t)
+def agent_email(email: str) -> bool:
+    return bool(email) and any(fnmatch.fnmatchcase(email.lower(), p) for p in AGENT_EMAILS)
+
+
+def agent_reason(people, name: str, email: str = "", person: bool = False) -> str | None:
+    """Why this identity is an agent, or None. *person*: it commits in git or is a listed author, so a full
+    name or address that is also an agent's name (a co-author called Luna, yi@uni.edu) does not make it one.
+    Only the full name, the email's local part and the GitHub login are matched, never one word of a name."""
+    if agent_email(email):
+        return "an AI vendor's or a bot's address"
+    noreply = GITHUB_NOREPLY.match(email)
+    login = noreply.group("login").lower() if noreply else ""
+    if name.strip().lower().endswith("[bot]") or login.endswith("[bot]"):
+        return "a bot account"
+    if login and people.known(login) == rm.Kind.AGENT:
+        return f"its GitHub login, {login}, is an agent's"
+    if person:
+        return None
+    full = " ".join(name.lower().split())
+    local = email.split("@")[0].lower() if "@" in email and not login else ""
+    for token, what in ((full, "its name"), (local, "its address")):
+        if token and people.known(token) == rm.Kind.AGENT:
+            return f"{what}, {token}, is an agent's"
+    return None
+
+
+def is_agent(people, name: str, email: str = "", person: bool = False) -> bool:
+    return agent_reason(people, name, email, person) is not None
+
+
+def agent_words(people, ident: Identity) -> list[str]:
+    """The words of a person's name, address or login that are also agents' names, for the authors to see."""
+    noreply = GITHUB_NOREPLY.match(ident.email)
+    local = ident.email.split("@")[0].lower() if "@" in ident.email else ""
+    words = {" ".join(ident.name.lower().split()), *re.split(r"[\s(),]+", ident.name.lower()), local,
+             *re.split(r"[._+-]", local), noreply.group("login").lower() if noreply else ""}
+    return sorted(w for w in words if w and people.known(w) == rm.Kind.AGENT)
 
 
 def from_git(root: Path) -> list[Identity]:
@@ -129,8 +176,8 @@ def from_git(root: Path) -> list[Identity]:
         if len(parts) != 5:
             continue
         an, ae, cn, ce, trailers = parts
-        found.append(Identity(an, ae, evidence=["git author"]))
-        found.append(Identity(cn, ce, evidence=["git committer"]))
+        found.append(Identity(an, ae, evidence=["git author"], committed=True))
+        found.append(Identity(cn, ce, evidence=["git committer"], committed=True))
         for trailer in filter(None, trailers.split("\x1d")):
             m = TRAILER.match(trailer)
             if m:
@@ -142,6 +189,22 @@ def tracked(root: Path) -> list[Path]:
     """Tracked files, minus test data and examples."""
     return [root / line for line in git(root, "ls-files", "-z").split("\0")
             if line and not SKIPPED_DIRS & {part.lower() for part in Path(line).parts[:-1]}]
+
+
+def walked(root: Path) -> tuple[list[Path], bool]:
+    """Outside git: the manuscripts and author lists under *root*, minus test data, examples and hidden
+    folders; and whether the walk stopped early."""
+    out: list[Path] = []
+    seen = 0
+    for folder, dirs, names in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d.lower() not in UNWALKED_DIRS)
+        for name in sorted(names):
+            seen += 1
+            if seen > MAX_WALKED:
+                return out, True
+            if Path(name).suffix.lower() in MARKED_SUFFIXES or name in AUTHOR_FILES:
+                out.append(Path(folder) / name)
+    return out, False
 
 
 def by_handles(files: list[Path]) -> dict[str, list[str]]:
@@ -174,30 +237,31 @@ def author_lists(root: Path, files: list[Path]) -> list[Identity]:
             text = path.read_text(encoding="utf-8") if path.is_file() else ""
         except (OSError, UnicodeDecodeError):
             continue
-        rel = str(path.relative_to(root))
+        rel = path.relative_to(root).as_posix()
         if suffix == ".tex":
             for block in LATEX_AUTHOR.findall(text):
                 plain = re.sub(r"\\(?:thanks|footnote|textsuperscript|inst)\{[^{}]*\}|\$[^$]*\$", "", block)
                 for person in re.split(r"\\and|\\\\|,|\band\b", plain):
                     person = " ".join(re.sub(r"[\\{}]", " ", person).split())
                     if person and re.search(r"[A-Za-z]", person):
-                        found.append(Identity(person, evidence=[f"\\author in {rel}"]))
+                        found.append(Identity(person, evidence=[f"\\author in {rel}"], listed=True))
         elif suffix in (".md", ".markdown"):
             fm = FRONT_MATTER.match(text)
             if fm:
-                found += [Identity(n, evidence=[f"front matter of {rel}"]) for n in front_matter_authors(fm.group(1))]
+                found += [Identity(n, evidence=[f"front matter of {rel}"], listed=True)
+                          for n in front_matter_authors(fm.group(1))]
         elif name == "CITATION.cff":
             for given, family in re.findall(r"given-names:\s*\"?([^\"\n]+)\"?\s*\n\s*family-names:\s*\"?([^\"\n]+)",
                                             text):
-                found.append(Identity(f"{given.strip()} {family.strip()}", evidence=[f"{rel}"]))
+                found.append(Identity(f"{given.strip()} {family.strip()}", evidence=[f"{rel}"], listed=True))
             for family, given in re.findall(r"family-names:\s*\"?([^\"\n]+)\"?\s*\n\s*given-names:\s*\"?([^\"\n]+)",
                                             text):
-                found.append(Identity(f"{given.strip()} {family.strip()}", evidence=[f"{rel}"]))
+                found.append(Identity(f"{given.strip()} {family.strip()}", evidence=[f"{rel}"], listed=True))
         elif name in ("AUTHORS", "AUTHORS.md", "AUTHORS.txt", "CONTRIBUTORS", "CONTRIBUTORS.md"):
             for line in text.splitlines():
                 m = re.match(r"^\s*[-*]?\s*([^<#(\n]+?)\s*(?:<([^>]+)>)?\s*$", line)
                 if m and re.search(r"[A-Za-z]", m.group(1)) and not line.lstrip().startswith("#"):
-                    found.append(Identity(m.group(1), m.group(2) or "", evidence=[f"{rel}"]))
+                    found.append(Identity(m.group(1), m.group(2) or "", evidence=[f"{rel}"], listed=True))
         elif name == "CODEOWNERS":
             for login in sorted(set(re.findall(r"(?<![\w/])@([A-Za-z0-9-]+)(?![/\w])", text))):
                 found.append(Identity(login, f"{login}@users.noreply.github.com", evidence=[f"{rel}"]))
@@ -259,6 +323,8 @@ def merge(identities: list[Identity]) -> list[Identity]:
 
 def absorb(into: Identity, other: Identity) -> None:
     into.evidence += [e for e in other.evidence if e not in into.evidence]
+    into.committed = into.committed or other.committed
+    into.listed = into.listed or other.listed
     emails = {e.lower() for e in [into.email, *into.also] if e}
     if other.email and other.email.lower() not in emails:
         if into.email:
@@ -274,59 +340,150 @@ class Survey:
     handles: dict[str, list[str]]  # by= handle -> where
     unclear: list[str]  # by= handles linked to nobody and not agents
     agent_handles: list[str]
-    config: Path | None
+    config: Path | None  # the rev-marks.toml in use, if any
+    target: Path = Path(rm.CONFIG_NAME)  # where --write merges the confirmed names
+    history: str = ""  # why git history was not read; empty when it was
+    note: str = ""  # anything else the survey could not do
+    start: Path | None = None  # the PATH the survey was given
+
+    def people(self) -> list[Identity]:
+        return [i for i in self.identities if i.kind == "person"]
 
     def proposal(self) -> list[str]:
+        """Every person's handle: the ones they sign with, else the one they most likely would."""
         out: list[str] = []
-        for ident in self.identities:
-            if ident.kind != "person":
-                continue
+        for ident in self.people():
             picks = sorted(ident.handles) or ident.likely_handles()[:1]
             out += [h for h in picks if h not in out]
         return out
 
+    def preselected(self) -> list[str]:
+        """The handles whose evidence converges: signed by= entries, a git author or committer, a listed
+        author, and not also an agent's name."""
+        out: list[str] = []
+        for ident in self.people():
+            if ident.committed and ident.listed:
+                out += [h for h in sorted(ident.handles - ident.ambiguous) if h not in out]
+        return out
 
-def survey(root: Path) -> Survey:
-    people = rm.load_people(root / "x")
-    files = tracked(root)
-    identities = merge(from_git(root) + author_lists(root, files))
+
+def survey(path: Path, config: Path | None = None) -> Survey:
+    """Who is a person, for the manuscript or folder at *path*; *config* overrides the rev-marks.toml lookup."""
+    path = path.resolve()
+    folder = path if path.is_dir() else path.parent
+    root, history = folder, ""
+    if shutil.which("git") is None:
+        history = "git is not installed"
+    else:
+        try:
+            root = Path(git(folder, "rev-parse", "--show-toplevel").strip()).resolve()
+        except RuntimeError:
+            history = "not a git repository"
+    if config is not None and not config.is_file():
+        people = rm.People(agents=rm.agent_list())  # a new file, written on --write
+        found_config = None
+    else:
+        people = rm.load_people(path, config)
+        found_config = people.config
+    note = ""
+    identities: list[Identity] = []
+    if history:
+        files, stopped = walked(root)
+        if stopped:
+            note = f"the walk stopped after {MAX_WALKED} files; name the manuscript's own folder to read all of it"
+    else:
+        files = tracked(root)
+        try:
+            identities = from_git(root)
+        except RuntimeError as exc:  # a repository with no commits yet
+            history = f"git log could not be read ({exc.args[0].splitlines()[0] if exc.args[0] else 'no commits'})"
+    if path.is_file() and path.suffix.lower() in MARKED_SUFFIXES and path not in files:
+        files.append(path)  # the manuscript itself, tracked or not
+    identities = merge(identities + author_lists(root, files))
     for ident in identities:
-        ident.kind = "agent" if is_agent(people, ident.name, ident.email) else "person"
+        why = agent_reason(people, ident.name, ident.email, ident.committed or ident.listed)
+        ident.kind, ident.why = ("agent", why) if why else ("person", "")
+        if ident.kind == "person":
+            ident.agent_words = agent_words(people, ident)
     handles = by_handles(files)
     unclear, agent_handles = [], []
     for handle in handles:
-        if people.known(handle) == rm.Kind.HUMAN:
+        known = people.known(handle)
+        if known == rm.Kind.HUMAN:
             continue  # already listed
-        if people.known(handle) == rm.Kind.AGENT:
-            agent_handles.append(handle)
-            continue
         owners = [i for i in identities if i.kind == "person" and handle.lower() in i.likely_handles()]
         for owner in owners:
             owner.handles.add(handle.lower())
-        if not owners:
+            if known == rm.Kind.AGENT:
+                owner.ambiguous.add(handle.lower())
+        if known == rm.Kind.AGENT and not owners:
+            agent_handles.append(handle)
+        elif not owners:
             unclear.append(handle)
-    return Survey(root, identities, handles, unclear, agent_handles, people.config)
+    target = config or found_config or root / rm.CONFIG_NAME
+    return Survey(root, identities, handles, unclear, agent_handles, found_config, target, history, note, path)
+
+
+def where(s: Survey, handle: str) -> str:
+    places = s.handles.get(handle, [])
+    return ", ".join(places[:3]) + (" …" if len(places) > 3 else "")
+
+
+def describe(i: Identity, kind: str) -> str:
+    email = "".join(f" <{e}>" for e in [i.email, *i.also] if e)
+    line = f"  {i.name}{email}  [{'; '.join(i.evidence)}]"
+    if kind == "agent":
+        return f"{line}  {i.why}"
+    if i.handles:
+        line += f"  signs as {', '.join(sorted(i.handles))}"
+    elif i.likely_handles():
+        line += f"  would sign as {i.likely_handles()[0]}?"
+    if i.agent_words:
+        line += f"  ({', '.join(i.agent_words)}: also an agent's name)"
+    if i.ambiguous:
+        line += (f"; listing {', '.join(sorted(i.ambiguous))} as a person makes every by= round signed so a person's,"
+                 " an AI's included")
+    return line
 
 
 def report(s: Survey) -> str:
-    lines = [f"People in {s.root} (rev-marks.toml: {s.config or 'none yet'})", ""]
-    for kind, title in (("person", "PEOPLE (proposed for humans)"), ("agent", "AGENTS (not proposed)")):
-        group = [i for i in s.identities if i.kind == kind]
+    config = s.config or f"none yet; --write creates {s.target}"
+    lines = [f"People in {s.root} (rev-marks.toml: {config})",
+             "Git history: " + (f"not read: {s.history}; the by= handles and author lists were" if s.history
+                                else "read") + (f". Note: {s.note}" if s.note else ""), ""]
+    people = s.people()
+    plain = [i for i in people if not i.agent_words and not i.ambiguous]
+    named = [i for i in people if i.agent_words or i.ambiguous]
+    agents = [i for i in s.identities if i.kind == "agent"]
+    for title, group, kind in (("PEOPLE", plain, "person"),
+                               ("PEOPLE WHOSE NAME MATCHES AN AGENT NAME (kept as people; show them to the authors)",
+                                named, "person"),
+                               ("AGENTS (not proposed)", agents, "agent")):
         lines.append(f"{title}: {len(group)}")
-        for i in sorted(group, key=lambda i: i.name.lower()):
-            signs = f"  signs as {', '.join(sorted(i.handles))}" if i.handles else \
-                f"  would sign as {i.likely_handles()[0]}?" if kind == "person" and i.likely_handles() else ""
-            email = "".join(f" <{e}>" for e in [i.email, *i.also] if e)
-            lines.append(f"  {i.name}{email}  [{'; '.join(i.evidence)}]{signs}")
+        lines += [describe(i, kind) for i in sorted(group, key=lambda i: i.name.lower())]
         lines.append("")
     if s.agent_handles:
         lines += [f"by= HANDLES ON THE AGENT LIST: {', '.join(sorted(s.agent_handles))}", ""]
-    lines.append(f"by= HANDLES NOBODY EXPLAINS (unclear; counted as agents until listed): {len(s.unclear)}")
-    lines += [f"  {h}  ({', '.join(s.handles[h][:3])}{' …' if len(s.handles[h]) > 3 else ''})" for h in s.unclear]
-    proposal = s.proposal()
-    lines += ["", "PROPOSED rev-marks.toml humans (confirm each with the authors before writing):",
-              f"  humans = {format_list(proposal)}",
-              f"  then: people.py --write --confirm {','.join(proposal) or 'NAME,...'}"]
+    lines.append(f"by= HANDLES NOBODY EXPLAINS (counted as agents until listed): {len(s.unclear)}")
+    lines += [f"  {h}  ({where(s, h)})" for h in s.unclear]
+    pre = s.preselected()
+    asked: list[str] = []
+    for ident in people:
+        evidence = "; ".join(ident.evidence)
+        picks = sorted(ident.handles) or ident.likely_handles()[:1]
+        for h in picks:
+            if h in pre or any(h == a.split(" ")[0] for a in asked):
+                continue
+            how = f"signs marks as {h}" if h in ident.handles else "has signed no mark yet, so the handle is a guess"
+            flag = f"; {h} is also an agent's name" if h in ident.ambiguous or h in ident.agent_words else ""
+            asked.append(f"{h} ({ident.name} {how}; {evidence}{flag})")
+    asked += [f"{h} (unexplained by= handle: {where(s, h)})" for h in s.unclear]
+    lines += ["", "ONE QUESTION FOR THE AUTHORS, among the end-of-run decisions. Nothing waits on it: until it is",
+              "answered, every name not in humans counts as an agent, so no passage reads as reviewed by mistake.",
+              f"  Pre-selected (signs revision marks, commits in git and is a listed author): {', '.join(pre) or 'none'}",
+              f"  Also people? {'; '.join(asked) or 'nobody else'}",
+              f"  Write only what they confirm: people.py {s.start or s.root} --write --confirm "
+              f"{','.join(pre) or 'NAME,...'}  (into {s.target})"]
     return "\n".join(lines) + "\n"
 
 
@@ -351,6 +508,7 @@ def write_humans(config: Path, names: list[str]) -> list[str]:
     else:
         header = "" if text else "# Who is a person in this project's revision marks (manuscript-revision-marks).\n"
         text = header + line + "\n" + text
+    config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(text, encoding="utf-8")
     tomllib.loads(text)  # the merge left a file that still parses
     return merged
@@ -358,21 +516,23 @@ def write_humans(config: Path, names: list[str]) -> list[str]:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="people.py", description=__doc__.split("\n\n")[0])
-    ap.add_argument("root", nargs="?", type=Path, default=Path.cwd())
+    ap.add_argument("root", nargs="?", type=Path, default=Path.cwd(), metavar="PATH",
+                    help="the manuscript, or a folder in its repository (default: the current folder)")
+    ap.add_argument("--config", type=Path, help=f"the {rm.CONFIG_NAME} to read and write (default: the nearest one"
+                                                " from PATH up to the repository root, as rev_marks.py finds it)")
     ap.add_argument("--write", action="store_true", help="merge the --confirm names into rev-marks.toml")
     ap.add_argument("--confirm", default="", help="the handles the authors confirmed as people, comma-separated")
     ap.add_argument("--force-name", action="store_true", help="accept a --confirm name this run did not find")
     args = ap.parse_args(argv)
-    if shutil.which("git") is None:
-        print("people.py: not run: git is not on PATH", file=sys.stderr)
+    if not args.root.exists():
+        print(f"people.py: not run: {args.root} does not exist", file=sys.stderr)
         return 3
     try:
-        root = Path(git(args.root, "rev-parse", "--show-toplevel").strip())
-        s = survey(root)
-    except (RuntimeError, OSError) as exc:
-        print(f"people.py: not run: {exc}", file=sys.stderr)
-        return 3
+        s = survey(args.root, args.config)
     except rm.ConfigError as exc:
+        print(f"people.py: {exc}", file=sys.stderr)
+        return 2
+    except (RuntimeError, OSError) as exc:
         print(f"people.py: not run: {exc}", file=sys.stderr)
         return 3
     if not args.write:
@@ -392,15 +552,20 @@ def main(argv: list[str]) -> int:
     if bad:
         print(f"people.py: not a by= name ({rm.NAME_PATTERN}): {', '.join(bad)}", file=sys.stderr)
         return 2
-    config = s.config or root / rm.CONFIG_NAME
     try:
-        merged = write_humans(config, names)
+        merged = write_humans(s.target, names)
     except ValueError as exc:
+        print(f"people.py: {exc}", file=sys.stderr)
+        return 2
+    except OSError as exc:
         print(f"people.py: not run: {exc}", file=sys.stderr)
         return 3
-    print(f"wrote {config}: humans = {format_list(merged)}")
+    print(f"wrote {s.target}: humans = {format_list(merged)}")
     return 0
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main(sys.argv[1:]))

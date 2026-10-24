@@ -462,7 +462,7 @@ V4, V5) are end-stage work for a draft, not blockers; reference identity (R1 to 
 - V5 (B). Data availability statement present with links or identifiers.
 - V6 (B). ML: training-set composition subsection, independent test set, homology handling, no leave-one-out (editorial rejection).
 - V7 (B). New methods compared against state of the art on real data; simulated-only data needs strong justification.
-- V8 (B). Formatting: ≤7 pages / ~5,000 words (Original) or ≤4 pages / ~2,600 words (App Note); no return rule for overlength papers on the live page (2026-10-15); structured abstract ≤150 words; software name in the title.
+- V8 (B). Formatting: Original Paper up to 7 pages, "approx. 5000 words, not including figures"; Application Note up to 4 pages, "approx. 2600 words or 2000 words plus one figure"; a structured abstract of at most 150 words ("recommended", with "some flexibility"); software name in the title. Over-length papers: "manuscripts that exceed the limit by 20% or more are usually returned by the Editorial Office immediately" (the "Format-Free Submission" section, read on the Internet Archive copy of 2026-08-17 and checked 2026-10-19, because the live page could not be read past its open-access charges section; `venues.yaml` records it as `over_limit_return: 1.2`). An earlier note here said the live page states no return rule; that came from the cut-off reading.
 - V9. Other targets: Nature "Code availability" section after Data availability; Genome Biology/BMC "Availability and requirements" block with archived DOI and licence; GigaScience OSI licence plus WorkflowHub; PLOS ONE OSD-compliant open source.
 
 ### 6.6 Formulaic public-data papers

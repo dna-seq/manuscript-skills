@@ -443,6 +443,9 @@ TEX_LINES = [
 ]
 TEX = "".join(line + "\n" for line, _ in TEX_LINES)
 TEX_PROSE = [n for n, (_, prose) in enumerate(TEX_LINES, start=1) if prose]
+# The paragraphs, by their first prose line: lines 13, 14 and 16 are one (a comment line does not end it), and
+# every line of commands alone (\begin{itemize}, \[, \subsection) ends one.
+TEX_PARAGRAPHS = [8, 13, 18, 24, 30, 32, 36, 39]
 TEX_VERBATIM = range(25, 29)  # 0-based lines of the verbatim block
 TEX_SYN = rm.Syntax.TEX
 
@@ -563,16 +566,17 @@ def test_tex_strip_check_report_and_bump_on_the_command_line(tmp_path):
     assert py(RM, "strip", src, "--check").rc == 0  # a bump touches only a mark: the twin stays current
 
 
-def test_tex_blind_spots_are_the_prose_lines_of_the_body():
+def test_tex_blind_spots_are_the_paragraphs_of_the_body():
     found = rm.parse(TEX, TEX_SYN)
-    assert [p.line for p in rm.paragraphs(found)] == TEX_PROSE
-    assert [p.line for p in rm.blind_spots(found)] == TEX_PROSE
+    assert [line for p in rm.paragraphs(found) for line in p.lines] == TEX_PROSE
+    assert [p.line for p in rm.paragraphs(found)] == TEX_PARAGRAPHS
+    assert [p.line for p in rm.blind_spots(found)] == TEX_PARAGRAPHS
 
 
 def test_tex_marking_a_blind_line_removes_exactly_that_one():
     marked = rm.parse(tex_marked(), TEX_SYN)
-    assert {p.text for p in rm.paragraphs(marked) if p.covered} == \
-        {TEX_LINES[i][0].strip() for i in (12, 13, 15, 17, 38)}
+    unmarked = rm.paragraphs(rm.parse(TEX, TEX_SYN))
+    assert {p.text for p in rm.paragraphs(marked) if p.covered} == {p.text for p in unmarked if p.line in (13, 18, 39)}
     lines = [line for line, _ in TEX_LINES]
     before = rm.blind_spots(rm.parse(TEX, TEX_SYN))
     after = rm.blind_spots(rm.parse("".join(x + "\n" for x in tex_wrap(lines, 31, 32, "N1")), TEX_SYN))
@@ -588,7 +592,8 @@ def test_a_tex_file_without_a_document_environment_is_all_body():
 # --- ledger ids: a mark can name the review-ledger item it answers (manuscript-reviewer-response) -------
 
 
-@pytest.mark.parametrize("sid", ["C3", "N1", "C3a", "R1.2", "R2.W1", "R2.P1", "R1.4a", "R10.S12b"])
+@pytest.mark.parametrize("sid", ["C3", "N1", "C3a", "R1.2", "R2.W1", "R2.P1", "R1.4a", "R10.S12b", "Ed.P1", "Ed1",
+                                 "R2.P3b", "R1.6.1", "R1.Minor3", "R.2", "R1.2A", "IC-1", "RP.RC-1", "IC-1.20261024"])
 def test_ledger_and_comment_ids_are_marks(sid):
     text = f"Intro line.\n{open_mark(sid)}\nA rewritten sentence.\n{close_mark(sid)}\n"
     found = rm.parse(text)
@@ -597,7 +602,7 @@ def test_ledger_and_comment_ids_are_marks(sid):
     assert found.clean_text() == "Intro line.\nA rewritten sentence.\n"
 
 
-@pytest.mark.parametrize("sid", ["r1.2", "R1.", "R1..2", "R.2", "1.2", "R1.2A", "R1.w1"])
+@pytest.mark.parametrize("sid", ["r1.2", "R1.", "R1..2", "1.2", "Ed", "IC-", "IC--1", "-1", "C3_a", "C3,a", "4a"])
 def test_malformed_ledger_ids_are_refused(sid):
     found = rm.parse(f"{open_mark(sid)}\nText.\n{close_mark(sid)}\n")
     assert Code.BAD_ID in {i.code for i in found.errors}

@@ -38,9 +38,9 @@ journal's scope and bar.
 | `software-tool` | software-methods | claims-novelty, evidence-statistics | software-and-methods; genomics if it handles genomic data; ai-systems if the tool runs an LLM or other AI system |
 | `method-benchmark` | evidence-statistics | claims-novelty, reproducibility | software-and-methods; the data's domain; ai-systems when the methods compared are AI systems |
 | `database-resource` | software-methods (access, versions, licence, curation quality) | claims-novelty, evidence-statistics | software-and-methods; ai-systems if an AI system drafts or curates entries |
-| `genetic-association`, `polygenic-score`, `mendelian-randomization` | evidence-statistics + genomics | claims-novelty, reproducibility | genomics; human-data-and-clinical |
-| `observational-human`, `prediction-model`, `randomized-trial`, `case-report` | evidence-statistics + human-data-and-clinical | claims-novelty, reproducibility | human-data-and-clinical |
-| `omics-profiling`, `public-data-reanalysis`, `microbiome-metagenomics` | evidence-statistics + genomics (batch, references) | claims-novelty, reproducibility | genomics (only the questions that fit) |
+| `genetic-association`, `polygenic-score`, `mendelian-randomization` | evidence-statistics (with the genomics questions) | claims-novelty, reproducibility | genomics; human-data-and-clinical |
+| `observational-human`, `prediction-model`, `randomized-trial`, `case-report` | evidence-statistics (with the human-data-and-clinical questions) | claims-novelty, reproducibility | human-data-and-clinical |
+| `omics-profiling`, `public-data-reanalysis`, `microbiome-metagenomics` | evidence-statistics (with the genomics questions on batch and references) | claims-novelty, reproducibility | genomics (only the questions that fit) |
 | `in-vitro-experiment`, `animal-experiment` | evidence-statistics (controls, replicates, blinding) | claims-novelty, reproducibility | none yet; use the seats' general questions |
 | `systematic-review`, `simulation-theory`, `qualitative` | evidence-statistics | claims-novelty, reproducibility | none yet |
 | `ai-generated-science` | as for the underlying design; the evidence seat uses [ai-science-design.md](../../manuscript-integrity-check/references/ai-science-design.md) | as for the underlying design | as for the underlying design |
@@ -152,6 +152,12 @@ step 6 of the brief: a quick pass writes no report and no recommendation. Merge 
 confirmed points into the calling report, in its stage groups, each saying in words which simulated
 reviewer raised it ("the simulated desk editor"), quoting the manuscript with its section.
 
+Register it in the run under manuscript-peer-review: each seat's `findings.json` as a `seat` artifact
+(`--seat desk-editor`, `--seat evidence-statistics`, with `--isolation`), the defender's answers as
+`defence` and the adjudicated findings as `adjudication`, a short report in this skill's folder
+(`report.md`: the two seats, the confirmed points and where the calling report lists them), then
+`runs.py finish RUN --skill manuscript-peer-review --status completed --review-mode quick`.
+
 ## Domain modules
 
 | Module | Serves | Trigger summary |
@@ -171,9 +177,13 @@ Each seat receives one self-contained brief and its own workspace (inside the du
 the reading copy of the manuscript (HTML comments, LaTeX comments and revision markers removed, as an
 editor would see it), its supplementary files, the figures as images in `figures/` with `figures/index.md`
 (made with `uv run --script ../manuscript-figures/scripts/figures.py workspace PAPER --into WORKSPACE/figures`),
-a copy of [finding-schema.md](finding-schema.md), and,
+a copy of [finding-schema.md](finding-schema.md), the journal brief `venue.md` (SKILL.md, step 2), and,
 when a domain module is loaded for this seat, that module's questions as `domain-questions.md`. Domain
-questions live only in the workspace of the seat they serve. Fill in the angle brackets:
+questions live only in the workspace of the seat they serve. Fill in the angle brackets. The workspace is
+named by its absolute path, because a subagent starts in the session's folder (in Claude Code, the
+project), where "this directory" would be the whole project. `<prefix>` is the seat's prefix from
+[finding-schema.md](finding-schema.md#finding-ids) (`SK` for the skeptic); a seat on another model gets the
+same brief, and its CLI's letter is added when merging (`SKX-1`):
 
 > You are the **<seat>** on a simulated referee panel. <One journal: "The editor of <journal> has asked
 > you to referee this manuscript, submitted as <article type>." Several: "The authors are considering
@@ -182,22 +192,23 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 > referees are in `venue.md`. Study design: <keys>. Your remit: <remit from seats.md>. <If a module is
 > loaded: "Your domain questions are in `domain-questions.md`.">
 >
-> Work only from the files in this directory; open or run nothing outside it, not even this panel's own
-> scripts (the coordinator checks your quotes). Do not look for other reviews of this work, the authors'
-> notes or their views of it. Unfinished content (a TODO note, a placeholder) is not a referee concern;
-> leave it to the integrity check.
+> Work only from the files in <absolute path of your workspace>; open or run nothing outside it, not even
+> this panel's own scripts (the coordinator checks your quotes). Do not look for other reviews of this
+> work, the authors' notes or their views of it. Unfinished content (a TODO note, a placeholder) is not a
+> referee concern; leave it to the integrity check.
 >
 > 1. Before opening the manuscript, read `venue.md` and write `criteria.md`: the three to eight problems
 >    that, for your remit, this design and the journal's bar, would count as major, one per line, numbered
 >    `C1.`, `C2.` and so on, in your own words. Do not edit them after you start reading.
-> 2. Read the whole manuscript, including tables, figure legends and the supplementary files here. Look
->    at each figure in `figures/` (listed in `figures/index.md`) when the text reaches it, as a referee
->    looks at the page: does it show what its legend and the sentences citing it say? For a concern about
->    a figure, quote its legend or the sentence that cites it, and give the figure and panel as the
->    location.
-> 3. Write `findings.json` following `finding-schema.md`, one problem per finding. Quote the manuscript
->    exactly; for something missing, list where you looked. Raise a concern only if resolving it could change the validity,
->    support, scope, reproducibility or interpretation of a claim, and name that claim. Say what would
+> 2. Read the whole manuscript, including tables, figure legends and the supplementary files in your
+>    workspace. Look at each figure in `figures/` (listed in `figures/index.md`) when the text reaches it,
+>    as a referee looks at the page: does it show what its legend and the sentences citing it say? For a
+>    concern about a figure, quote its legend or the sentence that cites it, and give the figure and panel
+>    as the location.
+> 3. Write `findings.json` following `finding-schema.md`, one problem per finding, numbered <prefix>-1,
+>    <prefix>-2 and so on. Quote the manuscript exactly; for something missing, list where you looked.
+>    Raise a concern only if resolving it could change the validity, support, scope, reproducibility or
+>    interpretation of a claim, and name that claim. Say what would
 >    change your mind. Do not call the work not novel without naming the prior work and its identifier,
 >    or marking it unverified. Ask for new experiments or data only when the claim needs them, and say
 >    whether narrowing the claim would do instead. A request for what the field or the journal expects

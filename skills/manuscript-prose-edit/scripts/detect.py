@@ -98,8 +98,9 @@ def score_windows(wins: list[dict[str, Any]], scorer: Callable[[str], float],
 
 
 # --- detectors ------------------------------------------------------------------------------------------------
-# torch and transformers are imported inside the loaders: they take seconds to import and are not needed for the
-# hosted detector or for --help.
+# torch and transformers are imported inside the loaders, so the hosted detector and --help do not wait seconds for
+# the import. uv still installs them with the script's other dependencies the first time it runs, even for --help
+# (about 530 MB for torch); `detector_setup.py check` needs neither and says what can run here.
 
 def _device() -> str:
     import torch
@@ -253,7 +254,9 @@ def main(
     sample: Annotated[Optional[list[Path]], typer.Option(exists=True, dir_okay=False,
                                                          help="The authors' own earlier writing, for calibration")] = None,
     allow_remote: Annotated[bool, typer.Option(help="Allow a hosted detector (the text leaves this machine)")] = False,
-    json_out: Annotated[Optional[Path], typer.Option("--json", help="Write rows as JSON (input for the critic)")] = None,
+    json_out: Annotated[Optional[Path], typer.Option("--json", help="Write rows as JSON; in reflection mode the "
+                                                     "flagged windows go to the writer in round 1, never to the "
+                                                     "critic")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here")] = None,
 ) -> None:
     if detector not in LOADERS:
@@ -283,5 +286,16 @@ def main(
         typer.echo(md)
 
 
+def _utf8_console() -> None:
+    """Print UTF-8 whatever the console's code page (a Windows console is often cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot change its encoding keeps it
+                pass
+
+
 if __name__ == "__main__":
+    _utf8_console()
     app()

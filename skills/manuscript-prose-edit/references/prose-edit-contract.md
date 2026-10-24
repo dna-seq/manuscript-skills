@@ -64,8 +64,12 @@ what was asked, and then say so. If the authors want a stronger claim, show the 
 wording they want and the evidence that wording would need, and let them decide.
 
 **Narrowing is a claim correction too.** Lowering a claim, adding a hedge, limitation or qualifier, or
-deleting a claim sentence changes the science. Do it only when asked, or propose it, and list it among the
-changes the authors must see. Never add new doubt to make text sound careful ([deslop catalogue](../../manuscript-deslop/references/llm-smells.md) I5).
+deleting a claim sentence changes the science. It follows the `edits` setting
+([author priorities](../../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)):
+under `conservative` and `apply`, narrow a claim to what its evidence shows when a confirmed finding supports
+it, by rewording and never by deleting the claim, and show it before and after; under `propose`, and for
+anything no confirmed finding supports, propose it. Only the choice between new work and a narrower claim is a
+decision for the authors. Never add new doubt to make text sound careful ([deslop catalogue](../../manuscript-deslop/references/llm-smells.md) I5).
 
 **Preserve, even when a style list says otherwise:**
 - a hedge tied to evidence ("may, because follow-up was two years"; "in this cohort"); remove only a
@@ -175,7 +179,9 @@ is a prerequisite for a copy edit.
    test**: would it be equally true of a paper whose authors never thought about this issue? "Further
    studies are needed to confirm these findings" passes the test and can go; "The association may not hold
    outside European-ancestry samples" fails it (it records a limit these authors identified) and stays. A
-   sentence that fails the test carries content; edit it, never delete it, unless the authors ask.
+   sentence that fails the test carries content; edit it, never delete it, unless the authors ask. A
+   sentence that only opens with a stock phrase ("For the purpose of reproducibility, all code is archived")
+   keeps the rest: cut the phrase, not the sentence. The guard lists such a deletion as "cut as a stock phrase".
 4. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
    Table 2 says 4.2×, the number belongs in the sentence (E1). If no anchor exists, flag it; never supply
    one. In the Abstract, Introduction and Discussion, retain the numbers needed to understand the claim.
@@ -216,13 +222,14 @@ Do not repeat a loop solely to eliminate style hits.
 ### 5.3 The smell check
 
 ```bash
-uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID]
+uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID@HEADING]
 ```
 
 Required for every edit, before handover. Follow [manuscript-deslop's count and reading
 checks](../../manuscript-deslop/SKILL.md#find-and-fix-the-patterns), including the before-edit profile,
-the catalogue's exceptions and `--keep ID` for reviewed uses that stay. Explain retained sentences under
-"Then the writing". Preserve this contract's scientific meaning and claim ceiling throughout.
+the catalogue's exceptions and `--keep ID@HEADING` (or `--keep ID`, everywhere) for reviewed uses that stay,
+recorded in the run folder with `--record-keeps`. Explain retained sentences under "Then the writing". Preserve
+this contract's scientific meaning and claim ceiling throughout.
 
 ### 5.4 The guard
 
@@ -242,19 +249,30 @@ For file edits, compare against a saved pre-edit version. The guard checks two t
 
 Exit code 1 means a protected change. Revert unintended content drift, resolve harmless formatting matches
 yourself (a unit respelled, a citation reformatted), and flag actual content decisions outside the request.
-Warnings (a claim lowered, a qualifier added, a negation changed, a number moved within its paragraph) are
-changes the authors must see when they stand; list them with the edit. When the authors asked for a claim
-correction, list it (a passage from the sentence and their request) in a file and rerun with `--authorised FILE`:
-that change is listed with its request, any other widened claim still fails, and numbers and citations still
-fail. Restore an unrequested widening yourself as drift; the authors are not asked about it.
-`--allow-strengthening` authorises every claim change at once, only when the request covers the whole text. `--relocated` is for an edit that moves caveats on purpose, to the end of their result, the Limitations or the
-supplement: each lost marker must reappear, with the same key, in another inserted or changed sentence or in a
-`--moved-to` file, one occurrence per lost marker and never from a sentence that only swapped one marker of that
-kind for another, and a matched finding becomes a warning whose `relocated_to` names the section, line, file and
-sentence, so the authors still see where each caveat went. A passing guard does not prove meaning stayed intact: it can miss swapped
-values and changed relationships that keep every marker. For a short pasted passage, a direct comparison
-against `claim-ladders.md` is sufficient. Tell the authors what the guard found in its report's plain words
-("no number, citation or claim strength changed"), not as an exit code, a "protected change" or a rung.
+Warnings (a claim lowered, a qualifier added, a negation changed, a number moved within its paragraph, a sentence
+cut as a stock phrase that said more than the phrase) are changes the authors must see when they stand; list them
+with the edit. A declaration only the authors can make (consent, ethics approval, competing interests, funding,
+an author's contribution) is protected whenever a sentence that makes one is written, reworded or removed. When
+the authors asked for a claim correction or supplied a declaration, list it (a passage of at least three words in
+a row copied from the sentence, and their request) in a file and rerun with `--authorised FILE`: that change is
+listed with its request, any other widened claim or changed declaration still fails, and numbers and citations
+still fail. Restore an unrequested widening yourself as drift; the authors are not asked about it.
+`--allow-strengthening` authorises every claim change at once, only when the request covers the whole text.
+
+`--relocated` is for an edit that moves caveats on purpose (manuscript-story's): to the end of their result or
+to the section's own limitations. A lost marker must reappear, with the same key, in another sentence of the
+same top-level section that is about the same thing (at least two content words in common, the markers left
+out): a sentence that gained it, one occurrence per lost marker and never from a sentence that only swapped one
+marker of that kind for another, or one that already stated it. A matched finding becomes a warning whose
+`relocated_to` names the section, line and sentence, so the authors still see where each caveat stands. A scope
+qualifier or evidence status lost from the Abstract or the Introduction is never relocated, and a caveat found
+only in another section or a `--moved-to` file stays protected. A passing guard does not prove meaning stayed
+intact: it can miss swapped values and changed relationships that keep every marker.
+
+A pasted passage gets the same two checks as a file: save it as before/after files and run the guard and the
+smell check on them. Both are cheap, and reading against `claim-ladders.md` alone misses what they count. Tell
+the authors what the guard found in its report's plain words ("no number, citation or claim strength changed"),
+not as an exit code, a "protected change" or a rung.
 
 ### 5.5 Change rate
 
@@ -282,13 +300,14 @@ When a detailed explanation is requested, use a table such as:
 | # | where | original | revision | why |
 |---|---|---|---|---|
 | 1 | Discussion, last paragraph | "These findings have important implications for personalized medicine." | (deleted) | It names no implication, so it says nothing specific to this study (A3) |
-| 2 | Results, Performance | "…was significantly faster…" | proposed: "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | "Significantly" stands where the number belongs (B3, E1). The number comes from Table 2, so it is a proposed clarification that goes in only when the authors confirm it |
+| 2 | Results, Performance | "…was significantly faster…" | proposed: "…was 4.2 times faster (40 s vs 168 s; Table 2)…" | "Significantly" stands where the number belongs (B3, E1). The number comes from Table 2, so it is a proposed clarification, applied only under `apply` or when the authors accept it |
 
 Then **Flagged for the authors**: each sentence that needs a fact or a decision only they have, quoted with its
 section and followed by the question ("Which cohort does 'larger cohorts' mean here, and is it planned?").
 Order the list by when the authors can act (`author-priorities.md`, "Order the work by when it can be done"),
-with that section's group labels: a claim that outruns its evidence, or a number or qualifier the claim needs,
-under "Fix now"; wording choices under "Then the writing"; anything that depends on the journal or on final
+with that section's group labels: a claim that outruns its evidence (with its narrowed wording, applied or
+proposed as the `edits` setting says), or a number or qualifier the claim needs, under "Fix now"; wording
+choices under "Then the writing"; anything that depends on the journal or on final
 code, data and versions in the later groups, never as a blocker for a draft.
 
 Mention material verification results and limitations briefly. Omit empty sections and style-count logs.

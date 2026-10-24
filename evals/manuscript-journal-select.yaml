@@ -35,11 +35,14 @@
     Pick a journal for this paper, and a preprint server.
   files: [fixtures/manuscript-reporting-check/software-note.md]
   rubric:
-    - "Before ordering any ladder, asks one short batch: what matters most in order (speed, reach, AI-policy burden, cost), an impact-factor floor, who pays the fee, and the preprint intention."
+    - "Orders both ladders without waiting for answers, and labels the order at the top of each as a default the authors have not chosen yet."
+    - "Puts one priorities question among the end-of-run decisions: what matters most in order (speed, reach, AI-policy burden, cost), an impact-factor floor, who pays the fee and up to what amount, and the preprint intention."
     - "Does not start the full interview (per-section AI use, refused burdens, colleagues' venues) unprompted."
-    - "After the answers, records them (priorities) and orders both ladders by them."
+    - "After the answers, records them (priorities) and reorders both ladders by them."
   fail_if:
-    - "Orders a ladder by priorities it assumed and did not state as an assumption."
+    - "Stops before giving the ladders to ask for priorities."
+    - "Saves the default order to `priorities` as if the authors had chosen it, or orders by an assumed order without saying so."
+    - "Shows a venue whose fee the authors would pay as fitting when no budget is known."
     - "Asks for facts the manuscript already gives (article type, that it is a software paper, the licence)."
 
 - id: journal-select-reprioritise-01

@@ -65,12 +65,18 @@ def test_people_agents_and_unclear_handles_are_told_apart(repo: Path) -> None:
     assert anna.handles == {"anna"} and "also named Newton Winter" in anna.evidence
     assert s.agent_handles == ["claude"] and s.unclear == ["robi"]
     assert s.proposal() == ["anna", "maria", "tom"]
+    assert s.preselected() == []  # anna signs and commits, but no author list names her
 
 
 def test_the_report_proposes_and_writes_nothing(repo: Path) -> None:
     r = run(str(repo))
     assert r.returncode == 0, r.stderr
-    assert 'humans = ["anna", "maria", "tom"]' in r.stdout and "robi" in r.stdout
+    question = r.stdout[r.stdout.index("ONE QUESTION FOR THE AUTHORS"):]
+    assert "Nothing waits on it" in question and "Pre-selected (signs revision marks, commits in git and is a" \
+        " listed author): none" in question
+    for handle in ("anna (Anna Smith signs marks as anna", "maria (Maria Lopez has signed no mark yet",
+                   "tom (Tom Example has signed no mark yet", "robi (unexplained by= handle: paper.md:"):
+        assert handle in question, question
     assert not (repo / "rev-marks.toml").exists()
 
 
@@ -88,10 +94,15 @@ def test_write_needs_confirmed_names_and_merges_without_dropping(repo: Path) -> 
     assert tomllib.loads((repo / "rev-marks.toml").read_text())["humans"][-1] == "robi"
 
 
-def test_a_listed_handle_is_no_longer_unclear_and_outside_git_it_cannot_run(repo: Path, tmp_path_factory) -> None:
+def test_a_listed_handle_is_no_longer_unclear_and_outside_git_it_reads_what_it_can(repo: Path, tmp_path_factory) -> None:
     (repo / "rev-marks.toml").write_text('humans = ["robi"]\n')
     assert people.survey(repo).unclear == []
-    assert run(str(tmp_path_factory.mktemp("nogit"))).returncode == 3
+    nogit = tmp_path_factory.mktemp("nogit")
+    (nogit / "paper.md").write_text(PAPER, encoding="utf-8")
+    r = run(str(nogit))
+    assert r.returncode == 0 and "Git history: not read: not a git repository" in r.stdout, r.stdout
+    assert "Tom Example" in r.stdout and "robi" in r.stdout
+    assert run(str(nogit / "missing")).returncode == 3
 
 
 def test_github_bot_pattern_does_not_swallow_logins_ending_in_b_o_or_t() -> None:

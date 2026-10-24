@@ -4,23 +4,37 @@
 # ///
 """Draft the dashboard inventory from a manuscript-skills run, so nothing the run recorded is dropped.
 
-    uv run --script collect.py RUN --output RUN/manuscript-dashboard/findings.json
-    uv run --script collect.py RUN --output OUT.json --merge merges.json --reference reference.json
+    uv run --script collect.py RUN --output RUN/manuscript-dashboard/findings.draft.json
+    uv run --script collect.py RUN --output RUN/manuscript-dashboard/findings.json \
+        --merge RUN/manuscript-dashboard/merges.json [--reference RUN/manuscript-dashboard/reference.json]
+
+The first command writes the draft (`findings.draft.json`), unmerged; the second the adjudicated inventory
+(`findings.json`) that revise.py, dashboard.py and export_docx.py read. With a reference review, give
+`--merge` and `--reference` together, once, before the corrected version is built.
 
 It reads run.json for coverage, the manuscript snapshot for its title and sections, every skill's
-findings.json (../references/stage-findings.md), the check outputs as raw signal counts, the reader
-reports, the reviewers' recommendations, concerns, suggestions and strengths, and the recorded before/after
-changes. A recorded change counts
-as applied only when its after-text is in the current manuscript and its before-text is not; otherwise it
-is a proposal.
+findings.json (../references/stage-findings.md; the newest attempt, findings.2.json, when a stage reran),
+the check outputs as raw signal counts, the reader reports, the reviewers' recommendations, concerns,
+suggestions and strengths, journal selection's ladders, and the recorded before/after changes.
+
+Applied or proposed: the changes recorded with runs.py change are replayed on the reviewed text, in the order
+the skills recorded them. When the replay ends on the revised manuscript, every change that found its
+before-text counts as applied, including an edit a later stage edited again. Otherwise a change counts as
+applied only when the revised manuscript holds its after-text and no longer holds its before-text; the rest
+are listed as recorded changes not in the revision.
 
 The merge file is the adjudication: which records describe one problem, which a reviewer verified,
 corrected or dismissed, and the decisions for the authors. Collect never makes those calls; it applies
-them, keeps every source ID and refuses an inventory that does not validate.
+them, keeps every source ID and refuses an inventory that does not validate. Without --merge it warns when
+a merge file lies beside the output, since that inventory then has no adjudication.
+
+No output is overwritten: an existing one is refused, and the message names the next attempt
+(findings.json, then findings.2.json).
 """
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -33,15 +47,25 @@ import yaml
 
 import dashboard as viz
 
+# Every skill's and script's severity words, onto the one scale (stage-findings.md): `optional` is a
+# possible improvement (info, shown as "Optional"), `uncertain` and `not_assessed` could not be checked.
 SEVERITY = {"blocker": "blocker", "serious": "blocker", "major": "major", "important": "major", "minor": "minor",
-            "optional": "minor", "info": "info", "uncertain": "unknown", "unknown": "unknown"}
+            "optional": "info", "info": "info", "uncertain": "unknown", "not_assessed": "unknown", "unknown": "unknown"}
 TERMINAL = {"completed", "partial", "blocked", "not_run", "reused"}
+STATUS_WORDS = {"not_run": "not run", "running": "in progress", "in_progress": "in progress"}
+# The coordinator of a whole run: it is still running while it collects, so it has no coverage of its own.
+COORDINATOR = "manuscript-improve"
+DEFENCE = {"premise not supported", "answered", "partly answered", "not answered"}
 PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF", "manuscript-reporting-check": "RP",
           "manuscript-peer-review": "PR", "manuscript-policy-fit": "PF", "manuscript-journal-select": "JS",
           "manuscript-journal-adapt": "JA", "manuscript-prose-edit": "PE", "manuscript-deslop": "DS",
           "manuscript-story": "ST", "manuscript-figures": "FG", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
           "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
-SKIP = {"findings.json", "merges.json"}
+# A stage's findings and the adjudication are records, not raw signals; neither are their later attempts.
+SKIP = re.compile(r"^(?:findings|merges)(?:\.\d+)?\.json$")
+# Peer review keeps every finding three times (merged, adjudicated, and the check of each): the merged file is
+# what the referees proposed, so it alone counts as raw signals.
+PEER_SIGNALS = re.compile(r"^findings\.merged(?:\.\d+)?\.json$")
 OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
 CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "why", "comment",
                  "evidence")
@@ -60,32 +84,41 @@ def heading(line: str) -> str | None:
     return None
 
 
-def manuscript(run: Path, data: dict, version: str, out_dir: Path) -> dict | None:
-    if not data["inputs"]:
-        return None
-    source = data["inputs"][0]
-    names = [name for line in (run / source["snapshot"]).read_text(encoding="utf-8").splitlines() if (name := heading(line))]
-    return {"title": names[0] if names else Path(source["original"]).name, "version": version,
-            "sha256": source["sha256"], "sections": names[1:], "path": relative(run / source["snapshot"], out_dir)}
+def manuscript(snapshot: Path, original: str, sha256: str, version: str, out_dir: Path) -> dict:
+    names = [name for line in snapshot.read_text(encoding="utf-8").splitlines() if (name := heading(line))]
+    return {"title": names[0] if names else Path(original).name, "version": version,
+            "sha256": sha256, "sections": names[1:], "path": relative(snapshot, out_dir)}
 
 
-def coverage(run: Path, data: dict, out_dir: Path) -> list[dict]:
+def coverage(run: Path, data: dict, out_dir: Path, skip: set[str] = frozenset()) -> list[dict]:
+    """What each skill covered, from run.json and the skill's generated README. A stage still running is "in
+    progress"; its README's status line changes when it finishes, so its evidence quotes the README's title."""
     rows = []
     for name, seat in data["skills"].items():
-        if name in OWN:
+        if name in OWN or name in skip:
             continue
         status = seat["status"]
-        rows.append({"skill": name, "status": status if status in TERMINAL else "unknown",
-                     "note": seat.get("reason") or f"Recorded status: {status}.",
-                     "evidence": [{"path": relative(run / name / "README.md", out_dir), "quote": f"Status: **{status}**."}]})
+        readme = relative(run / name / "README.md", out_dir)
+        if status in TERMINAL:
+            rows.append({"skill": name, "status": status, "note": seat.get("reason") or f"{STATUS_WORDS.get(status, status).capitalize()}.",
+                         "evidence": [{"path": readme, "quote": f"Status: **{status}**."}]})
+        else:
+            rows.append({"skill": name, "status": "in_progress",
+                         "note": seat.get("reason") or "Still in progress when this inventory was collected.",
+                         "evidence": [{"path": readme, "quote": f"# {name}"}]})
     return rows
+
+
+def newest_findings(folder: Path) -> Path | None:
+    """A stage's findings.json, or its newest attempt (findings.2.json) when the stage reran."""
+    return viz.newest_attempt(folder / "findings.json", folder=False)
 
 
 def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
     """Every skill's findings.json, with evidence paths rebased onto the inventory's folder."""
     found: dict[str, list] = {"findings": [], "dismissed": [], "not_checked": [], "changes": []}
     seen: set[str] = set()
-    for path in sorted(run.glob("manuscript-*/findings.json")):
+    for path in [p for folder in sorted(run.glob("manuscript-*")) if folder.is_dir() and (p := newest_findings(folder))]:
         skill, folder = path.parent.name, path.parent
         if skill in OWN:
             continue
@@ -117,7 +150,7 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
             found["findings"].append({
                 "id": fid, "category": record.get("category") or "Uncategorised",
                 "section": record.get("section") or "Whole manuscript", "summary": record["summary"],
-                "severity": SEVERITY.get(str(record.get("severity", "unknown")).lower(), "unknown"),
+                "severity": severity(record.get("severity")),
                 "assessment": "confirmed" if record.get("confidence") == "confirmed" else "candidate",
                 "resolution": "open", "skills": [skill], "evidence": evidence,
                 "stage": record.get("stage") if record.get("stage") in viz.STAGES else "unknown",
@@ -138,11 +171,20 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
     return found
 
 
+def severity(value: Any) -> str:
+    """A skill's own severity word on the one scale; anything unknown could not be checked."""
+    return SEVERITY.get(re.sub(r"[\s-]+", "_", str(value or "unknown").strip().lower()), "unknown")
+
+
 def signals(run: Path) -> list[dict]:
-    """Raw output counts: scanner and checker hits by check, referee proposals, reader concerns."""
+    """Raw output counts: scanner and checker hits by check, referee proposals (the merged file only, its newest
+    attempt in each folder), reader concerns."""
     rows = []
     for path in sorted(run.glob("manuscript-*/**/*.json")):
-        if path.name in SKIP or "commands" in path.parts or path.relative_to(run).parts[0] in OWN:
+        if SKIP.match(path.name) or "commands" in path.parts or path.relative_to(run).parts[0] in OWN:
+            continue
+        if path.relative_to(run).parts[0] == "manuscript-peer-review" and (
+                not PEER_SIGNALS.match(path.name) or path != viz.newest_attempt(path.with_name("findings.merged.json"), folder=False)):
             continue
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
@@ -181,9 +223,9 @@ def parse_reader(path: Path) -> dict | None:
 
 def story(run: Path) -> dict | None:
     """The story stage's direction, tests and options, when its findings.json gives them."""
-    path = run / "manuscript-story" / "findings.json"
+    path = newest_findings(run / "manuscript-story")
     try:
-        doc = json.loads(path.read_text(encoding="utf-8")).get("story") if path.is_file() else None
+        doc = json.loads(path.read_text(encoding="utf-8")).get("story") if path else None
     except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
         return None
     return doc if isinstance(doc, dict) else None
@@ -192,9 +234,9 @@ def story(run: Path) -> dict | None:
 def figures(run: Path, out_dir: Path) -> dict | None:
     """The figures stage's verdicts, recommendations and new figures, with its image paths made relative to the
     inventory, so the dashboard can embed them."""
-    path = run / "manuscript-figures" / "findings.json"
+    path = newest_findings(run / "manuscript-figures")
     try:
-        doc = json.loads(path.read_text(encoding="utf-8")).get("figures") if path.is_file() else None
+        doc = json.loads(path.read_text(encoding="utf-8")).get("figures") if path else None
     except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
         return None
     if not isinstance(doc, dict):
@@ -268,16 +310,34 @@ def panel(run: Path, data: dict | None = None) -> dict:
                                             "recommendation": rec["recommendation"], "reason": rec.get("reason") or "No reason given."})
             reviewers.append({"seat": seat, "summary": str(report.get("summary") or ""), **by_seat.get(seat, {}),
                               "strengths": [str(s.get("note") or s.get("quote")) for s in strengths if s["seat"] == seat],
-                              "concerns": [{"id": str(c.get("id") or f"{seat}-{n}"), "severity": str(c.get("severity") or ""),
+                              "concerns": [{"id": str(c.get("id") or f"{seat}-{n}"), "severity": str(c.get("severity") or "").strip().lower(),
                                             "location": str(c.get("location") or ""), "concern": str(c["concern"]),
-                                            "suggestion": str(c.get("change_my_mind") or ""), "route": str(c.get("route") or c.get("proposed_route") or ""),
+                                            "suggestion": str(c.get("change_my_mind") or ""),
+                                            "route": token(c.get("route") or c.get("proposed_route")),
                                             "placement": str(c.get("placement") or ""), "cost": str(c.get("cost") or ""),
-                                            "defence": str(c.get("defence_outcome") or ""), "verdict": str(c.get("verdict") or ""),
+                                            "defence": defence(c), "verdict": str(c.get("verdict") or "").strip().lower(),
                                             "verdict_evidence": str(c.get("verdict_evidence") or "")}
                                            for n, c in enumerate((c for c in concerns if c["seat"] == seat), 1)]})
-        if recommendations:
+        if reviewers:  # the first file with the reports (the adjudicated one when it exists); the others repeat it
             break
     return {"readers": readers, "recommendations": recommendations, "reviewers": reviewers}
+
+
+def token(value: Any) -> str:
+    """A route as peer review writes it ("Fixable in text", "author_required") in its one spelling."""
+    return re.sub(r"[\s_]+", "-", str(value or "").strip().lower())
+
+
+def defence(concern: dict) -> str:
+    """How far the defence answered a concern, in peer review's words: premise not supported, answered, partly
+    answered or not answered. Another spelling is normalised; an unknown value is kept as written."""
+    raw = concern.get("defence_outcome") or (concern.get("defence") if isinstance(concern.get("defence"), str) else "")
+    words = re.sub(r"[\s_-]+", " ", str(raw or "")).strip().lower()
+    return words if words in DEFENCE or not words else str(raw).strip()
+
+
+# A concern ID: a seat's prefix of two or three capitals (SK-3; another model's seat SKX-3, or SKx-3 in older runs).
+CONCERN_ID = re.compile(r"\b[A-Z]{2,3}x?-\d+\b")
 
 
 def concern_mentions(findings: list[dict]) -> dict[str, set[str]]:
@@ -285,7 +345,7 @@ def concern_mentions(findings: list[dict]) -> dict[str, set[str]]:
     out: dict[str, set[str]] = {}
     for finding in findings:
         text = " ".join(str(finding.get(k) or "") for k in ("detail", "summary", "action"))
-        for cid in re.findall(r"\b[A-Z]{2,3}-\d+\b", text):
+        for cid in CONCERN_ID.findall(text):
             out.setdefault(cid, set()).add(finding["id"])
     return out
 
@@ -311,27 +371,57 @@ def number(text: str | None) -> float | None:
 ASPECTS = ("drafting", "prompts", "records", "detection", "declaration", "counted", "extra")
 
 
-def catalogue_policies(folder: Path) -> tuple[Any, dict[str, dict]]:
+# What manuscript-journal-select leaves for the dashboard: its two ladders (paper.journal-ladder.csv,
+# paper.preprint-ladder.csv, or a later attempt paper.journal-ladder.2.csv), top3.json and the shared record
+# (manuscript-record.yaml, or <stem>.record.yaml where several manuscripts share a folder).
+LADDER = re.compile(r"^.+\.(?P<kind>journal|preprint)-ladder(?:\.(?P<n>\d+))?\.csv$")
+TOP = re.compile(r"^top3(?:\.(?P<n>\d+))?\.json$")
+RECORD = re.compile(r"^(?:manuscript-record|.+\.record)(?:\.(?P<n>\d+))?\.ya?ml$")
+
+
+def selection_files(run: Path, data: dict | None = None) -> dict[str, Path | None]:
+    """Journal selection's files: in its run folder (or a subfolder) first, then wherever run.json says a skill
+    registered them; the record, failing both, beside the manuscript. The newest attempt wins."""
+    folder = run / "manuscript-journal-select"
+    candidates = sorted((p for p in folder.rglob("*") if p.is_file()), key=lambda p: (len(p.parts), str(p))) if folder.is_dir() else []
+    registered = [run / item["path"] for seat in (data or {}).get("skills", {}).values() for item in seat.get("artifacts") or []
+                  if isinstance(item, dict) and item.get("path")]
+    candidates += [p for p in registered if p.is_file() and p not in candidates]
+
+    def best(pattern: re.Pattern, kind: str | None = None) -> Path | None:
+        found = [(int(m["n"] or 1), -k, p) for k, p in enumerate(candidates)
+                 if (m := pattern.match(p.name)) and (kind is None or m["kind"] == kind)]
+        return max(found)[2] if found else None
+
+    record = best(RECORD)
+    for source in (data or {}).get("inputs") or []:
+        original = Path(source.get("original", ""))
+        for name in ("manuscript-record.yaml", f"{original.stem}.record.yaml"):
+            if record is None and (original.parent / name).is_file():
+                record = original.parent / name
+    return {"journals": best(LADDER, "journal"), "preprints": best(LADDER, "preprint"), "top3": best(TOP), "record": record}
+
+
+def catalogue_policies(record: Path | None) -> tuple[Any, dict[str, dict]]:
     """For a ladder written before it carried the AI-policy columns: the venue catalogue with the facts the
     run's record holds, laid over it as the ladder itself did."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "manuscript-journal-adapt" / "scripts"))
     import venues as catalogue
 
     checked, resolved = catalogue.load_venues()
-    records = sorted(folder.glob("*.record.yaml"))
-    if records:
-        resolved = catalogue.with_facts(resolved, catalogue.load_record(records[0])[1])
+    if record is not None:
+        resolved = catalogue.with_facts(resolved, catalogue.load_record(record)[1])
     return catalogue, {"checked": str(checked), "venues": resolved}
 
 
-def ai_policy(row: dict, key: str, folder: Path, cache: dict) -> dict | None:
+def ai_policy(row: dict, key: str, record: Path | None, cache: dict) -> dict | None:
     if row.get("ai_drafting"):
         aspects = {a: dict(zip(("level", "text"), (row.get(f"ai_{a}") or "unknown: not recorded").split(": ", 1))) for a in ASPECTS}
         return {"aspects": aspects, "reasons": [row["ai_reasons"]] if row.get("ai_reasons") else [],
                 "url": row.get("ai_policy_url") or "", "source": "the run's ladder"}
     if "catalogue" not in cache:
         try:
-            cache["catalogue"] = catalogue_policies(folder)
+            cache["catalogue"] = catalogue_policies(record)
         except (OSError, ValueError, yaml.YAMLError, typer.BadParameter) as exc:  # show none rather than a guess
             cache["catalogue"] = (None, {"error": str(exc)})
     catalogue, data = cache["catalogue"]
@@ -344,17 +434,29 @@ def ai_policy(row: dict, key: str, folder: Path, cache: dict) -> dict | None:
             "source": f"the venue catalogue (checked {data['checked']}) with this run's record"}
 
 
-def venues(run: Path) -> list[dict]:
+def top_choices(path: Path | None) -> list[dict]:
+    """top3.json: the journals the selection recommends, each with key, name, article_type, why and url (a list, or
+    a mapping that holds it under `journals` or `top3`)."""
+    if path is None:
+        return []
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    if isinstance(doc, dict):
+        doc = doc.get("journals") or doc.get("top3") or []
+    return [entry for entry in doc if isinstance(entry, dict)] if isinstance(doc, list) else []
+
+
+def venues(run: Path, data: dict | None = None) -> list[dict]:
     """The journal and preprint ladders manuscript-journal-select wrote, in the order it chose."""
-    folder = run / "manuscript-journal-select"
-    top = json.loads((folder / "top3.json").read_text(encoding="utf-8")) if (folder / "top3.json").is_file() else []
-    chosen = {entry.get("key") or entry.get("name"): entry for entry in top}
+    files = selection_files(run, data)
+    chosen = {entry.get("key") or entry.get("name"): entry for entry in top_choices(files["top3"])}
     rows, cache = [], {}
     for ladder in ("journals", "preprints"):
-        files = [f for f in sorted(folder.glob(f"*.{ladder.rstrip('s')}-ladder.csv")) if not re.search(r"-ladder-\w+\.csv$", f.name)]
-        if not files:
+        if files[ladder] is None:
             continue
-        with files[0].open(encoding="utf-8") as handle:
+        with files[ladder].open(encoding="utf-8", newline="") as handle:
             for row in csv.DictReader(handle):
                 pick = chosen.get(row.get("key")) or chosen.get(row.get("name"))
                 rung = int(number(row.get("chosen_rung")) or number(row.get("rung")) or len(rows) + 1)
@@ -367,10 +469,25 @@ def venues(run: Path) -> list[dict]:
                              "first_decision_days": number(row.get("first_decision_days")), "speed_measure": row.get("speed_measure") or "",
                              "ai_points": int(number(row.get("ai_points"))) if number(row.get("ai_points")) is not None else None,
                              "ai_tier": row.get("ai_tier") or "", "ai_for_this_use": row.get("ai_for_this_use") or "",
-                             "ai_policy": ai_policy(row, row.get("key") or "", folder, cache), "fee": fee,
+                             "ai_policy": ai_policy(row, row.get("key") or "", files["record"], cache), "fee": fee,
                              "preprint_rule": row.get("preprint_rule") or "", "why": (pick or {}).get("why", ""),
                              "url": row.get("guidelines_url") or (pick or {}).get("url", "")})
     return rows
+
+
+def ladder_gaps(run: Path, data: dict) -> list[dict]:
+    """When journal selection ran but left no ladder the dashboard can find, say so rather than show nothing."""
+    if "manuscript-journal-select" not in data.get("skills", {}):
+        return []
+    files = selection_files(run, data)
+    missing = [words for ladder, words in (("journals", "journal"), ("preprints", "preprint")) if files[ladder] is None]
+    if not missing:
+        return []
+    which = " and ".join(missing) + (" ladders" if len(missing) > 1 else " ladder")
+    return [{"skill": "manuscript-journal-select", "check": f"The {which} in the dashboard",
+             "why": f"The journal selection stage did not record its {which} in the run, so the Journals tab cannot "
+                    + ("show them." if len(missing) > 1 else "show it."),
+             "leaves_open": "The order of the venues and their AI policies, which the stage's report still gives."}]
 
 
 def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: str) -> list[dict]:
@@ -471,36 +588,71 @@ def apply_merges(inventory: dict, merges: dict, out_dir: Path, base: Path) -> No
         findings[fid]["resolution"] = "addressed"
 
 
+def warnings_for(output: Path, merge: Path | None) -> list[str]:
+    """An inventory collected without the adjudication that lies beside it would silently drop every merge,
+    dismissal and decision: say so."""
+    if merge is not None:
+        return []
+    found = viz.newest_attempt(output.resolve().parent / "merges.json", folder=False)
+    out = []
+    if found is not None:
+        out.append(f"{found.name} is beside this inventory but --merge was not given, so its merges, dismissals and "
+                   f"decisions are not in {output.name}. Collect the adjudicated inventory with --merge {found.name} "
+                   "(and --reference, when there is one).")
+    return out
+
+
 @app.command()
 def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
-         output: Annotated[Path, typer.Option("--output")],
+         output: Annotated[Path, typer.Option("--output", help="findings.draft.json for the draft; findings.json, "
+                                                               "with --merge, for the adjudicated inventory")],
          merge: Annotated[Path | None, typer.Option(help="Adjudication: merges, updates, dismissals, decisions")] = None,
-         reference: Annotated[Path | None, typer.Option(help="A review to compare with, with its matches")] = None,
+         reference: Annotated[Path | None, typer.Option(help="A review to compare with, with its matches; give it "
+                                                             "together with --merge")] = None,
+         manuscript_copy: Annotated[Path | None, typer.Option(
+             "--manuscript", exists=True, dir_okay=False,
+             help="A local reading copy of the manuscript, for a run whose manuscript is a connected document")] = None,
          title: str = "What the manuscript review found",
          version: str = "",
          scope: str = "",
          limitation: Annotated[list[str] | None, typer.Option(help="A limitation to show; repeatable")] = None) -> None:
     run = run.resolve()
     if output.exists():
-        typer.echo(f"{output} exists; write the next attempt under a new name.", err=True)
+        typer.echo(f"{output.name} exists; write the next attempt as {viz.next_attempt(output, folder=False).name}.", err=True)
+        raise typer.Exit(1)
+    data = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    if manuscript_copy is not None:
+        snapshot = manuscript_copy.resolve()
+        original, sha256 = str(snapshot), hashlib.sha256(snapshot.read_bytes()).hexdigest()
+        current = snapshot.read_text(encoding="utf-8")
+    elif data.get("inputs"):
+        snapshot = run / data["inputs"][0]["snapshot"]
+        original, sha256 = data["inputs"][0]["original"], data["inputs"][0]["sha256"]
+        current = Path(original).read_text(encoding="utf-8") if Path(original).is_file() else snapshot.read_text(encoding="utf-8")
+    else:
+        typer.echo("This run holds no local copy of the manuscript: its source is a connected document, so there is no "
+                   "text to quote. Export a reading copy to a local file (Markdown, LaTeX or plain text), register it "
+                   "in the run (runs.py add RUN --skill manuscript-dashboard --file COPY --role other --name "
+                   "reading-copy.md), and collect again with --manuscript COPY. A new run of a connected document "
+                   "records its reading copy when it starts (runs.py start --reading-copy COPY).", err=True)
         raise typer.Exit(1)
     out_dir = output.resolve().parent
     out_dir.mkdir(parents=True, exist_ok=True)
-    data = json.loads((run / "run.json").read_text(encoding="utf-8"))
-    snapshot = run / data["inputs"][0]["snapshot"]
-    original = Path(data["inputs"][0]["original"])
-    current = original.read_text(encoding="utf-8") if original.is_file() else snapshot.read_text(encoding="utf-8")
     records = stage_records(run, out_dir, snapshot)
-    statuses = {name: seat["status"] for name, seat in data["skills"].items() if name not in OWN}
+    # The coordinator is still running while it collects: it gets coverage only when it recorded findings itself.
+    named = {skill for record in records["findings"] for skill in record["skills"]}
+    skip = {COORDINATOR} if data["skills"].get(COORDINATOR, {}).get("status") not in TERMINAL and COORDINATOR not in named else set()
+    statuses = {name: seat["status"] for name, seat in data["skills"].items() if name not in OWN and name not in skip}
     inventory: dict[str, Any] = {
         "schema_version": 2, "title": title, "run_id": data["run_id"],
         "scope": scope or f"Whole-manuscript run started {data['started_at'][:10]}; skills: "
-                          + ", ".join(f"{k.removeprefix('manuscript-')} {v}" for k, v in statuses.items()) + ".",
-        "coverage": coverage(run, data, out_dir), "findings": records["findings"],
+                          + ", ".join(f"{k.removeprefix('manuscript-')} {STATUS_WORDS.get(v, v)}" for k, v in statuses.items()) + ".",
+        "coverage": coverage(run, data, out_dir, skip), "findings": records["findings"],
         "changes": records["changes"] + recorded_changes(run, data, out_dir, current, snapshot.read_text(encoding="utf-8")),
-        "limitations": limitation or [], "manuscript": manuscript(run, data, version, out_dir),
-        "signals": signals(run), "dismissed": records["dismissed"], "not_checked": records["not_checked"],
-        "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run),
+        "limitations": limitation or [], "manuscript": manuscript(snapshot, original, sha256, version, out_dir),
+        "signals": signals(run), "dismissed": records["dismissed"],
+        "not_checked": records["not_checked"] + ladder_gaps(run, data),
+        "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
         "story": story(run), "figures": figures(run, out_dir),
     }
     mentions = concern_mentions(inventory["findings"])
@@ -525,9 +677,15 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         raise typer.Exit(1) from exc
     output.write_text(json.dumps(checked.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     summary = viz.summarize(checked)
+    warnings = warnings_for(output, merge)
+    for warning in warnings:
+        typer.echo(f"Warning: {warning}", err=True)
     typer.echo(json.dumps({"output": str(output.resolve()), "counts": summary["counts"], "signals": summary["signals"],
-                           "benchmark": summary["benchmark"]}, indent=2))
+                           "benchmark": summary["benchmark"], **({"warnings": warnings} if warnings else {})}, indent=2))
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on every platform, a Windows console included
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

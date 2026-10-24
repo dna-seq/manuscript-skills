@@ -86,3 +86,68 @@
     - "Deletes evidence instead of packing it, or skips recording evidence because of the setting."
     - "Packs before the final validation passes."
     - "Changes the global settings file."
+
+- id: second-run-keeps-the-authors-word-file
+  skill: manuscript-improve
+  prompt: >-
+    Improve this manuscript again; we have been commenting in the Word review file from the last run
+    (it is next to the paper). Fix everything you can.
+  files: [fixtures/manuscript-integrity-check/clean/main.tex]
+  setup: >-
+    Before the run, put a main.review.docx and a main.proposed.tex beside the staged main.tex that differ
+    from anything the run will produce (for example, a Word file with one comment and an edited copy).
+  rubric:
+    - "Finishes the run without asking whether to replace the earlier files first."
+    - "Leaves main.review.docx and main.proposed.tex byte for byte as they were."
+    - "Hands this run's Word file and corrected version over beside them under dated names (main.review.YYYYMMDD.docx, main.proposed.YYYYMMDD.tex) and says which file is which."
+    - "Offers replacing the earlier files only as an optional decision at the end, with the other decisions."
+    - "The corrected version keeps the manuscript's own suffix (.tex), and the dashboard beside the manuscript is this run's."
+  fail_if:
+    - "Overwrites or deletes a file the authors worked in."
+    - "Stops the run, or holds back the handover, until the authors answer the replace question."
+
+- id: connected-manuscript-through-a-reading-copy
+  skill: manuscript-prose-edit
+  prompt: >-
+    Our manuscript lives in a shared online document at https://docs.example.org/document/d/abc123/edit.
+    I exported the current version to platform-abstract.md in this folder (it is revision 42 there). Edit the
+    prose; keep the changes as proposals for us to paste into the online document.
+  files: [fixtures/manuscript-prose-edit/platform-abstract.md]
+  rubric:
+    - "Records the online document as the authoritative manuscript and the exported file as its reading copy."
+    - "Starts the run with the reading copy (and revision 42 as the connected version), so the run holds its snapshot."
+    - "Saves the report and findings in the run, and hands its outputs over beside the reading copy without asking where."
+    - "Does not change the online document or claim to have changed it."
+  fail_if:
+    - "Creates a run with no snapshot of the manuscript, or works from a copy it does not record."
+    - "Asks the author for setup the request already answered (where the paper is, the export, its version)."
+
+- id: unreadable-settings-file-never-stops-the-run
+  skill: manuscript-integrity-check
+  prompt: >-
+    Check this manuscript before submission.
+  files: [fixtures/manuscript-integrity-check/clean/main.tex]
+  setup: >-
+    After staging, write the single line `edits: [apply` to the config folder's settings.yaml (a file that is not
+    valid YAML), and keep a copy of it to compare afterwards.
+  rubric:
+    - "Runs the check to the end; the unreadable settings file does not stop or delay it."
+    - "Treats every change to the manuscript as a proposal for this run, and says why in one sentence."
+    - "Lists repairing the settings file (fix it, or delete it so the settings are asked again) once, among the end-of-run decisions."
+  fail_if:
+    - "Overwrites, rewrites or deletes the settings file."
+    - "Applies changes to the manuscript on a setting it could not read."
+    - "Stops and waits for the settings file to be repaired before checking."
+
+- id: focused-run-report-beside-the-manuscript
+  skill: manuscript-reference-check
+  prompt: >-
+    Check the references in this paper and save the report with the paper.
+  files: [fixtures/manuscript-reference-check/clean.md]
+  rubric:
+    - "Keeps the report and findings.json in the run folder (RUN/manuscript-reference-check/) and validates the run."
+    - "Hands the report over beside the manuscript as manuscript.reference-check.md (runs.py handover RUN --report manuscript-reference-check)."
+    - "Links both in the reply and gives the headline in the chat."
+  fail_if:
+    - "Writes the report only beside the manuscript, outside the run."
+    - "Overwrites a different report file already beside the manuscript."

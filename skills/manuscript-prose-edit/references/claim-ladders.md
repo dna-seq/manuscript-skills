@@ -103,10 +103,14 @@ ID in parentheses.
   an edit; **B7** one object under several names; **C16** declarative chains with no stated link.
 - **CLAIM** a claim with no number, citation or result behind it.
 
-A copy editor never moves a claim to fix such a finding: lowering a claim is a claim correction, so it goes
-to the authors with the current wording quoted with its section, the proposed wording, and the evidence each
-would need, in plain words ("the sentence says the variant causes the effect; the study measured an
-association"). A claim that outruns its evidence is listed under "Fix now", ahead of the writing changes
+A copy editor never moves a claim on style grounds. Lowering a claim to what its evidence shows is a claim
+correction, and it follows the `edits` setting
+([author priorities](../../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)):
+under `conservative` and `apply`, when a confirmed finding supports it, apply it by rewording (never by deleting
+the claim) and show it before and after with its section and the evidence, in plain words ("the sentence says
+the variant causes the effect; the study measured an association"); under `propose`, or without a confirmed
+finding, propose it with the same text. Only the choice between new work and a narrower claim is a decision for
+the authors. A claim that outruns its evidence is listed under "Fix now", ahead of the writing changes
 (`../../manuscript-integrity-check/references/author-priorities.md`, "Order the work by when it can be done").
 
 ## Limits

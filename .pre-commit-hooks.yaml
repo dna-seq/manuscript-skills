@@ -1,7 +1,7 @@
 - id: manuscript-check
   name: manuscript integrity and style check (offline)
-  description: Reports mechanical integrity and style findings; use --advisory to avoid blocking draft commits,
-    and add --hygiene for advisory comment, hidden-text and secret checks.
+  description: Reports mechanical integrity and style findings; use --advisory to avoid blocking draft commits.
+    Add --hygiene to also fail on text hidden for AI reviewers or a leaked secret (comments stay advisory).
   entry: skills/manuscript-integrity-check/scripts/precommit.py
   language: script
   files: \.(md|tex)$

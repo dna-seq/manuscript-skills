@@ -12,7 +12,11 @@ With --revision, the text is the corrected version against the reviewed one: eve
 proposal is a tracked change signed by the stage that made it, so the authors accept or reject each one in
 Word. Without it, the text is the reviewed version. The comments: each problem on the passage it quotes (or on
 its section's heading when the quote is not in the text), each question for the authors on its edit, and each
-edit's reasoning. Nothing is added to the text itself: a question is a comment, never a placeholder.
+edit's reasoning; each opens with what it says, and the problem's or edit's ID follows in parentheses. Nothing
+is added to the text itself: a question is a comment, never a placeholder, and an image that could not be
+embedded is named in a comment where it stands.
+
+An existing output is never overwritten: the message names the next attempt (manuscript-review.2.docx).
 
 Google Docs keeps both: upload the file to Google Drive and open it with Google Docs, and the comments arrive
 as comments and the tracked changes as suggestions.
@@ -52,9 +56,10 @@ NAME = {"integrity-check": "Integrity check", "reference-check": "Reference chec
         "journal-adapt": "Journal adaptation", "prose-edit": "Prose edit", "deslop": "Deslop", "story": "Story",
         "figures": "Figures and tables", "improve": "Workflow", "reviewer-response": "Reviewer response",
         "revision-marks": "Revision marks", "mark-people": "People behind the marks"}
-SEVERITY = {"blocker": "Blocker", "major": "Major", "minor": "Minor", "info": "Optional", "unknown": "Severity not assessed"}
-WHEN = {"now": "fix now", "writing": "then the writing", "journal": "once the journal is chosen",
-        "final": "before submission", "unknown": "stage not set"}
+# The words the authors read for each severity and stage, as in the dashboard (stage-findings.md).
+SEVERITY = {"blocker": "Blocker", "major": "Major", "minor": "Minor", "info": "Optional", "unknown": "Could not be checked"}
+WHEN = {"now": "fix now", "writing": "then the writing", "journal": "once you have chosen the journal",
+        "final": "before submission, once the code is final", "unknown": "stage not set"}
 IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
 app = typer.Typer(add_completion=False)
 
@@ -105,6 +110,7 @@ class Builder:
         self.headings: list[tuple[str, object]] = []
         self.change: tuple[str, int] | None = None
         self.change_id = 0
+        self.missing_images: list[tuple[object, str]] = []  # an empty run where an image stands, and its source
 
     # ----- text -----
     def text(self, paragraph, text: str, fmt: dict, link=None) -> None:
@@ -148,8 +154,8 @@ class Builder:
             if not re.match(r"(?i)^[a-z][a-z0-9+.-]*:", source) and path.is_file() and path.suffix.lower() in IMAGES:
                 paragraph.add_run().add_picture(str(path), width=Inches(6))
                 return
-        run = paragraph.add_run(f"Image not embedded: {source}")
-        run.italic = True
+        # Nothing is added to the text: an empty run marks the place, and a comment on it names the image.
+        self.missing_images.append((paragraph.add_run(""), source))
 
     def inline(self, paragraph, children) -> None:
         fmt, link = {}, None
@@ -338,10 +344,10 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
         if questions := asked.get(edit["n"], []):
             # One comment per edit, however many questions it asks, so that a passage is not buried under them.
             if len(questions) == 1:
-                builder.comment(runs, f"Question for the authors ({', '.join(edit['ids'])}): {questions[0]}", "Questions for the authors")
+                builder.comment(runs, f"Question for the authors: {questions[0]} ({', '.join(edit['ids'])})", "Questions for the authors")
             else:
-                comment = builder.doc.add_comment(runs, text=f"{len(questions)} questions for the authors ({', '.join(edit['ids'])}):",
-                                                  author="Questions for the authors", initials="Q")
+                comment = builder.doc.add_comment(runs, text=f"{len(questions)} questions for the authors about this edit "
+                                                  f"({', '.join(edit['ids'])}):", author="Questions for the authors", initials="Q")
                 for number, question in enumerate(questions, 1):
                     comment.add_paragraph(f"{number}. {question}")
             counts["questions"] += len(questions)
@@ -351,8 +357,9 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
                 change = changes.get(cid)
                 if not change:
                     continue
-                why = change.why or " ".join(f"{f.id}: {f.summary}. {f.detail}".strip() for f in data.findings if f.id in change.finding_ids)
-                lines.append(f"{cid} ({'applied' if change.status == 'applied' else 'proposed'}): {change.summary}." + (f" Why: {why}" if why else ""))
+                why = change.why or " ".join(f"{f.summary} ({f.id}). {f.detail}".strip() for f in data.findings if f.id in change.finding_ids)
+                lines.append(f"{'Applied' if change.status == 'applied' else 'Proposed'}: {change.summary.rstrip('.')}."
+                             + (f" Why: {why}" if why else "") + f" ({cid})")
             if lines:
                 builder.comment(runs, " ".join(lines), stage_of(edit["ids"][0]))
                 counts["reasons"] += 1
@@ -367,8 +374,11 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
         anchor = runs or ([a] if (a := builder.heading_for(items[0]["section"])) is not None else None)
         if anchor is None:
             continue
-        comment = builder.doc.add_comment(anchor, text=f"{plural(len(items), 'question')} for the authors about {ids}, a proposal "
-                                          "left out of this version until they answer:", author="Questions for the authors", initials="Q")
+        # The proposal by its section and summary; its ID follows in parentheses.
+        first = changes.get(items[0]["ids"][0])
+        named = f"the proposal \u201c{first.summary.rstrip('.')}\u201d in {first.section}" if first else "a proposal"
+        comment = builder.doc.add_comment(anchor, text=f"{plural(len(items), 'question')} for the authors about {named}, left out "
+                                          f"of this version until they answer ({ids}):", author="Questions for the authors", initials="Q")
         for number, item in enumerate(items, 1):
             comment.add_paragraph(f"{number}. {item['question']}")
         counts["questions"] += len(items)
@@ -378,10 +388,11 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
         for finding in data.findings:
             if finding.assessment == "dismissed":
                 continue
-            text = (f"{finding.id} · {SEVERITY[finding.severity]}, {WHEN[finding.stage]}"
-                    f"{' · candidate to verify' if finding.assessment == 'candidate' else ''}: {finding.summary}."
+            # What the problem is first; its severity and when to fix it next; its ID last, in parentheses.
+            text = (f"{finding.summary.rstrip('.')} ({SEVERITY[finding.severity]}, {WHEN[finding.stage]}"
+                    f"{'; a candidate to verify' if finding.assessment == 'candidate' else ''})."
                     + (f" {finding.detail}" if finding.detail else "") + (f" Fix: {finding.action}" if finding.action else "")
-                    + f" Found by: {', '.join(skill_name(s) for s in finding.skills)}.")
+                    + f" Found by: {', '.join(skill_name(s) for s in finding.skills)}. ({finding.id})")
             runs = builder.locate(finding.quote) if finding.quote else None
             if runs is None:
                 anchor = builder.heading_for(finding.section)
@@ -398,6 +409,12 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
                 comment.add_paragraph(line)
             counts["problems"] += len(texts)
 
+    for run, source in builder.missing_images:
+        name = Path(source.split("#")[0].split("?")[0]).name or source
+        builder.comment([run], f"Image not embedded: {name} was not found beside the manuscript, or is not an image Word "
+                        "can show.", "Workflow")
+    counts["images_not_embedded"] = len(builder.missing_images)
+
     author_of = {edit["n"]: stage_of(edit["ids"][0]) for edit in edits}
     counts["tracked_changes"] = builder.track(author_of, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     builder.doc.core_properties.title = data.title
@@ -413,7 +430,7 @@ def main(inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]
          problems: Annotated[bool, typer.Option(help="A comment for every problem, on the passage it quotes")] = True,
          reasons: Annotated[bool, typer.Option(help="A comment with each edit's reasoning")] = True) -> None:
     if output.exists():
-        raise typer.BadParameter(f"{output} exists; write the next attempt under a new name.")
+        raise typer.BadParameter(f"{output.name} exists; write the next attempt as {viz.next_attempt(output, folder=False).name}.")
     if output.suffix.lower() != ".docx":
         raise typer.BadParameter("The output is a .docx file.")
     try:
@@ -430,4 +447,7 @@ def main(inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on every platform, a Windows console included
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

@@ -3,13 +3,20 @@
 The files a venue or preprint server receives can publish more than the PDF shows. arXiv offers every LaTeX
 source for download; journals and preprint servers publish supplementary files as uploaded; reviewers open
 the Word file or the PDF with tools that read text a person cannot see. `scripts/hygiene.py` lists what to
-look at in those files. It reports and never deletes or rewrites; the authors decide what to remove.
+look at in those files. The script itself only reports; what the agent then changes follows the `edits` setting
+(see [Reporting](#reporting)).
 
-Run it on what will be uploaded (the directory, the archive or the files), late, after the last edit:
+Run it on what will be uploaded (the directory, the archive or the files), late, after the last edit, with
+`--final` once the authors say they are about to submit:
 
 ```bash
-uv run --script scripts/hygiene.py submission/ --md /tmp/hygiene.md --json /tmp/hygiene.json
+uv run --script scripts/hygiene.py submission/ --final --md RUN/manuscript-integrity-check/hygiene.md \
+    --json RUN/manuscript-integrity-check/hygiene.json
 ```
+
+Exit codes: 0 nothing that counts now; 1 text hidden for AI reviewers or a leaked secret, at any stage, and with
+`--final` any blocker or major finding; 2 usage error. On a draft (no `--final`), the other findings are listed
+under "Before submission, once the code is final" and do not change the exit code.
 
 ## What it checks
 
@@ -26,12 +33,15 @@ uv run --script scripts/hygiene.py submission/ --md /tmp/hygiene.md --json /tmp/
 | Zero-width and text-direction characters | any text | minor |
 | GPS position; author or owner tags in figures (EXIF, PNG text, XMP) | images (Pillow) | major; minor |
 | Word comments; tracked changes; document author fields | .docx | major; info; info |
+| Revision marks (`<!-- @rev ... -->`, `% @rev ...`), with the editors their `by=` entries name | LaTeX, Markdown, HTML, text | major |
 | With `--anonymous`: author names and affiliations outside the references, e-mail addresses, ORCID iDs, acknowledgements, first-person self-citation, repository URLs, camera-ready template options, metadata | everything above | major or minor |
 
 White text on a coloured box or table cell is visible and is not reported unless it addresses a reviewer.
 `\phantom{00}` spacers and other hidden runs under four words are ignored. LaTeX `\%`, `\verb` and `\url`
-arguments are not comments, and `%` inside `verbatim` environments is code. Revision-ledger markers
-(`<!-- @rev ... -->`) are not reported.
+arguments are not comments, and `%` inside `verbatim` environments is code. Revision marks are reported once per
+file, as revision marks rather than comments: the files a venue receives are always the clean copy or a build from
+it (`manuscript-revision-marks` writes it), never the marked master, whose marks say who revised each passage, an
+AI model included.
 
 ## Not assessed, never passed
 
@@ -62,13 +72,23 @@ arguments are not comments, and `%` inside `verbatim` environments is code. Revi
 Report blockers and majors by quoting the line as the script shows it (masked secrets stay masked) and naming
 the file and the section or figure it sits in, with the line number only in parentheses. Give the smallest fix in
 a full sentence: delete the line, strip the metadata (`exiftool -all= FILE`), clean the source (a cleaner such as
-`arxiv_latex_cleaner` or ALC-NG, then rerun this check on its output), revoke a key. A key that was ever in a
-shared file should be revoked even after it is deleted. Do not delete or rewrite files yourself unless the
-authors ask.
+`arxiv_latex_cleaner` or ALC-NG, then rerun this check on its output), upload the clean copy without revision marks.
+
+What the agent changes follows the `edits` setting, with these rules:
+
+- **Cleaned copies only at the end.** Clean copies of the upload files (comments stripped, metadata removed,
+  marks gone) are made only when the authors say they are about to submit, beside the originals, never on a draft
+  (they would go stale and add files to track); the originals and the master are never rewritten for this.
+- **Hidden text for AI reviewers at any stage.** Remove it from the master under `edits` (shown before and after,
+  and recorded) whenever it is found; under `propose` it is the first proposal.
+- **A leaked key needs the authors.** Deleting it from the files does not undo the exposure: a key that was ever in
+  a shared file must be revoked or rotated by its owner. Say this once, plainly; it is the one step the agent
+  cannot take.
 
 These findings go in the report's last group, "Before submission, once the code is final", because the upload
 files are cleaned once, after the last edit; for a draft they are not blockers. Two go under "Fix now" whatever
-the stage: hidden text addressed to an AI reviewer, and a leaked secret, whose key should be revoked now.
+the stage: hidden text addressed to an AI reviewer, and a leaked secret. `precommit.py --hygiene` fails a commit on
+the same two and keeps ordinary draft comments advisory.
 Describe a check by what it found ("a LaTeX comment that reads as a note to a co-author"), not by the script's
 check name.
 

@@ -21,12 +21,17 @@ the least avoidable effort. Read the shared
 [authors first, journals second](../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second),
 [the order of work](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
 [writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors).
-This skill reports; it edits only when the request includes edits, and then through `manuscript-prose-edit`'s
-[contract](../manuscript-prose-edit/references/prose-edit-contract.md#1-the-contract). A reporting gap
-is filled only with facts the authors give (an n, a version, the correction used), inserted under that
-contract's author-supplied content rule; never with a value inferred here. The audit tables and the
-availability report are for the authors: they go beside the manuscript, or where the authors say (`OUT`
-below), and the reply gives their paths. Retain the JSON checks in this skill's run folder too (`SCRATCH` in older command examples means that durable working folder).
+What this skill changes follows the plugin-wide
+[`edits` setting](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review), through
+`manuscript-prose-edit`'s [contract](../manuscript-prose-edit/references/prose-edit-contract.md#1-the-contract):
+under the default `conservative`, routine fixes (an accession written with a stray space, a broken link) and the
+corrections a confirmed finding's evidence settles are applied, shown before and after and recorded; `propose`
+makes each a proposal; `apply` also applies substantive improvements. A reporting gap is filled from the project's
+own files before anyone is asked (ground rule 1), never with a value inferred here; a fact the authors supply
+goes in under that contract's author-supplied content rule. The audit tables and the
+availability report are documents for the authors: they go beside the manuscript, or where the authors say
+(`OUT` below), and the reply gives their paths; the JSON checks stay in this skill's run folder,
+`RUN/manuscript-reporting-check/`.
 
 Apply the requested task across the whole paper unless the author specifies a narrower scope.
 Follow the shared [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
@@ -36,13 +41,19 @@ Three services, usable alone or together: **guidelines** (choose the guidelines 
 audit their items), **availability** (data, code and software), **statistics reporting**. A request for
 one does not trigger the others.
 
-Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run (`RUN/manuscript-reporting-check/`, findings prefix `RP`). End with the [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist). This applies to direct invocations too.
 
 ## Ground rules
 
-1. **Report what the authors did not report; never invent it.** No accession, DOI, tag, licence, n,
-   test, correction, software version or access route that the manuscript or the authors did not give.
-   Where a fact is needed, ask for it among the questions at the end of the report.
+1. **Read the project before asking; never invent.** No accession, DOI, tag, licence, n, test, correction,
+   software version or access route comes from inference or memory. When the manuscript sits in, or names, a
+   repository, read its files first (release tags, run logs, lock files, configuration, result tables), as
+   [check the project before asking](../manuscript-integrity-check/references/author-priorities.md#check-the-project-before-asking)
+   says. A version or count read there goes into the paper only when it is tied to the run or release behind the
+   results (the tagged release, the benchmark's run log, the commit the paper cites), and the report quotes that
+   source; a value that is not tied to it (a lock file or the latest tag shows today's project) is a proposal that
+   names its source, never a silent fill-in. Ask the authors only what the files leave open, in the one batch of
+   questions at the end of the report.
 2. **A reporting gap is not a new experiment.** Ask the authors to report what they did. If they did not
    do it, offer the options (report it as a limitation, run an analysis the existing data allow, narrow
    the claim) and leave the choice to them. An unaffordable venue requirement is a venue question for
@@ -98,7 +109,8 @@ licences.
 ## 2. Audit the items
 
 ```bash
-uv run --script scripts/guidelines.py items strega --manuscript PAPER.md --md OUT/strega-audit.md
+uv run --script scripts/guidelines.py items strega --manuscript PAPER.md --md OUT/strega-audit.md \
+    --json RUN/manuscript-reporting-check/strega-audit.json
 ```
 
 The table lists every item to check (an extension with its base's items, each number in parentheses after
@@ -115,10 +127,15 @@ transfer; never reproduce the form's text.
 ## 3. Check availability
 
 ```bash
-uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md --json SCRATCH/avail.json
+uv run --script scripts/check_availability.py PAPER.md --venue KEY --md OUT/availability.md \
+    --json RUN/manuscript-reporting-check/availability.json
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --online
 uv run --script scripts/check_availability.py PAPER.md --venue KEY --final    # the authors are about to submit
 ```
+
+Exit codes: 0 no major finding in the current work and, with `--online`, every identifier looked up; 1 at least
+one major finding (end-stage findings count only with `--final`); 3 with `--online`, no major finding, but an
+identifier or a cited version could not be looked up, so the run cannot be called clean; 2 usage.
 
 It finds the availability statements, extracts and classifies every accession, DOI, repository, package,
 container, model and RRID outside the reference list (also Zenodo record numbers and Hugging Face
@@ -188,6 +205,14 @@ sha256, date, one-line summary, saved JSON output) and hand open gaps on as `ope
 `fixable-in-text` (report what was done), `author-required` (a fact or decision only they have), `venue`
 or `policy`.
 
+**What goes to the dashboard.** `RUN/manuscript-reporting-check/findings.json`
+([stage findings](../manuscript-dashboard/references/stage-findings.md)), prefix `RP`, category "Reporting and
+availability" (a statistics gap that threatens a result may be "Numbers and statistics"), one record per root
+cause with the stage given above. The script's words map onto the shared scale: `major` stays `major`, `optional`
+is `info`, `uncertain` is `unknown`; a blocker only as defined above. An item that could not be checked (material
+not supplied, a lookup that did not answer) goes in `not_checked` with the reason, not in `findings`. Then follow
+the end-of-stage checklist named above.
+
 ## Hand-offs
 
 | Situation | Skill |
@@ -203,9 +228,11 @@ or `policy`.
 
 ## Files
 
-- `scripts/guidelines.py`: `select`, `items`, `designs`, `list`, `validate` (PEP 723; `uv run --script`).
+- `scripts/guidelines.py`: `select`, `items`, `designs`, `list`, `validate` (PEP 723; `uv run --script`;
+  exit 0 success, 1 `validate` found a problem, 2 usage).
 - `scripts/check_availability.py`: extraction, offline flags, `--online` resolution, venue rules, a stage
-  for every finding and a Markdown report for the authors (`--final` when they are about to submit).
+  for every finding and a Markdown report for the authors (`--final` when they are about to submit; exit codes
+  under section 3).
 - `references/guidelines.yaml`: 16 guidelines and standards plus 5 venue checklists, each with version,
   design keys, condition, EQUATOR page or defining DOI, licence and the date it was checked
   (2026-10-15), items paraphrased with their official numbers.

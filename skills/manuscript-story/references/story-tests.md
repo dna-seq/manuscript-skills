@@ -51,7 +51,9 @@ an option for the authors.
     the second kind belongs in the supplement or the response letter. Also list what was lost: a hook, an
     example, a voice, an argument. The reading measures' "What moved" list is the starting point.
 11. **Said once.** The same disclaimer, pointer or limitation repeated in the Abstract, Introduction,
-    Discussion and Conclusion. Fix: once, in the place a reader looks for it.
+    Discussion and Conclusion. Fix: once per section, in the place a reader looks for it. A repeat that
+    carries a scope or limit stays in each section that states it, and always in the Abstract and
+    Introduction: the claim check counts a caveat only within its own section.
 
 ## The ending and the whole
 

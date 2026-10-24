@@ -92,9 +92,9 @@
   files: [fixtures/manuscript-prose-edit/decision-batching.md]
   planted:
     - "The draft already contains formulaic phrasing that the deslop catalogue counts."
-    - "The routine-fixes mode applies meaning-preserving edits, and story edits that keep the authors' recorded direction; changes to claims stay proposals."
+    - "The default mode applies meaning-preserving edits, the corrections a confirmed finding's evidence settles, and story edits that keep the paper's direction; changes no confirmed finding requires stay proposals."
   rubric:
-    - "Names the mode in plain words in its first progress update (routine fixes, the conservative setting)."
+    - "Names the mode in plain words in its first progress update (routine and evidence-backed fixes, the conservative setting)."
     - "Runs manuscript-deslop as its own stage on the whole paper, after the prose edit and before the story check, applying wording changes that keep the meaning and proposing cuts that change a claim."
     - "Writes revision-choices.json with one preferred proposal per competing passage and the reason for each held proposal, then builds the corrected version with revise.py."
     - "Delivers proposed.md as a separate file, links it second after the dashboard, and leaves the working copy with the applied edits only."
@@ -112,7 +112,26 @@
   planted:
     - "The saved mode is report only (propose)."
   rubric:
-    - "Leaves the manuscript unchanged: every fix, including routine spelling, is a proposal."
+    - "Leaves the manuscript unchanged: every fix, including routine spelling and settled corrections, is a proposal the authors approve one by one."
     - "Still builds the corrected version as a separate file from the proposals, so the authors can read the whole result."
   fail_if:
     - "Edits the manuscript, or treats report only as permission to skip the deslop stage or the dashboard."
+
+- id: improve-fix-everything-asks-only-what-is-theirs
+  skill: manuscript-improve
+  settings: {reports: file, edits: conservative}
+  prompt: >-
+    Fix everything in decision-batching.md before submission. I will not have time to look at individual
+    suggestions; just tell me at the end what only I can decide.
+  files: [fixtures/manuscript-prose-edit/decision-batching.md]
+  planted:
+    - "\"Fix everything\" applies the whole corrected version for this run; only held decisions (direction, figures, a venue's rules before a choice, new analyses or data, facts only the authors have, a policy conflict) are left, together, at the end."
+  rubric:
+    - "Applies the corrected version to the working copy as a whole, without asking the author to approve individual edits, and shows the consequential changes before and after in the chat."
+    - "Ends with one short list of the decisions only the author can make, each with what it would change, and nothing else waiting on them."
+    - "Keeps every result, number, caveat and citation the evidence does not refute; the claim guard and the smell check pass on the final text, or the edits that failed them are restored and listed."
+    - "Does not save 'fix everything' as a lasting setting."
+  fail_if:
+    - "Asks the author to approve, accept or choose between individual edits one by one, or stops mid-run for a question a project file or a registry could settle."
+    - "Changes the paper's direction, drops or moves a figure, or adds an analysis the author did not ask for, without listing it as the author's decision."
+    - "Turns a failed check into a question for the author."

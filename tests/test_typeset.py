@@ -2,8 +2,8 @@
 
 A Markdown source goes through pandoc with the ported arguments and DejaVu fonts to `<stem>.tex`, then
 tectonic; a LaTeX source goes to tectonic alone. A marked source is built from its clean twin only when
-the twin is current; marks that do not lint are refused. A failed render deletes the stale PDF and says
-so. Missing glyphs are one warning each with the code point, exit 1 only under --strict. Pages over the
+the twin is current; marks that do not lint are refused, and a refused build leaves the PDF there. A failed
+render deletes the stale PDF this tool wrote and says so; a PDF it did not write is never replaced. Missing glyphs are one warning each with the code point, exit 1 only under --strict. Pages over the
 cap are exit 1; pages unknown under a cap are exit 3. An absent binary, or a variable naming none, is
 exit 3 naming it. The caller's TECTONIC_CACHE_DIR reaches tectonic. A hand-written file is never
 overwritten. `md` writes the reading twin with the abstract first."""
@@ -134,6 +134,9 @@ def test_a_marked_markdown_source_builds_only_from_a_current_twin(T):
     r = T.ts("pdf", src)
     assert r.rc == 1 and "is stale" in r.out and T.calls() == [], r.out
     assert py(RM, "strip", src).rc == 0 and twin.read_text() == CLEAN
+    r = T.ts("pdf", src)  # a current twin, but the PDF there is not this tool's: never replaced
+    assert r.rc == 2 and "did not write it" in r.out and pdf.read_text() == "an old build" and T.calls() == [], r.out
+    pdf.unlink()
     r = T.ts("pdf", src)
     assert r.rc == 0, r.out
     assert T.calls("pandoc")[0]["args"][-1] == str(twin.resolve())
@@ -175,7 +178,7 @@ def test_a_latex_source_needs_no_pandoc_and_a_marked_one_builds_from_its_twin(T)
 def test_a_failed_render_deletes_the_stale_pdf_and_says_so(T, failure):
     src, pdf = T.dir / "paper.md", T.dir / "paper.pdf"
     src.write_text(CLEAN)
-    pdf.write_text("an old build")
+    assert T.ts("pdf", src).rc == 0 and pdf.is_file()  # an earlier build of this tool
     r = T.ts("pdf", src, **failure)
     assert r.rc == 1, r.out
     assert not pdf.exists() and f"deleted {pdf}" in r.out

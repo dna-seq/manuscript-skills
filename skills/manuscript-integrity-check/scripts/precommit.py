@@ -12,8 +12,9 @@ count and never fail the hook unless --final says the authors are about to submi
 and no third-party detectors (run those by hand, see the skills).
 
 --hygiene also lists what the submission-package check (hygiene.py) finds in the file itself: LaTeX
-comments with content, hidden text and prompts aimed at AI reviewers, secrets. These lines are advisory:
-they never change the exit code, because a draft legitimately carries comments until it is submitted.
+comments with content, hidden text and prompts aimed at AI reviewers, secrets. Text hidden for AI reviewers and a
+leaked secret fail the hook at any stage (a hidden prompt misleads the review, and a committed key is exposed); the
+comments stay advisory, because a draft legitimately carries them until it is submitted.
 
     uv run --script precommit.py paper.md [more files] [--venue KEY] [--strict] [--max-smells 8] [--hygiene] [--final]
 
@@ -81,11 +82,18 @@ def main(
     advisory: Annotated[bool, typer.Option(help="Report findings without blocking the commit")] = False,
     max_smells: Annotated[Optional[float], typer.Option(help="Fail when smells per 1000 words exceed this")] = None,
     show: Annotated[int, typer.Option(help="Findings to print per file")] = 8,
-    hygiene: Annotated[bool, typer.Option(help="Also list comments, hidden text and secrets in the file "
-                                               "(advisory: never fails the commit)")] = False,
+    hygiene: Annotated[bool, typer.Option(help="Also check the file for comments, hidden text and secrets: text "
+                                               "hidden for AI reviewers and a leaked secret fail the commit, "
+                                               "comments stay advisory")] = False,
     final: Annotated[bool, typer.Option(help="The authors are about to submit: also count the items for the last "
                                               "step before submission (statements, archives, placeholders)")] = False,
 ) -> None:
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     scan = _load("scan", HERE / "scan.py")
     package = _load("hygiene", HERE / "hygiene.py") if hygiene else None
     profile = _load("style_profile", HERE.parents[1] / "manuscript-deslop" / "scripts" / "style_profile.py")
@@ -116,13 +124,14 @@ def main(
         if package is not None:
             leaks = [f for f in package.offline_text_checks(path) if f.check in ("comments", "hidden-text", "injection",
                                                                                  "invisible-characters", "secrets")]
-            urgent = sum(f.stage == "now" for f in leaks)
-            typer.echo(f"  Comments, hidden text and secrets (advisory, never fails the commit; comments are cleaned "
-                       f"in the last step before submission): {_plural(len(leaks), 'finding', 'findings')}"
-                       + (f", of which {urgent} cannot wait: a leaked key or text hidden for AI reviewers" if urgent
-                          else "") + ".")
-            for f in leaks[:show]:
+            urgent = [f for f in leaks if f.stage == "now"]
+            typer.echo(f"  Comments, hidden text and secrets (comments are cleaned in the last step before submission "
+                       f"and never fail the commit): {_plural(len(leaks), 'finding', 'findings')}"
+                       + (f", of which {len(urgent)} cannot wait and fail the commit: a leaked key or text hidden for AI "
+                          f"reviewers" if urgent else "") + ".")
+            for f in sorted(leaks, key=lambda f: f.stage != "now")[:show]:
                 typer.echo(f"  - {package.SEVERITY_LEAD[f.severity]}: {package.finding_text(f)}")
+            failed = failed or bool(urgent)
         if blockers or (strict and majors) or (max_smells is not None and density > max_smells):
             failed = True
     if failed and not advisory:

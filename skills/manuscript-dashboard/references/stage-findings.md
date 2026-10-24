@@ -1,9 +1,14 @@
 # Stage findings: the file every skill writes for the dashboard
 
-Besides its report for the authors (`report.md`), each skill in a run writes `findings.json` in its own
-run folder, `RUN/<skill>/findings.json`. `scripts/collect.py` merges these into one inventory, so a
+Besides its report for the authors (`report.md`), each finding-producing skill in a run writes
+`findings.json` in its own run folder, `RUN/<skill>/findings.json`, even when it found nothing (an empty
+`findings` list with what it covered, and `not_checked` for what it could not). `runs.py validate --final`
+refuses a finished stage without it. `scripts/collect.py` merges these into one inventory, so a
 problem two skills found is counted once and nothing a skill recorded is dropped. The report stays the
-authors' document; this file is the same findings in a form a script can count.
+authors' document; this file is the same findings in a form a script can count. Four skills write none:
+manuscript-dashboard (it reads them), manuscript-improve (its findings are the dashboard's adjudicated
+inventory), manuscript-other-models (its seats report into the panel that ran them, whose `not_checked` lists
+a seat that failed) and manuscript-mark-people (it writes a people list).
 
 ```json
 {
@@ -18,7 +23,7 @@ authors' document; this file is the same findings in a form a script can count.
       "summary": "the problem in at most fifteen words",
       "detail": "what is wrong and why it matters for the paper, one to three sentences",
       "action": "the smallest change that fixes it",
-      "severity": "blocker | major | minor | info",
+      "severity": "blocker | major | minor | info | unknown",
       "stage": "now | writing | journal | final",
       "confidence": "confirmed | candidate",
       "decision": false,
@@ -39,21 +44,35 @@ authors' document; this file is the same findings in a form a script can count.
   revision-marks, MP mark-people. Collect namespaces a clash it still finds (`RP.RC-1`) rather than lose a
   record.
 - One record per distinct problem. Group a root cause with its symptoms; never one record per scanner
-  hit. Repeats across skills are expected: the merge step joins them.
+  hit. Repeats across skills are expected: the merge step joins them. Peer review's records end their `detail` with the
+  referee concern IDs they merge ("(EV-1, SK-3)"), which the dashboard links to the referees' reports.
 - `quote` is copied from the authoritative manuscript exactly, never paraphrased. An absence has
   `quote: null` and says in `looked_in` where the skill searched; collect adds the places to the finding's
   detail.
 - `confidence: confirmed` means the skill verified the problem against the manuscript, the project's
   code or files, or a source it read; `candidate` means it needs the authors or a check that could not
   run. A simulated reader's concern is confirmed only as reader feedback, never as a scientific error.
-- `severity`: `blocker` is a confirmed scientific defect or a verified submission barrier; `major` would
-  change a referee's view or a reader's trust; `minor` is worth fixing at low stakes; `info` is optional.
-  Peer review's `optional` and `uncertain` map to `minor` and `unknown`.
+- `severity`, one scale for every skill and script, with the words the authors see:
+
+  | Value | The authors read | Meaning |
+  |---|---|---|
+  | `blocker` | Blocker | a confirmed scientific defect or a verified submission barrier |
+  | `major` | Major | would change a referee's view or a reader's trust |
+  | `minor` | Minor | worth fixing, at low stakes |
+  | `info` | Optional | a style preference, possible improvement or additional experiment |
+  | `unknown` | Could not be checked | the check could not run or the evidence is missing |
+
+  Words other scripts and seats use map onto it: `optional` → `info`, `uncertain` and `not_assessed` →
+  `unknown`, `serious` → `blocker`, `important` → `major`. Collect applies the same mapping.
+- `quote`: at least three words, as many as it takes to find the passage once in the manuscript.
 - `stage` follows [Order the work by when it can be done](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
   `now` (the science and the evidence), `writing`, `journal` (depends on the chosen journal), `final`
   (archives, declarations, versions: before submission only).
-- `decision: true` marks a choice only the authors can make (a narrower claim or more evidence, a venue
-  trade-off, a policy conflict).
+- `decision: true` marks a choice only the authors can make: the held decisions of
+  [author priorities](../../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
+  (a change of direction, which figures the paper has, a venue's rules before the choice, new analyses or
+  data, a fact only they have, a policy conflict) and the choice between more evidence and a narrower
+  claim. A correction the evidence settles is not a decision, and neither is a failed check.
 - `evidence[].path` is relative to the skill's run folder, or absolute; each `quote` must occur verbatim
   in that file. Cite the report's sentence for the finding, and add the code file, command output or
   source page when that is what settles it. Collect refuses an inventory whose quotes are not in their
@@ -63,7 +82,9 @@ authors' document; this file is the same findings in a form a script can count.
   run manifest. A proposal's `before` is copied from the working copy exactly; an addition has `before:
   null` and `anchor`, the verbatim passage it goes after, so the corrected version can place it. A move is
   two records with the same summary: the deletion where the text was (`after: null`) and the addition, with
-  its anchor, where it goes. A record whose before and after are the same text changes nothing.
+  its anchor, where it goes. A record whose before and after are the same text changes nothing. Change
+  IDs take the skill's prefix and a C (`PE-C1`, `ST-C4`), so the Word export can sign each tracked change
+  with its stage.
 - Every change gives `why`: one to three sentences on what was wrong with the passage and why this wording
   fixes it, naming the rule, check or finding it rests on ("The Abstract gives 6.1 million variants; Table 2
   and the Methods give 6,138,868, so the Abstract now quotes the measured count"). The `summary` is a title;

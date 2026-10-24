@@ -545,7 +545,7 @@ def test_check_cli_fails_until_the_pattern_is_rewritten_or_kept(tmp_path: Path) 
     assert plain.exit_code == 0 and "Read the text against every pattern" not in plain.output
     failed = run(profile.app, [str(after), "--before", str(before), "--check"])
     assert failed.exit_code == 1, failed.output
-    assert "The edit added negation pivot (C1): “laptop, not a server”" in failed.output
+    assert "The edit added negative parallelism (C1): “laptop, not a server”" in failed.output
     assert "## Read the text against every pattern" in failed.output and "(D5)" in failed.output
     kept = run(profile.app, [str(after), "--before", str(before), "--check", "--keep", "c1"])
     assert kept.exit_code == 0 and "kept after review, and tell the authors" in kept.output
@@ -983,7 +983,8 @@ def test_ranking_does_not_trade_impossible_validation_for_a_lighter_ai_policy(sy
         "rank", "--study-design", "public-data", "--validation-available", "independent-cohort"])
     assert result.exit_code == 0, result.output
     assert re.findall(r"\(`([a-z-]+)`\)", result.output) == ["strict", "calm"]
-    assert "Does not fit. It requires wet-lab experiments, and you have none of these." in result.output
+    assert ("Does not fit the stated constraints. It requires wet-lab experiments, and you have none of these."
+            in result.output)
 
 
 def test_journal_speed_and_editorial_profile_are_not_inherited(synthetic_venues: Path) -> None:
@@ -1068,7 +1069,6 @@ def test_ladder_keeps_an_infeasible_venue_last_whatever_the_priorities(task_reco
 
 
 @pytest.mark.parametrize("record, args", [
-    ({}, []),  # no priorities anywhere
     ({"priorities": ["prestige"]}, []),  # not a priority the ladder knows
     ({}, ["--priority", "ai", "--priority", "ai"]),
     ({"venue_facts": {"ghost": {"jif": 9}}}, ["--priority", "ai"]),  # an unknown venue without a name
@@ -1123,8 +1123,9 @@ def test_ladder_flags_each_part_of_an_ai_policy_and_names_the_red_flags(task_rec
     assert calm["ai_red_flags"] == "0" and calm["ai_drafting"] == "good: allowed if declared"
     assert fresh["ai_red_flags"] == "" and fresh["ai_prompts"] == "unknown: not researched"
     table = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed"]).output
-    assert "| AI-policy red flags |" in table and "⚑ AI drafting: banned for the whole paper" in table
-    assert "Not known: the AI policy has not been researched." in table
+    assert "| AI-policy red flags |" in table and "AI drafting is banned for the whole paper" in table
+    assert "⚑" not in table  # the icon stays in the CSV levels and the dashboard
+    assert "Not known, because the AI policy has not been researched." in table
 
 
 def test_ladder_csv_shows_the_recorded_order_beside_the_sorted_one(task_record: Path) -> None:
@@ -1251,7 +1252,7 @@ def test_common_separates_what_one_version_satisfies_from_where_the_venues_disag
     assert "Length of the body" in differ and "3500 words" in differ and "Length of the body" not in now
     assert "Reference style X (Strict Journal)" in differ
     assert "Archived release with a DOI (every venue)" in end and "Test data (Strict Journal)" in end
-    assert "The strictest is Strict Journal's" in out
+    assert "The strictest rule on the list is Strict Journal's:" in out
 
 
 def test_common_lists_what_has_not_been_researched_instead_of_treating_it_as_no_rule(

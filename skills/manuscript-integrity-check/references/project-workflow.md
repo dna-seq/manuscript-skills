@@ -2,7 +2,10 @@
 
 Read this when starting any manuscript skill, including one invoked directly. It governs saved project
 choices and delivery; the skill still governs its scientific work. Commands below are relative to
-`manuscript-integrity-check/`; use the equivalent sibling path from another skill.
+`manuscript-integrity-check/`; use the equivalent sibling path from another skill. The scripts run the same
+on Linux, macOS and Windows (`uv run --script`, paths with either slash); shell lines in these skills are
+written for a POSIX shell, so in PowerShell write a variable as `$V = "..."` and a line continuation as a
+backtick.
 
 ## Ask once for a manuscript project
 
@@ -20,10 +23,11 @@ On first use, ask one short batch only for the missing `questions` returned by t
   folder; the helper does not upload files.
 - How should the skills work? These are the resolver's `preferences`, the settings nobody has chosen for
   this project or globally: `edits`, `reports` and `keep`. Ask them as one question that names each
-  recommended answer with its `why` (routine fixes applied and the rest proposed; reports saved as files
-  with the headline in the chat; every intermediate file kept, because later steps and the dashboard read
-  them and every finding can be traced back), so that "yes" accepts them all and the authors change only
-  what they want. Save what they answer with `configure --edits ... --reports ... --keep ...`.
+  recommended answer with its `why` (routine and evidence-backed fixes applied, the rest proposed in the
+  corrected version, nothing to approve one by one; reports saved in the run with the headline in the
+  chat; every intermediate file kept, because later steps and the dashboard read them and every finding
+  can be traced back), so that "yes" accepts them all and the authors change only what they want. Save
+  what they answer with `configure --edits ... --reports ... --keep ...`.
 
 Use answers already supplied in the conversation or project instructions. Show inferred locations in
 the batch rather than asking the author to rediscover them. Continue independent read-only work while
@@ -32,14 +36,22 @@ apply, unsaved, and the next run asks again. "Use your recommendations" is an an
 other. Do not silently turn a guess into a saved author choice; setup copies only the choices saved
 globally, never the defaults.
 
+If the global settings file cannot be read, `resolve` still answers: it reports `settings_error`, works
+under `edits: propose` unless this manuscript or the conversation chose otherwise, lists repairing the file
+once in `decisions`, and the run starts as usual. The file is never rewritten.
+
 Save stated choices with `project.py configure PROJECT_FOLDER --manuscript SOURCE --code CODE_FOLDER
 --output-dir reviews --edits conservative --reports file --keep everything`, giving only the settings the
 authors answered. Repeat `--manuscript` for supplements and `--code` for multiple repositories;
 use `--no-code` or `--unknown-code` when that is the answer. Locations are relative to PROJECT_FOLDER. A supplied manuscript folder needs its main source file
 identified before a run can snapshot it; code locations may be folders.
-`--document URL` records a connected document, and `--output-url URL` a cloud destination. A remote
-authoritative manuscript can itself be a `--manuscript URL`; preserve its exported reading copy in the
-run evidence and record the connected version when available.
+`--document URL` records a connected document, and `--output-url URL` a cloud destination. A connected
+manuscript can itself be a `--manuscript URL`: export its current version to a local reading copy (Markdown
+or plain text keeps the dashboard readable) and give it with `configure PROJECT --manuscript URL
+--reading-copy FILE`, or per run with `runs.py start URL --project PROJECT --reading-copy FILE
+--connected-version ID`. The run snapshots the reading copy with the URL and the version. Without a reading
+copy for the main manuscript, `start` creates no run and says so; a connected supplement without one is
+named in the run index as not snapshotted.
 
 The local `.manuscript-skills.yaml` is the project configuration, not another manuscript version or
 the scientific shared record. Every skill finds the nearest one or uses an explicit `--project`.
@@ -105,7 +117,8 @@ findings as `findings.json` ([stage findings](../../manuscript-dashboard/referen
 one record per distinct problem with its verbatim passage, severity, stage and evidence, plus what was
 dismissed and what could not be checked. `manuscript-dashboard` counts the run from these files and
 never infers that a skill without one found nothing. Register outputs, including files
-already written there:
+already written there (give `--name` a path inside the skill's folder, `figures/figure-3/view.png`, when
+several files share a name):
 
 ```bash
 uv run --script scripts/runs.py add RUN --skill manuscript-story --file REPORT --role report --name report.md
@@ -117,13 +130,34 @@ uv run --script scripts/runs.py issue RUN --skill manuscript-story --kind contra
 Use `--seat potential-user` and `--seat informed-outsider` for the other story readers. For formal peer
 review, retain three distinct `referee` reports with their seat names, plus `defence` and `adjudication`
 artifacts. For the documented two-seat quick pass, use `seat` artifacts named `desk-editor` and
-`evidence-statistics` with defence and adjudication, then `finish ... --review-mode quick`; these are
-findings, not fabricated full referee reports. `--review-mode invited` labels invited-referee work.
+`evidence-statistics` with defence and adjudication, plus the short `report` that `finish` requires, then
+`finish ... --review-mode quick`; these are findings, not fabricated full referee reports. `--review-mode invited` labels invited-referee work.
 Preserve reader/referee task briefs and the reading copy. Register reusable checks as `check`
 and source/edited comparisons as `comparison`. Preserve blocked sources, disagreements, failed commands,
 their interpretation and any later resolution. `exec` records attempt metadata before launch and streams stdout/stderr directly to durable files;
 it records the true exit code on completion. Interrupted attempts keep their partial output and unknown exit status; it never treats a zero exit code as scientific validation. Retain a failed attempt when rerunning
 successfully. Evidence cannot be silently overwritten; register the next attempt under a new filename.
+
+### End-of-stage checklist
+
+Every skill that finds or changes something, run alone or as a stage of `manuscript-improve`, ends with the
+same five steps before `finish`:
+
+1. **The report**, `RUN/<skill>/report.md`, written for the authors ([writing for the authors](author-priorities.md#writing-for-the-authors)).
+2. **The smell check on the report**, from the skill's folder:
+   `uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/<skill>/report.md --report --check`;
+   rewrite what it lists, then reread the report against the pattern list it prints.
+3. **`findings.json`** beside the report, with the skill's prefix ([stage findings](../../manuscript-dashboard/references/stage-findings.md));
+   an empty `findings` list is valid when nothing was found.
+4. **Every applied edit recorded** with `runs.py change`: one record per consequential edit, shown in the
+   chat; routine edits may share one record per paragraph or section, whose before and after are the whole
+   paragraph or section and whose reason names the kind of fix. Never attest `--shown-in-chat` for a change
+   that was not shown. An edit nobody recorded stops the corrected version from being built.
+5. **`runs.py finish RUN --skill <skill> --status ...`** with the honest coverage.
+
+Skills that write no `findings.json` (manuscript-dashboard, manuscript-other-models, manuscript-mark-people,
+and manuscript-improve, whose findings are the dashboard's adjudicated inventory) skip step 3. `finish`
+refuses a completed or partial stage without it; a blocked one needs only its reason.
 
 When a stage runs as a delegated agent, the host may refuse to let it create report files (one harness
 answers "subagents should return findings as text"). Then the agent returns the finished report as text,
@@ -153,8 +187,10 @@ coordinator instead of reading the paper. These rules hold in every skill that r
 
 1. **A fresh agent per seat.** Each seat runs as a new agent whose whole context is its brief: in Claude
    Code, the Agent tool with a general-purpose agent, never a `fork` (a fork inherits this conversation)
-   and never a message to an agent that has already worked on this paper; in other hosts, their
-   equivalent of a new agent. One agent per seat: a reader is never reused as another reader, a referee
+   and never a message to an agent that has already worked on this paper, except resuming a seat's own
+   agent to finish what its own brief asked (a missing report, a coverage line, a field) with a message
+   that adds nothing else; a seat that cannot be resumed runs again fresh in a new workspace or is recorded
+   as having given none. In other hosts, their equivalent of a new agent. One agent per seat: a reader is never reused as another reader, a referee
    never as the defender. When the authors chose more than one model, a seat also runs as a new session of
    another model's CLI through [manuscript-other-models](../../manuscript-other-models/SKILL.md), in a
    throwaway copy of its workspace: a fresh agent in the same sense, named `SEAT@CLI` (`skeptic@codex`).
@@ -167,8 +203,10 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    design, remit, or the reader's description in the authors' words. Give paths to the workspace files,
    never extracts the coordinator chose. Save each brief exactly as sent beside the seat's report.
 4. **The workspace is all the seat may read.** It holds the reading copy and what the seat's brief lists,
-   and the brief tells the seat to open nothing else: no other file of the project or the run, no git
-   history, no search for other reviews of this work.
+   and the brief, naming the workspace by its absolute path, tells the seat to open nothing else: no other
+   file of the project or the run, no git history, no search for other reviews of this work. A subagent
+   starts in the session's folder, so "this directory" would be the whole project. For seats on Codex and
+   Gemini that instruction is the only read boundary (they limit writes, not reads); Claude Code enforces it.
 5. **Record how each seat ran.** Register its output with `--isolation fresh-agent`, or `--isolation
    one-agent` under the fallback below, and with `--model` (`codex/gpt-5.6-sol`) when the run uses more
    than one model. `runs.py validate` refuses a completed story or peer-review stage
@@ -204,19 +242,29 @@ Before handover run `runs.py validate RUN --final`. It detects missing/tampered 
 statuses, missing panel artifacts, changed manuscript snapshots without a change explanation and
 unacknowledged before/after records. It does not prove scientific correctness, independence of seats,
 completeness of edit classification or actual delivery in chat. Review those directly. Partial work can
-have a valid handover while the manifest still says `workflow_complete: false`.
+have a valid handover while the manifest still says `workflow_complete: false`. `validate --final` also checks
+that each completed or partial stage has a `findings.json` with a `findings` list. In a run with
+`manuscript-improve` it checks the adjudicated inventory (`manuscript-dashboard/findings*.json`), the
+corrected version (`manuscript-improve/revision*/proposed*`), the dashboard and its Word file; a missing one
+is acceptable only when manuscript-dashboard or manuscript-improve was finished `partial`, `blocked` or
+`not_run` with the reason.
 
-The deliverables the authors open go beside the manuscript as well as into the run: the corrected version
-as `<stem>.proposed.md`, and the dashboard and its Word version as `<stem>.dashboard.html` and
-`<stem>.review.docx` through `runs.py handover RUN`. The dashboard is replaced on every run; an existing,
-different Word file only on the authors' yes (`--replace-docx`; without it the command exits 4 and keeps
-the file). Run folders stay under the output folder.
+The deliverables the authors open go beside the manuscript through `runs.py handover RUN`: the newest
+dashboard as `<stem>.dashboard.html`, its Word version as `<stem>.review.docx` and the corrected version as
+`<stem>.proposed<manuscript suffix>`. For a single-skill run, add `--report <skill>` for
+`<stem>.<skill without manuscript->.md`. The dashboard is replaced every run. A different Word file,
+corrected version or report copy already there is kept, and this run's copy goes beside it as
+`<stem>.review.YYYYMMDD.docx` (then `-2`, `-3`); the command exits 0 and says which file is which. Replacing
+the earlier file is an optional end-of-run decision; on a yes, rerun with `--replace-docx`,
+`--replace-proposed` or `--replace`. A connected manuscript's copies go to the project folder, named after
+its reading copy. Run folders stay under the output folder.
 
 When the effective `keep` is `results`, the last step, after the final validation and after the dashboard
 is rendered, is `runs.py pack RUN`. It refuses a run that does not validate; it leaves `run.json`, the
-README files, every registered `report`, the dashboard (`manuscript-dashboard/*.html` and `*.docx`) and the
-corrected version (`manuscript-improve/revision/proposed.md` and `changes.md`), plus any `--keep PATTERN`,
-and moves everything else into `evidence.zip`, recording each file's hash. `validate` checks packed files
+README files, every registered `report`, the newest dashboard and Word file and the newest revision
+attempt's `proposed*` and `changes.md` (older attempts are archived), plus any `--keep PATTERN`, moves
+everything else into `evidence.zip` with each file's hash, verifies it, and only then removes the loose
+copies. `validate` checks packed files
 inside the archive. Every other writer refuses a packed run (exit 3): run `runs.py unpack RUN` first to
 continue it, add evidence or collect the dashboard again. With `everything`, never pack.
 

@@ -4,7 +4,8 @@
 # ///
 """Render evidence-linked review findings and edits as an offline dashboard.
 
-    uv run --script dashboard.py findings.json --output-dir dashboard [--revision RUN/manuscript-improve/revision]
+    uv run --script dashboard.py RUN/manuscript-dashboard/findings.json --output-dir RUN/manuscript-dashboard/dashboard \
+        [--revision RUN/manuscript-improve/revision]
 
 `manuscript-dashboard.html` is one self-contained file: headline counts, review coverage, the funnel from raw signals
 to distinct findings, cross-filtered breakdowns, the manuscript with every quoted problem highlighted and
@@ -15,6 +16,10 @@ reference review is supplied, which of its problems the run caught. `summary.jso
 
 Counts are derived from distinct adjudicated records, never supplied headline totals. Evidence checks
 establish local file/quotation identity, not scientific support or correctness of the adjudication.
+
+Second attempts: no output is overwritten. The next attempt of a file takes a number before its extension
+(findings.json, findings.2.json, findings.3.json), of a folder after its name (dashboard, dashboard.2); every
+script of the end of a run refuses an existing output and names the next free one.
 """
 from __future__ import annotations
 
@@ -42,6 +47,68 @@ ASSETS = Path(__file__).resolve().parents[1] / "assets"
 TEMPLATE = ASSETS / "dashboard.html"
 DESLOP = Path(__file__).resolve().parents[2] / "manuscript-deslop"
 app = typer.Typer(add_completion=False)
+
+
+def utf8_console() -> None:
+    """Print UTF-8 on every platform (a Windows console defaults to a legacy code page)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+# ---------- numbered attempts: a second attempt never overwrites the first ----------
+
+ATTEMPT = re.compile(r"^(?P<base>.+?)\.(?P<n>[2-9]|[1-9]\d+)$")
+
+
+def _split(path: Path, folder: bool | None = None) -> tuple[str, str]:
+    """A name as (stem, extension) for numbering: `findings.json` is ("findings", ".json"), a folder `revision`
+    is ("revision", ""). A folder has no extension, even when its name has a dot."""
+    folder = path.is_dir() if folder is None else folder
+    suffix = "" if folder or re.fullmatch(r"\.\d+", path.suffix or ".0") else path.suffix
+    return (path.name[:-len(suffix)] if suffix else path.name), suffix
+
+
+def attempt_base(path: Path, folder: bool | None = None) -> tuple[Path, int]:
+    """The first attempt's path and this path's attempt number: findings.2.json is (findings.json, 2)."""
+    stem, suffix = _split(path, folder)
+    match = ATTEMPT.match(stem)
+    if not match:
+        return path, 1
+    return path.with_name(match["base"] + suffix), int(match["n"])
+
+
+def attempt_path(path: Path, number: int, folder: bool | None = None) -> Path:
+    """Attempt `number` of the output whose first attempt is `path`."""
+    base, _ = attempt_base(path, folder)
+    stem, suffix = _split(base, folder)
+    return base if number <= 1 else base.with_name(f"{stem}.{number}{suffix}")
+
+
+def attempts(path: Path, folder: bool | None = None) -> list[Path]:
+    """Every existing attempt of an output, oldest first: findings.json, findings.2.json, ..."""
+    base, _ = attempt_base(path, folder)
+    stem, suffix = _split(base, folder)
+    pattern = re.compile(rf"^{re.escape(stem)}(?:\.(?P<n>[2-9]|[1-9]\d+))?{re.escape(suffix)}$")
+    found = []
+    if base.parent.is_dir():
+        for candidate in base.parent.iterdir():
+            if (match := pattern.match(candidate.name)) and (folder is None or candidate.is_dir() == folder):
+                found.append((int(match["n"] or 1), candidate))
+    return [p for _, p in sorted(found)]
+
+
+def newest_attempt(path: Path, folder: bool | None = None) -> Path | None:
+    """The newest existing attempt of an output, or None."""
+    found = attempts(path, folder)
+    return found[-1] if found else None
+
+
+def next_attempt(path: Path, folder: bool | None = None) -> Path:
+    """The first free attempt name after the newest existing one."""
+    found = attempts(path, folder)
+    last = attempt_base(found[-1], folder)[1] if found else 0
+    return attempt_path(path, last + 1, folder)
 
 
 def author_notes(text: str) -> list[tuple[int, int]]:
@@ -93,7 +160,8 @@ class Evidence(Record):
 
 class Coverage(Record):
     skill: Text
-    status: Literal["completed", "partial", "blocked", "not_run", "reused", "unknown"]
+    # in_progress: the stage was still running when the inventory was collected
+    status: Literal["completed", "partial", "blocked", "not_run", "reused", "in_progress", "unknown"]
     note: Text
     evidence: Annotated[list[Evidence], Field(min_length=1)]
 
@@ -267,6 +335,7 @@ class Reference(Record):
     title: Text
     description: Text
     source: Evidence
+    matched_by: str = ""  # who matched its items to the run's findings, after the inventory was frozen
     items: Annotated[list[ReferenceItem], Field(min_length=1)]
     matches: list[Match] = Field(default_factory=list)
 
@@ -565,6 +634,15 @@ def figure_counts(figures: Figures | None) -> dict | None:
             "limit": figures.limit.count if figures.limit else None}
 
 
+def decision_list(data: Inventory) -> list[dict]:
+    """The decisions for the authors: those the adjudication wrote, then every stage's `decision: true` finding that
+    none of them links, so writing one decision never hides the stages' own."""
+    linked = {fid for decision in data.decisions for fid in decision.finding_ids}
+    return [*(d.model_dump() for d in data.decisions),
+            *({"id": f.id, "summary": f.summary, "finding_ids": [f.id]} for f in data.findings
+              if f.decision and f.assessment != "dismissed" and f.id not in linked)]
+
+
 def summarize(data: Inventory) -> dict:
     confirmed = [finding for finding in data.findings if finding.assessment == "confirmed"]
     pairs = Counter(pair for f in confirmed for pair in combinations(sorted(set(f.skills)), 2))
@@ -587,7 +665,7 @@ def summarize(data: Inventory) -> dict:
         "by_skill": dict(Counter(skill for f in confirmed for skill in set(f.skills))),
         "found_by_several_skills": sum(len(set(f.skills)) > 1 for f in confirmed),
         "skill_pairs": [{"skills": list(pair), "count": count} for pair, count in pairs.most_common()],
-        "decisions": len(data.decisions) or sum(f.decision for f in data.findings if f.assessment != "dismissed"),
+        "decisions": len(decision_list(data)),
         "signals": sum(signal.count for signal in data.signals),
         "not_checked": len(data.not_checked),
         "benchmark": benchmark(data),
@@ -716,7 +794,7 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
     corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
-                "revision": corrected, "writing": writing,
+                "revision": corrected, "writing": writing, "decisions": decision_list(data),
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")
     return (template.replace("__TITLE__", html.escape(data.title)).replace("__MANUSCRIPT_HTML__", paper)
@@ -742,8 +820,10 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         if corrected.get("inventory_sha256") != summary["inventory_sha256"]:
             raise ValueError("The corrected version was built from another inventory; rebuild it with revise.py from this one.")
         suffix = versions[0][3] if versions else ".md"
-        proposed = (revision / "proposed.md").read_text(encoding="utf-8")
-        versions += [("revised", "After the applied edits", (revision / "revised.md").read_text(encoding="utf-8"), suffix),
+        # revise.py names the texts after the manuscript's own extension (proposed.tex); older runs wrote .md.
+        files = corrected.get("files") or {"revised": "revised.md", "proposed": "proposed.md"}
+        proposed = (revision / files["proposed"]).read_text(encoding="utf-8")
+        versions += [("revised", "After the applied edits", (revision / files["revised"]).read_text(encoding="utf-8"), suffix),
                      ("proposed", "Corrected version", proposed, suffix)]
         # The text for the dashboard's save button. A corrected version built before questions became comments
         # may still carry notes in its text: they are listed, to be removed.
@@ -754,10 +834,11 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         # The proposals the corrected version holds back are out of play, so they join no competing group.
         held = {h["id"] for h in corrected.get("held", [])}
         summary["competing_proposals"] = competing([c for c in data.changes if c.id not in held])
-        summary["revision"] = {key: len(corrected[key]) for key in ("applied", "proposed_in_this_version", "held",
-                                                                       "alternatives", "not_placed")}
+        summary["revision"] = {key: len(corrected.get(key) or []) for key in ("applied", "proposed_in_this_version", "held",
+                                                                                 "alternatives", "not_placed", "restored")}
         summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]
-        summary["revision"] |= {"questions": len(corrected["comments"]), "notes_in_text": len(corrected["notes_in_text"])}
+        summary["revision"] |= {"questions": len(corrected["comments"]), "notes_in_text": len(corrected["notes_in_text"]),
+                                "notes_in_working_copy": len(corrected.get("notes_in_working_copy") or [])}
     writing = writing_patterns(versions) if versions else None
     if writing:
         summary["writing_patterns"] = {v["key"]: {"words": v["words"], "hits": sum(v["totals"].values()), "by_pattern": v["totals"]}
@@ -765,7 +846,8 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
     outputs = {"manuscript-dashboard.html": dashboard_html(data, summary, base, corrected, writing),
                "summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n"}
     if any((output_dir / name).exists() for name in outputs):
-        raise ValueError("Output files already exist; choose a new output directory to retain the previous attempt.")
+        raise ValueError(f"Output files already exist in {output_dir.name}; render this attempt into "
+                         f"{next_attempt(output_dir, folder=True).name} to keep the previous one.")
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, value in outputs.items():
         (output_dir / name).write_text(value, encoding="utf-8")
@@ -786,4 +868,5 @@ def main(source: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
 
 
 if __name__ == "__main__":
+    utf8_console()
     app()

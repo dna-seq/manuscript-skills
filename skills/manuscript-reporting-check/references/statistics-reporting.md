@@ -7,8 +7,8 @@ P values recomputed from test statistics, one quantity reported with different v
 
 Work through the analyses that carry the paper's claims: the abstract's results, the main figures and
 tables, and every comparison the Discussion leans on. For each one, find the answers below in the text,
-legends or supplement. Report what is missing with its location; never fill a gap with a value you
-inferred.
+legends or supplement, and in the project's files when the paper has a repository. Report what is missing with its
+location; never fill a gap with a value you inferred.
 
 ## The unit and the n
 
@@ -99,10 +99,12 @@ when the analysis the claim needs is missing or unsound (no correction across 48
 replicates counted as independent units), **Then the writing** when what was done is only unclearly
 reported (an undefined ±, a test not named for its comparison, a missing version of a tool that was
 used). The version of the authors' own software quoted in the text becomes final with the code, so it
-belongs under **Before submission, once the code is final**. When the
-authors must supply a fact (the n, the test, the correction, a version), add it to the questions at the
-end of the report. Never invent a value, a test or a correction, and never propose wording that implies
-an analysis was done when the manuscript does not say it was.
+belongs under **Before submission, once the code is final**. Before asking for a fact (the n, the test, the
+correction, a version), look in the project's files: a value tied to the run or release behind the results (the
+benchmark's run log, the tagged release, the commit the paper cites) is used and quoted with its source; a value
+that is not (a lock file, the latest tag) is a proposal naming its source. Only what the files leave open goes to
+the questions at the end of the report. Never invent a value, a test or a correction, and never propose wording
+that implies an analysis was done when the manuscript does not say it was.
 
 The design follows the statistics-reporting audit in Boom5426/Nature-Paper-Skills (stats-reporting-audit,
 Apache-2.0, itself from Yuan1z0825/nature-skills); this file is written in our own words.

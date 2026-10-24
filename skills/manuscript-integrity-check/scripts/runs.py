@@ -10,30 +10,56 @@ overwriting earlier attempts. exec captures a real command's stdout, stderr and 
 command does not establish scientific support. validate checks artifacts, not the truth of a report or
 whether an agent really showed a passage in chat.
 
-handover copies the dashboard and its Word version beside the manuscript, as STEM.dashboard.html and
-STEM.review.docx; an existing Word file that differs is replaced only with --replace-docx, once the authors
-agreed, since they may have commented in it.
+A connected (remote) manuscript is snapshotted through its local reading copy: start --reading-copy FILE
+[--connected-version ID], or the reading copy saved with project.py configure. Without one for the main
+manuscript, start refuses (exit 3) and creates no run.
+
+validate --final also checks what a finished stage owes the dashboard and the authors: every finding-producing
+stage that completed (or partly completed) has RUN/<skill>/findings.json with a `findings` list (an empty list
+is valid); manuscript-dashboard, manuscript-other-models, manuscript-mark-people and the coordinator
+manuscript-improve write none. A run with manuscript-improve also has the adjudicated inventory
+(manuscript-dashboard/findings*.json), the corrected version (manuscript-improve/revision*/proposed*), the
+dashboard and its Word version, unless the dashboard or improve stage was finished partial, blocked or not
+run with its reason.
+
+A step done again goes to a numbered name (revision.2/, dashboard.2/, findings.2.json), never over the first;
+handover and pack take the newest attempt (the highest number, then the newest file).
+
+handover copies the newest dashboard, its Word version and the corrected version beside the manuscript as
+STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>; --report SKILL adds a focused run's report
+as STEM.<skill without "manuscript-">.md. The dashboard is replaced every run. Any other copy that already
+exists and differs (the authors may have worked in it) is kept as it is, and this run's goes beside it under
+a dated name (STEM.review.20261024.docx, then -2, -3); --replace-docx, --replace-proposed or --replace
+replace it instead. Every copy written is recorded in the manifest.
 
 When the project's `keep` setting is `results`, pack is the run's last step: it moves everything except the
-run index, the skills' READMEs and reports, the dashboard and the corrected version into evidence.zip, and
-validate then checks each packed file inside the archive. unpack restores them before a run continues.
+run index, the skills' READMEs and reports, the newest dashboard and Word file and the newest corrected
+version into evidence.zip, verifies the archive and only then removes the loose copies; validate checks each
+packed file inside the archive, and unpack restores them before a run continues.
+
+Exit codes: 0 done; 1 a check failed (validate, finish, pack) or nothing to hand over; 2 a bad option or an
+unreadable project file;
+3 the run is busy or packed, or start has no ready project or no reading copy; exec returns its command's.
 """
 
 from __future__ import annotations
 
+import glob
 import hashlib
 import inspect
+import itertools
 import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 from datetime import datetime, timezone
 from fnmatch import fnmatch
 from enum import Enum
 from functools import wraps
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Callable, ParamSpec, TypeVar
 from uuid import uuid4
 
@@ -74,14 +100,26 @@ class Isolation(str, Enum):
 ISOLATION_LABEL = {'fresh-agent': 'fresh agent', 'one-agent': 'one agent in turn, not independent'}
 SKILLS = Path(__file__).resolve().parents[2]
 ARCHIVE = 'evidence.zip'
-# What the authors open after a run, kept beside the archive by pack (fnmatch patterns; * crosses folders).
-DELIVERABLES = ('manuscript-dashboard/*.html', 'manuscript-dashboard/*.docx',
-                'manuscript-improve/revision/proposed.md', 'manuscript-improve/revision/changes.md')
+# What the authors open after a run (fnmatch patterns; * crosses folders). A step done again writes a numbered
+# attempt (revision.2/, dashboard.2/, findings.2.json); the newest attempt of each is the one that counts.
+DASHBOARD = 'manuscript-dashboard/*manuscript-dashboard*.html'
+WORD = 'manuscript-dashboard/*.docx'
+CORRECTED = 'manuscript-improve/revision*/proposed*'  # proposed.md, or proposed.tex for a LaTeX manuscript
+INVENTORY = 'manuscript-dashboard/findings*.json'  # the adjudicated inventory collect.py writes
 # Commands that may run on a packed run; every other writer needs the files back first.
 WHEN_PACKED = {'validate', 'pack', 'unpack', 'handover'}
-# The run's deliverables handed over beside the manuscript, as STEM + suffix: (pattern in the run, suffix).
-HANDOVER = {'dashboard': ('manuscript-dashboard/*manuscript-dashboard.html', '.dashboard.html'),
-            'docx': ('manuscript-dashboard/*.docx', '.review.docx')}
+# The deliverables handed over beside the manuscript as STEM + label + the file's own suffix:
+# kind -> (pattern in the run, label, whether a different copy already there is simply replaced).
+HANDOVER = {'dashboard': (DASHBOARD, '.dashboard', True),  # regenerated each run; nobody writes in it
+            'docx': (WORD, '.review', False),  # the authors may have commented in it
+            'corrected': (CORRECTED, '.proposed', False)}  # the authors may have edited it
+# Stages that write no findings.json (stage-findings.md): the dashboard reads them (manuscript-visualize is its
+# name in older runs), other-models' seats report into the panel that ran them, mark-people writes a people list,
+# and the coordinator's findings are the dashboard's adjudicated inventory, which final validation requires.
+NO_FINDINGS = {'manuscript-dashboard', 'manuscript-visualize', 'manuscript-other-models', 'manuscript-mark-people',
+               'manuscript-improve'}
+# A stage finished with one of these, and its reason, is the recorded reason an improvement run lacks a deliverable.
+EXCUSED = {'partial', 'blocked', 'not_run'}
 P = ParamSpec('P')
 T = TypeVar('T')
 
@@ -180,8 +218,11 @@ def save(run: Path, data: dict[str, Any]) -> None:
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
         (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s).")
+    for location in data.get('not_snapshotted', []):
+        index.extend(["", f"Not snapshotted: {location}, a connected document with no local reading copy in this run."])
     for item in data.get('handover', []):
-        index.extend(["", f"Handed over beside the manuscript: {item['path']} (from {item['from']}, {item['handed_over_at']})."])
+        kept = (f"; the different {Path(item['kept']).name} already there was kept as it was" if item.get('kept') else "")
+        index.extend(["", f"Handed over beside the manuscript: {item['path']} (from {item['from']}, {item['handed_over_at']}{kept})."])
     if packed:
         index.extend(["", (f"The evidence ({len(packed)} files) is packed in [{ARCHIVE}]({ARCHIVE}), as the project's "
                            "`keep` setting asks; `runs.py unpack` restores it.")])
@@ -208,8 +249,9 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
     target = within(run, f"{name}/{destination or source.name}")
     if not target.is_relative_to((run / name).resolve()) or target == (run / name / "README.md").resolve():
         raise ValueError("Use an evidence filename inside its skill folder; its root README.md is the generated status index.")
-    if any(item['path'] == target.relative_to(run.resolve()).as_posix() for item in entry['artifacts']):
-        raise ValueError("Evidence is already registered; save the next attempt under a new filename.")
+    if any(item['path'] == (relative := target.relative_to(run.resolve()).as_posix()) for item in entry['artifacts']):
+        raise ValueError(f"{relative} is already registered; give this file its own path in the skill's folder with "
+                         "--name (figures/figure-3/view.png), or save the next attempt under a new filename.")
     if target != source.resolve():
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("xb") as output, source.open("rb") as original:
@@ -233,8 +275,109 @@ def archived(run: Path, data: dict[str, Any]) -> dict[str, str]:
     path = within(run, packed['archive']) if packed else None
     if path is None or not path.is_file():
         return {}
-    with zipfile.ZipFile(path) as archive:
-        return {name: hashlib.sha256(archive.read(name)).hexdigest() for name in archive.namelist()}
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return {name: hashlib.sha256(archive.read(name)).hexdigest() for name in archive.namelist()}
+    except (zipfile.BadZipFile, OSError):
+        return {}
+
+
+def stored_body(run: Path, data: dict[str, Any], relative: str) -> bytes | None:
+    """A file of the run, from disk or from the evidence archive of a packed run; None when it is in neither."""
+    path = run / relative
+    if path.is_file():
+        return path.read_bytes()
+    packed = data.get('packed')
+    if packed and relative in packed.get('files', {}):
+        try:
+            with zipfile.ZipFile(within(run, packed['archive'])) as archive:
+                return archive.read(relative)
+        except (zipfile.BadZipFile, KeyError, OSError):
+            return None
+    return None
+
+
+ATTEMPT = re.compile(r"[.-](\d{1,3})$")  # revision.2, dashboard-3; never a date such as 20261024
+EXTENSION = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,4}$")
+
+
+def attempt(relative: str) -> int:
+    """The attempt a run file belongs to: the largest number that ends a folder or file name on its path
+    (revision.2/proposed.md, manuscript-dashboard.2.html, findings.2.json); 1 when none does."""
+    numbers = [1]
+    for part in PurePosixPath(relative).parts:
+        while EXTENSION.search(part):
+            part = EXTENSION.sub('', part)
+        if match := ATTEMPT.search(part):
+            numbers.append(int(match.group(1)))
+    return max(numbers)
+
+
+def matching(run: Path, pattern: str, data: dict[str, Any] | None = None) -> list[str]:
+    """The run's files matching pattern, oldest attempt first (the attempt number, then the time written); with
+    data, the files packed in the evidence archive count too, as older than any file on disk of their attempt."""
+    found = {p.relative_to(run).as_posix(): p.stat().st_mtime_ns for p in run.rglob('*') if p.is_file()}
+    found = {relative: when for relative, when in found.items() if fnmatch(relative, pattern)}
+    for relative in ((data or {}).get('packed') or {}).get('files', {}):
+        if fnmatch(relative, pattern):
+            found.setdefault(relative, -1)
+    return sorted(found, key=lambda relative: (attempt(relative), found[relative], relative))
+
+
+def latest(run: Path, pattern: str) -> Path | None:
+    """The newest attempt on disk matching pattern: a re-render goes to a numbered folder or name."""
+    found = matching(run, pattern)
+    return run / found[-1] if found else None
+
+
+def newest_deliverables(run: Path) -> set[str]:
+    """The files pack leaves in place for the authors: the newest dashboard, the newest Word file, and the
+    corrected version and its track changes from the newest revision attempt."""
+    keep = {found[-1] for pattern in (DASHBOARD, WORD) if (found := matching(run, pattern))}
+    if corrected := matching(run, CORRECTED):
+        folder = PurePosixPath(corrected[-1]).parent
+        keep |= {corrected[-1], (folder / 'changes.md').as_posix()}
+    return keep
+
+
+FINDINGS_FILE = re.compile(r"findings(?:\.\d{1,3})?\.json$")  # findings.json, findings.2.json; never findings.draft.json
+
+
+def findings_files(run: Path, data: dict[str, Any], folder: str) -> list[str]:
+    """A stage's findings.json attempts directly in its folder, oldest first."""
+    return [relative for relative in matching(run, f'{folder}/findings*.json', data)
+            if PurePosixPath(relative).parent.as_posix() == folder and FINDINGS_FILE.fullmatch(PurePosixPath(relative).name)]
+
+
+def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
+    """Why a finished stage's newest findings.json cannot be counted; None when it holds a findings list."""
+    attempts = findings_files(run, data, name)
+    body = stored_body(run, data, attempts[-1] if attempts else f'{name}/findings.json')
+    if body is None:
+        return (f"{name}: no findings.json beside its report; write it even when nothing was found (an empty "
+                "findings list, with what could not be checked under not_checked)")
+    try:
+        record = json.loads(body.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return f"{name}: findings.json is not valid JSON ({exc})"
+    if not isinstance(record, dict) or not isinstance(record.get('findings'), list):
+        return f"{name}: findings.json has no findings list (an empty list is valid)"
+    return None
+
+
+def improvement_problems(run: Path, data: dict[str, Any]) -> list[str]:
+    """What an improvement run owes the authors at the end, unless the dashboard or improve stage recorded why not."""
+    stages = data['skills']
+    if any(stages.get(name, {}).get('status') in EXCUSED for name in ('manuscript-dashboard', 'manuscript-improve')):
+        return []  # its finish --reason says what is missing and why
+    owed = ((INVENTORY, "the adjudicated inventory", "collect and adjudicate the stages' findings (collect.py)"),
+            (CORRECTED, "the corrected version", "build it with revise.py"),
+            (DASHBOARD, "the rendered dashboard", "render it with dashboard.py"),
+            (WORD, "the Word version of the dashboard", "export it with export_docx.py"))
+    return [f"manuscript-improve: {what} is missing ({pattern}); {how}, or finish manuscript-dashboard or "
+            "manuscript-improve as partial or blocked with the reason"
+            for pattern, what, how in owed
+            if not (findings_files(run, data, 'manuscript-dashboard') if pattern == INVENTORY else matching(run, pattern, data))]
 
 
 def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
@@ -247,15 +390,21 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
         """The file's sha256, on disk or in the archive; None when it is in neither."""
         return digest(path) if path.is_file() else packed.get(path.relative_to(run.resolve()).as_posix())
 
+    explained = any(s['changes'] or s.get('routine_only_reason') for s in data['skills'].values())
     for source in data['inputs']:
         path = within(run, source['snapshot'])
         if stored(path) != source['sha256']:
             errors.append(f"Missing or changed source snapshot: {source['snapshot']}")
         original = Path(source['original'])
+        if source.get('remote'):  # a connected document: its reading copy may be exported again or removed
+            if original.is_file() and digest(original) != source['sha256'] and not explained:
+                errors.append(f"The reading copy of {source['remote']} changed without a change record or "
+                              f"routine-only explanation: {original}")
+            continue
         if not original.is_file():
             errors.append(f"Authoritative source is missing or no longer a file: {original}")
         elif digest(original) != source['sha256']:
-            if not any(s['changes'] or s.get('routine_only_reason') for s in data['skills'].values()):
+            if not explained:
                 errors.append(f"Manuscript changed without a change record or routine-only explanation: {original}")
     for name, entry in data['skills'].items():
         if final and entry['status'] not in TERMINAL:
@@ -271,6 +420,9 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
         roles = [item['role'] for item in entry['artifacts']]
         if entry['status'] in TERMINAL - {'not_run'} and 'report' not in roles:
             errors.append(f"{name}: no saved report")
+        if entry['status'] in {'completed', 'partial'} and name not in NO_FINDINGS:
+            if problem := findings_problem(run, data, name):  # the dashboard counts the run from these files
+                errors.append(problem)
         if entry['status'] in {'partial', 'blocked', 'not_run', 'reused'} and not entry.get('reason'):
             errors.append(f"{name}: status needs its reason/coverage or reused source")
         if entry['status'] == 'completed':
@@ -298,34 +450,87 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
                 errors.append(f"Missing or changed before/after: {change['path']}")
             if final and not change['shown_in_chat']:
                 errors.append(f"{name}: consequential change not acknowledged as shown in chat: {change['section']}")
+    if final and 'manuscript-improve' in data['skills']:
+        errors.extend(improvement_problems(run, data))
     return errors
+
+
+def reading_copies(ctx: dict[str, Any], given: list[Path], versions: list[str]) -> dict[str, dict[str, Any]]:
+    """For each connected manuscript, its local reading copy (given here, in the order of the connected sources,
+    else saved with project.py configure) and the connected version when one was given."""
+    root = Path(ctx['project_root'])
+    remote = [location for location in ctx['project']['manuscripts'] if projects.is_remote(location)]
+    if len(given) > len(remote) or len(versions) > len(remote):
+        raise typer.BadParameter(f"The project has {len(remote)} connected manuscript(s); give at most one "
+                                 "--reading-copy and one --connected-version for each, in the order they are listed.")
+    saved = ctx['project'].get('reading_copies', {})
+    copies = {}
+    for number, url in enumerate(remote):
+        path = (given[number].expanduser().resolve() if number < len(given)
+                else projects.local_path(root, saved[url]) if url in saved else None)
+        if path is not None:
+            copies[url] = {'path': path} | ({'connected_version': versions[number]} if number < len(versions) else {})
+    return copies
 
 
 @app.command()
 def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], project: Path | None = None,
           reports: str | None = None, edits: str | None = None, keep: str | None = None,
-          peer_review: str | None = None) -> None:
-    """Start a unique run under the saved destination. Print its absolute directory; never overwrite a run."""
+          peer_review: str | None = None,
+          reading_copy: Annotated[list[Path] | None, typer.Option(
+              '--reading-copy', help="A local export of a connected (URL) manuscript, snapshotted in its place; one "
+                                     "per connected manuscript, in the project's order; repeat")] = None,
+          connected_version: Annotated[list[str] | None, typer.Option(
+              '--connected-version', help="The connected document's version or revision the reading copy was "
+                                          "exported from, in the same order; repeat")] = None) -> None:
+    """Start a unique run under the saved destination. Print its absolute directory; never overwrite a run.
+
+    A connected (URL) manuscript is snapshotted through its reading copy; without one for the main manuscript,
+    start creates no run and exits 3."""
     overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'keep': keep,
                                     'peer_review': peer_review}.items() if v is not None}
-    ctx = projects.context(target, project, overrides)
+    try:
+        ctx = projects.context(target, project, overrides)
+    except projects.ProjectError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
     if ctx['status'] != 'ready':
-        typer.echo(json.dumps(ctx, indent=2))
+        typer.echo(json.dumps(ctx, indent=2, ensure_ascii=False))
         raise typer.Exit(3)
     for name in skill:
         skill_name(name)
+    manuscripts = ctx['project']['manuscripts']
+    copies = reading_copies(ctx, list(reading_copy or []), list(connected_version or []))
+    if absent := [f"{copy['path']} (for {url})" for url, copy in copies.items() if not copy['path'].is_file()]:
+        typer.echo(f"Reading copy not found: {'; '.join(absent)}. Export the connected document to that file "
+                   "first. No run was created.", err=True)
+        raise typer.Exit(3)
+    if projects.is_remote(manuscripts[0]) and manuscripts[0] not in copies:
+        typer.echo(f"The manuscript is a connected document ({manuscripts[0]}) with no local reading copy, so "
+                   "the run would have nothing to read or snapshot. Export it (Markdown or plain text keeps the "
+                   "dashboard readable) and start again with --reading-copy FILE, adding --connected-version ID "
+                   "when the service shows the version, or save where the export is kept with `project.py "
+                   "configure PROJECT --reading-copy FILE`. No run was created.", err=True)
+        raise typer.Exit(3)
     run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid4().hex[:8]
     run = Path(ctx['output_dir']) / run_id
     run.mkdir(parents=True)
     data = {'schema_version': 1, 'run_id': run_id, 'started_at': now(), 'context': ctx, 'inputs': [], 'skills': {}}
-    for number, location in enumerate(ctx['project']['manuscripts'], 1):
+    for number, location in enumerate(manuscripts, 1):
+        extra: dict[str, Any] = {}
         if projects.is_remote(location):
-            continue
-        source = projects.local_path(Path(ctx['project_root']), location)
+            if location not in copies:  # a connected supplement without a reading copy: said in the run index
+                data.setdefault('not_snapshotted', []).append(location)
+                continue
+            source = copies[location]['path']
+            extra = {'remote': location} | {k: v for k, v in copies[location].items() if k == 'connected_version'}
+        else:
+            source = projects.local_path(Path(ctx['project_root']), location)
         dest = run / 'inputs' / f'{number:02d}-{source.name}'
         dest.parent.mkdir(exist_ok=True)
         shutil.copyfile(source, dest)
-        data['inputs'].append({'original': str(source), 'snapshot': dest.relative_to(run).as_posix(), 'sha256': digest(source)})
+        data['inputs'].append({'original': source.as_posix(), 'snapshot': dest.relative_to(run).as_posix(),
+                               'sha256': digest(dest)} | extra)
     for name in skill:
         ensure_skill(data, name)
     save(run, data)
@@ -380,7 +585,7 @@ def execute(ctx: typer.Context, run: Path, skill: Annotated[str, typer.Option('-
     number = max([len(entry['commands']), *numbers]) + 1
     working = (cwd or Path.cwd()).resolve()
     stdout_path, stderr_path = (folder / f'{number:04d}.{label}.txt' for label in ('stdout', 'stderr'))
-    command = {'attempt': number, 'argv': ctx.args, 'cwd': str(working), 'state': 'running',
+    command = {'attempt': number, 'argv': ctx.args, 'cwd': working.as_posix(), 'state': 'running',
                'exit_code': None, 'outputs': [p.relative_to(run).as_posix() for p in (stdout_path, stderr_path)], 'recorded_at': now()}
     with stdout_path.open('xb') as stdout, stderr_path.open('xb') as stderr:
         entry['commands'].append(command)
@@ -479,7 +684,8 @@ def shown(run: Path, skill: Annotated[str, typer.Option('--skill')],
 def finish(run: Path, skill: Annotated[str, typer.Option('--skill')],
            status: Annotated[str, typer.Option('--status')], reason: str = '', routine_only_reason: str = '',
            review_mode: str | None = None) -> None:
-    """Set honest coverage. Completed requires a report and the skill's reader/referee evidence."""
+    """Set honest coverage. Completed requires a report, the skill's reader/referee evidence and, for a
+    finding-producing skill, RUN/SKILL/findings.json with a findings list (partial needs it too)."""
     if status not in TERMINAL:
         raise typer.BadParameter(f"Choose {', '.join(sorted(TERMINAL))}.")
     data = read(run)
@@ -510,72 +716,151 @@ def validate(run: Path, final: bool = False) -> None:
         raise typer.Exit(1)
 
 
-def latest(run: Path, pattern: str) -> Path | None:
-    """The most recently written file of the run matching pattern: a re-render goes to a new folder."""
-    found = [p for p in run.rglob('*') if p.is_file() and fnmatch(p.relative_to(run).as_posix(), pattern)]
-    return max(found, key=lambda p: p.stat().st_mtime_ns) if found else None
+def write_beside(target: Path, body: bytes, prefix: str) -> None:
+    """Write a file whole or not at all: a temporary copy in the same folder, then one rename."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=target.parent, delete=False, prefix=prefix, suffix=target.suffix) as copy:
+        copy.write(body)
+    try:
+        Path(copy.name).replace(target)
+    except OSError:
+        Path(copy.name).unlink(missing_ok=True)
+        raise
+
+
+def same(path: Path, sha: str) -> bool:
+    try:
+        return digest(path) == sha
+    except OSError:  # open in another program (Windows) and unreadable: not known to be the same
+        return False
+
+
+def deliver(made: Path, folder: Path, name: str, label: str, replace: bool, stamp: str) -> tuple[Path, Path | None, bool]:
+    """Copy a deliverable beside the manuscript as NAME + label + its own suffix, never over a different file the
+    authors may have worked in unless replace: that file is kept, and this copy goes beside it under a dated name
+    (NAME.review.20261024.docx, then -2, -3). Returns the copy, the different file kept (or None) and whether the
+    copy was written now (False: an identical copy was already there)."""
+    body, extension = made.read_bytes(), made.suffix
+    sha = hashlib.sha256(body).hexdigest()
+    target = folder / f'{name}{label}{extension}'
+    if target.exists() and same(target, sha):
+        return target, None, False
+    if not target.exists() or replace:
+        try:
+            write_beside(target, body, f'.{name}-')
+            return target, None, True
+        except PermissionError:
+            if not target.exists():
+                raise  # the folder itself cannot be written
+            # the file is open in another program (Windows): keep it and write the dated copy beside it
+    earlier = sorted(folder.glob(f'{glob.escape(name + label)}.*{glob.escape(extension)}'))
+    if found := next((path for path in earlier if same(path, sha)), None):
+        return found, target, False  # this run's copy is already there under an earlier dated name
+    for number in itertools.count(1):
+        dated = folder / f'{name}{label}.{stamp}{"" if number == 1 else f"-{number}"}{extension}'
+        if not dated.exists():
+            write_beside(dated, body, f'.{name}-')
+            return dated, target, True
+
+
+def report_of(run: Path, data: dict[str, Any], skill: str) -> Path:
+    """The registered report of a skill in this run: SKILL/report.md, else the last report registered."""
+    try:
+        skill_name(skill)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    reports = [item['path'] for item in data['skills'].get(skill, {}).get('artifacts', []) if item['role'] == 'report']
+    chosen = f'{skill}/report.md' if f'{skill}/report.md' in reports else reports[-1] if reports else None
+    if chosen is None or not (run / chosen).is_file():
+        typer.echo(f"{skill} has no saved report in this run to hand over; register it with `runs.py add RUN --skill "
+                   f"{skill} --file REPORT --role report --name report.md` first. Nothing was handed over.", err=True)
+        raise typer.Exit(1)
+    return run / chosen
+
+
+def destination(run: Path, data: dict[str, Any], to: Path | None, stem: str | None) -> tuple[Path, str]:
+    """Where the copies go and their file-name stem: beside the manuscript, named after it. A connected manuscript's
+    copies go to the project folder, named after its reading copy."""
+    source = data['inputs'][0] if data['inputs'] else None
+    if source is None and (to is None or stem is None):
+        raise typer.BadParameter('This run has no snapshot of the manuscript; give --to FOLDER and --stem NAME.')
+    if source is None:
+        return to.resolve(), stem
+    original = Path(source['original'])
+    root = data.get('context', {}).get('project_root')
+    folder = Path(root) if source.get('remote') and root else original.parent
+    return (to or folder).resolve(), stem or original.stem
 
 
 @app.command()
 @serialized
 def handover(run: Path,
-             replace_docx: Annotated[bool, typer.Option(help="Replace an existing, different STEM.review.docx; only "
-                                                        "once the authors agreed")] = False,
+             report: Annotated[list[str] | None, typer.Option(
+                 '--report', help="Also hand over this skill's report as STEM.<skill without manuscript->.md, for a "
+                                  "focused run; repeat")] = None,
+             replace_docx: Annotated[bool, typer.Option(help="Replace an existing, different STEM.review.docx instead "
+                                                        "of writing a dated copy beside it")] = False,
+             replace_proposed: Annotated[bool, typer.Option(help="Replace an existing, different corrected version "
+                                                            "(STEM.proposed.*) instead of writing a dated copy")] = False,
+             replace: Annotated[bool, typer.Option(help="Replace every existing, different copy (Word file, corrected "
+                                                   "version, report) instead of writing dated copies")] = False,
              to: Annotated[Path | None, typer.Option(help="The folder to hand over to; default: the manuscript's")] = None,
              stem: Annotated[str | None, typer.Option(help="The file-name stem; default: the manuscript's")] = None) -> None:
-    """Copy the dashboard and its Word version beside the manuscript as STEM.dashboard.html and STEM.review.docx.
+    """Copy the newest dashboard, its Word version and the corrected version beside the manuscript, as
+    STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>, and with --report a focused run's report.
 
-    The dashboard is replaced on every run; each run's folder keeps its own. A Word file the authors may have
-    commented in is never replaced silently: exit 4 says to ask them, then rerun with --replace-docx."""
+    The dashboard is replaced on every run; each run's folder keeps its own. A Word file, corrected version or
+    report copy already there that differs is kept as it is, and this run's copy goes beside it under a dated
+    name; the command says which, and exits 0. Every copy written is recorded in the run manifest."""
     run = run.resolve()
     data = read(run)
-    source = Path(data['inputs'][0]['original']) if data['inputs'] else None
-    if source is None and (to is None or stem is None):
-        raise typer.BadParameter('The manuscript is not a local file; give --to FOLDER and --stem NAME.')
-    folder, name = (to or source.parent).resolve(), stem or source.stem
-    done, pending = [], []
-    for kind, (pattern, suffix) in HANDOVER.items():
-        made = latest(run, pattern)
+    folder, name = destination(run, data, to, stem)
+    stamp = datetime.now().strftime('%Y%m%d')
+    wanted = [(kind, latest(run, pattern), label, always or replace or (kind == 'docx' and replace_docx)
+               or (kind == 'corrected' and replace_proposed))
+              for kind, (pattern, label, always) in HANDOVER.items()]
+    wanted += [('report', report_of(run, data, skill), f".{skill.removeprefix('manuscript-')}", replace)
+               for skill in dict.fromkeys(report or [])]
+    handed, kept = [], []
+    for kind, made, label, replaces in wanted:
         if made is None:
             continue
-        target = folder / f'{name}{suffix}'
-        if target.exists() and digest(target) == digest(made):
-            done.append(target)
-            continue
-        if kind == 'docx' and target.exists() and not replace_docx:
-            pending.append(target)
-            continue
-        folder.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=folder, delete=False, prefix=f'.{name}-', suffix=suffix) as copy:
-            copy.write(made.read_bytes())
-        Path(copy.name).replace(target)
-        data.setdefault('handover', []).append({'path': str(target), 'from': made.relative_to(run).as_posix(),
-                                                'sha256': digest(target), 'handed_over_at': now()})
-        done.append(target)
-    if not done and not pending:
-        typer.echo('No dashboard or Word file in this run to hand over; render them first.', err=True)
+        copy, earlier, written = deliver(made, folder, name, label, replaces, stamp)
+        handed.append(copy)
+        if earlier is not None:
+            kept.append({'file': earlier.as_posix(), 'this_run': copy.as_posix(), 'kind': kind})
+        if written:
+            data.setdefault('handover', []).append(
+                {'kind': kind, 'path': copy.as_posix(), 'from': made.relative_to(run).as_posix(),
+                 'sha256': digest(copy), 'handed_over_at': now()} | ({'kept': earlier.as_posix()} if earlier else {}))
+    if not handed:
+        typer.echo('No dashboard, Word file or corrected version in this run to hand over; render them first, or '
+                   'name a focused run\'s report with --report SKILL.', err=True)
         raise typer.Exit(1)
     save(run, data)
-    typer.echo(json.dumps({'handed_over': [str(p) for p in done], 'not_replaced': [str(p) for p in pending]}, indent=2))
-    if pending:
-        typer.echo(f"{', '.join(p.name for p in pending)} already exists and differs: the authors may have commented in "
-                   "it. Ask whether to replace it, then rerun with --replace-docx; until then it is kept as it is.", err=True)
-        raise typer.Exit(4)
+    typer.echo(json.dumps({'handed_over': [p.as_posix() for p in handed], 'kept': kept}, indent=2, ensure_ascii=False))
+    flags = {'docx': '--replace-docx', 'corrected': '--replace-proposed'}
+    for item in kept:
+        typer.echo(f"{Path(item['file']).name} already exists and differs (the authors may have worked in it): it is "
+                   f"kept as it is, and this run's copy is {Path(item['this_run']).name} beside it. To replace it "
+                   f"instead, rerun with {flags.get(item['kind'], '--replace')}.", err=True)
 
 
-def kept(data: dict[str, Any], relative: str, extra: list[str]) -> bool:
-    """Whether pack leaves a file in place: the manifest, the generated READMEs, the reports and the deliverables."""
-    names = {'run.json', 'README.md', ARCHIVE, *(f'{name}/README.md' for name in data['skills'])}
+def kept(data: dict[str, Any], relative: str, extra: list[str], deliverables: set[str]) -> bool:
+    """Whether pack leaves a file in place: the manifest, the generated READMEs, the reports and the newest
+    deliverables."""
+    names = {'run.json', 'README.md', ARCHIVE, *(f'{name}/README.md' for name in data['skills'])} | deliverables
     names |= {item['path'] for entry in data['skills'].values() for item in entry['artifacts'] if item['role'] == 'report'}
-    return relative.startswith('.') or relative in names or any(fnmatch(relative, p) for p in (*DELIVERABLES, *extra))
+    return relative.startswith('.') or relative in names or any(fnmatch(relative, p) for p in extra)
 
 
 @app.command()
 @serialized
 def pack(run: Path, keep: Annotated[list[str] | None, typer.Option(
         '--keep', help="Another file to leave in place, as a path in the run (fnmatch pattern); repeat")] = None) -> None:
-    """Pack a finished run's evidence into evidence.zip, leaving the index, the reports, the dashboard and the
-    corrected version in place. For the `keep: results` setting; run it last, after validate --final passes."""
+    """Pack a finished run's evidence into evidence.zip, leaving the index, the reports, the newest dashboard and
+    Word file and the newest corrected version in place. The archive is read back and verified before the loose
+    copies are removed; unpack restores them. For the `keep: results` setting; run it last, after validate --final."""
     run = run.resolve()
     data = read(run)
     if data.get('packed'):
@@ -586,9 +871,10 @@ def pack(run: Path, keep: Annotated[list[str] | None, typer.Option(
         typer.echo('Pack a run only once it validates (runs.py validate RUN --final):\n' + '\n'.join(errors), err=True)
         raise typer.Exit(1)
     files = {}
+    deliverables = newest_deliverables(run)
     for path in sorted(p for p in run.rglob('*') if p.is_file()):
         relative = path.relative_to(run).as_posix()
-        if not kept(data, relative, keep or []):
+        if not kept(data, relative, keep or [], deliverables):
             files[relative] = digest(path)
     if not files:
         typer.echo('Nothing to pack.')
@@ -648,4 +934,7 @@ def unpack(run: Path) -> None:
 
 
 if __name__ == '__main__':
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 whatever the console's code page (Windows)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

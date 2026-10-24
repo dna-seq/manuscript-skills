@@ -592,19 +592,23 @@ def test_anonymity_names_outside_references_only(tmp_path: Path) -> None:
 # precommit --hygiene and scan.py declarations
 # --------------------------------------------------------------------------------------------------
 
-def test_precommit_hygiene_is_advisory() -> None:
+def test_precommit_hygiene_fails_on_hidden_text_and_secrets_while_comments_stay_advisory() -> None:
+    """0.19.0 (the 2026-10-24 reviews, decision D4): a prompt hidden for AI reviewers and a leaked key fail the hook
+    at any stage; ordinary draft comments never do."""
     precommit = _load("precommit", SCRIPTS / "precommit.py")
     runner = CliRunner()
     plain = runner.invoke(precommit.app, [str(SEEDED / "main.tex")])
     with_hygiene = runner.invoke(precommit.app, [str(SEEDED / "main.tex"), "--hygiene"])
-    heading = "Comments, hidden text and secrets (advisory, never fails the commit"
+    heading = "Comments, hidden text and secrets (comments are cleaned in the last step before submission"
     assert heading not in plain.output
     assert heading in with_hygiene.output and AWS_KEY not in with_hygiene.output
-    assert ("before submission): 3 findings, of which 2 cannot wait: a leaked key or text hidden for AI "
-            "reviewers.") in with_hygiene.output
-    assert plain.exit_code == with_hygiene.exit_code == 0  # no scan blocker; a hidden prompt never fails the hook
+    assert ("never fail the commit): 3 findings, of which 2 cannot wait and fail the commit: a leaked key or text "
+            "hidden for AI reviewers.") in with_hygiene.output
+    assert (plain.exit_code, with_hygiene.exit_code) == (0, 1)  # no scan blocker; the hidden prompt fails the hook
+    advisory = runner.invoke(precommit.app, [str(SEEDED / "main.tex"), "--hygiene", "--advisory"])
+    assert advisory.exit_code == 0
     clean = runner.invoke(precommit.app, [str(CLEAN / "main.tex"), "--hygiene"])
-    assert "before submission): 0 findings." in clean.output
+    assert "never fail the commit): 0 findings." in clean.output and clean.exit_code == 0
 
 
 def test_a_hidden_prompt_and_a_leaked_key_are_fixed_now_while_the_rest_waits_for_upload() -> None:
@@ -616,7 +620,7 @@ def test_a_hidden_prompt_and_a_leaked_key_are_fixed_now_while_the_rest_waits_for
     assert now == {"injection", "secrets"} and {"comments", "metadata"} <= later
     md = hy.to_markdown(report)
     fix_now, _, end = md.partition("## Before submission, once the code is final")
-    assert "## Fix now: the science and the evidence" in fix_now and "AWS access key" in fix_now
+    assert "## Fix now, whatever the stage" in fix_now and "AWS access key" in fix_now
     assert "Note for AI reviewers" in fix_now and "Note to Jana" in end and "Note to Jana" not in fix_now
     clean = hy.check_package([CLEAN], anonymous=False, authors=[], affiliations=[])
     assert "## Fix now" not in hy.to_markdown(clean)

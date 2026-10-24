@@ -22,7 +22,8 @@ story:                                  # set by manuscript-story from the autho
   confirmed: 2026-10-19                 # when the authors confirmed it; without it the entry is a draft
 ```
 
-Until `confirmed` is set, the direction is the one the text has now; a draft entry never licenses a change.
+Until `confirmed` is set, edits that keep the direction apply against the direction the text has now, and a draft
+entry never licenses a direction change.
 
 ## Two kinds of story edit
 
@@ -31,30 +32,36 @@ Until `confirmed` is set, the direction is the one the text has now; a draft ent
 These change how the paper tells its story, within the recorded direction:
 
 - A stake or hook in the first sentences of the Abstract or the Introduction that serves the recorded lead
-  theme, built from facts the paper already has or a verified source.
-- A headline sentence, in plain words, before a result's numbers; one number the reader keeps.
+  theme, built from facts the paper already has. A hook built on a fact from outside the paper (a source that
+  `manuscript-reference-check` verified) adds a fact, so it is a proposal under `conservative`.
+- A headline sentence, in plain words, before a result's numbers, in that result's paragraph: it names no
+  number, citation or term the paragraph does not have and claims no more than the paragraph does, so the
+  claim check passes it; one number the reader keeps.
 - Connected sentences: each follows from the last by cause, contrast or time.
 - A worked example of real output in the text (a report row), built from the authors' own files or runs,
-  replacing an abstract description of the same thing. A new or moved figure, such as one of what a user
+  replacing an abstract description of the same thing. It adds numbers the text did not have, so it is a
+  proposal under `conservative` and applied under `apply`. A new or moved figure, such as one of what a user
   sees, is a proposal for the authors, since which figures the paper has is their decision
   ([manuscript-figures](../../manuscript-figures/SKILL.md)).
-- Caveats moved to where they cost the reader least (below), and defensive detail moved to the
-  supplement or the response letter.
-- Repetition cut: the same disclaimer, the same pointer to a companion paper, said once.
+- Caveats moved within their section to where they cost the reader least (below), and defensive detail
+  moved, whole, to the supplement or the response letter.
+- Repetition cut: the same disclaimer, the same pointer to a companion paper, said once in each section (a
+  caveat repeated in another section stays there, and always in the Abstract and Introduction).
 - An ending on what the reader can do, or on the open question the paper raises, with the main limit in
   Limitations.
 - A lineage or positioning sentence from the comparisons ([comparisons.md](comparisons.md)).
 
-| `edits` setting | Edits that keep the direction | Direction changes |
-|---|---|---|
-| `conservative` (default) | applied, each shown as before/after text in the chat | proposed as options |
-| `apply` | applied, each shown as before/after text in the chat | proposed as options |
-| `propose` | proposed | proposed as options |
+| `edits` setting | Edits that keep the direction | A worked example, an outside fact in a hook | Direction changes |
+|---|---|---|---|
+| `conservative` (default) | applied, each shown as before/after text in the chat | proposed | proposed as options |
+| `apply` | applied, each shown as before/after text in the chat | applied, shown the same way | proposed as options |
+| `propose` | proposed | proposed | proposed as options |
 
 The shared [author priorities](../../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second)
 record why `conservative` applies these: the authors decided that story edits which keep their direction
-and pass the three gates are routine for this skill. A story edit that also changes a claim, a number or
-the Abstract's purpose is not routine under any setting: it follows the shared rules for those.
+and pass the three gates are routine for this skill. A story edit that also changes a claim, adds a number or
+a fact, or changes the Abstract's purpose is not routine: a worked example and an outside fact are proposals
+under `conservative`, and a claim or the Abstract's purpose follows the shared rules for those.
 
 ### Direction changes
 
@@ -78,11 +85,18 @@ the current text has one. List the options with the authors' other decisions.
 Keep every caveat. Sort each one by what it does for the reader:
 
 1. **A doubt about the central claim** (the evidence is one genome; the effect is not replicated) stays
-   with the claim, as the last sentence of that result or paragraph, said once with its number. The
-   Abstract and Introduction carry claims a reader can hold: the direction of the truth, without inline
-   caveat clauses; the caveat they need is in the Results or Limitations.
-2. **A scope condition** (GRCh38 only; tested on four call sets) moves to Limitations or Methods, where a
-   reader who needs it looks for it.
+   with the claim, as the last sentence of that result or paragraph, said once with its number. In the
+   Abstract and Introduction only a verbal hedge may move out of a claim: an inline aside such as "albeit on
+   four genomes" becomes a sentence of its own at the end of the claim's paragraph, keeping its limiting
+   word ("The comparison holds, albeit on four genomes."), so the claim reads first.
+   A scope condition never moves out of an Abstract or Introduction claim: the model system, cohort,
+   ancestry, self-reported or predicted data, the reference build and "in this study" stay in the sentence
+   they bound, whatever the Results or Limitations also say. A hedge that sets the claim's strength ("may",
+   "suggests") is not moved at all.
+2. **A scope condition** elsewhere (GRCh38 only; tested on four call sets) moves within its section, to the
+   end of its result or to the section's own limitations paragraph, where a reader who needs it looks for
+   it. It does not move to another section: the claim check counts a caveat as stated only within its own
+   section, and so does "said once" (a repeat in another section stays).
 3. **Defensive detail for a referee** (why a design choice is not a flaw, every version of a rerun)
    moves to the supplement or the response letter.
 4. **Filler** that qualifies nothing ("it should be noted that") is cut.
@@ -96,9 +110,11 @@ can now go, and ask of every sentence whether it tells the reader what was found
 objection does not overturn it. Never move out of the main text evidence that would change a reader's
 conclusion.
 
-Moving a caveat is checked by the guard's `--relocated` mode: a caveat that reappears in a new or changed
-sentence elsewhere is reported as moved. A caveat rewritten on the way, so that its wording is gone, is a
-claim change the authors must see before and after.
+Moving a caveat is checked by the guard's `--relocated` mode: a caveat that another sentence of the same
+top-level section states about the same thing, in a new, changed or existing sentence, is reported as moved.
+One lost from an Abstract or Introduction claim's scope, or found only in another section or the supplement,
+fails. A caveat rewritten on the way, so that its wording is gone, is a claim change the authors must see before
+and after.
 
 ## Never invent
 
@@ -109,13 +125,16 @@ claim change the authors must see before and after.
 - No reader, user or patient anecdote the authors did not supply. No invented opponent: what the paper
   argues against is named fairly and cited.
 - When the story needs something the authors have and the text does not (a screenshot, a user count, a
-  download figure), ask for it under "Fix now".
+  download figure), ask for it under "Then the writing", as a comment; the rest of the story edit goes ahead
+  without it.
 
 ## The gates, and what to do when they disagree with the story
 
 Run in order on the edited text: science (guard with `--relocated`, the record's claims and non-claims,
 reference-check for new citations), the journal (format, limits, abstract headings, required sections;
 editors' screening signals), AI-written prose (`style_profile.py --check` and a reading against its list).
+Every failure is fixed by restoring the wording or dropping the edit, and listed; none becomes a question for
+the authors.
 
 The order of precedence is science, then the journal's format, then the story. When the story loses, offer
 it where it fits instead of dropping it:

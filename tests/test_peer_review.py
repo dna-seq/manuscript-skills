@@ -520,7 +520,7 @@ DEFENCE = "Features were standardised on the training set."
     ({"verdict": "refuted", "verdict_evidence": "Methods answers it.", "defence_quote": DEFENCE}, True),
 ])
 def test_adjudicated_findings_need_verdict_fields(override: dict[str, Any], ok: bool) -> None:
-    f = _only(cf.check([_finding(**override)], SEEDED, adjudicated=True))
+    f = _only(cf.check([_finding(**{"defence_outcome": "not answered", **override})], SEEDED, adjudicated=True))
     assert (f["contract"] == "pass") is ok, f["problems"]
 
 
@@ -556,7 +556,7 @@ def test_a_confirmed_finding_needs_verdict_evidence(tmp_path: Path) -> None:
     assert as_run["contract"] == "fail"
     assert any("verdict_evidence" in p for p in as_run["problems"])
     # The premise test refutes it: the finding's own quote is the qualifier, and the Abstract has no speed claim.
-    refuted = dict(P1_CH1, verdict="refuted", defence_quote=P1_CH1["quote"],
+    refuted = dict(P1_CH1, verdict="refuted", defence_quote=P1_CH1["quote"], defence_outcome="premise not supported",
                    verdict_evidence="Premise not supported: the Abstract makes no speed claim, and the quoted "
                                     "qualifier sits beside the ratio it qualifies.")
     assert _only(cf.check([refuted], paper, adjudicated=True))["contract"] == "pass"
@@ -961,7 +961,8 @@ def test_seat_names_only_follow_a_plain_description_in_parentheses() -> None:
 
 
 def _adjudicated(id: str, quote: str, **fields: Any) -> dict[str, Any]:
-    base = {"verdict": "confirmed", "triage": "substance", "verdict_evidence": "The quoted text shows it."}
+    base = {"verdict": "confirmed", "triage": "substance", "verdict_evidence": "The quoted text shows it.",
+            "defence_outcome": "not answered"}
     return _finding(id=id, quote=quote, concern=f"Concern {id} about a separate point entirely.", **{**base, **fields})
 
 

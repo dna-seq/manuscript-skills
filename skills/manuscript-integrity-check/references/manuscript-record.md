@@ -40,6 +40,10 @@ priorities:                          # set by manuscript-journal-select from the
   preprints: [transfer, ai]          # the same, plus transfer (a direct transfer to the first journal rungs)
   jif_floor: 3                       # other constraints the authors stated, in their words where useful
   fee: "a grant can pay a normal open-access fee"
+  budget_eur: 3000                   # what the authors would pay at most; absent: a fee they pay is "depends"
+  validation_available: [primary-analysis]   # none | independent-cohort | wet-lab | multi-database | primary-analysis
+
+ai_use: revision                     # polish | revision | drafting, from the authors' account; absent: unknown
 
 ladders:                             # the current order; rerun `venues.py ladder` when priorities or facts change
   preprints: [biorxiv, arxiv]
@@ -56,10 +60,13 @@ venue_facts:                         # facts read for this manuscript on the ven
          route: "the grant pays; Projekt DEAL takes 20% off for the University of Rostock",
          source: "https://link.springer.com/journal/12859/how-to-publish-with-us", checked: 2026-10-19}
     abstract_headings: [Background, Results, Conclusions]
-    limits: {abstract_words: 350}
+    limits: {abstract_words: 350}    # mappings merge key by key over the catalogue; a list replaces it
+  genome-biology:
+    not_read: "the author guidelines answered 403 to every route, 2026-10-19"   # why a fact is missing
 
-study:                               # set by whichever skill first establishes it; the authors confirm
+study:                               # set by whichever skill first establishes it; a draft until the authors confirm
   designs: [software-tool, public-data-reanalysis]   # keys from the list below; mixed studies list several
+  confirmed: 2026-10-19              # absent: a draft, so the ladder lowers a venue to "depends", never "does not fit"
   domains: [genomics]                # free keys; a skill's domain modules say which keys they serve
   human_data: author-self-released   # manuscript-policy-fit's classification, when it has run
 
@@ -76,7 +83,7 @@ story:                               # set by manuscript-story from the authors'
   themes: [privacy, openness, speed] # every theme the paper carries, lead first
   readers: ["bioinformaticians who might run or extend the tool", "biologists curious about their own genome"]
   remember: "A whole genome annotated on your own computer in about half a minute."   # what readers should keep
-  confirmed: 2026-10-19              # absent: a draft, which licenses no change
+  confirmed: 2026-10-19              # absent: a draft, which can never license a change of direction
 
 terminology:
   preferred: {"polygenic score": ["PRS", "polygenic risk score"]}
@@ -136,12 +143,14 @@ discipline label. Use these keys; list several for a mixed study.
 
 Use the same words across skills so that results combine:
 
-- A check that could not run is `not_assessed`, with the reason. It never counts as passed, and a script
-  that exits 0 with `not_assessed` checks has not given a clean result.
+- A check that could not run is `not_assessed` (scripts' JSON may say `not_checked`; both mean the same),
+  with the reason. It never counts as passed, and a script that exits 0 with `not_assessed` checks has not
+  given a clean result.
 - An external fact that could not be confirmed is `unverified`, with what was tried.
-- Finding severity follows `author-priorities.md`: blocker, major, optional, uncertain / not assessed.
-  Scripts also print `minor` and `info`; in a report to the authors, `minor` is optional and `info` is
-  a note to read in context, never a finding by itself.
+- Finding severity is one scale, defined in the
+  [stage findings](../../manuscript-dashboard/references/stage-findings.md) table: `blocker`, `major`,
+  `minor`, `info` (the authors read "Optional") and `unknown` ("Could not be checked"). A script or seat
+  that says `optional` means `info`; `uncertain` and `not_assessed` mean `unknown`.
 - Issue status is `open`, `resolved` or `waived`. Only the authors waive.
 
 These words belong to the record and to script JSON. A report to the authors says the same thing in plain

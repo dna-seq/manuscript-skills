@@ -41,7 +41,9 @@ empty folder, without the manuscript, and says whether the CLI is signed in and 
 CLI's own words. Run it once before the first seat on each model.
 
 - **Not signed in**: the authors sign in themselves (`codex login`, `claude` then `/login`, `gemini`). Never
-  type a credential or set an API key for them.
+  type a credential or set an API key for them. A CLI that works in their terminal only through an API key
+  reports "not signed in" here too: `check` and `run` leave provider keys out, so that the seats use the
+  CLI's own sign-in and nobody's API account is billed unasked.
 - **A model refused**: Codex's configured default can be one its ChatGPT sign-in refuses; pass one it lists
   with `--model`.
 - **From inside Codex**, its sandbox has no network for commands: run `check` and `run` with escalated
@@ -84,11 +86,10 @@ Prepare each seat's workspace and brief exactly as its skill says for a seat on 
 the same reading copy, figures and files, never a folder another seat has worked in. The script refuses a
 workspace a seat already ran in (it holds `seat-run.json`), but it cannot tell a host seat's files from the
 authors'. The brief is the skill's template, filled the same way, saved outside the workspace
-(`briefs/skeptic@codex.md`), and passed unchanged. It names the seat without its model ("You are the
-skeptic"): the seat need not know other models read the paper, and the coordinator adds `@codex` when
-merging (Step 6). When the host's own seats are subagents that start in the session's folder (Claude
-Code's do), the brief names the workspace by its absolute path; use the same wording for the seat on the
-other model, whose copy the script points it at:
+(`briefs/skeptic@codex.md`). It names the seat without its model ("You are the skeptic"): the seat need
+not know other models read the paper, and the coordinator adds `@codex` when merging (Step 6). It names
+the workspace by its absolute path, as the template says ("Work only from the files in
+/abs/path/to/WS"); the script replaces that path with the copy's and sends the brief otherwise as it is:
 
 ```bash
 uv run --script scripts/models.py run codex --workspace WS --brief BRIEF --model gpt-5.6-sol --timeout 3600
@@ -97,19 +98,29 @@ uv run --script scripts/models.py run codex --workspace WS --brief BRIEF --model
 `run` copies the workspace to a new temporary folder outside every project, starts a new session of the
 CLI there (never a resumed or forked one) with the brief as its whole prompt, and lets it write only in that
 copy: Claude Code has its file tools and no shell, Codex its `workspace-write` sandbox without network,
-Gemini its `auto_edit` mode. When the session ends, the files it created are copied back into the workspace
+Gemini its `auto_edit` mode. Provider key variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+`GOOGLE_API_KEY` and the like) are left out of the environment the CLI starts with, so it uses its own
+sign-in. When the session ends, the files it created are copied back into the workspace
 (`criteria.md`, `findings.json`, a reader's report); a file it was given and changed is reported and left
 as it was. Its last message is saved as `seat-answer.md`, which is the seat's answer when its brief asks for
 an answer rather than a file. `seat-run.json` records the CLI and its version, the model, the exact
-command, the exit status, the duration, the files returned, and where the prompt as sent, the CLI's output
-and its errors were saved. A brief may name the workspace by its path: the script points it at the copy.
+command, the exit status, the duration, the files returned, where the prompt as sent, the CLI's output
+and its errors were saved, how far the seat was kept to its copy (`read_isolation`), and the sign-in
+route: the names of the key variables left out and of any setting that sends the CLI's requests another
+way (a gateway, a cloud account), never their values.
 
 Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md, GEMINI.md), its git history
 and the agent's memory of the project away from the seat. The authors' personal instructions for the CLI
-(in their home folder) still load. Claude Code refuses to read outside the copy; Codex and Gemini limit
-writes, not reads, so the brief's "work only from the files in this directory" is what keeps them there.
-The host's own subagent seats have no copy and no such limit at all: in a test run, Claude Code subagent
-referees ran the panel's own checker from the plugin folder, which the brief now forbids.
+(in their home folder) still load. The copy limits what a seat can change, not always what it can read:
+
+- **Writes** stay in the copy for every CLI, and only new files come back.
+- **Reads** are limited by the CLI only for Claude Code, which refuses a file outside the copy
+  (`read_isolation: enforced`). Codex and Gemini limit writes, not reads: the brief's "work only from the
+  files in <the copy>" is the only thing that keeps them there (`read_isolation: instruction-only`). A seat
+  that reads further could see the project, the run and other seats' files, if it looked for them.
+- The host's own subagent seats have no copy and no CLI limit at all; for them too the brief's absolute
+  path is the boundary. In a test run, Claude Code subagent referees ran the panel's own checker from the
+  plugin folder, which the brief now forbids.
 
 Start the seats on other models together with the host's own seats (in Claude Code as background
 commands; in Codex with a long command timeout), and receive every result before merging. Exit 0 means
@@ -117,7 +128,8 @@ the seat answered; 1 that it ran and failed, with the reason in `seat-run.json` 
 model, no answer); 2 a bad argument, a missing CLI or a used workspace; 3 a timeout. Retry a failed seat
 once, in a fresh workspace. A seat that still fails is missing on that model: record it with `runs.py
 issue` and name it under "What this review did not have". Never read it on the host instead and label it as
-the other model.
+the other model. A seat on another model is never resumed, so asking it again for something its brief asked
+(a missing report) means running it again in a fresh workspace, or recording that it gave none.
 
 ## Step 5: record it in the run
 
@@ -138,22 +150,29 @@ read every seat.
 ## Step 6: merge and report
 
 - **Merge as the skill says.** Set `seat` to `SEAT@CLI` on every finding, strength and report from a seat on
-  another model, and give each seat's ids its own prefix (`SK-3`, `SKx-3`) so the host's and the other
-  model's copies of a seat cannot collide; update the ids each recommendation rests on to match. Group
-  findings by root cause; a group names every seat that raised it, with its model.
+  another model, and add the CLI's letter to its ids' prefix (C Claude Code, X Codex, G Gemini: the
+  skeptic's `SK-3` on the host, `SKX-3` on Codex), so the copies of a seat cannot collide and the dashboard
+  still links them (two or three capitals, a hyphen and a number); update the ids each recommendation rests
+  on to match. Group findings by root cause; a group names every seat that raised it, with its model.
 - **The defender sees no seat or model names**, as it sees no counts.
 - **Count nothing as corroboration.** A concern three models raised is not confirmed by that; one only one
   model raised is not weaker for it. The verdict comes from the quote and the defence.
 - **Say which models read the paper**, in words, in the report's opening or "What this review did not
   have": "Three referees on Claude Opus 5.5 and the same three on GPT-5.6-Sol through Codex CLI." Seat
-  names stay in parentheses. Note a concern only another model raised when it changed what the authors
-  should fix first.
+  names stay in parentheses. For a seat whose reads only its brief kept in its copy (Codex, Gemini), say so
+  in "What this review did not have": "the referees on Codex were told to read only their copy of the
+  paper; Codex limits what they write, not what they read." Note a concern only another model raised when
+  it changed what the authors should fix first.
 - Never call the models independent reviewers, and never present one model as the more reliable one.
 
 ## What it does not do
 
-It uses no API keys and no hosted gateway, only the CLIs' own sign-ins. It never edits the manuscript or
-the project, and the seats never see each other's output. Other CLIs (Cursor Agent, OpenCode, GitHub
+It uses no API keys of its own and no hosted gateway, and passes none on: provider key variables are left
+out of every CLI's environment, so each CLI uses its own sign-in, and the record names what was left out.
+A setting that sends a CLI's requests another way (a base URL, a cloud account) is kept, because the
+authors may rely on it, and named in the record. It never edits the manuscript or the project, and it
+cannot stop a Codex or Gemini seat from reading outside its copy; it tells the seat not to, and the record
+says so. Other CLIs (Cursor Agent, OpenCode, GitHub
 Copilot) are not wired yet: each needs an adapter in `scripts/models.py` (its command line, how its answer
 is read, the variable its sessions set) and a test with a fake CLI. The relays in
 [amElnagdy/delegate-skills](https://github.com/amElnagdy/delegate-skills) show the flags for many of them.

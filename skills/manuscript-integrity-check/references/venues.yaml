@@ -36,7 +36,8 @@
 #   article_types: research, methods, software, database, data, review, perspective, letter
 #   oa:            full | hybrid | subscription
 #   tracking:      required     the venue makes authors record AI use beyond one acknowledgement (prompts,
-#                               deposited outputs, kept versions); venues.py rank leaves these out by default
+#                               deposited outputs, kept versions); venues.py leaves these out only with
+#                               --refuse tracking
 #                  recommended  the policy says authors should keep records and may be asked for them
 #   transfers:     preprint servers only: catalogue keys of the journals the server transfers manuscripts to
 #                  directly; transfers_checked lists the journals the server's list was read for (a journal
@@ -51,7 +52,9 @@
 #   submission_rules: rules of the author guidelines that venues.py show lists with the current-draft items,
 #                  each {when, rule, quote}: when is `submission` (needed for the first submission) or
 #                  `after_review` (needed only after the first review, such as a reference style); rule is in
-#                  plain words; quote is the page's sentences, verbatim
+#                  plain words; quote is the page's sentences, verbatim; free_for_others: true marks an addition
+#                  every other venue's version can carry at no cost (alt text, a dataset citation), which
+#                  venues.py common lists under "Adapt now" even when only this venue states it
 #   quoted_from:   the copy of the page that limit_quotes and submission_rules quote, when it is not the live
 #                  page read on `checked`: {source (an Internet Archive URL), copy_date (the capture), checked
 #                  (when it was read), note (why that copy)}
@@ -107,6 +110,7 @@ venues:
         quote: ["Please subdivide manuscripts into the following sequence of sections, according to the type of paper:", "Original papers: Title page, Structured Abstract, Introduction, System and methods, Algorithm, Implementation, Discussion, References."]
       - when: submission
         rule: alt text for every image and figure of the main article, in the manuscript file directly under its legend
+        free_for_others: true
         quote: ["When submitting your manuscript, we require you to provide alt text (alternative text) descriptions for all images, figures, illustrations, and photographs included in the main article.", "Please include each alt text description in your main manuscript file, directly under the figure legend for the relevant figure, preceded by ‘Alt text:’."]
       - when: submission
         rule: Supplementary Data submitted for review apart from the manuscript, with all its text, figures and tables in a single file, and referred to in the main text
@@ -116,6 +120,7 @@ venues:
         quote: ["Details of all funding sources for the work in question should be given in a separate section entitled 'Funding'. This should appear first in the 'Acknowledgements' section.", "The sentence should begin: ‘This work was supported by …’", "Grant numbers should be given in brackets as follows: ‘[grant number xxxx]’"]
       - when: submission
         rule: every public dataset cited in the reference list with its identifier, the citation beginning with the tag [dataset]
+        free_for_others: true
         quote: ["requires that all publicly available datasets be fully referenced in the reference list with an accession number or unique identifier such as a digital object identifier (DOI).", "[dataset]* Authors, Year, Title, Publisher (repository or archive name), Identifier"]
       - when: submission
         rule: a cover letter that explains why the paper suits the journal, and why the manuscript departs from the instructions wherever it does

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -172,4 +173,7 @@ def main(
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

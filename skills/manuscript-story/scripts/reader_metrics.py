@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -378,5 +379,16 @@ def main(
     typer.echo(report, nl=False)
 
 
+def _utf8_console() -> None:
+    """Print UTF-8 whatever the console's code page (a Windows console is often cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot change its encoding keeps it
+                pass
+
+
 if __name__ == "__main__":
+    _utf8_console()
     app()

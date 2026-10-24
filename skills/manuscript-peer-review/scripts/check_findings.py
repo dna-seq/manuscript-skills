@@ -17,7 +17,12 @@ Each referee's report (its summary and one recommendation per journal) is checke
 is one of accept, minor revision, major revision or reject, gives a reason, and names the referee's own
 findings it rests on. After adjudication the check says which recommendations rest on a finding the
 defence refuted or narrowed, and sorts each referee's confirmed findings into the major concerns, minor
-concerns and questions of its report. A file without reports (a quick pass) is not an error.
+concerns and questions of its report. A file without reports (a quick pass) is not an error. After
+adjudication every finding not dropped also records what the defence pass returned (defence_outcome), and
+a finding the defence partly answered is confirmed only as narrowed (narrowed, with original_concern).
+
+Finding ids the dashboard links have two or three capitals, a hyphen and a number (EV-1, SKX-3), with a
+prefix no stage of the run uses (IC, RP, PR ...); the report names the ids that do not.
 
 The Markdown report is written for people who did not write these skills: each group quotes the passage it
 concerns with its section (the line number only in parentheses), statuses are plain words, prior-work
@@ -32,16 +37,19 @@ them. The JSON keeps every field, code and line number for other tools.
 
 A finding that asks for what the field or the journal expects (replication, more samples, an external cohort, a
 standard analysis) says where that is written in `norm_source` (venue:, guideline:, module: or own:); without it
-the check warns, and with --venue a `venue:` quote must occur in venue.md. A concern that numbers its points or
-adds another problem is a warning too: one concern per finding.
+the check warns, and with --venue a `venue:` quote must occur in venue.md. The request is read in what would
+change the referee's mind, or in a concern that asks for it ("should", "needs", "lacks" just before it); a
+concern that only mentions the paper's own validation cohort asks for nothing. A concern that numbers its points
+or adds another problem ("Second," "In addition,") is a warning too: one concern per finding.
 
 With --criteria, each finding is matched to the criteria its seat wrote before reading (`C1.` ... in its
 criteria.md; a later line starting with an id says what was checked). A major finding outside them, a criterion
 id the seat never wrote, a criterion that repeats twelve manuscript words in a row (written after reading) and a
 criterion with neither a finding nor a coverage line are warnings for the adjudicator, never failures.
 
-Exit codes: 0 every finding (and strength) meets the contract; 1 at least one is not yet a finding
-(failed, or its quote could not be checked); 2 unusable input (malformed JSON, unsupported file type).
+Exit codes: 0 every finding, strength and referee report meets the contract; 1 at least one finding is not
+yet a finding (failed, or its quote could not be checked), a strength has no verified quote, or a report fails
+its contract; 2 unusable input (malformed JSON, unsupported file type).
 """
 
 from __future__ import annotations
@@ -49,6 +57,7 @@ from __future__ import annotations
 import bisect
 import json
 import re
+import sys
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -60,7 +69,7 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
 SEATS = ("claims-novelty", "evidence-statistics", "reproducibility", "champion", "skeptic",
-         "desk-editor", "software-methods", "genomics", "human-data-clinical", "ai-systems")
+         "desk-editor", "software-methods", "genomics", "human-data-clinical", "ai-systems", "figures")
 # A seat run on another model by manuscript-other-models carries its CLI after an @: skeptic@codex.
 SEAT_NAME = re.compile(r"(?P<seat>custom:[\w-]+|[a-z-]+)(?:@[a-z][a-z0-9-]*)?")
 SEVERITIES = ("blocker", "major", "optional", "uncertain")
@@ -73,7 +82,10 @@ COSTS = ("text", "reanalysis", "new-data", "unknown")
 STAGE_KEYS = ("now", "writing", "journal", "final")  # the optional `stage` an adjudicator may set
 HAND_TO = ("manuscript-prose-edit", "manuscript-reference-check", "manuscript-reporting-check",
            "manuscript-integrity-check", "manuscript-policy-fit", "manuscript-journal-adapt",
-           "manuscript-journal-select", "manuscript-story")
+           "manuscript-journal-select", "manuscript-story", "manuscript-figures")
+# What the defence pass returned for a finding (adjudication.md, section 5). The dashboard counts the concerns the
+# paper already answers from these words, so they are kept exactly as written here.
+DEFENCE_OUTCOMES = ("premise not supported", "answered", "partly answered", "not answered")
 PRIOR_STATUS = ("verified", "unverified")
 RECOMMENDATIONS = ("accept", "minor-revision", "major-revision", "reject")
 RECOMMENDATION_WORDS = {"accept": "accept", "minor-revision": "minor revision", "major-revision": "major revision",
@@ -106,7 +118,14 @@ STAGES = (
     ("answered", "Answered by the paper (refuted by the defence pass)"),
     ("dropped", "Dropped"),
 )
-OTHER_CHECKS = ("manuscript-integrity-check", "manuscript-reference-check", "manuscript-reporting-check")
+# The checks of the table in SKILL.md ("What this skill judges, and what it reuses"). A confirmed point in their
+# remit, and every point on the `policy` route, is listed with the other checks: it is not a scientific defect.
+OTHER_CHECKS = ("manuscript-integrity-check", "manuscript-reference-check", "manuscript-reporting-check",
+                "manuscript-policy-fit", "manuscript-figures")
+# Finding ids the dashboard links to the stage's findings.json records (collect.py, concern_mentions), and the
+# prefixes the stages' own records use (stage-findings.md), which a referee's id must not take.
+CONCERN_ID = re.compile(r"[A-Z]{2,3}-\d+")
+STAGE_PREFIXES = ("IC", "RF", "RP", "PR", "PF", "JS", "JA", "PE", "DS", "ST", "FG", "IM", "RR", "RM", "MP")
 
 # --- normalisation ------------------------------------------------------------------------------------
 # Every mask keeps the text's length, so a token's offsets point into the original file and give its line.
@@ -444,6 +463,14 @@ _NORM_APPEAL = re.compile(r"""(?ix)
   | \bcommunity\s+standards?\b
   | \bwidely\s+(?:expected|required)\b
 """)
+# In the concern, the cohort and sample words are a demand only when a word that asks for them comes just before:
+# "should be validated in an external cohort", "lacks replication in an independent sample", "without a second
+# cohort". "The recruitment dates of the external validation cohort are not given" asks for none.
+_DEMAND_NEAR = re.compile(r"""(?ix)
+    \b(?:should|must|needs?|needed|requires?|required|requests?|requested|asks?\s+for|calls?\s+for|lacks?|lacking|
+        missing|absence\s+of|demands?)\b[^.;:]{0,40}$
+  | \b(?:no|without|not)\s+(?:an?\s+|any\s+)?$
+""")
 _NORM_SOURCE = re.compile(r"^\s*(?P<kind>venue|guideline|module|own)\s*:\s*(?P<text>\S.*)$", re.IGNORECASE | re.DOTALL)
 
 _STOP = set("""about above after again against also among another because been before being between both
@@ -452,6 +479,15 @@ must neither other otherwise over paper same should since some such than that th
 they this those through under until upon very were what when where which while whom whose will with
 within without would authors manuscript study claim claims section concern concerns issue issues problem
 problems defect defects unclear seat seats reviewer referee second different wording seen raised point""".split())
+
+
+def _asks_for_norm(concern: str, change: str) -> bool:
+    """Whether the finding asks for what the field or the journal expects: in what would change the referee's mind,
+    in a concern that asks for it, or as an appeal to the field's norm anywhere."""
+    if _NORM_DEMAND.search(change) or _NORM_APPEAL.search(f"{concern} {change}"):
+        return True
+    return any(_DEMAND_NEAR.search(concern[max(0, m.start() - 60):m.start()])
+               for m in _NORM_DEMAND.finditer(concern))
 
 
 def _content_words(text: str) -> set[str]:
@@ -563,7 +599,7 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
                         "optionally followed by @<cli> for a seat on another model (skeptic@codex).")
     for key, allowed in (("severity", SEVERITIES), ("consequence", CONSEQUENCES), ("route", ROUTES),
                          ("triage", TRIAGE), ("verdict", VERDICTS), ("kind", KINDS), ("cost", COSTS),
-                         ("hand_to", HAND_TO), ("stage", STAGE_KEYS)):
+                         ("hand_to", HAND_TO), ("stage", STAGE_KEYS), ("defence_outcome", DEFENCE_OUTCOMES)):
         _enum(f, key, allowed, problems)
 
     kind = f.get("kind", "present")
@@ -646,7 +682,7 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
             elif not sources.venue.locate(quoted):
                 problems.append(f"The source of the expectation (norm_source) quotes venue.md, but \"{_trim(quoted, 80)}\" "
                                 f"does not occur word for word in {sources.venue.path.name}.")
-    elif _NORM_DEMAND.search(change) or _NORM_APPEAL.search(f"{concern} {change}"):
+    elif _asks_for_norm(concern, change):
         warnings.append("The finding asks for what the field or the journal expects (replication, more samples, an "
                         "external cohort, a standard analysis) without saying where that expectation is written "
                         "(norm_source): quote venue.md, name the reporting guideline and its item or the domain "
@@ -665,6 +701,20 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
                         f"the recomputation or the record.")
     if verdict == "refuted" and not _nonempty_str(f.get("defence_quote")):
         problems.append("A refuted finding needs the manuscript text that answers it (defence_quote).")
+    outcome = f.get("defence_outcome")
+    if adjudicated and outcome is None and f.get("route") != "dropped":
+        problems.append("It does not say what the defence pass returned for it (defence_outcome): premise not "
+                        "supported, answered, partly answered or not answered. Take it from the defender's answer "
+                        "to this finding.")
+    narrowed = f.get("narrowed")
+    if narrowed is not None and not isinstance(narrowed, bool):
+        problems.append("narrowed is true or false.")
+    elif narrowed and not _nonempty_str(f.get("original_concern")):
+        problems.append("A narrowed finding keeps the concern as the referee raised it (original_concern), so the "
+                        "report can say what the defence answered.")
+    if outcome == "partly answered" and verdict == "confirmed" and not narrowed:
+        problems.append("The defence partly answered it, so it is never confirmed as raised: narrow it to the part "
+                        "left open (narrowed, with original_concern) or downgrade it.")
 
     if problems:
         contract = "fail"
@@ -681,7 +731,8 @@ def _check_finding(raw: Any, position: int, sources: Sources, adjudicated: bool)
             "prior_work": prior or [], "contract": contract, "problems": problems,
             "warnings": warnings, "quote": quote_result, "defence": defence_result,
             "quote_text": f.get("quote"), "looked_in": f.get("looked_in"), "hand_to": f.get("hand_to"),
-            "cost": f.get("cost"), "stage": f.get("stage"), "norm_source": f.get("norm_source")}
+            "cost": f.get("cost"), "stage": f.get("stage"), "norm_source": f.get("norm_source"),
+            "defence_outcome": outcome, "narrowed": narrowed is True, "original_concern": f.get("original_concern")}
 
 
 def _check_strength(raw: Any, position: int, sources: Sources) -> dict[str, Any]:
@@ -711,6 +762,8 @@ def _challenge(f: dict[str, Any]) -> Optional[str]:
         return "refuted"
     if f.get("route") == "dropped":
         return "dropped"
+    if f.get("narrowed"):  # confirmed or downgraded, but only the part the defence left open
+        return "narrowed"
     if f.get("verdict") == "downgraded":
         return "downgraded"
     return None
@@ -777,8 +830,9 @@ def _check_report(raw: Any, position: int, findings: list[dict[str, Any]]) -> di
 
 def _by_referee(findings: list[dict[str, Any]], groups: list[dict[str, Any]]) -> dict[str, dict[str, list[str]]]:
     """Each referee's confirmed and downgraded findings, as the sections of its report: major concerns, minor
-    concerns and questions for the authors. Refuted and dropped findings are not in a report. A finding that
-    waits until the code is final is at most a minor concern, whatever its severity."""
+    concerns and questions for the authors. Refuted and dropped findings are not in a report, even a refuted one
+    kept as a misread risk (that goes to the authors' list under the writing). A finding that waits until the code
+    is final is at most a minor concern, whatever its severity."""
     order = {fid: n for n, g in enumerate(groups) for fid in g["findings"]}
     out: dict[str, dict[str, list[str]]] = {}
     for f in sorted(findings, key=lambda f: order.get(f["id"], 10**6)):
@@ -797,12 +851,14 @@ def _by_referee(findings: list[dict[str, Any]], groups: list[dict[str, Any]]) ->
 def finding_stage(f: dict[str, Any]) -> str:
     """When the authors can act on an adjudicated finding (a key of STAGES)."""
     if f.get("verdict") == "refuted":
-        return "answered"
+        # The paper answers it, but a careful reader missed the answer: a misread risk is a writing item
+        # (adjudication.md, section 6); otherwise it is answered and goes no further.
+        return "writing" if f.get("triage") == "misread-risk" and f.get("route") != "dropped" else "answered"
     if f.get("route") == "dropped":
         return "dropped"
     if f.get("stage") == "final":  # archive records, declarations, version numbers: never a current concern
         return "final"
-    if f.get("hand_to") in OTHER_CHECKS:
+    if f.get("hand_to") in OTHER_CHECKS or f.get("route") == "policy":  # never "the science and the evidence"
         return "other-checks"
     if f.get("stage") in STAGE_KEYS:
         return f["stage"]
@@ -1059,7 +1115,30 @@ def check(data: Any, manuscript: Path, supplements: Optional[list[Path]] = None,
         "venues_missing": {seat: vs for seat, vs in partial.items() if vs},
         "by_referee": _by_referee(findings, groups) if adjudicated else None,
         "criteria": bound,
+        "ids": _id_notes(findings),
     }
+
+
+def _id_notes(findings: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Finding ids the dashboard cannot link to the stage's findings.json (not two or three capitals, a hyphen and
+    a number), and ids that take the prefix of a stage's own records."""
+    given = [f["id"] for f in findings if not f["id"].startswith("#")]
+    return {"unlinked": [i for i in given if not CONCERN_ID.fullmatch(i)],
+            "stage_prefix": [i for i in given if CONCERN_ID.fullmatch(i) and i.split("-")[0] in STAGE_PREFIXES]}
+
+
+def _id_lines(report: dict[str, Any]) -> list[str]:
+    notes = report.get("ids") or {}
+    lines = []
+    if notes.get("unlinked"):
+        lines.append(f"The ids {_words_list(notes['unlinked'], 'and')} do not have the form the dashboard links (two or "
+                     "three capital letters, a hyphen and a number, such as EV-1): give each referee's findings its "
+                     "seat prefix (finding-schema.md, Fields) before writing the stage's findings.json.")
+    if notes.get("stage_prefix"):
+        lines.append(f"The ids {_words_list(notes['stage_prefix'], 'and')} take the prefix of another skill's own "
+                     "records, so the dashboard would read them as that skill's: use the seat prefixes of "
+                     "finding-schema.md.")
+    return [" ".join(lines), ""] if lines else []
 
 
 def identifier_url(identifier: Any) -> Optional[str]:
@@ -1168,12 +1247,16 @@ def _group_markdown(n: int, g: dict[str, Any], report: dict[str, Any]) -> list[s
             body.append(f"As proposed, it {_words_list(routes)}" + (f", at the cost of {_words_list(costs)}"
                                                                      if costs else "") + ".")
         if g["stage"] == "other-checks":
-            body.append(f"It belongs to {_words_list(g['hand_to'])}; mention it there rather than as a referee "
-                        f"concern.")
+            owners = g["hand_to"] or (["manuscript-policy-fit"] if "policy" in g["routes"] else ["another check"])
+            body.append(f"It belongs to {_words_list(owners)}; mention it there rather than as a referee concern.")
+        if g["stage"] == "writing" and "refuted" in g["verdicts"]:
+            body.append("The paper answers it, but far from the claim, so a referee may misread it the same way: "
+                        "bring the answer next to the claim it qualifies.")
     return [head, "", *[f"{line}" for line in body], ""]
 
 
 CHALLENGE_WORDS = {"refuted": "the defence refuted", "dropped": "adjudication dropped",
+                   "narrowed": "adjudication narrowed",
                    "downgraded": "adjudication narrowed or downgraded",
                    "not-yet-a-finding": "has not yet met the contract"}
 
@@ -1203,8 +1286,8 @@ def _recommendation_lines(report: dict[str, Any]) -> list[str]:
     lines.append("")
     if report["reports_missing"]:
         lines += [f"These simulated referees wrote findings but no report, so they have no recommendation: "
-                  f"{_words_list(report['reports_missing'], 'and')}. Ask them for it, or say in the result that "
-                  f"they gave none; never write one for them.", ""]
+                  f"{_words_list(report['reports_missing'], 'and')}. Ask each one's own agent again (SKILL.md, step 3), "
+                  f"or say in the result that they gave none; never write one for them.", ""]
     for seat, vs in report["venues_missing"].items():
         lines += [f"The simulated referee ({seat}) gave no recommendation for {_words_list(vs, 'and')}, which "
                   f"another referee was asked about.", ""]
@@ -1264,7 +1347,7 @@ def _criteria_lines(report: dict[str, Any]) -> list[str]:
         if b["unaccounted"]:
             ids = _words_list(b["unaccounted"], "and")
             line += (f" {ids} {'has' if len(b['unaccounted']) == 1 else 'have'} neither a finding nor a line saying "
-                     "what was checked; ask the referee for that line.")
+                     "what was checked; ask the referee's own agent again for that line, or report it as not covered.")
         lines.append(line)
     return lines + [""]
 
@@ -1297,6 +1380,7 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines += [intro.strip(), "",
               "A group's count says how many simulated referees raised the concern. Agreement between referees "
               "is not evidence that the concern is right.", ""]
+    lines += _id_lines(report)
     lines += _recommendation_lines(report)
     if adjudicated and report["groups"]:
         lines += ["The groups are sorted by when the authors can act on them, then by severity. When writing the "
@@ -1396,7 +1480,7 @@ def main(
     findings: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Findings JSON (schema: references/finding-schema.md)")],
     manuscript: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Manuscript source: Markdown, LaTeX or text")],
     supplement: Annotated[Optional[list[Path]], typer.Option("--supplement", "-s", help="Another file findings may quote (supplementary text, an \\input file); repeatable")] = None,
-    adjudicated: Annotated[bool, typer.Option(help="Require verdict fields (after the adjudication pass)")] = False,
+    adjudicated: Annotated[bool, typer.Option(help="Require verdict and defence fields (after the adjudication pass)")] = False,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the check as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
     criteria: Annotated[Optional[list[str]], typer.Option("--criteria", help="A seat's criteria.md, as SEAT=PATH "
@@ -1428,5 +1512,13 @@ def main(
     raise typer.Exit(code=0 if ok else 1)
 
 
+def _utf8_streams() -> None:
+    """Quotes carry any character; a Windows console's code page would otherwise fail on them."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 if __name__ == "__main__":
+    _utf8_streams()
     app()

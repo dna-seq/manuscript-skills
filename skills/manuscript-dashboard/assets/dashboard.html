@@ -300,13 +300,18 @@ __REVISION_HTML__
   const D = JSON.parse(document.getElementById('inventory').textContent);
   const inv = D.inventory, S = D.summary, counts = S.counts, R = D.revision;
   const SEV = ['blocker', 'major', 'minor', 'info', 'unknown'];
-  const SEV_LABEL = {blocker: 'Blocker', major: 'Major', minor: 'Minor', info: 'Optional', unknown: 'Not assessed'};
+  const SEV_LABEL = {blocker: 'Blocker', major: 'Major', minor: 'Minor', info: 'Optional', unknown: 'Could not be checked'};
+  // A simulated reviewer's own severity words, in the same author-facing words (optional is a possible improvement).
+  const CONCERN_SEV = {blocker: 'Blocker', major: 'Major', minor: 'Minor', optional: 'Optional', info: 'Optional',
+                       uncertain: 'Could not be checked', unknown: 'Could not be checked'};
+  const isSerious = c => c.severity === 'blocker' || c.severity === 'major';
   const STAGE = ['now', 'writing', 'journal', 'final', 'unknown'];
-  const STAGE_LABEL = {now: 'Fix now: science and evidence', writing: 'Then the writing', journal: 'Once the journal is chosen',
-                       final: 'Before submission', unknown: 'Stage not set'};
+  const STAGE_LABEL = {now: 'Fix now: the science and the evidence', writing: 'Then the writing', journal: 'Once you have chosen the journal',
+                       final: 'Before submission, once the code is final', unknown: 'Stage not set'};
   const STAGE_SHORT = {now: 'Fix now', writing: 'Writing', journal: 'Journal', final: 'Before submission', unknown: 'Not set'};
   const STATUS = {completed: ['✓', 'Completed', 'good'], reused: ['↺', 'Reused', 'good'], partial: ['◐', 'Partial', 'warning'],
-                  blocked: ['✕', 'Blocked', 'critical'], not_run: ['–', 'Not run', 'muted'], unknown: ['?', 'Unknown', 'muted']};
+                  blocked: ['✕', 'Blocked', 'critical'], not_run: ['–', 'Not run', 'muted'], in_progress: ['…', 'In progress', 'warning'],
+                  unknown: ['?', 'Not recorded', 'muted']};
   const REC = {'accept': 'Accept', 'minor-revision': 'Minor revision', 'major-revision': 'Major revision', 'reject': 'Reject'};
   const MATCH = {full: 'Matched', partial: 'Partly matched', missed: 'Not caught'};
   const MISS = {'no-skill-covers': 'No skill covers it', 'skill-did-not-look': 'In a skill\'s remit, not looked at',
@@ -683,7 +688,7 @@ __REVISION_HTML__
       if (piece.to < node.nodeValue.length) node.splitText(piece.to);
       if (piece.from > 0) node = node.splitText(piece.from);
       const mark = h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0});
-      withTip(mark, () => [`${f.id} · ${SEV_LABEL[f.severity]}`, f.summary, 'Found by ' + f.skills.map(skillName).join(', ')]);
+      withTip(mark, () => [`${SEV_LABEL[f.severity]} (${f.id})`, f.summary, 'Found by ' + f.skills.map(skillName).join(', ')]);
       node.parentNode.insertBefore(mark, node);
       mark.append(node);
       marks.push(mark);
@@ -815,10 +820,14 @@ __REVISION_HTML__
         h('td', null, STAGE_SHORT[f.stage]), h('td', null, f.section), h('td', null, f.summary),
         h('td', null, located.has(f.id) ? link('in the text', () => openInPaper(f.id), `Show ${f.id} in the manuscript`) : null)))))));
     if (serious.length > top.length) p.append(h('p', {class: 'note'}, `${serious.length - top.length} more in Problems.`));
-    const decisions = inv.decisions.length ? inv.decisions : findings.filter(f => f.decision && f.assessment !== 'dismissed').map(f => ({id: f.id, summary: f.summary, finding_ids: [f.id]}));
+    // The adjudication's decisions and every stage's own decision that none of them covers (computed by dashboard.py).
+    const decisions = D.decisions || inv.decisions;
     if (decisions.length) {
       p.append(h('h2', {class: 'sec'}, 'Decisions for the authors'));
-      p.append(h('ul', null, decisions.map(d => h('li', null, h('strong', null, d.id), ' ', d.summary, ' ', d.finding_ids.filter(id => byId.has(id) && id !== d.id).map(id => [' ', link(id, () => openFinding(id))])))));
+      p.append(h('ul', null, decisions.map(d => {
+        const ids = d.finding_ids.filter(id => byId.has(id));
+        return h('li', null, d.summary, ' ', h('span', {class: 'note'}, '(', ids.length ? ids.map((id, i) => [i ? ', ' : '', link(id, () => openFinding(id))]) : d.id, ')'));
+      })));
     }
   })();
 
@@ -853,7 +862,7 @@ __REVISION_HTML__
       kpi('Alternatives not used', R.alternatives.length, 'another proposal for the same passage was chosen'),
       kpi('Not placed', R.not_placed.length, 'the text could not take them as written'),
       (R.comments || []).length ? kpi('Questions for the authors', R.comments.length, 'comments in yellow: facts or decisions only the authors have') : null));
-    p.append(h('p', {class: 'note'}, 'The version the workflow proposes: the edits already applied, then every proposal, one per contested passage. It is a separate file, proposed.md, with no notes or placeholders in its text; questions for the authors are comments beside it. Your working manuscript changes only when you accept it. Dotted marks are routine edits already applied; tinted marks are proposals. Select a change to see it in the list.'));
+    p.append(h('p', {class: 'note'}, 'The version the workflow proposes: the edits already applied, then every proposal, one per contested passage. It is a separate file beside your manuscript, with no notes or placeholders in its text; questions for the authors are comments beside it. Your working manuscript changes only when you accept it. Dotted marks are routine edits already applied; tinted marks are proposals. Select a change to see it in the list.'));
     const article = h('article', {class: 'paper', 'data-view': 'changes'});
     article.append(document.getElementById('revision-src').content.cloneNode(true));
     const views = h('div', {class: 'views', role: 'group', 'aria-label': 'Show'});
@@ -864,10 +873,11 @@ __REVISION_HTML__
       }}, label));
     }
     const items = new Map();
+    // Each change by its section and summary; its ID follows in parentheses.
     const entry = (id, why, clickable) => {
       const c = info[id] || {section: '', summary: ''};
       const el = h(clickable ? 'button' : 'div', {class: 'rev-item', type: clickable ? 'button' : null, onclick: clickable ? () => show(id) : null},
-        h('strong', null, id), ` · ${c.section}`, h('span', {class: 'why'}, c.summary), why ? h('span', {class: 'why'}, why) : null);
+        h('strong', null, c.section || 'Whole manuscript'), h('span', {class: 'why'}, `${c.summary || 'A change'} (${id})`), why ? h('span', {class: 'why'}, why) : null);
       if (clickable) items.set(id, el);
       return el;
     };
@@ -876,8 +886,9 @@ __REVISION_HTML__
       group('Proposed, in this version', R.proposed_in_this_version.map(id => entry(id, null, true)), true),
       group('Applied to the working copy', R.applied.map(id => entry(id, null, true)), true),
       group('Held back', R.held.map(x => entry(x.id, x.why, false))),
-      group('Alternatives not used', R.alternatives.map(x => entry(x.id, `Another proposal for this passage was chosen: ${x.chosen}.`, false))),
-      group('Not placed', R.not_placed.map(x => entry(x.id, `Not placed: ${x.why}.`, false))));
+      group('Alternatives not used', R.alternatives.map(x => entry(x.id, `Another proposal for this passage was chosen (${x.chosen}).`, false))),
+      group('Not placed', R.not_placed.map(x => entry(x.id, `Not placed: ${x.why}.`, false))),
+      group('Applied and then restored', (R.restored || []).map(x => entry(x.ids[0], x.why, false))));
     let lit = [];
     function show(id) {
       for (const el of lit) el.classList.remove('flash');
@@ -895,7 +906,9 @@ __REVISION_HTML__
       if (edit) show(edit.ids[0]);
     });
     // Questions for the authors are comments on the passage, never text in it: the corrected text stays clean.
-    const asks = R.comments || [], left = R.notes_in_text || [];
+    // Notes in the text: the authors' own draft notes (notes_in_text) and notes the run's applied edits left in the
+    // working manuscript (notes_in_working_copy); the corrected version carries the latter as comments.
+    const asks = R.comments || [], left = R.notes_in_text || [], fromEdits = R.notes_in_working_copy || [];
     for (const e of R.edits) {
       if (!(e.comments || []).length) continue;
       const parts = [...article.querySelectorAll(`[data-c="${e.n}"]`)];
@@ -904,8 +917,10 @@ __REVISION_HTML__
       parts[parts.length - 1].after(withTip(h('button', {class: 'ask', type: 'button', 'aria-label': `Question for the authors: ${e.comments.join(' ')}`,
         onclick: ev => { ev.stopPropagation(); show(e.ids[0]); }}, '?'), ['Question for the authors', ...e.comments]));
     }
+    const suffix = R.suffix || '.md';
     const save = (text, name) => {
-      const a = h('a', {href: URL.createObjectURL(new Blob([text], {type: 'text/markdown;charset=utf-8'})), download: name});
+      const type = /^\.(md|markdown)$/i.test(suffix) ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
+      const a = h('a', {href: URL.createObjectURL(new Blob([text], {type})), download: name});
       document.body.append(a); a.click(); a.remove();
     };
     const hide = h('button', {class: 'ghost', type: 'button', 'aria-pressed': 'false', onclick: e => {
@@ -915,12 +930,14 @@ __REVISION_HTML__
     }}, 'Hide the questions');
     const bar = h('div', {class: 'note-bar'},
       asks.length ? [h('span', {class: 'note', style: 'margin: 0'}, h('span', {class: 'swatch-note'}), ` ${plural(asks.length, 'question')} for the authors, as comments on the passages: none is in the text.`), hide] : null,
-      R.text != null ? h('button', {class: 'ghost', type: 'button', onclick: () => save(R.text, 'corrected.md')}, 'Save the corrected text') : null);
-    if (left.length) p.append(h('div', {class: 'notice'}, `${plural(left.length, 'note')} to the authors ${left.length === 1 ? 'is' : 'are'} in the text itself, from edits already applied to the working manuscript. Delete ${left.length === 1 ? 'it' : 'them'} there before the paper goes anywhere: `,
-      left.map((x, i) => [i ? '; ' : '', `line ${x.line}, "${x.note}"`]), '.'));
+      R.text != null ? h('button', {class: 'ghost', type: 'button', onclick: () => save(R.text, 'corrected' + suffix)}, 'Save the corrected text') : null);
+    if (left.length) p.append(h('div', {class: 'notice'}, `${plural(left.length, 'note')} to the authors from your own draft ${left.length === 1 ? 'is' : 'are'} still in the text, in your manuscript and in the corrected version. ${left.length === 1 ? 'It is' : 'They are'} yours: answer or delete ${left.length === 1 ? 'it' : 'them'} before the paper goes anywhere: `,
+      left.map((x, i) => [i ? '; ' : '', `"${x.note}" (line ${x.line})`]), '.'));
+    if (fromEdits.length) p.append(h('div', {class: 'notice'}, `${plural(fromEdits.length, 'note')} to the authors that the run's applied edits left ${fromEdits.length === 1 ? 'is' : 'are'} still in your working manuscript. The corrected version has ${fromEdits.length === 1 ? 'it as a comment' : 'them as comments'} instead; delete ${fromEdits.length === 1 ? 'it' : 'them'} from the working manuscript before the paper goes anywhere: `,
+      fromEdits.map((x, i) => [i ? '; ' : '', `"${x.note}" (line ${x.line})`]), '.'));
     if (asks.length) list.prepend(group('Questions for the authors', asks.map(x => {
       const el = h(x.placed ? 'button' : 'div', {class: 'rev-item', type: x.placed ? 'button' : null, onclick: x.placed ? () => show(x.ids[0]) : null},
-        h('strong', null, x.ids.join(', ')), ` · ${x.section}`, h('span', {class: 'question'}, x.question),
+        h('strong', null, x.section || 'Whole manuscript'), h('span', {class: 'question'}, `${x.question} (${x.ids.join(', ')})`),
         !x.placed && x.passage ? h('span', {class: 'why'}, `About: "${x.passage.length > 160 ? x.passage.slice(0, 158) + '…' : x.passage}"`) : null);
       return el;
     }), true));
@@ -1043,7 +1060,8 @@ __REVISION_HTML__
   // ---------- comparison with a reference review ----------
   if (panels.reference) (function reference() {
     const p = panels.reference, R = inv.reference, b = S.benchmark;
-    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, `Compared with ${R.title}`), h('p', {class: 'scope', style: 'margin-top: 0'}, R.description));
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, `Compared with ${R.title}`), h('p', {class: 'scope', style: 'margin-top: 0'}, R.description,
+      R.matched_by ? ` Its items were matched to the run's findings by ${R.matched_by}, after the run's findings were frozen.` : ''));
     p.append(h('div', {class: 'kpis'}, kpi('Problems it raised', b.items, `${b.substantive} change a fact, claim, method or reference`, true),
       kpi('Matched', b.full, 'the run reported the same problem'), kpi('Partly matched', b.partial, 'the run found part of it'),
       kpi('Not caught', b.missed, 'no finding of the run corresponds'),
@@ -1488,24 +1506,29 @@ __REVISION_HTML__
     if (concerns.length) {
       const n = pred => concerns.filter(pred).length;
       p.append(h('div', {class: 'kpis', style: 'margin-top: 16px'},
-        kpi('Reviewer concerns', concerns.length, `${n(c => c.severity === 'major')} major · ${n(c => c.severity !== 'major')} optional or uncertain`, true),
+        kpi('Reviewer concerns', concerns.length, `${n(isSerious)} blocker or major · ${n(c => !isSerious(c))} minor, optional or not checked`, true),
         kpi('Upheld by the adjudication', n(c => c.verdict === 'confirmed'), `${n(c => c.verdict === 'downgraded')} downgraded · ${n(c => c.verdict === 'refuted')} refuted`),
         kpi('Fixable in the text', n(c => c.route === 'fixable-in-text'), `${n(c => c.cost === 'reanalysis')} need a reanalysis of existing data`),
         kpi('Need the authors', n(c => c.route === 'author-required'), 'a fact, a decision or new work only they can supply'),
-        kpi('Answered by the defence, at least in part', n(c => /answered/.test(c.defence) && c.defence !== 'not answered'), `${n(c => /^answered/.test(c.defence))} in full · ${n(c => c.defence === 'not answered')} not answered`)));
-      const ROUTE = [['fixable-in-text', 'Fixable in the text'], ['author-required', 'Needs the authors'], ['policy', 'A journal-policy question'], ['', 'Route not given']];
+        kpi('Answered by the defence, at least in part', n(c => c.defence === 'answered' || c.defence === 'partly answered'),
+          `${n(c => c.defence === 'answered')} in full · ${n(c => c.defence === 'not answered')} not answered · ${n(c => c.defence === 'premise not supported')} premise not supported by the text`)));
+      // Peer review's routes; any other route value, or none, goes in the last group.
+      const ROUTE = [['fixable-in-text', 'Fixable in the text'], ['author-required', 'Needs the authors'], ['venue', 'A question for the chosen journal'],
+                     ['policy', 'Ethics, consent or privacy'], ['dropped', 'Dropped by the adjudication, with the reason'], ['', 'Route not given']];
+      const routeOf = c => ROUTE.some(([r]) => r && r === c.route) ? c.route : '';
       const VERDICT = {confirmed: 'upheld', downgraded: 'downgraded', refuted: 'refuted'};
       const concernItem = c => h('li', {style: 'margin-bottom: 8px'},
-        h('div', null, h('span', {class: 'tag'}, c.id), h('span', {class: 'tag'}, c.severity || 'severity not given'), c.verdict ? withTip(h('span', {class: 'tag', tabindex: 0}, VERDICT[c.verdict] || c.verdict), ['Adjudication', c.verdict_evidence || c.verdict]) : null,
-          c.defence ? h('span', {class: 'tag'}, `defence: ${c.defence}`) : null, c.location ? h('span', {class: 'note', style: 'margin-left: 4px'}, c.location) : null),
-        h('div', null, c.concern),
+        h('div', null, h('span', {class: 'tag'}, CONCERN_SEV[c.severity] || 'Severity not given'), c.verdict ? withTip(h('span', {class: 'tag', tabindex: 0}, VERDICT[c.verdict] || c.verdict), ['Adjudication', c.verdict_evidence || c.verdict]) : null,
+          c.defence ? h('span', {class: 'tag'}, `Defence: ${c.defence}`) : null, c.location ? h('span', {class: 'note', style: 'margin-left: 4px'}, c.location) : null),
+        h('div', null, c.concern, ' ', h('span', {class: 'note'}, `(${c.id})`)),
         c.suggestion ? h('div', null, h('strong', null, 'Suggestion: '), c.suggestion) : null,
         h('div', {class: 'note', style: 'margin: 2px 0 0'}, [c.placement ? `goes in: ${c.placement}` : null, c.cost ? `cost: ${c.cost}` : null].filter(Boolean).join(' · '),
           c.finding_ids.length ? [' · problem ', c.finding_ids.map(id => [link(id, () => openFinding(id)), ' '])] : null));
       p.append(h('h2', {class: 'sec'}, 'What the reviewers suggest'),
         h('p', {class: 'note', style: 'margin-top: 0'}, 'Every concern with the reviewer\'s own suggestion (what would change their mind), grouped by who can act. Each links to the problem it became in this dashboard.'));
       for (const [route, label] of ROUTE) {
-        const here = concerns.filter(c => (c.route || '') === route).sort((a, b) => (a.severity === 'major' ? 0 : 1) - (b.severity === 'major' ? 0 : 1));
+        const rank = c => ({blocker: 0, major: 1, minor: 2, optional: 3, info: 3, uncertain: 4, unknown: 4})[c.severity] ?? 5;
+        const here = concerns.filter(c => routeOf(c) === route).sort((a, b) => rank(a) - rank(b));
         if (!here.length) continue;
         p.append(h('details', {class: 'card', open: route === 'fixable-in-text' || route === 'author-required' || null, style: 'margin-top: 10px'},
           h('summary', null, h('strong', null, `${label} (${here.length})`)),
@@ -1516,7 +1539,7 @@ __REVISION_HTML__
         ranAs(r),
         r.summary ? h('p', {style: 'margin-top: 0'}, r.summary) : null,
         r.strengths.length ? [h('h3', {style: 'font-size: 14px; margin: 8px 0 4px'}, 'Strengths'), h('ul', {style: 'margin: 0; padding-left: 18px'}, r.strengths.map(t => h('li', null, t)))] : null,
-        h('details', {style: 'margin-top: 8px'}, h('summary', null, `${plural(r.concerns.length, 'concern')}: ${r.concerns.filter(c => c.severity === 'major').length} major`),
+        h('details', {style: 'margin-top: 8px'}, h('summary', null, `${plural(r.concerns.length, 'concern')}: ${r.concerns.filter(isSerious).length} blocker or major`),
           h('ul', {style: 'margin: 8px 0 0; padding-left: 18px'}, r.concerns.map(concernItem)))))));
       p.append(h('p', {class: 'note'}, 'Simulated reviewers are agents given the reading copy and the journal\'s criteria; they are not people. A defence agent then answered each concern for the authors, and an adjudicator decided what stands.'));
     }

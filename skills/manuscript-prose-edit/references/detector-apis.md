@@ -22,9 +22,10 @@ Hello-SimpleAI, RADAR, MAGE), which Park et al. found to flag most human academi
 
 ## Accuracy, in short
 
-- Park et al. 2026 (13 open detectors, human non-native academic text): false-positive rates from 0.1%
-  (Binoculars) to 100% (log-rank); Fast-DetectGPT 25%, RADAR 76%, the OpenAI RoBERTa detector 94%.
-  Professional editing moved scores in both directions.
+- Park et al. 2026 (13 open detectors, 135,389 human texts by non-native academic authors, 2018 to 2025):
+  false-positive rates over all texts from 0.1% (Binoculars) to 100% (log-rank); Fast-DetectGPT 25%, RADAR 76%,
+  the OpenAI RoBERTa detector 94% (their Table 18). On the pre-2023 texts alone the range is 0.0% (Binoculars)
+  to 100%, the figure the abstract gives. Professional editing moved scores in both directions.
 - Epoch AI (July 2026): commercial detectors flagged none of 495 human passages, but missed about a quarter
   of scientific AI text written in an imitated style.
 - The local classifiers above have little independent evaluation. Calibrate against the authors' own
@@ -44,5 +45,6 @@ Hello-SimpleAI, RADAR, MAGE), which Park et al. found to flag most human academi
    each passage's section with its opening words; pass results on in those words, not as bare scores or
    states.
 4. A hosted detector runs only with `--allow-remote`, and only after the authors agreed to send this text.
-5. Flagged windows go to the critic in reflection mode as places to look. The fix is still a named smell or
-   an unsupported claim; a window with neither stays as it is.
+5. In reflection mode, flagged windows go to the writer in round 1 as places to look, never to the critic,
+   which is given no hint where to look ([reflection mode](../../manuscript-deslop/references/reflection-mode.md#optional-detector-notes)).
+   The fix is still a named smell or an unsupported claim; a window with neither stays as it is.

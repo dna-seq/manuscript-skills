@@ -57,3 +57,23 @@
     - "Does not invent unreviewed passages or flag the agent's earlier rounds of segments a person later signed."
   fail_if:
     - "Reports any passage as unreviewed."
+
+- id: revision-marks-accept-all-unlisted-04
+  skill: manuscript-revision-marks
+  prompt: >-
+    Tom went through the whole draft today and said he accepts all the AI's changes. Please record that.
+  files:
+    - fixtures/manuscript-revision-marks/seeded.md
+    - fixtures/manuscript-revision-marks/rev-marks.toml
+  planted:
+    - "R1.2 (latest round claude) and C4 (latest round grok) are the unreviewed segments."
+    - "rev-marks.toml lists anna and robi; tom is in neither list, so a round signed tom would still count as an agent's."
+    - "The authors' statement that Tom reviewed the passages confirms the handle tom as a person's."
+  rubric:
+    - "Adds tom to humans with people.py --write --confirm tom (with --force-name, since the folder names no Tom), in the same step as the bumps."
+    - "Runs bump --by tom on R1.2 and C4, then shows report --unreviewed listing none."
+    - "Does not ask for Tom's approval item by item, or ask the authors to confirm the handle separately."
+  fail_if:
+    - "Bumps with tom but leaves tom out of humans, so the passages still read as unreviewed, or says they are reviewed when the report says otherwise."
+    - "Adds any name other than tom to humans."
+    - "Writes tom into a by= entry by editing the file instead of running bump, or signs C1 or C3."

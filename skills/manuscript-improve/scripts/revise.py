@@ -4,35 +4,45 @@
 # ///
 """Build the corrected version of a manuscript from a run: the edits applied, then every proposal.
 
-    uv run --script revise.py ORIGINAL WORKING INVENTORY --choices choices.json --output-dir RUN/manuscript-improve/revision
+    uv run --script revise.py ORIGINAL WORKING RUN/manuscript-dashboard/findings.json \
+        --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision
 
-ORIGINAL is the manuscript before the workflow, WORKING the working copy with the applied edits, and
-INVENTORY the adjudicated findings.json from manuscript-dashboard. Each applied edit is located in the
-working copy, newest first; undoing them must give the original exactly, so an edit nobody recorded stops
-the build.
-The proposals are then applied in manuscript order to give the proposed version.
+ORIGINAL is the run's snapshot of the manuscript as it was before the workflow (RUN/inputs/01-paper.md, the copy
+`runs.py start` made). WORKING is the working copy: the manuscript as it is now, with every applied edit. Where
+the manuscript carries revision marks, give both as clean copies (`rev_marks.py strip ... --out`). INVENTORY is
+the adjudicated findings.json from manuscript-dashboard. Each applied edit is located in the working copy, newest
+first; undoing them must give the original exactly, so an edit nobody recorded stops the build. An applied edit
+that a later recorded change restored (a reverse `runs.py change`, as for a widened claim) cancels out and is
+listed as restored. The proposals are then applied in manuscript order to give the proposed version.
 
 Proposals that rewrite the same passage are alternatives (the dashboard's competing groups, formed after
-the held proposals are set aside). The choices file names the ones to use from each group ("prefer"; two
-from one group only when they change different words), the proposals held back with the reason ("hold",
-such as a statement that waits for the journal choice) and an anchor for an addition that lacks one:
+the held proposals are set aside). The choices file (revision-choices.json) names the ones to use from each
+group ("prefer"; two from one group only when they change different words), the proposals held back with the
+reason shown to the authors ("hold": a statement that waits for the journal choice, a decision only the authors
+can make, a proposal whose claim widened) and an anchor for an addition that lacks one. Every key is optional:
 
-    {"prefer": ["ST-C3"], "hold": [{"id": "JA-C18", "why": "Genes only"}],
+    {"prefer": ["ST-C3"],
+     "hold": [{"id": "JA-C18", "why": "Waits for the choice of journal."},
+              {"id": "ST-C7", "why": "widened claim, wording restored"}],
      "anchor": [{"id": "JA-C1", "after": "verbatim passage the addition follows"}]}
 
 A proposal is applied only where its before-text, or an addition's anchor, occurs exactly once in the
 working copy and does not overlap another proposal; one that still has a gap for a fact only the authors
 have waits for their answer. Every proposal not applied is listed with its reason.
 
-Outputs: revised.md (the working copy), proposed.md (every chosen proposal applied), changes.md (the same
-as CriticMarkup against the original, with the questions for the authors as comments) and revision.json:
-what was applied, held, left as an alternative or not placed, the questions for the authors, and the
-track-changes view that manuscript-dashboard shows in the dashboard's Corrected version tab.
+Outputs, named after the manuscript's own extension (`.tex` for a LaTeX manuscript): revised.tex or revised.md
+(the working copy), proposed.tex or proposed.md (every chosen proposal applied: the corrected version),
+changes.md (the same as CriticMarkup against the original, each change named by its section and summary with
+its ID in parentheses, and the questions for the authors as comments) and revision.json: what was applied,
+restored, held, left as an alternative or not placed, the questions for the authors, the notes still in the
+text, and the track-changes view that manuscript-dashboard shows in the dashboard's Corrected version tab. An
+existing output folder is refused; the message names the next attempt (revision.2).
 
 No note to the authors goes into the text. A question comes as a proposal's `comment`; a `[AUTHORS: ...]` note
 a stage left in a proposal's text is lifted out of it and becomes a comment too, so the corrected version
-never carries one; so does a note that came with an applied edit. A note the authors' own draft has is listed
-for them to remove.
+never carries one; so does a note that came with an applied edit. Two lists remain: `notes_in_working_copy`,
+the notes the run's applied edits left in the working copy (remove each there with a recorded runs.py change),
+and `notes_in_text`, the notes the authors' own draft has, listed for them and never removed by the run.
 """
 from __future__ import annotations
 
@@ -293,12 +303,42 @@ def lift(change: viz.Change) -> tuple[str, list[str]]:
     return after, [*asked, *([change.comment.strip()] if change.comment.strip() else [])]
 
 
+CHOICES_EXAMPLE = ('{"prefer": ["ST-C3"], "hold": [{"id": "ST-C7", "why": "widened claim, wording restored"}], '
+                   '"anchor": [{"id": "JA-C1", "after": "verbatim passage the addition follows"}]}')
+CHOICE_FIELDS = {"hold": ("id", "why"), "anchor": ("id", "after")}
+
+
+def check_choices(choices: object, name: str = "The choices file") -> dict:
+    """The choices file, checked: `prefer` a list of proposal IDs, `hold` a list of {id, why}, `anchor` a list of
+    {id, after}. A wrong key or shape is a ValueError that says what the file should hold."""
+    shape = f" It holds, for example: {CHOICES_EXAMPLE}"
+    if not isinstance(choices, dict):
+        raise ValueError(f"{name} must be a JSON object with the keys prefer, hold and anchor.{shape}")
+    if unknown := sorted(set(choices) - {"prefer", *CHOICE_FIELDS}):
+        raise ValueError(f"{name} has keys revise.py does not read: {', '.join(unknown)}; the keys are prefer, hold and anchor.{shape}")
+    prefer = choices.get("prefer", [])
+    if not isinstance(prefer, list) or not all(isinstance(x, str) and x.strip() for x in prefer):
+        raise ValueError(f"{name}: prefer is a list of proposal IDs, such as [\"ST-C3\"].{shape}")
+    for key, (first, second) in CHOICE_FIELDS.items():
+        entries = choices.get(key, [])
+        if not isinstance(entries, list):
+            raise ValueError(f"{name}: {key} is a list of objects, each with {first} and {second}.{shape}")
+        for number, entry in enumerate(entries, 1):
+            if (not isinstance(entry, dict) or set(entry) != {first, second}
+                    or not all(isinstance(entry[k], str) and entry[k].strip() for k in (first, second))):
+                what = "the reason shown to the authors" if key == "hold" else "the verbatim passage the addition follows"
+                raise ValueError(f"{name}: {key} entry {number} needs exactly {first} (the proposal's ID) and {second} "
+                                 f"({what}), both non-empty; it has {json.dumps(entry, ensure_ascii=False)}.{shape}")
+    return {"prefer": prefer, **{key: choices.get(key, []) for key in CHOICE_FIELDS}}
+
+
 def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tuple[Document, dict]:
+    choices = check_choices(choices)
     changes = {c.id: c for c in data.changes}
     proposals = {c.id: c for c in data.changes if c.status == "proposed"}
-    prefer = list(choices.get("prefer", []))
-    held = {h["id"]: h["why"] for h in choices.get("hold", [])}
-    anchors = {a["id"]: a["after"] for a in choices.get("anchor", [])}
+    prefer = list(choices["prefer"])
+    held = {h["id"]: h["why"] for h in choices["hold"]}
+    anchors = {a["id"]: a["after"] for a in choices["anchor"]}
     if unknown := sorted((set(prefer) | set(held) | set(anchors)) - set(proposals)):
         raise ValueError(f"The choices name changes that are not proposals in the inventory: {', '.join(unknown)}")
     if both := sorted(set(prefer) & set(held)):
@@ -331,6 +371,13 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
     if document.previous() != original:
         raise ValueError("The working copy differs from the original outside the recorded applied edits, at "
                          f"{first_difference(document.previous(), original)}. Record every applied edit first.")
+    # An applied edit and the recorded change that restored its wording (a widened claim put back) cancel out.
+    restored = []
+    for index, piece in enumerate(document.pieces):
+        if piece.status == "applied" and piece.old == piece.new:
+            restored.append({"ids": piece.ids, "why": "Applied, then its original wording was restored by a later recorded change."})
+            document.pieces[index] = Piece(text=piece.new)
+    document.pieces = [p for p in document.pieces if p.status != "text" or p.text]
     revised = document.current()
 
     def position(change: viz.Change) -> int:
@@ -374,8 +421,17 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
             questions[piece.ids[0]] = [*questions.get(piece.ids[0], []), *asked]
             piece.new = viz.strip_notes(piece.new)
     in_text = {cid for piece in document.pieces for cid in piece.ids}
+    # The notes the applied edits brought into the working copy: those the original did not already have.
+    own = [original[a:b] for a, b in viz.author_notes(original)]
+    from_edits = []
+    for a, b in viz.author_notes(revised):
+        if revised[a:b] in own:
+            own.remove(revised[a:b])
+        else:
+            from_edits.append({"note": revised[a:b], "line": revised.count("\n", 0, a) + 1})
     record = {
         "applied": [c.id for c in applied if c.id in in_text],
+        "restored": restored,
         "proposed_in_this_version": [cid for cid in proposals if cid in in_text],
         "held": [{"id": cid, "why": why} for cid, why in held.items()],
         "alternatives": [{"id": cid, "chosen": chosen} for cid, chosen in alternatives.items()],
@@ -383,11 +439,13 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
         "comments": [{"ids": [cid], "question": question, "section": changes[cid].section, "placed": cid in in_text,
                       "passage": (changes[cid].before or anchors.get(cid) or changes[cid].anchor or "")[:400]}
                      for cid, asked in questions.items() for question in asked],
-        # Notes the authors' draft already had: the working manuscript holds them, and they must go before submission.
+        # The authors' own draft notes: unchanged text keeps them, in the corrected version and in their manuscript.
+        # They are the authors' to answer or remove; the run never deletes them. Lines are the corrected version's.
         "notes_in_text": [{"note": document.current()[a:b], "line": document.current().count("\n", 0, a) + 1}
                           for a, b in viz.author_notes(document.current())],
-        # Notes that came with applied edits are in the working copy too; the corrected version holds them as comments.
-        "notes_in_working_copy": [{"note": revised[a:b], "line": revised.count("\n", 0, a) + 1} for a, b in viz.author_notes(revised)],
+        # Notes the run's applied edits left in the working copy (lines of the working copy). The corrected version
+        # has them as comments; each is removed from the working copy with a recorded runs.py change.
+        "notes_in_working_copy": from_edits,
         "changes": {cid: {"section": c.section, "summary": c.summary, "kind": c.kind, "status": c.status,
                           "finding_ids": c.finding_ids} for cid, c in changes.items()},
     }
@@ -408,15 +466,18 @@ def word_diff(old: str, new: str) -> list[tuple[str, str]]:
     return out
 
 
-def critic(document: Document, asked: dict[str, list[str]] | None = None) -> str:
-    """CriticMarkup against the original; each edit's comment names it and carries its questions for the authors."""
+def critic(document: Document, asked: dict[str, list[str]] | None = None,
+           info: dict[str, tuple[str, str]] | None = None) -> str:
+    """CriticMarkup against the original; each edit's comment names it by its section and summary, with its ID in
+    parentheses, and carries its questions for the authors."""
     parts = []
     for piece in document.pieces:
         if piece.status == "text":
             parts.append(piece.text)
             continue
         questions = [q for cid in piece.ids for q in (asked or {}).get(cid, [])]
-        note = "{>>" + ", ".join(piece.ids) + "".join(f" · Question for the authors: {q}" for q in questions) + "<<}"
+        names = "; ".join(f"{info[cid][0]}: {info[cid][1].rstrip('.')} ({cid})" if info and cid in info else cid for cid in piece.ids)
+        note = "{>>" + names + "".join(f" · Question for the authors: {q}" for q in questions) + "<<}"
         if piece.old and piece.new:
             parts.append("{~~" + piece.old + "~>" + piece.new + "~~}" + note)
         elif piece.new:
@@ -496,17 +557,32 @@ def digest(text: str) -> str:
 
 
 @app.command()
-def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-         working: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-         inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-         output_dir: Annotated[Path, typer.Option("--output-dir")],
-         choices: Annotated[Path | None, typer.Option(help="prefer / hold / anchor decisions")] = None) -> None:
-    names = ("revised.md", "proposed.md", "changes.md", "revision.json")
+def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help=(
+             "ORIGINAL: the run's snapshot of the manuscript before the workflow (RUN/inputs/01-paper.md); its clean "
+             "copy when the manuscript carries revision marks"))],
+         working: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help=(
+             "WORKING: the working copy, the manuscript now, with every applied edit; its clean copy when it carries "
+             "revision marks"))],
+         inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help=(
+             "The adjudicated inventory, RUN/manuscript-dashboard/findings.json (or its newest attempt)"))],
+         output_dir: Annotated[Path, typer.Option("--output-dir", help=(
+             "RUN/manuscript-improve/revision; a second attempt goes to revision.2"))],
+         choices: Annotated[Path | None, typer.Option(help=(
+             "revision-choices.json: prefer, hold (with the reason) and anchor, e.g. " + CHOICES_EXAMPLE))] = None) -> None:
+    suffix = original.suffix or ".md"
+    names = (f"revised{suffix}", f"proposed{suffix}", "changes.md", "revision.json")
     if any((output_dir / name).exists() for name in names):
-        raise typer.BadParameter("Output files already exist; choose a new output directory to keep the previous attempt.")
+        raise typer.BadParameter(f"Output files already exist in {output_dir.name}; write this attempt to "
+                                 f"{viz.next_attempt(output_dir, folder=True).name} to keep the previous one.")
     try:
         data = viz.Inventory.model_validate_json(inventory.read_text(encoding="utf-8"))
-        decided = json.loads(choices.read_text(encoding="utf-8")) if choices else {}
+        try:
+            decided = json.loads(choices.read_text(encoding="utf-8")) if choices else {}
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{choices.name} is not valid JSON ({exc.msg}, line {exc.lineno}, column {exc.colno}). "
+                             f"It holds, for example: {CHOICES_EXAMPLE}") from exc
+        if choices:
+            decided = check_choices(decided, choices.name)
         source, revised = original.read_text(encoding="utf-8"), working.read_text(encoding="utf-8")
         document, record = build(source, revised, data, decided)
     except ValueError as exc:
@@ -519,19 +595,28 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
             asked.setdefault(cid, []).append(comment["question"])
     for edit in edits:
         edit["comments"] = [q for cid in edit["ids"] for q in asked.get(cid, [])]
-    record |= {"original_sha256": digest(source), "revised_sha256": digest(revised), "proposed_sha256": digest(proposed),
+    record |= {"files": {"revised": names[0], "proposed": names[1], "changes": names[2]}, "suffix": suffix,
+               "original_sha256": digest(source), "revised_sha256": digest(revised), "proposed_sha256": digest(proposed),
                "inventory_sha256": hashlib.sha256(inventory.read_bytes()).hexdigest(), "edits": edits, "body_html": body,
                # The text as unchanged runs and edits, in order, for exports such as the annotated Word document.
                "pieces": [{"text": p.text} if p.status == "text" else {"old": p.old, "new": p.new, "ids": p.ids, "status": p.status}
                           for p in document.pieces]}
+    info = {c.id: (c.section, c.summary) for c in data.changes}
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "revised.md").write_text(revised, encoding="utf-8")
-    (output_dir / "proposed.md").write_text(proposed, encoding="utf-8")
-    (output_dir / "changes.md").write_text(critic(document, asked), encoding="utf-8")
+    (output_dir / names[0]).write_text(revised, encoding="utf-8")
+    (output_dir / names[1]).write_text(proposed, encoding="utf-8")
+    (output_dir / "changes.md").write_text(critic(document, asked, info), encoding="utf-8")
     (output_dir / "revision.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    typer.echo(json.dumps({key: len(record[key]) for key in ("applied", "proposed_in_this_version", "held",
-                                                               "alternatives", "not_placed", "comments", "notes_in_text")}, indent=2))
+    # notes_in_working_copy: notes the applied edits left in the working copy (remove each with a recorded change);
+    # notes_in_text: the authors' own draft notes, listed for them.
+    typer.echo(json.dumps({"files": record["files"],
+                           **{key: len(record[key]) for key in ("applied", "restored", "proposed_in_this_version", "held",
+                                                                "alternatives", "not_placed", "comments",
+                                                                "notes_in_working_copy", "notes_in_text")}}, indent=2))
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on every platform, a Windows console included
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

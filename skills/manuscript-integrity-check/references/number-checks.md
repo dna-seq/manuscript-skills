@@ -1,9 +1,13 @@
 # Number and statistics checks: reading `number_check.py`
 
-`scripts/number_check.py` finds candidates; the agent reads each in context and the authors decide. A calculator
-cannot tell an exact value from a rounded one, which data are whole numbers, or which n a value was computed
-over. Report a candidate with its arithmetic and ask the authors to check it against the data; never call it
-an error, fabrication or misconduct.
+`scripts/number_check.py` finds candidates; the agent checks each against the manuscript in context and against
+the project's files and data before anything reaches the authors. A calculator cannot tell an exact value from a
+rounded one, which data are whole numbers, or which n a value was computed over, but the project often can: the
+result table or run log behind the number, the code that computes it, the analysis output with its n. A candidate
+the files settle is a confirmed finding, reported with its arithmetic and the file that settles it and corrected
+under the `edits` setting like any confirmed finding, or a dismissed one. Only a provenance question the files
+leave open (which n, which run, whether a value is rounded from another) goes to the authors, in the report's one
+batch of questions. Never call a candidate an error, fabrication or misconduct.
 
 ## Which script covers what
 
@@ -66,11 +70,15 @@ fractional df) in Markdown, LaTeX and plain text, recomputes p over the rounding
 (and of a fractional df), and compares it with the reported p:
 
 - **consistent**: the intervals overlap; `p < .001` is consistent when the recomputed p can be below .001;
+- **consistent-one-tailed**: the reported p fits the one-tailed value and the same sentence says the test was
+  one-tailed;
 - **inconsistent** (minor): they do not overlap, but significance at α is the same;
 - **gross** (major): the reported p and the recomputed p fall on opposite sides of α;
-- **information**: the reported p is larger and the sentence names a multiplicity adjustment.
+- **adjusted?** (info, an optional note that does not change the exit code): the reported p is larger and the
+  sentence names a multiplicity adjustment (Bonferroni, Holm, false discovery rate, q-values), which would explain
+  it.
 
-These four words are the script's labels. In the report, say what they mean: "the reported p = .04 does not
+These five words are the script's labels (the JSON's `status`). In the report, say what they mean: "the reported p = .04 does not
 fit t(28) = 1.20, which gives p = .24, and the result would no longer be significant at .05 (statcheck)".
 
 α is the one the text states ("P < 0.05 was considered significant", "α = .01"), else 0.05; `--alpha`

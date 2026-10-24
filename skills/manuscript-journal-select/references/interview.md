@@ -14,7 +14,7 @@ flags and `--refuse` values are for the command, not for the question.
 | ask | `venues.py rank` flag |
 |---|---|
 | field and kind of paper: research, methods, software or tool, database, data, review, perspective | `--field aging\|bioinformatics\|genomics\|genetics\|systems-biology\|clinical\|general\|data\|software`, `--type …` |
-| what AI did to the text: polish, revision or drafting (per section if it differs) | `--ai-use polish\|revision\|drafting` |
+| what AI did to the text: polish, revision or drafting (per section if it differs) | `--ai-use polish\|revision\|drafting` (the default, `unknown`, assumes no use and no conflict), recorded as `ai_use` |
 | which AI-policy burdens they will not carry (multi-select) | `--refuse` (repeatable), values below |
 | a floor: JIF, open access only | `--min-jif`, `--oa full` |
 | whose venues to consider: colleagues, a lab, the authors they cite most | `peers "Name" …`, then `rank --only KEY …` |
@@ -29,7 +29,7 @@ flags and `--refuse` values are for the command, not for the question.
 | `drafting-ban` | forbid drafting text from a prompt (ISCB journals, Royal Society, Taylor & Francis, some society journals) |
 | `red-line` | forbid AI-written results or discussion (the Springer Nature framework, Sage) |
 | `prompts` | require or encourage prompts in the paper or the supplement |
-| `tracking` | require AI records beyond one acknowledgement: deposited outputs, kept versions (left out by default; `--include-tracking` lists them) |
+| `tracking` | require AI records beyond one acknowledgement: deposited outputs, kept versions (listed unless the authors refuse this burden) |
 | `ai-detector` | name AI-text detection at submission (PNAS uses Pangram) or say they may use it |
 | `supplement` | want AI use documented in supplementary material too |
 | `multi-place` | want the disclosure in three or more places |
@@ -42,7 +42,8 @@ The score measures administrative burden for AI-assisted text, not the chance of
 - the writing rule: free 0, disclose 1, disclose everything (no language-polish exemption) 2, red line 2,
   drafting ban 5;
 - record keeping, counted once at its highest level: prompts on request, records recommended or prompts
-  encouraged 1, prompts required or records required 3;
+  encouraged 1, prompts required or records required 3 (a listed extra burden that restates it, such as
+  outputs deposited or versions kept, is named but not counted again);
 - AI-text screening: named detector 2, "may use detection tools" 1, plagiarism and paper-mill checks 0;
 - listed extra burdens (deposited outputs, AI-free replies to reviewers, no LLM during revision, the tool
   cited as a reference, labelled AI text), at most 2;
@@ -59,7 +60,7 @@ authors' other decisions; never exclude the venue for it.
 
 Write the shortlist as the selection skill's delivery section describes: plain words, each rule quoted
 with the URL of its page, acronyms spelled out, full sentences. Keep friction and fit apart and give the
-burden each venue would put on this manuscript in words ("6 points, severe: the journal asks authors not
-to have AI draft text"), with the date each policy was read. Re-read the policy pages of the two or three
+burden each venue would put on this manuscript in words ("severe: the journal asks authors not to have AI
+draft text"; the points stay in the CSV), with the date each policy was read. Re-read the policy pages of the two or three
 venues you recommend (`policy_watch.py check --venue KEY`). Say which venues' entries were checked only in
 part, rest on secondary sources, or have not been researched.

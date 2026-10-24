@@ -31,10 +31,19 @@ Before work, resolve the manuscript project with
 and follow the effective edit policy and saved output destination. The `edits` setting is the run's mode,
 and the first progress update names it in plain words:
 
-- **Report only** (`propose`): no change to the manuscript; every fix is a proposal.
-- **Routine fixes** (`conservative`, the default): apply corrections that keep the meaning, and the story
-  stage's edits that keep the authors' recorded direction; propose substantive revisions for approval.
+- **Proposals only** (`propose`): no change to the manuscript; every fix is a proposal the authors approve
+  one by one. This is the only mode with per-item approval.
+- **Routine and evidence-backed fixes** (`conservative`, the default): apply corrections that keep the
+  meaning, the corrections that the evidence for a confirmed finding settles (a number, a citation, a claim
+  reworded to what the evidence shows), and the story stage's edits that keep the paper's direction;
+  substantive revisions no confirmed finding requires are proposals in the corrected version.
 - **Every change** (`apply`): apply substantive revisions too, within the authors' direction.
+
+"Fix everything", "apply all" or "accept all" applies the whole corrected version for this run, except the
+[held decisions](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
+(a change of direction, which figures the paper has, a venue's rules before the choice, new analyses or
+data, facts only the authors have, a policy conflict), which are listed once at the end and hold nothing
+else up.
 
 The same update says which files the run will keep, from the `keep` setting: every intermediate file
 (`everything`, the default), or the results with the rest packed into one archive (`results`), and how to
@@ -43,8 +52,8 @@ first update asks them as the [project contract](../manuscript-integrity-check/r
 describes and the run carries on with the defaults.
 
 Every mode ends with the corrected version as a separate file (see the end of this skill), so the
-authors can read the whole improved paper before they accept it. A request to use this skill or "improve
-the manuscript" does not change the mode.
+authors can read the whole improved paper and accept it in one step. A request to use this skill or
+"improve the manuscript" does not change the mode.
 
 Work across the **whole paper** by default and carry the authorised improvement task through its relevant
 stages. Do not substitute an Abstract-only or sampled review. A request for one service belongs to that
@@ -76,19 +85,19 @@ unaffordable validation requirement can justify settling journal fit before edit
 
 | Stage | Companion skills and outcome |
 |---|---|
-| Review the draft and evidence | [manuscript-integrity-check](../manuscript-integrity-check/SKILL.md) identifies scientific and submission problems, including numbers and their arithmetic; [manuscript-reference-check](../manuscript-reference-check/SKILL.md) verifies the identity of every reference and checks support for claims in its priority order (load-bearing claims, borrowed numbers, "first" claims); [manuscript-reporting-check](../manuscript-reporting-check/SKILL.md) checks the reporting guidelines that fit the study design, statistics reporting, and whether data, code and software are available. Run each mechanical check once and reuse it. |
-| Anticipate referees (project policy; automatic by default for this full workflow) | [manuscript-peer-review](../manuscript-peer-review/SKILL.md) gives referee-style judgement on contribution, design and claims, reusing the checks above rather than repeating them. Its author-required items are the authors' decision; its fixable-in-text items feed the revision stage, each with the placement that costs readers least. |
+| Review the draft and evidence | [manuscript-integrity-check](../manuscript-integrity-check/SKILL.md) identifies scientific and submission problems, including numbers and their arithmetic; [manuscript-reference-check](../manuscript-reference-check/SKILL.md) verifies the identity of every reference and checks support for claims in its priority order (load-bearing claims, borrowed numbers, "first" claims); [manuscript-reporting-check](../manuscript-reporting-check/SKILL.md) checks the reporting guidelines that fit the study design, statistics reporting, and whether data, code and software are available. Integrity-check's upload check runs once on the draft's source and supplementary folder too, for the two findings that are urgent at any stage (text hidden for AI reviewers, a leaked secret). Run each mechanical check once and reuse it. |
+| Anticipate referees (project policy; automatic by default for this full workflow) | [manuscript-peer-review](../manuscript-peer-review/SKILL.md) gives referee-style judgement on contribution, design and claims, reusing the checks above rather than repeating them. Only its choices between new work and a narrower claim are the authors' decision; its fixable-in-text items, a claim narrowed to its evidence among them, feed the revision stage under the `edits` setting, each with the placement that costs readers least. |
 | Review the figures and tables | [manuscript-figures](../manuscript-figures/SKILL.md) reviews every figure and table in the paper and its supplement: it renders each figure at its printed size and looks at it (legibility at the column width, colour for colour-blind readers, clutter, resolution), measures each table (width at the table font, units, precision, empty cells), checks each against its caption, the text and the code that draws it, and recommends what to keep, change, move to or from the supplement or add, each with its reason. Main-text items get the full review, supplementary ones a lighter one. It uses the chosen journal's figure rules, or what the ladder's venues share, once journal fit has named them; before journal fit has run, it measures against the common defaults (single- and double-column widths, 6 pt, 300 dpi) and reruns the measurement once the journal's rules are named. Which figures the paper has is the authors' decision; caption and citation fixes join the revision like any text edit. A figure-led paper is offered the figures referee in the panel, and every referee and reader sees the figures as images. |
 | Establish policy and journal fit | [manuscript-policy-fit](../manuscript-policy-fit/SKILL.md) resolves study-specific scope and applicable requirements when relevant. [manuscript-journal-select](../manuscript-journal-select/SKILL.md) gives a preprint ladder and a journal ladder ordered by the authors' priorities, and what every venue on them asks for, if no target is settled or the author requests alternatives. Reuse an existing choice. |
-| Revise the paper | Correct supported defects within the authorised scope and use [manuscript-prose-edit](../manuscript-prose-edit/SKILL.md) for clarity and author voice. Preserve results and qualifications; distinguish substantive claim corrections from language changes. Obtain author facts or decisions when a correction depends on them, and insert facts the authors supply under the prose-edit contract's "Author-supplied content" rule (§1). |
+| Revise the paper | Correct supported defects within the authorised scope and use [manuscript-prose-edit](../manuscript-prose-edit/SKILL.md) for clarity and author voice. Preserve results and qualifications; distinguish substantive claim corrections from language changes. Under the default, a correction the evidence for a confirmed finding settles is applied and shown; a correction that needs a fact only the authors have is a proposal with that question as its comment, never a placeholder. Insert facts the authors supply under the prose-edit contract's "Author-supplied content" rule (§1). |
 | Remove formulaic phrasing | [manuscript-deslop](../manuscript-deslop/SKILL.md) reads the whole revised paper for formulaic LLM phrasing, boilerplate and empty rhetoric and removes it under the edit policy. The prose edit's smell check only keeps its own edits from adding patterns; this stage removes the ones the draft already had. Run it after the prose edit and before the story check, on the same working copy. Its findings are writing findings, never scientific errors. |
-| Check how it reads | [manuscript-story](../manuscript-story/SKILL.md) reads the revised paper as its readers do, against the version before this workflow, and repairs the story within the direction the authors recorded: a stake in the opening, one headline per result, real output shown, caveats kept but placed where they cost readers least. A change of direction is only offered as options. Run it after the deslop stage, and whenever referee-driven changes have accumulated. |
+| Check how it reads | [manuscript-story](../manuscript-story/SKILL.md) reads the revised paper as its readers do, against the version before this workflow, and repairs the story within the paper's direction (the one the authors recorded or, until they confirm one, the one the text has now): a stake in the opening, one headline per result, real output shown, caveats kept but placed where they cost readers least. A change of direction is only offered as options. Run it after the deslop stage, and whenever referee-driven changes have accumulated. |
 | Prepare for the chosen journal | Use [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) for the actual article type and submission stage: scope, length and abstract format, required sections and the reporting checklist that journal asks for. Statements whose contents depend on final code and results are drafted now only where they can read complete; otherwise they are held, with their questions as comments, until the facts exist. Resolve the target before making incompatible journal-specific changes; before that, only the requirements every venue on the ladders shares are adapted. |
-| Verify the revision | Recheck affected claims, references, cross-section consistency and applicable submission requirements. Compare against the retained version with `../manuscript-prose-edit/scripts/guard.py ORIGINAL FINAL --revision --relocated --authorised RUN/manuscript-improve/requested-claims.yaml`, for the working copy and for the corrected version (`proposed.md`), resolve unintended drift and identify what remains unverified. The file lists each claim change that a confirmed finding or the authors' own request asked for (`passage`: words from the sentence; `finding`: the finding id or "authors' request"); write it from the findings yourself, and leave it as an empty list when nothing asked for a stronger claim. A claim that widened with no entry exits 1: restore its original wording in the applied edit or the proposal, rebuild the corrected version and list each restoration in the summary. This needs nothing from the authors; those who want to approve every change themselves choose `edits: propose`. Run the required smell check on the revised text, `../manuscript-deslop/scripts/style_profile.py FINAL --before ORIGINAL --check`, and read it against the pattern list the check prints. Compare how it reads with `../manuscript-story/scripts/reader_metrics.py FINAL --before ORIGINAL` and show the authors what moved. The corrected version is built once the dashboard has collected and adjudicated the findings, and verified here before the dashboard is rendered (see "Build the corrected version" below). |
+| Verify the revision | Recheck affected claims, references, cross-section consistency and applicable submission requirements. Compare against the retained version (the clean copies for a marked manuscript), from this skill's folder, for the working copy and again for the corrected version (`proposed<ext>`): `uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL FINAL --revision --relocated-in RUN/manuscript-story --authorised RUN/manuscript-improve/requested-claims.yaml`, adding one `--moved-to FILE` for each supplement or response-letter file a stage moved text into. A caveat may move only where the story stage moved it, within its section; a scope qualifier never leaves an Abstract or Introduction claim. `requested-claims.yaml` lists each claim change that a confirmed finding or the authors' own request asked for, and each declaration (consent, ethics, competing interests, funding, contributions) whose facts the authors supplied (`passage`: at least three words in a row copied exactly from the sentence; `finding`: the finding id, or `comment`: a referee's comment id, or "authors' request"); write it from the findings yourself, and leave it as an empty list when nothing asked for a stronger claim. Exit 1 means a claim widened or a declaration changed with nothing asking for it: hold that proposal in the next attempt of the choices file (`"why": "widened claim, wording restored"`), or for an applied edit record the reverse change (`runs.py change` with the widened passage as before and the original wording as after; revise.py lists the pair as restored), rebuild as the next attempt and list each restoration in the summary. This needs nothing from the authors; those who want to approve every change themselves choose `edits: propose`. Run the required smell check on the revised text with every stage's reviewed exceptions, `uv run --script ../manuscript-deslop/scripts/style_profile.py FINAL --before ORIGINAL --check --keep-file RUN`, and read it against the pattern list the check prints. Compare how it reads with `uv run --script ../manuscript-story/scripts/reader_metrics.py FINAL --before ORIGINAL` and show the authors what moved; when the corrected version reads worse than the original, find the stage that caused it. The corrected version is built once the dashboard has collected and adjudicated the findings, and verified here before the dashboard is rendered (see "Build the corrected version" below). |
 | Show what the workflow found and did (always, last) | [manuscript-dashboard](../manuscript-dashboard/SKILL.md) collects every stage's `findings.json`, merges the problems several skills found and dismisses what did not hold; once the corrected version is built and verified, it renders the dashboard: problems by kind, severity, stage and section, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type in each version, coverage, edits as diffs, the panels, and what could not be checked. |
-| Finish for submission, once the code, data and results are final | Archive the release and quote its DOI and version, finalise the data availability statement, declarations, AI-use statement and cover letter with manuscript-journal-adapt, remove revision markers if the authors want that, and run the submission-package check in manuscript-integrity-check. Do this when the authors say they are about to submit; until then these items are listed last and are not blockers for the draft. |
+| Finish for submission, once the code, data and results are final | Archive the release and quote its DOI and version, finalise the data availability statement, declarations, AI-use statement and cover letter with manuscript-journal-adapt, upload the clean copy of a marked manuscript (never the marked master), and run the submission-package check in manuscript-integrity-check on the upload files. Do this when the authors say they are about to submit; until then these items are listed last and are not blockers for the draft. |
 | After a decision | [manuscript-reviewer-response](../manuscript-reviewer-response/SKILL.md) plans the revision from the decision letter in the referees' own numbering, drafts the response letter and verifies that the revision addresses each comment. This is a separate request, after real reviews arrive. |
-| Track who revised what (where the manuscript keeps revision marks) | [manuscript-revision-marks](../manuscript-revision-marks/SKILL.md) keeps the `@rev` marks current through every stage, lists the AI edits no person has reviewed and the prose no round has read, and builds the PDF from the clean copy against the page limit; [manuscript-mark-people](../manuscript-mark-people/SKILL.md) sets up who counts as a person. Never introduced into a project that does not use marks unless the authors ask. |
+| Track who revised what (where the manuscript keeps revision marks) | [manuscript-revision-marks](../manuscript-revision-marks/SKILL.md) keeps the `@rev` marks current through every stage under the shared [marks rule](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review) (each applied edit bumps or opens its segment; routine fixes share one "copy edit" round per section), lists the AI edits no person has reviewed and the prose no round has read, and builds the PDF from the clean copy against the page limit; [manuscript-mark-people](../manuscript-mark-people/SKILL.md) sets up who counts as a person, asking its one question among the end-of-run decisions. Every comparison of versions in this workflow (the claim guard, `revise.py`, the change records) reads the clean copies. Never introduced into a project that does not use marks unless the authors ask. |
 
 **Simulated referees and readers are independent, and the coordinator starts them.** Every referee seat,
 reader, defender and critic (the deslop reflection loop's) is a fresh agent whose whole context is its
@@ -134,22 +143,65 @@ only dependent work. Follow the shared rule in
 collect decisions, continue every applicable check and permitted edit across the requested scope, and
 prepare exact proposed text with its evidence. Use asynchronous questions when supported; otherwise
 defer blocking question tools until the independent work is finished. Do not turn the `conservative`
-policy into a sequence of question-and-answer stops. At handover, distinguish completed work from the
-pending proposals and their dependent steps. Silence never grants approval. Do not invent data,
-citations, approvals or accounts of AI use.
+policy into a sequence of question-and-answer stops. The authors' questions are only the held decisions
+and the facts only they have, asked once, together, at the end; a failed check (the claim guard, the smell
+check, a story test, the run validation) is yours to fix, never a question. At handover, distinguish
+completed work from the pending proposals and their dependent steps. Silence never grants approval. Do
+not invent data, citations, approvals or accounts of AI use.
+
+**Keep the paper whole and worth reading.** The run improves the authors' paper; it does not rewrite it
+into another one. No applied edit or proposal drops a result, number, caveat or citation the evidence
+does not refute, and the authors' voice, their direction and what makes the paper readable (its stake,
+its worked example, one headline per result) survive every stage. The final checks below measure it:
+the claim guard for lost caveats and strengthened claims, the smell check for machine phrasing, and the
+reader metrics for how it reads against the original. When the corrected version reads worse than the
+original on the reader metrics, find the stage that caused it and restore or drop those edits.
 
 ## Finish with a reviewable result
 
 **Build the corrected version.** The working copy holds only what the mode applied; the authors also get
-the whole improved paper to read. It is built from the adjudicated inventory, so the order at the end of
-a run is: collect and adjudicate the findings (manuscript-dashboard, steps 1 and 2), build the corrected
-version, verify it, then render the dashboard. Write
-`RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
-recommend (`prefer`); the proposals to hold back with the reason (`hold`: a statement for a journal not
-yet chosen, a decision only the authors can make, a proposal whose substance is a fact only they have);
-and an anchor for an addition its stage left without one. No placeholder goes into the text
+the whole improved paper to read, and can accept it in one step. It is built from the adjudicated
+inventory, so the end of a run goes in this order:
+
+1. Every stage has recorded its applied edits (`runs.py change`, routine ones grouped per paragraph or
+   section), with any question for the authors in `--comment`, never in the text.
+2. Collect the draft inventory (`RUN/manuscript-dashboard/findings.draft.json`).
+3. Adjudicate in `merges.json`; with a reference review, freeze, match and write `reference.json` with
+   `matched_by` (manuscript-dashboard, steps 1 to 3).
+4. Collect the adjudicated `findings.json` once, with `--merge` (and `--reference`).
+5. Write `revision-choices.json` and run `revise.py` into `revision/`.
+6. Verify `revision/proposed<ext>` with the checks of the "Verify the revision" row. Fix a failure by
+   holding the proposal or recording the reverse change; when a change was recorded, collect again as
+   `findings.2.json` and rebuild into `revision.2`.
+7. Render the dashboard and the Word file from the same attempts.
+8. Write the summary, run the smell check on it, register it, then `runs.py handover`, `finish`,
+   `validate --final` and, when `keep` is `results`, `pack`.
+
+Write `RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
+recommend (`prefer`); the proposals to hold back with the reason (`hold`: a held decision such as a
+statement for a journal not yet chosen, a proposal whose substance is a fact only the authors have, or a
+claim restored after the guard); and an anchor for an addition its stage left without one. Every key is
+optional; revise.py refuses any other key or shape and says what the file should hold:
+
+```json
+{
+  "prefer": ["ST-C3"],
+  "hold": [
+    {"id": "JA-C18", "why": "Waits for the choice of journal."},
+    {"id": "ST-C7", "why": "widened claim, wording restored"}
+  ],
+  "anchor": [{"id": "JA-C1", "after": "verbatim passage the addition follows"}]
+}
+```
+
+No placeholder goes into the text
 ([Questions for the authors are comments, never text](../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)):
-a question about a proposal is its `comment`, one about existing text a decision in the report. Then run, from this skill directory:
+a question about a proposal is its `comment`, one about existing text a decision in the report. ORIGINAL is
+the run's snapshot of the manuscript before the workflow (`RUN/inputs/01-<name>`); WORKING is the working
+copy, the manuscript with every applied edit. For a manuscript with revision marks, give both as clean
+copies (`../manuscript-revision-marks/scripts/rev_marks.py strip FILE --out RUN/manuscript-improve/clean/original.md`,
+and the same for the working copy after each stage), and use the clean copies for every comparison below.
+Then run, from this skill directory:
 
 ```bash
 uv run --script scripts/revise.py ORIGINAL WORKING RUN/manuscript-dashboard/findings.json \
@@ -158,17 +210,30 @@ uv run --script scripts/revise.py ORIGINAL WORKING RUN/manuscript-dashboard/find
 
 It locates every applied edit in the working copy and stops when undoing them does not give the original,
 so an unrecorded edit cannot hide. It then applies the chosen proposals in manuscript order:
-`proposed.md` is the corrected version, `changes.md` the same as CriticMarkup with the questions for the
-authors as comments, `revision.json` what was applied, held, left as an alternative or not placed, each
-with its reason, and the questions. A `[AUTHORS: ...]` note a stage left in a proposal is lifted out of its
-text into a comment; a proposal that was only a question is listed, not placed. Any note already in the
-working copy (from an applied edit) is listed as `notes_in_text`: delete it there, and say so in the
-summary. The dashboard marks each questioned passage in yellow and lists the questions. A proposal is never dropped
-silently; one that cannot be placed is listed, and the authors see it. The corrected version is a
-proposal too: the working manuscript changes only as the mode allows or the authors accept. Run the
-verification checks below on `proposed.md` as well, and give the dashboard the folder
+`proposed<ext>` (the manuscript's own extension, `proposed.md` or `proposed.tex`) is the corrected version,
+`revised<ext>` the working copy as revise.py read it, `changes.md` the same as CriticMarkup with the
+questions for the authors as comments, and `revision.json` what was applied, held, restored, left as an
+alternative or not placed, each with its reason, and the questions. A `[AUTHORS: ...]` note a stage left in a
+proposal is lifted out of its text into a comment; a proposal that was only a question is listed, not
+placed. revise.py lists two kinds of notes still in a text. `notes_in_working_copy` are the notes the run's
+applied edits left in the working copy; the corrected version already has them as comments. Remove each
+from the working copy with a recorded `runs.py change` and say so in the summary; better, put such a
+question in the change's `--comment` so no note enters the text. `notes_in_text` are the authors' own draft
+notes: list them for the authors with the end-of-run items; the run never deletes them. The dashboard marks
+each questioned passage in yellow and lists the questions. A proposal is never dropped silently; one that
+cannot be placed is listed, and the authors see it. The corrected version is a proposal too: the working
+manuscript changes only as the mode allows, the authors accept, or "fix everything" asks. Run the
+verification checks on `proposed<ext>` as well, and give the dashboard the folder
 (`--revision RUN/manuscript-improve/revision`), so its Corrected version tab shows the track changes.
-Hand the authors a copy beside their manuscript as `<manuscript stem>.proposed.md`, never over their file.
+`runs.py handover RUN` puts the corrected version beside the manuscript as `<manuscript stem>.proposed<suffix>`
+(`paper.proposed.md`, `paper.proposed.tex`), never over their file or a different earlier copy.
+
+A step done again never overwrites the first. The next attempt of a file takes a number before its
+extension (`findings.2.json`, `revision-choices.2.json`, `manuscript-review.2.docx`), of a folder after its
+name (`revision.2`, `dashboard.2`). Each script refuses an existing output and names the next free one. Keep
+the chain together: revise.py builds from the newest adjudicated inventory, and the dashboard and the Word
+file take that inventory and the revision built from it (they refuse another). `runs.py handover` and
+`pack` use the newest attempt.
 
 Return the revised manuscript, the corrected version and the proposals with one concise summary for the whole workflow,
 linking its run index and each companion skill's report and evidence folder. Retain contradictions,
@@ -182,7 +247,7 @@ Group what remains, including checks that could not be completed, under the four
 [Order the work by when it can be done](../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done),
 current-work groups first, merging the companion skills' findings by when they can be done rather than by
 skill. End-stage items (archive DOIs and release tags, final versions, declarations, the AI-use
-statement, the cover letter, removing revision markers, the upload check) are not blockers for a draft
+statement, the cover letter, building the upload files from the clean copy, the upload check) are not blockers for a draft
 and do not count against its readiness unless the authors say they are about to submit.
 
 Make the original-to-final comparison accessible. In an iterative workflow, state the current accepted
@@ -197,11 +262,13 @@ merge what several skills found into one record each, dismiss what did not hold,
 dashboard, with the corrected version, into `RUN/manuscript-dashboard/`, and the same as an annotated Word
 document (`export_docx.py`: tracked changes by stage, the problems and questions as comments) for readers who
 work in Word or Google Docs, both handed over beside the manuscript as `<manuscript stem>.dashboard.html` and
-`<manuscript stem>.review.docx` (`runs.py handover RUN`; an existing Word file is replaced only once the
-authors agree). Link the dashboard first in the
+`<manuscript stem>.review.docx` (`runs.py handover RUN`; a different Word file or corrected version already there is kept, and this
+run's goes beside it under a dated name; replacing it is an optional end-of-run decision). Link the dashboard first in the
 summary and the corrected version second: they are how the authors and their colleagues see what the
 workflow caught, changed and left open, with the actual coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,
-with its reason; its unfound problems are unknown, not zero. When `keep` is `results`, pack the run
+with its reason; its unfound problems are unknown, not zero. `runs.py validate RUN --final` requires the
+adjudicated inventory, the corrected version, the dashboard and the Word file, unless the dashboard or
+improve stage was finished `partial` or `blocked` with its reason. When `keep` is `results`, pack the run
 (`runs.py pack RUN`) after the final validation, as the very last step: the dashboard, the corrected
 version and the reports stay in place and the rest goes into `evidence.zip`.
 

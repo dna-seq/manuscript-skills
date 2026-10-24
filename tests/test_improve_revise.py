@@ -159,7 +159,9 @@ def test_the_command_writes_the_corrected_version_and_keeps_earlier_attempts(run
     assert result.exit_code == 0, result.output
     assert (run / "revision/proposed.md").read_text() == PROPOSED
     assert (run / "revision/revised.md").read_text() == WORKING
-    assert "{~~plays a crucial role in annotation~>annotates variants~~}{>>ST-C1<<}" in (run / "revision/changes.md").read_text()
+    # Each change is named by its section and summary, its ID in parentheses.
+    assert ("{~~plays a crucial role in annotation~>annotates variants~~}{>>1. Introduction: Edit ST-C1 (ST-C1)<<}"
+            in (run / "revision/changes.md").read_text())
     record = json.loads((run / "revision/revision.json").read_text())
     assert record["proposed_sha256"] == revise.digest(PROPOSED) and "<ins" in record["body_html"]
     assert CliRunner().invoke(revise.app, args).exit_code != 0

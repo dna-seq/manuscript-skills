@@ -26,7 +26,7 @@ reports; it never edits the manuscript.
 Apply the review to the whole paper unless the authors name a narrower scope, and follow the shared
 [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review).
 
-Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run, ending with its [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist) (report, smell check, `findings.json`, `finish`). This applies to direct invocations too.
 
 ## What this skill judges, and what it reuses
 
@@ -51,7 +51,7 @@ changed sections lie outside its scope), or its findings are in the conversation
 referee would raise the same point, and say why where the panel judges it differently. Whether the
 results support the claims stays referee judgement, with integrity's Step 5 as its starting point. A
 confirmed point in another check's remit (a number that disagrees, a missing statement or archive, a
-TODO, a citation's identity) goes in Part 2 of the result, in a short "Also found, belongs to other
+TODO, a citation's identity, an ethics or consent point, a figure's legibility) goes in Part 2 of the result, in a short "Also found, belongs to other
 checks" list naming its skill (or, when it waits for the end, such as a declaration or an archive
 record, in the end-stage group), never among the ranked items; a referee's report may still mention it,
 as real referees do. When a check has not run, say so under "What this review did not have" and offer
@@ -158,7 +158,20 @@ the whole paper).
   calls, or in the background where the host reports each agent's completion (a coordinator running other
   stages meanwhile). Never merge, adjudicate or end the workflow while a seat is still running. Retry a seat that fails to start (for example at a concurrency
   limit). Before merging, check that each seat's `findings.json` exists, parses and ends with its
-  `report`; ask a seat that left the report out to add it, and never write one for it.
+  `report`; ask a seat that left the report out again (below), and never write one for it.
+- **Other models, when chosen, start now.** When the authors asked for more than one model, or the
+  project saves `other_models`, start every seat on each chosen model as well, in the same message as
+  the host's seats, with [manuscript-other-models](../manuscript-other-models/SKILL.md): each in a fresh
+  workspace of its own, from the same brief. This is not optional, and their findings are merged in step 4
+  with the others.
+- **Asking a seat again.** Only that seat's own agent is asked again, by resuming it, and only for what
+  its brief already asked: its report, a coverage line, a missing field, a misquote to correct. The
+  message names the step of the brief and adds nothing else (no other seat's output, no finding, no
+  hint). When the host cannot resume that agent (it has ended, or it is a seat on another model, whose
+  sessions are never resumed), run the seat again as a fresh agent in a new workspace with the same
+  brief when what is missing is worth a whole-paper read (a report); its new output replaces the earlier
+  one in the merge, and both stay in the run. Otherwise record that the seat gave none ("no
+  recommendation", "no coverage line for C3"). Never let another agent or the coordinator fill it in.
 - **Fallback.** Only when the host cannot start subagents at all, or a seat still fails after a retry,
   run that seat (or every seat) as a sequential pass: write its criteria first, then one pass from the
   reading copy, without rereading earlier passes until all are done. A stage that was delegated to an agent
@@ -169,7 +182,10 @@ the whole paper).
 ## Step 4: check the finding contract and resolve prior work
 
 Merge the seats' JSON into one file, `$WORK/findings.merged.json`, keeping each finding's `seat` and
-putting each seat's `report`, with its `seat`, in `reports`, and run (from this skill directory):
+putting each seat's `report`, with its `seat`, in `reports`. Every id carries its seat's prefix
+([finding-schema.md](references/finding-schema.md#finding-ids); a seat on another model adds its CLI's
+letter, `SKX-1`): renumber any that do not, and the ids each recommendation rests on with them. Then run
+(from this skill directory):
 
 ```bash
 uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md --supplement SUPPLEMENT.md \
@@ -180,7 +196,7 @@ uv run --script scripts/check_findings.py "$WORK/findings.merged.json" PAPER.md 
 Pass each seat's `criteria.md` with `--criteria SEAT=PATH`, once per seat. The check matches each finding to the criterion
 its seat wrote before reading and warns, without holding anything back, on a major finding outside them, a
 criterion copied from the manuscript (written after reading) and a criterion with neither a finding nor a line
-saying what was checked; ask that seat for the line. `--venue` checks that a finding resting on what the
+saying what was checked; ask that seat again for the line (step 3). `--venue` checks that a finding resting on what the
 journal expects quotes `venue.md` word for word; a demand for replication, more samples or an external cohort
 that says nowhere where its expectation is written is a warning, and adjudication treats it as the referee's
 own expectation.
@@ -196,11 +212,11 @@ looked), the concern, the claim it affects and how (validity, support, scope, re
 interpretation), a severity, what would change the seat's mind, and a proposed route. A finding that
 cannot quote is not a finding. Each report needs a summary and, per journal, a recommendation with its
 reason and the seat's own findings it rests on. The script lists failures as "not yet findings";
-correct a misquote from the manuscript or return it to the seat, and never drop one silently.
+correct a misquote from the manuscript or ask the seat again (step 3), and never drop one silently.
 
 Then resolve every prior work the findings name, including works the manuscript itself cites with an
 identifier. This is the one check this skill runs
-([adjudication.md](references/adjudication.md#4-prior-work-claims)): `verified` means the identifier
+([adjudication.md](references/adjudication.md#3-prior-work-claims)): `verified` means the identifier
 resolved to the named work; only an identifier that could not be resolved, or a work without one, stays
 `unverified`.
 
@@ -208,36 +224,40 @@ resolved to the named work; only an identifier that could not be resolved, or a 
 
 Follow [adjudication.md](references/adjudication.md):
 
-1. Apply the claim-consequence gate and the fairness filter (no "not novel" without a named, resolved
-   prior work; no "run experiment X" unless the claim needs it; no "not state of the art" as such).
-2. Run a defence pass: a fresh subagent, started like the seats, with the reading copy and the findings,
-   stripped of seat names and counts, and without the referees' reports or `venue.md`. It first tests
-   each finding's premise against its quote, then looks for where the paper already answers it.
-3. Set a verdict with `verdict_evidence` on every finding. A premise the quoted text does not support is
-   refuted. A partly answered finding is narrowed to the part left open, then confirmed, or downgraded
-   when that part no longer threatens the claim. Agreement between seats is not confirmation.
+1. Apply the claim-consequence gate and, with the prior work resolved in step 4, the fairness filter
+   (no "not novel" without a named, resolved prior work; no "run experiment X" unless the claim needs it;
+   no "not state of the art" as such).
+2. Run the defence pass exactly as
+   [adjudication.md, section 5](references/adjudication.md#5-defence-pass) says (what the defender is
+   given and what it never sees), and keep the map from the renumbered ids it saw to the originals.
+3. Set a verdict with `verdict_evidence` on every finding, and record what the defence returned for it
+   as `defence_outcome`. A premise the quoted text does not support is refuted. A partly answered
+   finding is narrowed to the part left open (`narrowed`, with the referee's words in
+   `original_concern`), then confirmed, or downgraded when that part no longer threatens the claim. A
+   refuted finding whose answer sits far from its claim is kept as a misread risk for the writing.
+   Agreement between seats is not confirmation.
 4. Merge by root cause (the script's groups are a starting point), route each confirmed finding (fixable
    in text, author-required, venue, policy, or dropped with a reason; author-required work is never
    patched), triage it (substance, misread risk, polish), set its severity by the consequence for the
    claim it affects (a sentence about platform support is not major), and set the stage at which the
    authors can act on it ([adjudication.md](references/adjudication.md#8-merging-triage-and-ranking)):
    archive records, release tags and declarations wait until the code is final and are never blockers
-   for a draft.
+   for a draft; a `policy` point, like a point in another check's remit, is listed with the other checks.
 5. Read each referee's recommendation against the verdicts
    ([adjudication.md](references/adjudication.md#9-the-referees-recommendations)): when the defence
    refuted or narrowed what it rests on, its report says so in one sentence; the recommendation stays as
    the referee gave it.
 6. Write the adjudicated findings, with the `reports`, to `$WORK/findings.adjudicated.json` and rerun
-   `check_findings.py --adjudicated` on it; every reported finding and report must pass.
+   the step 4 command on it, with the same supplementary files, criteria and `venue.md`, plus
+   `--adjudicated`; every reported finding and report must pass.
 
-## Step 6 (optional): robustness and model diversity
+## Step 6 (optional): robustness check
 
-Offer these when the stakes justify the cost ([options.md](references/options.md)): a meaning-equivalent
+Offer it when the stakes justify the cost ([options.md](references/options.md)): a meaning-equivalent
 rewrite of the sections behind confirmed findings, to separate substance from wording (a changed verdict
-marks a misread risk); seats on other models, recorded and never called independent, and only with consent
-to send the manuscript to another provider. When the authors asked for more than one model, or the project
-saves `other_models`, this is not optional: run every seat on each chosen model as well, from step 3, with
-[manuscript-other-models](../manuscript-other-models/SKILL.md).
+marks a misread risk). When the authors chose no other model, the report may also offer seats on another
+model for a later run, recorded and never called independent, and only with consent to send the
+manuscript to another provider; models already chosen ran from step 3.
 
 ## Step 7: give the result
 
@@ -274,23 +294,32 @@ is available on request, in the same plain form.
 
 **Where the review goes** follows the saved manuscript-project destination. Retain it and all
 seat/defence/adjudication outputs in this skill's run folder. Beside the report, write `findings.json`
-in the [stage-findings format](../manuscript-dashboard/references/stage-findings.md), one record per
-adjudicated concern that stands (confirmed or downgraded), merged by root cause as in Part 2; the
+in the [stage-findings format](../manuscript-dashboard/references/stage-findings.md), one record per root
+cause as in Part 2, mapped from the adjudicated findings as the table in
+[output-format.md](references/output-format.md#the-stages-findings-for-the-dashboard) says (refuted and
+dropped concerns under `dismissed`, the choice between new work and a narrower claim as `decision: true`, what
+the review did not have under `not_checked`). Each record's `detail` ends with the ids of the concerns it
+merges, in parentheses ("(EV-1, SK-3)"), so that the dashboard links each referee's concern to it; the
 referees' reports stay in `findings.adjudicated.json`. The `reports` choice controls chat:
 `file` gives links, the journal recommendations and urgent findings; `chat` and `both` show the whole
 report too. See [output-format.md](references/output-format.md#saving-and-the-shared-record).
 
 ## Hand-offs
 
-- Fixable-in-text concerns go to manuscript-prose-edit only when the authors authorise edits, each with
-  its placement, so the fix lands where it costs readers least. Narrowing a claim is the authors' decision.
-  A concern about how the paper reads (no stake, no example of output, caveats crowding the results) goes
+- Fixable-in-text concerns go to manuscript-prose-edit with their placement, so the fix lands where it
+  costs readers least, and follow the authors' `edits` setting like any correction
+  ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)):
+  under `conservative` (the default) and `apply`, the fix that a confirmed concern's evidence settles is
+  applied and shown before and after, including a claim narrowed by rewording to what its evidence shows;
+  under `propose` it is a proposal. A claim is narrowed only on a confirmed concern, and never by deleting
+  it. Only the choice between new work and a narrower claim on an author-required concern is the authors'
+  decision (`decision: true`), listed once with the other held decisions. A concern about how the paper reads (no stake, no example of output, caveats crowding the results) goes
   to manuscript-story, which also offers a reader panel as the counterpart of these referees.
 - Author-required work stays with the authors. Never invent an analysis, result, number or citation to
   close a concern.
 - Venue routes go to manuscript-journal-adapt or manuscript-journal-select; policy routes to
   manuscript-policy-fit; reporting gaps to manuscript-reporting-check; citation problems to
-  manuscript-reference-check.
+  manuscript-reference-check; a figure's legibility, colour or layout to manuscript-figures.
 - When `manuscript-record.yaml` exists, add confirmed concerns to `open_issues` and record the review
   under `checks` ([output-format.md](references/output-format.md#saving-and-the-shared-record)).
 - When real referee reports arrive, use manuscript-reviewer-response. The simulated concerns stay in
@@ -300,9 +329,11 @@ report too. See [output-format.md](references/output-format.md#saving-and-the-sh
 
 - `scripts/check_findings.py`: verifies quotes, required fields, allowed values, prior-work identifiers,
   quotes of `venue.md` behind a field's expectation, and each referee's report; warns on a finding that bundles
-  several problems or asks for what the field expects without saying where it is written; groups findings and counts seats; after adjudication, flags recommendations
-  whose findings the defence refuted or narrowed and sorts each referee's findings into its report's
-  sections; Markdown and JSON output; no scores.
+  several problems or asks for what the field expects without saying where it is written; names finding
+  ids the dashboard cannot link; groups findings and counts seats; after adjudication, requires what the
+  defence returned for each finding, flags recommendations whose findings the defence refuted or
+  adjudication narrowed, and sorts each referee's findings into its report's sections; Markdown and JSON
+  output; no scores.
 - `references/seats.md`: panel choice by study design, seat remits, the quick pass, the seat brief (with
   `venue.md` and the referee's report).
 - `references/finding-schema.md`: the finding fields, the referee's report, the contract and the script's

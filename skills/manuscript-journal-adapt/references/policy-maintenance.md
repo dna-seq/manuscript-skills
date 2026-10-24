@@ -10,8 +10,13 @@ Commands below are relative to `manuscript-journal-adapt/`:
 uv run --script scripts/policy_watch.py check --venue aging-cell
 uv run --script scripts/policy_watch.py check --stale-days 30 --update
 uv run --script scripts/policy_watch.py list
-uv run --script scripts/policy_watch.py record URL saved.html
+uv run --script scripts/policy_watch.py record URL saved.html --update
 ```
+
+`--update` (on `check` and `record`) writes the snapshots and `index.yaml` into the plugin's references. It
+belongs to this maintenance only: during an author's task run `check --venue KEY --routes httpx,chrome`
+without it, and record what was read in the manuscript record's `venue_facts` instead
+([selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)).
 
 `policy_watch.py` watches the pages cited by `venues.yaml` (`url`, `ai_policy_url`, `sources`), reduces
 them to passages about AI and compares them with
@@ -19,7 +24,8 @@ them to passages about AI and compares them with
 `git log -p` on a snapshot shows the policy history. This watcher does not establish that non-AI scope,
 validation, fees or other selection requirements are unchanged.
 
-It tries plain HTTP, then headless Chrome, then the newest Wayback copy. A page none of them can read is
+It tries plain HTTP, then headless Chrome (or Chromium or Edge, found on the PATH or in the usual install
+folders on Windows and macOS), then the newest Wayback copy. A page none of them can read is
 listed under "Could not be read" (`not_assessed` in the JSON), never as unchanged. An archived snapshot is
 historical evidence, not verification of the current rule. For a blocked page, follow the order of the shared rule
 (`../../manuscript-integrity-check/references/author-priorities.md`, "When a page blocks automated reading"): the

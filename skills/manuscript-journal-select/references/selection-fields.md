@@ -15,11 +15,32 @@ does not refresh fees or review statistics.
 ## Facts read for one manuscript
 
 During an author's task, what is read goes to the manuscript record's `venue_facts`, keyed by the venue's
-catalogue key, in the same field names as the catalogue (`review_speed`, `publication_costs`, `open_science`,
-`limits`, `abstract_headings`, `required_sections`, `submission_rules`, `software`, `other_desk_rules`), each
-with `source` and `checked`. `venues.py ladder` and `common` lay these facts over the catalogue field by field;
-a venue the catalogue lacks can be added with a `name`. The authors' `priorities` sit beside them in the record.
-When maintaining this repository, the same facts go into `venues.yaml`.
+catalogue key, in the same field names as the catalogue, each with `source` and `checked`:
+
+- selection and guidelines: `review_speed`, `publication_costs`, `open_science`, `limits`,
+  `abstract_headings`, `required_sections`, `submission_rules` (an addition every other venue's version can
+  carry, such as alt text, gets `free_for_others: true`), `software`, `other_desk_rules`,
+  `validation_requirements`, `excluded_study_designs`, `editorial_profile`;
+- the AI policy: `writing_help`, `exempt`, `prompts`, `tracking`, `screening`, `disclosure_places`,
+  `disclosure_fields`, `disclosure_neutral`, `extra_burden`, `image_rules`, `reviewer_ai`, `ai_policy_url`;
+- preprint servers: `transfers` and `transfers_checked`;
+- `not_read`: one sentence saying why the venue's author guidelines could not be read, with the date
+  (`common` gives the reason instead of a bare gap).
+
+`venues.py ladder` and `common` lay these facts over the catalogue field by field, and a mapping such as
+`limits` or `open_science` key by key, so a partial `limits` keeps the catalogue's other limits; a list
+replaces the catalogue's list. A venue the catalogue lacks can be added with a `name`. The authors'
+`priorities` sit beside them in the record, with what else the ladder reads (`priorities.jif_floor`,
+`priorities.budget_eur`, `priorities.validation_available`, `ai_use`, and `study.designs` with
+`study.confirmed`). When maintaining this repository, the same facts go into `venues.yaml`.
+
+When `policy_watch.py check` exits 1 during an author's task (an AI passage changed, or a page is gone),
+read each changed passage it quotes. If the rule itself moved, write the new rule into that venue's
+`venue_facts` (the AI-policy fields above, with the page and the date), rerun `ladder` and `common`, and say
+in the report, in one sentence, that the catalogue's entry is out of date. A page that is gone is looked for
+at its new address and read there. Do not pass `--update` and do not edit `venues.yaml` or the snapshots:
+that is maintenance. Exit 3 means some pages could not be read; read those with your own browser tool before
+any archived copy, and an archived copy is never the current rule.
 
 `review_speed`, `publication_costs`, `editorial_profile`, `submission_rules`, `transfers` and
 `transfers_checked` describe one journal or server and are never inherited from the entry it `inherits`.
@@ -31,14 +52,17 @@ When maintaining this repository, the same facts go into `venues.yaml`.
 - `applies_to`: normalised study designs used by the helper: `software`, `public-data`, `bioinformatics`,
   `mr`, `bibliometric`, `public-health-database` or `other`. Describe the precise scope in prose as well;
   classification of an ambiguous manuscript remains an editorial/author judgement. The shared record's
-  design keys map onto these: `software-tool`, `database-resource` and a `method-benchmark` whose
-  contribution is the method map to `software` (a tool or resource paper, not a biological finding);
+  design keys map onto these, and `ladder` maps them itself when it reads `study.designs`:
+  `software-tool`, `database-resource` and `method-benchmark` map to `software` (a tool or resource paper,
+  not a biological finding; give `--study-design` for a benchmark whose contribution is a finding);
   `public-data-reanalysis` to `public-data`; computational biological findings (`omics-profiling`,
-  `genetic-association`, `polygenic-score` without new data) to `bioinformatics`;
-  `mendelian-randomization` to `mr`; anything else to `other`. A publisher rule about "predominantly
-  bioinformatics findings" does not by itself cover a software paper; read its scope.
+  `genetic-association`, `polygenic-score`) to `bioinformatics`; `mendelian-randomization` to `mr`; anything
+  else to `other`. A mixed study is judged under each design, and a venue that one design would rule out and
+  another would not "Depends" on how its editors read the paper. Until the authors confirm the design
+  (`study.confirmed`), a rule can make a venue "Depends", never "Does not fit". A publisher rule about
+  "predominantly bioinformatics findings" does not by itself cover a software paper; read its scope.
 - `strength`: `required`, `conditional` or `recommended`. Only an explicit applicable requirement with
-  no available accepted alternative supports an automated resource NO-GO.
+  no available accepted alternative supports an automated "Does not fit the stated constraints".
 - `accepted_any`: alternative routes, using `independent-cohort`, `wet-lab`, `multi-database` or
   `primary-analysis`. These are alternatives for that rule, not requirements to do all of them.
   Multiple applicable rules must each be satisfied; leave ambiguous alternatives unspecified.
@@ -51,9 +75,11 @@ Use `excluded_study_designs` for explicit prohibitions, with source/date in the 
 Do not replace a conditional standard with an absolute ban. Put every new primary URL in the entry's
 `sources` too so it remains discoverable. The AI watcher does not monitor all selection requirements.
 
-The CLI `--validation-available` states what is already available or affordable, not a promise to run
-new experiments. `none` means none of the additional routes is available; it cannot be combined with
-other routes. An omitted option means unknown. A GO from this helper covers recorded validation only.
+The CLI `--validation-available` (or the record's `priorities.validation_available`) states what is already
+available or affordable, not a promise to run new experiments. `none` means none of the additional routes
+is available; it cannot be combined with other routes. An omitted option means unknown. The ladder's
+`validation_fits` covers recorded validation only; its `fits` also weighs a conflict with the established AI
+use and the fee against the budget.
 
 ## Open science and open source
 
@@ -112,7 +138,8 @@ and publication budget are separate constraints.
 affects consideration, licence conditions, what must be disclosed at submission and what must be updated after
 acceptance. A preprint server's `transfers` lists the catalogue keys of the journals it transfers manuscripts
 to directly; `transfers_checked` lists the journals its list was read for, so that a journal absent from
-`transfers` but checked is a "no" and one not checked stays unknown. Record a server's scope exclusions
+`transfers` but checked is a "no" and one not checked stays unknown. The ladder CSV writes `none` when the
+list was read and names none of the ladder's journals, and leaves the cell empty when that is not known. Record a server's scope exclusions
 (tool announcements without data, papers sent to another server) in `other_desk_rules` and `fit_note`.
 
 ## Verified examples and cautions

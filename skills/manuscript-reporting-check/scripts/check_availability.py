@@ -26,8 +26,14 @@ release tags, licences, the statement's wording); a malformed accession or a dat
 problem with the evidence now. The JSON keeps check codes, states and line numbers for other tools; the
 Markdown report is for the authors: grouped by stage, each finding quoting the manuscript with its section.
 
-Exit codes: 0 no major finding in the current work; 1 at least one (end-stage findings count only with
---final); 2 usage error.
+Links and identifiers inside availability statements are this script's to look up; the integrity scan
+(manuscript-integrity-check's scan.py) skips those lines and resolves the identifiers in the rest of the prose. Both
+read an answer of HTTP 405 (the server refuses the method) as not checked, never as a dead link.
+
+Exit codes: 0 no major finding in the current work and, with --online, every well-formed identifier looked up;
+1 at least one major finding (end-stage findings count only with --final); 2 usage error; 3 with --online, no
+major finding, but at least one identifier or cited version could not be looked up, so the run cannot be called
+clean.
 """
 
 from __future__ import annotations
@@ -1380,7 +1386,7 @@ def _github_limited(http: Http, r: httpx.Response) -> bool:
     if r.status_code in (403, 429) and (r.headers.get("x-ratelimit-remaining") == "0" or r.status_code == 429):
         reset = r.headers.get("x-ratelimit-reset", "")
         when = time.strftime("%H:%M UTC", time.gmtime(int(reset))) if reset.isdigit() else "later"
-        http.github_blocked = f"GitHub rate limit reached (resets at {when}); rerun later or with --github-auth"
+        http.github_blocked = f"GitHub rate limit reached (resets at {when}); run the check again later, or with a GitHub token if the authors allow it"
         return True
     return False
 
@@ -1992,7 +1998,7 @@ def findings_for(lines: list[str], skip: list[bool], statements: list[Statement]
         out.append(Finding(check="not-assessed", severity=Severity.uncertain, title="Nothing was looked up",
                            message="This was an offline run, so no identifier was looked up: whether each one exists, "
                                    "and the licences and releases of the authors' code, are not assessed.",
-                           suggestion="Run the check again with network access (the --online option)."))
+                           suggestion="Run the check again with the online lookups, which need network access."))
     seen: set[tuple[str, Optional[int], str]] = set()
     deduped = []
     for f in out:  # one finding per root cause and place: a sentence matched twice is reported once
@@ -2156,6 +2162,12 @@ def _identifier_name(x: Identifier) -> str:
     return f"{x.family} {x.value}" + (f" ({x.url})" if x.url else "")
 
 
+# The shared words the authors read for each severity (stage-findings.md): optional is Optional, uncertain is
+# "Could not be checked"; the JSON keeps the script's own values.
+SEVERITY_WORDS = {Severity.blocker: "Blocker", Severity.major: "Major", Severity.optional: "Optional",
+                  Severity.uncertain: "Could not be checked"}
+
+
 def _finding_markdown(n: int, f: Finding) -> list[str]:
     parts: list[str] = []
     place = _place(f.section, f.line)
@@ -2166,7 +2178,7 @@ def _finding_markdown(n: int, f: Finding) -> list[str]:
     elif place:
         parts.append(f"This concerns the text {place}.")
     parts += [p for p in (f.message, f.suggestion, f.rule) if p]
-    return [f"{n}. **{f.title or f.check}** ({f.severity.value}). " + " ".join(parts), ""]
+    return [f"{n}. **{f.title or f.check}.** {SEVERITY_WORDS[f.severity]}. " + " ".join(parts), ""]
 
 
 def _summary(report: Report) -> str:
@@ -2209,7 +2221,7 @@ def _not_checked_markdown(report: Report) -> list[str]:
     if not report.online:
         return out + ["This was an offline run, so none of the identifiers listed at the end was looked up. Whether "
                       "each one exists, and the licences and releases of the authors' code, are not assessed; a run "
-                      "with network access (the --online option) checks them.", ""]
+                      "with the online lookups checks them.", ""]
     unassessed = [x for x in report.identifiers if x.well_formed and x.state == State.not_assessed]
     if unassessed:
         out += ["These identifiers could not be looked up, so none of them is counted as found:", ""]
@@ -2257,6 +2269,27 @@ def _result(x: Identifier) -> str:
     return f"{word} ({x.detail}{extra})"
 
 
+def report_sections(report: Report) -> dict[int, str]:
+    """The section each availability statement opens in, from the manuscript's headings (by its first line)."""
+    try:
+        text = Path(report.path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    sections, _, _ = layout(prepare(text, Path(report.path).suffix.lower() == ".tex"))
+    return {s.start: sections[s.start - 1] for s in report.statements if 0 < s.start <= len(sections)}
+
+
+def exit_code(report: Report) -> int:
+    """1 a major finding that counts; 3 none, but an online lookup could not answer; else 0."""
+    if any(counts_in_verdict(f, report.final) and f.severity in (Severity.blocker, Severity.major)
+           for f in report.findings):
+        return 1
+    if report.online and any(x.well_formed and (x.state == State.not_assessed or "version-not-assessed" in x.flags)
+                             and x.kind != "anon-review" for x in report.identifiers):
+        return 3
+    return 0
+
+
 def to_markdown(report: Report) -> str:
     out = [f"# Availability check: {Path(report.path).name}", "", _summary(report), ""]
     n = 0
@@ -2276,12 +2309,16 @@ def to_markdown(report: Report) -> str:
         out += _venue_markdown(report.venue)
     if report.statements:
         out += ["## Availability statements found", "",
-                "| Statement | Lines | Covers | What it names | Links | Notes |", "|---|---|---|---|---|---|"]
+                "| Statement | Where | Covers | What it names | Links | Notes |", "|---|---|---|---|---|---|"]
+        sections = report_sections(report)
         for s in report.statements:
             notes = (["points only to the article and its supplement"] if s.in_article else []) + (
                 ["offers material on request"] if s.request_route else []) + (
                 ["says nothing applies"] if s.not_applicable else [])
-            out.append(f"| “{_cell(s.label)}” | {s.start} to {s.end} | {' and '.join(s.covers)} | "
+            where = _place(sections.get(s.start, ""), None) or "before the first heading"
+            span = f"lines {s.start} to {s.end}" if s.end > s.start else f"line {s.start}"
+            out.append(f"| “{_cell(s.label)}” | {_cell(where[:1].upper() + where[1:])} ({span}) | "
+                       f"{' and '.join(s.covers)} | "
                        f"{_cell(', '.join(s.names)) or 'nothing'} | {_cell(', '.join(s.links)) or 'none'} | "
                        f"{'; '.join(notes) or 'none'} |")
         out.append("")
@@ -2314,6 +2351,12 @@ def main(
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
 ) -> None:
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     if record and not venue:
         venue = venue_from_record(record)
     token = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")) if github_auth else None
@@ -2326,9 +2369,11 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    major = any(counts_in_verdict(f, report.final) and f.severity in (Severity.blocker, Severity.major)
-                for f in report.findings)
-    raise typer.Exit(code=1 if major else 0)
+    code = exit_code(report)
+    if code == 3:
+        typer.echo("Some identifiers could not be looked up, so the run cannot be called clean (exit code 3).",
+                   err=True)
+    raise typer.Exit(code=code)
 
 
 if __name__ == "__main__":

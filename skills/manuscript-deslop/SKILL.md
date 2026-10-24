@@ -32,10 +32,11 @@ and checks under `manuscript-deslop/`. Honour the saved `edits` policy and reque
   `conservative`, wording changes that keep the meaning) and propose the rest, such as a cut that
   weakens or narrows a claim. Inside a passage another stage has a pending proposal for, do not apply
   an edit: add your version as a proposal for the same passage, so the authors choose one. Write
-  `findings.json` as the [stage findings](../manuscript-dashboard/references/stage-findings.md) describe:
+  `findings.json` with the `DS` prefix as the [stage findings](../manuscript-dashboard/references/stage-findings.md) describe:
   one record per problem (a pattern repeated through a section is one record), category "Writing and
   clarity", severity `minor` or `info`, and every proposed edit as a change record. Record each applied
-  edit once, with `runs.py change`, not in `findings.json`.
+  edit once, with `runs.py change`, not in `findings.json` (routine cuts grouped as one record per paragraph or
+  section), and finish with the [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist).
 
 Respect an explicit choice of another installed skill. This skill handles scientific writing; an
 unqualified request to humanize unrelated prose does not by itself select it. Within this plugin,
@@ -64,8 +65,8 @@ uv run --script scripts/style_profile.py BEFORE.md --json before-style.json
 ```
 
 Use `--sample AUTHORS.md` when a writing sample exists. An audit-only request can use this profile and
-the catalogue reading pass directly; an edit requires both checks below, even for a pasted passage
-saved as before/after files:
+the catalogue reading pass directly. An edit requires both checks below, and so does a pasted passage: save it
+as before/after files and run them, since they are cheap:
 
 ```bash
 uv run --script ../manuscript-prose-edit/scripts/guard.py BEFORE.md AFTER.md --json guard.json
@@ -74,9 +75,12 @@ uv run --script scripts/style_profile.py AFTER.md --before BEFORE.md --check --j
 
 **The smell check is required for every edit and report.** It has two parts:
 
-1. **Counts.** `--check` fails when an edit adds a pattern or repeats one three or more times under a
-   heading the edit changed. Fix it, or retain a use whose catalogue exception applies, rerun with
-   `--keep ID`, and explain which sentences stayed and why. A count is a prompt for judgement.
+1. **Counts.** `--check` fails when an edit adds a pattern, and when a pattern is used three or more times
+   under a heading where the edit added a use of it; runs the draft already had are not judged against an
+   edit (this skill removes them as a stage of its own). Fix it, or retain a use whose catalogue exception
+   applies, rerun with `--keep ID@HEADING` (`--keep ID` keeps it under every heading), record the kept IDs
+   with `--record-keeps RUN/<skill>/kept-patterns.txt` so the final check can read them with
+   `--keep-file RUN`, and explain which sentences stayed and why. A count is a prompt for judgement.
 2. **Reading.** Read the text against the full catalogue list printed by `--check`. The script catches
    only some patterns and wordings; fix concrete problems found by reading under the same preservation
    rules. Check that removing scaffolding did not break the argument's links or create choppy prose.

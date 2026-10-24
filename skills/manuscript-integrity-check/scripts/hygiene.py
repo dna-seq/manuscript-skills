@@ -17,6 +17,8 @@ Reports, never deletes or rewrites. Finds:
   name, Google Docs or Drive links (an editable link exposes the document);
 - EXIF GPS positions and author or owner tags in figure files (needs Pillow, which `uv run --script`
   installs; without it figures are not assessed);
+- revision marks (`<!-- @rev ... -->`, `% @rev ...`) left in a file to be uploaded: the venue receives the
+  clean copy or a build from it, never the marked master;
 - with --anonymous and the author names: self-identifying text for double-blind review (names outside the
   references, e-mail addresses, ORCID iDs, acknowledgements, first-person self-citation, repository URLs,
   document and figure metadata).
@@ -25,9 +27,14 @@ Secrets are masked in every output. A file type the script cannot read is listed
 
     uv run --script hygiene.py submission/                       # a directory, an archive or files
     uv run --script hygiene.py paper.tex figures/ --md hygiene.md --json hygiene.json
+    uv run --script hygiene.py submission/ --final               # the authors are about to submit
     uv run --script hygiene.py arxiv-bundle.tar.gz --anonymous --author "Ada Lovelace" --author "C. Babbage"
 
-Exit codes: 0 no blocker or major finding; 1 at least one; 2 usage error.
+Checking the upload files is the last step before submission, so most findings wait for it. Two cannot wait and
+count at any stage: text hidden for AI reviewers, and a leaked secret.
+
+Exit codes: 0 no blocker or major finding that counts now (hidden text for AI reviewers, a leaked secret; with
+--final every blocker and major finding counts); 1 at least one; 2 usage error.
 """
 
 from __future__ import annotations
@@ -38,6 +45,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import zipfile
@@ -66,7 +74,7 @@ class Severity(str, Enum):  # the same tiers as scan.py
 
 class Finding(BaseModel):
     check: str  # comments | hidden-text | injection | invisible-characters | secrets | local-paths | links |
-    #             metadata | word-review | anonymity
+    #             metadata | word-review | anonymity | revision-marks
     severity: Severity
     location: str  # file, file:line, file paragraph N, file p. N
     line: Optional[int] = None
@@ -96,15 +104,25 @@ class HygieneReport(BaseModel):
 # Patterns
 # --------------------------------------------------------------------------------------------------
 
-# Text addressed to an automated reviewer rather than to a reader.
-INJECTION = re.compile(r"""(?ix)
+# Text addressed to an automated reviewer rather than to a reader. The request for a good review counts only as an
+# order (at the start of a sentence or line, after "please" or "you should/must"), or when its object is the paper
+# itself: a paper about models says "models that produce high scores on the benchmark" for its own reasons. "As an
+# AI assistant, I cannot ..." is a chat reply about the assistant itself, not a prompt to one; "as an AI reviewer"
+# and "you are an AI assistant" address one.
+_POSITIVE_REVIEW = r"""\b(?:positive|favou?rable|glowing|strong|high|excellent)\b[^.\n]{0,15}\b(?:review|score|rating|
+        assessment|evaluation|recommendation)"""
+INJECTION = re.compile(r"""(?imx)
     \b(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+)?(?:of\s+)?(?:the\s+|your\s+)?(?:previous|prior|preceding|
         above|earlier|other|system)\s+(?:instructions?|prompts?|directions|guidelines|rules)
-  | \b(?:as|you\s+are)\s+an?\s+(?:ai|llm|language[- ]model|large\s+language\s+model|automated|machine)[- ](?:based\s+)?
-        (?:reviewer|referee|assistant)
+  | \byou\s+are\s+(?:now\s+)?an?\s+(?:ai|llm|language[- ]model|large\s+language\s+model|automated|machine)[- ]
+        (?:based\s+)?(?:reviewer|referee|assistant)
+  | \bas\s+an?\s+(?:ai|llm|language[- ]model|large\s+language\s+model|automated|machine)[- ](?:based\s+)?
+        (?:reviewer|referee)\b
   | \bnote\s+(?:to|for)\s+(?:the\s+)?(?:ai|llm|language[- ]model|automated)\s+(?:reviewers?|referees?|assistants?)
-  | \b(?:give|write|produce|output|provide|generate|assign)\b[^.\n]{0,30}\b(?:positive|favou?rable|glowing|strong|high|
-        excellent)\b[^.\n]{0,15}\b(?:review|score|rating|assessment|evaluation|recommendation)
+  | (?:^|[.!?:;"“(\[]\s*|\bplease\s+|\b(?:must|should|shall)\s+(?:always\s+|only\s+)?)
+        (?:give|write|produce|output|provide|generate|assign)\b[^.\n]{0,30}POSITIVE_REVIEW
+  | \b(?:give|write|produce|output|provide|generate|assign)\s+(?:this|the)\s+(?:paper|manuscript|submission|work|
+        article)\b[^.\n]{0,30}POSITIVE_REVIEW
   | \b(?:recommend|suggest|advise)\w*\b[^.\n]{0,25}\baccept(?:ance|ing|ed)?\b[^.\n]{0,20}\b(?:this|the)\s+
         (?:paper|manuscript|submission|work|article)
   | \b(?:rate|score)\s+(?:this|the)\s+(?:paper|manuscript|submission|work)\b[^.\n]{0,20}\b(?:highly|high|positively|
@@ -112,7 +130,7 @@ INJECTION = re.compile(r"""(?ix)
   | \bdo\s+not\s+(?:mention|highlight|point\s+out|discuss|list|report|criticize|criticise)\b[^.\n]{0,25}\b(?:any\s+)?
         (?:weakness(?:es)?|limitations?|flaws?|negatives?|criticism|shortcomings|problems)
   | \bonly\s+(?:mention|highlight|list|discuss)\s+(?:the\s+)?(?:strengths|positives|positive\s+aspects)
-""")
+""".replace("POSITIVE_REVIEW", _POSITIVE_REVIEW))
 
 SECRETS = [
     ("private key", re.compile(r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----")),
@@ -144,6 +162,11 @@ GOOGLE_DRIVE = re.compile(r"https?://drive\.google\.com/(?:file/d/|drive/(?:u/\d
 # only as a count; Unicode tag characters carry hidden ASCII and are decoded.
 INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\u2061\u2062\u2063\u2064\u180e\ufeff\u202a-\u202e\u2066-\u2069]")
 TAG_CHARS = re.compile("[\U000e0000-\U000e007f]+")
+
+# Revision marks of manuscript-revision-marks: `<!-- @rev ID rounds=N by=name:date -->` and its closer in Markdown or
+# HTML, `% @rev ...` in LaTeX. The master may carry them; the files a venue receives never do.
+REVISION_MARK = re.compile(r"<!--\s*@/?rev\b.*?-->|(?<!\\)%[ \t]*@/?rev\b[^\n]*", re.DOTALL)
+REVISION_BY = re.compile(r"\bby=([^\s>]+)")
 
 PRIVATE_NOTE = re.compile(r"(?i)\b(?:todo|fixme|xxx|tbd|note to|reviewer|referee|rebuttal|editor|confidential|private|"
                           r"secret|don'?t|do not|remove|delete|hack|ugly|weak|fake|cheat|made up|not sure|unsure|hated?|"
@@ -495,8 +518,8 @@ def tex_findings(location: str, text: str) -> list[Finding]:
             continue
         column, comment = found
         code_lines.append(line[:column])
-        if not _has_content(comment):
-            continue
+        if not _has_content(comment) or re.match(r"[ \t]*@/?rev\b", comment):
+            continue  # a revision mark is reported as one (revision_mark_findings), not as a comment
         if PRIVATE_NOTE.search(comment):
             out.append(Finding(check="comments", severity=Severity.major, location=f"{location}:{number}", line=number,
                                excerpt=_snippet("%" + comment), message="A comment that reads as a private note will "
@@ -580,6 +603,27 @@ def _tex_hidden(location: str, code: str) -> list[Finding]:
     return out
 
 
+def revision_mark_findings(location: str, text: str) -> list[Finding]:
+    """Revision marks left in a file to be uploaded: one finding per file, with how many and whether they name an
+    AI model or agent as an editor (their `by=` names say who revised each passage)."""
+    marks = list(REVISION_MARK.finditer(text))
+    if not marks:
+        return []
+    names = sorted({item.partition(":")[0] for m in marks for by in REVISION_BY.findall(m.group(0))
+                    for item in by.split(",") if item.partition(":")[0]})
+    line = _line_of(text, marks[0].start())
+    named = f", which name {', '.join(names[:6])}" + (" and others" if len(names) > 6 else "") + " as editors" \
+        if names else ""
+    return [Finding(check="revision-marks", severity=Severity.major, location=f"{location}:{line}", line=line,
+                    excerpt=_snippet(marks[0].group(0), 90),
+                    message=f"{len(marks)} revision mark{'' if len(marks) == 1 else 's'} (comments such as "
+                            f"<!-- @rev ... --> or % @rev ...) {'is' if len(marks) == 1 else 'are'} still in this file"
+                            f"{named}.",
+                    suggestion="Upload the clean copy without marks, or a build from it (manuscript-revision-marks "
+                               "writes it); the marked master stays as it is. Marks travel with a LaTeX or Markdown "
+                               "source and say who revised each passage, an AI model included.")]
+
+
 # --------------------------------------------------------------------------------------------------
 # Markdown and HTML
 # --------------------------------------------------------------------------------------------------
@@ -612,7 +656,7 @@ def markup_findings(location: str, text: str) -> list[Finding]:
     for m in re.finditer(r"<!--(.*?)-->", text, re.DOTALL):
         body = m.group(1).strip()
         if re.match(r"@/?rev\b", body) or _words(body) < 2:
-            continue  # revision-ledger markers are the project's own bookkeeping
+            continue  # revision marks are reported as such (revision_mark_findings), not as comments
         line = _line_of(text, m.start())
         if INJECTION.search(body):
             out.append(_classify_hidden(f"{location}:{line}", line, "HTML comment", body))  # type: ignore[arg-type]
@@ -1057,6 +1101,8 @@ def check_package(paths: list[Path], anonymous: bool = False, authors: Optional[
                 found += tex_findings(location, text)
             elif suffix in MD_EXT or suffix in HTML_EXT:
                 found += markup_findings(location, text)
+            if kind in ("latex", "markdown", "html", "text"):
+                found += revision_mark_findings(location, text)
             if anonymous and suffix not in (".bib", ".bbl", ".bst"):
                 found += anonymity_findings(location, text, authors, affiliations)
             findings += _with_sections(found, text) if suffix in TEX_EXT | MD_EXT | HTML_EXT else found
@@ -1104,7 +1150,8 @@ PLAIN_HEADINGS = re.compile(r"^(?:abstract|introduction|background|methods?|mate
 WHAT_IS_QUOTED = {"comments": "the comment reads", "hidden-text": "the hidden text reads",
                   "injection": "the text reads", "invisible-characters": "the hidden characters spell",
                   "secrets": "the masked value is", "local-paths": "the path reads", "links": "the link is",
-                  "anonymity": "the text reads", "metadata": "the recorded value is", "word-review": "it reads"}
+                  "anonymity": "the text reads", "metadata": "the recorded value is", "word-review": "it reads",
+                  "revision-marks": "the first reads"}
 
 
 def where(f: Finding) -> str:
@@ -1153,10 +1200,10 @@ def to_markdown(report: HygieneReport) -> str:
     urgent = [f for f in report.findings if f.stage == "now"]
     later = [f for f in report.findings if f.stage != "now"]
     if urgent:
-        out += ["## Fix now: the science and the evidence", "",
+        out += ["## Fix now, whatever the stage", "",
                 "These cannot wait for the last step before submission: text hidden for AI reviewers misleads the "
                 "review whoever reads the files, and a key that has been in a shared file should be treated as "
-                "exposed already.", ""]
+                "exposed already, so it needs revoking now even after it is deleted.", ""]
         out += [f"- **{SEVERITY_LEAD[f.severity]}.** {finding_text(f)}" for f in urgent]
         out.append("")
     if later:
@@ -1172,15 +1219,35 @@ def to_markdown(report: HygieneReport) -> str:
     return "\n".join(out).rstrip("\n") + "\n"
 
 
+def exit_code(report: HygieneReport, final: bool = False) -> int:
+    """1 when a blocker or major finding counts now: text hidden for AI reviewers or a leaked secret at any stage,
+    and every other one too when the authors are about to submit (--final); else 0."""
+    return 1 if any(f.severity in (Severity.blocker, Severity.major) and (final or f.stage == "now")
+                    for f in report.findings) else 0
+
+
+def _utf8_console() -> None:
+    """UTF-8 on the console whatever the platform's default (a Windows console is often cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot change its encoding keeps it
+                pass
+
+
 @app.command()
 def main(
     paths: Annotated[list[Path], typer.Argument(exists=True, readable=True, help="Files, directories or archives")],
     anonymous: Annotated[bool, typer.Option(help="Check for self-identifying text (double-blind review)")] = False,
     author: Annotated[Optional[list[str]], typer.Option(help="An author's name, for --anonymous (repeatable)")] = None,
     affiliation: Annotated[Optional[list[str]], typer.Option(help="An affiliation, for --anonymous (repeatable)")] = None,
+    final: Annotated[bool, typer.Option(help="The authors are about to submit: every blocker and major finding "
+                                             "counts in the exit code, not only hidden text and leaked secrets")] = False,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
 ) -> None:
+    _utf8_console()
     if (author or affiliation) and not anonymous:
         raise typer.BadParameter("--author and --affiliation are used only with --anonymous")
     report = check_package(paths, anonymous, author or [], affiliation or [])
@@ -1192,7 +1259,7 @@ def main(
         typer.echo(f"wrote {md_out}")
     else:
         typer.echo(md)
-    raise typer.Exit(code=1 if any(f.severity in (Severity.blocker, Severity.major) for f in report.findings) else 0)
+    raise typer.Exit(code=exit_code(report, final))
 
 
 if __name__ == "__main__":

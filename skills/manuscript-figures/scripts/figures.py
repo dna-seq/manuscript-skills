@@ -40,6 +40,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
@@ -473,14 +474,25 @@ class Page:
     pixels: tuple[int, int] = (0, 0)
 
 
+def ghostscript() -> str | None:
+    """The Ghostscript command on this computer: `gs` on Linux and macOS, `gswin64c` or `gswin32c` on Windows."""
+    names = ("gswin64c", "gswin32c", "gs") if sys.platform == "win32" else ("gs", "gswin64c", "gswin32c")
+    return next((found for name in names if (found := shutil.which(name))), None)
+
+
 def pages_of(path: Path, scratch: Path) -> tuple[list[Page], str]:
     """The renderable pages of a figure file, or none and the reason."""
     suffix = path.suffix.lower()
     if suffix in POSTSCRIPT:
         target = scratch / f"{path.stem}.from-eps.pdf"
-        if not shutil.which("gs") or subprocess.run(["gs", "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-dEPSCrop", "-sDEVICE=pdfwrite",
-                                                     f"-sOutputFile={target}", str(path)], capture_output=True, timeout=120).returncode:
-            return [], "an EPS file needs Ghostscript (gs) to render, and it is missing or failed"
+        gs = ghostscript()
+        try:
+            failed = gs is None or subprocess.run([gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-dEPSCrop", "-sDEVICE=pdfwrite",
+                                                   f"-sOutputFile={target}", str(path)], capture_output=True, timeout=120).returncode
+        except (OSError, subprocess.TimeoutExpired):
+            failed = True
+        if failed:
+            return [], "an EPS file needs Ghostscript (gs; gswin64c on Windows) to render, and it is missing or failed"
         path, suffix = target, ".pdf"
     if suffix in VECTOR:
         import pymupdf
@@ -580,9 +592,19 @@ def measure(page: Page, folder: Path, width_mm: float, settings: dict) -> tuple[
 
 # ---------- commands ----------
 
+def next_folder(folder: Path) -> Path:
+    """The next attempt's folder: figures, then figures.2, figures.3 (the dashboard's numbering)."""
+    match = re.fullmatch(r"(.+?)\.(\d+)", folder.name)
+    base, number = (match[1], int(match[2])) if match else (folder.name, 1)
+    while (candidate := folder.with_name(f"{base}.{number + 1}")).exists():
+        number += 1
+    return candidate
+
+
 def refuse_existing(path: Path) -> None:
     if path.exists():
-        typer.echo(f"{path} exists; write this attempt to a new folder so the earlier one stays.", err=True)
+        typer.echo(f"{path.name} exists in {path.parent.name}; write this attempt to {next_folder(path.parent).name} "
+                   "so the earlier one stays.", err=True)
         raise typer.Exit(1)
 
 
@@ -734,4 +756,7 @@ def workspace(
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on every platform, a Windows console included
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()

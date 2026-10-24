@@ -12,30 +12,43 @@ of the authors' own writing, it reports which measures depart from that baseline
 
 The check every edit and every report must pass (`--check`) adds two verdicts and a reading list. With
 `--before`, it names each pattern the edit added that the original did not have. It names each pattern used
-three or more times under one heading (only the headings the edit changed, when `--before` is given): one
-use can stand, a run of them is the habit a reader notices. And it prints every entry of the catalogue in
-one line, because the counts find only the patterns that have a regular expression: the editor reads the
-text against that list and finds the rest by reading. `--report` checks a report to the authors instead
-of a manuscript: quoted manuscript text is skipped, and "you" and questions are expected there.
+three or more times under one heading: one use can stand, a run of them is the habit a reader notices. With
+`--before`, a run counts only under a heading where the edit added a use of that pattern, so an edit is never
+made to clean up what the draft already had (that is the deslop stage's work); the runs the draft already had are
+counted in the JSON (`existing_clusters`). And it prints every entry of the catalogue in one line, because the
+counts find only the patterns that have a regular expression: the editor reads the text against that list and
+finds the rest by reading. `--report` checks a report to the authors instead of a manuscript: quoted manuscript
+text is skipped, and "you" and questions are expected there.
+
+A pattern reviewed and kept on purpose is named with `--keep ID` (everywhere) or `--keep ID@HEADING` (only under
+that heading: a heading title such as "Discussion" or "5.1 Limits", which also covers its subsections, or the
+whole path "Discussion > Limits"). `--record-keeps FILE` adds the `--keep` values to FILE, one per line, so a
+stage leaves them in its run folder (`RUN/<skill>/kept-patterns.txt`); `--keep-file PATH` reads them back, from
+such a file or from every `kept-patterns.txt` under a run folder, so the final check honours them.
 
     uv run --script style_profile.py PAPER.md
     uv run --script style_profile.py PAPER.tex --sample earlier_paper.md --sample thesis_ch2.md --top 15
     uv run --script style_profile.py PAPER.md --json profile.json
-    uv run --script style_profile.py EDITED.md --before ORIGINAL.md --check [--keep C1]
+    uv run --script style_profile.py EDITED.md --before ORIGINAL.md --check [--keep C1] [--keep "C5@Discussion"]
+    uv run --script style_profile.py EDITED.md --before ORIGINAL.md --check --keep "C5@Discussion" \
+        --record-keeps RUN/manuscript-prose-edit/kept-patterns.txt
+    uv run --script style_profile.py FINAL.md --before ORIGINAL.md --check --keep-file RUN
     uv run --script style_profile.py REPORT.md --report --check
 
 Exit codes: 0 when the check passed or was not asked for, 1 while `--check` finds an added pattern or a
-cluster that `--keep` does not name, 2 for a usage error.
+cluster that no kept pattern covers, 2 for a usage error.
 """
 
 from __future__ import annotations
 
 import csv
+import functools
 import hashlib
 import json
 import math
 import re
 import statistics
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -394,15 +407,87 @@ def clusters(doc: dict[str, Any], sections: Optional[set[str]], threshold: int =
             for (section, sid), uses in found.items() if len(uses) >= threshold]
 
 
+KEEP_FILE = "kept-patterns.txt"
+
+
+def normalise_keep(value: str) -> str:
+    """'c5@Discussion ' → 'C5@Discussion': the ID in capitals, the heading as written."""
+    sid, at, where = value.strip().partition("@")
+    return sid.strip().upper() + (f"@{' '.join(where.split())}" if at and where.strip() else "")
+
+
+def _heading_titles(section: str) -> list[str]:
+    """Each heading of a path, with and without its number: '5. Discussion > 5.1 Limits' gives
+    ['5. discussion', 'discussion', '5.1 limits', 'limits']."""
+    out = []
+    for part in section.split(" > "):
+        out.append(part.lower())
+        numbered = NUMBERED_HEADING.match(part)
+        if numbered:
+            out.append(numbered.group(2).lower())
+    return out
+
+
+def is_kept(sid: str, section: str, keep: set[str]) -> bool:
+    """A pattern kept everywhere ('C5'), or under this heading ('C5@Discussion', which covers its subsections, or the
+    whole path 'C5@Discussion > Limits')."""
+    for value in keep:
+        kid, _, where = value.partition("@")
+        if kid != sid:
+            continue
+        if not where:
+            return True
+        where = " ".join(where.lower().split())
+        if where == section.lower() or where in _heading_titles(section):
+            return True
+    return False
+
+
+def read_keeps(paths: list[Path]) -> set[str]:
+    """Kept patterns recorded by earlier stages: one `ID` or `ID@HEADING` per line (`#` starts a comment), from a
+    file or from every kept-patterns.txt under a folder. A path that does not exist holds none."""
+    files: list[Path] = []
+    for path in paths:
+        files += sorted(path.rglob(KEEP_FILE)) if path.is_dir() else [path] if path.is_file() else []
+    keeps = set()
+    for f in files:
+        for line in f.read_text(encoding="utf-8").splitlines():
+            value = line.split("#", 1)[0].strip()
+            if value:
+                keeps.add(normalise_keep(value))
+    return keeps
+
+
+def record_keeps(path: Path, keep: set[str]) -> list[str]:
+    """Add the kept patterns not yet in `path` to it (created with its folder); returns what was added."""
+    known = read_keeps([path]) if path.is_file() else set()
+    new = sorted(keep - known)
+    if new:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = path.read_text(encoding="utf-8") if path.is_file() else (
+            "# Writing patterns reviewed and kept on purpose: ID, or ID@heading for one heading.\n")
+        if text and not text.endswith("\n"):
+            text += "\n"
+        path.write_text(text + "".join(f"{v}\n" for v in new), encoding="utf-8")
+    return new
+
+
 def run_check(after: dict[str, Any], before: Optional[dict[str, Any]], keep: set[str],
               threshold: int = CLUSTER) -> dict[str, Any]:
-    """The verdict `--check` gates on: what the edit added, and clusters under the headings it touched."""
+    """The verdict `--check` gates on: what the edit added, and clusters. With `before`, a cluster is judged only
+    under a heading where the edit added a use of that pattern; the clusters the draft already had are listed apart
+    (`existing_clusters`) and never fail the check."""
     sections = changed_sections(before, after) if before is not None else None
     added = added_hits(before, after) if before is not None else []
-    found = clusters(after, sections, threshold)
-    return {"added": added, "clusters": found, "kept": sorted(keep), "threshold": threshold,
-            "sections_checked": None if sections is None else sorted(sections),
-            "passed": all(x["id"] in keep for x in added + found)}
+    found = clusters(after, None if before is not None else sections, threshold)
+    existing: list[dict[str, Any]] = []
+    if before is not None:
+        touched = {(h["id"], h["section"]) for h in added}
+        existing = [c for c in found if (c["id"], c["section"]) not in touched]
+        found = [c for c in found if (c["id"], c["section"]) in touched]
+    return {"added": added, "clusters": found, "existing_clusters": existing, "kept": sorted(keep),
+            "threshold": threshold, "sections_checked": None if sections is None else sorted(sections),
+            "passed": all(is_kept(x["id"], x["section"], keep) for x in added + found)}
 
 
 def catalogue_entries(path: Path = CATALOGUE_MD) -> list[dict[str, str]]:
@@ -469,8 +554,18 @@ def _times(n: int) -> str:
     return {1: "once", 2: "twice"}.get(n, f"{n} times")
 
 
+@functools.cache
+def _catalogue_names() -> dict[str, str]:
+    return {e["id"]: e["name"] for e in catalogue_entries()} if CATALOGUE_MD.is_file() else {}
+
+
 def _pattern(sid: str, smells: dict[str, dict[str, Any]]) -> str:
-    return smells[sid]["name"] if sid in smells else sid
+    """The pattern as the catalogue's heading names it ('negative parallelism' for C1), so the verdict and the
+    reading list use one name; mid-sentence, so in lower case unless its first word is an acronym."""
+    name = _catalogue_names().get(sid) or (smells[sid]["name"] if sid in smells else sid)
+    first = name.split(" ", 1)[0]
+    return name if len(first) > 1 and any(ch.isupper() or ch.isdigit() for ch in first[1:]) else (
+        name[:1].lower() + name[1:])
 
 
 def _value(v: Any) -> str:
@@ -535,16 +630,22 @@ def check_markdown(result: dict[str, Any], smells: dict[str, dict[str, Any]], co
 
     A pattern kept in a manuscript is named to the authors; in a report, the report is what they read."""
     keep = set(result["kept"])
-    scope = "under the headings the edit changed" if compared else "under any heading"
+    scope = "where the edit added a use of it" if compared else "under any heading"
     tell = "" if report else ", and tell the authors which sentence and why"
     out = ["", "## Before handing the text over", ""]
     if not result["added"] and not result["clusters"]:
         added = "The edit added no pattern the original did not have, and no" if compared else "No"
-        out.append(f"{added} pattern is used {result['threshold']} or more times {scope}. Still read the text "
-                   "against the list below: the counts find only some of the patterns.")
+        out.append(f"{added} pattern is used {result['threshold']} or more times under one heading {scope}. Still "
+                   "read the text against the list below: the counts find only some of the patterns.")
+    existing = result.get("existing_clusters") or []
+    if existing:
+        out.append(f"The draft already used {_count(len(existing), 'pattern', 'patterns')} {result['threshold']} or "
+                   "more times under one heading, and the edit added no use of "
+                   f"{'it' if len(existing) == 1 else 'them'} there; that is not judged here (removing such runs is "
+                   "the deslop stage's work).")
     for h in result["added"]:
         name = _pattern(h["id"], smells)
-        what = (f"kept after review{tell}" if h["id"] in keep else
+        what = (f"kept after review{tell}" if is_kept(h["id"], h["section"], keep) else
                 f"rewrite it, or keep it only if its entry says to leave it{tell}")
         out.append(f"- The edit added {name} ({h['id']}): “{h['text']}”, in "
                    f"{place(h['section'], 'line ' + str(h['line']))}. It was not in the original; {what}.")
@@ -552,7 +653,7 @@ def check_markdown(result: dict[str, Any], smells: dict[str, dict[str, Any]], co
         name = _pattern(c["id"], smells)
         lines = sorted({u["line"] for u in c["uses"]})
         span = f"line {lines[0]}" if len(lines) == 1 else f"lines {lines[0]} to {lines[-1]}"
-        what = (f"Kept after review{tell}." if c["id"] in keep else
+        what = (f"Kept after review{tell}." if is_kept(c["id"], c["section"], keep) else
                 "One use can stand where the reader needs it; a run of them is the habit a reader notices. "
                 "Rewrite the ones that do not carry the argument, then check again.")
         out.append(f"- {name[:1].upper()}{name[1:]} ({c['id']}) is used {c['count']} times in "
@@ -600,8 +701,15 @@ def main(
     check: Annotated[bool, typer.Option("--check", help="Exit 1 while the edit added a pattern or one pattern is "
                                                         "used --cluster times under a heading; print every "
                                                         "catalogue entry to read the text against")] = False,
-    keep: Annotated[Optional[list[str]], typer.Option(help="A pattern ID reviewed and kept on purpose "
+    keep: Annotated[Optional[list[str]], typer.Option(help="A pattern ID reviewed and kept on purpose, or "
+                                                           "ID@HEADING to keep it under one heading only "
                                                            "(repeatable); name the sentences to the authors")] = None,
+    keep_file: Annotated[Optional[list[Path]], typer.Option(
+        "--keep-file", help="Kept patterns recorded earlier: a kept-patterns.txt file, or a run folder whose "
+                            "kept-patterns.txt files are all read (repeatable); a missing path holds none")] = None,
+    record: Annotated[Optional[Path], typer.Option(
+        "--record-keeps", dir_okay=False, help="Add the --keep values to this file (RUN/<skill>/kept-patterns.txt), "
+                                               "so the final check can read them with --keep-file")] = None,
     cluster: Annotated[int, typer.Option(min=2, help="Uses of one pattern under one heading that make a "
                                                      "cluster")] = CLUSTER,
     report: Annotated[bool, typer.Option("--report", help="Check a report to the authors: skip quoted text, "
@@ -615,8 +723,11 @@ def main(
     result = None
     if check or before:
         original = profile_text(before.read_text(encoding="utf-8"), latex, smells, kobak, report) if before else None
-        result = run_check(doc, original, {k.strip().upper() for k in keep or []}, cluster)
+        given = {normalise_keep(k) for k in keep or [] if k.strip()}
+        result = run_check(doc, original, given | read_keeps(keep_file or []), cluster)
         doc["check"] = result
+        if record is not None and given:
+            record_keeps(record, given)
     baseline = None
     if sample:
         joined = "\n\n".join(s.read_text(encoding="utf-8") for s in sample)
@@ -641,5 +752,16 @@ def main(
         raise typer.Exit(1)
 
 
+def _utf8_console() -> None:
+    """Print UTF-8 whatever the console's code page (a Windows console is often cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot change its encoding keeps it
+                pass
+
+
 if __name__ == "__main__":
+    _utf8_console()
     app()

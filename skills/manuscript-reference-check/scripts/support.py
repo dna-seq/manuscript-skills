@@ -22,7 +22,11 @@ these signals into confirmed / partial / rejected / blocked belongs to the skill
     uv run --script support.py claims.yaml                     # offline: local source files and the cache only
     uv run --script support.py claims.yaml --online            # also fetch legal open-access full text
     uv run --script support.py claims.yaml --json out.json --md out.md
-    uv run --script support.py claims.yaml --online --cache-dir DIR
+    uv run --script support.py claims.yaml --online --cache-dir RUN/manuscript-reference-check/sources
+
+Fetched texts are kept in --cache-dir; in a run, give the run's folder (as above) so the texts a report rests on
+stay with it. Without it they go to the platform's cache folder (~/.cache on Linux, ~/Library/Caches on macOS,
+%LOCALAPPDATA% on Windows), under manuscript-reference-check/sources.
 
 With --online only public identifiers leave the machine: Europe PMC (PMC full text and abstracts), the bioRxiv
 and medRxiv API (full-text JATS), and arXiv (HTML full text or the abstract). Paywalled sources are never
@@ -464,9 +468,20 @@ def identifier_url(kind: str, value: str) -> Optional[str]:
             "pmcid": f"https://europepmc.org/article/PMC/{value}", "arxiv": f"https://arxiv.org/abs/{value}"}.get(kind)
 
 
+def platform_cache_root() -> Path:
+    """The user's cache folder on this platform: %LOCALAPPDATA% on Windows, ~/Library/Caches on macOS, else
+    $XDG_CACHE_HOME or ~/.cache."""
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        return Path(local) if local else Path.home() / "AppData" / "Local"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+
+
 def default_cache_dir() -> Path:
-    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-    return base / "manuscript-reference-check" / "sources"
+    """Where fetched texts go without --cache-dir. A run passes its own folder, so the texts stay with its report."""
+    return platform_cache_root() / "manuscript-reference-check" / "sources"
 
 
 def _cache_paths(cache_dir: Path, kind: str, value: str) -> tuple[Path, Path]:
@@ -613,8 +628,8 @@ def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir:
         return text_path.read_text(encoding="utf-8"), info
     if fetch is None:
         return None, SourceInfo(given=f"{kind}:{value}", kind=kind,
-                                reason="The source is given as an identifier, and reading it needs --online (or save "
-                                       "the source's text and give its path).")
+                                reason="The source is given as an identifier, and reading it needs the online "
+                                       "lookups (or save the source's text and give its path).")
     if kind == "arxiv":
         text, info = _arxiv(fetch, value)
     elif kind == "doi" and RXIV_DOI_RE.match(value):
@@ -963,7 +978,8 @@ def _claim_block(r: ClaimResult) -> list[str]:
     elif r.status == "quote_not_found" and r.quote:
         lines.append(f"The quoted passage, {_quoted(r.quote)}, was not found in the source text.")
         if r.closest_passage:
-            lines.append(f"The closest passage in the source (similarity {r.closest_ratio}) reads "
+            alike = f", about {round(100 * r.closest_ratio)}% alike," if r.closest_ratio is not None else ""
+            lines.append(f"The closest passage in the source{alike} reads "
                          f"{_quoted(r.closest_passage)}. The quote may be misquoted, or it may sit in a figure, a "
                          "table or a supplement that the text lacks.")
     elif found:
@@ -1018,8 +1034,8 @@ def to_markdown(report: SupportReport) -> str:
         out += [f"{_plural(s['sources_aimed_at_ai'], 'source contains', 'sources contain')} passages that may address "
                 "AI systems, listed with the claims citing them, to read in context.", ""]
     if not report.online:
-        out += ["The check ran offline, so sources given only as an identifier were read from the local cache. Run "
-                "it again with --online to fetch their open-access text.", ""]
+        out += ["The check ran offline, so sources given only as an identifier were read from the local cache. A run "
+                "with the online lookups fetches their open-access text.", ""]
     for status in REPORT_ORDER:
         for r in report.results:
             if r.status == status:
@@ -1033,11 +1049,19 @@ def main(
                                                 help="YAML or JSON claims file")],
     online: Annotated[bool, typer.Option(help="Fetch legal open-access text for identifiers (Europe PMC, "
                                               "bioRxiv/medRxiv, arXiv)")] = False,
-    cache_dir: Annotated[Optional[Path], typer.Option(help="Where fetched texts are kept (default: "
-                                                           "~/.cache/manuscript-reference-check/sources)")] = None,
+    cache_dir: Annotated[Optional[Path], typer.Option(help="Where fetched texts are kept; in a run, "
+                                                           "RUN/manuscript-reference-check/sources (default: the "
+                                                           "platform's cache folder, under "
+                                                           "manuscript-reference-check/sources)")] = None,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
 ) -> None:
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     try:
         report = run(claims_file, online, (cache_dir or default_cache_dir()).expanduser())
     except ClaimsFileError as exc:

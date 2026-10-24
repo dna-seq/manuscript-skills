@@ -34,7 +34,9 @@ seat runs on the host and once more on each chosen model, as `skeptic@codex`, in
 own. It reduces shared blind spots somewhat; it does not make the seats independent, and the report never
 calls them independent on that basis or counts agreement between models as confirmation. Record the model
 of every seat (`runs.py add --model`). Send the manuscript to another provider only when the user asks
-for that provider or saved it for the project (`other_models`), in either mode.
+for that provider or saved it for the project (`other_models`), in either mode. Once chosen, it is not an
+option any more: the seats on each chosen model start with the host's seats, in step 3 of SKILL.md, and
+their findings go through the same defence pass and adjudication.
 
 ## A separate panel for each journal
 

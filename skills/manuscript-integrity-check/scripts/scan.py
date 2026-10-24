@@ -16,9 +16,14 @@ reported?) are the skill's job, not this script's.
     uv run --script scan.py PAPER.md --final              # about to submit: end-stage items count too
 
 The Markdown report groups findings by when the authors can act on them (fix now, then the writing, once the journal
-is chosen, before submission) and quotes each one in its section. A draft's readiness and the exit code count only
-the current work unless --final says the authors are about to submit. The JSON keeps every field, line numbers and
-status codes included, for other tools.
+is chosen, before submission) and quotes each one in its section; reference details a registry settles are counted
+after the groups, not listed as problems. A draft's readiness and the exit code count only the current work unless
+--final says the authors are about to submit. The JSON keeps every field, line numbers and status codes included,
+for other tools.
+
+Exit codes: 0 no blocker among the counted findings and, with --online, every lookup answered (major and minor
+findings may remain: read them); 1 at least one blocker; 2 usage error; 3 with --online, no blocker but at least
+one lookup did not answer, so the run cannot be called clean.
 """
 
 from __future__ import annotations
@@ -30,6 +35,7 @@ import ipaddress
 import json
 import re
 import subprocess
+import sys
 import time
 import tomllib
 import unicodedata
@@ -77,6 +83,12 @@ class Finding(BaseModel):
     quote_span: Optional[tuple[int, int]] = None  # where the problem sits inside `quote`
     stage: str = ""  # a Stage value; filled from the check when not set where the finding is made
     why: str = ""  # why it matters for the paper, in a sentence for the authors
+    # A reference detail a registry settles, with one right answer: counted with the other corrections, never listed
+    # as a problem. agreed: two sources give the record's value (apply it under the `edits` setting); one-source: only
+    # one record was compared (a suggested repair: the entry keeps its text until a second source agrees);
+    # sources-disagree: a second registry gives the entry's value (left as it is, unverified).
+    repair: str = ""  # "" | agreed | one-source | sources-disagree
+    repair_kind: str = ""  # journal | year | volume | pages | title | author list | published version
     # Set for a finding about a bibliography entry: `quote` is then the entry, not a line of the manuscript.
     _entry: bool = PrivateAttr(default=False)
 
@@ -136,6 +148,10 @@ class Reference(BaseModel):
     author_notes: list[str] = []
     author_severity: Optional[str] = None  # minor | info, when author_check is "differs"
     lookup_notes: list[str] = []
+    # A second registry's record of the same work (Europe PMC beside Crossref or DataCite), read with the retraction
+    # check: a correction is applied only when two sources agree.
+    second_source: Optional[str] = None
+    _second: dict = PrivateAttr(default_factory=dict)
     # For an identifier that does not resolve: the record a Crossref title search found (also in lookup_notes).
     _title_match: Optional[dict] = PrivateAttr(default=None)
     # For an entry read from a BibTeX file: the file's name and the entry's key (`line` is then the file's line).
@@ -202,8 +218,8 @@ CHATBOT_LEFTOVERS = [
     r"i hope this helps",
     r"let me know if you (?:need|would like|want)",
     r"feel free to (?:adjust|modify|ask)",
-    r"\[insert [^\]]+\]",
-    r"\[(?:your|author) name\]",
+    # "[Insert Figure 2 here]" and "[Author name]" are a draft's own fill-ins, not chat residue: the placeholder
+    # check reports them, for the last step before submission.
     r"in this (?:hypothetical|fictional) (?:scenario|example)",
     # The residue arXiv's CS moderators cite as grounds for a one-year ban (May 2026).
     r"would you like me to",
@@ -434,13 +450,43 @@ def _agent_patterns() -> list[str]:
     return [n.lower() for n in data["names"] + data["patterns"]]
 
 
-def ledger_ai(raw: str) -> list[str]:
-    """For each revision mark that names a known AI model or agent in `by=`, the first such name."""
-    patterns = _agent_patterns()
+REV_MARKS_CONFIG = "rev-marks.toml"
+
+
+def project_people(start: Optional[Path]) -> tuple[frozenset[str], tuple[str, ...]]:
+    """The project's `humans` and `agents` from rev-marks.toml in the manuscript's folder or above it, up to the git
+    root, as manuscript-revision-marks reads them. A name in `humans` is a person even when it matches the shared
+    agent list (a co-author called Claude or Nova). A file that does not read gives no names."""
+    if start is None:
+        return frozenset(), ()
+    here = start.resolve()
+    for folder in (here, *here.parents) if here.is_dir() else here.parents:
+        candidate = folder / REV_MARKS_CONFIG
+        if candidate.is_file():
+            try:
+                data = tomllib.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+                return frozenset(), ()
+
+            def names(key: str) -> list[str]:
+                value = data.get(key, [])
+                return [v.strip().lower() for v in value if isinstance(v, str) and v.strip()] \
+                    if isinstance(value, list) else []
+            return frozenset(names("humans")), tuple(names("agents"))
+        if (folder / ".git").exists():
+            break
+    return frozenset(), ()
+
+
+def ledger_ai(raw: str, path: Optional[Path] = None) -> list[str]:
+    """For each revision mark that names a known AI model or agent in `by=`, the first such name. With the
+    manuscript's path, the project's rev-marks.toml decides first: its `humans` are people, its `agents` agents."""
+    humans, agents = project_people(path)
+    patterns = _agent_patterns() + list(agents)
     out = []
     for m in LEDGER_BY.finditer(raw):
         names = [item.partition(":")[0].lower() for item in m.group(1).split(",")]
-        ai = next((n for n in names if any(fnmatch.fnmatchcase(n, p) for p in patterns)), None)
+        ai = next((n for n in names if n not in humans and any(fnmatch.fnmatchcase(n, p) for p in patterns)), None)
         if ai is not None:
             out.append(ai)
     return out
@@ -1619,9 +1665,9 @@ def _names_listed(names: list[str], most: int = 8) -> str:
 def _compare_authors(ref: Reference, source: str) -> None:
     """Compare the record's author list with the citation's, beyond the first author.
 
-    Records an outcome in `author_check` and the details in `author_notes`. A difference is a metadata question
-    for the authors to check against the publisher's page, never evidence that a reference was invented:
-    registries cut long lists short, list editors or groups, and spell names their own way.
+    Records an outcome in `author_check` and the details in `author_notes`. A difference is a metadata repair the
+    registries settle (two that agree), never evidence that a reference was invented and never a question for the
+    authors: registries cut long lists short, list editors or groups, and spell names their own way.
     """
     record = [_split_author(a) for a in ref.resolved_authors]
     people = [(f, g) for f, g in record if f and not GROUP_AUTHOR_RE.search(f)]
@@ -1725,8 +1771,7 @@ def _compare_authors(ref: Reference, source: str) -> None:
         names = _names_listed([t for _, t in unknown])
         if len(matched) == len(people) and all(i > max(used) for i, _ in unknown):
             notes.append(f"The {source} record lists {len(people)} author{'s' if len(people) > 1 else ''}, and the "
-                         f"entry also names {names}. Registry lists can stop short, so check the publisher's page if "
-                         f"it matters.")
+                         f"entry also names {names}. Registry lists can stop short, so this is not flagged.")
         else:
             notes.append(f"The entry's author list names {names}, {'who is' if len(unknown) == 1 else 'who are'} "
                          f"not on the {source} record.")
@@ -1823,6 +1868,25 @@ def _europepmc_notice(hit: dict) -> tuple[str, Optional[str]]:
     return "none", None
 
 
+def _europepmc_bibliographic(hit: dict) -> dict:
+    """A Europe PMC record's title, authors ("Family, Given"), journal names, years, volume and pages: the second
+    source a correction from Crossref is checked against."""
+    authors = [f"{a['lastName']}, {a.get('firstName') or a.get('initials') or ''}".rstrip(", ")
+               if a.get("lastName") else a.get("collectiveName") or a.get("fullName") or ""
+               for a in ((hit.get("authorList") or {}).get("author") or []) if isinstance(a, dict)]
+    if not any(authors) and hit.get("authorString"):  # the short form: "Ng PC, Henikoff S."
+        authors = [_pubmed_author(a.strip()) for a in str(hit["authorString"]).rstrip(".").split(", ") if a.strip()]
+    info = hit.get("journalInfo") or {}
+    journal = info.get("journal") or {}
+    years = [str(y)[:4] for y in (info.get("yearOfPublication"), info.get("printPublicationDate"), hit.get("pubYear"))
+             if y and str(y)[:4].isdigit()]
+    return {"title": _fetched(hit.get("title") or "") or None, "authors": [a for a in authors if a][:200],
+            "venues": [v for v in (journal.get("title"), journal.get("isoabbreviation"),
+                                   journal.get("medlineAbbreviation")) if v],
+            "years": list(dict.fromkeys(years)), "volume": str(info["volume"]) if info.get("volume") else None,
+            "pages": str(hit["pageInfo"]) if hit.get("pageInfo") else None}
+
+
 def _check_retraction(client: httpx.Client, ref: Reference, first: Optional[tuple[str, str, Optional[str]]]) -> None:
     """Ask a second registry unless the first already found a retraction; any notice found wins.
 
@@ -1841,6 +1905,8 @@ def _check_retraction(client: httpx.Client, ref: Reference, first: Optional[tupl
             ref.lookup_notes.append("Europe PMC did not answer; retraction checked with fewer sources.")
         elif hit:
             answered.append("europepmc")
+            if _record_source(ref) != "PubMed":  # Europe PMC's MEDLINE record is PubMed's: not a second source then
+                ref._second, ref.second_source = _europepmc_bibliographic(hit), "Europe PMC"
             second, second_notice = _europepmc_notice(hit)
             if second == "retracted" or (second == "concern" and state == "none"):
                 state, found_by, notice = second, "europepmc", second_notice
@@ -2213,6 +2279,9 @@ def _first_author_keys(ref: Reference) -> set[str]:
     return {t for t in _fold(ref.resolved_first_author or "").split() if len(t) > 1}
 
 
+TITLE_MATCH = 0.9  # a title this close to the record's names the same work, whoever the entry lists as authors
+
+
 def resolve_references(refs: list[Reference], search_unidentified: bool) -> None:
     _ASKED.clear()
     with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
@@ -2242,12 +2311,15 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
                 elif ref.resolved_first_author or ref.resolved_authors:
                     keys = _first_author_keys(ref)
                     ref.first_author_found = bool(keys) and bool(keys & _entry_tokens(ref.text))
-                # A title that does not match is a different work; a first author that does not match, with
-                # the title right, is usually a wrong author list (RefChecker flags both). A mismatch outranks a
+                # A title that does not match is a different work. A first author that does not match is a
+                # different work too when the title is only close, or absent; with the title as the record's it
+                # is a wrong author list, an author finding (RefChecker flags both). A mismatch outranks a
                 # retraction notice, which then belongs to the work the identifier points to, not the one cited.
                 untitled = ref._bib_file is not None and not ref.cited_title  # nothing to compare the title with
+                title_holds = not untitled and ref.title_similarity >= TITLE_MATCH
                 if ref.status in ("resolved", "retracted", "concern") and (
-                        (ref.title_similarity < 0.6 and not untitled) or ref.first_author_found is False):
+                        (ref.title_similarity < 0.6 and not untitled)
+                        or (ref.first_author_found is False and not title_holds)):
                     ref.status = "mismatch"
                 if untitled:
                     ref.title_check = "no_title"
@@ -2256,6 +2328,11 @@ def resolve_references(refs: list[Reference], search_unidentified: bool) -> None
                     ref.title_check = "same" if same else "differs"
                 if ref.status in ("resolved", "retracted", "concern") and ref.resolved_authors and names_authors:
                     _compare_authors(ref, _record_source(ref))
+                if ref.first_author_found is False and ref.status in ("resolved", "retracted", "concern") \
+                        and ref.author_check != "differs":
+                    first = ref.resolved_first_author or _split_author(ref.resolved_authors[0])[0]
+                    ref.author_check, ref.author_severity = "differs", "minor"
+                    ref.author_notes = [f"The record's first author, {first}, is not in the entry."] + ref.author_notes
             ref.other_id_checks = [_check_other_id(client, ref, other) for other in ref.other_ids]
             if ref.url:
                 ref.url_status = _url_status(client, ref.url)
@@ -2327,8 +2404,8 @@ def _url_status(client: httpx.Client, url: str) -> str:
         return f"ok HTTP {r.status_code}"
     if r.status_code in (401, 403):
         return f"blocked HTTP {r.status_code}"
-    if r.status_code == 429 or r.status_code >= 500:
-        return f"unknown: HTTP {r.status_code}"
+    if r.status_code in (405, 429) or r.status_code >= 500:  # 405: the server refuses the method, as in
+        return f"unknown: HTTP {r.status_code}"  # check_availability.py; never read as a dead link
     return f"dead HTTP {r.status_code}"
 
 
@@ -2481,16 +2558,93 @@ def _record_conflicts(ref: Reference) -> list[str]:
     return out
 
 
+def _second_view(ref: Reference) -> Optional[Reference]:
+    """The entry with the second registry's record in place of the first, to compare the entry with it."""
+    rec = ref._second
+    if not rec:
+        return None
+    other = ref.model_copy()
+    other.resolved_title = rec.get("title") or ref.resolved_title
+    other.resolved_authors, other.author_notes, other.author_check = list(rec.get("authors") or []), [], "not_compared"
+    other.resolved_venues, other.resolved_volume, other.resolved_pages = (list(rec.get("venues") or []),
+                                                                         rec.get("volume"), rec.get("pages"))
+    years = list(rec.get("years") or [])
+    other.resolved_year = years[0] if years else None
+    other._record_years, other._article_number = years[1:], None
+    return other
+
+
+def _field_confirmation(ref: Reference, conflict: str) -> str:
+    """For one detail where the entry differs from its record ("year (the record is from 2018)"): agreed when the
+    second registry's record gives the first record's value, sources-disagree when it gives another (the entry's,
+    say), one-source when there is no second record or it lacks the detail."""
+    other = _second_view(ref)
+    kind = conflict.split(" ", 1)[0]
+    if other is None:
+        return "one-source"
+    has = {"journal": bool(other.resolved_venues), "year": bool(other.resolved_year), "volume": bool(other.resolved_volume),
+           "pages": bool(other.resolved_pages)}.get(kind, False)
+    if not has:
+        return "one-source"
+    first_years = {int(y) for y in [ref.resolved_year, *ref._record_years] if y and str(y).isdigit()}
+    second_years = {int(y) for y in [other.resolved_year, *other._record_years] if y and str(y).isdigit()}
+    same = {"journal": any(_venue_named(_fold(a), b) or _venue_named(_fold(b), a)
+                           for a in ref.resolved_venues for b in other.resolved_venues),
+            "year": any(abs(a - b) <= 1 for a in first_years for b in second_years),
+            "volume": (ref.resolved_volume or "").strip().lower() == (other.resolved_volume or "").strip().lower(),
+            "pages": _first_page(ref.resolved_pages) == _first_page(other.resolved_pages)}[kind]
+    still = any(c.split(" ", 1)[0] == kind for c in _record_conflicts(other))
+    return "agreed" if same and still else "sources-disagree"
+
+
+def _author_confirmation(ref: Reference) -> str:
+    """The entry's author list against the second registry's: agreed when it differs from that record too,
+    sources-disagree when that record lists the authors as the entry does."""
+    other = _second_view(ref)
+    if other is None or not other.resolved_authors:
+        return "one-source"
+    _compare_authors(other, ref.second_source or "Europe PMC")
+    return {"differs": "agreed", "consistent": "sources-disagree"}.get(other.author_check, "one-source")
+
+
+def _title_confirmation(ref: Reference) -> str:
+    title = (ref._second or {}).get("title")
+    if not title:
+        return "one-source"
+    if _strict_title(title) == _strict_title(ref.resolved_title or ""):
+        return "agreed"
+    return "sources-disagree" if _strict_title(title) == _strict_title(ref.cited_title or "") else "one-source"
+
+
+REPAIR_SENTENCE = {
+    "agreed": " {second} gives the same as the record, so two registries agree.",
+    "sources-disagree": " {second} gives what the entry gives, so the registries disagree: the entry stays as it is, "
+                        "counted as unverified.",
+    "one-source": "",
+}
+REPAIR_ACTION = {
+    "agreed": "Correct the entry from the record (two registries agree): a metadata repair with one right answer.",
+    "one-source": "A suggested repair: correct the entry from the record once a second source (PubMed, Europe PMC or "
+                  "the publisher's page) gives the same; until then the entry keeps its text.",
+    "sources-disagree": "Leave the entry as it is and count it as unverified: the registries disagree, and a saved "
+                        "copy of the publisher's page is never needed for metadata.",
+}
+
+
 def _reference_findings(refs: list[Reference], online: bool = False, unidentified: str = "strict") -> list[Finding]:
     """Findings per reference. `unidentified="strict"` (the default) never lets an entry with no identifier pass:
     a Crossref match is a candidate to confirm, at least minor; "lax" lets a close match fall to info."""
     out: list[Finding] = []
 
     def add(ref: Reference, severity: Severity, message: str, suggestion: str, why: str = "",
-            stage: Stage = Stage.now) -> None:
+            stage: Stage = Stage.now, repair: str = "", kind: str = "") -> None:
         out.append(_ref_finding(ref, Finding(check="references", severity=severity, line=ref.line,
                                              excerpt=ref.text[:140], message=message, why=why,
-                                             suggestion=suggestion, stage=stage.value)))
+                                             suggestion=suggestion, stage=stage.value, repair=repair,
+                                             repair_kind=kind)))
+
+    def repaired(ref: Reference, how: str) -> str:
+        return REPAIR_SENTENCE[how].format(second=ref.second_source or "The second registry")
 
     for ref in refs:
         ident = _identifier_phrase(ref)
@@ -2588,7 +2742,7 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
         elif ref.status == "not_checked" and not (ref.doi or ref.pmid or ref.arxiv):
             add(ref, Severity.minor, NO_IDENTIFIER,
                 why="An identifier lets readers find the work, and many journals' reference styles ask for one.",
-                suggestion="Run the scan with --online to search Crossref, then add the identifier the work has.",
+                suggestion="A run with the online lookups searches Crossref for it; add the identifier the work has.",
                 stage=Stage.journal)
         # The identifier leads to the work the entry names; its journal, year, volume and pages should agree too.
         conflicts = _record_conflicts(ref) if ref.status in ("resolved", "retracted", "concern") \
@@ -2606,12 +2760,14 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
                     suggestion="Check which work the sentence relies on. If it is this record, copy its journal, year, "
                                "volume and pages; if the details name the work meant, correct the identifier.")
             else:
-                # One detail that a registry settles is a correction to count, never a problem to lead with.
-                add(ref, Severity.minor, where + f"{conflicts[0]}.",
+                # One detail that a registry settles is a correction to count, never a problem to lead with; it is
+                # applied only when a second source agrees (registries carry errors too).
+                how = _field_confirmation(ref, conflicts[0])
+                add(ref, Severity.minor, where + f"{conflicts[0]}." + repaired(ref, how),
                     why="A wrong journal, year, volume or page makes the work harder to find from the citation, and "
                         "copy editors query it.",
-                    suggestion="Open the record and copy the detail from it; registries carry errors too, so check "
-                               "the publisher's page if the record looks wrong.", stage=Stage.journal)
+                    suggestion=REPAIR_ACTION[how], stage=Stage.journal, repair=how,
+                    kind=conflicts[0].split(" ", 1)[0])
         if ref.withdrawn:
             add(ref, Severity.major, f"The cited preprint has been withdrawn by its authors (recorded by "
                                      f"{source_words(ref.withdrawn_source)}).",
@@ -2643,23 +2799,30 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
             if pv.retraction in ("retracted", "concern"):
                 check += (" The published version is marked as retracted." if pv.retraction == "retracted" else
                           " The published version carries an expression of concern.")
+            # The preprint's own record names the published version, and the published record matches it: two
+            # sources, so citing it is a repair to count, once the numbers borrowed from the preprint still hold there.
+            settled = pv.metadata_checked and pv.retraction not in ("retracted", "concern") and (
+                (pv.title_similarity or 0) >= 0.5 or bool(pv.shared_authors))
             add(ref, Severity.minor,
                 f"The cited preprint has been published in {where}" + (f", {doi_url(pv.doi)}" if pv.doi else "")
                 + f" (recorded by {source_words(pv.source)})." + check,
                 why="Numbers, methods and author lists can change between a preprint and its published version.",
-                suggestion="Cite the published version after confirming it still reports what you cite. Keep the "
-                           "preprint only if you need content the published version dropped.",
-                stage=Stage.journal)
+                suggestion=("Cite the published version once each number the manuscript borrows from the preprint is "
+                            "found in it; a number that changed is a finding to fix now. " if settled else
+                            "Cite the published version after confirming it still reports what you cite. ")
+                           + "Keep the preprint only if you need content the published version dropped.",
+                stage=Stage.journal, repair="agreed" if settled else "", kind="published version" if settled else "")
         if ref.title_check == "differs" and ref.status not in ("unresolved", "mismatch"):
             a, b = _strict_title(ref.cited_title or ""), _strict_title(ref.resolved_title or "")
             tail = (" One is the other with a subtitle added or dropped." if a.startswith(b + " ")
                     or b.startswith(a + " ") else "")
+            how = _title_confirmation(ref)
             add(ref, Severity.minor,
                 f"The cited title, “{_fetched(_delatex(ref.cited_title or ''))}”, is close to the record's but not "
-                f"the same: “{ref.resolved_title}”.{tail}",
+                f"the same: “{ref.resolved_title}”.{tail}" + repaired(ref, how),
                 why="A title that differs from the published one makes the work harder to find.",
-                suggestion="Copy the title from the record, keeping the journal's capitalisation style.",
-                stage=Stage.journal)
+                suggestion=REPAIR_ACTION[how] + " Keep the journal's capitalisation style.",
+                stage=Stage.journal, repair=how, kind="title")
         elif ref.title_check == "no_title" and ref.resolved_title:
             add(ref, Severity.minor,
                 f"The entry has no title, so it could not be compared with the work its identifier names, "
@@ -2708,11 +2871,15 @@ def _reference_findings(refs: list[Reference], online: bool = False, unidentifie
                 f"the record, which lists {len(ref.resolved_authors)}.",
                 suggestion="Add the author list from the record, or check the entry's author field.")
         if ref.author_check == "differs" and ref.status not in ("unresolved", "mismatch"):
+            # Settled from the registries, never handed to the authors: a list two registries agree on is a
+            # counted repair; where they disagree it stays, counted as unverified.
+            how = _author_confirmation(ref)
             add(ref, Severity(ref.author_severity or "minor"),
-                f"The author list differs from the {_record_source(ref)} record. " + " ".join(ref.author_notes),
-                suggestion="Check it against the publisher's page. Registries cut lists short and spell names "
-                           "differently (initials, transliteration, particles), so this is a metadata difference to "
-                           "check, not evidence of fabrication.")
+                f"The author list differs from the {_record_source(ref)} record. " + " ".join(ref.author_notes)
+                + repaired(ref, how),
+                suggestion=REPAIR_ACTION[how] + " Registries cut lists short and spell names differently (initials, "
+                           "transliteration, particles), so this is a metadata repair, not evidence of fabrication.",
+                stage=Stage.journal, repair=how, kind="author list")
     if online:
         unchecked = [r for r in refs if r.retraction == "not_checked" and r.status not in ("unresolved", "not_checked")]
         if unchecked:
@@ -2738,8 +2905,11 @@ GIT_AI_TRAILER = re.compile(r"^co-authored-by:.*\b(claude|gpt|chatgpt|openai|gem
 
 def _git_findings(path: Path) -> list[Finding]:
     """Commits touching the file whose message carries an AI co-author trailer."""
-    run = subprocess.run(["git", "-C", str(path.parent), "log", "--format=%H%x00%B%x01", "--", path.name],
-                         capture_output=True, text=True)
+    try:
+        run = subprocess.run(["git", "-C", str(path.parent), "log", "--format=%H%x00%B%x01", "--", path.name],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except OSError:  # no git on this machine
+        run = subprocess.CompletedProcess([], 1, "", "")
     if run.returncode != 0:
         return [Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                         message="The file is not in a git repository, so its commit messages were not checked.")]
@@ -2790,6 +2960,53 @@ def _inline_ids(line: str) -> list[tuple[str, str]]:
     found += [("pmid", m.group(1)) for m in PMID_RE.finditer(line)]
     found += [("arxiv", m.group(1)) for m in INLINE_ARXIV_RE.finditer(line)]
     return [i for i in dict.fromkeys(found) if i[0] not in ("placeholder", "local")]
+
+
+# Availability statements, as manuscript-reporting-check's check_availability.py finds them: a heading that is the
+# label ("Data availability", "Availability and implementation"), or a paragraph that opens with it. Identifiers and
+# links there are that script's to resolve (it knows archives, accessions and releases); this scan reads the rest.
+_AVAIL_NOUN = r"(?:data|code|software|materials?|resources?)"
+AVAILABILITY_LABEL = re.compile(
+    rf"{_AVAIL_NOUN}(?:\s*(?:,|and|&)\s*(?:and\s+)?{_AVAIL_NOUN})*\s+(?:availability|accessibility|access|sharing|"
+    rf"deposition)(?:\s+statement)?|availability\s+of\s+{_AVAIL_NOUN}(?:\s*(?:,|and|&)\s*(?:and\s+)?{_AVAIL_NOUN})*"
+    r"|availability\s+and\s+(?:implementation|requirements)|accession\s+(?:numbers?|codes?)|key\s+resources\s+table",
+    re.IGNORECASE)
+AVAILABILITY_LEAD = re.compile(rf"^\s*(?:\*\*|__|\\textbf\{{|\\paragraph\*?\{{)?\s*(?:{AVAILABILITY_LABEL.pattern})"
+                               r"\s*(?:\*\*|__|\})?\s*([:.])?", re.IGNORECASE)
+
+
+def _heading_of(line: str) -> Optional[tuple[int, str]]:
+    if m := MD_HEADING.match(line.strip()):
+        return len(m.group(1)), m.group(2)
+    if m := TEX_SECTION.match(line):
+        return TEX_LEVELS[m.group(1)] + 1, m.group(2)
+    return None
+
+
+def availability_lines(lines: list[str]) -> set[int]:
+    """The 1-based numbers of the lines inside availability statements."""
+    out: set[int] = set()
+    i = 0
+    while i < len(lines):
+        head = _heading_of(lines[i])
+        title = re.sub(r"^\W*(?:\d+(?:\.\d+)*\.?\s*)?|\W*$", "", _heading_text(head[1])) if head else ""
+        if head and AVAILABILITY_LABEL.fullmatch(title):
+            end = i + 1
+            while end < len(lines) and not ((nxt := _heading_of(lines[end])) and nxt[0] <= head[0]):
+                end += 1
+            out.update(range(i + 1, end + 1))
+            i = end
+            continue
+        m = None if head else AVAILABILITY_LEAD.match(lines[i])
+        if m and (m.group(1) or re.match(r"\s*(\*\*|__|\\textbf|\\paragraph)", lines[i])):
+            end = i + 1
+            while end < len(lines) and lines[end].strip() and not _heading_of(lines[end]):
+                end += 1
+            out.update(range(i + 1, end + 1))
+            i = end
+            continue
+        i += 1
+    return out
 
 
 def _prose_lines(path: Path, text: str) -> list[tuple[int, str]]:
@@ -2963,16 +3180,22 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
                 doi = DOI_RE.search(entry)
                 pmid = PMID_RE.search(entry)
                 arxiv = ARXIV_RE.search(entry)
+                # A data or software citation often gives only a link (a repository, a Zenodo record page): it is
+                # checked by its status online, as a BibTeX url field is.
+                links = [classify_url(_trim_id(m.group(0))) for m in INLINE_URL_RE.finditer(entry)]
                 ref = Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
-                                pmid=pmid.group(1) if pmid else None, arxiv=_arxiv_id(arxiv))
+                                pmid=pmid.group(1) if pmid else None, arxiv=_arxiv_id(arxiv),
+                                url=next((value for kind, value in links if kind == "url"), None))
                 ref._list = sections[begin - 1] if begin <= len(sections) else None
                 refs.append(ref)
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)
         prose = [(n, line) for n, line in _prose_lines(path, raw) if n not in in_lists]
+        # Links in availability statements belong to manuscript-reporting-check's availability check.
+        statements = availability_lines(lines)
         inline = [InlineId(line=n, kind=kind, id=ident, section=sections[n - 1] if n <= len(sections) else "")
-                  for n, line in prose for kind, ident in _inline_ids(line)]
+                  for n, line in prose if n not in statements for kind, ident in _inline_ids(line)]
         findings += _undated_findings(prose)
     if ref_start is None and not bibs:
         findings.append(Finding(check="references", severity=Severity.major, section=WHOLE_MANUSCRIPT,
@@ -3021,7 +3244,8 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
                                why="A claim without its source cannot be checked by readers or referees.",
                                stage=Stage.now.value)
     findings += _declaration_findings(text_lower)
-    findings += _ai_use_findings(lines, text_lower, ref_start, bool(ledger_ai(raw)))
+    ai_marks = ledger_ai(raw, path)
+    findings += _ai_use_findings(lines, text_lower, ref_start, bool(ai_marks))
     findings += _scan_patterns(body_lines, STOCK_PHRASES, "stock-phrase", Severity.minor,
                                "'{match}' is a stock phrase.", "Say the specific thing instead, or cut the phrase.",
                                why="Such phrases say little, and readers and screeners associate them with text "
@@ -3056,7 +3280,6 @@ def scan(path: Path, online: bool, search_unidentified: bool, venue: Optional[st
     findings += reference_report.findings
     if git:
         findings += _git_findings(path.resolve())
-    ai_marks = ledger_ai(raw)
     if ai_marks:
         findings.append(Finding(check="ai-use", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                                 message=f"{len(ai_marks)} revision markers (comments such as <!-- @rev ... -->) "
@@ -3280,9 +3503,10 @@ def _clusters(findings: list[Finding]) -> list[list[Finding]]:
 
 
 def _stage_lines(findings: list[Finding]) -> list[str]:
+    """The findings under the four stage headings. Registry-settled repairs are counted after them instead."""
     out: list[str] = []
     for stage in Stage:
-        members = [f for f in findings if (f.stage or Stage.now.value) == stage.value]
+        members = [f for f in findings if (f.stage or Stage.now.value) == stage.value and not f.repair]
         if not members:
             continue
         out += [f"## {STAGE_TITLES[stage]}", ""]
@@ -3294,8 +3518,53 @@ def _stage_lines(findings: list[Finding]) -> list[str]:
     return out
 
 
+REPAIR_KIND_WORDS = {"journal": ("journal name", "journal names"), "year": ("year", "years"),
+                     "volume": ("volume", "volumes"), "pages": ("page range", "page ranges"),
+                     "title": ("shortened or altered title", "shortened or altered titles"),
+                     "author list": ("author list", "author lists"),
+                     "published version": ("preprint now published", "preprints now published")}
+
+
+def _repair_lines(findings: list[Finding]) -> list[str]:
+    """Registry-settled corrections, counted by kind and by how many sources settle them (author-priorities.md,
+    "Do not ask about what needs no decision"); the itemised list is folded away, shown when asked for."""
+    repairs = [f for f in findings if f.repair]
+    if not repairs:
+        return []
+    kinds = Counter(f.repair_kind for f in repairs)
+    counted = _names_listed([f"{n} {REPAIR_KIND_WORDS.get(k, (k, k + 's'))[0 if n == 1 else 1]}"
+                             for k, n in kinds.most_common()], len(kinds))
+    how = Counter(f.repair for f in repairs)
+    parts = []
+    if how["agreed"]:
+        n = how["agreed"]
+        parts.append(f"{n} {'is' if n == 1 else 'are'} confirmed by two sources and can be applied")
+    if how["one-source"]:
+        n = how["one-source"]
+        parts.append(f"{n} {'rests' if n == 1 else 'rest'} on one registry record, so the entry keeps its text until a "
+                     f"second source (PubMed, Europe PMC or the publisher's page) gives the same")
+    if how["sources-disagree"]:
+        parts.append(f"for {how['sources-disagree']} the registries disagree, so the entry stays as it is, counted as "
+                     f"unverified")
+    states = _names_listed(parts, len(parts))
+    lead = (f"{_plural(len(repairs), 'reference detail differs', 'reference details differ')} from the registry "
+            f"records and {'has' if len(repairs) == 1 else 'have'} one right answer, so "
+            f"{'it is' if len(repairs) == 1 else 'they are'} counted here rather than listed as problems: {counted}. "
+            f"{_sentence(states[:1].upper() + states[1:])}")
+    if kinds["published version"]:
+        lead += (" A preprint's published version is cited once the numbers the manuscript borrows from it are found "
+                 "there; a number that changed is a problem to fix now.")
+    out = ["## Corrected, or ready to apply", "", lead, "",
+           "<details><summary>The corrections, one per entry</summary>", ""]
+    for f in sorted(repairs, key=lambda f: f.line or 0):
+        out.append(f"- {_sentence(f.message)} {_place_sentence(f) or _where(f) + '.'}")
+    return out + ["", "</details>", ""]
+
+
 def _entry_place(ref: Reference) -> str:
-    return f"{ref._bib_file}, entry {ref._bib_key}" if ref._bib_file else f"line {ref.line}"
+    if ref._bib_file:
+        return f"{ref._bib_file}, entry {ref._bib_key}"
+    return f"{ref._list or 'References'} (line {ref.line})"
 
 
 def _reference_rows(refs: list[Reference]) -> list[str]:
@@ -3303,6 +3572,8 @@ def _reference_rows(refs: list[Reference]) -> list[str]:
     for ref in refs:
         entry = _quote(ref.text, width=90)[0]
         found = STATUS_WORDS.get(ref.status, ref.status)
+        if ref.status == "resolved" and ref.first_author_found is False:
+            found = "found, with the title of the entry"
         if ref.status == "no_identifier":
             fits = (ref.title_similarity or 0) >= 0.6 or ref.first_author_found
             found = ("no identifier, and Crossref's closest record is a different work" if fits and len(_record_conflicts(ref)) >= 2 else
@@ -3367,15 +3638,17 @@ def references_to_markdown(report: ReferenceReport) -> str:
     """The focused reference check: what manuscript-reference-check's Step 1 reports to the authors."""
     out = [f"# Reference check of {Path(report.path).name}", "",
            f"The reference list has {_plural(len(report.references), 'entry', 'entries')}. This check compares each "
-           "entry with its registry record (Crossref, DataCite, PubMed or arXiv) by title and authors, looks for "
-           "retractions, expressions of concern, withdrawals and published versions of preprints, and matches the "
-           "in-text citations against the list. Whether a source supports the sentence that cites it needs the "
-           "source to be read; this check does not establish it."]
+           "entry with its registry record (Crossref, DataCite, PubMed or arXiv) by title and authors, then by "
+           "journal, year, volume and pages, looks for retractions, expressions of concern, withdrawals and "
+           "published versions of preprints, and matches the in-text citations against the list. Whether a source "
+           "supports the sentence that cites it needs the source to be read; this check does not establish it."]
     if not report.online:
         out += ["", "It ran offline, so whether each entry is the work it names, and whether it was retracted, was "
-                    "not assessed (offline mode). Run it again with --online to look the identifiers up."]
-    out += ["", SEVERITY_KEY if report.findings else "The check found no problem in the entries and citations.", ""]
+                    "not assessed (offline mode). A run with the online lookups checks the identifiers."]
+    listed = [f for f in report.findings if not f.repair]
+    out += ["", SEVERITY_KEY if listed else "The check found no problem in the entries and citations.", ""]
     out += _stage_lines(report.findings)
+    out += _repair_lines(report.findings)
     if report.online and report.references:
         out += ["## What the retraction search covered", "", _retraction_coverage(report.references), ""]
     if report.references:
@@ -3423,12 +3696,12 @@ def to_markdown(report: Report) -> str:
     counted = counted_findings(report.findings, report.final)
     later = _clusters([f for f in report.findings if f.stage == Stage.final.value])  # as listed: repeats are one item
     if report.final:
-        mode = ("You are about to submit (the scan ran with --final), so the items under “Before submission, once the "
-                "code is final” count in the readiness too.")
+        mode = ("You are about to submit, so the items under “Before submission, once the code is final” count in the "
+                "readiness too.")
     else:
         mode = ("The manuscript is treated as work in progress: items for the last step before submission are listed "
-                f"at the end and not counted in the readiness ({_plural(len(later), 'item')} this time). Run the scan "
-                "with --final when you are about to submit, and they count too.")
+                f"at the end and not counted in the readiness ({_plural(len(later), 'item')} this time). When you are "
+                "about to submit, the scan runs again with them counted.")
     size = f"The body has about {report.words:,} words" + (f" and the Abstract {report.abstract_words:,}."
                                                          if report.abstract_words is not None else
                                                          "; no Abstract heading was found.")
@@ -3438,9 +3711,10 @@ def to_markdown(report: Report) -> str:
            "references, length limits, and wording that screeners count. It reports and never rewrites. Whether a "
            "claim is calibrated, or a denominator reported, is left to the full review.", "",
            f"**Readiness:** {_verdict(counted)}", "", mode, "", size + " " + _vocabulary_sentence(report), ""]
-    if report.findings:
+    if any(not f.repair for f in report.findings):
         out += [SEVERITY_KEY, ""]
     out += _stage_lines(report.findings)
+    out += _repair_lines(report.findings)
     if any(r.status != "not_checked" for r in report.references):
         out += ["## Each reference as checked", ""] + _reference_rows(report.references)
     out += _inline_section(report.inline_ids)
@@ -3467,8 +3741,14 @@ def main(
                                                    "match is a candidate to confirm (at least minor); lax: a close "
                                                    "match falls to info")] = "strict",
 ) -> None:
-    """Exit 0 no blocker (major and minor findings may remain), 1 a blocker, 3 (with --online) no blocker but a
-    lookup that did not answer, so the run cannot be called clean; 2 usage."""
+    """Exit 0 no blocker and every lookup answered (major and minor findings may remain), 1 a blocker, 3 (with
+    --online) no blocker but a lookup that did not answer, so the run cannot be called clean; 2 usage."""
+    for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     if unidentified not in ("strict", "lax"):
         raise typer.BadParameter("--unidentified takes strict or lax")
     if references_only:

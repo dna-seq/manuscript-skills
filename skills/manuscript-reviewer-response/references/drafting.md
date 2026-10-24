@@ -6,15 +6,18 @@ it.
 
 ## 1. Order of work
 
-1. The ledger has a decision for every item (plan mode). An `undecided` item gets a `[TBD: authors'
+1. The ledger has a decision for every item (plan mode): given item by item, or covered by the authors'
+   one confirmation of the proposed decisions ([ledger.md](ledger.md#4-the-authors-decide)). An `undecided`
+   item, including a decline or new work the confirmed question did not name, gets a `[TBD: authors'
    decision]` reply, never an inferred one.
 2. The manuscript changes are made first, by the authors or, for facts the authors supply, by
    `manuscript-prose-edit` under its author-supplied content rule. Draft a reply only for a change that
    exists; for one that does not exist yet, write `[TBD: ...]` naming what is missing and leave `landed`
    empty.
 3. Fill `landed` in the ledger with the location of each change in the revised manuscript.
-4. Draft the letter, then run `scripts/check_response.py` (its Markdown report beside the letter, its JSON in
-   the skill's run folder) and fix every blocking finding, preserving earlier attempts.
+4. Draft the letter, then run `scripts/check_response.py` and fix every blocking finding, preserving earlier
+   attempts. Its Markdown report goes beside the letter and a copy is registered in the run; its JSON is
+   written in `RUN/manuscript-reviewer-response/` (SKILL.md, "The structural check").
 
 ## 2. The letter
 
@@ -146,7 +149,9 @@ the result; it never reports the result in advance.
   add approvals, exemptions or consent the authors have not stated.
 - **New or replacement citations**: verify each with `manuscript-reference-check` before it enters the
   letter or the manuscript.
-- **Reporting checklists, availability statements**: `manuscript-reporting-check`.
+- **Reporting checklists**: `manuscript-reporting-check`. **Availability statements** (data, code,
+  software): `manuscript-journal-adapt` drafts the statement for the venue, and `manuscript-reporting-check`
+  checks its content (each link resolves and holds what the statement promises).
 - **Language edits to revised text**: `manuscript-prose-edit` under its contract, and new facts the
   authors supply under its author-supplied content rule; rerun the check, since quoted revised text must
   still match.

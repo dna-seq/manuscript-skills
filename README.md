@@ -34,7 +34,7 @@ submitted by mistake.
 <table>
 <tr>
 <td width="50%"><img src="docs/images/dashboard-manuscript.png" alt="The manuscript with each problem highlighted by severity and the skills' comments in the margin"><br><b>The paper itself</b>, each problem highlighted where a skill quoted it, with what is wrong and what to do beside it.</td>
-<td width="50%"><img src="docs/images/dashboard-revised.png" alt="The corrected version as track changes, with the list of applied and proposed edits"><br><b>The corrected version</b> as track changes: routine fixes applied, every substantive change a proposal you accept or not.</td>
+<td width="50%"><img src="docs/images/dashboard-revised.png" alt="The corrected version as track changes, with the list of applied and proposed edits"><br><b>The corrected version</b> as track changes: routine and evidence-backed fixes applied, the other changes proposed, all of it yours to accept in one step or one by one.</td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/images/dashboard-journals.png" alt="The three chosen journals with their AI policies as icons"><br><b>The journals</b> chosen by your priorities, each AI rule shown as an icon, and a red flag for rules that can cost you, such as a ban on AI drafting or an AI detector.</td>
@@ -67,7 +67,8 @@ these parts have no counterpart there:
 Where other skills do the same job, these parts add a check:
 
 - **Every edit is checked by a script**, sentence by sentence, for a stronger claim, a dropped qualifier
-  or a changed number or citation.
+  or a changed number or citation, and no declaration (consent, competing interests, funding, who did
+  what) is written or changed without the facts you gave.
 - **The upload files are checked too:** hidden text and prompts aimed at AI reviewers, LaTeX
   comments, leaked keys and location data in figures.
 - **Figures are judged as printed:** at the journal's column width, in greyscale and as colour-blind
@@ -95,8 +96,12 @@ Where other skills do the same job, these parts add a check:
    > Use manuscript-improve to improve this paper for submission. Show the before/after changes and
    > identify any decisions I need to make.
 
-   By default a run applies routine fixes and proposes every substantive change; story edits that keep
-   the direction you chose count as routine. Ask for a report only if you want nothing applied.
+   By default a run applies routine fixes and the corrections the evidence settles (a wrong number, a
+   citation, a claim reworded to what the results show), shows each one, and proposes the rest in a corrected
+   version you can accept in one step. Say "fix everything" to apply the whole corrected version. Only
+   choices that are yours alone (the paper's direction, which figures it has, new experiments, facts only
+   you know) wait for you, all together at the end. Ask for proposals only if you want to approve each
+   change yourself.
 
 On first use the assistant asks, in one batch, only for what it cannot find (the manuscript files, any
 code repository and where to save the runs) and how you want it to work: how much it may change by
@@ -124,7 +129,7 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest. |
 | See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, and a PDF measured against a page limit. |
 | List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
-| Have more than one AI model read the paper | [manuscript-other-models](skills/manuscript-other-models/SKILL.md) | Only when you ask: the simulated referees and readers also read on another model, through the command-line agents you already use and pay for (from Claude Code on Codex, from Codex on Claude Code, or on Gemini), without API keys. Each seat runs in a fresh session that sees only its own copy of the paper, and every report says which model wrote it. |
+| Have more than one AI model read the paper | [manuscript-other-models](skills/manuscript-other-models/SKILL.md) | Only when you ask: the simulated referees and readers also read on another model, through the command-line agents you already use and pay for (from Claude Code on Codex, from Codex on Claude Code, or on Gemini), using each one's own sign-in: provider API keys in your environment are not passed on. Each seat runs in a fresh session in its own copy of the paper: Claude Code cannot read outside it, while Codex and Gemini can write only there and are told to read nothing else. Every report says which model wrote it. |
 
 manuscript-improve runs the other skills as its stages, so you do not need to run them first. Each
 skill also works on its own when you want only that service: a paragraph edit needs no full manuscript
@@ -135,7 +140,8 @@ you can ask for selected sections or one stage at a time instead.
 
 - Reference and availability checks look up public identifiers online: DOIs, PMIDs, accessions,
   package names and links in the text. A reference without a working identifier is searched in Crossref
-  by its own text. Nothing else from the manuscript is sent.
+  by its own text, and a resolved reference's record is read from Europe PMC as a second source. Nothing
+  else from the manuscript is sent.
 - Journal requirements are read from the journals' own pages. To see where named colleagues publish, journal
   selection sends their names to OpenAlex, and only on request.
 - AI-text detector checks run only when you ask. The default detector runs on your computer; a hosted
@@ -169,8 +175,9 @@ What you open goes beside the manuscript as well, named after it:
 
 - `paper.dashboard.html`, the dashboard of the latest run (each run folder keeps its own);
 - `paper.review.docx`, the same as a Word document with tracked changes and comments. If you already
-  have one, the assistant asks before replacing it, since you may have commented in it;
-- `paper.proposed.md`, the corrected version;
+  have a different one, which you may have commented in, the new one is saved beside it with the date in
+  its name (`paper.review.20261024.docx`), never over it;
+- `paper.proposed.md` (or `.tex`, as your manuscript), the corrected version, kept the same way;
 - from journal selection, the journal ladder, the venue requirements and the shared record.
 
 ```
@@ -178,7 +185,7 @@ paper/
 ├── paper.md                  your manuscript
 ├── paper.dashboard.html      the latest run's dashboard
 ├── paper.review.docx         the same in Word, tracked changes and comments
-├── paper.proposed.md         the corrected version
+├── paper.proposed.md         the corrected version (your manuscript's own format)
 └── reviews/
     └── 20261024T101500Z-3f2a91c0/   one folder per run: index, reports, evidence
 ```
@@ -236,8 +243,11 @@ For journal selection:
 > wet-lab budget. Compare scientific fit, publication costs and review speed. We used AI to revise the
 > text, so explain the relevant writing policies too.
 
-Journal selection first asks a short batch of priorities (speed, reach, AI-policy burden, cost, who
-pays the fee) unless you have already given them, and keeps them in the shared record. You can ask for a
+Journal selection reads the venues first and orders both ladders by a default you can see (speed, then
+reach, AI-policy burden and cost) until you state your own priorities; it asks them once, among the
+decisions at the end (what matters most, an impact-factor floor, who pays the fee and up to what amount),
+reorders on your answer and keeps it in the shared record. A venue whose fee you would pay stays "depends"
+until a budget is known, and no venue is left out for its AI rules unless you say so. You can ask for a
 fuller interview instead: what AI did in each section, which AI-policy burdens you refuse, and where
 named colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed
 since it was last read.
@@ -452,7 +462,7 @@ conversation overrides the project's saved choices, and those override your glob
 
 | Setting | Choices (default first) | What it changes |
 |---|---|---|
-| `edits` | `conservative`, `propose`, `apply` | How much an improvement run changes by itself. `conservative` applies routine corrections that preserve meaning (for the story stage, also edits that keep the direction you recorded) and proposes consequential argument, claim or numerical changes; `propose` only reports; `apply` makes authorised substantive edits too. Every mode ends with the corrected version as a separate file, so you can read the whole improved paper before accepting it, and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `edits` | `conservative`, `propose`, `apply` | How much a run changes by itself. `conservative` applies routine corrections that preserve meaning and the corrections the evidence for a confirmed problem settles (a number, a citation, a claim reworded to what the results show; for the story stage, also edits that keep the paper's direction), and proposes changes no confirmed problem requires; `propose` applies nothing and lets you approve each change one by one; `apply` makes substantive improvements too. Under every setting the paper's direction, which figures it has, new experiments and facts only you know stay your decisions, asked once at the end. Every mode ends with the corrected version as a separate file, which you can accept in one step ("fix everything"), and exact consequential before/after text is shown promptly in the chat, even with file reports. |
 | `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
 | `keep` | `everything`, `results` | What stays in a run's folder once it ends. `everything` keeps every intermediate file, which later steps and the dashboard read and which let you trace each finding; `results` keeps the index, the reports, the dashboard and the corrected version, and packs the rest into `evidence.zip` (see [What a run leaves in your folder](#what-a-run-leaves-in-your-folder)). |
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |

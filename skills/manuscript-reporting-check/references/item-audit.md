@@ -52,9 +52,10 @@ to submit.
 Use the shared severities in
 [author-priorities.md](../../manuscript-integrity-check/references/author-priorities.md#findings-and-stopping):
 
-- **Blocker** only for a verified submission barrier when the authors are about to submit: the venue
-  requires the form or guideline and the live page confirms it. If the authors decide not to provide it,
-  that is their decision, noted once with its consequence, not a blocker.
+- **Blocker** only for a confirmed scientific defect (an analysis the conclusions need is missing or unsound,
+  checked against the manuscript and its supplement), or a verified submission barrier when the authors are about
+  to submit: the venue requires the form or guideline and the live page confirms it. If the authors decide not to
+  provide a form, that is their decision, noted once with its consequence, not a blocker.
 - **Major** for a gap that threatens how a result can be read (no correction for 48 tests with nominal
   P values reported as findings; no stratification control across ancestries), or an item the venue
   requires.
@@ -70,9 +71,12 @@ the claim. Do not turn a reporting gap into a demand for new samples, a new coho
 is a scientific judgement for the authors and for `manuscript-peer-review`, and an unaffordable
 requirement is a venue question for `manuscript-journal-select`.
 
-Never write the missing text with invented values. Where a sentence needs a fact only the authors have
-(a call rate, a software version, the number genotyped), ask for it among the questions at the end of the
-report.
+Never write the missing text with invented values. Before asking, read the project's files when the manuscript
+has a repository (run logs, release tags, configuration, result tables): a version or count tied to the run or
+release behind the results (the tagged release, the benchmark's run log, the commit the paper cites) fills the gap,
+quoted with its source; one that is not (a lock file or the latest tag shows today's project) is a proposal that
+names its source, never a silent fill-in. Ask the authors only for what the files leave open (a call rate the logs
+do not hold, the number genotyped), among the questions at the end of the report.
 
 ## The report
 

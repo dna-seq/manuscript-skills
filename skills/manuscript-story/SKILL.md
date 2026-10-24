@@ -27,6 +27,9 @@ and, when it exists, the [manuscript record](../manuscript-integrity-check/refer
 its `story`, `venue`, `claims` and `non_claims` entries bind this skill.
 
 Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+As a stage of `manuscript-improve` (or run alone), finish with the [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist):
+record each applied edit with `runs.py change` (routine fixes grouped as one record per paragraph or section; the
+final claim check lets caveats move only inside these records) and write `findings.json` with the `ST` prefix.
 
 ## What the authors can ask for
 
@@ -47,9 +50,10 @@ The direction is what the paper is about to its reader: the theme that leads the
 sentences of the Abstract and the end of the Introduction, and the order of the others. The same platform
 can lead with privacy, with a biological question, with openness or with speed; that choice is the
 authors'. Read it from the record's `story` entry. When there is none, draft one from the title, the
-Abstract, the Introduction's last paragraph and the conversation, show it to the authors with the
-passages it rests on, and until they confirm it, treat the direction the text has now as the direction.
-Record what they confirm, in their words ([story-contract.md](references/story-contract.md#the-story-entry)).
+Abstract, the Introduction's last paragraph and the conversation, and show it to the authors with the
+passages it rests on, among the end-of-run decisions. Until they confirm it, edits that keep the direction apply
+against the direction the text has now, and the draft entry never licenses a direction change. Record what they
+confirm, in their words ([story-contract.md](references/story-contract.md#the-story-entry)).
 
 **Check for drift.** Compare the recorded direction with the title, the Abstract's first sentence, the
 Introduction's last paragraph and the Conclusion, and, when earlier versions exist, how those passages
@@ -97,11 +101,13 @@ positioning sentence, the missing citations and a short list of devices, never a
 The contract is in [story-contract.md](references/story-contract.md). In short:
 
 - **Edits that keep the direction** may be applied under `edits: conservative` and `edits: apply`, and
-  are proposed under `edits: propose`: a stake or hook that serves the recorded direction, a headline
-  sentence before a result's numbers, connected sentences, a worked example drawn from the authors' own
-  outputs, caveats moved to where they cost the reader least, repetition and defensive detail moved to
-  the supplement or the response letter, an ending on what the reader can do. Each still shows as exact
-  before/after text in the chat.
+  are proposed under `edits: propose`: a stake or hook built from facts the paper already has, a headline
+  sentence before a result's numbers (in that result's paragraph, naming nothing the paragraph lacks),
+  connected sentences, caveats moved within their section to where they cost the reader least, repetition
+  and defensive detail moved to the supplement or the response letter, an ending on what the reader can do.
+  Each still shows as exact before/after text in the chat. A worked example of real output and a hook built
+  on a fact from outside the paper add numbers or facts, so `conservative` proposes them and `apply` applies
+  them.
 - **Direction changes are always proposals**, whatever the setting: a different lead theme or order, a
   theme added or dropped as a main claim, other readers, a new title, a different thing the paper argues
   against. Offer two or three options, each with a draft title, the Abstract's first two sentences, the
@@ -110,9 +116,10 @@ The contract is in [story-contract.md](references/story-contract.md). In short:
   fact or number has a verified source; a quote is verbatim. Missing material is a question for the
   authors, not a gap to fill.
 - **Keep every caveat.** Sort each one: a doubt about the central claim stays beside it, as the last
-  sentence of that result; a scope condition moves to Limitations or Methods; defensive detail for a
-  referee moves to the supplement or the response letter. Delete only filler that carries no
-  qualification. Rewriting a caveat while moving it is a claim change the authors must see.
+  sentence of that result; a scope condition stays in the Abstract and Introduction sentences it bounds and
+  elsewhere moves only within its section (to the end of its result, or the section's limitations); defensive
+  detail for a referee moves, whole, to the supplement or the response letter. Delete only filler that
+  carries no qualification. Rewriting a caveat while moving it is a claim change the authors must see.
 
 Sentence-level work follows the [prose-edit contract](../manuscript-prose-edit/references/prose-edit-contract.md),
 including its claim ceiling: a story edit never raises a claim's certainty, causality, novelty,
@@ -121,12 +128,15 @@ generality or scope. "More engaging" is never "more certain".
 ## 5. The three gates
 
 No story edit is handed over until all three have run on the edited text, in this order, and every
-failure is fixed or turned into a decision for the authors:
+failure is fixed: restore the wording or drop the edit and list it. Only a direction choice goes to the
+authors.
 
-1. **Science.** `../manuscript-prose-edit/scripts/guard.py BEFORE AFTER --relocated` (add `--moved-to`
-   for each supplement or letter text moved into). A caveat that reappears in a new or changed sentence
-   elsewhere is reported as moved, not lost; anything else the guard protects still fails. The record's
-   `claims` and `non_claims` hold. Every new citation passes `manuscript-reference-check`.
+1. **Science.** `uv run --script ../manuscript-prose-edit/scripts/guard.py BEFORE AFTER --relocated` (add
+   `--moved-to` for each supplement or letter text moved into). A caveat that another sentence of the same
+   section, about the same thing, states is reported as moved, not lost, and so is a headline that restates its
+   paragraph. A scope qualifier lost from the Abstract or Introduction, a caveat found only in another section
+   or the supplement, and anything else the guard protects still fail. The record's `claims` and `non_claims`
+   hold. Every new citation passes `manuscript-reference-check`.
 2. **The journal.** Read the venue from the record (or the ladder's shared requirements when no journal
    is chosen) and check the edit against it: article type, word, figure and reference limits, abstract
    headings, required sections ([manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) owns
@@ -135,14 +145,16 @@ failure is fixed or turned into a decision for the authors:
    3): hype and promotional wording, unsupported "first", "only" or "no existing tool" claims, a lay
    register in a technical venue, health or treatment advice in a paper about people's data (hand clinical
    or privacy scope to `manuscript-policy-fit`).
-3. **AI-written prose.** `../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE --check`,
+3. **AI-written prose.** `uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER --before BEFORE
+   --check` (a use kept on purpose: `--keep ID@HEADING --record-keeps RUN/manuscript-story/kept-patterns.txt`),
    then read the edit against the pattern list it prints. Storytelling is where marketing voice and
    manufactured vividness creep in.
 
 When the gates disagree with the story, the science comes first, the journal's format second and the
 story third. Do not drop the story element silently: offer it where it fits (a report figure that
 replaces a figure rather than adding one, the hook under the structured Abstract's first heading, the
-lineage in two sentences instead of a paragraph) and list the choice with the authors' decisions.
+lineage in two sentences instead of a paragraph) as a proposal; only a choice that is the authors' anyway (which
+figures the paper has) goes with the end-of-run decisions.
 
 ## What to show the authors
 
@@ -176,8 +188,9 @@ and the direction options.
 
 `result` is `holds`, `partly`, `fails` or `not-run` (with the reason in `note`); the note quotes the passage,
 as the report does. A story edit that keeps the direction is a proposal or an applied edit with its `why`; a
-change to the narrative structure is an option or a finding with `decision: true`, never an edit, and a
-question about a proposal is its `comment`, never a placeholder in the text.
+direction change ([story-contract.md](references/story-contract.md#direction-changes)) is an option or a finding
+with `decision: true`, never an edit, and a question about a proposal is its `comment`, never a placeholder in the
+text.
 
 ## Boundaries
 

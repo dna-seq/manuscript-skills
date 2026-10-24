@@ -41,7 +41,7 @@ Work across the whole decision letter by default. A request about one comment ("
 [workflow controls](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
 for item-by-item review, before/after comparisons and interviews.
 
-Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
+Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run (`RUN/manuscript-reviewer-response/`), ending with its [end-of-stage checklist](../manuscript-integrity-check/references/project-workflow.md#end-of-stage-checklist). This applies to direct invocations too.
 
 ## Choose the mode
 
@@ -75,13 +75,22 @@ Read [references/ledger.md](references/ledger.md) before splitting.
    `citation`, `methods-text`, `results-text`, `discussion-text`, `statement`, `wording`, `answer`,
    `acknowledge`). Mark the editor's conditions and objections to validity as `must_fix` (with no editor,
    objections to validity only).
-5. Show the authors the comments in the referees' order, each quoted (shortened with [...] when long)
-   under the referee's own number, with what it asks for, the kind of work it needs and whether it is
-   essential, in plain words, and ask for a decision per item: **address** (with the target in the
-   manuscript), **decline** (with the authors' reason: design, scope, or the time, cost or capacity they
-   name), or **not on point** (with the reason). Then list the decisions needed, grouped by when the work
-   could be done. Propose if useful, but leave `decision: undecided` until they answer. Flag conflicting
-   requests between referees for the authors to resolve.
+5. **Propose a decision for every item** and record it as `proposed`: **address** (with the target in the
+   manuscript), **decline** (with the reason the authors would give: design, scope, or the time, cost or
+   capacity they named), or **not on point** (with the reason). Show the authors the comments in the
+   referees' order, each quoted (shortened with [...] when long) under the referee's own number, with what
+   it asks for, the kind of work it needs, whether it is essential and the proposed decision, in plain
+   words, grouped by when the work could be done. Then ask **one** question that the authors can answer
+   for all of them at once, and that names every proposed decline or "does not apply" and every promise of
+   new data or a new analysis: "All as proposed, including declining Reviewer 2's point 4 and adding the
+   replication in Reviewer 1's point 3?" A yes confirms every item it covers: the items to address with
+   text changes, and the declines and new work it named. Record the answer once for the round
+   (`confirmation:` with the question, the authors' words and the items it named) and `confirmed: blanket`
+   on each item it covers, then set each such item's `decision` to its proposal; an item they change or
+   decide on its own gets `confirmed: item`. A decline or new work the question did not name stays
+   `undecided`, whatever the answer. Authors who prefer to decide item by item still can. Never infer a
+   decision from silence. Flag conflicting requests between referees for the authors to resolve
+   ([ledger.md](references/ledger.md#4-the-authors-decide)).
 6. For requests the authors cannot meet (often new experiments in a computational study), list the honest
    alternatives with what each would cost (a rough estimate, labelled as one): a public-data replication or
    reanalysis, a narrower claim, a scope sentence, verified existing evidence, another venue. An
@@ -92,10 +101,12 @@ Read [references/ledger.md](references/ledger.md) before splitting.
 
 Write the ledger as `review-ledger.yaml` (the format is in the reference) and check it with the script's
 plan form (below). It is a task file the authors read and a later round builds on: keep it with their
-revision files (beside the response letter, or where they say) and give its path. Name companion skills in `hand_to`: ethics, consent, clinical scope and
-privacy to `manuscript-policy-fit`; requested reporting checklists and availability statements to
-`manuscript-reporting-check`; new citations to `manuscript-reference-check`. With no letter to write, stop
-here.
+revision files (beside the response letter, or where they say) and give its path. Name companion skills in
+`hand_to`: ethics, consent, clinical scope and privacy to `manuscript-policy-fit`; requested reporting
+checklists to `manuscript-reporting-check`; a requested data, code or software availability statement to
+`manuscript-journal-adapt`, which drafts it for the venue, and to `manuscript-reporting-check`, which checks
+its content (that every link resolves and holds what it promises); new citations to
+`manuscript-reference-check`. With no letter to write, stop here.
 
 ## Draft: the response letter
 
@@ -125,7 +136,8 @@ that exist.
 - Insert the reply text `manuscript-policy-fit` drafts for policy items without adding facts; verify new
   citations with `manuscript-reference-check` before they enter the letter; make language edits under
   `manuscript-prose-edit`'s contract; use `manuscript-journal-adapt` for the revision package and any
-  required statements, including an AI-use statement if the venue's policy covers the revision.
+  required statements (availability statements included, whose content `manuscript-reporting-check` then
+  checks), including an AI-use statement if the venue's policy covers the revision.
 
 Fill `landed` for each commitment, then run the check (commands below) and fix every blocking finding.
 Run the smell check on the letter as well (required):
@@ -149,8 +161,10 @@ Read [references/verification.md](references/verification.md). The order is the 
    made worse, or could not be checked (say which evidence was not supplied), with a quote from the revised
    manuscript and its section. Record new problems as **regressions** (introduced by the
    revision) or **previously missed** (present before; report them, do not escalate them). Before
-   reporting, check each verdict's evidence in both versions. Use a fresh subagent without the letter
-   for this step when there is a letter and subagents are available.
+   reporting, check each verdict's evidence in both versions. When there is a letter and subagents are
+   available, run steps 1 and 2 in a fresh subagent that receives only the reviews and the two manuscripts
+   (for step 1, only the reviews), never the letter, the ledger's `landed` entries or a summary of the
+   revision ([verification.md](references/verification.md#isolation)).
 3. **Then read the letter.** It changes a verdict only by pointing to text that exists in the manuscript
    (for a question, the answer itself). Note every reply that claims something the manuscript does not
    show. With no letter, skip this step and step 4.
@@ -164,16 +178,31 @@ probability or overall score.
 
 ## The structural check
 
-Commands are relative to this skill directory. The JSON and Markdown checks are retained in this skill's run folder (`$SCRATCH` in these command examples denotes that durable working folder); link them beside the response-letter report:
+Commands are relative to this skill directory. Where the files go, one rule: the check's Markdown report,
+which the authors read, goes beside the response letter (`RESPONSE.check.md`), and a copy is registered in
+the run (`runs.py add RUN --skill manuscript-reviewer-response --file RESPONSE.check.md --role check --name
+response.check.md`); the JSON and the guard's comparison are written in the run folder,
+`RUN/manuscript-reviewer-response/`:
 
 ```bash
 uv run --script scripts/check_response.py REVIEWS review-ledger.yaml      # plan: the ledger alone
-uv run --script scripts/check_response.py REVIEWS review-ledger.yaml RESPONSE.md \
-    --revised REVISED.md --original ORIGINAL.md --md RESPONSE.check.md --json $SCRATCH/check.json
 uv run --script ../manuscript-prose-edit/scripts/guard.py ORIGINAL.md REVISED.md --revision \
-    --json $SCRATCH/guard.json
-uv run --script scripts/check_response.py ... --guard-json $SCRATCH/guard.json   # changes no reply mentions
+    --authorised RUN/manuscript-reviewer-response/requested-claims.yaml \
+    --json RUN/manuscript-reviewer-response/guard.json
+uv run --script scripts/check_response.py REVIEWS review-ledger.yaml RESPONSE.md \
+    --revised REVISED.md --original ORIGINAL.md --md RESPONSE.check.md \
+    --json RUN/manuscript-reviewer-response/check.json \
+    --guard-json RUN/manuscript-reviewer-response/guard.json   # with the changes no reply mentions
 uv run --script scripts/check_response.py REVIEWS ledger.yaml rebuttal.md --mode rebuttal --max-chars 5000
+```
+
+`requested-claims.yaml` lists each claim a referee asked to strengthen, one entry per change: a passage of
+at least three words copied verbatim from the sentence, and the comment's id as `finding` (an empty list,
+`[]`, when no referee asked for a stronger claim):
+
+```yaml
+- passage: "the annotation is complete for all GRCh38 contigs"
+  finding: R2.3
 ```
 
 Without a letter it checks the ledger alone: comments verbatim and in the referees' order, `same_as` and
@@ -185,8 +214,10 @@ ledger; that named and landed locations, quoted revised text and stated numbers 
 manuscript; and, with `--guard-json`, which changes between the versions sit at locations no reply names, and
 which existing claims now reach further. A widened claim fails even where a reply names its place: restore
 the original wording, or, when a referee asked for the stronger claim, say so in the reply and list that change
-(a passage from the sentence and the comment id) in a file passed to guard.py with `--authorised`, so the
-comparison marks it as requested. The run resolves this itself; the authors are not asked.
+in `requested-claims.yaml` (above), which guard.py reads with `--authorised`, so the comparison marks it as
+requested. A declaration a referee asked for (consent, ethics, competing interests, funding, contributions)
+is listed the same way once the authors supplied its facts. The run resolves this itself; the authors are
+not asked.
 In the JSON each check is `pass`, `fail` or `not_assessed`, with the reason; reply checks are not assessed
 when the letter has no reply blocks. The Markdown report says the same in words and is the one to show the
 authors: it quotes each comment under the referee's number, quotes the letter or manuscript text a finding
@@ -196,7 +227,20 @@ codes: 0 no blocking finding among the checks that ran, 1 a blocking finding (an
 did not run.
 
 It checks structure only: it cannot tell whether a reply answers the comment or whether a change is
-adequate. A clean run is not a good letter; verify mode is the judgement.
+adequate. A clean run is not a good letter; verify mode is the judgement. An item covered by the authors'
+one confirmation counts as decided; a proposed decline or new work that the confirmed question did not name
+is still missing its decision.
+
+## Findings for the dashboard
+
+Beside the report (`RUN/manuscript-reviewer-response/report.md`: the plan, the letter check's summary or the
+verification report), write `findings.json` as
+[stage findings](../manuscript-dashboard/references/stage-findings.md) describes, with IDs `RR-1`, `RR-2`...:
+in verify mode, one record per comment not fully addressed or made worse, per regression and per reply the
+manuscript does not bear out (the quote from the revised manuscript, or `null` with `looked_in` for something
+missing); in plan and draft mode, the blocking problems the check still lists and each comment that still
+waits for the authors' decision (`decision: true`). A comment the authors declined is their decision, never a
+finding. An empty `findings` list, with `not_checked` for what could not be checked, is valid.
 
 ## Shared record
 
