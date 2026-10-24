@@ -34,6 +34,57 @@ to, so the invited-referee mode starts without questions; the panel is stated in
 author can change it; and an in-silico-only budget is recorded as the real reason, beside what was done
 instead.
 
+## Where each skill stands against popular skill repos (2026-10-24)
+
+A recheck of all seventeen skills against the most-starred skill repos for academic writing, as they stood
+on 2026-10-24: [blader/humanizer](https://github.com/blader/humanizer) (60,114 stars),
+[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (54,343),
+[Imbad0202/academic-research-skills](https://github.com/Imbad0202/academic-research-skills) (ARS, 53,675),
+[wanshuiyin/Auto-claude-code-research-in-sleep](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)
+(ARIS, 17,990), [Galaxy-Dawn/claude-scholar](https://github.com/Galaxy-Dawn/claude-scholar) (5,888), and
+[Boom5426/Nature-Paper-Skills](https://github.com/Boom5426/Nature-Paper-Skills) (626), the closest
+life-science match. [Leey21/awesome-ai-research-writing](https://github.com/Leey21/awesome-ai-research-writing)
+(35,213) holds only prompts and was left out.
+
+**Method.** A shallow clone of each repo; their SKILL.md descriptions were read, and their Markdown, YAML and
+JSON files searched for each capability below. None of their skills was run. A match means their files
+describe the capability; whether it works was not tested, and a capability that lives only in their code
+may be missed.
+
+**No counterpart found in the six repos**
+
+| Skill | What it does | Closest thing found |
+|---|---|---|
+| `manuscript-policy-fit` | Which clinical, ethics and privacy requirements apply, including authors' voluntarily public genomes and bioRxiv/medRxiv referral loops. | None. K-Dense mentions medRxiv only in its literature-search skills. |
+| `manuscript-revision-marks`, `manuscript-mark-people` | Which passages an AI or agent wrote that no person has reviewed since, from marks in the source. | None. |
+| `manuscript-story` | Simulated readers say where they would stop reading; the repair keeps the authors' direction and every caveat. | Boom5426 `manuscript-optimizer` restructures toward a claim chain for a broad reader, without simulated readers. |
+| `manuscript-dashboard` | One offline file, and a Word version with tracked changes, of what a run found, changed and left open, and how much of a human review of the same draft it caught. | ARS keeps auditable quality-assurance files, not a dashboard. |
+| `manuscript-journal-select` | Preprint and journal ladders ordered by the authors' priorities, AI-policy burden among them, from dated and sourced venue entries. | Boom5426 `nature-portfolio-playbook` (Nature, Nature Methods and Nature Biotechnology only); K-Dense `venue-templates` (formatting, not choice). |
+
+**Ahead in a crowded area**
+
+| Skill | Popular alternatives | What ours adds |
+|---|---|---|
+| `manuscript-prose-edit` | humanizer; claude-scholar `nature-polishing` | `guard.py` aligns the sentences of the two versions and fails a stronger claim, a lost qualifier or a changed number or citation. The alternatives edit without such a check; ARIS forbids new numbers and citations in an edit, a narrower rule. |
+| `manuscript-integrity-check` | ARIS `integrity-forensics` and `paper-claim-audit`; Boom5426 `submission-audit` | `hygiene.py` checks the upload files for hidden text and prompts aimed at AI reviewers, LaTeX comments, secrets, EXIF data and anonymity; we found this in none of the six. Numbers are also checked against the project's code and run logs. ARIS checks numbers against raw result files, for ML papers. |
+| `manuscript-figures` | Boom5426 `nature-figure` and `figure-style`; ARIS `paper-figure`; claude-scholar `publication-chart-skill` | These mostly make figures. Ours reviews the authors' existing figures at print size, in greyscale and as colour-blind readers see them, against caption, text and code, and gives a keep, change or supplement verdict without touching the files. |
+| `manuscript-reporting-check` | K-Dense; Boom5426 `data-availability`; claude-scholar `nature-data` | `check_availability.py` resolves accessions and packages (GEO, EGA, dbGaP, Zenodo, Bioconductor, bioconda, PyPI, CRAN, RRID, Software Heritage), and the guidelines include DOME, STREGA, TRIPOD+AI and MDAR. The omics standards are no longer ours alone: K-Dense now names MINSEQE, MIAME and MIxS. |
+
+**On par; the value is in the combination**
+
+| Skill | Popular alternatives | Note |
+|---|---|---|
+| `manuscript-peer-review` | ARS `academic-paper-reviewer` (five seats, a calibration mode); K-Dense `peer-review`; Boom5426 `paper-reviewer` | ARS is more elaborate but CC BY-NC. Ours reviews for a real journal whose pages were read, with a defender, script-checked quotes and no scores. |
+| `manuscript-reviewer-response` | Boom5426 `rebuttal-response`; ARIS `rebuttal`; ARS rebuttal-audit mode; claude-scholar `review-response` | `check_response.py` checks that each reply's location, quoted text and numbers exist in the revised manuscript, round after round. Boom5426 comes close. |
+| `manuscript-reference-check` | ARIS `citation-audit`; Boom5426 `claim-source-verification`; K-Dense `citation-management` | Comparable: identity, retractions, preprints since published, and support quoted from the source. |
+| `manuscript-deslop` | humanizer; claude-scholar `writing-anti-ai` | The same Wikipedia source. Ours adds exceptions for scientific writing and the counted before/after check. |
+| `manuscript-journal-adapt` | K-Dense `venue-templates`; ARS disclosure mode | K-Dense ships LaTeX templates and we do not; `policy_watch.py` notices changed AI policies. |
+| `manuscript-other-models` | ARIS (a Codex reviewer by default, with Gemini and Claude variants); ARS (Codex for citation checks) | Not new. Ours runs in either direction through the command-line agents the authors already use. |
+| `manuscript-improve` | ARS `academic-pipeline`; ARIS research and paper pipelines | Theirs start from research and write the paper; ours improves an existing one and ends with the corrected version and the dashboard. |
+
+Across the plugin: it is MIT-licensed where ARS is non-commercial, its venue data is strongest in
+bioinformatics, genomics and aging, and it improves a manuscript the authors wrote instead of writing one.
+
 The repository descriptions below are as surveyed on 2026-10-15.
 
 ## How this was gathered
