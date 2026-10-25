@@ -283,6 +283,34 @@ def test_unshown_change_blocks_handover_and_source_edit_is_detected(manuscript: 
     assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 0
 
 
+def test_an_edit_the_authors_were_away_for_passes_when_the_dashboard_shows_it(manuscript: Path) -> None:
+    """An unattended run: no edit could be shown in chat, so the rendered dashboard, which shows each recorded edit
+    as a diff, is where the authors see it; validate --final lists it instead of failing, and never attests it."""
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript)
+    after = manuscript.parent / 'after.txt'
+    after.write_text('Proposed paragraph.')
+    assert add(run, after, 'report', 'manuscript-prose-edit', '--name', 'report.md').exit_code == 0
+    write_findings(run)
+    manuscript.write_text(manuscript.read_text() + '\nAdded paragraph.\n')
+    assert runner.invoke(runs.app, ['change', str(run), '--skill', 'manuscript-prose-edit', '--section', 'Abstract',
+                                    '--reason', 'Clearer.', '--after', str(after)]).exit_code == 0
+    assert finish(run).exit_code == 0
+    assert 'nor shown in the rendered dashboard' in runner.invoke(runs.app, ['validate', str(run), '--final']).output
+    change = runs.read(run)['skills']['manuscript-prose-edit']['changes'][0]
+    rendered = run / 'manuscript-dashboard/dashboard.2'
+    rendered.mkdir(parents=True)
+    (rendered / 'manuscript-dashboard.html').write_text('<html></html>')
+    stale = {'evidence_sha256': {f"../{change['path']}": '0' * 64}}  # rendered before the edit's record changed
+    (rendered / 'summary.json').write_text(json.dumps(stale))
+    assert runner.invoke(runs.app, ['validate', str(run), '--final']).exit_code == 1
+    (rendered / 'summary.json').write_text(json.dumps({'evidence_sha256': {f"../{change['path']}": change['sha256']}}))
+    result = runner.invoke(runs.app, ['validate', str(run), '--final'])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)['shown_in_dashboard'] == ['manuscript-prose-edit: Abstract (manuscript-prose-edit/changes/0001.md)']
+    assert runs.read(run)['skills']['manuscript-prose-edit']['changes'][0]['shown_in_chat'] is False
+
+
 def test_partial_is_a_valid_handover_without_claiming_complete(manuscript: Path) -> None:
     assert configure(manuscript).exit_code == 0
     run = start(manuscript)

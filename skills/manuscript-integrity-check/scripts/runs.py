@@ -8,7 +8,10 @@
 Use start once, reuse the returned run directory across companion skills, and add new evidence without
 overwriting earlier attempts. exec captures a real command's stdout, stderr and exit status. A successful
 command does not establish scientific support. validate checks artifacts, not the truth of a report or
-whether an agent really showed a passage in chat.
+whether an agent really showed a passage in chat. validate --final accepts a consequential edit nobody
+acknowledged as shown in chat when the newest rendered dashboard shows it (its before/after record, unchanged,
+is among the dashboard's evidence), and lists those edits under shown_in_dashboard: in a run the authors were
+not present for, the dashboard handed over to them is where they see each edit.
 
 A connected (remote) manuscript is snapshotted through its local reading copy: start --reading-copy FILE
 [--connected-version ID], or the reading copy saved with project.py configure. Without one for the main
@@ -49,6 +52,7 @@ import hashlib
 import inspect
 import itertools
 import json
+import posixpath
 import re
 import shutil
 import subprocess
@@ -365,6 +369,27 @@ def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
     return None
 
 
+def dashboard_shows(run: Path, data: dict[str, Any]) -> set[tuple[str, str]]:
+    """The before/after records the newest rendered dashboard shows as diffs, each as (path, sha256): its
+    summary.json lists every evidence file it read with the hash it had, paths relative to manuscript-dashboard/."""
+    dashboards = matching(run, DASHBOARD, data)
+    body = stored_body(run, data, (PurePosixPath(dashboards[-1]).parent / 'summary.json').as_posix()) if dashboards else None
+    try:
+        listed = json.loads(body.decode('utf-8')).get('evidence_sha256') if body else None
+    except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+        listed = None
+    if not isinstance(listed, dict):
+        return set()
+    return {(posixpath.normpath(f'manuscript-dashboard/{path}'), sha) for path, sha in listed.items()}
+
+
+def shown_in_dashboard(run: Path, data: dict[str, Any]) -> list[str]:
+    """The consequential edits nobody acknowledged as shown in chat that the dashboard shows, as it hands them over."""
+    shown = dashboard_shows(run, data)
+    return [f"{name}: {change['section']} ({change['path']})" for name, entry in data['skills'].items()
+            for change in entry['changes'] if not change['shown_in_chat'] and (change['path'], change['sha256']) in shown]
+
+
 def improvement_problems(run: Path, data: dict[str, Any]) -> list[str]:
     """What an improvement run owes the authors at the end, unless the dashboard or improve stage recorded why not."""
     stages = data['skills']
@@ -391,6 +416,9 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
         return digest(path) if path.is_file() else packed.get(path.relative_to(run.resolve()).as_posix())
 
     explained = any(s['changes'] or s.get('routine_only_reason') for s in data['skills'].values())
+    # An edit the authors were not there to see in chat (agents ran the stages, the authors were away) reaches them
+    # in the dashboard, which shows each recorded edit as a diff with its reason; validate lists those edits.
+    in_dashboard = dashboard_shows(run, data) if final else set()
     for source in data['inputs']:
         path = within(run, source['snapshot'])
         if stored(path) != source['sha256']:
@@ -448,8 +476,9 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
             path = within(run, change['path'])
             if stored(path) != change['sha256']:
                 errors.append(f"Missing or changed before/after: {change['path']}")
-            if final and not change['shown_in_chat']:
-                errors.append(f"{name}: consequential change not acknowledged as shown in chat: {change['section']}")
+            if final and not change['shown_in_chat'] and (change['path'], change['sha256']) not in in_dashboard:
+                errors.append(f"{name}: consequential change neither acknowledged as shown in chat nor shown in the "
+                              f"rendered dashboard: {change['section']}")
     if final and 'manuscript-improve' in data['skills']:
         errors.extend(improvement_problems(run, data))
     return errors
@@ -711,8 +740,11 @@ def validate(run: Path, final: bool = False) -> None:
     data = read(run)
     errors = problems(run, data, final)
     complete = all(s['status'] in {'completed', 'reused'} for s in data['skills'].values())
-    typer.echo(json.dumps({'valid': not errors, 'workflow_complete': complete and not errors,
-                           'problems': errors, 'index': str(run.resolve() / 'README.md')}, indent=2))
+    report = {'valid': not errors, 'workflow_complete': complete and not errors, 'problems': errors,
+              'index': str(run.resolve() / 'README.md')}
+    if final and (dashboard_only := shown_in_dashboard(run, data)):
+        report['shown_in_dashboard'] = dashboard_only  # not in chat: the authors see these in the dashboard
+    typer.echo(json.dumps(report, indent=2))
     if errors:
         raise typer.Exit(1)
 

@@ -233,6 +233,12 @@ showing it. These flags are agent attestations: the script cannot see or verify 
 A diff link does not satisfy the chat requirement. Classify genuine routine-only changes with a
 specific `--routine-only-reason` when finishing, rather than fabricating consequential excerpts.
 
+When the authors are not in the conversation (they left the run to work unattended, or the stage is an agent
+that cannot show them anything), record the change without `--shown-in-chat` and never attest it later. The
+dashboard handed over at the end shows every recorded edit as a diff with its reason, and `validate --final`
+accepts such an edit when the newest rendered dashboard shows it unchanged, listing it under
+`shown_in_dashboard`. Say in the summary that these edits are in the dashboard, not in the chat.
+
 Finish each skill with `runs.py finish RUN --skill SKILL --status completed`. Use `partial`, `blocked`,
 `not_run` or `reused` with `--reason` giving actual coverage, the obstacle or the reused source. Completed
 story and peer-review runs require their respective reader/referee evidence. A report is not complete
@@ -240,7 +246,7 @@ because an internal agent finished thinking, a PDF built or a Google Doc synchro
 
 Before handover run `runs.py validate RUN --final`. It detects missing/tampered evidence, incomplete
 statuses, missing panel artifacts, changed manuscript snapshots without a change explanation and
-unacknowledged before/after records. It does not prove scientific correctness, independence of seats,
+before/after records shown neither in chat nor in the rendered dashboard. It does not prove scientific correctness, independence of seats,
 completeness of edit classification or actual delivery in chat. Review those directly. Partial work can
 have a valid handover while the manifest still says `workflow_complete: false`. `validate --final` also checks
 that each completed or partial stage has a `findings.json` with a `findings` list. In a run with
