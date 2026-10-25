@@ -88,8 +88,15 @@ Where other skills do the same job, these parts add a check:
    claude plugin install manuscript-skills@dna-seq
    ```
 
-   In Codex, install **manuscript-skills** from the **DNA Seq Genomics** marketplace. The checks also
-   need [uv](https://docs.astral.sh/uv/), a small tool that runs the plugin's Python scripts.
+   In the Codex app, open **Plugins**, choose **Add → Add plugin marketplace**, paste
+   `https://github.com/dna-seq/manuscript-skills` as the source, leave **Git ref** and **Sparse paths**
+   empty and click **Add marketplace**. Then install **Manuscript Skills** from the new marketplace; it
+   appears under **Installed**.
+
+   ![The Codex Plugins page with the Add plugin marketplace dialog, numbered: 1 open Plugins, 2 Add and Add plugin marketplace, 3 paste the GitHub link, 4 click Add marketplace, 5 install Manuscript Skills, which then appears under Installed](docs/images/codex-add-marketplace.jpg)
+
+   The checks also need [uv](https://docs.astral.sh/uv/), a small tool that runs the plugin's Python
+   scripts.
 2. **Share the manuscript, its supplements and its code.** Start the assistant in the manuscript's
    folder or give it the file paths. Markdown, plain text and LaTeX (with its bibliography files) are
    read directly; for Word or Google Docs, provide an export or use a document connection the assistant
@@ -498,6 +505,10 @@ To install in Claude Code directly from this repository instead of the DNA Seq m
 claude plugin marketplace add dna-seq/manuscript-skills
 claude plugin install manuscript-skills@manuscript-skills
 ```
+
+In Codex, to add the whole **DNA Seq Genomics** catalog instead, paste
+`https://github.com/dna-seq/dna-seq-claude-marketplace` as the marketplace source and install
+**manuscript-skills** from it.
 
 The plugin installs all seventeen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
 the computer running the assistant; their dependencies install on first use. Building a PDF from a
