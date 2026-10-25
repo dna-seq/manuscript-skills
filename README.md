@@ -445,9 +445,10 @@ involving recruited participants can raise different requirements. Applicable ex
 a missing declaration alone does not establish that an approval was required.
 
 AI-use statements draw on your account of what the tools did and the journal's required fields and
-exemptions. What a run's own stages changed is recorded, so that part of the statement comes pre-filled, by
-stage and marked as covering that run only; you are asked once about your own use outside it, and nothing
-is pieced together from older versions or commit history. Detector scores measure style and are often wrong: they cannot show who wrote a passage,
+exemptions. The run's edits are not counted for it unless you ask, for example for a journal with a strict AI
+policy. Then the part covering that run is pre-filled from what its stages changed, marked as covering that
+run only, and you are asked once about your own use outside it. Nothing is pieced together from older
+versions or commit history. Detector scores measure style and are often wrong: they cannot show who wrote a passage,
 and a low score guarantees nothing at submission.
 
 </details>

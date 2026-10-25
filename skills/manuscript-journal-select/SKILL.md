@@ -252,10 +252,16 @@ Run `common` on every venue of both ladders. It reports:
 - **Adapt now**: requirements one version of the manuscript can meet for every venue at once (a section only
   one venue requires usually costs the others nothing, and so does a rule the catalogue marks as an addition
   every version can carry, such as alt text or a dataset citation), with the venues that ask for each. A
-  length limit or a set of abstract headings is here only when every venue's is known and the same.
+  length limit, a set of abstract headings or the body's structure is here only when every venue's is known
+  and the same. The body's headings (Background or Introduction, Methods or Implementation, Results,
+  Discussion, Conclusions) and their order are one structure per venue, compared whole: each heading names a
+  part every version has, so two venues that name or order them differently disagree, and a part of the
+  abstract one venue asks for changes the abstract's form. These shared demands are the ones to adapt before
+  the choice.
 - **Choose per venue**: where the venues disagree, or where only some venues' rule is known (abstract
-  headings, length limits, section order, reference style). These wait for the choice, or follow the first
-  rung; writing to the shortest limit is an option to offer, with its cost, never a default.
+  headings, length limits, the body's sections and their order, reference style). They are the authors'
+  decisions for later, listed once: they wait for the choice, or follow the first rung, and are never applied
+  before it. Writing to the shortest limit is an option to offer, with its cost, never a default.
 - **At the end**: software archiving and the AI-use statement, written once with every field any venue asks
   for and placed wherever each venue asks.
 - **The AI writing rules on the list**, and the strictest of them (every one of equal strictness, when they

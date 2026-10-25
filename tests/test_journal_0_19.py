@@ -371,3 +371,40 @@ def test_chrome_is_found_outside_the_path(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(watch.shutil, "which", lambda name: None)
     monkeypatch.setattr(watch, "_chrome_paths", lambda: [tmp_path / "missing", installed])
     assert watch._chrome() == str(installed)
+
+
+def test_body_sections_are_one_structure_per_venue_and_wait_when_they_differ(catalogue: Path, tmp_path: Path) -> None:
+    """Background or Introduction names the same part of the paper, so venues that name or order the body's sections
+    differently disagree; keywords or declarations are additions one version carries for every venue."""
+    out = _common(tmp_path, {
+        "calm": {"required_sections": ["Keywords (3 to 10)", "Background", "Implementation", "Results", "Conclusions",
+                                       "Availability and Implementation (in the abstract)"]},
+        "strict": {"required_sections": ["Introduction", "Design and Implementation", "Results",
+                                         "Availability and requirements"]}}, "calm", "strict")
+    now, differ = _section(out, "Adapt now"), _section(out, "Choose per venue")
+    assert "Keywords (3 to 10) (Calm Journal)" in now and "Availability and requirements (Strict Journal)" in now
+    for heading in ("Background", "Introduction", "Design and Implementation", "Results", "in the abstract"):
+        assert heading not in now
+    assert ("Body sections differ, and a heading names one part of the paper, so one version follows one venue's "
+            "structure: Calm Journal: Background, Implementation, Results, Conclusions; Strict Journal: Introduction, "
+            "Design and Implementation, Results.") in differ
+    assert "Availability and Implementation (in the abstract), asked by Calm Journal only" in differ
+
+
+def test_the_same_body_structure_at_every_venue_is_adapted_now(catalogue: Path, tmp_path: Path) -> None:
+    same = ["Introduction", "Methods", "Results", "Discussion"]
+    out = _common(tmp_path, {"calm": {"required_sections": same},
+                             "strict": {"required_sections": [s.lower() for s in same]}}, "calm", "strict")
+    assert "Body sections: Introduction, Methods, Results, Discussion (every venue)." in _section(out, "Adapt now")
+    one = _common(tmp_path, {"calm": {"required_sections": same}}, "calm", "strict")
+    assert "Body sections" not in _section(one, "Adapt now")
+    assert "set by Calm Journal; Strict Journal set none or are not researched for it" in _section(one, "Choose per venue")
+
+
+def test_which_required_sections_are_the_body() -> None:
+    body = ["Methods (after Conclusions)", "Introduction, Results and Discussion (a complete research article)",
+            "Complete methods and results sections (only research articles)", "Discussion (if appropriate)",
+            "Availability and Future Directions", "Background"]
+    extra = ["Keywords (3 to 10)", "Availability and requirements", "Data availability", "List of abbreviations",
+             "Author summary (150 to 200 words)", "Declarations (Competing interests, Funding)"]
+    assert all(venues._body_section(s) for s in body) and not any(venues._body_section(s) for s in extra)

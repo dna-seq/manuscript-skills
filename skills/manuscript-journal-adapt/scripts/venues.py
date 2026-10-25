@@ -854,6 +854,23 @@ def _norm(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text)).strip().rstrip(".").lower()
 
 
+# The headings of a paper's main parts. A required section named only by these fills a part every version has, so
+# venues that name or order them differently disagree; any other section (keywords, declarations, abbreviations) is
+# an addition the other versions can carry.
+BODY_SECTIONS = {"introduction", "background", "methods", "materials and methods", "implementation",
+                 "design and implementation", "results", "discussion", "results and discussion", "conclusion",
+                 "conclusions", "availability and future directions", "future directions"}
+
+
+def _body_section(text: Any) -> bool:
+    """Whether a required section is one of the paper's main parts: "Methods (after Conclusions)" and
+    "Introduction, Results and Discussion" are; "Availability and requirements" and "Keywords" are not."""
+    name = re.sub(r"\(.*", "", str(text)).strip().rstrip(".").lower()
+    name = re.sub(r"^complete\s+|\s+sections?$", "", name)
+    parts = [part for part in re.split(r",\s*|\s+and\s+", name) if part]
+    return name in BODY_SECTIONS or (bool(parts) and all(part in BODY_SECTIONS for part in parts))
+
+
 def _who(names: list[str], total: int) -> str:
     return "every venue" if len(names) == total and total > 1 else _and(names)
 
@@ -1567,8 +1584,44 @@ def common(
             target.append(f"- {label}:")
             target.extend(f"  - [ ] {_sentence(text)[:-1]} ({_who(names, total)})" for text, names in items.values())
 
-    union("required_sections", "Sections to add (one a single venue requires costs the others little)", now,
-          "the required sections")
+    # Sections outside the body are additions; the body's headings are one structure per venue, compared whole, and
+    # adapted now only when every venue sets the same one, like the abstract headings. A part of the abstract changes
+    # the abstract's form, so it is adapted now only when every venue asks for it.
+    structures: dict[str, list[str]] = {}
+    additions: dict[str, tuple[str, list[str]]] = {}
+    abstract_parts: dict[str, tuple[str, list[str]]] = {}
+    for v in vs:
+        values = v.get("required_sections")
+        if values is None:
+            gap(v, "the required sections")
+            continue
+        if body := [str(x) for x in values if _body_section(x)]:
+            structures[_name(v)] = body
+        for x in values:
+            if not _body_section(x):
+                kept = abstract_parts if "in the abstract" in str(x).lower() else additions
+                kept.setdefault(_norm(x), (str(x), []))[1].append(_name(v))
+    if additions:
+        now.append("- Sections to add (one a single venue requires costs the others little):")
+        now.extend(f"  - [ ] {_sentence(text)[:-1]} ({_who(names, total)})" for text, names in additions.values())
+    for text, names in abstract_parts.values():
+        if len(names) == total:
+            now.append(f"- [ ] {_sentence(text)[:-1]} (every venue)")
+        else:
+            differ.append(f"- {_sentence(text)[:-1]}, asked by {_and(names)} only: it changes the abstract's form, so "
+                          "it waits for the choice.")
+    forms = {tuple(_norm(x) for x in body) for body in structures.values()}
+    others = [_name(v) for v in vs if _name(v) not in structures]
+    if len(forms) == 1 and not others:
+        now.append(f"- [ ] Body sections: {', '.join(next(iter(structures.values())))} (every venue).")
+    elif len(forms) == 1:
+        differ.append(f"- Body sections: {', '.join(next(iter(structures.values())))}, set by "
+                      f"{_and(list(structures))}; {_and(others)} set none or are not researched for it. Keep this "
+                      "as a venue-specific choice until those rules are checked.")
+    elif forms:
+        differ.append("- Body sections differ, and a heading names one part of the paper, so one version follows one "
+                      "venue's structure: " + "; ".join(f"{n}: {', '.join(b)}" for n, b in structures.items()) + "."
+                      + (f" {_and(others)} set none or are not researched for it." if others else ""))
     union("other_desk_rules", "Rules the editors check on arrival, to check against the draft", now,
           "the rules checked on arrival")
 

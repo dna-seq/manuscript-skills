@@ -7,6 +7,10 @@
     uv run --script ai_use.py RUN [--tool "Claude Code"] [--model claude-opus-5-5] [--developer Anthropic] \\
         [--authors-use "TEXT" | --authors-use none] [--dates]
 
+Run it only on request: when the authors ask for an account of this run's edits, or press a journal's strict AI
+policy (a record of AI changes, the passages touched). A normal statement is the short template filled from what
+the authors say, and counts nothing.
+
 RUN is the run folder `runs.py start` made. The draft covers this run only, and says so: its run, its dates and what
 the plugin's stages changed in it, by stage. Version history, revision markers, commit trailers and earlier runs are
 never read, so nothing before this run is reconstructed.

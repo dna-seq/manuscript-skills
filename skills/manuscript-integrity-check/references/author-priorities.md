@@ -423,10 +423,9 @@ commit trailers and revision markers do not establish the kind of use by themsel
 Check the relevant journal's current rule and its exemptions once for the task; reuse that check while
 the source and task remain current. Draft only the required fields and placements from known facts. If
 the use is exempt, say so; do not add a statement just because these skills were used. If a disclosure is
-needed, use one concise factual account, repeated or adapted only where the journal requires it. What a
-run's own stages changed is recorded in that run, so `manuscript-journal-adapt` drafts that part from the
-run's recorded changes, marked as covering that run only, and asks the authors once about their own use
-outside it. Update it when the kind or extent of use changes, not after every editing session. Keep or deposit records only
+needed, use one concise factual account, repeated or adapted only where the journal requires it. Do not count
+a run's edits for it. Only when the authors ask, or press a journal's strict AI policy, does
+`manuscript-journal-adapt` draft that part from the run's recorded changes, marked as covering that run only. Update it when the kind or extent of use changes, not after every editing session. Keep or deposit records only
 when the selected venue actually requires them or the authors request them.
 
 ## Findings and stopping
