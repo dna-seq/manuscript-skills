@@ -633,6 +633,23 @@ def _not_procedural(text: str, start: int, end: int) -> bool:
     return not PROCEDURAL_OBJECT.match(text[end:end + 60])
 
 
+def _not_a_device(text: str, start: int, end: int) -> bool:
+    """'hard disk drive', 'a USB drive', 'drive space': a device, not a cause."""
+    if not text[start:end].lower().startswith("driv"):
+        return True
+    if re.search(r"\b(?:disk|disc|hard|flash|solid[- ]state|usb|thumb|network|tape|optical|external|cloud|shared)\s+$",
+                 text[max(0, start - 20):start], re.IGNORECASE):
+        return False
+    return not re.match(r"\s+(?:space|bays?|letters?|arrays?|failures?|capacity)\b", text[end:end + 20], re.IGNORECASE)
+
+
+def _asserted(text: str, start: int, end: int) -> bool:
+    """'they do not establish', 'it does not provide diagnoses or establish': a negated proof word states a limit."""
+    clause = re.split(r"[.;:!?]", text[max(0, start - 80):start])[-1]
+    return not re.search(r"\b(?:not|never|cannot|nor|without)\s+(?:[\w-]+\s+){0,3}?(?:or\s+)?$|n['’]t\s+$", clause,
+                         re.IGNORECASE)
+
+
 def _not_clearly_modifier(text: str, start: int, end: int) -> bool:
     return not re.match(r"\s+(?:defined|separated|visible|label+ed|distinct|stated|marked|shown in)\b", text[end:],
                         re.IGNORECASE)
@@ -674,7 +691,7 @@ CAUSAL: tuple[Rung, ...] = (
     Rung(5, "causation", _rx(
         r"\bcaus(?:es|ed|ing|e|al|ally|ative|ation)\b|\bdriv(?:es|en|ing|e)\b|\bdrove\b|\bdrivers? of\b|"
         r"\bdetermined by\b|\bdetermines\b|\b(?:is|are|was|were) (?:\w+ )?responsible for\b|\bunderl(?:ies|ie|ay)\b|"
-        r"\bmediat(?:es|ed|e|ing)\b")),
+        r"\bmediat(?:es|ed|e|ing)\b"), _not_a_device),
 )
 CAUSAL_PLAIN = 4
 
@@ -693,7 +710,8 @@ EVIDENTIAL: tuple[Rung, ...] = (
     Rung(3, "demonstration", _rx(r"\bshow(?:s|ed|n|ing)?\b|\bdemonstrat(?:es|ed|e|ing)\b|\breveal(?:s|ed|ing)?\b|"
                                  r"\b(?:find|finds|found) that\b"), _not_descriptive),
     Rung(4, "proof", _rx(r"\bprov(?:es|ed|en|e|ing)\b|\bproof (?:of|that)\b|\bestablish(?:es|ed|ing)?\b|"
-                         r"\bconfirm(?:s|ed|ing)?\b|\bguarantee(?:s|d)?\b"), _not_procedural),
+                         r"\bconfirm(?:s|ed|ing)?\b|\bguarantee(?:s|d)?\b"),
+         lambda text, start, end: _not_procedural(text, start, end) and _asserted(text, start, end)),
     Rung(4, "proof", _rx(r"\bconclusive(?:ly)?\b|\bdefinitive(?:ly)?\b|\bunequivocal(?:ly)?\b|\bunambiguous(?:ly)?\b|"
                          r"\bbeyond (?:any |reasonable )?doubt\b|\birrefutabl[ey]\b|\bundoubtedly\b|\bcertainly\b|"
                          r"\bunquestionabl[ey]\b|\bclearly\b"), _not_clearly_modifier),
@@ -1407,6 +1425,15 @@ def _caveat_place(s: Sentence, title: Optional[str]) -> str:
     return f"{s.file}, in {where}" if s.file else where
 
 
+REFERENCE_LIST = re.compile(r"^(?:references|bibliography|literature cited|works cited|reference list)\b", re.IGNORECASE)
+
+
+def _reference_list(g: Group, bs: list[Sentence], as_: list[Sentence], title: Optional[str]) -> bool:
+    """Every sentence the group changes sits in the reference list."""
+    sentences = [bs[i] for i in g.before] + [as_[j] for j in g.after]
+    return bool(sentences) and all(REFERENCE_LIST.match(_heading_key(_top_section(x, title) or "")) for x in sentences)
+
+
 def _top_section(s: Sentence, title: Optional[str]) -> Optional[str]:
     """The top-level heading a sentence of the main text sits under, without the paper's title ('Results' for
     'Paper > Results > Speed', '' before the first heading); None for a file the text was moved to."""
@@ -1759,10 +1786,15 @@ def _analyse(before_text: str, after_text: str, moved: list[tuple[str, str]] | t
     }
     changes: list[dict[str, object]] = []
     owner: dict[int, int] = {}  # id of a claim or token finding → index of its group
+    paper = document_title(after_text) or document_title(before_text)
     for n, g in enumerate(groups):
         if g.kind == "equal":
             continue
         claims = _claim_findings(g, bs, as_) + _declaration_findings(g, bs, as_)
+        if _reference_list(g, bs, as_, paper):
+            # A cited work's title ('A universal SNP and small-indel variant caller') is not the authors' claim; its
+            # numbers, DOIs and citations are still compared below.
+            claims = [c for c in claims if c["kind"] not in CLAIM_KINDS]
         owner.update((id(c), n) for c in claims)
         if not claims:
             claims = _sentence_findings(g, bs, as_, ctx, revision)
