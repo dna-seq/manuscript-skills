@@ -31,7 +31,8 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
     }
   ],
   "changes": [],
-  "dismissed": [{"summary": "a flag you looked at and rejected", "why": "the reason"}],
+    "dismissed": [{"summary": "a flag you looked at and rejected", "why": "the reason",
+                 "claims": ["CC4"]}],
   "not_checked": [{"check": "what could not run", "why": "the reason", "leaves_open": "what stays unknown"}]
 }
 ```
@@ -49,6 +50,8 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
 - `quote` is copied from the authoritative manuscript exactly, never paraphrased. An absence has
   `quote: null` and says in `looked_in` where the skill searched; collect adds the places to the finding's
   detail.
+- A dismissal that clears a passage against the project's code names its one entry in the integrity check's
+  code-claims ledger (`claims`), where the file and line are; several passages are several dismissals.
 - `confidence: confirmed` means the skill verified the problem against the manuscript, the project's
   code or files, or a source it read; `candidate` means it needs the authors or a check that could not
   run. A simulated reader's concern is confirmed only as reader feedback, never as a scientific error.

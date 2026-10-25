@@ -97,7 +97,7 @@ Select the steps the request needs and run each once over unchanged material. Sc
 the report belong in this skill's run folder, `RUN/manuscript-integrity-check/` in the commands below (`RUN` is the
 run directory `runs.py start` printed); the `reports` setting controls presentation in chat, and a full list the
 authors are to open goes beside the manuscript ([where files go](references/author-priorities.md#where-files-go)). Paths are relative to this skill's directory: `scripts/`
-holds `scan.py`, `number_check.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py`, `policy_watch.py` and `ai_use.py` are in
+holds `scan.py`, `number_check.py`, `code_claims.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py`, `policy_watch.py` and `ai_use.py` are in
 `../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.
 
 | Request | Steps |
@@ -240,6 +240,37 @@ code: what each module or dataset contains and was built from (its spec, curatio
 which reference panel and release a score or percentile uses, the defaults a user gets (`modules.yaml`, the
 settings the interface starts with). A description the files contradict is a "Fix now" finding with the
 file and line that settle it; one the files cannot settle is a question for the authors.
+
+**Each claim about the software on its own, with its file and line.** When the paper has a repository, every
+sentence that says what the software does is checked against the code and goes in
+`RUN/manuscript-integrity-check/code-claims.yaml`, whatever the verdict: which step joins or filters what and
+how, the defaults a user gets, how a reported number was measured, which repository or package holds which
+part, a version. One entry per claim, with:
+- the claim quoted verbatim from the manuscript;
+- `where` the text places it (the step, join or stage), because the evidence is that step's code: a memory limit
+  on the Ensembl join does not support a sentence about the module joins;
+- the kind (`behaviour`, `default`, `measurement`, `availability` or `version`) and the verdict (`matches`,
+  `differs` or `not-settled`, the last two with `why`);
+- for `matches` or `differs`, the file, line and quoted code that settle it.
+
+Clearing a claim needs the same evidence as contradicting it, so never clear several in one line. Trace each
+reported measurement (a runtime, a peak memory, a count) to the code that took it, the timer, memory tracker or
+benchmark script, and say what that code can show: a tracker that reads memory between steps gives no sampled
+peak. A measurement the repository holds no code for is a number whose method the paper does not report, a finding
+of its own. Check each repository, package or service the availability table or the text names against the
+dependency files: `scripts/code_claims.py deps CODE` lists what each manifest declares, with its line and source.
+Then run
+
+```bash
+uv run --script scripts/code_claims.py check RUN/manuscript-integrity-check/code-claims.yaml --code CODE \
+    --manuscript PAPER.md --findings RUN/manuscript-integrity-check/findings.json
+```
+
+and fix what it lists until it passes. It refuses a claim that is not a verbatim quote or runs over more than one
+sentence, evidence whose quote is not at the line given (it names the line where the quote is), a measurement
+settled without the code that took it, an availability claim settled without the dependency file, and a dismissal
+that clears a passage against the code without naming its one ledger entry (`"claims": ["CC4"]`). Each `differs`
+entry becomes a finding with its evidence; a `not-settled` one is a question only the authors can answer.
 
 ### Step 4: reporting, availability and venue requirements
 
