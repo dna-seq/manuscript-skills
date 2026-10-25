@@ -100,8 +100,8 @@ positioning sentence, the missing citations and a short list of devices, never a
 
 The contract is in [story-contract.md](references/story-contract.md). In short:
 
-- **Edits that keep the direction** may be applied under `edits: conservative` and `edits: apply`, and
-  are proposed under `edits: propose`: a stake or hook built from facts the paper already has, a headline
+- **Edits that keep the direction** may be applied under `edits: conservative` and `edits: apply`, are
+  proposed under `edits: propose`, and under `edits: none` the reader review names them without writing them: a stake or hook built from facts the paper already has, a headline
   sentence before a result's numbers (in that result's paragraph, naming nothing the paragraph lacks),
   connected sentences, caveats moved within their section to where they cost the reader least, repetition
   and defensive detail moved to the supplement or the response letter, an ending on what the reader can do.

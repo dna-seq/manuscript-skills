@@ -38,6 +38,10 @@ and the first progress update names it in plain words:
   reworded to what the evidence shows), and the story stage's edits that keep the paper's direction;
   substantive revisions no confirmed finding requires are proposals in the corrected version.
 - **Every change** (`apply`): apply substantive revisions too, within the authors' direction.
+- **Report only** (`none`): no change to the manuscript and no rewritten text. The review stages run as
+  usual; the prose edit, deslop, story and journal-adaptation stages give their audits instead of edits; the
+  revise stage, the corrected version and its verification and re-check are skipped. The run ends with the
+  adjudicated findings, each with the kind of change that would fix it, the dashboard and its Word version.
 
 "Fix everything", "apply all" or "accept all" applies the whole corrected version for this run, except the
 [held decisions](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)
@@ -51,9 +55,14 @@ change it ("say 'keep only the results'"). When the preferences are still unansw
 first update asks them as the [project contract](../manuscript-integrity-check/references/project-workflow.md#ask-once-for-a-manuscript-project)
 describes and the run carries on with the defaults.
 
-Every mode ends with the corrected version as a separate file (see the end of this skill), so the
-authors can read the whole improved paper and accept it in one step. A request to use this skill or
+Every mode but report only ends with the corrected version as a separate file (see the end of this skill),
+so the authors can read the whole improved paper and accept it in one step. A request to use this skill or
 "improve the manuscript" does not change the mode.
+
+The `versions` setting says where the applied edits go, and the first update names it too: into the
+manuscript file (`in-place`, the default), or, with `immutable`, into the new version that
+`runs.py version RUN` makes beside it before the first applied edit (`paper_v2.docx` becomes
+`paper_v3.docx`), so that no earlier file changes. The working copy below is that new version.
 
 Work across the **whole paper** by default and carry the authorised improvement task through its relevant
 stages. Do not substitute an Abstract-only or sampled review. A request for one service belongs to that
@@ -231,7 +240,8 @@ No placeholder goes into the text
 ([Questions for the authors are comments, never text](../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)):
 a question about a proposal is its `comment`, one about existing text a decision in the report. ORIGINAL is
 the run's snapshot of the manuscript before the workflow (`RUN/inputs/01-<name>`); WORKING is the working
-copy, the manuscript with every applied edit. For a manuscript with revision marks, give both as clean
+copy, the manuscript with every applied edit (with `versions: immutable`, the new version `runs.py version`
+made). For a manuscript with revision marks, give both as clean
 copies (`../manuscript-revision-marks/scripts/rev_marks.py strip FILE --out RUN/manuscript-improve/clean/original.md`,
 and the same for the working copy after each stage), and use the clean copies for every comparison below.
 Then run, from this skill directory:

@@ -151,3 +151,38 @@
   fail_if:
     - "Writes the report only beside the manuscript, outside the run."
     - "Overwrites a different report file already beside the manuscript."
+
+- id: report-only-run-changes-no-file
+  skill: manuscript-improve
+  prompt: >-
+    Review this manuscript before submission. Report only: do not edit the paper, we will make the
+    changes ourselves.
+  files: [fixtures/manuscript-integrity-check/seeded/main.tex]
+  setup: >-
+    Keep a copy of the staged main.tex and of its folder listing to compare afterwards.
+  rubric:
+    - "Runs under edits: none for this run (runs.py start ... --edits none) and says so in its first update."
+    - "Reports each problem with its passage and section, what is wrong and the kind of change that would fix it."
+    - "Leaves main.tex byte for byte as it was and writes no corrected version (no main.proposed.tex), no proposal file and no .pre-edit backup."
+    - "Still collects and adjudicates the findings, renders the dashboard and its Word version, and validates the run with runs.py validate --final."
+  fail_if:
+    - "Changes main.tex or any other file the authors gave it."
+    - "Records an applied edit with runs.py change, or makes a new version with runs.py version."
+    - "Saves edits: none as a lasting project setting when the authors asked only for this run."
+
+- id: immutable-versions-leave-the-earlier-file-untouched
+  skill: manuscript-prose-edit
+  prompt: >-
+    Edit this abstract for clarity. We keep every version of the paper as its own file and never
+    overwrite one, so save your edits as a new version and leave this file as it is, from now on.
+  files: [fixtures/manuscript-prose-edit/platform-abstract.md]
+  setup: >-
+    Keep a copy of the staged platform-abstract.md to compare afterwards. The folder is not a git repository.
+  rubric:
+    - "Saves versions: immutable as the project's choice (project.py configure PROJECT --versions immutable), since the authors stated it as lasting."
+    - "Makes the new version with runs.py version RUN before the first edit and applies every edit there (platform-abstract_v2.md)."
+    - "Leaves platform-abstract.md byte for byte as it was, and saves no .pre-edit backup."
+    - "Names the new file in the reply, and the project's mapping names it, so the next run starts from it."
+  fail_if:
+    - "Writes any edit into platform-abstract.md."
+    - "Overwrites an existing file, or replaces a handed-over file beside the manuscript."

@@ -75,7 +75,7 @@ def test_first_use_asks_missing_context_without_writing(manuscript: Path) -> Non
     assert output['recommended'] == 'reviews' and output['why']
     # The working preferences are asked in the same batch, each with its recommended answer and why.
     assert [(q['key'], q['recommended']) for q in data['preferences']] == [
-        ('reports', 'file'), ('edits', 'conservative'), ('keep', 'everything')]
+        ('reports', 'file'), ('edits', 'conservative'), ('versions', 'in-place'), ('keep', 'everything')]
     assert all(q['why'] for q in data['preferences'])
     assert not (manuscript.parent / projects.CONFIG).exists()
 
@@ -85,19 +85,19 @@ def test_preferences_never_block_a_run_and_are_saved_only_as_answers(manuscript:
     saved = yaml.safe_load((manuscript.parent / projects.CONFIG).read_text())
     assert 'settings' not in saved  # the defaults are not answers
     data = json.loads(resolve(manuscript).output)
-    assert data['status'] == 'ready' and {q['key'] for q in data['preferences']} == {'reports', 'edits', 'keep'}
+    assert data['status'] == 'ready' and {q['key'] for q in data['preferences']} == {'reports', 'edits', 'versions', 'keep'}
     start(manuscript)  # a pending preference never holds up the work
     assert configure(manuscript, '--keep', 'results').exit_code == 0
     data = json.loads(resolve(manuscript).output)
     assert data['effective']['keep'] == 'results' and data['sources']['keep'] == 'project'
-    assert {q['key'] for q in data['preferences']} == {'reports', 'edits'}
+    assert {q['key'] for q in data['preferences']} == {'reports', 'edits', 'versions'}
 
 
 def test_a_new_project_copies_the_choices_saved_globally_and_does_not_ask_them(manuscript: Path) -> None:
     global_file = projects.settings.settings_path()
     global_file.parent.mkdir(parents=True)
     global_file.write_text('keep: results\n')
-    assert [q['key'] for q in json.loads(resolve(manuscript).output)['preferences']] == ['reports', 'edits']
+    assert [q['key'] for q in json.loads(resolve(manuscript).output)['preferences']] == ['reports', 'edits', 'versions']
     assert configure(manuscript).exit_code == 0
     assert yaml.safe_load((manuscript.parent / projects.CONFIG).read_text())['settings'] == {'keep': 'results'}
 
@@ -107,8 +107,8 @@ def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> N
     for _ in range(3):
         data = json.loads(resolve(manuscript).output)
         assert data['status'] == 'ready' and not data['questions']
-        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'keep': 'everything',
-                                     'peer_review': 'auto'}
+        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'versions': 'in-place',
+                                     'keep': 'everything', 'peer_review': 'auto'}
     for skill in ('manuscript-prose-edit', 'manuscript-deslop', 'manuscript-dashboard', 'manuscript-journal-select'):
         run = start(manuscript, skill)
         assert runs.read(run)['context']['project_file'] == str(manuscript.parent / projects.CONFIG)

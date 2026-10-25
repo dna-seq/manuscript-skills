@@ -95,11 +95,11 @@ is `settings.py resolve --json`. Use the project-resolved policy and state it br
 "prepare for submission" or use a named skill activates that task under the saved `edits` setting; it does
 not reset the settings.
 If the settings file cannot be read, the resolver says so (`settings_error`) and the run continues under
-`edits: propose`, unsaved: preserve the file, carry on with every check and proposal, and list its repair once
-with the other decisions. Do not overwrite it or treat the error as permission for broader edits. Changes
+`edits: propose` and `versions: immutable`, unsaved: preserve the file, carry on with every check and proposal,
+and list its repair once with the other decisions. Do not overwrite it or treat the error as permission for broader edits. Changes
 explicitly authorised in the conversation can still proceed.
 
-**Edits: conservative, propose or apply, one setting for every skill.** The `edits` setting controls
+**Edits: conservative, propose, apply or none, one setting for every skill.** The `edits` setting controls
 changes to the authors' documents, independently of where reports go. Under every setting the run does the
 work itself: it never hands the authors a list of items to approve one by one unless they chose `propose`.
 
@@ -118,6 +118,15 @@ work itself: it never hands the authors a list of items to approve one by one un
   and show consequential before/after text in the chat. This never authorises invented facts, unsupported
   claims, or decisions only the authors can make, and does not expand a focused service into the full
   workflow.
+- `none` (report only): change nothing in the authors' documents and write no rewritten text: no applied
+  edit, no corrected version, no proposal file. Every request becomes a review. Each finding quotes its
+  passage with the section, says what is wrong and what kind of change would fix it; a mechanical fix (a
+  corrected DOI, a reference entry rebuilt from Crossref metadata) may be written out in full in the report.
+  An editing skill gives its audit instead: the prose edit lists the problems it would fix,
+  `manuscript-deslop` audits, `manuscript-story` gives the reader review, `manuscript-journal-adapt` lists
+  what the venue requires. `runs.py` holds the run to it: `change` refuses to record an edit, `version`
+  makes no new version and `validate` fails when a manuscript changed. Fixing what the report found is a
+  new request with its own `edits` choice (`runs.py start ... --edits conservative`), reusing the findings.
 
 **"Fix everything".** "Fix everything", "apply all", "accept all" or "do it all" is an explicit instruction
 for this run (never saved as a setting): apply every proposal of the corrected version, except the held
@@ -168,10 +177,20 @@ The author can change how the work proceeds at any point:
   to apply when the author asked for proposals first. The author can accept, revise, skip or revisit a
   step. Resume from the accepted version and decisions already in context.
 
-Preserve a pre-edit version and make before/after comparisons available for authorised edits. In a git
-repository the last commit is the pre-edit version and `git diff` the comparison; say so rather than saving
+Preserve a pre-edit version and make before/after comparisons available for authorised edits. The
+`versions` setting says where the edits go. Under `in-place` (the default) they go into the manuscript file.
+In a git repository the last commit is the pre-edit version and `git diff` the comparison; say so rather than saving
 a copy. Otherwise use the document's existing tracked changes, or save the pre-edit file beside the manuscript
-as `<manuscript stem>.pre-edit.<extension>` and name it (a backup, which the authors may delete); a short passage can be shown in full. Explain consequential changes and unresolved scientific questions. For an assessment or journal
+as `<manuscript stem>.pre-edit.<extension>` and name it (a backup, which the authors may delete); a short passage can be shown in full.
+Under `immutable`, a file once written is never changed, for authors who keep each version as a file of its
+own: before the first applied edit, `runs.py version RUN` makes the next version beside the manuscript
+(`paper_v2.docx` becomes `paper_v3.docx`, `paper.md` becomes `paper_v2.md`, never over an existing file) and
+prints it; every edit of the run, by every stage, goes into that file, and the earlier one is the pre-edit
+version, with no backup needed. Give `--file FILE` for a supplement or bibliography the run changes, and
+point the new manuscript version at the new versions of the files it includes. The project's mapping then
+names the new version, so the next run starts from it. Nothing handed over beside the manuscript is
+replaced either: each run's dashboard, Word file and corrected version go beside the earlier ones under
+dated names. `validate` fails when an earlier version changed. Explain consequential changes and unresolved scientific questions. For an assessment or journal
 selection stage, compare findings or options rather than inventing a text diff. If the author asks for
 before/after review, present the comparison at the requested checkpoints, not just a summary. A passing
 mechanical guard does not prove semantic equivalence.

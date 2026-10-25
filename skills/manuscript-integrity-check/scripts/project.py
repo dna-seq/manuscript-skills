@@ -15,8 +15,9 @@ first-use batch, but never wait for them, since their defaults are safe. A setti
 file only as an answer: setup copies the choices saved globally, never the defaults.
 
 A global settings file that cannot be read never stops the work: `resolve` still answers `ready` when the
-project is, with `settings_error`, `edits: propose` unless this manuscript or the conversation chose otherwise
-(nothing is applied on a choice nobody can read), and the repair as one item of `decisions`. The file is kept.
+project is, with `settings_error`, `edits: propose` and `versions: immutable` unless this manuscript or the
+conversation chose otherwise (nothing is applied or replaced on a choice nobody can read), and the repair as one
+item of `decisions`. The file is kept.
 
 A connected (remote) manuscript is read through a local reading copy, an export of the connected document:
 `configure ROOT --manuscript URL --reading-copy FILE` saves where that export is kept (one `--reading-copy` per
@@ -216,12 +217,13 @@ def resolve(
     project: Annotated[Path | None, typer.Option(help="Explicit manuscript-project folder")] = None,
     reports: str | None = None,
     edits: str | None = None,
+    versions: str | None = None,
     keep: str | None = None,
     peer_review: str | None = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Read the project, effective settings and only genuinely missing setup questions. Never writes."""
-    overrides = {k: v for k, v in {"reports": reports, "edits": edits, "keep": keep,
+    overrides = {k: v for k, v in {"reports": reports, "edits": edits, "versions": versions, "keep": keep,
                                     "peer_review": peer_review}.items() if v is not None}
     try:
         result = context(target, project, overrides)
@@ -255,6 +257,7 @@ def configure(
     one_model: Annotated[bool, typer.Option("--one-model", help="Forget the other models: seats run on the host only")] = False,
     reports: str | None = None,
     edits: str | None = None,
+    versions: str | None = None,
     keep: str | None = None,
     peer_review: str | None = None,
 ) -> None:
@@ -311,7 +314,8 @@ def configure(
             data["settings"] = {key: settings.value(global_data, key) for key in settings.SETTINGS
                                 if settings.value(global_data, key)}
         choices = data["settings"]
-        for key, choice in {"reports": reports, "edits": edits, "keep": keep, "peer_review": peer_review}.items():
+        for key, choice in {"reports": reports, "edits": edits, "versions": versions, "keep": keep,
+                            "peer_review": peer_review}.items():
             if choice is None:
                 continue
             if key == "peer_review":

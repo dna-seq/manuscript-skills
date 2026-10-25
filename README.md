@@ -112,11 +112,12 @@ Where other skills do the same job, these parts add a check:
    version you can accept in one step. Say "fix everything" to apply the whole corrected version. Only
    choices that are yours alone (the paper's direction, which figures it has, new experiments, facts only
    you know) wait for you, all together at the end. Ask for proposals only if you want to approve each
-   change yourself.
+   change yourself, or for a report only if the run must not touch the paper at all.
 
 On first use the assistant asks, in one batch, only for what it cannot find (the manuscript files, any
 code repository and where to save the runs) and how you want it to work: how much it may change by
-itself, whether full reports also appear in the chat, and whether to keep every intermediate file. Each
+itself, whether it may write into your manuscript file or must save each version as a new file, whether
+full reports also appear in the chat, and whether to keep every intermediate file. Each
 question comes with the recommended answer and the reason for it, so one "yes" accepts them all. The
 answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every skill reuses them.
 
@@ -190,6 +191,9 @@ What you open goes beside the manuscript as well, named after it:
   its name (`paper.review.20261024.docx`), never over it;
 - `paper.proposed.md` (or `.tex`, as your manuscript), the corrected version, kept the same way;
 - from journal selection, the journal ladder, the venue requirements and the shared record.
+
+With `versions: immutable` the dashboard is kept the same way, and the edits a run applies go into a new
+version beside your file (`paper_v2.md`), never into `paper.md` itself.
 
 ```
 paper/
@@ -368,6 +372,8 @@ skill or the full workflow:
   let me review the findings or changes before continuing."
 - **Before applying edits:** "Prepare proposed changes separately. Show me the original and proposed
   text, and wait for me to accept them before updating the manuscript."
+- **No edits at all:** "Report only, do not edit the paper." The run reviews and reports; it writes no
+  corrected version and changes no file. Save it for the project with `edits: none`.
 - **With an interview:** "Interview me about the decisions we need to make." This can cover journal
   priorities, scientific wording, restructuring or how to handle review findings, or only one decision
   or stage.
@@ -477,7 +483,8 @@ conversation overrides the project's saved choices, and those override your glob
 
 | Setting | Choices (default first) | What it changes |
 |---|---|---|
-| `edits` | `conservative`, `propose`, `apply` | How much a run changes by itself. `conservative` applies routine corrections that preserve meaning and the corrections the evidence for a confirmed problem settles (a number, a citation, a claim reworded to what the results show; for the story stage, also edits that keep the paper's direction), and proposes changes no confirmed problem requires; `propose` applies nothing and lets you approve each change one by one; `apply` makes substantive improvements too. Under every setting the paper's direction, which figures it has, new experiments and facts only you know stay your decisions, asked once at the end. Every mode ends with the corrected version as a separate file, which you can accept in one step ("fix everything"), and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `edits` | `conservative`, `propose`, `apply`, `none` | How much a run changes by itself. `conservative` applies routine corrections that preserve meaning and the corrections the evidence for a confirmed problem settles (a number, a citation, a claim reworded to what the results show; for the story stage, also edits that keep the paper's direction), and proposes changes no confirmed problem requires; `propose` applies nothing and lets you approve each change one by one; `apply` makes substantive improvements too; `none` is report only: every request becomes a review, each problem comes with the kind of change that would fix it, and no file of yours changes. Under every setting the paper's direction, which figures it has, new experiments and facts only you know stay your decisions, asked once at the end. Every mode but `none` ends with the corrected version as a separate file, which you can accept in one step ("fix everything"), and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `versions` | `in-place`, `immutable` | Where the edits a run applies go. `in-place` writes them into your manuscript file; the version before them is your last git commit or, without git, a copy saved beside it (`paper.pre-edit.md`). `immutable` never changes a file once written, for those who keep each version as a file of its own: the edits go into a new version beside it (`paper_v2.docx` becomes `paper_v3.docx`, `paper.md` becomes `paper_v2.md`), which the next run starts from, and the dashboard, Word file and corrected version of each run go beside the earlier ones under dated names instead of replacing them. |
 | `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
 | `keep` | `everything`, `results` | What stays in a run's folder once it ends. `everything` keeps every intermediate file, which later steps and the dashboard read and which let you trace each finding; `results` keeps the index, the reports, the dashboard and the corrected version, and packs the rest into `evidence.zip` (see [What a run leaves in your folder](#what-a-run-leaves-in-your-folder)). |
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |

@@ -265,7 +265,8 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py handover RUN
 It copies the newest attempt of each: the dashboard as `<manuscript stem>.dashboard.html`, the Word file as
 `<manuscript stem>.review.docx` and the corrected version as `<manuscript stem>.proposed<extension>`
 (`paper.dashboard.html`, `paper.review.docx`, `paper.proposed.md`). The dashboard replaces the previous
-run's; each run folder keeps its own. A Word file or corrected version already there that differs is never
+run's (with `versions: immutable` it is kept like the others, and `--replace` options are refused); each run
+folder keeps its own. A report-only run (`edits: none`) has no corrected version to hand over. A Word file or corrected version already there that differs is never
 replaced, because the authors may have worked in it: the new one goes beside it under a dated name
 (`paper.review.20261024.docx`) and the command says so. Whether to replace the earlier file is one of the
 optional decisions at the end of the run, never a question that stops it; once the authors say so, rerun

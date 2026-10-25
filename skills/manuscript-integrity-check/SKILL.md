@@ -25,7 +25,8 @@ three. This skill finds checkable problems, and what it changes follows the plug
 routine and registry-settled corrections and the corrections a **confirmed** finding's evidence settles (a number
 the project's files settle, a corrected citation, a claim narrowed by rewording to what the evidence shows) are
 applied, shown before and after in the chat and recorded; changes no confirmed finding requires are proposals;
-`propose` applies nothing; `apply` also applies substantive improvements. The held decisions in that section stay
+`propose` applies nothing; `apply` also applies substantive improvements; `none` is report only, with every
+request a review. The held decisions in that section stay
 the authors' under every setting. Referee judgement (is the contribution enough, which comparison would a referee
 demand) is `manuscript-peer-review`'s.
 

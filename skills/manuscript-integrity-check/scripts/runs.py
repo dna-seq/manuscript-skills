@@ -28,6 +28,13 @@ run with its reason.
 A step done again goes to a numbered name (revision.2/, dashboard.2/, findings.2.json), never over the first;
 handover and pack take the newest attempt (the highest number, then the newest file).
 
+The run follows the edits and versions settings it started with. Report only (edits: none): change refuses to
+record an edit, version refuses to make one, validate fails when a manuscript changed, and an improvement run owes
+no corrected version. Immutable versions (versions: immutable): version makes the new file the run's edits go into
+(paper_v2.docx -> paper_v3.docx, paper.md -> paper_v2.md, never over an existing file) and names it in the
+project's mapping, so the next run reads it; validate fails when an earlier version changed; handover writes a
+dated copy beside any different file already there, the dashboard included, and refuses the --replace options.
+
 handover copies the newest dashboard, its Word version and the corrected version beside the manuscript as
 STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>; --report SKILL adds a focused run's report
 as STEM.<skill without "manuscript-">.md. The dashboard is replaced every run. Any other copy that already
@@ -40,8 +47,8 @@ run index, the skills' READMEs and reports, the newest dashboard and Word file a
 version into evidence.zip, verifies the archive and only then removes the loose copies; validate checks each
 packed file inside the archive, and unpack restores them before a run continues.
 
-Exit codes: 0 done; 1 a check failed (validate, finish, pack) or nothing to hand over; 2 a bad option or an
-unreadable project file;
+Exit codes: 0 done; 1 a check failed (validate, finish, pack) or nothing to hand over; 2 a bad option, an
+unreadable project file, or an edit, a new version or a replacement the run's settings rule out;
 3 the run is busy or packed, or start has no ready project or no reading copy; exec returns its command's.
 """
 
@@ -124,6 +131,8 @@ NO_FINDINGS = {'manuscript-dashboard', 'manuscript-visualize', 'manuscript-other
                'manuscript-improve'}
 # A stage finished with one of these, and its reason, is the recorded reason an improvement run lacks a deliverable.
 EXCUSED = {'partial', 'blocked', 'not_run'}
+# The authors' own version number at the end of a file name: paper_v2, Paper-Rev-04, paper version 3, v7.
+VERSION = re.compile(r'(?P<base>(?:.*[\s_.-])?)(?P<tag>v|rev|version)(?P<sep>[\s_.-]?)(?P<number>\d+)', re.IGNORECASE)
 P = ParamSpec('P')
 T = TypeVar('T')
 
@@ -195,6 +204,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
     Path(handle.name).replace(run / "run.json")
     index = [f"# Manuscript skill run {data['run_id']}", "", f"Started: {data['started_at']}", "",
              "Command exit status and scientific adjudication are separate. Partial and unrun work remains visible.", ""]
+    if chosen(data, 'edits') == 'none':
+        index.extend(["Report only (edits: none): this run changes no file of the authors.", ""])
     packed = (data.get('packed') or {}).get('files', {})
 
     def link(name: str, path: str, text: str | None = None) -> str:
@@ -222,6 +233,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
         (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s).")
+    for item in data.get('versions', []):
+        index.extend(["", f"New version: {item['new']}, made from {item['previous']}, which is kept as it was."])
     for location in data.get('not_snapshotted', []):
         index.extend(["", f"Not snapshotted: {location}, a connected document with no local reading copy in this run."])
     for item in data.get('handover', []):
@@ -232,6 +245,11 @@ def save(run: Path, data: dict[str, Any]) -> None:
                            "`keep` setting asks; `runs.py unpack` restores it.")])
     index.extend(["", "[Run manifest](run.json) contains effective settings, source hashes and all recorded attempts."])
     (run / "README.md").write_text("\n".join(index) + "\n", encoding="utf-8")
+
+
+def chosen(data: dict[str, Any], key: str) -> str | None:
+    """The run's effective setting, as start resolved it (None in a run from before the setting existed)."""
+    return data.get('context', {}).get('effective', {}).get(key)
 
 
 def ensure_skill(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -399,6 +417,8 @@ def improvement_problems(run: Path, data: dict[str, Any]) -> list[str]:
             (CORRECTED, "the corrected version", "build it with revise.py"),
             (DASHBOARD, "the rendered dashboard", "render it with dashboard.py"),
             (WORD, "the Word version of the dashboard", "export it with export_docx.py"))
+    if chosen(data, 'edits') == 'none':  # report only: no corrected version is written
+        owed = tuple(item for item in owed if item[0] != CORRECTED)
     return [f"manuscript-improve: {what} is missing ({pattern}); {how}, or finish manuscript-dashboard or "
             "manuscript-improve as partial or blocked with the reason"
             for pattern, what, how in owed
@@ -419,6 +439,7 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
     # An edit the authors were not there to see in chat (agents ran the stages, the authors were away) reaches them
     # in the dashboard, which shows each recorded edit as a diff with its reason; validate lists those edits.
     in_dashboard = dashboard_shows(run, data) if final else set()
+    report_only, immutable = chosen(data, 'edits') == 'none', chosen(data, 'versions') == 'immutable'
     for source in data['inputs']:
         path = within(run, source['snapshot'])
         if stored(path) != source['sha256']:
@@ -432,8 +453,22 @@ def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
         if not original.is_file():
             errors.append(f"Authoritative source is missing or no longer a file: {original}")
         elif digest(original) != source['sha256']:
-            if not explained:
+            if report_only:
+                errors.append(f"Manuscript changed in a report-only run (edits: none), which changes no file: {original}")
+            elif immutable:
+                errors.append(f"An earlier version changed although versions are immutable: {original}; the run's "
+                              "edits belong in the new version that `runs.py version` makes")
+            elif not explained:
                 errors.append(f"Manuscript changed without a change record or routine-only explanation: {original}")
+    inputs = {source['original'] for source in data['inputs']}
+    for item in data.get('versions', []):
+        previous, new = Path(item['previous']), Path(item['new'])
+        if item['previous'] not in inputs and immutable and (not previous.is_file() or digest(previous) != item['sha256']):
+            errors.append(f"An earlier version changed although versions are immutable: {previous}")
+        if not new.is_file():
+            errors.append(f"The new version is missing: {new}")
+        elif digest(new) != item['sha256'] and not explained:
+            errors.append(f"The new version changed without a change record or routine-only explanation: {new}")
     for name, entry in data['skills'].items():
         if final and entry['status'] not in TERMINAL:
             errors.append(f"{name}: still {entry['status']}")
@@ -504,8 +539,8 @@ def reading_copies(ctx: dict[str, Any], given: list[Path], versions: list[str]) 
 
 @app.command()
 def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], project: Path | None = None,
-          reports: str | None = None, edits: str | None = None, keep: str | None = None,
-          peer_review: str | None = None,
+          reports: str | None = None, edits: str | None = None, versions: str | None = None,
+          keep: str | None = None, peer_review: str | None = None,
           reading_copy: Annotated[list[Path] | None, typer.Option(
               '--reading-copy', help="A local export of a connected (URL) manuscript, snapshotted in its place; one "
                                      "per connected manuscript, in the project's order; repeat")] = None,
@@ -516,7 +551,7 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
 
     A connected (URL) manuscript is snapshotted through its reading copy; without one for the main manuscript,
     start creates no run and exits 3."""
-    overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'keep': keep,
+    overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'versions': versions, 'keep': keep,
                                     'peer_review': peer_review}.items() if v is not None}
     try:
         ctx = projects.context(target, project, overrides)
@@ -680,6 +715,10 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
     if before is None and after is None:
         raise typer.BadParameter('Supply before, after, or both.')
     data = read(run)
+    if chosen(data, 'edits') == 'none':
+        typer.echo("This run is report only (edits: none): it changes no file, so there is no edit to record. Put the "
+                   "fix in the finding instead: the passage, what is wrong and the kind of change.", err=True)
+        raise typer.Exit(2)
     entry = ensure_skill(data, skill)
     relative = f"{skill}/changes/{len(entry['changes']) + 1:04d}.md"
     path = within(run, relative)
@@ -747,6 +786,79 @@ def validate(run: Path, final: bool = False) -> None:
     typer.echo(json.dumps(report, indent=2))
     if errors:
         raise typer.Exit(1)
+
+
+def next_version(path: Path) -> Path:
+    """Where the next version of PATH goes, beside it and never over an existing file: the authors' own version
+    number counted on (paper_v2.docx -> paper_v3.docx, Paper-Rev-04.tex -> Paper-Rev-05.tex), else a first one
+    added in the style of the name (paper.md -> paper_v2.md, my-paper.md -> my-paper-v2.md)."""
+    stem = path.stem
+    if found := VERSION.fullmatch(stem):
+        base, number, width = found['base'] + found['tag'] + found['sep'], int(found['number']) + 1, len(found['number'])
+    else:
+        separator = '-' if '-' in stem and '_' not in stem else ' ' if ' ' in stem and '_' not in stem else '_'
+        base, number, width = f'{stem}{separator}v', 2, 1
+    while (candidate := path.with_name(f'{base}{number:0{width}d}{path.suffix}')).exists():
+        number += 1
+    return candidate
+
+
+def remap(data: dict[str, Any], previous: Path, new: Path) -> str | None:
+    """Name the new version in the project's mapping in place of the previous one, so that the next run reads
+    it. Returns the project file it changed, or None when PREVIOUS is not one of the project's manuscripts."""
+    saved = data.get('context', {}).get('project_file')
+    path = Path(saved) if saved else None
+    if path is None or not path.is_file():
+        return None
+    project = projects.read(path)
+    sources = project.get('manuscripts', [])
+    for number, location in enumerate(sources):
+        if not projects.is_remote(location) and projects.local_path(path.parent, location) == previous:
+            sources[number] = projects.stored_location(path.parent, str(new))
+            projects.write(path, project)
+            return path.as_posix()
+    return None
+
+
+@app.command()
+@serialized
+def version(run: Path, file: Annotated[Path | None, typer.Option(
+                help="The file the run is about to change: a supplement or bibliography; default: the manuscript")] = None) -> None:
+    """Make the new version this run's edits go into, beside the file and never over one, and print its path.
+
+    For versions: immutable. The file itself stays as it was; asked again for the same file, this prints the same
+    new version. The project's mapping then names the new version, so the next run reads it. A report-only run
+    (edits: none) changes no file and gets no version."""
+    data = read(run)
+    if chosen(data, 'edits') == 'none':
+        typer.echo("This run is report only (edits: none): it changes no file, so it makes no new version.", err=True)
+        raise typer.Exit(2)
+    if file is None:
+        source = data['inputs'][0] if data['inputs'] else None
+        if source is None or source.get('remote'):
+            typer.echo("The manuscript is a connected document (or the run has no snapshot of it): its own service "
+                       "keeps its versions. Give --file for a local file the run is about to change.", err=True)
+            raise typer.Exit(2)
+        file = Path(source['original'])
+    previous = file.expanduser().resolve()
+    if made := next((item['new'] for item in data.get('versions', []) if item['previous'] == previous.as_posix()), None):
+        typer.echo(made)
+        return
+    if not previous.is_file():
+        typer.echo(f"Not a file: {previous}", err=True)
+        raise typer.Exit(2)
+    new = next_version(previous)
+    with previous.open('rb') as source_file, new.open('xb') as copy:  # 'x': never over a file that appeared meanwhile
+        shutil.copyfileobj(source_file, copy)
+    entry = {'previous': previous.as_posix(), 'new': new.as_posix(), 'sha256': digest(previous), 'created_at': now()}
+    try:
+        if mapped := remap(data, previous, new):
+            entry['project_file'] = mapped
+    except (projects.ProjectError, OSError) as exc:  # the version stands; the mapping is the authors' to fix
+        typer.echo(f"The project's mapping still names {previous.name}: {exc}", err=True)
+    data.setdefault('versions', []).append(entry)
+    save(run, data)
+    typer.echo(new.as_posix())
 
 
 def write_beside(target: Path, body: bytes, prefix: str) -> None:
@@ -842,15 +954,22 @@ def handover(run: Path,
     """Copy the newest dashboard, its Word version and the corrected version beside the manuscript, as
     STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>, and with --report a focused run's report.
 
-    The dashboard is replaced on every run; each run's folder keeps its own. A Word file, corrected version or
-    report copy already there that differs is kept as it is, and this run's copy goes beside it under a dated
-    name; the command says which, and exits 0. Every copy written is recorded in the run manifest."""
+    The dashboard is replaced on every run (with versions: immutable, kept like the others); each run's folder
+    keeps its own. A Word file, corrected version or report copy already there that differs is kept as it is,
+    and this run's copy goes beside it under a dated name; the command says which, and exits 0. Every copy
+    written is recorded in the run manifest."""
     run = run.resolve()
     data = read(run)
+    immutable = chosen(data, 'versions') == 'immutable'
+    if immutable and (replace or replace_docx or replace_proposed):
+        typer.echo("This run's versions are immutable: nothing already beside the manuscript is replaced, and this "
+                   "run's copies go beside the earlier ones under dated names. Hand over without the --replace "
+                   "options. Nothing was handed over.", err=True)
+        raise typer.Exit(2)
     folder, name = destination(run, data, to, stem)
     stamp = datetime.now().strftime('%Y%m%d')
-    wanted = [(kind, latest(run, pattern), label, always or replace or (kind == 'docx' and replace_docx)
-               or (kind == 'corrected' and replace_proposed))
+    wanted = [(kind, latest(run, pattern), label, (always and not immutable) or replace
+               or (kind == 'docx' and replace_docx) or (kind == 'corrected' and replace_proposed))
               for kind, (pattern, label, always) in HANDOVER.items()]
     wanted += [('report', report_of(run, data, skill), f".{skill.removeprefix('manuscript-')}", replace)
                for skill in dict.fromkeys(report or [])]

@@ -46,7 +46,7 @@ def test_an_unset_setting_reads_as_not_set_and_asks_its_question(cfg: Path) -> N
     result = _run("get", "reports")
     assert (result.exit_code, result.output.strip()) == (1, "not set")
     items = json.loads(_run("questions", "--json").output)
-    assert [q["key"] for q in items] == ["reports", "edits", "keep"] == list(st.SETTINGS)
+    assert [q["key"] for q in items] == ["reports", "edits", "versions", "keep"] == list(st.SETTINGS)
     assert {o["value"] for o in items[0]["options"]} == set(st.SETTINGS["reports"].options)
     assert items[0]["default"] == items[0]["recommended"] == "file" and items[0]["current"] is None
     assert all(q["recommended"] in {o["value"] for o in q["options"]} and q["why"] for q in items)
@@ -77,8 +77,8 @@ def test_startup_resolves_safe_defaults_without_writing_or_asking(cfg: Path) -> 
     assert result.exit_code == 0
     assert json.loads(result.output) == {
         "file": str(cfg),
-        "effective": {"reports": "file", "edits": "conservative", "keep": "everything"},
-        "sources": {"reports": "default", "edits": "default", "keep": "default"},
+        "effective": {"reports": "file", "edits": "conservative", "versions": "in-place", "keep": "everything"},
+        "sources": {"reports": "default", "edits": "default", "versions": "default", "keep": "default"},
     }
     assert not cfg.exists()
 
@@ -88,15 +88,16 @@ def test_saved_edit_policy_and_report_destination_are_independent(cfg: Path) -> 
     cfg.write_text("reports: chat\nlanguage: british\n", encoding="utf-8")
     assert _run("set", "edits", "propose").exit_code == 0
     result = json.loads(_run("resolve", "--json").output)
-    assert result["effective"] == {"reports": "chat", "edits": "propose", "keep": "everything"}
-    assert result["sources"] == {"reports": "saved", "edits": "saved", "keep": "default"}
+    assert result["effective"] == {"reports": "chat", "edits": "propose", "versions": "in-place", "keep": "everything"}
+    assert result["sources"] == {"reports": "saved", "edits": "saved", "versions": "default", "keep": "default"}
     assert yaml.safe_load(cfg.read_text(encoding="utf-8")) == {
         "reports": "chat", "edits": "propose", "language": "british"
     }
     assert _run("unset", "edits").exit_code == 0
     result = json.loads(_run("resolve", "--json").output)
-    assert result["effective"] == {"reports": "chat", "edits": "conservative", "keep": "everything"}
-    assert result["sources"] == {"reports": "saved", "edits": "default", "keep": "default"}
+    assert result["effective"] == {"reports": "chat", "edits": "conservative", "versions": "in-place",
+                                   "keep": "everything"}
+    assert result["sources"] == {"reports": "saved", "edits": "default", "versions": "default", "keep": "default"}
     assert yaml.safe_load(cfg.read_text(encoding="utf-8")) == {"reports": "chat", "language": "british"}
 
 
@@ -148,16 +149,17 @@ def test_a_broken_settings_file_is_reported_and_never_overwritten(cfg: Path, bod
 
 @pytest.mark.parametrize("body", ["reports: [file\n", "- file\n- chat\n", "edits: apply\n\udcff\n"])
 def test_a_broken_settings_file_never_stops_the_work_and_proposes_until_repaired(cfg: Path, body: str) -> None:
-    """Startup still resolves: the defaults, but nothing applied on a choice nobody can read, and one repair
-    decision for the authors; the file is kept byte for byte."""
+    """Startup still resolves: the defaults, but nothing applied or replaced on a choice nobody can read, and one
+    repair decision for the authors; the file is kept byte for byte."""
     cfg.parent.mkdir(parents=True)
     raw = body.encode("utf-8", "surrogateescape")  # the last case is not UTF-8 at all
     cfg.write_bytes(raw)
     result = _run("resolve", "--json")
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["effective"] == {"reports": "file", "edits": "propose", "keep": "everything"}
-    assert data["sources"] == {"reports": "default", "edits": "settings_error", "keep": "default"}
+    assert data["effective"] == {"reports": "file", "edits": "propose", "versions": "immutable", "keep": "everything"}
+    assert data["sources"] == {"reports": "default", "edits": "settings_error", "versions": "settings_error",
+                               "keep": "default"}
     assert "fix or delete it" in data["settings_error"]
     [decision] = data["decisions"]
     assert decision["key"] == "settings_file" and "proposes every change" in decision["question"]
@@ -170,7 +172,7 @@ def test_an_empty_file_or_an_unknown_value_reads_as_not_set(cfg: Path, body: str
     cfg.parent.mkdir(parents=True)
     cfg.write_text(body, encoding="utf-8")
     assert _run("get", "reports").output.strip() == "not set"
-    assert [q["key"] for q in json.loads(_run("questions", "--json").output)] == ["reports", "edits", "keep"]
+    assert [q["key"] for q in json.loads(_run("questions", "--json").output)] == ["reports", "edits", "versions", "keep"]
 
 
 @pytest.mark.parametrize("platform, env, expected", [

@@ -15,6 +15,8 @@ The precedence and run-artifact contract live in ../references/author-priorities
     uv run --script settings.py resolve --json       # effective saved choices or defaults, without questions
     uv run --script settings.py set reports chat     # save a choice the authors stated
     uv run --script settings.py set edits conservative
+    uv run --script settings.py set edits none       # report only: no file changes, no corrected version
+    uv run --script settings.py set versions immutable  # edits go into a new version file, never the old one
     uv run --script settings.py set keep results     # pack a finished run's evidence into one archive
     uv run --script settings.py unset reports        # forget it; the default applies until chosen again
     uv run --script settings.py questions [--json]   # the one-time question for each setting not yet chosen
@@ -25,8 +27,9 @@ so that runs do not share a choice), else `settings.yaml` in the platform's conf
 on macOS, `%APPDATA%\\manuscript-skills\\` on Windows). Keys this version does not know are kept.
 
 A settings file that cannot be read never stops a run: `resolve` still answers, with `settings_error`, the
-defaults except `edits: propose` (unsaved: nothing is applied while the authors' choice is unknown) and one
-decision for the authors, to fix or delete the file. The file is kept as it is.
+defaults except `edits: propose` and `versions: immutable` (unsaved: nothing is applied and nothing already written
+is replaced while the authors' choice is unknown) and one decision for the authors, to fix or delete the file. The
+file is kept as it is.
 
 Exit codes: 0 done (also `resolve` on an unreadable file); 1 `get` on a setting that is not set; 2 an unknown
 setting or value, or `show`, `get`, `questions`, `set` or `unset` on a settings file that cannot be read (fix or
@@ -91,11 +94,29 @@ SETTINGS: dict[str, Setting] = {
             "apply": "Also apply the substantive improvements (restructuring, new emphasis, additions), within your "
                      "direction, shown before and after in the chat; never invented facts or decisions only you "
                      "can make.",
+            "none": "Report only: nothing in your documents changes and no corrected version is written. Each "
+                    "problem is reported with its passage, what is wrong and the kind of change that would fix it; "
+                    "a mechanical fix (a DOI, a reference entry) may be written out in full in the report.",
         },
         default="conservative",
         why="The run fixes what the evidence settles instead of handing you a queue of approvals, and every fix is "
             "shown. What changes the paper's direction, its figures or its emphasis beyond a confirmed problem "
             "stays a proposal, and the decisions only you can make are listed once, at the end.",
+    ),
+    "versions": Setting(
+        question="When a run changes your manuscript, may it write into the file you gave it?",
+        options={
+            "in-place": "Yes: the edits go into the manuscript file itself. The version before them is your last "
+                        "git commit or, without git, a copy saved beside it (paper.pre-edit.md).",
+            "immutable": "No, a file once written is never changed: the edits go into a new version beside it "
+                         "(paper_v2.docx becomes paper_v3.docx, paper.md becomes paper_v2.md), which the rest of "
+                         "the run and the next run work from, and nothing already handed over beside the "
+                         "manuscript (the dashboard, the Word file, the corrected version) is replaced.",
+        },
+        default="in-place",
+        why="One file stays the manuscript and the version before the run is still there, in git or as the "
+            "backup copy beside it. Choose immutable if you keep each version as a file of its own and want "
+            "none of them changed.",
     ),
     "keep": Setting(
         question="When a run ends, which of its files should stay in the run folder?",
@@ -119,9 +140,10 @@ class SettingsError(ValueError):
     """An unknown setting or value, or a settings file that cannot be read safely."""
 
 
-# What applies while the settings file cannot be read: nothing is applied to the authors' documents until their
-# saved choice can be read again; reports and evidence keep their (durable) defaults.
-WHEN_UNREADABLE = {"edits": "propose"}
+# What applies while the settings file cannot be read: nothing is applied to the authors' documents and nothing
+# already written is replaced until their saved choice can be read again; reports and evidence keep their
+# (durable) defaults.
+WHEN_UNREADABLE = {"edits": "propose", "versions": "immutable"}
 
 
 def config_dir(env: dict[str, str] | None = None, platform: str | None = None) -> Path:

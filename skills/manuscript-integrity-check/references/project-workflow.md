@@ -22,12 +22,14 @@ On first use, ask one short batch only for the missing `questions` returned by t
   later runs and the next revision reuse them. For cloud storage, establish its URL and a local working
   folder; the helper does not upload files.
 - How should the skills work? These are the resolver's `preferences`, the settings nobody has chosen for
-  this project or globally: `edits`, `reports` and `keep`. Ask them as one question that names each
-  recommended answer with its `why` (routine and evidence-backed fixes applied, the rest proposed in the
-  corrected version, nothing to approve one by one; reports saved in the run with the headline in the
-  chat; every intermediate file kept, because later steps and the dashboard read them and every finding
-  can be traced back), so that "yes" accepts them all and the authors change only what they want. Save
-  what they answer with `configure --edits ... --reports ... --keep ...`.
+  this project or globally: `edits`, `versions`, `reports` and `keep`. Ask them as one question that names
+  each recommended answer with its `why` (routine and evidence-backed fixes applied, the rest proposed in the
+  corrected version, nothing to approve one by one; edits written into the manuscript file, with the
+  earlier version in git or a backup beside it; reports saved in the run with the headline in the chat;
+  every intermediate file kept, because later steps and the dashboard read them and every finding can be
+  traced back), so that "yes" accepts them all and the authors change only what they want. Name the other
+  choices people ask for: report only (`edits: none`) and a new file for each version (`versions:
+  immutable`). Save what they answer with `configure --edits ... --versions ... --reports ... --keep ...`.
 
 Use answers already supplied in the conversation or project instructions. Show inferred locations in
 the batch rather than asking the author to rediscover them. Continue independent read-only work while
@@ -37,7 +39,7 @@ other. Do not silently turn a guess into a saved author choice; setup copies onl
 globally, never the defaults.
 
 If the global settings file cannot be read, `resolve` still answers: it reports `settings_error`, works
-under `edits: propose` unless this manuscript or the conversation chose otherwise, lists repairing the file
+under `edits: propose` and `versions: immutable` unless this manuscript or the conversation chose otherwise, lists repairing the file
 once in `decisions`, and the run starts as usual. The file is never rewritten.
 
 Save stated choices with `project.py configure PROJECT_FOLDER --manuscript SOURCE --code CODE_FOLDER
@@ -152,7 +154,9 @@ same five steps before `finish`:
 4. **Every applied edit recorded** with `runs.py change`: one record per consequential edit, shown in the
    chat; routine edits may share one record per paragraph or section, whose before and after are the whole
    paragraph or section and whose reason names the kind of fix. Never attest `--shown-in-chat` for a change
-   that was not shown. An edit nobody recorded stops the corrected version from being built.
+   that was not shown. An edit nobody recorded stops the corrected version from being built. With
+   `versions: immutable` the edits go into the new version `runs.py version RUN` makes (the same file for
+   every stage of the run), never into the earlier one; with `edits: none` there are none to record.
 5. **`runs.py finish RUN --skill <skill> --status ...`** with the honest coverage.
 
 Skills that write no `findings.json` (manuscript-dashboard, manuscript-other-models, manuscript-mark-people,

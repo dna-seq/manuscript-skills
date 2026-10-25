@@ -84,7 +84,7 @@ def put(run: Path, relative: str, body: str | bytes, mtime: float | None = None)
 
 def test_the_default_edit_mode_fixes_what_the_evidence_settles_and_only_propose_asks_one_by_one() -> None:
     edits = settings.SETTINGS['edits']
-    assert list(edits.options) == ['conservative', 'propose', 'apply'] and edits.default == 'conservative'
+    assert list(edits.options) == ['conservative', 'propose', 'apply', 'none'] and edits.default == 'conservative'
     conservative = edits.options['conservative']
     assert conservative.startswith('Routine and evidence-backed fixes')
     assert 'confirmed problem settles' in conservative and 'proposals in the corrected version' in conservative
