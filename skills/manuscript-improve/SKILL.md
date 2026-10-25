@@ -158,7 +158,9 @@ does not refute, and the authors' voice, their direction and what makes the pape
 its worked example, one headline per result) survive every stage. The final checks below measure it:
 the claim guard for lost caveats and strengthened claims, the smell check for machine phrasing, and the
 reader metrics for how it reads against the original. When the corrected version reads worse than the
-original on the reader metrics, find the stage that caused it and restore or drop those edits.
+original on the reader metrics, find the stage that caused it. Restore or drop its style and story edits that
+cost readability; a correction a confirmed finding asked for stays, and its sentence is split or tightened
+instead, or listed for the authors when it cannot be without changing what it says.
 
 ## Finish with a reviewable result
 
@@ -199,8 +201,11 @@ inventory, so the end of a run goes in this order:
    contract (a quote not in the corrected version, a problem unanswered, a label the texts contradict):
    correct the quote from the text or mark the problem could not check; never ask the agent to judge again.
    It exits 3 when an edit made a problem worse, introduced one, or introduced a number or reference
-   candidate: hold or reverse those edits as in step 6 and rebuild. There is no second re-check, and nothing
-   here goes to the authors as a question. The dashboard reads `recheck.json` beside the revision folder.
+   candidate: hold or reverse those edits as in step 6 and rebuild. Reversing an applied correction that a
+   confirmed finding asked for would bring the error back: keep it, fix a slip it left (a tense, a missing
+   abbreviation) with a recorded routine edit, and list what remains for the authors with the end-of-run
+   items. There is no second re-check, and nothing here goes to the authors as a question. The dashboard
+   reads `recheck.json` beside the revision folder.
 8. Render the dashboard and the Word file from the same attempts.
 9. Write the summary, run the smell check on it and register it; `finish` every stage, run
    `validate --final`, then `runs.py handover` and, when `keep` is `results`, `pack`.

@@ -127,7 +127,10 @@ decisions below. "Accept all" on a corrected version approves every proposal in 
 paper's direction; which figures the paper has; a venue's incompatible rules before a venue is chosen; new
 analyses, data or experiments; facts only the authors have (they stay comments, never text); a conflict
 with a journal's policy. List them once, together, at the end of the run with what each would change, and
-let nothing else wait on them. A check that fails (the claim guard, the smell check, a story test, the run
+let nothing else wait on them. A fact the project's own files at the draft's version settle (its code,
+configuration, data or run records: a default setting, whether a feature exists, which outside service it
+calls) is not one only the authors have: check those files first and correct from them, and leave for the
+authors only what no file records. A check that fails (the claim guard, the smell check, a story test, the run
 validation) is the agent's to fix by restoring the wording or dropping the edit and listing it; it never
 becomes a question for the authors.
 
