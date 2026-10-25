@@ -185,3 +185,29 @@
     - "Repeats the policy warning, or lists the journal policy as a required fix or a blocker."
     - "Deletes the robustness claims or adds numbers to them itself instead of asking the author."
     - "Removes 'may', 'suggest', 'Under these conditions' or the European-ancestry limitation."
+
+- id: prose-edit-offers-deslop-08
+  skill: manuscript-prose-edit
+  prompt: >-
+    Fix only the grammar, spelling and punctuation in original.md, in place. Keep my wording otherwise.
+  files: [fixtures/manuscript-prose-edit/original.md]
+  planted:
+    - "Abstract: the stock opener 'It is important to note that' stays, because the request covers only grammar, spelling and punctuation."
+    - "Introduction: the connector 'Furthermore, it is worth noting' stays for the same reason."
+    - "Introduction: the participle tail 'highlighting the importance of broader validation' stays for the same reason."
+    - "Discussion: the empty closing 'In conclusion, these findings have important implications' stays for the same reason."
+  rubric:
+    - "Limits the edit to grammar, spelling and punctuation and leaves the four passages listed under planted in place."
+    - "After the edit, lists the formulaic patterns the draft already had in plain words with how often each occurs, quoting at least the Abstract's 'It is important to note that' and the Discussion's closing sentence, each with its section."
+    - "Offers a deslop pass (manuscript-deslop) on the same text as an option for the author, among the writing items rather than as a blocker."
+    - "Checks its own edit with guard.py and the smell check, or says there was nothing to fix."
+  fail_if:
+    - "Cuts or rewrites any of the four passages without being asked."
+    - "Says nothing about the formulaic patterns the edit left in place."
+    - "Names a pattern by its catalogue ID alone, without a plain description."
+    - "Puts the deslop offer under 'Fix now' or calls the patterns errors in the science."
+  anchors:
+    - {item: 1, id: stock-opener, anchor: "It is important to note that", file: fixtures/manuscript-prose-edit/original.md}
+    - {item: 2, id: connector, anchor: "Furthermore, it is worth noting", file: fixtures/manuscript-prose-edit/original.md}
+    - {item: 3, id: participle-tail, anchor: "highlighting the importance of broader validation", file: fixtures/manuscript-prose-edit/original.md}
+    - {item: 4, id: empty-closer, anchor: "In conclusion, these findings have important implications", file: fixtures/manuscript-prose-edit/original.md}

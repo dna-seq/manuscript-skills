@@ -37,7 +37,11 @@ rules, and [section-guide.md](references/section-guide.md) when a section's purp
 false-positive exceptions and style profiler. **The smell check is required for every edit**, including a
 short pasted passage saved as before/after files. Run its counts before and after editing, then read the
 edit against the full catalogue list. The check judges only what the edit added (a pattern, or a third use
-under a heading); runs of a pattern the draft already had are the deslop stage's work. Resolve what it lists,
+under a heading); runs of a pattern the draft already had are the deslop stage's work. When this skill runs on
+its own rather than as a stage of `manuscript-improve`, whose deslop stage follows it, do not leave those runs
+unmentioned: read them from the before-edit profile and the reading pass, and suggest a cleanup under "Then the
+writing" (see [What to show the authors](#what-to-show-the-authors)). Suggest only; the edit removes them only
+when the request already covers that wording, as a copy edit for concision does. Resolve what the check lists,
 or keep a reviewed use with `--keep ID@HEADING` (`--keep ID` keeps it everywhere), record it in this skill's
 run folder with `--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt`, and explain the retained
 sentences to the authors. A sentence that works can stay.
@@ -132,7 +136,11 @@ using that section's group labels and leaving out empty groups. A claim that out
 "Fix now", narrowed or proposed as the `edits` setting says (above); the authors decide only between new work
 and the narrower claim. A number or citation the sentence needs and the text does not give, or a qualifier that
 may be missing, goes there too, as a comment only the authors can answer. The prose changes themselves, and
-choices of wording left to the authors, belong to "Then the writing". Word limits and required sections wait for "Once you have chosen the journal".
+choices of wording left to the authors, belong to "Then the writing". So do the formulaic patterns the edit left
+in place when this skill ran on its own: name each kind in plain words with how often it occurs, quote one
+example with its section, and offer a pass with [manuscript-deslop](../manuscript-deslop/SKILL.md) on the same
+text. Leave out the uses the edit kept on purpose, which are already explained there, and say nothing when the
+draft had no such patterns. Word limits and required sections wait for "Once you have chosen the journal".
 Stripping revision markers, the declarations and the AI-use statement are end-stage work for "Before
 submission, once the code is final" and are never called blockers for a draft.
 

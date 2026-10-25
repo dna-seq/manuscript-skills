@@ -15,7 +15,7 @@ The check every edit and every report must pass (`--check`) adds two verdicts an
 three or more times under one heading: one use can stand, a run of them is the habit a reader notices. With
 `--before`, a run counts only under a heading where the edit added a use of that pattern, so an edit is never
 made to clean up what the draft already had (that is the deslop stage's work); the runs the draft already had are
-counted in the JSON (`existing_clusters`). And it prints every entry of the catalogue in one line, because the
+counted in the JSON (`existing_clusters`) and listed, so that an edit no deslop pass follows can offer one. And it prints every entry of the catalogue in one line, because the
 counts find only the patterns that have a regular expression: the editor reads the text against that list and
 finds the rest by reading. `--report` checks a report to the authors instead of a manuscript: quoted manuscript
 text is skipped, and "you" and questions are expected there.
@@ -642,7 +642,14 @@ def check_markdown(result: dict[str, Any], smells: dict[str, dict[str, Any]], co
         out.append(f"The draft already used {_count(len(existing), 'pattern', 'patterns')} {result['threshold']} or "
                    "more times under one heading, and the edit added no use of "
                    f"{'it' if len(existing) == 1 else 'them'} there; that is not judged here (removing such runs is "
-                   "the deslop stage's work).")
+                   "the deslop stage's work). If no deslop pass follows this edit, name "
+                   f"{'it' if len(existing) == 1 else 'them'} to the authors and offer one:")
+        for c in existing:
+            name = _pattern(c["id"], smells)
+            lines = sorted({u["line"] for u in c["uses"]})
+            span = f"line {lines[0]}" if len(lines) == 1 else f"lines {lines[0]} to {lines[-1]}"
+            out.append(f"- {name[:1].upper()}{name[1:]} ({c['id']}), {c['count']} times in "
+                       f"{place(c['section'], span)}: {_quoted(c['uses'])}.")
     for h in result["added"]:
         name = _pattern(h["id"], smells)
         what = (f"kept after review{tell}" if is_kept(h["id"], h["section"], keep) else

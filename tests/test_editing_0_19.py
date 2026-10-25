@@ -366,7 +366,8 @@ def test_an_edit_is_not_failed_for_a_cluster_the_draft_already_had() -> None:
     assert [(c["id"], c["count"]) for c in result["existing_clusters"]] == [("C5", 3)]
     md = profile.check_markdown(result, profile.load_smells(), compared=True)
     assert "the deslop stage's work" in md
-    added = CONNECTED.replace("Moreover, the scores", "Moreover, the scores also").replace(
+    assert "offer one:" in md and "- Sentence-initial connector piles (C5), 3 times in" in md
+    added =CONNECTED.replace("Moreover, the scores", "Moreover, the scores also").replace(
         "every genome we tried.", "every genome we tried. " + LONG_CONNECTED)
     judged = profile.run_check(_doc(added), _doc(CONNECTED), set())
     assert not judged["passed"] and [(c["id"], c["count"]) for c in judged["clusters"]] == [("C5", 4)]

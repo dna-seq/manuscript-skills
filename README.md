@@ -118,7 +118,7 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Your task | Skill | What you get |
 |---|---|---|
 | Improve a manuscript from draft to submission | [manuscript-improve](skills/manuscript-improve/SKILL.md) | The skills below as one workflow, ending with the corrected paper (a separate file in the run folder, also shown as track changes), a dashboard, and the decisions left to you. |
-| Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and your voice. Each sentence is checked: no claim grows stronger, no number, citation, scientific term, qualifier or null result changes, and no AI phrasing is added. |
+| Improve the writing | [manuscript-prose-edit](skills/manuscript-prose-edit/SKILL.md) | Edits for clarity, grammar and your voice. Each sentence is checked: no claim grows stronger, no number, citation, scientific term, qualifier or null result changes, and no AI phrasing is added. Run on its own, it also lists the AI phrasing the draft already had and offers to remove it. |
 | Remove AI phrasing ("deslop") | [manuscript-deslop](skills/manuscript-deslop/SKILL.md) | Stock LLM phrasing, boilerplate and empty rhetoric cut while the science and your voice stay, or only a list of the patterns. |
 | Make the paper interesting to its readers | [manuscript-story](skills/manuscript-story/SKILL.md) | Simulated readers say where they would stop reading; edits then fix the opening, the result headlines and where caveats sit. The science and every caveat stay, and a change of direction is only ever offered as options. |
 | Review the manuscript before submission | [manuscript-integrity-check](skills/manuscript-integrity-check/SKILL.md) | Unsupported claims, inconsistent numbers and statistics, reference problems, unfinished content, files that would leak private notes or hidden text, and submission requirements, with suggested fixes. |
@@ -210,7 +210,8 @@ For deslop:
 > uncertainty, numbers and citations. Show the consequential changes.
 
 Use `manuscript-deslop` for a focused pattern check or cleanup, and `manuscript-prose-edit` for broader
-language editing; either can list the patterns without editing. If another installed plugin also offers
+language editing; either can list the patterns without editing. A prose edit run on its own ends by offering
+a deslop pass for the patterns the draft already had and the edit left in place. If another installed plugin also offers
 a "humanizer", name `manuscript-deslop` to get this plugin's version, written for manuscripts.
 
 For the review dashboard (manuscript-improve builds it at the end of every run):

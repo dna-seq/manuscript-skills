@@ -231,6 +231,11 @@ the catalogue's exceptions and `--keep ID@HEADING` (or `--keep ID`, everywhere) 
 recorded in the run folder with `--record-keeps`. Explain retained sentences under "Then the writing". Preserve
 this contract's scientific meaning and claim ceiling throughout.
 
+The check does not judge patterns the draft already had. When this skill runs on its own, outside
+`manuscript-improve`, list the ones the edit left in place, from the before-edit profile and the reading pass,
+and offer a deslop pass on the same text (section 6). Do not apply it: removing wording the request did not
+cover is a change the authors choose.
+
 ### 5.4 The guard
 
 ```bash
@@ -307,7 +312,9 @@ section and followed by the question ("Which cohort does 'larger cohorts' mean h
 Order the list by when the authors can act (`author-priorities.md`, "Order the work by when it can be done"),
 with that section's group labels: a claim that outruns its evidence (with its narrowed wording, applied or
 proposed as the `edits` setting says), or a number or qualifier the claim needs, under "Fix now"; wording
-choices under "Then the writing"; anything that depends on the journal or on final
+choices under "Then the writing", together with the offer of a deslop pass for the patterns the draft already
+had (each kind in plain words, with its count and one quoted example and section), when this skill ran on its
+own; anything that depends on the journal or on final
 code, data and versions in the later groups, never as a blocker for a draft.
 
 Mention material verification results and limitations briefly. Omit empty sections and style-count logs.
