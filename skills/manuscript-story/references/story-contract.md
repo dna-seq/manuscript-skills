@@ -53,12 +53,12 @@ These change how the paper tells its story, within the recorded direction:
 
 | `edits` setting | Edits that keep the direction | A worked example, an outside fact in a hook | Direction changes |
 |---|---|---|---|
-| `conservative` (default) | applied, each shown as before/after text in the chat | proposed | proposed as options |
-| `apply` | applied, each shown as before/after text in the chat | applied, shown the same way | proposed as options |
+| `apply` (default) | applied, each listed in the changes workbook and the consequential ones shown before/after in the chat | applied, shown the same way | proposed as options |
+| `conservative` | applied, each shown as before/after text in the chat | proposed | proposed as options |
 | `propose` | proposed | proposed | proposed as options |
 
 The shared [author priorities](../../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second)
-record why `conservative` applies these: the authors decided that story edits which keep their direction
+record why `apply` and `conservative` apply these: the authors decided that story edits which keep their direction
 and pass the three gates are routine for this skill. A story edit that also changes a claim, adds a number or
 a fact, or changes the Abstract's purpose is not routine: a worked example and an outside fact are proposals
 under `conservative`, and a claim or the Abstract's purpose follows the shared rules for those.

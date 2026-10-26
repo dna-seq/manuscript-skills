@@ -54,6 +54,10 @@ STALE_AFTER_DAYS = 60
 OPENALEX = "https://api.openalex.org"
 
 WRITING_COST = {"free": 0, "disclose": 1, "disclose_all": 2, "red_line": 2, "banned_drafting": 5}
+# A writing rule that forbids what AI already did to this text (drafting under a red line on results and
+# discussion, any substantial AI writing under a drafting ban) is more than paperwork: the authors would rewrite
+# those sections themselves or declare a use the rule forbids. Counted only once the AI use is established.
+CONFLICT_POINTS = 4
 # Record-keeping is one cost however a policy words it: prompts on request, kept records, prompts in the paper.
 RECORDS_COST = {"no": 0, "on_request": 1, "encouraged": 1, "recommended": 1, "required": 3}
 # Paper-mill and plagiarism checks run at every large publisher and do not target AI-assisted writing.
@@ -267,6 +271,8 @@ class Priority(str, Enum):
 PRIORITY_WORDS = {"speed": "speed to a first decision", "reach": "reach (journal impact factor)",
                   "ai": "a light AI-policy burden", "cost": "a low cost to the authors",
                   "transfer": "a direct transfer to a journal high on the journal ladder"}
+# The transfer priority on the journal ladder: the preprint the authors post goes to the journal directly.
+JOURNAL_TRANSFER_WORDS = "a direct transfer from your preprint server"
 # The order a ladder uses until the authors state theirs; labelled as a default and never saved to the record.
 # Journals: a fast first decision makes a rejection cost weeks rather than months and keeps the next journal on
 # the ladder within reach; reach is what most authors weigh next; the AI-policy points count paperwork, not the
@@ -377,15 +383,16 @@ def burdens(v: dict[str, Any]) -> set[Burden]:
     return out
 
 
-def friction(v: dict[str, Any]) -> tuple[Optional[int], list[str]]:
+def friction(v: dict[str, Any], ai_use: Optional[AiUse] = None) -> tuple[Optional[int], list[str]]:
     """Points, and the reasons behind them. None when the policy was not researched.
 
     Writing rule (0 free to 5 drafting ban) + record keeping (the highest of prompts and tracking, 0 to 3) +
     AI-text screening (0 to 2) + listed extra burdens (at most 2) + 1 if the policy says disclosed use may count
-    against the paper, - 1 if it says it will not. Record keeping is counted once: a listed extra burden that
-    restates it (outputs deposited, versions or prompts kept) is named but adds no points when the record-keeping
-    points already count it. Disclosure places are a filter (`--refuse multi-place`), not points: repeating one
-    statement costs little."""
+    against the paper, - 1 if it says it will not, + CONFLICT_POINTS when the writing rule conflicts with the AI
+    use the authors established (`ai_conflict`; none while the use is unknown). Record keeping is counted once: a
+    listed extra burden that restates it (outputs deposited, versions or prompts kept) is named but adds no points
+    when the record-keeping points already count it. Disclosure places are a filter (`--refuse multi-place`), not
+    points: repeating one statement costs little."""
     if v.get("writing_help") is None:
         return None, ["The AI policy has not been researched, so read the live page."]
     rule = v["writing_help"]
@@ -419,6 +426,11 @@ def friction(v: dict[str, Any]) -> tuple[Optional[int], list[str]]:
     elif v.get("disclosure_neutral") is True:
         score = max(0, score - 1)
         reasons.append("It says declared AI use does not count against the paper (minus 1 point).")
+    if ai_use is not None and ai_conflict(v, ai_use):
+        score += CONFLICT_POINTS
+        reasons.append(f"Its writing rule forbids what AI did to this text ({AI_USE_WORDS[ai_use.value]}), so those "
+                       f"sections would be rewritten by you or the use declared against the rule "
+                       f"({_points(CONFLICT_POINTS)}).")
     return score, reasons
 
 
@@ -818,10 +830,16 @@ def fee_eur(v: dict[str, Any]) -> tuple[Optional[float], str]:
 
 
 def priority_value(v: dict[str, Any], priority: Priority,
-                   journals_on_ladder: Optional[list[str]] = None) -> Optional[float]:
-    """The venue's value on one priority, lower is better; None when not known. For `transfer`, the rung (counted
-    from 0, in the order the journals are given) of the first journal the server transfers to directly; a server
-    whose checked list reaches none of them comes after every one that reaches some."""
+                   journals_on_ladder: Optional[list[str]] = None, ai_use: Optional[AiUse] = None,
+                   server: Optional[dict[str, Any]] = None) -> Optional[float]:
+    """The venue's value on one priority, lower is better; None when not known. For `transfer` on the preprint
+    ladder, the rung (counted from 0, in the order the journals are given) of the first journal the server
+    transfers to directly; a server whose checked list reaches none of them comes after every one that reaches
+    some. For `transfer` on the journal ladder (with the authors' preprint `server`), 0 when the server transfers
+    to the journal directly, 1 when its checked list leaves the journal out. For `ai`, the AI-policy points for
+    the established AI use, a conflicting writing rule included."""
+    if priority == Priority.transfer and server is not None:
+        return {"yes": 0.0, "no": 1.0}.get(from_server(v, server))
     if priority == Priority.transfer:
         transfers = v.get("transfers")
         if transfers is None or not journals_on_ladder:
@@ -833,18 +851,30 @@ def priority_value(v: dict[str, Any], priority: Priority,
     if priority == Priority.reach:
         return -float(v["jif"]) if v.get("jif") is not None else None
     if priority == Priority.ai:
-        return friction(v)[0]
+        return friction(v, ai_use)[0]
     return fee_eur(v)[0]
 
 
+def from_server(v: dict[str, Any], server: dict[str, Any]) -> str:
+    """Whether the authors' preprint server transfers manuscripts to this journal directly: "yes", "no" when the
+    server's list was checked for it and leaves it out, "unknown" otherwise."""
+    transfers = server.get("transfers")
+    if transfers is None:
+        return "unknown"
+    if v["key"] in transfers:
+        return "yes"
+    return "no" if v["key"] in set(server.get("transfers_checked") or []) else "unknown"
+
+
 def ladder_order(v: dict[str, Any], priorities: list[Priority], feasible: str,
-                 journals_on_ladder: Optional[list[str]] = None) -> tuple[Any, ...]:
+                 journals_on_ladder: Optional[list[str]] = None, ai_use: Optional[AiUse] = None,
+                 server: Optional[dict[str, Any]] = None) -> tuple[Any, ...]:
     """Feasibility (the validation fit, `feasibility`) first, then each priority in the authors' order. An unknown
     value sorts below every known one at its step, and a tie passes to the next priority; the name breaks the
     last tie."""
     key: list[Any] = [FIT_ORDER[feasible]]
     for p in priorities:
-        value = priority_value(v, p, journals_on_ladder)
+        value = priority_value(v, p, journals_on_ladder, ai_use, server)
         key.append((1, 0.0) if value is None else (0, value))
     key.append(_name(v).lower())
     return tuple(key)
@@ -918,7 +948,7 @@ def rank(
     kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
                                software=software, oa=oa, min_jif=min_jif, refused=refused)
     for key, v in kept.items():
-        score, reasons = friction(v)
+        score, reasons = friction(v, ai_use)
         if max_friction is not None and (score is None or score > max_friction):
             continue
         rows.append((score, key, v, reasons))
@@ -1206,13 +1236,19 @@ def show(
 
 
 def _preprint_cell(v: dict[str, Any], venues: dict[str, dict[str, Any]], journals_on_ladder: Optional[list[str]],
-                   preprints: bool) -> str:
-    """For a journal, its rule on manuscripts already posted as preprints; for a preprint server, the journals it
-    transfers manuscripts to directly, narrowed to the journal ladder when one is given. A journal missing from a
-    server's list counts as "not to" only when the list was checked for it (`transfers_checked`)."""
+                   preprints: bool, posted: Optional[dict[str, Any]] = None) -> str:
+    """For a journal, its rule on manuscripts already posted as preprints, and with the authors' preprint server
+    whether it transfers the manuscript there directly; for a preprint server, the journals it transfers
+    manuscripts to directly, narrowed to the journal ladder when one is given. A journal missing from a server's
+    list counts as "not to" only when the list was checked for it (`transfers_checked`)."""
     if not preprints:
         rule = (v.get("open_science") or {}).get("preprints")
-        return _sentence(rule) if rule else "Not known."
+        cell = _sentence(rule) if rule else "Not known."
+        if posted is not None:
+            cell += " " + {"yes": f"{_name(posted)} transfers the manuscript here directly.",
+                           "no": f"{_name(posted)} does not transfer here directly.",
+                           "unknown": f"Whether {_name(posted)} transfers here directly was not checked."}[from_server(v, posted)]
+        return cell
     transfers = v.get("transfers")
     if transfers is None:
         return "Not recorded."
@@ -1260,6 +1296,10 @@ def ladder(
     journal: Annotated[Optional[list[str]], typer.Option(
         help="With --preprints: the journals on the journal ladder, to show which ones each server transfers "
              "to directly; repeatable")] = None,
+    server: Annotated[Optional[str], typer.Option(
+        help="On the journal ladder: the preprint server the authors post to, for the transfer priority and the "
+             "direct-transfer column (whether the server sends the preprint to each journal); default: the first "
+             "rung of the record's preprint ladder")] = None,
     ai_use: Annotated[Optional[AiUse], typer.Option(
         help="What AI did to the text: polish, revision or drafting; default: the record's ai_use, else unknown "
              "(no conflict assumed)")] = None,
@@ -1294,9 +1334,15 @@ def ladder(
                       if p != "transfer" or journal]
     if len(set(priorities)) != len(priorities):
         raise typer.BadParameter("name each priority once")
-    if Priority.transfer in priorities and not (preprints and journal):
+    if not preprints:
+        server = server or next(iter(recorded_ladder(record, True)), None)
+        if server is not None and server not in venues:
+            raise typer.BadParameter(f"unknown preprint server {server!r}")
+    posted = venues[server] if server and not preprints else None
+    if Priority.transfer in priorities and not ((preprints and journal) or posted):
         raise typer.BadParameter("the transfer priority orders preprint servers (--preprints) by the journal ladder "
-                                 "given with --journal, in ladder order")
+                                 "given with --journal, in ladder order, or journals by whether the preprint server "
+                                 "(--server, or the first rung of the record's preprint ladder) transfers to them")
     unknown = sorted(set(journal or []) - set(venues))
     if unknown:
         raise typer.BadParameter(f"unknown journal keys: {', '.join(unknown)}")
@@ -1312,13 +1358,13 @@ def ladder(
     kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
                                software=software, oa=oa, min_jif=floor, refused=set(refuse or []))
     feasible = {key: feasibility(v, designs, available, confirmed) for key, v in kept.items()}
-    rows = sorted(kept.values(), key=lambda v: ladder_order(v, priorities, feasible[v["key"]][0], journal))
+    rows = sorted(kept.values(), key=lambda v: ladder_order(v, priorities, feasible[v["key"]][0], journal, use, posted))
     verdicts = {v["key"]: overall_fit(v, feasible[v["key"]], use, budget) for v in rows}
     notes = _ladder_notes(default_order, priorities, preprints, designs, confirmed, study_design is not None,
-                          available, use, floor, budget)
+                          available, use, floor, budget, posted)
     if output == OutputFormat.csv:
         _ladder_csv(rows, venues, priorities, feasible, verdicts, journal, preprints, use,
-                    recorded_ladder(record, preprints), "default" if default_order else "authors", designs)
+                    recorded_ladder(record, preprints), "default" if default_order else "authors", designs, posted)
         if default_order:
             typer.echo("Note: no priorities are recorded for this ladder, so it uses the default order ("
                        + ", ".join(p.value for p in priorities) + "); the priorities_source column says "
@@ -1338,11 +1384,11 @@ def ladder(
     printed: list[str] = []
     for n, v in enumerate(rows, 1):
         fit, reason = verdicts[v["key"]]
-        score, _ = friction(v)
+        score, _ = friction(v, use)
         work = "not known" if score is None else tier(score)
         printed.append(f"| {n} | {_name(v)} (`{v['key']}`) | {fit_text(fit, reason)} | {_sentence(speed_days(v)[1])} "
                        f"| {_sentence(_jif(v))} | {_sentence(work)} | {red_flags(v)} | {verdict(v, use)} "
-                       f"| {_sentence(fee_eur(v)[1])} | {_preprint_cell(v, venues, journal, preprints)} |")
+                       f"| {_sentence(fee_eur(v)[1])} | {_preprint_cell(v, venues, journal, preprints, posted)} |")
         typer.echo(printed[-1])
     if Priority.speed in priorities:
         # Publishers count first decisions over different papers: with desk rejections, after peer review only,
@@ -1359,10 +1405,10 @@ def ladder(
                 "these journals, compare a like-for-like measure, such as submission to publication for a sample of "
                 "recent papers in each, and say in the report which order that gives.")
     for p in priorities:
-        missing = [_name(v) for v in rows if priority_value(v, p, journal) is None]
+        missing = [_name(v) for v in rows if priority_value(v, p, journal, use, posted) is None]
         if missing:
-            typer.echo(f"\nNot known, so placed below the known values at the step for {PRIORITY_WORDS[p.value]}: "
-                       f"{_and(missing)}.")
+            words = JOURNAL_TRANSFER_WORDS if p == Priority.transfer and posted else PRIORITY_WORDS[p.value]
+            typer.echo(f"\nNot known, so placed below the known values at the step for {words}: {_and(missing)}.")
     from_task = [f"{_name(v)} ({', '.join(f.replace('_', ' ') for f in v['from_facts'] if f not in TASK_ONLY)})"
                  for v in rows if set(v.get("from_facts") or []) - TASK_ONLY]
     if from_task:
@@ -1380,12 +1426,18 @@ TASK_ONLY = {"not_read"}
 
 def _ladder_notes(default_order: bool, priorities: list[Priority], preprints: bool, designs: list[str],
                   confirmed: bool, design_given: bool, available: Optional[set[str]], use: AiUse,
-                  floor: Optional[float], budget: Optional[float]) -> list[str]:
+                  floor: Optional[float], budget: Optional[float],
+                  posted: Optional[dict[str, Any]] = None) -> list[str]:
     """The paragraphs above the ladder table: whose order it is, how it was sorted, and what it assumed."""
-    steps = ", then by ".join(PRIORITY_WORDS[p.value] for p in priorities)
+    def said(p: Priority) -> str:
+        if p == Priority.transfer and posted is not None:
+            return f"{JOURNAL_TRANSFER_WORDS}, {_name(posted)}"
+        return PRIORITY_WORDS[p.value]
+
+    steps = ", then by ".join(said(p) for p in priorities)
     notes = []
     if default_order:
-        order = ", then ".join(PRIORITY_WORDS[p.value] for p in priorities)
+        order = ", then ".join(said(p) for p in priorities)
         notes.append("**A default order, not yours yet.** You have not stated what matters most to you, so this "
                      f"ladder uses a default: {order}. It changes when you state your own order.")
     notes.append(f"Ordered by whether the paper fits each venue's recorded validation rules, then by {steps}. A value "
@@ -1393,7 +1445,8 @@ def _ladder_notes(default_order: bool, priorities: list[Priority], preprints: bo
                  "position is an order of preference under these priorities, not a chance of acceptance"
                  + ("; the speed compared is days to a first decision, which for most journals includes desk "
                     "rejections" if Priority.speed in priorities and not preprints else "") + ". AI-policy work is the paperwork a venue's AI policy "
-                 "asks of the authors, from light to severe; it is not the chance of rejection.")
+                 "asks of the authors, from light to severe, and a writing rule that forbids what AI already did to "
+                 "the text counts as severe; it is not the chance of rejection.")
     assumed = []
     if designs:
         kinds = _and([f"a {DESIGN_WORDS.get(d, d)} paper" for d in designs])
@@ -1444,7 +1497,7 @@ def _transfers_cell(transfers: Optional[list[str]], checked: Optional[list[str]]
 def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], priorities: list[Priority],
                 feasible: dict[str, tuple[str, str]], verdicts: dict[str, tuple[str, str]],
                 journals_on_ladder: Optional[list[str]], preprints: bool, ai_use: AiUse, chosen: list[str],
-                source: str, designs: list[str]) -> None:
+                source: str, designs: list[str], posted: Optional[dict[str, Any]] = None) -> None:
     """The ladder as CSV on stdout, in LADDER_COLUMNS: `rung` is the sorted order under the priorities,
     `chosen_rung` the order recorded in the record (empty for a venue it does not list)."""
     def cell(value: Any) -> str:
@@ -1455,7 +1508,7 @@ def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], p
     for n, v in enumerate(rows, 1):
         fit, reason = verdicts[v["key"]]
         valid, valid_reason = feasible[v["key"]]
-        score, why = friction(v)
+        score, why = friction(v, ai_use)
         flags = ai_flags(v)
         speed = _first_decision(v) or {}
         fee = (v.get("publication_costs") or [{}])[0]
@@ -1480,7 +1533,11 @@ def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], p
             "fee_route": cell(fee.get("route")), "fee_source": cell(fee.get("source")),
             "fee_checked": cell(fee.get("checked")),
             "preprint_rule": cell(rule),
-            "transfers": _transfers_cell(v.get("transfers"), v.get("transfers_checked"), journals_on_ladder),
+            # A server: the journals it transfers to. A journal: the authors' preprint server when it transfers here
+            # directly, "none" when its checked list leaves the journal out, empty when not known.
+            "transfers": (_transfers_cell(v.get("transfers"), v.get("transfers_checked"), journals_on_ladder)
+                          if preprints or posted is None else
+                          {"yes": posted["key"], "no": "none"}.get(from_server(v, posted), "")),
             "guidelines_url": cell(v.get("url")),
             "facts_from_record": ";".join(v.get("from_facts") or []),
             "priorities": ";".join(p.value for p in priorities),

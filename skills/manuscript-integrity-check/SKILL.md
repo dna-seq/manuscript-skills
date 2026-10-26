@@ -21,7 +21,7 @@ its sections on [authors first, journals second](references/author-priorities.md
 [ordering the work by stage](references/author-priorities.md#order-the-work-by-when-it-can-be-done) and
 [writing for the authors](references/author-priorities.md#writing-for-the-authors): the report follows all
 three. This skill finds checkable problems, and what it changes follows the plugin-wide
-[`edits` setting](references/author-priorities.md#scope-iteration-and-review): under the default `conservative`, the
+[`edits` setting](references/author-priorities.md#scope-iteration-and-review): under `apply` (the default) and `conservative`, the
 routine and registry-settled corrections and the corrections a **confirmed** finding's evidence settles (a number
 the project's files settle, a corrected citation, a claim narrowed by rewording to what the evidence shows) are
 applied, shown before and after in the chat and recorded; changes no confirmed finding requires are proposals;

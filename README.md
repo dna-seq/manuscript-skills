@@ -186,9 +186,14 @@ prefer on first use; to change it later, say "keep only the results" or "keep ev
 What you open goes beside the manuscript as well, named after it:
 
 - `paper.dashboard.html`, the dashboard of the latest run (each run folder keeps its own);
-- `paper.review.docx`, the same as a Word document with tracked changes and comments. If you already
-  have a different one, which you may have commented in, the new one is saved beside it with the date in
-  its name (`paper.review.20261024.docx`), never over it;
+- `paper.review.docx`, the corrected version as a Word document with only what needs you: the proposals as
+  tracked changes, and comments for your questions, your decisions and the open major problems. The fixes
+  the run applied are already in its text. If you already have a different one, which you may have
+  commented in, the new one is saved beside it with the date in its name (`paper.review.20261024.docx`),
+  never over it;
+- `paper.changes.xlsx`, every change the run applied (before, after, why, the problem it answers), what
+  needs you, the open problems and the held proposals, one sheet each, to filter in Excel or Google Sheets;
+  kept the same way;
 - `paper.proposed.md` (or `.tex`, as your manuscript), the corrected version, kept the same way;
 - from journal selection, the journal ladder, the venue requirements and the shared record.
 
@@ -199,7 +204,8 @@ version beside your file (`paper_v2.md`), never into `paper.md` itself.
 paper/
 ├── paper.md                  your manuscript
 ├── paper.dashboard.html      the latest run's dashboard
-├── paper.review.docx         the same in Word, tracked changes and comments
+├── paper.review.docx         what needs you, in Word: proposals, questions, decisions
+├── paper.changes.xlsx        every applied change, to filter
 ├── paper.proposed.md         the corrected version (your manuscript's own format)
 └── reviews/
     └── 20261024T101500Z-3f2a91c0/   one folder per run: index, reports, evidence
@@ -483,7 +489,7 @@ conversation overrides the project's saved choices, and those override your glob
 
 | Setting | Choices (default first) | What it changes |
 |---|---|---|
-| `edits` | `conservative`, `propose`, `apply`, `none` | How much a run changes by itself. `conservative` applies routine corrections that preserve meaning and the corrections the evidence for a confirmed problem settles (a number, a citation, a claim reworded to what the results show; for the story stage, also edits that keep the paper's direction), and proposes changes no confirmed problem requires; `propose` applies nothing and lets you approve each change one by one; `apply` makes substantive improvements too; `none` is report only: every request becomes a review, each problem comes with the kind of change that would fix it, and no file of yours changes. Under every setting the paper's direction, which figures it has, new experiments and facts only you know stay your decisions, asked once at the end. Every mode but `none` ends with the corrected version as a separate file, which you can accept in one step ("fix everything"), and exact consequential before/after text is shown promptly in the chat, even with file reports. |
+| `edits` | `apply`, `conservative`, `propose`, `none` | How much a run changes by itself. `apply` makes every change that needs no decision of yours: routine corrections, the corrections the evidence for a confirmed problem settles (a number, a citation, a claim reworded to what the results show) and the improvements within your direction (restructuring, a new emphasis, additions, cuts of boilerplate). You check them in `paper.changes.xlsx`, and the Word review keeps only your questions, the remaining proposals and your decisions. `conservative` is more cautious: it applies the routine and evidence-backed corrections (for the story stage, also edits that keep the paper's direction) and proposes the rest, each a comment; `propose` applies nothing and lets you approve each change one by one, with every edit and problem in the Word review; `none` is report only: every request becomes a review, each problem comes with the kind of change that would fix it, and no file of yours changes. Under every setting the paper's direction, which figures it has, new experiments and facts only you know stay your decisions, asked once at the end. Every mode but `none` ends with the corrected version as a separate file, which you can accept in one step ("fix everything"), and exact consequential before/after text is shown promptly in the chat, even with file reports. |
 | `versions` | `in-place`, `immutable` | Where the edits a run applies go. `in-place` writes them into your manuscript file; the version before them is your last git commit or, without git, a copy saved beside it (`paper.pre-edit.md`). `immutable` never changes a file once written, for those who keep each version as a file of its own: the edits go into a new version beside it (`paper_v2.docx` becomes `paper_v3.docx`, `paper.md` becomes `paper_v2.md`), which the next run starts from, and the dashboard, Word file and corrected version of each run go beside the earlier ones under dated names instead of replacing them. |
 | `reports` | `file`, `chat`, `both` | `file` saves each report and gives the headline and urgent findings in the chat; `chat` and `both` show the whole report there. The run evidence is saved in every mode. |
 | `keep` | `everything`, `results` | What stays in a run's folder once it ends. `everything` keeps every intermediate file, which later steps and the dashboard read and which let you trace each finding; `results` keeps the index, the reports, the dashboard and the corrected version, and packs the rest into `evidence.zip` (see [What a run leaves in your folder](#what-a-run-leaves-in-your-folder)). |

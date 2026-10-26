@@ -77,7 +77,7 @@ def test_startup_resolves_safe_defaults_without_writing_or_asking(cfg: Path) -> 
     assert result.exit_code == 0
     assert json.loads(result.output) == {
         "file": str(cfg),
-        "effective": {"reports": "file", "edits": "conservative", "versions": "in-place", "keep": "everything"},
+        "effective": {"reports": "file", "edits": "apply", "versions": "in-place", "keep": "everything"},
         "sources": {"reports": "default", "edits": "default", "versions": "default", "keep": "default"},
     }
     assert not cfg.exists()
@@ -95,18 +95,18 @@ def test_saved_edit_policy_and_report_destination_are_independent(cfg: Path) -> 
     }
     assert _run("unset", "edits").exit_code == 0
     result = json.loads(_run("resolve", "--json").output)
-    assert result["effective"] == {"reports": "chat", "edits": "conservative", "versions": "in-place",
+    assert result["effective"] == {"reports": "chat", "edits": "apply", "versions": "in-place",
                                    "keep": "everything"}
     assert result["sources"] == {"reports": "saved", "edits": "default", "versions": "default", "keep": "default"}
     assert yaml.safe_load(cfg.read_text(encoding="utf-8")) == {"reports": "chat", "language": "british"}
 
 
 @pytest.mark.parametrize("body", ["edits: everything\n", "edits: [apply]\n", "edits: true\n"])
-def test_invalid_edit_policy_falls_back_to_conservative_without_overwriting(cfg: Path, body: str) -> None:
+def test_invalid_edit_policy_falls_back_to_the_default_without_overwriting(cfg: Path, body: str) -> None:
     cfg.parent.mkdir(parents=True)
     cfg.write_text(body, encoding="utf-8")
     result = json.loads(_run("resolve", "--json").output)
-    assert result["effective"]["edits"] == "conservative"
+    assert result["effective"]["edits"] == "apply"
     assert result["sources"]["edits"] == "default"
     assert cfg.read_text(encoding="utf-8") == body
 

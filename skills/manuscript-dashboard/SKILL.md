@@ -37,7 +37,8 @@ The files of this skill, in `RUN/manuscript-dashboard/`:
 | `reference.json` | The reference review and its matches, when there is one. |
 | `findings.json` | The adjudicated inventory, collected with `--merge` (and `--reference`); revise.py, the dashboard and the Word file read this one. |
 | `dashboard/` | The rendered dashboard and `summary.json`. |
-| `manuscript-review.docx` | The annotated Word document. |
+| `manuscript-review.docx` | The annotated Word document: by default only what needs the authors. |
+| `manuscript-changes.xlsx` | The changes workbook: every applied edit, what needs the authors, the open problems and the held proposals. |
 
 **Second attempts.** Nothing is overwritten, and every script here (and revise.py) refuses an existing output
 and names the next free one. The next attempt of a file takes a number before its extension
@@ -218,14 +219,36 @@ uv run --script scripts/export_docx.py RUN/manuscript-dashboard/findings.json \
   --revision RUN/manuscript-improve/revision --output RUN/manuscript-dashboard/manuscript-review.docx
 ```
 
-The text is the corrected version against the reviewed one, every edit a tracked change signed by the stage
-that made it (Story, Prose edit, Journal adaptation), so the authors accept or reject each one in Word. The
-review is in the margin: each problem as a comment on the passage it quotes (problems whose passage is not in
-the text share one comment on their section's heading), the questions for the authors on their edit, one
-comment per edit, and each edit's reasoning (`--no-reasons` leaves those out, `--no-problems` the problems).
-Each comment opens with what it says; the problem's or edit's ID follows in parentheses. Nothing is added to
-the text: an image that could not be embedded is named in a comment where it stands. Without `--revision` it
-annotates the reviewed version with the problems only.
+By default (`--detail decisions`) the document holds only what needs the authors, so they do not page through
+a comment for every obvious fix. The text is the corrected version: an applied edit that asks nothing is
+already in it. The proposals, and the applied edits that carry a question, are tracked changes signed by the
+stage that made them (Story, Prose edit, Journal adaptation), so the authors accept or reject each one in Word.
+The margin holds each question for the authors on its edit, each proposal's reasoning, each decision only the
+authors can make (on the passage of the first problem it covers) and each open blocker or major problem that no
+edit, proposal or decision answers. Everything else is in the changes workbook and the dashboard.
+
+`--detail everything` is the whole review, the document for authors who approve every change (`edits:
+propose`, or when they ask for it): every edit a tracked change, each problem as a comment on the passage it
+quotes (problems whose passage is not in the text share one comment on their section's heading), the questions
+for the authors on their edit, one comment per edit, and each edit's reasoning (`--no-reasons` leaves those out,
+`--no-problems` the problems). In both, each comment opens with what it says and the problem's or edit's ID
+follows in parentheses. Nothing is added to the text: an image that could not be embedded is named in a comment
+where it stands. Without `--revision` it annotates the reviewed version.
+
+### The changes workbook
+
+The applied edits are checked in a workbook, filtered by stage, section or problem, not one comment at a time:
+
+```bash
+uv run --script scripts/export_changes.py RUN/manuscript-dashboard/findings.json \
+  --revision RUN/manuscript-improve/revision --output RUN/manuscript-dashboard/manuscript-changes.xlsx
+```
+
+Sheets: **Applied** (every edit in this version: stage, section, before, after, why, the problems it answers),
+**For you** (the decisions, questions and proposals the Word review comments on), **Open problems** (every
+problem no applied edit answers, all severities) and **Held** (the proposals left out of this version, with
+why). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
+waits for the authors to ask, like the Word file.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments and
 tracked changes become suggestions. Uploading is sending the paper somewhere, so it waits for the authors to ask.
 

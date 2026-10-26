@@ -334,7 +334,7 @@ def test_word_comments_say_what_they_are_about_first_and_never_add_text(tmp_path
     data = inventory([], findings=[finding("IC-1", quote="The pipeline joins by rsID.", stage="now", severity="info")])
     (tmp_path / "findings.json").write_text(json.dumps(data))
     out = tmp_path / "manuscript-review.docx"
-    result = CliRunner().invoke(export.app, [str(tmp_path / "findings.json"), "--output", str(out)])
+    result = CliRunner().invoke(export.app, [str(tmp_path / "findings.json"), "--output", str(out), "--detail", "everything"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["images_not_embedded"] == 1
     with zipfile.ZipFile(out) as docx:

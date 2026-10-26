@@ -24,9 +24,9 @@ the least avoidable effort. Read the shared
 What this skill changes follows the plugin-wide
 [`edits` setting](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review), through
 `manuscript-prose-edit`'s [contract](../manuscript-prose-edit/references/prose-edit-contract.md#1-the-contract):
-under the default `conservative`, routine fixes (an accession written with a stray space, a broken link) and the
+under `apply` (the default) and `conservative`, routine fixes (an accession written with a stray space, a broken link) and the
 corrections a confirmed finding's evidence settles are applied, shown before and after and recorded; `propose`
-makes each a proposal; `apply` also applies substantive improvements. A reporting gap is filled from the project's
+makes each a proposal; `apply` also applies the substantive improvements. A reporting gap is filled from the project's
 own files before anyone is asked (ground rule 1), never with a value inferred here; a fact the authors supply
 goes in under that contract's author-supplied content rule. The audit tables and the
 availability report are documents for the authors: they go beside the manuscript, or where the authors say

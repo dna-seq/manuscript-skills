@@ -408,3 +408,52 @@ def test_which_required_sections_are_the_body() -> None:
     extra = ["Keywords (3 to 10)", "Availability and requirements", "Data availability", "List of abbreviations",
              "Author summary (150 to 200 words)", "Declarations (Competing interests, Funding)"]
     assert all(venues._body_section(s) for s in body) and not any(venues._body_section(s) for s in extra)
+
+
+# ---------------------------------------------------------------------------------------- AI use and the preprint server
+
+def test_a_writing_rule_that_forbids_what_ai_did_counts_as_severe_and_sorts_below() -> None:
+    redline = {"name": "Red Line Journal", "writing_help": "red_line", "prompts": "no", "screening": "plagiarism"}
+    assert venues.friction(redline)[0] == venues.friction(redline, venues.AiUse.revision)[0] == 2
+    score, reasons = venues.friction(redline, venues.AiUse.drafting)
+    assert score == 2 + venues.CONFLICT_POINTS and venues.tier(score) == "severe"
+    assert any("forbids what AI did to this text (AI wrote new sentences or sections)" in r for r in reasons)
+    strict = CATALOGUE["venues"]["strict"]
+    assert venues.friction(strict, venues.AiUse.polish)[0] == 5  # language correction is allowed under a drafting ban
+    assert venues.friction(strict, venues.AiUse.revision)[0] == 5 + venues.CONFLICT_POINTS
+
+
+@pytest.mark.parametrize("use, order", [("unknown", ["calm", "strict", "keeper"]),
+                                        ("drafting", ["calm", "keeper", "strict"])])
+def test_the_ai_step_weighs_the_established_ai_use(catalogue: Path, use: str, order: list[str]) -> None:
+    code, out, _ = _run("ladder", *ONLY, "--priority", "ai", "--priority", "reach", "--ai-use", use, "--format", "csv")
+    assert code == 0 and list(_rows(out)) == order
+    assert (_rows(out)["strict"]["ai_tier"] == "severe") == (use == "drafting")
+
+
+def test_the_journal_ladder_can_put_journals_the_preprint_server_transfers_to_first(catalogue: Path,
+                                                                                    tmp_path: Path) -> None:
+    software = ("--study-design", "software")  # no validation rule for a software paper: the fit ties
+    code, out, _ = _run("ladder", *ONLY, *software, "--priority", "transfer", "--priority", "reach", "--server", "server",
+                        "--format", "csv")
+    rows = _rows(out)
+    # Strict is on the server's list; the list was not checked for the other two, so they are not known and follow.
+    assert code == 0 and list(rows) == ["strict", "calm", "keeper"]
+    assert [rows[k]["transfers"] for k in rows] == ["server", "", ""]
+    code, out, _ = _run("ladder", *ONLY, *software, "--priority", "reach", "--server", "quiet", "--format", "csv")
+    assert {k: r["transfers"] for k, r in _rows(out).items()} == {"strict": "none", "calm": "none", "keeper": ""}
+    # The record's preprint ladder names the server; the table says it in words.
+    record = _record(tmp_path, {"priorities": {"journals": ["transfer", "reach"]}, "ladders": {"preprints": ["server"]},
+                                "study": {"designs": ["software"], "confirmed": True}})
+    code, out, _ = _run("ladder", *ONLY, "--record", str(record))
+    assert code == 0 and _order(out) == ["strict", "calm", "keeper"]
+    assert "a direct transfer from your preprint server, A Server" in out
+    assert "A Server transfers the manuscript here directly." in out
+    assert "Whether A Server transfers here directly was not checked." in out
+    code, _, err = _run("ladder", *ONLY, "--priority", "transfer", "--format", "csv")
+    assert code != 0
+
+
+def test_the_journal_transfer_priority_needs_a_known_server(catalogue: Path) -> None:
+    code, out, _ = _run("ladder", *ONLY, "--server", "nowhere")
+    assert code != 0

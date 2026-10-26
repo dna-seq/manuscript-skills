@@ -15,7 +15,7 @@ Read the shared [author priorities](../manuscript-integrity-check/references/aut
 the supplied manuscript, bibliography or citations and existing context. A reference check does not
 require a target journal, AI-use history or a full submission-readiness review. What it changes follows the
 plugin-wide [`edits` setting](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review):
-under the default `conservative`, registry-settled reference repairs (where two sources agree) and corrections a
+under `apply` (the default) and `conservative`, registry-settled reference repairs (where two sources agree) and corrections a
 confirmed finding settles (a borrowed number corrected to the source, a citation replaced by a verified one, a
 claim narrowed by rewording to what the source says) are applied, shown before and after and recorded; `propose`
 makes each a proposal; `apply` also applies substantive improvements. Held decisions (new analyses, a fact only

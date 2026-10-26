@@ -94,7 +94,10 @@ submission to a real one. Take the first that applies, without asking:
 1. the journal the authors name in the request;
 2. `venue` in `manuscript-record.yaml`, or the chosen journal in the project's own planning document;
 3. the journal ladder (`ladders.journals` in the record, or the project's equivalent): the **top three
-   rungs**;
+   rungs**. The result says, for the authors, why these three lead (the recorded priorities and the date of
+   the ladder), so a reader who expected other journals sees where the order came from; when the ladder
+   records no judgement of their editorial bar against the paper (every rung's fit not known), say that too
+   and offer to rerun after manuscript-journal-select has judged it;
 4. otherwise a generic journal in the paper's field, for the article type the manuscript reads as. Say
    so at the top of the result and offer to rerun for a named journal or for the top of a ladder from
    manuscript-journal-select.
@@ -309,7 +312,7 @@ report too. See [output-format.md](references/output-format.md#saving-and-the-sh
 - Fixable-in-text concerns go to manuscript-prose-edit with their placement, so the fix lands where it
   costs readers least, and follow the authors' `edits` setting like any correction
   ([author priorities](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review)):
-  under `conservative` (the default) and `apply`, the fix that a confirmed concern's evidence settles is
+  under `apply` (the default) and `conservative`, the fix that a confirmed concern's evidence settles is
   applied and shown before and after, including a claim narrowed by rewording to what its evidence shows;
   under `propose` it is a proposal. A claim is narrowed only on a confirmed concern, and never by deleting
   it. Only the choice between new work and a narrower claim on an author-required concern is the authors'

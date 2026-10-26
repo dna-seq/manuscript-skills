@@ -2,19 +2,27 @@
 # requires-python = ">=3.11"
 # dependencies = ["typer>=0.12", "pydantic>=2.6", "markdown-it-py>=3", "python-docx>=1.2"]
 # ///
-"""The run as a Word document to read and share: the corrected version as tracked changes, and the review as
-comments in the margin.
+"""The run as a Word document to read and share: the corrected version, and what needs the authors as comments
+in the margin.
 
     uv run --script export_docx.py RUN/manuscript-dashboard/findings.json \
         --revision RUN/manuscript-improve/revision --output RUN/manuscript-dashboard/manuscript-review.docx
 
-With --revision, the text is the corrected version against the reviewed one: every applied edit and chosen
-proposal is a tracked change signed by the stage that made it, so the authors accept or reject each one in
-Word. Without it, the text is the reviewed version. The comments: each problem on the passage it quotes (or on
-its section's heading when the quote is not in the text), each question for the authors on its edit, and each
-edit's reasoning; each opens with what it says, and the problem's or edit's ID follows in parentheses. Nothing
-is added to the text itself: a question is a comment, never a placeholder, and an image that could not be
-embedded is named in a comment where it stands.
+`--detail decisions` (the default) is the document for the authors' attention: with --revision the text is the
+corrected version, an applied edit that asks nothing is already in it, and only the proposals and the applied
+edits that carry a question are tracked changes. The comments: each question for the authors on its edit, each
+proposal's reasoning, each decision only the authors can make (on the passage of the first problem it covers),
+and each open blocker or major problem that no applied edit, proposal or decision already answers. The applied
+edits and every other problem are in the changes workbook (export_changes.py) and the dashboard, not here.
+
+`--detail everything` is the whole review, for authors who approve every change (`edits: propose`): every
+applied edit and chosen proposal is a tracked change signed by the stage that made it, each problem a comment on
+the passage it quotes (or on its section's heading when the quote is not in the text), and each edit's reasoning
+a comment. Without --revision, the text is the reviewed version.
+
+Each comment opens with what it says, and the problem's or edit's ID follows in parentheses. Nothing is added to
+the text itself: a question is a comment, never a placeholder, and an image that could not be embedded is named
+in a comment where it stands.
 
 An existing output is never overwritten: the message names the next attempt (manuscript-review.2.docx).
 
@@ -60,6 +68,9 @@ SEVERITY = {"blocker": "Blocker", "major": "Major", "minor": "Minor", "info": "O
 WHEN = {"now": "fix now", "writing": "then the writing", "journal": "once you have chosen the journal",
         "final": "before submission, once the code is final", "unknown": "stage not set"}
 IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+# The problems the decisions document still comments on when no edit, proposal or decision answers them.
+NEEDS_ATTENTION = {"blocker", "major"}
+DETAIL = ("decisions", "everything")
 app = typer.Typer(add_completion=False)
 
 
@@ -316,14 +327,30 @@ class Builder:
         return count
 
 
-def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool, reasons: bool) -> tuple[Builder, dict]:
+def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool, reasons: bool,
+          detail: str = "everything") -> tuple[Builder, dict]:
+    if detail not in DETAIL:
+        raise ValueError(f"--detail is one of {', '.join(DETAIL)}, not {detail!r}.")
+    decisions_only = detail == "decisions"
+    # Questions by the edit's IDs: the edit numbers change when accepted edits leave the tracked changes.
+    asked_for: dict[tuple[str, ...], list[str]] = {tuple(e["ids"]): e.get("comments", []) for e in (revision or {}).get("edits", [])}
+    asking = {cid for item in (revision or {}).get("comments", []) for cid in item["ids"]}
+    accepted: list[str] = []
     if revision is not None:
         if "pieces" not in revision:
             raise ValueError("This corrected version was built before exports were possible: rebuild it with revise.py.")
         document = revise.Document("")
-        document.pieces = [revise.Piece(text=p["text"]) if "text" in p else
-                           revise.Piece(old=p["old"], new=p["new"], base=p["new"], ids=p["ids"], status=p["status"])
-                           for p in revision["pieces"]]
+        pieces = []
+        for p in revision["pieces"]:
+            if "text" in p:
+                pieces.append(revise.Piece(text=p["text"]))
+            elif decisions_only and p["status"] == "applied" and not asking & set(p["ids"]):
+                # Applied and asking nothing: already in the text, and listed in the changes workbook.
+                pieces.append(revise.Piece(text=p["new"]))
+                accepted.extend(p["ids"])
+            else:
+                pieces.append(revise.Piece(old=p["old"], new=p["new"], base=p["new"], ids=p["ids"], status=p["status"]))
+        document.pieces = pieces
         markdown, edits = revise.marked(document)
     elif data.manuscript and data.manuscript.path:
         markdown, edits = (base / data.manuscript.path).read_text(encoding="utf-8"), []
@@ -334,15 +361,14 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
     builder.render(markdown)
     changes = {c.id: c for c in data.changes}
     counts = {"problems": 0, "problems_on_their_section": 0, "questions": 0, "reasons": 0}
+    if decisions_only:
+        counts |= {"decisions": 0, "accepted_edits": len(dict.fromkeys(accepted))}
 
     by_edit: dict[int, list] = {}
     for run, kind, number, _ in builder.runs:
         if number is not None:
             by_edit.setdefault(number, []).append(run)
-    asked = {edit["n"]: edit.get("comments", []) for edit in edits}
-    if revision is not None:
-        for edit in revision.get("edits", []):
-            asked[edit["n"]] = edit.get("comments", [])
+    asked = {edit["n"]: asked_for.get(tuple(edit["ids"]), edit.get("comments", [])) for edit in edits}
     for edit in edits:
         runs = by_edit.get(edit["n"])
         if not runs:
@@ -361,7 +387,7 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
             lines = []
             for cid in edit["ids"]:
                 change = changes.get(cid)
-                if not change:
+                if not change or (decisions_only and change.status == "applied"):
                     continue
                 why = change.why or " ".join(f"{f.summary} ({f.id}). {f.detail}".strip() for f in data.findings if f.id in change.finding_ids)
                 lines.append(f"{'Applied' if change.status == 'applied' else 'Proposed'}: {change.summary.rstrip('.')}."
@@ -389,10 +415,30 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
             comment.add_paragraph(f"{number}. {item['question']}")
         counts["questions"] += len(items)
 
+    answered: set[str] = set()  # problems the decisions document leaves to the workbook: an edit or a decision answers them
+    if decisions_only:
+        in_text = {cid for piece in (revision or {}).get("pieces", []) if "ids" in piece for cid in piece["ids"]}
+        answered = {fid for cid in in_text if cid in changes for fid in changes[cid].finding_ids}
+        findings = {f.id: f for f in data.findings}
+        for decision in viz.decision_list(data):
+            covered = [findings[fid] for fid in decision["finding_ids"] if fid in findings]
+            answered |= {f.id for f in covered}
+            anchor = next((runs for f in covered if f.quote and (runs := builder.locate(f.quote))), None)
+            if anchor is None and (heading := builder.heading_for(covered[0].section if covered else "")) is not None:
+                anchor = [heading]
+            if anchor is None:
+                continue
+            builder.comment(anchor, f"A decision only you can make: {decision['summary'].rstrip('.')}. "
+                            f"({', '.join(dict.fromkeys([decision['id'], *decision['finding_ids']]))})", "Decisions for the authors")
+            counts["decisions"] += 1
+
     if problems:
         elsewhere: dict[int, tuple[object, list[str]]] = {}  # one comment per heading for problems not in the text
         for finding in data.findings:
             if finding.assessment == "dismissed":
+                continue
+            if decisions_only and (finding.id in answered or finding.resolution == "addressed"
+                                   or finding.severity not in NEEDS_ATTENTION):
                 continue
             # What the problem is first; its severity and when to fix it next; its ID last, in parentheses.
             text = (f"{finding.summary.rstrip('.')} ({SEVERITY[finding.severity]}, {WHEN[finding.stage]}"
@@ -434,7 +480,11 @@ def main(inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]
          revision: Annotated[Path | None, typer.Option(help="revise.py's output folder: the corrected version as tracked changes",
                                                        exists=True, file_okay=False)] = None,
          problems: Annotated[bool, typer.Option(help="A comment for every problem, on the passage it quotes")] = True,
-         reasons: Annotated[bool, typer.Option(help="A comment with each edit's reasoning")] = True) -> None:
+         reasons: Annotated[bool, typer.Option(help="A comment with each edit's reasoning")] = True,
+         detail: Annotated[str, typer.Option(help=(
+             "decisions (the default): applied edits already in the text, comments only for questions, proposals, "
+             "decisions and open major problems; everything: every edit tracked and every problem a comment, for "
+             "authors who approve each change (edits: propose)"))] = "decisions") -> None:
     if output.exists():
         raise typer.BadParameter(f"{output.name} exists; write the next attempt as {viz.next_attempt(output, folder=False).name}.")
     if output.suffix.lower() != ".docx":
@@ -444,7 +494,7 @@ def main(inventory: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]
         corrected = json.loads((revision / "revision.json").read_text(encoding="utf-8")) if revision else None
         if corrected and corrected.get("inventory_sha256") != hashlib.sha256(inventory.read_bytes()).hexdigest():
             raise ValueError("The corrected version was built from another inventory; rebuild it with revise.py from this one.")
-        builder, counts = build(data, inventory.resolve().parent, corrected, problems, reasons)
+        builder, counts = build(data, inventory.resolve().parent, corrected, problems, reasons, detail)
     except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     output.parent.mkdir(parents=True, exist_ok=True)

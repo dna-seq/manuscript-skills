@@ -31,13 +31,20 @@ Before work, resolve the manuscript project with
 and follow the effective edit policy and saved output destination. The `edits` setting is the run's mode,
 and the first progress update names it in plain words:
 
-- **Proposals only** (`propose`): no change to the manuscript; every fix is a proposal the authors approve
-  one by one. This is the only mode with per-item approval.
-- **Routine and evidence-backed fixes** (`conservative`, the default): apply corrections that keep the
+- **Every change that needs no decision of the authors** (`apply`, the default): apply the routine and
+  evidence-backed fixes and the substantive revisions within the authors' direction (restructuring, a new
+  emphasis, additions, the deslop and story cuts). What stays a proposal or a decision is only what needs the
+  authors: a fact only they have (the question is the proposal's comment), a change of direction, which
+  figures the paper has, new analyses or data, a policy conflict, and a claim widened with nothing asking for
+  it (the claim guard restores it). The authors read the applied changes in the changes workbook and the
+  decisions in the Word review, not as one comment each.
+- **Routine and evidence-backed fixes** (`conservative`, more caution): apply corrections that keep the
   meaning, the corrections that the evidence for a confirmed finding settles (a number, a citation, a claim
   reworded to what the evidence shows), and the story stage's edits that keep the paper's direction;
   substantive revisions no confirmed finding requires are proposals in the corrected version.
-- **Every change** (`apply`): apply substantive revisions too, within the authors' direction.
+- **Proposals only** (`propose`, most caution): no change to the manuscript; every fix is a proposal the
+  authors approve one by one, and the Word review is the whole review (every edit tracked, every problem a
+  comment). This is the only mode with per-item approval.
 - **Report only** (`none`): no change to the manuscript and no rewritten text. The review stages run as
   usual; the prose edit, deslop, story and journal-adaptation stages give their audits instead of edits; the
   revise stage, the corrected version and its verification and re-check are skipped. The run ends with the
@@ -154,8 +161,8 @@ only dependent work. Follow the shared rule in
 [Minimum useful work](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work):
 collect decisions, continue every applicable check and permitted edit across the requested scope, and
 prepare exact proposed text with its evidence. Use asynchronous questions when supported; otherwise
-defer blocking question tools until the independent work is finished. Do not turn the `conservative`
-policy into a sequence of question-and-answer stops. The authors' questions are only the held decisions
+defer blocking question tools until the independent work is finished. Do not turn the `apply` or
+`conservative` policy into a sequence of question-and-answer stops. The authors' questions are only the held decisions
 and the facts only they have, asked once, together, at the end; a failed check (the claim guard, the smell
 check, a story test, the run validation) is yours to fix, never a question. At handover, distinguish
 completed work from the pending proposals and their dependent steps. Silence never grants approval. Do
@@ -303,10 +310,13 @@ Every finding-producing stage (all but the dashboard, this coordinator, other-mo
 by reviewer agents. The last step of every run of this workflow is
 [manuscript-dashboard](../manuscript-dashboard/SKILL.md) on the same run: collect the stages' findings,
 merge what several skills found into one record each, dismiss what did not hold, and render the
-dashboard, with the corrected version, into `RUN/manuscript-dashboard/`, and the same as an annotated Word
-document (`export_docx.py`: tracked changes by stage, the problems and questions as comments) for readers who
-work in Word or Google Docs, both handed over beside the manuscript as `<manuscript stem>.dashboard.html` and
-`<manuscript stem>.review.docx` (`runs.py handover RUN`; a different Word file or corrected version already there is kept, and this
+dashboard, with the corrected version, into `RUN/manuscript-dashboard/`, an annotated Word document for
+readers who work in Word or Google Docs (`export_docx.py`; under `apply` and `conservative` the default
+`--detail decisions`: the applied edits already in the text, comments only for the questions, the proposals,
+the decisions and the open major problems; under `propose`, `--detail everything`), and the changes workbook
+(`export_changes.py`: every applied edit with its before, after and reason, what needs the authors, the open
+problems and the held proposals), all handed over beside the manuscript as `<manuscript stem>.dashboard.html`,
+`<manuscript stem>.review.docx` and `<manuscript stem>.changes.xlsx` (`runs.py handover RUN`; a different Word file, workbook or corrected version already there is kept, and this
 run's goes beside it under a dated name; replacing it is an optional end-of-run decision). Link the dashboard first in the
 summary and the corrected version second: they are how the authors and their colleagues see what the
 workflow caught, changed and left open, with the actual coverage. Reuse the evidence rather than rerunning the review. A stage that could not run still appears,

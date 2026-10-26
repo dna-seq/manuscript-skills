@@ -79,9 +79,9 @@ requires usually costs the others nothing), abstract headings and length limits 
 and the same, rules every venue's guidelines share, and the single-venue rules `common` lists there because
 the catalogue marks them as additions every version can carry (alt text, dataset citations). Take nothing
 else from "Choose per venue" before the choice, even when it looks free. Apply them as the `edits` setting
-allows: under `propose` every item is a proposal; under `conservative` (the default) routine additions and
-formatting are applied and a substantial restructuring is a proposal; under `apply` the restructuring is
-applied too, within the authors' direction. Leave its "Choose per venue" items (differing or partly unknown
+allows: under `propose` every item is a proposal; under `conservative` routine additions and
+formatting are applied and a substantial restructuring is a proposal; under `apply` (the default) the
+restructuring is applied too, within the authors' direction. Leave its "Choose per venue" items (differing or partly unknown
 abstract formats, section orders, length limits, reference styles) for the choice, or follow the ladder's
 first choice when the authors ask; offer the shortest limit as an option with its cost, never as a default.
 Its "At the end" items wait with the other end-stage work. Never create a per-venue copy of the manuscript to

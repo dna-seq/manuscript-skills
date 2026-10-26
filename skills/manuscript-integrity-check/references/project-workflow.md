@@ -43,7 +43,7 @@ under `edits: propose` and `versions: immutable` unless this manuscript or the c
 once in `decisions`, and the run starts as usual. The file is never rewritten.
 
 Save stated choices with `project.py configure PROJECT_FOLDER --manuscript SOURCE --code CODE_FOLDER
---output-dir reviews --edits conservative --reports file --keep everything`, giving only the settings the
+--output-dir reviews --edits apply --reports file --keep everything`, giving only the settings the
 authors answered. Repeat `--manuscript` for supplements and `--code` for multiple repositories;
 use `--no-code` or `--unknown-code` when that is the answer. Locations are relative to PROJECT_FOLDER. A supplied manuscript folder needs its main source file
 identified before a run can snapshot it; code locations may be folders.

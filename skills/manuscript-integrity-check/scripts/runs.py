@@ -35,8 +35,8 @@ no corrected version. Immutable versions (versions: immutable): version makes th
 project's mapping, so the next run reads it; validate fails when an earlier version changed; handover writes a
 dated copy beside any different file already there, the dashboard included, and refuses the --replace options.
 
-handover copies the newest dashboard, its Word version and the corrected version beside the manuscript as
-STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>; --report SKILL adds a focused run's report
+handover copies the newest dashboard, its Word version, the changes workbook and the corrected version beside the
+manuscript as STEM.dashboard.html, STEM.review.docx, STEM.changes.xlsx and STEM.proposed<suffix>; --report SKILL adds a focused run's report
 as STEM.<skill without "manuscript-">.md. The dashboard is replaced every run. Any other copy that already
 exists and differs (the authors may have worked in it) is kept as it is, and this run's goes beside it under
 a dated name (STEM.review.20261024.docx, then -2, -3); --replace-docx, --replace-proposed or --replace
@@ -115,6 +115,7 @@ ARCHIVE = 'evidence.zip'
 # attempt (revision.2/, dashboard.2/, findings.2.json); the newest attempt of each is the one that counts.
 DASHBOARD = 'manuscript-dashboard/*manuscript-dashboard*.html'
 WORD = 'manuscript-dashboard/*.docx'
+WORKBOOK = 'manuscript-dashboard/*changes*.xlsx'  # the changes workbook export_changes.py writes
 CORRECTED = 'manuscript-improve/revision*/proposed*'  # proposed.md, or proposed.tex for a LaTeX manuscript
 INVENTORY = 'manuscript-dashboard/findings*.json'  # the adjudicated inventory collect.py writes
 # Commands that may run on a packed run; every other writer needs the files back first.
@@ -123,6 +124,7 @@ WHEN_PACKED = {'validate', 'pack', 'unpack', 'handover'}
 # kind -> (pattern in the run, label, whether a different copy already there is simply replaced).
 HANDOVER = {'dashboard': (DASHBOARD, '.dashboard', True),  # regenerated each run; nobody writes in it
             'docx': (WORD, '.review', False),  # the authors may have commented in it
+            'changes': (WORKBOOK, '.changes', False),  # the authors may have filtered or annotated it
             'corrected': (CORRECTED, '.proposed', False)}  # the authors may have edited it
 # Stages that write no findings.json (stage-findings.md): the dashboard reads them (manuscript-visualize is its
 # name in older runs), other-models' seats report into the panel that ran them, mark-people writes a people list,
@@ -353,9 +355,9 @@ def latest(run: Path, pattern: str) -> Path | None:
 
 
 def newest_deliverables(run: Path) -> set[str]:
-    """The files pack leaves in place for the authors: the newest dashboard, the newest Word file, and the
-    corrected version and its track changes from the newest revision attempt."""
-    keep = {found[-1] for pattern in (DASHBOARD, WORD) if (found := matching(run, pattern))}
+    """The files pack leaves in place for the authors: the newest dashboard, the newest Word file and changes
+    workbook, and the corrected version and its track changes from the newest revision attempt."""
+    keep = {found[-1] for pattern in (DASHBOARD, WORD, WORKBOOK) if (found := matching(run, pattern))}
     if corrected := matching(run, CORRECTED):
         folder = PurePosixPath(corrected[-1]).parent
         keep |= {corrected[-1], (folder / 'changes.md').as_posix()}
@@ -951,8 +953,9 @@ def handover(run: Path,
                                                    "version, report) instead of writing dated copies")] = False,
              to: Annotated[Path | None, typer.Option(help="The folder to hand over to; default: the manuscript's")] = None,
              stem: Annotated[str | None, typer.Option(help="The file-name stem; default: the manuscript's")] = None) -> None:
-    """Copy the newest dashboard, its Word version and the corrected version beside the manuscript, as
-    STEM.dashboard.html, STEM.review.docx and STEM.proposed<suffix>, and with --report a focused run's report.
+    """Copy the newest dashboard, its Word version, the changes workbook and the corrected version beside the
+    manuscript, as STEM.dashboard.html, STEM.review.docx, STEM.changes.xlsx and STEM.proposed<suffix>, and with
+    --report a focused run's report.
 
     The dashboard is replaced on every run (with versions: immutable, kept like the others); each run's folder
     keeps its own. A Word file, corrected version or report copy already there that differs is kept as it is,

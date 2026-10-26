@@ -14,7 +14,7 @@ The precedence and run-artifact contract live in ../references/author-priorities
     uv run --script settings.py get reports          # the value; prints "not set" and exits 1 when unset
     uv run --script settings.py resolve --json       # effective saved choices or defaults, without questions
     uv run --script settings.py set reports chat     # save a choice the authors stated
-    uv run --script settings.py set edits conservative
+    uv run --script settings.py set edits conservative   # more caution than the default, apply
     uv run --script settings.py set edits none       # report only: no file changes, no corrected version
     uv run --script settings.py set versions immutable  # edits go into a new version file, never the old one
     uv run --script settings.py set keep results     # pack a finished run's evidence into one archive
@@ -85,23 +85,27 @@ SETTINGS: dict[str, Setting] = {
         question="Which manuscript changes may the skills make without asking you first? "
                  "Checks and permitted fixes never wait for your answers.",
         options={
-            "conservative": "Routine and evidence-backed fixes: routine corrections, and the corrections that the "
-                            "evidence for a confirmed problem settles (a claim narrowed by rewording, never deleted), "
-                            "are applied and shown before and after; changes no confirmed problem requires are "
-                            "proposals in the corrected version; nothing is decided for you that only you can decide.",
-            "propose": "Every change is a proposal you approve one by one; nothing in your documents changes until "
-                       "you do. Checks, proposed text and reports still go ahead.",
-            "apply": "Also apply the substantive improvements (restructuring, new emphasis, additions), within your "
-                     "direction, shown before and after in the chat; never invented facts or decisions only you "
-                     "can make.",
+            "apply": "Every change that needs no decision of yours: routine corrections, the corrections the "
+                     "evidence for a confirmed problem settles (a claim narrowed by rewording, never deleted) and "
+                     "the improvements within your direction (restructuring, new emphasis, additions) are applied "
+                     "and listed in a changes workbook beside the manuscript; the Word review carries only your "
+                     "questions and the decisions only you can make. Never invented facts.",
+            "conservative": "More caution: routine corrections and the corrections that the evidence for a confirmed "
+                            "problem settles are applied; changes no confirmed problem requires are proposals in the "
+                            "corrected version, each a comment in the Word review; nothing is decided for you that "
+                            "only you can decide.",
+            "propose": "Most caution: every change is a proposal you approve one by one; nothing in your documents "
+                       "changes until you do, and the Word review shows every edit and every problem. Checks, "
+                       "proposed text and reports still go ahead.",
             "none": "Report only: nothing in your documents changes and no corrected version is written. Each "
                     "problem is reported with its passage, what is wrong and the kind of change that would fix it; "
                     "a mechanical fix (a DOI, a reference entry) may be written out in full in the report.",
         },
-        default="conservative",
-        why="The run fixes what the evidence settles instead of handing you a queue of approvals, and every fix is "
-            "shown. What changes the paper's direction, its figures or its emphasis beyond a confirmed problem "
-            "stays a proposal, and the decisions only you can make are listed once, at the end.",
+        default="apply",
+        why="The run makes the changes that need no decision of yours instead of handing you a queue of obvious "
+            "approvals, and lists every one in a workbook you can filter and check. A change of the paper's "
+            "direction, which figures it has, new analyses and facts only you have stay yours, asked once at the "
+            "end. Choose conservative or propose for more caution.",
     ),
     "versions": Setting(
         question="When a run changes your manuscript, may it write into the file you gave it?",

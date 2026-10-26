@@ -82,16 +82,19 @@ def put(run: Path, relative: str, body: str | bytes, mtime: float | None = None)
 
 # --- The edit modes and where reports go, as the authors are asked them (settings.py) ----------------------------
 
-def test_the_default_edit_mode_fixes_what_the_evidence_settles_and_only_propose_asks_one_by_one() -> None:
+def test_the_default_edit_mode_applies_what_needs_no_decision_and_only_propose_asks_one_by_one() -> None:
     edits = settings.SETTINGS['edits']
-    assert list(edits.options) == ['conservative', 'propose', 'apply', 'none'] and edits.default == 'conservative'
-    conservative = edits.options['conservative']
-    assert conservative.startswith('Routine and evidence-backed fixes')
-    assert 'confirmed problem settles' in conservative and 'proposals in the corrected version' in conservative
-    assert 'never deleted' in conservative and 'only you can decide' in conservative
-    assert 'one by one' in edits.options['propose'] and 'one by one' not in conservative
-    assert 'substantive improvements' in edits.options['apply'] and 'within your direction' in edits.options['apply']
-    assert 'evidence settles' in edits.why and 'without your approval' not in edits.why  # no queue of approvals
+    # Default first, then more caution in order.
+    assert list(edits.options) == ['apply', 'conservative', 'propose', 'none'] and edits.default == 'apply'
+    apply, conservative = edits.options['apply'], edits.options['conservative']
+    assert apply.startswith('Every change that needs no decision of yours')
+    assert 'within your direction' in apply and 'changes workbook' in apply and 'never deleted' in apply
+    assert 'decisions only you can make' in apply and 'Never invented facts' in apply
+    assert conservative.startswith('More caution') and 'confirmed problem settles' in conservative
+    assert 'proposals in the corrected version' in conservative and 'only you can decide' in conservative
+    assert edits.options['propose'].startswith('Most caution') and 'one by one' in edits.options['propose']
+    assert 'one by one' not in apply and 'one by one' not in conservative
+    assert 'obvious approvals' in edits.why and 'without your approval' not in edits.why  # no queue of approvals
 
 
 def test_reports_stay_in_the_run_and_a_focused_run_also_puts_a_copy_beside_the_manuscript() -> None:
@@ -174,8 +177,24 @@ def test_replace_covers_the_word_file_and_the_corrected_version_together(manuscr
     put(run, 'manuscript-improve/revision/proposed.md', 'new corrected version')
     assert invoke('handover', run, '--replace').exit_code == 0
     assert (manuscript.parent / 'paper.review.docx').read_bytes() == b'new review'
+    assert not (manuscript.parent / 'paper.changes.xlsx').exists()  # no workbook in this run, none handed over
     assert (manuscript.parent / 'paper.proposed.md').read_text(encoding='utf-8') == 'new corrected version'
     assert not list(manuscript.parent.glob(f'paper.*.{TODAY}*'))
+
+
+def test_the_changes_workbook_goes_beside_the_manuscript_and_survives_packing(manuscript: Path) -> None:
+    run = _improvement_run(manuscript)
+    put(run, 'manuscript-dashboard/manuscript-changes.xlsx', b'first workbook')
+    put(run, 'manuscript-dashboard/manuscript-changes.2.xlsx', b'second workbook')
+    assert invoke('handover', run).exit_code == 0
+    assert (manuscript.parent / 'paper.changes.xlsx').read_bytes() == b'second workbook'  # the newest attempt
+    assert any(item['kind'] == 'changes' for item in runs.read(run)['handover'])
+    assert 'manuscript-dashboard/manuscript-changes.2.xlsx' in runs.newest_deliverables(run)
+    # The authors may have filtered or annotated their copy: a different one is kept, this run's goes beside it.
+    (manuscript.parent / 'paper.changes.xlsx').write_bytes(b'the authors filtered this')
+    assert invoke('handover', run).exit_code == 0
+    assert (manuscript.parent / 'paper.changes.xlsx').read_bytes() == b'the authors filtered this'
+    assert (manuscript.parent / f'paper.changes.{TODAY}.xlsx').read_bytes() == b'second workbook'
 
 
 def test_a_focused_run_hands_over_its_report_beside_the_manuscript(manuscript: Path) -> None:
@@ -420,7 +439,7 @@ def test_a_choice_saved_for_the_manuscript_still_applies_when_the_global_file_is
 def test_a_readable_settings_file_has_no_error_and_no_decision(manuscript: Path) -> None:
     assert configure(manuscript).exit_code == 0
     data = json.loads(runner.invoke(projects.app, ['resolve', str(manuscript), '--json']).output)
-    assert data['settings_error'] is None and data['decisions'] == [] and data['effective']['edits'] == 'conservative'
+    assert data['settings_error'] is None and data['decisions'] == [] and data['effective']['edits'] == 'apply'
 
 
 # --- Cross-platform ------------------------------------------------------------------------------------------------

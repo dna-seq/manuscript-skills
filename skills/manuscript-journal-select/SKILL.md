@@ -66,13 +66,22 @@ order, `ladder` uses its default and says so at the top of the ladder ("A defaul
 - **Preprint servers:** a direct transfer to a journal high on the journal ladder, then speed, then the
   AI-policy burden (posting is usually free).
 
+Authors who post a preprint first can also order journals by whether their server sends the manuscript there
+directly (`transfer` on the journal ladder: the server is `--server KEY` or the first rung of the record's
+preprint ladder). Use it when the authors ask for a preprint-friendly journal ("bioRxiv-friendly"): every
+journal checked accepts a posted preprint, so what differs is whether the server transfers to it and the
+licence its rule allows. Read the server's live transfer list for every journal on the shortlist and record
+it (`transfers`, with the journals it was read for in `transfers_checked`); a journal it was not read for is
+not known, never "no".
+
 An unknown budget is never read as "cost does not matter": until the authors state one, every fee they
 would pay is shown and makes that journal "Depends" on whether they can pay it. Never save the default to
 the record's `priorities`. Put one question among the end-of-run decisions, never as a stop before the
 ladders, covering only what is still unknown:
 
 - what matters most for each ladder, in order: speed to a decision, reach (journal impact factor), a light
-  AI-policy burden, low cost (and for the preprint ladder, a direct transfer to the first journals);
+  AI-policy burden, low cost, a direct transfer from their preprint server (and for the preprint ladder, a
+  direct transfer to the first journals);
 - an impact-factor floor, if any, and who pays the publication fee: only institutional agreements and funds,
   a grant (up to what amount), or nobody;
 - whether to preprint, and where they lean.
@@ -88,7 +97,9 @@ Record what the authors state in the shared record (`../manuscript-integrity-che
 `manuscript-record.yaml` beside the manuscript (`<stem>.record.yaml` only when several manuscripts share the
 folder): `priorities` (one order for each ladder, plus `jif_floor`, `budget_eur` in euros and
 `validation_available` when they state them), `ai_use` (polish, revision or drafting) once the
-conversation establishes it, the study design under `study.designs` with `study.confirmed` once the authors
+conversation establishes it (AI wrote or rewrote whole passages of the Results or Discussion is `drafting`;
+a writing rule that forbids the established use then counts as severe at the AI step, so a journal that
+reserves those sections for the authors sorts below one that allows the use), the study design under `study.designs` with `study.confirmed` once the authors
 confirm it, and the facts read for this manuscript under `venue_facts`. `ladder` reads all of these; an
 option on the command line wins over the record. When the project keeps an equivalent planning document,
 report the ladders there too, edited in place.
@@ -243,7 +254,13 @@ chosen for the preprint. Name any journal whose rule conflicts, and the licence 
 
 Never advertise a short desk-inclusive first-decision median as the duration of external peer review.
 Compare like metrics and populations, retain unknowns, and do not promise a decision by the author's
-deadline. Journal-level timing and editorial assessments must not be copied from a publisher or sibling.
+deadline. A desk-inclusive median is short at a selective journal because most submissions are returned
+unreviewed, so speed first can put such a journal at the top of the ladder for the wrong reason. Before the
+ladder is handed over, judge each rung's editorial bar against what the paper shows now (a stated "clear
+advance over the state of the art in a side-by-side demonstration", a field-level advance, a scope it reads as
+outside): a journal the paper does not yet meet goes below the journals that would send it to referees, with
+the reason and what would move it back up. Simulated referees (manuscript-peer-review) take the top rungs, so
+an unjudged top three becomes a review against journals the authors would not choose. Journal-level timing and editorial assessments must not be copied from a publisher or sibling.
 
 ## What the ladders have in common
 
@@ -342,8 +359,9 @@ reason (`fits`) beside the validation verdict alone (`validation_fits`), days to
 source and date, impact factor, AI-policy points, the AI policy aspect by aspect (drafting, prompts, a record
 of AI changes, AI-text detection, where to declare, whether declared use counts against the paper, extra
 work), each as `level: words` with `red` for a red flag, and the policy page, fee with its route and source,
-preprint rule or direct transfers (`none` when the list was read and names none of the ladder's journals,
-empty when not known), the facts taken from the record, the priorities used and whether they are the
+preprint rule or direct transfers (for a server, the journals it transfers to, `none` when the list was read
+and names none of the ladder's journals; for a journal, the authors' preprint server when it transfers there
+directly, `none` when its checked list leaves the journal out; empty when not known), the facts taken from the record, the priorities used and whether they are the
 authors' or the default (`priorities_source`), the AI use and the study designs read. An empty cell means not
 known, never zero. Regenerate the CSV and the requirements file from the record instead of editing them, so a
 re-rank shows in the diff. When the project keeps a venue planning document, update its ladder section in

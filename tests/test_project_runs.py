@@ -75,7 +75,7 @@ def test_first_use_asks_missing_context_without_writing(manuscript: Path) -> Non
     assert output['recommended'] == 'reviews' and output['why']
     # The working preferences are asked in the same batch, each with its recommended answer and why.
     assert [(q['key'], q['recommended']) for q in data['preferences']] == [
-        ('reports', 'file'), ('edits', 'conservative'), ('versions', 'in-place'), ('keep', 'everything')]
+        ('reports', 'file'), ('edits', 'apply'), ('versions', 'in-place'), ('keep', 'everything')]
     assert all(q['why'] for q in data['preferences'])
     assert not (manuscript.parent / projects.CONFIG).exists()
 
@@ -107,7 +107,7 @@ def test_choices_are_shared_by_skills_and_not_asked_again(manuscript: Path) -> N
     for _ in range(3):
         data = json.loads(resolve(manuscript).output)
         assert data['status'] == 'ready' and not data['questions']
-        assert data['effective'] == {'reports': 'file', 'edits': 'conservative', 'versions': 'in-place',
+        assert data['effective'] == {'reports': 'file', 'edits': 'apply', 'versions': 'in-place',
                                      'keep': 'everything', 'peer_review': 'auto'}
     for skill in ('manuscript-prose-edit', 'manuscript-deslop', 'manuscript-dashboard', 'manuscript-journal-select'):
         run = start(manuscript, skill)

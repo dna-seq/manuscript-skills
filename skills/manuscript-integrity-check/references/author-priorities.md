@@ -80,7 +80,7 @@ it buys with a referee. In every skill:
   on its own: a change of direction is always offered as options, under every `edits` setting. Edits that
   tell the story better within the paper's direction (the recorded one or, until the authors confirm one,
   the direction the text has now) and pass the science, journal and AI-writing checks are routine for
-  `manuscript-story` under `conservative`; they are proposals under `propose`.
+  `manuscript-story` under `apply` and `conservative`; they are proposals under `propose`.
 
 Readers never outrank the science or the journal: a reader-friendly change that raises a claim, drops a
 qualification or breaks a venue requirement is not made.
@@ -99,11 +99,20 @@ If the settings file cannot be read, the resolver says so (`settings_error`) and
 and list its repair once with the other decisions. Do not overwrite it or treat the error as permission for broader edits. Changes
 explicitly authorised in the conversation can still proceed.
 
-**Edits: conservative, propose, apply or none, one setting for every skill.** The `edits` setting controls
+**Edits: apply, conservative, propose or none, one setting for every skill.** The `edits` setting controls
 changes to the authors' documents, independently of where reports go. Under every setting the run does the
 work itself: it never hands the authors a list of items to approve one by one unless they chose `propose`.
 
-- `conservative` (default, routine and evidence-backed fixes): apply routine spelling, grammar, formatting,
+- `apply` (default, everything that needs no decision of the authors): apply what `conservative` applies and
+  the substantive improvements within the requested scope and the authors' direction (restructuring, a new
+  emphasis, additions, the story and deslop stages' cuts), and show consequential before/after text in the
+  chat. Every applied change is a row of the changes workbook beside the manuscript (`STEM.changes.xlsx`), so
+  the authors check them by filtering, not one comment at a time; the Word review (`export_docx.py --detail
+  decisions`) carries only the questions for the authors, the proposals still open and the decisions only they
+  can make. This never authorises invented facts, unsupported claims, or decisions only the authors can make
+  (a change of direction, which figures the paper has, new analyses or data, facts only they have, a policy
+  conflict): those stay proposals or decisions. It does not expand a focused service into the full workflow.
+- `conservative` (more caution, routine and evidence-backed fixes): apply routine spelling, grammar, formatting,
   broken-link and registry-settled reference corrections, and wording changes that preserve meaning. Also
   apply the corrections that the evidence for a **confirmed** finding settles: a number the data or the
   project's files settle, a citation corrected, a claim narrowed **by rewording** to what the evidence shows
@@ -112,12 +121,9 @@ work itself: it never hands the authors a list of items to approve one by one un
   corrected version. A candidate finding (unconfirmed, or a reader's impression) is never applied. Story
   edits that keep the paper's direction are routine for `manuscript-story` (see
   [Readers first, referees second](#readers-first-referees-second)); a change of direction never is.
-- `propose`: prepare every change to the authors' documents as a proposal they approve one by one; nothing is
-  applied. This is the only per-item mode. Checks, lookups, proposed text and reports still proceed.
-- `apply`: also apply the substantive improvements within the requested scope and the authors' direction,
-  and show consequential before/after text in the chat. This never authorises invented facts, unsupported
-  claims, or decisions only the authors can make, and does not expand a focused service into the full
-  workflow.
+- `propose` (most caution): prepare every change to the authors' documents as a proposal they approve one by
+  one; nothing is applied, and the Word review is the whole review (`export_docx.py --detail everything`).
+  This is the only per-item mode. Checks, lookups, proposed text and reports still proceed.
 - `none` (report only): change nothing in the authors' documents and write no rewritten text: no applied
   edit, no corrected version, no proposal file. Every request becomes a review. Each finding quotes its
   passage with the section, says what is wrong and what kind of change would fix it; a mechanical fix (a
@@ -126,7 +132,7 @@ work itself: it never hands the authors a list of items to approve one by one un
   `manuscript-deslop` audits, `manuscript-story` gives the reader review, `manuscript-journal-adapt` lists
   what the venue requires. `runs.py` holds the run to it: `change` refuses to record an edit, `version`
   makes no new version and `validate` fails when a manuscript changed. Fixing what the report found is a
-  new request with its own `edits` choice (`runs.py start ... --edits conservative`), reusing the findings.
+  new request with its own `edits` choice (`runs.py start ... --edits apply`), reusing the findings.
 
 **"Fix everything".** "Fix everything", "apply all", "accept all" or "do it all" is an explicit instruction
 for this run (never saved as a setting): apply every proposal of the corrected version, except the held

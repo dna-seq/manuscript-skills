@@ -9,6 +9,7 @@ import sys
 import zipfile
 from pathlib import Path
 
+import openpyxl
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,10 +93,11 @@ def parts(path: Path) -> tuple[str, str]:
         return docx.read("word/document.xml").decode(), docx.read("word/comments.xml").decode()
 
 
-def test_the_corrected_version_is_tracked_changes_with_the_review_as_comments(tmp_path: Path) -> None:
+def test_the_whole_review_is_tracked_changes_with_every_problem_as_a_comment(tmp_path: Path) -> None:
     run = make_run(tmp_path)
     out = run / "review.docx"
-    result = CliRunner().invoke(export.app, [str(run / "findings.json"), "--revision", str(run / "revision"), "--output", str(out)])
+    result = CliRunner().invoke(export.app, [str(run / "findings.json"), "--revision", str(run / "revision"), "--output", str(out),
+                                             "--detail", "everything"])
     assert result.exit_code == 0, result.output
     counts = json.loads(result.output)
     assert counts["questions"] == 3 and counts["problems"] == 2 and counts["problems_on_their_section"] == 1 and counts["reasons"] == 3
@@ -137,3 +139,80 @@ def test_without_a_corrected_version_the_reviewed_text_carries_the_problems_only
     document, comments = parts(out)
     assert "<w:ins " not in document and "<w:del " not in document and "HuggingFace" in re.sub(r"<[^>]+>", "", document)
     assert "(Major, fix now)" in comments and "(IC-1)" in comments and "Question for the authors" not in comments
+
+
+def test_by_default_the_document_holds_only_what_needs_the_authors(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    out = run / "decisions.docx"
+    result = CliRunner().invoke(export.app, [str(run / "findings.json"), "--revision", str(run / "revision"), "--output", str(out)])
+    assert result.exit_code == 0, result.output
+    counts = json.loads(result.output)
+    # The applied spelling fix asks nothing: it is in the text, untracked, with no comment.
+    assert counts["accepted_edits"] == 1 and counts["reasons"] == 2 and counts["questions"] == 3
+    # IC-1 is answered by the proposal that names the real join key, and JS-1 is minor: no problem comments.
+    assert counts["problems"] == 0 and counts["decisions"] == 0
+    document, comments = parts(out)
+    text = re.sub(r"<[^>]+>", "", document)
+    assert "Hugging Face" in text and "HuggingFace" not in text
+    authors = set(re.findall(r'<w:(?:ins|del) [^>]*w:author="([^"]+)"', document))
+    assert authors == {"Integrity check", "Story"}  # the proposals only
+    assert "Applied:" not in comments and "Spell the company" not in comments
+    assert "Proposed: Name the real join key." in comments and "Question for the authors: which genome build? (IC-C1)" in comments
+    assert "The join key contradicts the code" not in comments and "No cover letter yet" not in comments
+    assert document.count("<w:commentRangeStart") == comments.count("<w:comment ")
+
+
+def test_a_decision_and_an_unanswered_major_problem_are_comments_and_minor_ones_are_not(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    data = json.loads((run / "findings.json").read_text())
+    data["findings"] += [
+        {"id": "PR-1", "category": "Validation", "section": "2. Methods", "summary": "No known-answer test of the join",
+         "severity": "major", "assessment": "confirmed", "resolution": "open", "stage": "now", "skills": ["manuscript-peer-review"],
+         "evidence": evidence(), "quote": "It is fast.", "decision": True},
+        {"id": "PR-2", "category": "Benchmark", "section": "2. Methods", "summary": "Speed shown on one genome only",
+         "severity": "major", "assessment": "confirmed", "resolution": "open", "stage": "now", "skills": ["manuscript-peer-review"],
+         "evidence": evidence(), "quote": "It is fast."},
+        {"id": "DS-1", "category": "Writing", "section": "1. Introduction", "summary": "Cheap is vague",
+         "severity": "minor", "assessment": "confirmed", "resolution": "open", "stage": "writing", "skills": ["manuscript-deslop"],
+         "evidence": evidence(), "quote": "Genomes are cheap."},
+    ]
+    data["decisions"] = [{"id": "D1", "summary": "Run a known-answer test or narrow the claim", "finding_ids": ["PR-1"]}]
+    data["coverage"] += [{"skill": skill, "status": "completed", "note": "All.", "evidence": evidence()}
+                         for skill in ("manuscript-peer-review", "manuscript-deslop")]
+    revision = json.loads((run / "revision" / "revision.json").read_text())
+    builder, counts = export.build(viz.Inventory.model_validate(data), run, revision, True, True, "decisions")
+    out = run / "with-decisions.docx"
+    builder.doc.save(str(out))
+    _, comments = parts(out)
+    assert counts["decisions"] == 1 and counts["problems"] == 1
+    assert "A decision only you can make: Run a known-answer test or narrow the claim. (D1, PR-1)" in comments
+    assert "Speed shown on one genome only (Major, fix now)." in comments  # open, major, nothing answers it
+    assert "No known-answer test of the join" not in comments.split("(D1, PR-1)")[1]  # the decision covers it
+    assert "Cheap is vague" not in comments  # minor: in the workbook, not the document
+
+
+def test_the_changes_workbook_lists_applied_edits_and_what_needs_the_authors(tmp_path: Path) -> None:
+    changes = load("export_changes", ROOT / "skills/manuscript-dashboard/scripts/export_changes.py")
+    run = make_run(tmp_path)
+    out = run / "manuscript-changes.xlsx"
+    args = [str(run / "findings.json"), "--revision", str(run / "revision"), "--output", str(out)]
+    result = CliRunner().invoke(changes.app, args)
+    assert result.exit_code == 0, result.output
+    counts = json.loads(result.output)
+    assert counts["applied"] == 1 and counts["restored"] == 0
+    book = openpyxl.load_workbook(out)
+    assert book.sheetnames == ["Applied", "For you", "Open problems", "Held"]
+    rows = {name: [r for r in book[name].iter_rows(min_row=2, values_only=True)] for name in book.sheetnames}
+    [applied] = rows["Applied"]
+    assert applied[0] == "prose-edit.C1" and applied[1] == "Prose edit" and applied[5] == "We use HuggingFace for data."
+    assert applied[6] == "We use Hugging Face for data." and applied[4] == "applied"
+    kinds = {r[1]: r[0] for r in rows["For you"]}
+    assert kinds == {"IC-C1": "proposal in this version", "ST-C1": "proposal in this version",
+                     "JA-C8": "proposal waiting for your answer"}
+    assert any("Question: which genome build?" in (r[6] or "") for r in rows["For you"])
+    # Every problem no applied edit answers, whatever its severity, and the proposal that would answer it.
+    assert {r[0]: r[8] for r in rows["Open problems"]} == {"IC-1": "IC-C1", "JS-1": None}
+    assert [r[0] for r in rows["Held"]] == ["JA-C8"]  # left out of this version until the authors answer
+    assert book["Applied"].freeze_panes == "A2" and book["Applied"].auto_filter.ref
+    refused = CliRunner().invoke(changes.app, args)
+    assert refused.exit_code != 0 and "manuscript-changes.2.xlsx" in refused.output

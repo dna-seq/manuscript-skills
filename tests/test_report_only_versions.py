@@ -72,7 +72,7 @@ def put(run: Path, relative: str, body: str | bytes) -> None:
 
 def test_report_only_and_immutable_versions_are_choices_the_authors_are_asked_once() -> None:
     edits, versions = settings.SETTINGS['edits'], settings.SETTINGS['versions']
-    assert edits.default == 'conservative' and edits.options['none'].startswith('Report only')
+    assert edits.default == 'apply' and edits.options['none'].startswith('Report only')
     assert 'no corrected version' in edits.options['none']
     assert list(versions.options) == ['in-place', 'immutable'] and versions.default == 'in-place'
     assert 'never changed' in versions.options['immutable'] and 'new version' in versions.options['immutable']
@@ -87,7 +87,7 @@ def test_a_conversation_override_at_start_holds_for_that_run_only(manuscript: Pa
     effective = runs.read(run)['context']['effective']
     assert (effective['edits'], effective['versions']) == ('none', 'immutable')
     later = runs.read(start(manuscript, 'manuscript-prose-edit'))['context']['effective']
-    assert (later['edits'], later['versions']) == ('conservative', 'in-place')
+    assert (later['edits'], later['versions']) == ('apply', 'in-place')
 
 
 # --- Report only: no edit, no new version, no corrected version ----------------------------------------------------

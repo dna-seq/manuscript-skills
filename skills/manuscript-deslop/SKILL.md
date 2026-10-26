@@ -29,8 +29,9 @@ and checks under `manuscript-deslop/`. Honour the saved `edits` policy and reque
 - **A stage of manuscript-improve.** Cover the whole paper, on the working copy after the prose edit and
   before the story stage. The prose edit's smell check only keeps its own edits from adding patterns;
   this stage removes the ones the draft already had. Apply what the `edits` policy allows (under
-  `conservative`, wording changes that keep the meaning) and propose the rest, such as a cut that
-  weakens or narrows a claim. Inside a passage another stage has a pending proposal for, do not apply
+  `apply`, the default, its cuts and rewordings within the authors' direction, a cut of a slogan or a stock
+  invitation included; under `conservative`, wording changes that keep the meaning) and propose the rest,
+  such as a cut that weakens or narrows a claim with no confirmed finding behind it. Inside a passage another stage has a pending proposal for, do not apply
   an edit: add your version as a proposal for the same passage; the coordinator picks one per passage
   (`prefer`) and the others stay visible as alternatives. Write
   `findings.json` with the `DS` prefix as the [stage findings](../manuscript-dashboard/references/stage-findings.md) describe:
