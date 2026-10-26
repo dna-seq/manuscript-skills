@@ -281,6 +281,9 @@ JOURNAL_TRANSFER_WORDS = "a direct transfer from your preprint server"
 # journal ladder saves a second submission, then speed, then AI-policy work (posting is usually free).
 DEFAULT_PRIORITIES = {"journals": ["speed", "reach", "ai", "cost"], "preprints": ["transfer", "speed", "ai"]}
 FIT_ORDER = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
+# The ladder's first step: "Depends" and "could not be checked" tie, so that a journal whose rules were researched
+# does not rise above one whose rules were not; only a fit the rules settle ("fits", "does not fit") moves a venue.
+LADDER_FIT = {"go": 0, "conditional": 1, "unknown": 1, "no-go": 2}
 
 
 class OutputFormat(str, Enum):
@@ -869,10 +872,10 @@ def from_server(v: dict[str, Any], server: dict[str, Any]) -> str:
 def ladder_order(v: dict[str, Any], priorities: list[Priority], feasible: str,
                  journals_on_ladder: Optional[list[str]] = None, ai_use: Optional[AiUse] = None,
                  server: Optional[dict[str, Any]] = None) -> tuple[Any, ...]:
-    """Feasibility (the validation fit, `feasibility`) first, then each priority in the authors' order. An unknown
-    value sorts below every known one at its step, and a tie passes to the next priority; the name breaks the
-    last tie."""
-    key: list[Any] = [FIT_ORDER[feasible]]
+    """Feasibility (the validation fit, `feasibility`) first, then each priority in the authors' order. At the first
+    step "Depends" and "could not be checked" tie (LADDER_FIT). An unknown value sorts below every known one at its
+    step, and a tie passes to the next priority; the name breaks the last tie."""
+    key: list[Any] = [LADDER_FIT[feasible]]
     for p in priorities:
         value = priority_value(v, p, journals_on_ladder, ai_use, server)
         key.append((1, 0.0) if value is None else (0, value))
@@ -1440,7 +1443,8 @@ def _ladder_notes(default_order: bool, priorities: list[Priority], preprints: bo
         order = ", then ".join(said(p) for p in priorities)
         notes.append("**A default order, not yours yet.** You have not stated what matters most to you, so this "
                      f"ladder uses a default: {order}. It changes when you state your own order.")
-    notes.append(f"Ordered by whether the paper fits each venue's recorded validation rules, then by {steps}. A value "
+    notes.append(f"Ordered by whether the paper fits each venue's recorded validation rules (\"Depends\" and \"could "
+                 f"not be checked\" count the same), then by {steps}. A value "
                  "that is not known sorts below every known value at its step, and a tie passes to the next step. A "
                  "position is an order of preference under these priorities, not a chance of acceptance"
                  + ("; the speed compared is days to a first decision, which for most journals includes desk "

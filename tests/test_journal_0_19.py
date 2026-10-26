@@ -119,9 +119,10 @@ def test_stated_priorities_are_not_labelled_as_a_default(catalogue: Path, tmp_pa
     record = _record(tmp_path, {"priorities": {"journals": ["reach"]}})
     code, out, _ = _run("ladder", *ONLY, "--record", str(record))
     assert code == 0 and "default order" not in out.lower()
-    # Calm's validation rule is a condition to check, Strict's and Keeper's rules were never read: feasibility
-    # first, then reach.
-    assert _order(out) == ["calm", "strict", "keeper"]
+    # Calm's validation rule is a condition to check and Strict's and Keeper's rules were never read: neither settles
+    # the fit, so they tie at the first step (researching a rule is no reason to rank a journal higher), and reach
+    # decides.
+    assert _order(out) == ["strict", "calm", "keeper"]
     code, out, _ = _run("ladder", *ONLY, "--record", str(record), "--format", "csv")
     assert {r["priorities_source"] for r in _rows(out).values()} == {"authors"}
 
