@@ -9,9 +9,17 @@ rounds, by whom; and the blind spots, prose no round has read.
     uv run --script rev_marks.py strip FILE [--out OUT] [--check]  write the clean twin, FILE minus its marks
     uv run --script rev_marks.py report FILE [--blind] [--unreviewed] [--html OUT]
     uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD]
+    uv run --script rev_marks.py changes OLD NEW [--json] [--full] [--strict]
 
 lint and report also take --config PATH (default: rev-marks.toml, found from FILE up to the git
 root) and --unknown agent|human (overrides the config's `unknown`).
+
+`changes` compares two rounds of a master (the previous round's file and this one's): every segment
+that is new, removed, rewritten or given another round, with the heading it sits under, its old and new
+text and its new `by=` entries, and every changed paragraph no segment covers. Without marks it lists the
+changed paragraphs. The output is a Markdown table, Id | Where | Was | Now | Why with Why left empty, and
+the record behind each row; --json gives the same rows to tools, --full puts whole texts in the cells, and
+--strict exits 1 on a change that no new round records (no segment covers it, or its segment got no round).
 
 A rewritten segment sits between two HTML comments, which renderers and pandoc drop:
 
@@ -77,12 +85,15 @@ import argparse
 import dataclasses
 import fnmatch
 import html
+import json
 import re
 import sys
 import tomllib
 from bisect import bisect_left
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime
+from difflib import SequenceMatcher
 from enum import StrEnum
 from pathlib import Path
 
@@ -131,6 +142,13 @@ TEX_COMMAND_RE = re.compile(r"\\[A-Za-z@]+\*?")
 TEX_DOCUMENT_RE = re.compile(r"\\(?P<edge>begin|end)\{document\}")
 # A line of commands alone is structure, unless it opens with one of these: their argument is prose.
 TEX_PROSE_COMMANDS = frozenset({"caption", "footnote", "item", "emph", "textbf", "textit"})
+# Headings, for where a change sits.
+MD_HEADING_RE = re.compile(r"^ {0,3}#{1,6}[ \t]+(?P<title>.*?)(?:[ \t]+#+)?[ \t]*$")
+TEX_HEADING_RE = re.compile(
+    r"^\s*\\(?:part|chapter|section|subsection|subsubsection|paragraph)\*?(?:\[[^\]]*\])?\{(?P<title>.*)\}")
+EXCERPT_CONTEXT = 4  # unchanged words kept around each change in a table cell
+EXCERPT_WORDS = 60  # a cell's length before the rest is counted, not shown
+PAIR_RATIO = 0.4  # how alike (difflib's ratio of their words) two paragraphs must be to count as one revised
 
 
 class Syntax(StrEnum):
@@ -1084,6 +1102,487 @@ def render_heatmap(found: Marks, title: str, people: People | None = None) -> st
         f'</header>\n<main>\n<div class="doc">{"".join(body)}</div>\n</main>\n</body>\n</html>\n')
 
 
+# --- changes between rounds ------------------------------------------------------------------
+
+
+class Change(StrEnum):
+    NEW = "new"
+    REMOVED = "removed"
+    REVISED = "revised"  # its text changed
+    ROUNDS = "rounds"  # rounds or by= changed, the text did not
+    UNMARKED = "unmarked"  # changed text no segment covers
+
+
+@dataclass(frozen=True)
+class Block:
+    """A paragraph of the clean text, or a heading or figure line, word by word."""
+
+    first: int  # its first and last line in the marked file
+    last: int
+    heading: str  # the heading it sits under; a heading's own
+    words: tuple[str, ...]
+    lines: tuple[int, ...]  # the line of each word
+    owners: tuple[int, ...]  # the innermost segment holding each word (an index into Marks.segments), or -1
+    offsets: tuple[int, ...]  # where each word starts in the marked text
+
+    @property
+    def text(self) -> str:
+        return " ".join(self.words)
+
+
+@dataclass(frozen=True)
+class Row:
+    """One line of a round's changelog: a segment that changed, or a change no segment covers (id None)."""
+
+    status: Change
+    id: str | None
+    where: str
+    old_line: int | None
+    new_line: int | None
+    old_text: str
+    new_text: str
+    old_rounds: int | None = None
+    new_rounds: int | None = None
+    new_by: tuple[str, ...] = ()  # the by= entries NEW adds
+    inside: tuple[str, ...] = ()  # its text changed only inside these nested segments
+    unbumped: bool = False  # its own text changed and it got no new round
+    history_rewritten: bool = False  # earlier by= entries changed, not only new ones added
+    text_unchanged: bool = False  # a new or removed segment whose passage reads the same in both files
+
+
+def norm(text: str) -> str:
+    return " ".join(text.split())
+
+
+def merged(ranges) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if out and start <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], end))
+        else:
+            out.append((start, end))
+    return out
+
+
+def clean_slice(text: str, lo: int, hi: int, cuts) -> str:
+    """text[lo:hi] without the parts *cuts* (sorted, merged) names."""
+    return cut(text[lo:hi], [(s - lo, e - lo) for s, e in clip(cuts, lo, hi)])
+
+
+def kept(lo: int, hi: int, cuts) -> list[tuple[int, int]]:
+    """The parts of [lo, hi) that *cuts* (sorted, merged) leave."""
+    out: list[tuple[int, int]] = []
+    cursor = lo
+    for s, e in clip(cuts, lo, hi):
+        if s > cursor:
+            out.append((cursor, s))
+        cursor = max(cursor, e)
+    if cursor < hi:
+        out.append((cursor, hi))
+    return out
+
+
+def heading_title(line: str, syntax: Syntax) -> str | None:
+    m = (TEX_HEADING_RE if syntax == Syntax.TEX else MD_HEADING_RE).match(line)
+    if m is None:
+        return None
+    title = m.group("title")
+    title = TEX_COMMAND_RE.sub("", title).replace("{", "").replace("}", "") if syntax == Syntax.TEX else \
+        title.replace("*", "").replace("`", "")
+    return norm(title)
+
+
+def blocks(found: Marks) -> list[Block]:
+    """The clean text as the units a change is read in: paragraphs (lines no blank line separates), and
+    headings, figures, rules and comments (an author's note) each alone. Unlike `paragraphs`, the whole file
+    counts (front matter, a preamble, code), since a change there is still a change."""
+    text = found.text
+    owner = [-1] * len(text)
+    for index, s in sorted(enumerate(found.segments), key=lambda pair: pair[1].depth):
+        owner[s.open.end : s.close.start] = [index] * (s.close.start - s.open.end)  # the innermost goes last
+    out: list[Block] = []
+    words: list[tuple[str, int, int, int]] = []  # (word, line number, owner, offset)
+    heading = ""
+
+    def close() -> None:
+        if words:
+            out.append(Block(words[0][1], words[-1][1], heading, *(tuple(w[k] for w in words) for k in range(4))))
+            words.clear()
+
+    offset = 0
+    for number, raw in enumerate(text.splitlines(keepends=True), start=1):
+        start, end = offset, offset + len(raw)
+        offset = end
+        pieces = kept(start, end, found.removals)
+        clean = "".join(text[s:e] for s, e in pieces)
+        if clean == "":
+            continue  # a line of marks alone: the clean text has no such line
+        if not clean.strip():
+            close()
+            continue
+        kind = line_kind(clean, found.syntax)
+        if kind == "aside":
+            if not clean.lstrip().startswith(("%", "<!--")):
+                continue  # a table's ruler
+            kind = "break"
+        where = [i for s, e in pieces for i in range(s, e)]  # each clean character's offset in the marked text
+        line = [(m.group(), number, next((owner[where[i]] for i in range(m.start(), m.end()) if owner[where[i]] >= 0),
+                                         -1), where[m.start()]) for m in re.finditer(r"\S+", clean)]
+        if kind == "break":
+            close()
+            heading = heading_title(clean.strip(), found.syntax) or heading
+            words.extend(line)
+            close()
+        else:
+            words.extend(line)
+    close()
+    return out
+
+
+Word = tuple[str, int, int, str, int, int]  # (word, line, owner, heading, block, offset)
+Opcode = tuple[str, int, int, int, int]
+
+
+def flat(bs: list[Block]) -> list[Word]:
+    return [(w, line, own, b.heading, k, at) for k, b in enumerate(bs)
+            for w, line, own, at in zip(b.words, b.lines, b.owners, b.offsets)]
+
+
+def paired(old: list[Block], new: list[Block]) -> list[tuple[int | None, int | None]]:
+    """The paragraphs of a changed stretch matched in order, each old one with the new one most like it
+    (PAIR_RATIO of their words or more), so words are only ever compared within one paragraph; (i, None) is a
+    paragraph cut, (None, j) one added."""
+    m, n = len(old), len(new)
+    score = [[0.0] * (n + 1) for _ in range(m + 1)]
+    ratio: dict[tuple[int, int], float] = {}
+    for i in range(m - 1, -1, -1):
+        for j in range(n - 1, -1, -1):
+            sm = SequenceMatcher(None, old[i].words, new[j].words, autojunk=False)
+            r = sm.ratio() if sm.real_quick_ratio() >= PAIR_RATIO and sm.quick_ratio() >= PAIR_RATIO else 0.0
+            ratio[i, j] = r
+            score[i][j] = max(score[i + 1][j], score[i][j + 1], r + score[i + 1][j + 1] if r >= PAIR_RATIO else 0.0)
+    out: list[tuple[int | None, int | None]] = []
+    i = j = 0
+    while i < m or j < n:
+        if i < m and j < n and ratio[i, j] >= PAIR_RATIO and score[i][j] == ratio[i, j] + score[i + 1][j + 1]:
+            out.append((i, j))
+            i, j = i + 1, j + 1
+        elif i < m and (j == n or score[i][j] == score[i + 1][j]):
+            out.append((i, None))
+            i += 1
+        else:
+            out.append((None, j))
+            j += 1
+    return out
+
+
+def align(ob: list[Block], nb: list[Block]) -> tuple[list[Word], list[Word], list[Opcode]]:
+    """Both texts word by word, and how the words of one map to the other: equal paragraphs are matched
+    first, then within each stretch that differs the paragraphs alike, then their words."""
+    a, b = flat(ob), flat(nb)
+    starts_a = [0]
+    for block in ob:
+        starts_a.append(starts_a[-1] + len(block.words))
+    starts_b = [0]
+    for block in nb:
+        starts_b.append(starts_b[-1] + len(block.words))
+    ops: list[Opcode] = []
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, [x.text for x in ob], [x.text for x in nb],
+                                               autojunk=False).get_opcodes():
+        if tag == "equal":
+            ops.append(("equal", starts_a[i1], starts_a[i2], starts_b[j1], starts_b[j2]))
+            continue
+        at_a, at_b = starts_a[i1], starts_b[j1]
+        for i, j in paired(ob[i1:i2], nb[j1:j2]):
+            if j is None:
+                ops.append(("delete", at_a, starts_a[i1 + i + 1], at_b, at_b))
+            elif i is None:
+                ops.append(("insert", at_a, at_a, at_b, starts_b[j1 + j + 1]))
+            else:
+                ops += [(t, at_a + x1, at_a + x2, at_b + y1, at_b + y2) for t, x1, x2, y1, y2 in SequenceMatcher(
+                    None, ob[i1 + i].words, nb[j1 + j].words, autojunk=False).get_opcodes()]
+            at_a, at_b = ops[-1][2], ops[-1][4]
+    return a, b, ops
+
+
+def counterpart(ops: list[Opcode], lo: int, hi: int, of_new: bool) -> tuple[int, int]:
+    """The words of the other text that words lo..hi of this one (of *new*, or of *old*) stand in for:
+    their equals, what they replaced, and what was cut or added inside them or at their edges. An empty
+    range is where the other text has nothing for them."""
+    spans: list[tuple[int, int]] = []
+    for tag, i1, i2, j1, j2 in ops:
+        s1, s2, o1, o2 = (j1, j2, i1, i2) if of_new else (i1, i2, j1, j2)
+        if tag == "equal" and s1 < hi and s2 > lo:
+            spans.append((o1 + max(lo, s1) - s1, o1 + min(hi, s2) - s1))
+        elif tag != "equal" and ((s1 < hi and s2 > lo) or (s1 == s2 and lo <= s1 <= hi)):
+            spans.append((o1, o2))
+    return (min(s for s, _ in spans), max(e for _, e in spans)) if spans else (0, 0)
+
+
+def words_in(offsets: list[int], s: Segment) -> tuple[int, int]:
+    """The range of words (given by where each starts) inside segment *s*."""
+    return bisect_left(offsets, s.open.end), bisect_left(offsets, s.close.start)
+
+
+def nested_in(found: Marks, s: Segment) -> list[Segment]:
+    return [c for c in found.segments if c is not s and s.open.end <= c.open.start and c.close.end <= s.close.start]
+
+
+def own_text(found: Marks, s: Segment) -> str:
+    """A segment's clean text without the segments nested in it."""
+    cuts = merged([*found.removals, *((c.open.start, c.close.end) for c in nested_in(found, s))])
+    return norm(clean_slice(found.text, s.open.end, s.close.start, cuts))
+
+
+def added_rounds(old: Attributes, new: Attributes) -> tuple[tuple[Entry, ...], bool]:
+    """The by= entries *new* adds, and whether it also changed the ones *old* had."""
+    if new.by[: len(old.by)] == old.by:
+        return new.by[len(old.by) :], False
+    left = Counter(old.by)
+    added: list[Entry] = []
+    for e in new.by:
+        if left[e]:
+            left[e] -= 1
+        else:
+            added.append(e)
+    return tuple(added), True
+
+
+def changes(old: Marks, new: Marks) -> list[Row]:
+    """Every segment that is new, removed, rewritten or given another round between two rounds of a master,
+    and every changed paragraph no segment covers, in the order of *new* (a removed passage where it was)."""
+    a, b, ops = align(blocks(old), blocks(new))
+    a_at, b_at = [w[5] for w in a], [w[5] for w in b]
+    end_line = new.text.count("\n") + 1
+
+    def line_in(side: list[Word], k: int, last: int) -> int:
+        return side[k][1] if k < len(side) else last
+
+    def heading(side: list[Word], k: int) -> str:
+        return side[min(k, len(side) - 1)][3] if side else ""
+
+    def joined(side: list[Word], lo: int, hi: int) -> str:
+        return " ".join(w[0] for w in side[lo:hi])
+
+    olds = {s.id: s for s in old.segments}
+    news = {s.id: s for s in new.segments}
+    keyed: list[tuple[tuple[int, int], Row]] = []
+    for s in new.segments:
+        lo, hi = words_in(b_at, s)
+        key = (s.open.line, s.open.start)
+        before = olds.get(s.id)
+        if before is None:  # what stood in its place: nothing, or a passage it now marks
+            c1, c2 = counterpart(ops, lo, hi, of_new=True)
+            keyed.append((key, Row(Change.NEW, s.id, heading(b, lo), a[c1][1] if c2 > c1 else None, s.open.line,
+                                   joined(a, c1, c2), norm(s.text), None, s.rounds,
+                                   tuple(e.render() for e in s.attributes.by),
+                                   text_unchanged=hi > lo and joined(a, c1, c2) == joined(b, lo, hi))))
+            continue
+        revised = norm(before.text) != norm(s.text)
+        if not revised and before.attributes == s.attributes:
+            continue
+        own = own_text(old, before) != own_text(new, s)
+        added, rewritten = added_rounds(before.attributes, s.attributes)
+        keyed.append((key, Row(Change.REVISED if revised else Change.ROUNDS, s.id, heading(b, lo), before.open.line,
+                               s.open.line, norm(before.text), norm(s.text), before.rounds, s.rounds,
+                               tuple(e.render() for e in added), unbumped=own and s.rounds <= before.rounds,
+                               history_rewritten=rewritten)))
+    for s in old.segments:
+        if s.id in news:
+            continue
+        lo, hi = words_in(a_at, s)
+        c1, c2 = counterpart(ops, lo, hi, of_new=False)
+        keyed.append(((line_in(b, c1, end_line), -1), Row(
+            Change.REMOVED, s.id, heading(a, lo), s.open.line, b[c1][1] if c2 > c1 else None, norm(s.text),
+            joined(b, c1, c2), s.rounds, None, text_unchanged=hi > lo and joined(a, lo, hi) == joined(b, c1, c2))))
+
+    fresh = {k for k, s in enumerate(new.segments) if s.id not in olds}
+    keyed += [((at, 1 << 62), row) for at, row in unmarked(a, b, ops, fresh, end_line)]
+    rows = [row for _, row in sorted(keyed, key=lambda kr: kr[0])]
+    changed = {r.id for r in rows if r.status in (Change.NEW, Change.REMOVED, Change.REVISED)}
+    out: list[Row] = []
+    for r in rows:
+        if r.status == Change.REVISED and r.id in olds and r.id in news and \
+                own_text(old, olds[r.id]) == own_text(new, news[r.id]):
+            inner = [c.id for c in (*nested_in(new, news[r.id]), *nested_in(old, olds[r.id])) if c.id in changed]
+            r = dataclasses.replace(r, inside=tuple(dict.fromkeys(inner)))
+        out.append(r)
+    return out
+
+
+def unmarked(a: list[Word], b: list[Word], ops: list[Opcode], fresh: set[int], end_line: int) -> list[tuple[int, Row]]:
+    """The changes no segment records, each with the line of the new text it sorts at: new words no segment
+    holds, and deleted words no segment held, unless a segment new in this round (one of *fresh*) borders the
+    gap, since its row shows them. Changes a few words apart in one paragraph are one row."""
+    loose: list[tuple[int, int, int, int]] = []
+    for tag, i1, i2, j1, j2 in ops:
+        if tag == "equal":
+            continue
+        if j2 > j1:
+            unrecorded = any(w[2] < 0 for w in b[j1:j2])
+        else:
+            bordered = any(0 <= j < len(b) and b[j][2] in fresh for j in (j1 - 1, j1))
+            unrecorded = not bordered and any(w[2] < 0 for w in a[i1:i2])
+        if unrecorded:
+            loose.append((i1, i2, j1, j2))
+
+    def block(side: list[Word], at: int) -> int:
+        return side[at][4] if at < len(side) else -1
+
+    groups: list[list[tuple[int, int, int, int]]] = []
+    for op in loose:
+        last = groups[-1][-1] if groups else None
+        if last and op[0] - last[1] <= 2 * EXCERPT_CONTEXT and op[2] - last[3] <= 2 * EXCERPT_CONTEXT and \
+                block(a, op[0]) == block(a, last[0]) and block(b, op[2]) == block(b, last[2]):
+            groups[-1].append(op)
+        else:
+            groups.append([op])
+    rows: list[tuple[int, Row]] = []
+    for g in groups:
+        i1, i2, j1, j2 = g[0][0], g[-1][1], g[0][2], g[-1][3]
+        first = b[j1] if j2 > j1 else a[i1]
+        # A side that only lost or only gained words shows the other side's context: the same words.
+        was = around(a, i1, i2) if i2 > i1 else around(b, j1, j2, own=False)
+        now = around(b, j1, j2) if j2 > j1 else around(a, i1, i2, own=False)
+        rows.append((b[j1][1] if j1 < len(b) else end_line, Row(
+            Change.UNMARKED, None, first[3], line_at(a, i1, i2, b, j1, j2), line_at(b, j1, j2, a, i1, i2), was, now)))
+    return rows
+
+
+def line_at(side: list[Word], lo: int, hi: int, other: list[Word], olo: int, ohi: int) -> int | None:
+    """The line of side[lo:hi]. An empty range is where the other text's change sits inside a paragraph: the
+    line of the word before it when the change has its paragraph's words before it, else of the word after;
+    None when the change is whole paragraphs."""
+    if hi > lo:
+        return side[lo][1]
+    if olo > 0 and other[olo - 1][4] == other[olo][4] and lo > 0:
+        return side[lo - 1][1]
+    if ohi < len(other) and other[ohi][4] == other[ohi - 1][4] and lo < len(side):
+        return side[lo][1]
+    return None
+
+
+def around(side: list[Word], lo: int, hi: int, own: bool = True) -> str:
+    """side[lo:hi] (lo < hi) with up to EXCERPT_CONTEXT words of its paragraph on each side. Without *own*,
+    only those words: how the other text reads where it gained or lost side[lo:hi]."""
+    first, last = side[lo][4], side[hi - 1][4]
+    start, end = lo, hi
+    while start > 0 and lo - start < EXCERPT_CONTEXT and side[start - 1][4] == first:
+        start -= 1
+    while end < len(side) and end - hi < EXCERPT_CONTEXT and side[end][4] == last:
+        end += 1
+    words = [w[0] for w in (*side[start:lo], *(side[lo:hi] if own else ()), *side[hi:end])]
+    if not words:
+        return ""
+    if start > 0 and side[start - 1][4] == first:
+        words.insert(0, "…")
+    if end < len(side) and side[end][4] == last:
+        words.append("…")
+    return " ".join(words)
+
+
+def excerpt(old: str, new: str) -> tuple[str, str]:
+    """The changed words of *old* and *new*, each with a few unchanged words around it."""
+    a, b = old.split(), new.split()
+    if not a or not b:
+        return capped(a), capped(b)
+    was: list[str] = []
+    now: list[str] = []
+    for group in SequenceMatcher(None, a, b, autojunk=False).get_grouped_opcodes(EXCERPT_CONTEXT):
+        for words, lo, hi, side in ((a, group[0][1], group[-1][2], was), (b, group[0][3], group[-1][4], now)):
+            if lo > 0 and (not side or side[-1] != "…"):
+                side.append("…")
+            side.extend(words[lo:hi])
+            if hi < len(words):
+                side.append("…")
+    return capped(was), capped(now)
+
+
+def capped(words: list[str]) -> str:
+    if len(words) <= EXCERPT_WORDS:
+        return " ".join(words)
+    rest = sum(1 for w in words[EXCERPT_WORDS:] if w != "…")
+    return " ".join(words[:EXCERPT_WORDS]) + f" … ({rest} more words)"
+
+
+def cell(text: str) -> str:
+    return norm(text).replace("|", "\\|")
+
+
+def table_row(r: Row, full: bool) -> list[str]:
+    if r.status == Change.ROUNDS:
+        was = now = "(text unchanged)"
+    elif r.inside:
+        was = now = f"(changed only inside {', '.join(r.inside)})"
+    elif full:
+        was, now = r.old_text, r.new_text
+    elif r.status == Change.UNMARKED:  # already the changed words in their context
+        was, now = capped(r.old_text.split()), capped(r.new_text.split())
+    else:
+        was, now = excerpt(r.old_text, r.new_text)
+    if r.status == Change.NEW and r.text_unchanged:
+        was = "(the same text, not marked)"
+    return [r.id or "(none)", first_words(r.where) if r.where else "(before the first heading)",
+            was or "Not present", now or "Removed", ""]
+
+
+def record_line(r: Row) -> str:
+    lines = (f"line {r.old_line} of OLD" if r.new_line is None else f"line {r.new_line} of NEW" if r.old_line is None
+             else f"line {r.old_line} → {r.new_line}")
+    head = f"- {r.id or '(none)'}: {r.status}, {lines}"
+    if r.status == Change.UNMARKED:
+        return f"{head}; no segment covers it."
+    if r.status == Change.REMOVED:
+        return f"{head}; had {r.old_rounds} round(s)" + \
+            ("; its passage still reads the same, only the marks are gone." if r.text_unchanged else ".")
+    if r.status == Change.NEW:
+        return f"{head}; {r.new_rounds} round(s), by {', '.join(r.new_by)}" + \
+            ("; its passage read the same in OLD, only the marks are new." if r.text_unchanged else ".")
+    notes = [f"rounds {r.old_rounds} → {r.new_rounds}"]
+    if r.new_by:
+        counts = Counter(r.new_by)
+        notes.append("new rounds by " + ", ".join(f"{e} (×{n})" if n > 1 else e for e, n in counts.items()))
+    if r.inside:
+        notes.append(f"changed only inside {', '.join(r.inside)}")
+    if r.unbumped:
+        notes.append("the text changed with no new round")
+    if r.history_rewritten:
+        notes.append("earlier by= entries changed")
+    return f"{head}; {'; '.join(notes)}."
+
+
+def change_totals(rows: list[Row]) -> dict[str, int]:
+    return {c.value: sum(1 for r in rows if r.status == c) for c in Change}
+
+
+def format_changes(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row], full: bool = False) -> str:
+    t = change_totals(rows)
+    out = [f"# Changes from {old_name} to {new_name}", ""]
+    if old.segments or new.segments:
+        out.append(f"{len(new.segments)} segments in NEW, {len(old.segments)} in OLD: {t['new']} new,"
+                   f" {t['removed']} removed, {t['revised']} revised, {t['rounds']} with new rounds alone (text"
+                   f" unchanged); {t['unmarked']} change(s) no segment covers.")
+    else:
+        out.append(f"Neither file carries revision marks: each of the {t['unmarked']} changed paragraph(s) is"
+                   " a row, with no id.")
+    if not rows:
+        return "\n".join([*out, "", "No changes."]) + "\n"
+    out += ["Why is empty: write it from the record (commit messages, the review run, the authors' words),"
+            " never as a guess.", "", "| Id | Where | Was | Now | Why |", "|---|---|---|---|---|"]
+    out += ["| " + " | ".join(cell(c) for c in table_row(r, full)) + " |" for r in rows]
+    out += ["", "## The record behind each row", "",
+            "For whoever writes Why, not for co-authors. Lines are in the marked masters."]
+    out += [record_line(r) for r in rows]
+    return "\n".join(out) + "\n"
+
+
+def changes_json(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row]) -> dict:
+    return {"old": old_name, "new": new_name, "segments": {"old": len(old.segments), "new": len(new.segments)},
+            "totals": change_totals(rows),
+            "rows": [{**dataclasses.asdict(r), "status": r.status.value, "new_by": list(r.new_by),
+                      "inside": list(r.inside)} for r in rows]}
+
+
 # --- command line ----------------------------------------------------------------------------
 
 
@@ -1179,6 +1678,25 @@ def cmd_bump(args) -> int:
     return 0
 
 
+def cmd_changes(args) -> int:
+    old_path, new_path = args.old, args.new
+    old, new = load(old_path), load(new_path)
+    if old is None or new is None:
+        return 1
+    rows = changes(old, new)
+    if args.json:
+        sys.stdout.write(json.dumps(changes_json(old, new, str(old_path), str(new_path), rows), ensure_ascii=False,
+                                    indent=2) + "\n")
+    else:
+        sys.stdout.write(format_changes(old, new, str(old_path), str(new_path), rows, args.full))
+    loose = [r for r in rows if r.status == Change.UNMARKED or r.unbumped]
+    if args.strict and loose:
+        print(f"{new_path}: {len(loose)} change(s) no new round records: "
+              + ", ".join(r.id or f"line {r.new_line or r.old_line}" for r in loose), file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="rev_marks.py", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="command", required=True)
@@ -1205,8 +1723,16 @@ def main(argv: list[str]) -> int:
     p.add_argument("id", metavar="ID")
     p.add_argument("--by", required=True, help="NAME or NAME:YYYY-MM-DD (default date: today)")
     p.set_defaults(run=cmd_bump)
+    p = sub.add_parser("changes", help="what changed between two rounds: the changelog's rows")
+    p.add_argument("old", type=Path, metavar="OLD", help="the previous round's master")
+    p.add_argument("new", type=Path, metavar="NEW", help="this round's master")
+    p.add_argument("--json", action="store_true", help="the rows as JSON, for tools")
+    p.add_argument("--full", action="store_true", help="whole old and new texts in the cells, not the changed words")
+    p.add_argument("--strict", action="store_true",
+                   help="exit 1 on a change no new round records: unmarked, or in a segment with no new round")
+    p.set_defaults(run=cmd_changes)
     args = ap.parse_args(argv)
-    for path in getattr(args, "files", None) or [args.file]:
+    for path in getattr(args, "files", None) or [getattr(args, k) for k in ("file", "old", "new") if hasattr(args, k)]:
         if not path.is_file():
             print(f"rev_marks.py: cannot read {path}", file=sys.stderr)
             return 3

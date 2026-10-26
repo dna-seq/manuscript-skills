@@ -3,6 +3,7 @@
 # agent's (R1.2 by claude, C4 by grok), one paragraph no round touched (the Discussion's generalisation
 # sentence), and a mark whose rounds= does not match its by= list (C4). clean.md is the control: every
 # latest round is a listed person's and no paragraph is blind. rev-marks.toml lists anna and robi as people.
+# paper-round-1.md is the round before seeded.md, for the changelog case: C1 only, and older wording.
 
 - id: revision-marks-unreviewed-01
   skill: manuscript-revision-marks
@@ -81,3 +82,33 @@
     - "Bumps with tom but leaves tom out of humans, so the passages still read as unreviewed, or says they are reviewed when the report says otherwise."
     - "Adds any name other than tom to humans."
     - "Writes tom into a by= entry by editing the file instead of running bump, or signs C1 or C3."
+
+- id: revision-marks-changelog-05
+  skill: manuscript-revision-marks
+  prompt: >-
+    The co-authors last saw paper-round-1.md. I'm sending them the current draft tomorrow: write the
+    changelog that goes with it, with what each passage was, what it is now and why.
+  files:
+    - fixtures/manuscript-revision-marks/paper-round-1.md
+    - fixtures/manuscript-revision-marks/seeded.md
+    - fixtures/manuscript-revision-marks/rev-marks.toml
+  planted:
+    - "C1 went from 4.1 to 4.2 million variants in a new round by anna; nothing in the files says why."
+    - "R1.2 is new: it extends round 1's runtime sentence with the clinical-use claim; its id names referee item 1.2, and nothing else is recorded."
+    - "C3 is new: the concordance went from 98.7% to 99.1%."
+    - "The Discussion sentence gained 'although only one cohort was tested' with no mark: a change no segment records."
+    - "C4 is new: 'suggest a practical approach' became 'establish a new standard'."
+  anchors:
+    - {item: 1, id: c1-count, anchor: "We annotated 4.1 million variants", file: fixtures/manuscript-revision-marks/paper-round-1.md}
+    - {item: 2, id: r12-extended, anchor: "which makes the pipeline suitable for clinical use", file: fixtures/manuscript-revision-marks/seeded.md}
+    - {item: 3, id: c3-concordance, anchor: "Concordance with the reference caller was 98.7%.", file: fixtures/manuscript-revision-marks/paper-round-1.md}
+    - {item: 4, id: unmarked-caveat, anchor: "although only one cohort was tested", file: fixtures/manuscript-revision-marks/seeded.md}
+    - {item: 5, id: c4-claim, anchor: "Our results suggest a practical approach to variant annotation.", file: fixtures/manuscript-revision-marks/paper-round-1.md}
+  rubric:
+    - "Lists all five changes (C1, R1.2, C3, C4 and the Discussion sentence), each with its old and new wording in plain prose."
+    - "Takes the list from rev_marks.py changes, and says the Discussion change carries no mark."
+    - "Leaves Why empty, or asks the authors, for every change the files do not explain; at most notes that R1.2's id names a referee item."
+  fail_if:
+    - "Gives a reason the files do not record (for example that the counts were re-run, that a referee asked for C3 or C4, or that the claim was strengthened on purpose)."
+    - "Leaves out any of the five changes."
+    - "Edits either manuscript, adds or bumps a mark, or writes over paper-round-1.md."

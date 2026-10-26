@@ -3,8 +3,9 @@ name: manuscript-revision-marks
 description: >-
   Maintain revision marks in Markdown and LaTeX manuscripts: which passages were rewritten, how
   often, by whom, and which AI edits still await human review. Use when marks already exist or the
-  authors request traceability, linting, clean reading copies, revision reports, blind spots or a
-  heat map. Build PDFs from clean copies and measure page limits. Marks are opt-in and do not
+  authors request traceability, linting, clean reading copies, revision reports, blind spots, a
+  heat map, or a changelog between two rounds (what each passage was, is now and why, for
+  co-authors). Build PDFs from clean copies and measure page limits. Marks are opt-in and do not
   establish what kind of AI use occurred. Use manuscript-mark-people to identify confirmed human
   reviewers and manuscript-reviewer-response for the response-letter ledger.
 ---
@@ -103,6 +104,7 @@ uv run --script scripts/rev_marks.py strip PAPER.md --check         # exit 1 if 
 uv run --script scripts/rev_marks.py report PAPER.md --blind --unreviewed --html PAPER.heatmap.html
 uv run --script scripts/rev_marks.py bump PAPER.md C3 --by claude   # an agent's round, dated today
 uv run --script scripts/rev_marks.py bump PAPER.md C3 --by anna    # anna reviewed it, as the authors say
+uv run --script scripts/rev_marks.py changes OLD.md PAPER.md        # what changed since the last round
 ```
 
 The heat map is for the authors: write it beside the manuscript (or where they say), give its path, and
@@ -210,9 +212,40 @@ not run", not a fault in the paper.
 Never edit the twin: the next `strip` overwrites it. The authors' choice covers only retiring the marks
 from the master for good; strip them from the master only when they ask for that.
 
+## Changelog between rounds
+
+When a round goes to the co-authors (a `v0.6/` beside `v0.5/`, or two commits of one master), they get a
+changelog: for each change, what the passage was, what it is now and why. Start it from the command, never
+from memory of the edits:
+
+```bash
+git show ROUND_BASE:v0.5/PAPER.md > OLD.md        # the previous master as it was when this round opened
+uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md          # the table skeleton and its record
+uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --json   # the same rows, for tools
+```
+
+- **The list is the checklist.** It names every segment that is new, removed, rewritten or given another
+  round, and every changed paragraph no segment covers (`(none)`), in the order of the new text. Every
+  row gets a row in the changelog. Rows may be grouped under the request they answer, and a row that
+  changed "only inside F5" may share F5's row, but none is dropped. Compare against the previous master as
+  it was when the round opened: a file edited since hides changes.
+- **Was and Now** are written for co-authors, in plain prose ("Twelve authors" → "Nine authors; three
+  moved to the Acknowledgments"). The cells' excerpts are the evidence, not the wording; `--full` shows
+  whole passages.
+- **Why comes only from the record**: the commit message, the review run or finding that asked for the
+  edit (its id is often the segment's), the ledger item, the authors' own words. When nothing records
+  why, leave Why empty and ask the authors; never infer a reason from the edit.
+- **Raise, do not smooth over**: a change no segment covers, a segment whose text changed with no new
+  round (`--strict` exits 1 on either), and a row of an existing hand-written changelog that the command
+  does not list (the master does not have that change). The record under the table (rounds, new `by=`
+  entries, lines) is for whoever writes Why; it stays out of the co-authors' changelog.
+- Without marks the command lists the changed paragraphs, with no ids. Write the changelog where the
+  authors keep it and never over one they wrote; when one exists, check it against the list and report
+  what it misses.
+
 ## Files
 
-- `scripts/rev_marks.py`: lint, strip, report and bump.
+- `scripts/rev_marks.py`: lint, strip, report, bump and changes.
 - `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, the review
   draft, and the LaTeX reading copy.
 - `scripts/unreviewed.lua`, `scripts/unreviewed-preamble.tex`: how the draft shades a segment.
