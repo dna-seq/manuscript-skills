@@ -684,6 +684,7 @@ __REVISION_HTML__
     flat = parts.join('');
   }
   const cleanQuote = q => fold(String(q)).replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*|__|`/g, '').replace(/(^|[\s(])[*_]|[*_](?=[\s).,;:]|$)/g, '$1')
+    .replace(/\^((?:\\.|[^\s^\\])+)\^/g, '$1').replace(/(^|[^~])~((?:\\.|[^\s~\\])+)~(?!~)/g, '$1$2')
     .replace(/\\([\\`*_{}\[\]()#+\-.!|])/g, '$1').replace(/\|/g, ' ').replace(/^#+\s*/, '').replace(/\s+/g, ' ').trim();
   function locate(quote) {
     const parts = cleanQuote(quote).split(/\s*(?:\.\.\.|…)\s*/).filter(p => p.length >= 4);

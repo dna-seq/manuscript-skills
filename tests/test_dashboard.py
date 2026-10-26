@@ -476,6 +476,20 @@ def test_local_images_are_embedded_so_the_dashboard_is_one_file(tmp_path: Path) 
     assert 'title="Not embedded: figures/gone.png was not found or is over 8 MB"' in page
 
 
+@pytest.mark.parametrize("markdown, rendered", [
+    ("Kulaga Anton^1,2,4,†^, Usanov Nikolay^3,4^", "Kulaga Anton<sup>1,2,4,†</sup>, Usanov Nikolay<sup>3,4</sup>"),
+    ("H~2~O and x^2^", "H<sub>2</sub>O and x<sup>2</sup>"),
+    ("an escaped space: ^a\\ b^", "an escaped space: <sup>a b</sup>"),
+    # Not superscript or subscript in pandoc either: a space inside, no closing marker, strikeout, code.
+    ("2^10 and 3^4 are powers", "2^10 and 3^4 are powers"),
+    ("about ~5 kb and ~/sources", "about ~5 kb and ~/sources"),
+    ("~~struck~~ text", "~~struck~~ text"),
+    ("`x^2^` stays code", "<code>x^2^</code> stays code"),
+])
+def test_pandoc_superscripts_and_subscripts_render_as_such(markdown: str, rendered: str) -> None:
+    assert visualize.manuscript_html(markdown + "\n", ".md") == f"<p>{rendered}</p>\n"
+
+
 def figures_record(**extra) -> dict:
     return {"limit": {"count": 2, "counts": "figures", "source": "the journal's guidelines"},
             "items": [{"id": "Figure 1", "image": "fig1.png", "verdict": "keep"},

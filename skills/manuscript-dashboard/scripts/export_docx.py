@@ -37,7 +37,6 @@ from docx.opc.constants import RELATIONSHIP_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
-from markdown_it import MarkdownIt
 
 HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parent))
@@ -87,7 +86,7 @@ def normalized(text: str) -> tuple[str, list[int]]:
     character's position in the original."""
     out, where = [], []
     for at, char in enumerate(text):
-        if char in "*_`#>\\":
+        if char in "*_`#>\\^~":
             continue
         if char.isspace():
             if out and out[-1] == " ":
@@ -132,6 +131,11 @@ class Builder:
                 continue
             run = paragraph.add_run(part)
             run.bold, run.italic = fmt.get("bold") or None, fmt.get("italic") or None
+            # Both share one vertical-alignment element: setting the other to None would clear it.
+            if fmt.get("sup"):
+                run.font.superscript = True
+            elif fmt.get("sub"):
+                run.font.subscript = True
             if fmt.get("code"):
                 run.font.name = "Consolas"
             if link is not None:
@@ -173,6 +177,8 @@ class Builder:
                 fmt["bold"] = kind == "strong_open"
             elif kind in ("em_open", "em_close"):
                 fmt["italic"] = kind == "em_open"
+            elif kind in ("sup_open", "sup_close", "sub_open", "sub_close"):
+                fmt[kind[:3]] = kind.endswith("_open")
             elif kind == "link_open":
                 href = token.attrGet("href") or ""
                 link = self.hyperlink(paragraph, href) if href and not href.startswith("#") else None
@@ -183,7 +189,7 @@ class Builder:
 
     # ----- blocks -----
     def render(self, markdown: str) -> None:
-        tokens = MarkdownIt("commonmark", {"html": False}).enable("table").parse(markdown)
+        tokens = viz.markdown_parser().parse(markdown)
         styles = {style.name for style in self.doc.styles}
         lists: list[str] = []
         quote = 0

@@ -118,6 +118,17 @@ def test_the_corrected_version_is_tracked_changes_with_the_review_as_comments(tm
     assert CliRunner().invoke(export.app, [str(run / "findings.json"), "--output", str(out)]).exit_code != 0
 
 
+def test_pandoc_superscripts_become_superscript_runs_and_quotes_still_anchor() -> None:
+    builder = export.Builder([])
+    builder.render("**Authors:** Kulaga Anton^1,2,†^, Usanov Nikolay^3^ and water, H~2~O.\n")
+    runs = {text: run for run, _, _, text in builder.runs}
+    assert runs["1,2,†"].font.superscript and runs["3"].font.superscript and runs["2"].font.subscript
+    assert not any(run.font.superscript or run.font.subscript for text, run in runs.items() if text not in {"1,2,†", "3", "2"})
+    assert "^" not in "".join(runs) and "~" not in "".join(runs)
+    # A quote copied from the Markdown, markers included, still finds its words in the document.
+    assert builder.locate("Kulaga Anton^1,2,†^, Usanov Nikolay^3^") is not None
+
+
 def test_without_a_corrected_version_the_reviewed_text_carries_the_problems_only(tmp_path: Path) -> None:
     run = make_run(tmp_path)
     out = run / "reviewed.docx"

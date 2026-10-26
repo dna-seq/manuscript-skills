@@ -767,13 +767,50 @@ def embed_images(rendered: str, folders: list[Path]) -> str:
     return re.sub(r'(<img\b[^>]*?)src="([^"]*)"', embed, rendered)
 
 
+def pandoc_script(marker: str, tag: str) -> Any:
+    """A markdown-it inline rule for pandoc's superscript (`^1,2^`) or subscript (`H~2~O`): the text between two
+    markers, with no unescaped space or line break in it, becomes `<sup>`/`<sub>` (tokens `sup_open`, `sub_open`).
+    Manuscripts written for pandoc mark affiliations this way, and plain CommonMark shows the markers as text.
+    `~~` (strikeout) is left alone."""
+    def rule(state: Any, silent: bool) -> bool:
+        start = state.pos
+        if state.src[start] != marker or state.src[start + 1:start + 2] in (marker, "") or state.src[start - 1:start] == marker:
+            return False
+        end = start + 1
+        while end < state.posMax and state.src[end] != marker:
+            if state.src[end] == "\\" and end + 1 < state.posMax:
+                end += 2
+                continue
+            if state.src[end].isspace():
+                return False
+            end += 1
+        if end >= state.posMax:
+            return False
+        if not silent:
+            state.push(f"{tag}_open", tag, 1)
+            state.push("text", "", 0).content = re.sub(r"\\(.)", r"\1", state.src[start + 1:end])
+            state.push(f"{tag}_close", tag, -1)
+        state.pos = end + 1
+        return True
+    return rule
+
+
+def markdown_parser() -> Any:
+    """The Markdown reader for manuscripts: CommonMark with tables and pandoc's superscript and subscript. Raw HTML
+    is shown as text, so an author's comment stays visible."""
+    from markdown_it import MarkdownIt
+
+    parser = MarkdownIt("commonmark", {"html": False}).enable("table")
+    parser.inline.ruler.before("emphasis", "pandoc_superscript", pandoc_script("^", "sup"))
+    parser.inline.ruler.before("emphasis", "pandoc_subscript", pandoc_script("~", "sub"))
+    return parser
+
+
 def manuscript_html(text: str, suffix: str, folders: list[Path] | None = None) -> str:
     """The reviewed text as HTML. Raw HTML in Markdown is shown as text, so an author's comment stays visible.
     Local images are embedded from the first of `folders` that holds them."""
     if suffix in {".md", ".markdown", ".txt"}:
-        from markdown_it import MarkdownIt
-
-        rendered = MarkdownIt("commonmark", {"html": False}).enable("table").render(text)
+        rendered = markdown_parser().render(text)
         return embed_images(rendered, folders or [])
     parts = []
     for block in re.split(r"\n\s*\n", text):
