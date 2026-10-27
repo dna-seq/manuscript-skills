@@ -32,9 +32,9 @@ transcript (its subagents' records), read without changing it. Measured on 2026-
   have finished sooner.
 - **The long browser work was venue facts.** The journal selection redone the night before the v0.6 run spent
   28 of its two agents' 43 minutes fetching journal pages (72 browser JavaScript calls, 60 WebFetch calls), and
-  the peer-review stage spent its first 11 minutes, before any referee started, on the venue brief: fetching the
-  three journals' reviewer pages and writing the brief from them. Both are what the venue catalogue (0.30.0)
-  now keeps with dates; on a rerun they are read again only when `venues.py stale` says so.
+  the peer-review stage spent 3 of the 10 minutes before its referees could start fetching the three journals'
+  reviewer pages. Both are what the venue catalogue (0.30.0) now keeps with dates; on a rerun they are read
+  again only when `venues.py stale` says so.
 
 ## Where the agents' time went (v0.6)
 
@@ -78,7 +78,7 @@ as well as less time.
 | Figures: renders (`figures.py`) | 2 to 3 s | Figure 2 and Figure S1 unchanged (image and caption); their renders byte-identical | Renders and measurements yes; verdicts no |
 | Figures: review | 24 min | v0.6 found cross-figure problems (Figure 2 repeats a row Figure 1b now shows) that a per-figure cache would not have raised | No |
 | Policy fit | 20 min, 5.6 of them fetching | 3 of the 13 policy URLs v0.6 read were read in v0.5; the venue ladder changed | Venue facts: the venue catalogue |
-| Peer review: venue brief | the agent's first 11 min, 3 of them fetching | the journals' reviewer pages (iScience, Frontiers, JAMIA Open) | Yes: the catalogue's `reviewer_form` |
+| Peer review: venue brief | 3 of the 10 min before the seats started | the journals' reviewer pages (iScience, Frontiers, JAMIA Open) | Yes: the catalogue's `reviewer_form` |
 | Peer review: seats, defender, adjudication | 12.6 to 60.5 min | prior-work lists shared 2 of 4 to 5 entries | No: fresh seats are the point |
 | Deslop | 12.8 min, one agent | none of v0.6's 6 findings repeats one of v0.5's 5; the one pattern the authors kept carried over in `kept-patterns.txt` | Author decisions already carry over; findings no |
 | Story readers | 3.5 to 4.5 min each | v0.6's story stage had not finished | No: fresh readers are the point; the metrics scripts take under 1 s |
@@ -217,8 +217,12 @@ independence, and catches regressions as well as last run's misses.
    does.
 
 To make the run finish sooner, look at the critical path, not at caching. In v0.6 the review phase lasted as long
-as peer review: the venue brief until the seats started (the agent's first 11 minutes, spent fetching the three
-journals' reviewer pages and writing the brief), seats until 30.1 min, then the defender, the merge and the
-adjudication until 60.5 min, 19 minutes of which came after the defender. The venue catalogue's `reviewer_form` takes the first of these off a
-rerun, as long as the catalogue holds the forms; a faster merge and adjudication, or a defender handed the
-reference check's texts and the code ledger, would cut more wall time than any cache above.
+as peer review: 10 minutes of setup before the seats could start (1.4 reading the skill, the paper and the
+catalogue's entries, 3 fetching the three
+journals' reviewer pages, about 6 writing the claim map, venue brief, desk screen and briefs and building the
+seats' workspaces with a script the agent wrote for the run), seats until 30.1 min, then the defender, the merge
+and the adjudication until 60.5 min, 19 minutes of which came after the defender. Peer review ended 13 minutes
+after the next-longest stage, so each minute taken off it shortens the run. The venue catalogue's
+`reviewer_form` takes the 3 minutes of fetching off a run for a journal it holds; a shipped script that builds
+the seats' workspaces, a faster merge and adjudication, or a defender handed the reference check's texts and the
+code ledger would cut more.
