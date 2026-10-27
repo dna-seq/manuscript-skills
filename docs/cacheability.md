@@ -260,7 +260,12 @@ review, revise, prose edit, deslop, story and the three readers), 9,000 to 43,00
 wrote the same report again through the shell, or the readers returned it as text, 24 to 93 seconds later: 11
 minutes of agent time and about 235,000 characters sent twice. About 5.4 of those minutes lie on the critical path
 (peer review 1.6, then the editing stages one after another: revise 0.8, prose edit 0.6, deslop 0.6, story 1.4, and
-the readers, who run side by side, 0.5). project-workflow.md already expects the refusal and asks the agent to
+the readers, who run side by side, 0.5). The refusal is a rule of Claude Code (seen in 2.1.304), not of this
+plugin: its `Write` tool refuses a delegated agent a file whose name matches `^(REPORT|SUMMARY|FINDINGS|ANALYSIS).*\.md$`
+(regardless of case, so `report.md` and `report.2.md` too), meant to stop agents leaving report files instead of
+answering; the main session may write such a file, and a shell command is not checked. In the v0.6 run all 14
+refused writes were a subagent's `report.md`, and none of its other 28 writes (other Markdown, JSON, YAML, Python)
+was refused. project-workflow.md already expects the refusal and asks the agent to
 return the report as text for the coordinator to save; no agent did that, and each lost its first attempt instead.
 Telling stage agents in the stage brief to write their report files with a shell command from the start (as every
 one of them ended up doing), or giving `runs.py` a command that saves a report from standard input and registers it,
