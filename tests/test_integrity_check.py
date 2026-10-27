@@ -1185,7 +1185,7 @@ def _under(md: str) -> dict[str, str]:
 
 
 def test_the_report_groups_findings_by_when_they_can_be_done(tmp_path: Path) -> None:
-    report = scan_ic.scan(_staged(tmp_path), online=False, search_unidentified=False, venue="genome-biology")
+    report = scan_ic.scan(_staged(tmp_path), online=False, search_unidentified=False, venue="genome-research")
     md = scan_ic.to_markdown(report)
     headings = [h for h in re.findall(r"^## .+$", md, flags=re.MULTILINE) if h in STAGE_HEADINGS]
     assert headings == STAGE_HEADINGS  # every stage present here, in the order the authors work

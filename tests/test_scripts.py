@@ -284,7 +284,7 @@ def test_bioinformatics_recommends_its_abstract_length() -> None:
 
 
 def test_unrecorded_venue_limits_are_not_assessed_not_passed() -> None:
-    found = [f for f in scan._venue_findings([], 99999, 9999, "genome-biology", "zenodo") if f.check == "venue"]
+    found = [f for f in scan._venue_findings([], 99999, 9999, "genome-research", "zenodo") if f.check == "venue"]
     assert len(found) == 1 and found[0].severity == scan.Severity.info and "not checked" in found[0].message
 
 
