@@ -108,6 +108,9 @@ ROLES = {role.value for role in Role}
 # Outputs of a simulated reader, referee, quick-pass seat or defender: each records how it ran (project-workflow.md,
 # "Independent readers and referees").
 PANEL = {'reader', 'referee', 'seat', 'defence', 'critic'}
+# A stage's report: stage-report.md since 0.33 (Claude Code refuses a delegated agent's Write of a Markdown file whose
+# name starts with "report"), report.md in earlier runs.
+REPORT_NAMES = ('stage-report.md', 'report.md')
 
 
 class Isolation(str, Enum):
@@ -1074,16 +1077,18 @@ def deliver(made: Path, folder: Path, name: str, label: str, replace: bool, stam
 
 
 def report_of(run: Path, data: dict[str, Any], skill: str) -> Path:
-    """The registered report of a skill in this run: SKILL/report.md, else the last report registered."""
+    """The registered report of a skill in this run: SKILL/stage-report.md (SKILL/report.md in runs before 0.33),
+    else the last report registered."""
     try:
         skill_name(skill)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     reports = [item['path'] for item in data['skills'].get(skill, {}).get('artifacts', []) if item['role'] == 'report']
-    chosen = f'{skill}/report.md' if f'{skill}/report.md' in reports else reports[-1] if reports else None
+    chosen = next((f'{skill}/{name}' for name in REPORT_NAMES if f'{skill}/{name}' in reports),
+                  reports[-1] if reports else None)
     if chosen is None or not (run / chosen).is_file():
         typer.echo(f"{skill} has no saved report in this run to hand over; register it with `runs.py add RUN --skill "
-                   f"{skill} --file REPORT --role report --name report.md` first. Nothing was handed over.", err=True)
+                   f"{skill} --file REPORT --role report --name {REPORT_NAMES[0]}` first. Nothing was handed over.", err=True)
         raise typer.Exit(1)
     return run / chosen
 

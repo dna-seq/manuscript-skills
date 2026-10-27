@@ -62,7 +62,7 @@ wherever a run has them:
 | --- | --- | --- |
 | a stage has started | its entry appears with its first record (`add`, `exec`, `change`) | a stage that has started but recorded nothing yet shows as next, not running |
 | elapsed time | review stages from the run's start, editing stages from the end of the one before, to the last record; shown with `~` | `finish` records no time, and nothing records a start |
-| the revise stage | `manuscript-improve/stage-brief-revise.md` and `revise/report.md` registered under the coordinator | an internal stage of the coordinator has no entry of its own |
+| the revise stage | `manuscript-improve/stage-brief-revise.md` and `revise/stage-report.md` (`revise/report.md` before 0.33) registered under the coordinator | an internal stage of the coordinator has no entry of its own |
 | corrected version, re-check, handover | files in the run folder (`revision*/proposed*`, `recheck.json`) and `handover` in `run.json` | not recorded as stages, so they have no status or time |
 | decisions held | findings with `decision: true`, added up over the stages | the same problem found by two stages counts twice until the dashboard's inventory exists |
 | the run waits for the authors | the coordinator finished and decisions remain | a run that stops mid-way for an answer records nothing |

@@ -1,6 +1,6 @@
 {
   "name": "manuscript-skills",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, review figures as they will be printed, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review. Includes deslop, also as a stage of the improvement workflow, which ends with the corrected version of the paper as track changes and a dashboard of what the run found, changed and left open, with the annotated manuscript and the comparison with a human review. On request, the simulated referees, readers and critics also run on another AI model through the command-line agents the authors already use.",
   "author": {
     "name": "DNA Seq",

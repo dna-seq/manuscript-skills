@@ -54,10 +54,11 @@ def start(path: Path, *skills: str) -> Path:
     return Path(result.output.strip())
 
 
-def report(run: Path, skill: str, text: str = 'What the stage found, with its coverage.') -> None:
-    source = run.parent / f'{skill}-report.md'
+def report(run: Path, skill: str, text: str = 'What the stage found, with its coverage.',
+           name: str = 'stage-report.md') -> None:
+    source = run.parent / f'{skill}-{name}'
     source.write_text(text, encoding='utf-8')
-    result = invoke('add', run, '--skill', skill, '--file', source, '--role', 'report', '--name', 'report.md')
+    result = invoke('add', run, '--skill', skill, '--file', source, '--role', 'report', '--name', name)
     assert result.exit_code == 0, result.output
 
 
@@ -201,7 +202,7 @@ def test_a_focused_run_hands_over_its_report_beside_the_manuscript(manuscript: P
     assert configure(manuscript).exit_code == 0
     run = start(manuscript, 'manuscript-reference-check')
     missing = invoke('handover', run, '--report', 'manuscript-reference-check')
-    assert missing.exit_code == 1 and 'no saved report' in missing.output
+    assert missing.exit_code == 1 and 'no saved report' in missing.output and '--name stage-report.md' in missing.output
     assert invoke('handover', run, '--report', 'manuscript-nonexistent').exit_code == 2
     report(run, 'manuscript-reference-check', 'Every reference checked.')
     result = invoke('handover', run, '--report', 'manuscript-reference-check')
@@ -215,6 +216,17 @@ def test_a_focused_run_hands_over_its_report_beside_the_manuscript(manuscript: P
     assert result.exit_code == 0 and '--replace' in result.output
     assert copy.read_text(encoding='utf-8') == 'Annotated by a co-author.'
     assert (manuscript.parent / f'paper.reference-check.{TODAY}.md').read_text(encoding='utf-8') == 'Every reference checked.'
+
+
+def test_handover_takes_the_stage_report_and_an_earlier_runs_report_md(manuscript: Path) -> None:
+    assert configure(manuscript).exit_code == 0
+    run = start(manuscript, 'manuscript-reference-check')
+    report(run, 'manuscript-reference-check', 'From before 0.33.', name='report.md')  # an earlier run's name
+    assert runs.report_of(run, runs.read(run), 'manuscript-reference-check') == run / 'manuscript-reference-check/report.md'
+    report(run, 'manuscript-reference-check', 'Notes.', name='notes.md')
+    assert runs.report_of(run, runs.read(run), 'manuscript-reference-check').name == 'report.md'
+    report(run, 'manuscript-reference-check', 'Every reference checked.')
+    assert runs.report_of(run, runs.read(run), 'manuscript-reference-check').name == 'stage-report.md'
 
 
 def test_pack_keeps_the_newest_attempt_of_each_deliverable_and_archives_the_older(manuscript: Path) -> None:

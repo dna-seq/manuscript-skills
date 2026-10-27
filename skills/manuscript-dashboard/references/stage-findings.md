@@ -1,6 +1,6 @@
 # Stage findings: the file every skill writes for the dashboard
 
-Besides its report for the authors (`report.md`), each finding-producing skill in a run writes
+Besides its report for the authors (`stage-report.md`; `report.md` in runs before 0.33), each finding-producing skill in a run writes
 `findings.json` in its own run folder, `RUN/<skill>/findings.json`, even when it found nothing (an empty
 `findings` list with what it covered, and `not_checked` for what it could not). `runs.py validate --final`
 refuses a finished stage without it. `scripts/collect.py` merges these into one inventory, so a
@@ -27,7 +27,7 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
       "stage": "now | writing | journal | final",
       "confidence": "confirmed | candidate",
       "decision": false,
-      "evidence": [{"path": "report.md", "quote": "a verbatim sentence from that file that states this finding"}]
+      "evidence": [{"path": "stage-report.md", "quote": "a verbatim sentence from that file that states this finding"}]
     }
   ],
   "changes": [],

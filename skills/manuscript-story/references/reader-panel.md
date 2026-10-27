@@ -26,7 +26,9 @@ different models are reported side by side, never averaged. Only
 when the host cannot start agents at all, read once per seat, in order, do not revise one seat's answer
 after reading as the next, record `--isolation one-agent` and say in the report that these readers were not
 independent. A seat that has read the authors' intentions can no longer tell them whether the text conveys
-them.
+them. A reader that saves its answer writes `answer.md` in its folder (`readers/<seat>/answer.md`), never
+`report.md`, which Claude Code refuses a delegated agent
+([files a delegated agent cannot create](../../manuscript-integrity-check/references/project-workflow.md#files-a-delegated-agent-cannot-create)).
 
 Readers look at figures before they read sentences, so every seat's workspace holds them: `figures/`, made
 with `uv run --script ../manuscript-figures/scripts/figures.py workspace PAPER --into WORKSPACE/figures`,

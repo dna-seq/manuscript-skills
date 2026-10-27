@@ -88,7 +88,7 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
 ```json
 {
   "merge": [{"keep": "IC-3", "ids": ["RF-2", "ST-5"], "summary": "optional better wording"}],
-  "update": [{"id": "RP-4", "assessment": "confirmed", "evidence": [{"path": "../manuscript-integrity-check/report.md", "quote": "..."}]}],
+  "update": [{"id": "RP-4", "assessment": "confirmed", "evidence": [{"path": "../manuscript-integrity-check/stage-report.md", "quote": "..."}]}],
   "dismiss": [{"id": "DS-7", "why": "A module name, not hype."}],
   "decisions": [{"id": "D1", "summary": "Narrow the speed claim or rerun the benchmark", "finding_ids": ["IC-3"]}],
   "change_links": [{"change": "prose-edit.C1", "finding_ids": ["IC-2"]}],
@@ -259,10 +259,10 @@ tab, the filters, a row's evidence, an edit's diff, both themes and a phone-widt
 runtime errors before handover. If no browser is available, say that interactive behaviour was not
 checked.
 
-Write a short `report.md`: the run and its coverage, what the main counts mean, the problems that
+Write a short `stage-report.md`: the run and its coverage, what the main counts mean, the problems that
 matter most, what the comparison shows when there is one, and links to the dashboard, the inventory and
 the merge file, and the annotated Word document when it was written. The shared report check is required:
-`uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/manuscript-dashboard/report.md --report --check`,
+`uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/manuscript-dashboard/stage-report.md --report --check`,
 then read the report against the pattern list it prints. Register the report, the inventories, the merge
 file and the outputs with `runs.py add`, giving each output its path inside this skill's folder with
 `--name`, because several attempts and folders hold files of the same name (without it, each file is
@@ -276,7 +276,7 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill ma
 ```
 
 and the same for `findings.draft.json`, `merges.json`, `findings.json`, `manuscript-review.docx` and
-`report.md` (`--role report`); keep failed attempts too. Creating the files does not send them to anyone.
+`stage-report.md` (`--role report`); keep failed attempts too. Creating the files does not send them to anyone.
 
 Once every stage is finished and `runs.py validate RUN --final` passes, hand the dashboard, the Word
 document and the corrected version over beside the manuscript, where the authors open the paper:

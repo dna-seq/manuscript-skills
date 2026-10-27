@@ -39,7 +39,7 @@ uv run --script ../manuscript-integrity-check/scripts/scan.py PAPER.md --referen
     --md RUN/manuscript-reference-check/references.md --json RUN/manuscript-reference-check/references.json
 ```
 
-These outputs are working files that feed the report, `RUN/manuscript-reference-check/report.md`, which reaches
+These outputs are working files that feed the report, `RUN/manuscript-reference-check/stage-report.md`, which reaches
 the authors as the plugin-wide `reports` setting says
 ([author priorities](../manuscript-integrity-check/references/author-priorities.md#where-files-go)); in a focused
 run its copy beside the manuscript comes from `runs.py handover RUN --report manuscript-reference-check`. In a

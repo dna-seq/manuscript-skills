@@ -389,7 +389,7 @@ it found or recommends: a review, an audit, a check's result, a plan. Where it g
 setting, `reports`, inherited from global defaults and saved per manuscript project. The run always
 retains the report and evidence; this setting controls presentation in the conversation:
 
-- `file`: the report is `RUN/<skill>/report.md`. In an improvement run the dashboard links every report;
+- `file`: the report is `RUN/<skill>/stage-report.md`. In an improvement run the dashboard links every report;
   in a single-skill run a copy also goes beside the manuscript, named after it and the skill
   (`paper.reference-check.md`, through `runs.py handover RUN --report <skill>`). The reply gives its path, the
   headline and the most urgent points, with consequential before/after changes still shown in the chat as

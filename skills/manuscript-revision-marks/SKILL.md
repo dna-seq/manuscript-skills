@@ -150,7 +150,7 @@ uv run --script scripts/typeset.py md PAPER.tex                 # LaTeX to a Mar
   `PAPER.md`) is never overwritten: exit 2. `--out` always names a `.pdf`.
 - The PDF stays beside the manuscript (or at `--out`); register it in the run like the heat map
   (`runs.py add ... --role other --name PAPER.pdf`), and its log with `--role check`. The stage's report is
-  still its own `report.md` (the end-of-stage checklist); the heat map and the PDF are documents beside it.
+  still its own `stage-report.md` (the end-of-stage checklist); the heat map and the PDF are documents beside it.
 - `--template` passes a venue's pandoc LaTeX template (Markdown only). A template that reads `mainfont`
   gets DejaVu, which may not be the venue's face; one that sets its own fonts ignores it. A Markdown
   master is expected to have one `#` title heading and `##` sections (the build shifts headings up one

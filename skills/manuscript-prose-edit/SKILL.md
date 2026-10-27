@@ -60,7 +60,7 @@ is proposed. Only the choice between new work and a narrower claim is the author
 
 ```bash
 uv run --script ../manuscript-deslop/scripts/style_profile.py BEFORE.md # before editing: where the patterns are
-uv run --script scripts/guard.py BEFORE.md AFTER.md [--json report.json] [--md report.md] [--moved-to FILE]
+uv run --script scripts/guard.py BEFORE.md AFTER.md [--json guard.json] [--md guard.md] [--moved-to FILE]
 uv run --script scripts/guard.py AFTER.md --against HEAD                # in git: the last commit is BEFORE
 uv run --script scripts/guard.py BEFORE.md AFTER.md --only Discussion   # a request for named sections; repeat --only
 uv run --script ../manuscript-deslop/scripts/style_profile.py AFTER.md --before BEFORE.md --check [--keep ID@HEADING] [--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt] [--sample AUTHORS.md]

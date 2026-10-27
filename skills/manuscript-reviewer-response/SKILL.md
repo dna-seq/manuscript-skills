@@ -180,7 +180,7 @@ probability or overall score.
 
 Commands are relative to this skill directory. Where the files go, one rule: the check's Markdown, its JSON and
 the guard's comparison are evidence in the run folder, `RUN/manuscript-reviewer-response/`; what the authors
-need from the check goes into the stage's `report.md`, which the `reports` setting presents (a single-skill
+need from the check goes into the stage's `stage-report.md`, which the `reports` setting presents (a single-skill
 run also gets a copy beside the manuscript through `runs.py handover RUN --report manuscript-reviewer-response`).
 The response letter and the ledger are the authors' documents and stay beside each other:
 
@@ -233,7 +233,7 @@ is still missing its decision.
 
 ## Findings for the dashboard
 
-Beside the report (`RUN/manuscript-reviewer-response/report.md`: the plan, the letter check's summary or the
+Beside the report (`RUN/manuscript-reviewer-response/stage-report.md`: the plan, the letter check's summary or the
 verification report), write `findings.json` as
 [stage findings](../manuscript-dashboard/references/stage-findings.md) describes, with IDs `RR-1`, `RR-2`...:
 in verify mode, one record per comment not fully addressed or made worse, per regression and per reply the

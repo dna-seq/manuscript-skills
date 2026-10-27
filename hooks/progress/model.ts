@@ -105,7 +105,8 @@ const ASSEMBLY: [string, string][] = [
 ]
 const COORDINATOR = 'manuscript-improve'
 const DASHBOARD = 'manuscript-dashboard'
-const REVISE_REPORT = /\/revise[^/]*\/report[^/]*\.md$/
+// revise/stage-report.md since 0.33; revise/report.md in earlier runs (and their numbered attempts)
+const REVISE_REPORT = /\/revise[^/]*\/(?:stage-)?report[^/]*\.md$/
 const STATUS: Record<string, ManuscriptStageState> = {
   completed: 'done',
   reused: 'reused',
@@ -208,7 +209,7 @@ function fromStep(g: Gathered, stage: ManuscriptStage, step: RunStep): Manuscrip
   }
 }
 
-// The newest report a stage registered: report.md, then report.2.md and later attempts.
+// The newest report a stage registered: stage-report.md (report.md before 0.33), then numbered later attempts.
 function newestReport(runPath: string, skill: RunSkill): string | null {
   const reports = skill.artifacts.filter(item => item.role === 'report')
   const last = reports.at(-1)

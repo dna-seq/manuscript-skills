@@ -93,7 +93,7 @@ For example, a report that states "One citation names the wrong paper." could su
   "assessment": "confirmed",
   "resolution": "open",
   "skills": ["manuscript-reference-check"],
-  "evidence": [{"path": "../manuscript-reference-check/report.md", "quote": "One citation names the wrong paper."}]
+  "evidence": [{"path": "../manuscript-reference-check/stage-report.md", "quote": "One citation names the wrong paper."}]
 }
 ```
 

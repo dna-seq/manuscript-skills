@@ -22,7 +22,7 @@ diff in context.
 
     uv run --script guard.py BEFORE.md AFTER.md
     uv run --script guard.py PAPER.md --against HEAD                      # compare with the committed version
-    uv run --script guard.py BEFORE.md AFTER.md --json report.json --md report.md
+    uv run --script guard.py BEFORE.md AFTER.md --json guard.json --md guard.md
     uv run --script guard.py BEFORE.md AFTER.md --authorised requested.yaml  # the claim changes a request asked for
     uv run --script guard.py BEFORE.md AFTER.md --allow-strengthening     # every claim change authorised at once
     uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json

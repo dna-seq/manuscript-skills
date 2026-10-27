@@ -270,4 +270,6 @@ return the report as text for the coordinator to save; no agent did that, and ea
 Telling stage agents in the stage brief to write their report files with a shell command from the start (as every
 one of them ended up doing), or giving `runs.py` a command that saves a report from standard input and registers it,
 would take those 5.4 minutes off every run for a paragraph of instructions or a few lines of code: more than any
-cache in this note.
+cache in this note. Since 0.33.0 a stage's report is `stage-report.md` and a reader's answer `answer.md`, names the
+rule does not match, whatever tool an agent writes them with; runs.py, the progress view and the dashboard still
+read `report.md` in earlier runs (project-workflow.md, "Files a delegated agent cannot create").

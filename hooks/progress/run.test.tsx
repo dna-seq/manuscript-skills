@@ -31,7 +31,7 @@ function runJson(prose = 'running', improve = 'running'): RunJson {
         status: improve,
         artifacts: [
           { path: 'manuscript-improve/stage-brief-revise.md', role: 'other', recorded_at: at(10) },
-          { path: 'manuscript-improve/revise/report.md', role: 'other', recorded_at: at(30) },
+          { path: 'manuscript-improve/revise/stage-report.md', role: 'other', recorded_at: at(30) },
         ],
         changes: [change('manuscript-improve', 1, 20), change('manuscript-improve', 2, 21)],
       },
@@ -40,7 +40,7 @@ function runJson(prose = 'running', improve = 'running'): RunJson {
         status: 'completed',
         artifacts: [
           { path: 'manuscript-integrity-check/commands/0001.stdout.txt', role: 'check', recorded_at: at(1) },
-          { path: 'manuscript-integrity-check/report.md', role: 'report', recorded_at: at(5) },
+          { path: 'manuscript-integrity-check/stage-report.md', role: 'report', recorded_at: at(5) },
         ],
       },
       'manuscript-peer-review': {
@@ -91,6 +91,9 @@ test('the status line reads like the run', () => {
     'Assembly 0/6',
   ])
   expect(view.stages.find(stage => stage.id === 'revise')?.edits).toBe(2)
+  expect(view.stages.find(stage => stage.id === 'revise')?.report).toBe(`${RUN}/manuscript-improve/revise/stage-report.md`)
+  // Reports keep their names from before 0.33 in earlier runs: peer review's report.md opens all the same.
+  expect(view.stages.find(stage => stage.id === 'manuscript-peer-review')?.report).toBe(`${RUN}/manuscript-peer-review/report.md`)
   expect(view.isWaiting).toBe(false)
 })
 

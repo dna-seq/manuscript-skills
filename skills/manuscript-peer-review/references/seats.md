@@ -155,7 +155,7 @@ reviewer raised it ("the simulated desk editor"), quoting the manuscript with it
 Register it in the run under manuscript-peer-review: each seat's `findings.json` as a `seat` artifact
 (`--seat desk-editor`, `--seat evidence-statistics`, with `--isolation`), the defender's answers as
 `defence` and the adjudicated findings as `adjudication`, a short report in this skill's folder
-(`report.md`: the two seats, the confirmed points and where the calling report lists them), then
+(`stage-report.md`: the two seats, the confirmed points and where the calling report lists them), then
 `runs.py finish RUN --skill manuscript-peer-review --status completed --review-mode quick`.
 
 ## Domain modules

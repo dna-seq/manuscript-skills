@@ -113,8 +113,9 @@ registered by the next attempt, with their unknown original exit status clearly 
 
 Write conclusions, checks and failed attempts under `RUN/SKILL/`, not in a disposable scratch folder.
 Each skill gets a generated `README.md` linking its evidence and showing its status. Save the actual
-author-facing report as `report.md` or another descriptive filename. Only the skill-root `README.md`
-is reserved; source READMEs can be retained under evidence subfolders. Beside the report, write the same
+author-facing report as `stage-report.md` (runs before 0.33 used `report.md`; read either). Only the
+skill-root `README.md` is reserved, and no file a delegated agent writes is a Markdown file whose name starts with
+`report`, `summary`, `findings` or `analysis` ([why](#files-a-delegated-agent-cannot-create)); source READMEs can be retained under evidence subfolders. Beside the report, write the same
 findings as `findings.json` ([stage findings](../../manuscript-dashboard/references/stage-findings.md)):
 one record per distinct problem with its verbatim passage, severity, stage and evidence, plus what was
 dismissed and what could not be checked. `manuscript-dashboard` counts the run from these files and
@@ -123,7 +124,7 @@ already written there (give `--name` a path inside the skill's folder, `figures/
 several files share a name):
 
 ```bash
-uv run --script scripts/runs.py add RUN --skill manuscript-story --file REPORT --role report --name report.md
+uv run --script scripts/runs.py add RUN --skill manuscript-story --file REPORT --role report --name stage-report.md
 uv run --script scripts/runs.py add RUN --skill manuscript-story --file READER --role reader --seat skimmer --isolation fresh-agent --name readers/skimmer.md
 uv run --script scripts/runs.py exec RUN --skill manuscript-story -- uv run --script METRICS SOURCE
 uv run --script scripts/runs.py issue RUN --skill manuscript-story --kind contradiction --message 'Explain the actual disagreement and its consequence.'
@@ -177,9 +178,9 @@ uv run --script scripts/runs.py resume RUN
 Every skill that finds or changes something, run alone or as a stage of `manuscript-improve`, ends with the
 same five steps before `finish`:
 
-1. **The report**, `RUN/<skill>/report.md`, written for the authors ([writing for the authors](author-priorities.md#writing-for-the-authors)).
+1. **The report**, `RUN/<skill>/stage-report.md`, written for the authors ([writing for the authors](author-priorities.md#writing-for-the-authors)).
 2. **The smell check on the report**, from the skill's folder:
-   `uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/<skill>/report.md --report --check`;
+   `uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/<skill>/stage-report.md --report --check`;
    rewrite what it lists, then reread the report against the pattern list it prints.
 3. **`findings.json`** beside the report, with the skill's prefix ([stage findings](../../manuscript-dashboard/references/stage-findings.md));
    an empty `findings` list is valid when nothing was found.
@@ -196,12 +197,8 @@ Skills that write no `findings.json` (manuscript-dashboard, manuscript-other-mod
 and manuscript-improve, whose findings are the dashboard's adjudicated inventory) skip step 3. `finish`
 refuses a completed or partial stage without it; a blocked one needs only its reason.
 
-When a stage runs as a delegated agent, the host may refuse to let it create report files (one harness
-answers "subagents should return findings as text"). Then the agent returns the finished report as text,
-or leaves it in scratch, and the coordinator saves it unchanged under the stage's folder and records an
-issue saying so; it never rewrites the report while copying it. Stages that run at the same time and
-browse each open their own browser tab: a shared tab navigated by another stage loses the page a
-stage was reading.
+Stages that run at the same time and browse each open their own browser tab: a shared tab navigated by
+another stage loses the page a stage was reading.
 
 Large downloads and unrelated intermediates can still use scratch. Anything needed to inspect or
 reproduce a reported conclusion belongs in the run folder: actual seat reports, check outputs, source
@@ -212,6 +209,18 @@ The `keep` setting decides only what stays visible once the run ends (see the ha
 records the same evidence whichever it is.
 Stable project documents, such as the scientific record and venue planning document, remain in place;
 register the version used or produced in this run rather than moving their authoritative masters.
+
+### Files a delegated agent cannot create
+
+Claude Code's Write tool refuses a delegated agent (a subagent) any Markdown file whose name starts with
+`report`, `summary`, `findings` or `analysis`, in any case: `report.md` and `report.2.md` included ("Subagents
+should return findings as text, not write report files"). There is no setting for it. That is why a stage's
+report is `stage-report.md` and a reader's answer `answer.md`: in the Paper 1 v0.6 run, every one of 14
+delegated agents lost a turn and resent its whole report when `report.md` was refused. Name every file a
+delegated agent writes accordingly (`skeptic-report.md`, `check.md`, `guard.md` are fine). When some other
+host refuses a report file anyway, the agent returns the finished report as text, or leaves it in scratch, and
+the coordinator saves it unchanged under the stage's folder and records an issue saying so; it never rewrites
+the report while copying it.
 
 ## Independent readers and referees
 
