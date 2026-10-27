@@ -211,6 +211,17 @@ paper/
     └── 20261024T101500Z-3f2a91c0/   one folder per run: index, reports, evidence
 ```
 
+## Watching a run in Claude Code
+
+In Claude Code 2.1.299 or newer, the plugin shows where a run stands while it works: a status line, a
+**Manuscript run** pane with each phase's progress, counts, the referees' recommendations, the run's
+settings and buttons that open its outputs, a band above the prompt when decisions wait for you, and a
+short notice as each stage finishes. The pane opens by itself in the session that runs the workflow;
+anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
+PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
+folder. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so
+Codex users do not get the view: there the run's state stays in the chat and the run index.
+
 ## More details
 
 <details>
@@ -539,7 +550,9 @@ and current journal policies requires internet access. Ask the assistant to chec
 
 ## Development
 
-`uv run pytest` runs the offline tests of every script. Behavioural evaluations of the skills, with
+`uv run pytest` runs the offline tests of every script, and, where Claude Code 2.1.299 or newer is on PATH
+(or named in `CLAUDE_BIN`), `claude plugin validate .` and `claude plugin test .` for the progress view in
+`hooks/progress/`. Behavioural evaluations of the skills, with
 seeded manuscripts and clean controls, are described in [evals/README.md](evals/README.md). The survey of
 related projects behind the current design is in [docs/](docs/skill-landscape-2026-10.md).
 

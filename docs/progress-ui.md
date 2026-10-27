@@ -4,9 +4,13 @@ A `manuscript-improve` run takes two to four hours, and until now the authors fo
 messages. The prototype is a Claude Code mod (a plugin hooks module) that reads the run folder and shows
 where the run stands, without anyone asking. It reads; it never writes in the run folder or the manuscript.
 
-Status: a dev mod, tested against the Paper 1 v0.6 run of 2026-10-27, not shipped. Its source is in the
-Claude Code session's mods folder (`~/.claude/dev-mods/<session>/manuscript-run/`) until the decision to
-ship it, below.
+Status: shipped in 0.30.0 as `hooks/progress/` (tested against the Paper 1 v0.6 run of 2026-10-27). The
+pane opens by itself only when a `runs.py` call in the session names a run (once per run), or on
+`/manuscript-status` and `show_run`; at session start a run of the folder's project only sets the status
+line, and runs of other folders are never shown unasked. `hooks/hooks.json` carries an empty `hooks`
+record beside `modules`: Claude Code 2.1.227 otherwise reports the plugin's hooks as failed to load (its
+skills still load); with it, it loads cleanly and ignores the view. The minimum for the view is 2.1.299,
+the oldest release tested.
 
 ## What the authors see
 

@@ -46,5 +46,6 @@
     "figures",
     "multi-model"
   ],
-  "skills": "./skills"
+  "skills": "./skills",
+  "types": "./types/index.d.ts"
 }
