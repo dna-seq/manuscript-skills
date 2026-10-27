@@ -55,9 +55,12 @@ the peer-review adjudication (its `reports[].recommendations`); the newest `revi
 | the run waits for the authors | the coordinator finished and decisions remain | a run that stops mid-way for an answer records nothing |
 | how many stages there are | the stages the full workflow has, whether or not this run will reach them | a stage the run will skip counts until it is skipped |
 
-## Records `runs.py` could add
+## Records `runs.py` keeps for the view
 
-All optional, so older runs and the view's fallbacks keep working.
+Proposed here and added in 0.30.0; all optional, so older runs and the view's fallbacks keep working.
+When the coordinator calls each command is in `project-workflow.md` ("Progress records") and the
+`manuscript-improve` skill. The view reads `started_at`, `finished_at` and `waiting` already; `plan`, `counts`
+and the coordinator's `stages` are for it to read next.
 
 1. **Start and finish times.** `ensure_skill` writes `started_at` when it creates an entry, and
    `runs.py begin RUN --skill NAME` writes it before a stage records anything (idempotent: an existing
@@ -69,7 +72,7 @@ All optional, so older runs and the view's fallbacks keep working.
    questions}` at the top of `run.json`; `runs.py resume RUN` clears it. The view already reads `waiting`.
 4. **The plan.** `start` (or `begin` on the coordinator) writes `plan`, the stages this run means to run,
    so the count is right from the start and a skipped stage is known before it is reached.
-5. **Counts at finish.** `finish` already reads the stage's `findings.json`; it could store `counts =
+5. **Counts at finish.** `finish` already reads the stage's `findings.json`; it stores `counts =
    {findings, proposals, decisions}` in the entry, so the view needs `run.json` alone until the dashboard.
 
 ## Shipping it in the plugin

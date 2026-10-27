@@ -140,6 +140,38 @@ their interpretation and any later resolution. `exec` records attempt metadata b
 it records the true exit code on completion. Interrupted attempts keep their partial output and unknown exit status; it never treats a zero exit code as scientific validation. Retain a failed attempt when rerunning
 successfully. Evidence cannot be silently overwritten; register the next attempt under a new filename.
 
+### Progress records
+
+A run takes hours, and the authors follow it through `run.json` and the run index, or a progress view that
+reads them. These records say where the run stands. They are optional (a run without them still validates),
+and the coordinating agent writes them, like every other record:
+
+- **The plan.** `start ... --plan STAGE`, repeated in order, names the stages the run means to run: skills,
+  and in an improvement run the coordinator's own steps `revise`, `corrected`, `recheck` and `handover`.
+  When the stages are chosen after the run has started, `runs.py begin RUN --skill manuscript-improve --plan
+  STAGE ...` replaces the plan. A planned stage the run skips is finished `not_run` with its reason.
+- **A stage starts.** `runs.py begin RUN --skill SKILL` as the stage starts, before its agent is briefed or
+  its first command runs, so a stage that has recorded nothing yet shows as running and its time counts
+  from its start. A second `begin` keeps the first start. A stage never begun starts with its first
+  record, and the skills given to `start --skill` start with the run.
+- **A stage finishes.** `finish` records when, and the counts of the stage's newest `findings.json`: its
+  findings, its proposals (`changes`) and the decisions for the authors (`decision: true`).
+- **The coordinator's own stages.** `runs.py stage RUN --name revise|corrected|recheck|handover --status
+  running` when one starts, then `--status completed`, or `partial`, `blocked` or `not_run` with `--reason`.
+  A stage done again (a rebuilt corrected version) is set `running` again and keeps its first start.
+- **The run waits for the authors.** When the run stops until the authors answer (a requested checkpoint,
+  an interview, a question that blocks the next stage), `runs.py wait RUN --question TEXT`, one `--question`
+  per question, before asking; the run index lists them. `runs.py resume RUN` when the run goes on, answered
+  or not. Never record a wait for a question the run does not stop for, such as the decisions listed in the
+  handover.
+
+```bash
+uv run --script scripts/runs.py begin RUN --skill manuscript-prose-edit
+uv run --script scripts/runs.py stage RUN --name revise --status running
+uv run --script scripts/runs.py wait RUN --question 'Which journal should the paper go to first?'
+uv run --script scripts/runs.py resume RUN
+```
+
 ### End-of-stage checklist
 
 Every skill that finds or changes something, run alone or as a stage of `manuscript-improve`, ends with the
@@ -157,7 +189,8 @@ same five steps before `finish`:
    that was not shown. An edit nobody recorded stops the corrected version from being built. With
    `versions: immutable` the edits go into the new version `runs.py version RUN` makes (the same file for
    every stage of the run), never into the earlier one; with `edits: none` there are none to record.
-5. **`runs.py finish RUN --skill <skill> --status ...`** with the honest coverage.
+5. **`runs.py finish RUN --skill <skill> --status ...`** with the honest coverage. It records when the stage
+   finished and the counts of its `findings.json` ([progress records](#progress-records)).
 
 Skills that write no `findings.json` (manuscript-dashboard, manuscript-other-models, manuscript-mark-people,
 and manuscript-improve, whose findings are the dashboard's adjudicated inventory) skip step 3. `finish`

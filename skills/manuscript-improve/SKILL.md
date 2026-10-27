@@ -127,6 +127,17 @@ starts each seat on each chosen model, and the critics on the chosen model, with
 
 **One stage edits the working copy at a time.** The review stages (integrity, references, reporting, figures, policy fit, peer review) may run side by side, so in this workflow they do not edit the working copy: each records the corrections it can settle as proposals in its `findings.json` (`changes`, with the before, the after, the why and the finding it rests on), and the revise stage applies them under the `edits` setting before the prose edit, recording each with `runs.py change`. The editing stages then run one after another on the same working copy.
 
+**Record where the run stands** ([progress records](../manuscript-integrity-check/references/project-workflow.md#progress-records)),
+so the authors can follow a run of several hours without asking. Start the run with `--skill manuscript-improve`
+and one `--plan` for each stage it means to run, in order, with your own steps among them (`revise` before the
+prose edit; `corrected`, `recheck` and `handover` at the end); when you choose the stages only after reading
+the paper, give the plan with `runs.py begin RUN --skill manuscript-improve --plan ...`. Run
+`runs.py begin RUN --skill SKILL` as each stage starts, before you brief its agent, and record your own steps
+with `runs.py stage RUN --name revise|corrected|recheck|handover --status running`, then `completed` (or
+`partial`, `blocked` or `not_run` with `--reason`). A report-only run records `revise`, `corrected` and
+`recheck` as `not_run` with the reason, and a planned stage the run leaves out is finished `not_run` with its
+reason.
+
 Stages that write proposals (figures, policy fit, story, prose edit, deslop, journal adaptation) work from the review stages'
 confirmed findings: run them after those stages, or reconcile their proposals with the findings before
 handover, so that no proposal restates what a check refuted (a feature the code lacks, a peak that was
@@ -153,7 +164,9 @@ require interviewing them again about every prose edit.
 
 At a requested checkpoint, give the section or stage covered, the before/after comparison or assessment,
 the reason for consequential changes, and decisions still needed, written as the final summary below is.
-Then stop before the next unit. A request to change one step does not discard previously accepted edits or
+Then stop before the next unit. Whenever the run stops until the authors answer (a checkpoint, an interview,
+a question that blocks the next stage), record it first with `runs.py wait RUN --question TEXT`, one per
+question, and `runs.py resume RUN` when the work goes on; the decisions listed at handover are not a wait. A request to change one step does not discard previously accepted edits or
 settled decisions. Revisit dependent work only when the new decision changes it.
 
 **Finish all independent work before yielding for decisions.** A pending approval or missing fact blocks
@@ -190,11 +203,13 @@ inventory, so the end of a run goes in this order:
 3. Adjudicate in `merges.json`; with a reference review, freeze, match and write `reference.json` with
    `matched_by` (manuscript-dashboard, steps 1 to 3).
 4. Collect the adjudicated `findings.json` once, with `--merge` (and `--reference`).
-5. Write `revision-choices.json` and run `revise.py` into `revision/`.
+5. Write `revision-choices.json` and run `revise.py` into `revision/` (`runs.py stage RUN --name corrected
+   --status running` first).
 6. Verify `revision/proposed<ext>` with the checks of the "Verify the revision" row. Fix a failure by
    holding the proposal or recording the reverse change; when a change was recorded, collect again as
-   `findings.2.json` and rebuild into `revision.2`.
-7. Re-check it independently, once. The stages' own agents are the ones most inclined to see their fixes as
+   `findings.2.json` and rebuild into `revision.2`. Then `stage --name corrected --status completed`; a
+   rebuild after the re-check sets it `running` again.
+7. Re-check it independently, once, between `stage --name recheck --status running` and `completed`. The stages' own agents are the ones most inclined to see their fixes as
    done, so one fresh agent that took no part in the review or the edits reads each confirmed problem against
    the corrected version, and the number and reference checks run again on it (from this skill's folder):
 
@@ -224,7 +239,8 @@ inventory, so the end of a run goes in this order:
    reads `recheck.json` beside the revision folder.
 8. Render the dashboard and the Word file from the same attempts.
 9. Write the summary, run the smell check on it and register it; `finish` every stage, run
-   `validate --final`, then `runs.py handover` and, when `keep` is `results`, `pack`.
+   `validate --final`, then `runs.py handover` (between `stage --name handover --status running` and
+   `completed`) and, when `keep` is `results`, `pack`.
 
 Write `RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
 recommend (`prefer`); the proposals to hold back with the reason (`hold`: a held decision such as a

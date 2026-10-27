@@ -47,6 +47,13 @@ run index, the skills' READMEs and reports, the newest dashboard and Word file a
 version into evidence.zip, verifies the archive and only then removes the loose copies; validate checks each
 packed file inside the archive, and unpack restores them before a run continues.
 
+Progress records, all optional (a run without them still validates): a stage's entry gets started_at when it
+is created (begin RUN --skill NAME creates it before the stage records anything) and finished_at and counts
+(findings, proposals, decisions from its newest findings.json) from finish; start --plan writes the stages the
+run means to run; stage RUN --name revise|corrected|recheck|handover records the coordinator's own steps under
+skills.manuscript-improve.stages; wait RUN --question TEXT says the run stops for the authors, resume that it
+goes on.
+
 Exit codes: 0 done; 1 a check failed (validate, finish, pack) or nothing to hand over; 2 a bad option, an
 unreadable project file, or an edit, a new version or a replacement the run's settings rule out;
 3 the run is busy or packed, or start has no ready project or no reading copy; exec returns its command's.
@@ -109,6 +116,24 @@ class Isolation(str, Enum):
 
 
 ISOLATION_LABEL = {'fresh-agent': 'fresh agent', 'one-agent': 'one agent in turn, not independent'}
+
+
+class Step(str, Enum):
+    """The coordinator's own stages, which no other skill records: recorded with `stage` under manuscript-improve."""
+    revise = 'revise'  # the review stages' proposals applied to the working copy
+    corrected = 'corrected'  # the corrected version built and verified (revise.py into revision/)
+    recheck = 'recheck'  # the independent re-check of the corrected version
+    handover = 'handover'  # the deliverables copied beside the manuscript
+
+
+class StepStatus(str, Enum):
+    running = 'running'
+    completed = 'completed'
+    partial = 'partial'
+    blocked = 'blocked'
+    not_run = 'not_run'
+
+
 SKILLS = Path(__file__).resolve().parents[2]
 ARCHIVE = 'evidence.zip'
 # What the authors open after a run (fnmatch patterns; * crosses folders). A step done again writes a numbered
@@ -208,6 +233,11 @@ def save(run: Path, data: dict[str, Any]) -> None:
              "Command exit status and scientific adjudication are separate. Partial and unrun work remains visible.", ""]
     if chosen(data, 'edits') == 'none':
         index.extend(["Report only (edits: none): this run changes no file of the authors.", ""])
+    if waiting := data.get('waiting'):
+        index.extend([f"**Waiting for the authors** since {waiting['since']}:", "",
+                      *(f"- {question}" for question in waiting['questions']), ""])
+    if data.get('plan'):
+        index.extend([f"Planned stages: {', '.join(data['plan'])}.", ""])
     packed = (data.get('packed') or {}).get('files', {})
 
     def link(name: str, path: str, text: str | None = None) -> str:
@@ -221,6 +251,10 @@ def save(run: Path, data: dict[str, Any]) -> None:
         lines = [f"# {name}", "", f"Status: **{seat['status']}**. {seat.get('reason', '')}", ""]
         if name == 'manuscript-peer-review':
             lines.append(f"Review mode: {seat.get('review_mode', 'full')}.\n")
+        for step, record in seat.get('stages', {}).items():
+            lines.append(f"- Stage {step}: **{record['status']}**" + (f". {record['reason']}" if record.get('reason') else ""))
+        if seat.get('stages'):
+            lines.append("")
         for item in seat["artifacts"]:
             lines.append(f"- {item['role']}: {link(name, item['path'])}" + (f" — seat: {item['seat']}" if item.get('seat') else "")
                          + (f" ({ISOLATION_LABEL[item['isolation']]})" if item.get('isolation') in ISOLATION_LABEL else "")
@@ -234,7 +268,10 @@ def save(run: Path, data: dict[str, Any]) -> None:
             lines.extend(["", f"- Change: {link(name, change['path'], change['section'])}; "
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
         (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-        index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s).")
+        counted = seat.get('counts')
+        index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s)."
+                     + (f" {counted['findings']} finding(s), {counted['proposals']} proposal(s), {counted['decisions']} "
+                        "decision(s) for the authors." if counted else ""))
     for item in data.get('versions', []):
         index.extend(["", f"New version: {item['new']}, made from {item['previous']}, which is kept as it was."])
     for location in data.get('not_snapshotted', []):
@@ -254,9 +291,25 @@ def chosen(data: dict[str, Any], key: str) -> str | None:
     return data.get('context', {}).get('effective', {}).get(key)
 
 
-def ensure_skill(data: dict[str, Any], name: str) -> dict[str, Any]:
+def ensure_skill(data: dict[str, Any], name: str, at: str | None = None) -> dict[str, Any]:
+    """A stage's entry; one created now starts now (at AT when given), so the progress view can time it."""
     skill_name(name)
-    return data["skills"].setdefault(name, {"status": "running", "artifacts": [], "issues": [], "changes": [], "commands": []})
+    if name not in data["skills"]:
+        data["skills"][name] = {"status": "running", "started_at": at or now(), "artifacts": [], "issues": [],
+                                "changes": [], "commands": []}
+    return data["skills"][name]
+
+
+def planned(names: list[str]) -> list[str]:
+    """The stages a run means to run, in order: skills, and the coordinator's own steps (revise, corrected, ...)."""
+    for name in names:
+        if name not in {step.value for step in Step}:
+            try:
+                skill_name(name)
+            except ValueError as exc:
+                raise typer.BadParameter(f"{exc}; a planned stage is a manuscript skill or one of the coordinator's "
+                                         f"steps ({', '.join(step.value for step in Step)}).") from exc
+    return list(dict.fromkeys(names))
 
 
 def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str,
@@ -373,8 +426,8 @@ def findings_files(run: Path, data: dict[str, Any], folder: str) -> list[str]:
             if PurePosixPath(relative).parent.as_posix() == folder and FINDINGS_FILE.fullmatch(PurePosixPath(relative).name)]
 
 
-def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
-    """Why a finished stage's newest findings.json cannot be counted; None when it holds a findings list."""
+def newest_findings(run: Path, data: dict[str, Any], name: str) -> dict[str, Any] | str:
+    """A stage's newest findings.json, read; or, as a string, why it cannot be counted."""
     attempts = findings_files(run, data, name)
     body = stored_body(run, data, attempts[-1] if attempts else f'{name}/findings.json')
     if body is None:
@@ -386,7 +439,24 @@ def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
         return f"{name}: findings.json is not valid JSON ({exc})"
     if not isinstance(record, dict) or not isinstance(record.get('findings'), list):
         return f"{name}: findings.json has no findings list (an empty list is valid)"
-    return None
+    return record
+
+
+def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
+    """Why a finished stage's newest findings.json cannot be counted; None when it holds a findings list."""
+    found = newest_findings(run, data, name)
+    return found if isinstance(found, str) else None
+
+
+def findings_counts(run: Path, data: dict[str, Any], name: str) -> dict[str, int] | None:
+    """What a stage's newest findings.json holds, as the progress view counts it: its findings, its proposals
+    (`changes`) and the findings only the authors can decide (`decision: true`); None without a readable one."""
+    found = newest_findings(run, data, name)
+    if isinstance(found, str):
+        return None
+    changes = found.get('changes')
+    return {'findings': len(found['findings']), 'proposals': len(changes) if isinstance(changes, list) else 0,
+            'decisions': sum(1 for item in found['findings'] if isinstance(item, dict) and item.get('decision') is True)}
 
 
 def dashboard_shows(run: Path, data: dict[str, Any]) -> set[tuple[str, str]]:
@@ -548,11 +618,15 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
                                      "per connected manuscript, in the project's order; repeat")] = None,
           connected_version: Annotated[list[str] | None, typer.Option(
               '--connected-version', help="The connected document's version or revision the reading copy was "
-                                          "exported from, in the same order; repeat")] = None) -> None:
+                                          "exported from, in the same order; repeat")] = None,
+          plan: Annotated[list[str] | None, typer.Option(
+              '--plan', help="A stage this run means to run, in order: a skill, or one of the coordinator's steps "
+                             "(revise, corrected, recheck, handover); repeat")] = None) -> None:
     """Start a unique run under the saved destination. Print its absolute directory; never overwrite a run.
 
     A connected (URL) manuscript is snapshotted through its reading copy; without one for the main manuscript,
-    start creates no run and exits 3."""
+    start creates no run and exits 3. Each --skill starts with the run; --plan names the stages it means to run,
+    so a progress view knows how many there are and which are skipped before it reaches them."""
     overrides = {k: v for k, v in {'reports': reports, 'edits': edits, 'versions': versions, 'keep': keep,
                                     'peer_review': peer_review}.items() if v is not None}
     try:
@@ -565,6 +639,7 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
         raise typer.Exit(3)
     for name in skill:
         skill_name(name)
+    stages = planned(list(plan or []))
     manuscripts = ctx['project']['manuscripts']
     copies = reading_copies(ctx, list(reading_copy or []), list(connected_version or []))
     if absent := [f"{copy['path']} (for {url})" for url, copy in copies.items() if not copy['path'].is_file()]:
@@ -581,7 +656,8 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
     run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid4().hex[:8]
     run = Path(ctx['output_dir']) / run_id
     run.mkdir(parents=True)
-    data = {'schema_version': 1, 'run_id': run_id, 'started_at': now(), 'context': ctx, 'inputs': [], 'skills': {}}
+    data = {'schema_version': 1, 'run_id': run_id, 'started_at': now(), **({'plan': stages} if stages else {}),
+            'context': ctx, 'inputs': [], 'skills': {}}
     for number, location in enumerate(manuscripts, 1):
         extra: dict[str, Any] = {}
         if projects.is_remote(location):
@@ -598,9 +674,31 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
         data['inputs'].append({'original': source.as_posix(), 'snapshot': dest.relative_to(run).as_posix(),
                                'sha256': digest(dest)} | extra)
     for name in skill:
-        ensure_skill(data, name)
+        ensure_skill(data, name, at=data['started_at'])
     save(run, data)
     typer.echo(str(run))
+
+
+@app.command()
+@serialized
+def begin(run: Path, skill: Annotated[str, typer.Option('--skill')],
+          plan: Annotated[list[str] | None, typer.Option(
+              '--plan', help="Replace the stages this run means to run (as start --plan); repeat")] = None) -> None:
+    """Record that a stage starts now, before it has anything to record, so its time is known from its start.
+
+    Idempotent: a stage that already has a start keeps it. --plan, from the coordinator, replaces the run's plan
+    once it knows which stages the run will take."""
+    run = run.resolve()
+    data = read(run)
+    try:
+        entry = ensure_skill(data, skill)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    entry.setdefault('started_at', now())  # an entry from before start times were recorded
+    if plan:
+        data['plan'] = planned(plan)
+    save(run, data)
+    typer.echo(str(run / skill))
 
 
 @app.command()
@@ -756,22 +854,87 @@ def finish(run: Path, skill: Annotated[str, typer.Option('--skill')],
            status: Annotated[str, typer.Option('--status')], reason: str = '', routine_only_reason: str = '',
            review_mode: str | None = None) -> None:
     """Set honest coverage. Completed requires a report, the skill's reader/referee evidence and, for a
-    finding-producing skill, RUN/SKILL/findings.json with a findings list (partial needs it too)."""
+    finding-producing skill, RUN/SKILL/findings.json with a findings list (partial needs it too).
+
+    Records when the stage finished and, from its newest findings.json, how many findings, proposals and
+    decisions for the authors it has."""
     if status not in TERMINAL:
         raise typer.BadParameter(f"Choose {', '.join(sorted(TERMINAL))}.")
     data = read(run)
+    skipped = status == 'not_run' and skill not in data['skills']
     entry = ensure_skill(data, skill)
+    if skipped:  # a stage the run never began has no start
+        del entry['started_at']
     if review_mode is not None:
         if skill != 'manuscript-peer-review' or review_mode not in {'full', 'quick', 'invited'}:
             raise typer.BadParameter('review-mode is full, quick or invited and applies only to peer review.')
         entry['review_mode'] = review_mode
-    entry.update(status=status, reason=reason, routine_only_reason=routine_only_reason)
+    entry.update(status=status, reason=reason, routine_only_reason=routine_only_reason, finished_at=now())
     errors = problems(run, data)
     if errors:
         typer.echo('\n'.join(errors), err=True)
         raise typer.Exit(1)
+    if (counted := findings_counts(run, data, skill)) is not None:
+        entry['counts'] = counted
+    else:
+        entry.pop('counts', None)  # none from an earlier finish outlives the findings file it counted
     save(run, data)
     typer.echo(str(run / skill / 'README.md'))
+
+
+@app.command()
+@serialized
+def stage(run: Path, name: Annotated[Step, typer.Option('--name')], status: Annotated[StepStatus, typer.Option('--status')],
+          reason: Annotated[str, typer.Option(help="Coverage, the obstacle or why it was skipped; needed for "
+                                                   "partial, blocked and not_run")] = '') -> None:
+    """Record one of the coordinator's own stages (revise, corrected, recheck, handover) under manuscript-improve,
+    as the other stages are recorded: running when it starts, then its outcome.
+
+    A stage started again keeps its first start; a skipped one (not_run) needs no start."""
+    if status.value in EXCUSED and not reason.strip():
+        raise typer.BadParameter(f"A {status.value} stage needs --reason: the coverage, the obstacle or why it was skipped.")
+    run = run.resolve()
+    data = read(run)
+    record = ensure_skill(data, 'manuscript-improve').setdefault('stages', {}).setdefault(
+        name.value, {'status': None, 'started_at': None, 'finished_at': None, 'reason': ''})
+    if status == StepStatus.running:
+        record.update(started_at=record.get('started_at') or now(), finished_at=None)
+    else:
+        record['finished_at'] = now()
+    record.update(status=status.value, reason=' '.join(reason.split()))
+    save(run, data)
+    typer.echo(f"{name.value}: {status.value}")
+
+
+@app.command()
+@serialized
+def wait(run: Path, question: Annotated[list[str], typer.Option(
+        '--question', help="A question only the authors can answer; repeat")]) -> None:
+    """Record that the run stops for the authors' answers. Asked again while it waits, the new questions are added
+    and the time it began waiting stays. `resume` records that it goes on."""
+    asked = list(dict.fromkeys(' '.join(text.split()) for text in question if text.strip()))
+    if not asked:
+        raise typer.BadParameter('Give the question the run waits on with --question TEXT.')
+    run = run.resolve()
+    data = read(run)
+    waiting = data.get('waiting') or {'since': now(), 'questions': []}
+    waiting['questions'] += [text for text in asked if text not in waiting['questions']]
+    data['waiting'] = waiting
+    save(run, data)
+    typer.echo(f"Waiting for the authors since {waiting['since']}: {len(waiting['questions'])} question(s).")
+
+
+@app.command()
+@serialized
+def resume(run: Path) -> None:
+    """Record that the run goes on after waiting for the authors: clears what `wait` recorded."""
+    run = run.resolve()
+    data = read(run)
+    if not data.pop('waiting', None):
+        typer.echo('This run was not waiting for the authors; nothing was changed.')
+        return
+    save(run, data)
+    typer.echo('The run goes on.')
 
 
 @app.command()
