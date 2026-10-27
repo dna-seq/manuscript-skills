@@ -24,7 +24,7 @@ across updates.
 
 To refresh only what is old, list it first: `venues.py stale --all` (or `stale KEY ...`) groups the facts that
 are due by the page to re-read, an AI-policy field after 60 days, an impact factor after a newer Journal
-Citation Reports release or without its JCR year, anything else after a year. A fact re-read and found
+Citation Reports release, anything else after a year. A fact re-read and found
 unchanged keeps its value and gets the new date; a changed one is replaced by the new value with the new date.
 To bring the facts a user's catalogue gathered into the shipped one, copy each with its date and page into the
 venue's entry here (a value with no date of its own takes its date from the entry's `provenance`).

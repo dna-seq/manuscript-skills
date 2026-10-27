@@ -4,8 +4,9 @@
 #
 # Every value comes from the venue's own pages (sources and verbatim quotes: publisher-policies.md,
 # target-journals.md, journal-policies/<publisher>.md). `null` means not researched, never "no rule". A `jif`
-# with a `jif_year` was read on the journal's or publisher's own page; one without is a value circulating in
-# mid-2026: confirm it, and leave it unset when only a third-party site gives it. policy_watch.py re-reads every
+# with a `jif_year` was read on the journal's or publisher's own page or in Journal Citation Reports; one without
+# is a third-party figure (an aggregator site, a value circulating in mid-2026), not verified: it counts against an
+# impact-factor floor but ranks below every verified one, and is confirmed when found. policy_watch.py re-reads every
 # url, ai_policy_url and sources entry; policy-snapshots/index.yaml holds the date each page was last read.
 #
 # Dates. Each fact carries the date it was read and its page, so a run re-reads only what is old:
@@ -15,7 +16,7 @@
 #     2026-10-27}, transfers: {...}}; a later provenance date than a fact's own moves it (re-read, unchanged);
 #   - without either, the entry's `checked`, else the file's `checked` below.
 #   `venues.py stale` lists what is due: an AI-policy field after 60 days, a jif read before the latest Journal
-#   Citation Reports release (each June) or without a jif_year, anything else after 365 days. A fact found
+#   Citation Reports release (each June), verified or not, anything else after 365 days. A fact found
 #   unchanged keeps its value and gets the new date; a changed one is replaced by the new value and date.
 #
 # Where facts go. In this repository's checkout, a run writes what it reads into this file, in place. An installed
@@ -4054,8 +4055,9 @@ venues:
   life-science-alliance:
     name: Life Science Alliance
     publisher: Life Science Alliance LLC (EMBO Press, Rockefeller University Press, CSHL Press)
-    # Not on the journal's pages (2026-10-27); about 3.1 circulates on aggregator sites, which is not recorded.
-    jif: null
+    # Not on the journal's pages (2026-10-27): 3.1 is the figure aggregator sites give, so it is recorded without a
+    # year and ranks below every verified impact factor.
+    jif: 3.1
     jif_year: null
     status: VERIFIED
     url: https://www.life-science-alliance.org/editorial-policies
@@ -4080,6 +4082,8 @@ venues:
     fit_note: 'AI wording matches Genome Research (CSHL Press); reviewer_ai restricted: reviewers may not upload to LLMs
       that ingest input for training, "noting this excludes most publicly available AI/LLM tools"; transfers from EMBO,
       RUP and CSHL journals'
+    provenance:
+      jif: {source: "aggregator sites, as Paper 1's journal-selection run read them; not on the journal's pages", checked: 2026-10-27}
     publication_costs:
       - amount: 3975
         currency: USD

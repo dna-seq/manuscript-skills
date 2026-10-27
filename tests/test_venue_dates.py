@@ -210,7 +210,8 @@ def test_stale_lists_only_old_facts_by_kind(shipped: Path) -> None:
     assert {"limits", "open_science"} <= year and "publication_costs" not in year
     assert "name" not in year and "url" not in year  # names and addresses are never re-read for their age
     unverified = {**calm, "jif_year": None}
-    assert "third party" in {d["field"]: d for d in venues.stale_facts(unverified, date(2026, 3, 1))}["jif"]["reason"]
+    assert "jif" not in {d["field"] for d in venues.stale_facts(unverified, date(2026, 3, 1))}  # due like any JIF
+    assert "third-party" in {d["field"]: d for d in venues.stale_facts(unverified, date(2026, 7, 1))}["jif"]["reason"]
 
 
 def test_the_stale_report_names_the_page_and_reads_the_record_ladders(shipped: Path, tmp_path: Path) -> None:
@@ -355,3 +356,17 @@ def test_a_record_that_repeats_the_catalogue_is_not_named_as_the_source(shipped:
     assert calm["from_facts"] == ["review_speed"]  # only what the catalogue did not already say
     assert calm["provenance"]["jif"]["checked"] == date(2026, 10, 27)  # read again later: its date moves
     assert calm["provenance"]["jif"]["layer"] == "catalogue"
+
+
+def test_an_unverified_impact_factor_passes_the_floor_but_ranks_below_verified_ones(shipped: Path, tmp_path: Path) -> None:
+    _user({"venues": {
+        "big": {"name": "Big Journal", "jif": 9.0, "provenance": {"jif": {"checked": date(2026, 10, 27),
+                                                                      "source": "an aggregator site"}}},
+        "small": {"name": "Small Journal", "jif": 3.1, "jif_year": 2026, "provenance": {"jif": date(2026, 10, 27)}}}})
+    code, out, _ = _run("ladder", "--only", "big", "--only", "small", "--only", "calm", "--priority", "reach",
+                        "--min-jif", "3", "--format", "csv")
+    assert code == 0
+    assert [r["key"] for r in csv.DictReader(io.StringIO(out))] == ["calm", "small", "big"]  # 9.0 is not verified
+    code, out, _ = _run("ladder", "--only", "big", "--only", "calm", "--priority", "reach")
+    assert "9.0 (not verified: a third-party figure without its year)" in out
+    assert "placed below the verified ones at the step for reach (journal impact factor): Big Journal." in out

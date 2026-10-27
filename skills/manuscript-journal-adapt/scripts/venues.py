@@ -863,10 +863,19 @@ def _access(v: dict[str, Any]) -> str:
     return ACCESS_WORDS.get(v.get("oa") or "", "not recorded")
 
 
+def jif_verified(v: dict[str, Any]) -> bool:
+    """Whether the impact factor was read with its Journal Citation Reports year on the journal's or publisher's
+    own page or in JCR. One recorded without a year comes from a third party (an aggregator site, a circulating
+    value): it counts against an impact-factor floor, but ranks below every verified one."""
+    return v.get("jif") is not None and bool(v.get("jif_year"))
+
+
 def _jif(v: dict[str, Any]) -> str:
     if v.get("jif") is None:
         return "not recorded"
-    return f"{v['jif']}" + (f" ({v['jif_year']})" if v.get("jif_year") else "")
+    if not jif_verified(v):
+        return f"{v['jif']} (not verified: a third-party figure without its year)"
+    return f"{v['jif']} ({v['jif_year']})"
 
 
 def _name(v: dict[str, Any]) -> str:
@@ -1125,11 +1134,13 @@ def ladder_order(v: dict[str, Any], priorities: list[Priority], feasible: str,
                  server: Optional[dict[str, Any]] = None) -> tuple[Any, ...]:
     """Feasibility (the validation fit, `feasibility`) first, then each priority in the authors' order. At the first
     step "Depends" and "could not be checked" tie (LADDER_FIT). An unknown value sorts below every known one at its
-    step, and a tie passes to the next priority; the name breaks the last tie."""
+    step, and at the reach step an unverified impact factor (`jif_verified`) sorts below every verified one and
+    above an unknown one; a tie passes to the next priority; the name breaks the last tie."""
     key: list[Any] = [LADDER_FIT[feasible]]
     for p in priorities:
         value = priority_value(v, p, journals_on_ladder, ai_use, server)
-        key.append((1, 0.0) if value is None else (0, value))
+        low = p == Priority.reach and not jif_verified(v)
+        key.append((2, 0.0) if value is None else (1 if low else 0, value))
     key.append(_name(v).lower())
     return tuple(key)
 
@@ -1170,8 +1181,8 @@ def jcr_release(on: date) -> date:
 def stale_facts(v: dict[str, Any], on: date) -> list[dict[str, Any]]:
     """The facts recorded for a venue that are old enough to re-read on `on`, each with its field, the date it was
     read, its page, the layer it comes from and why it is due: an AI-policy field after STALE_AFTER_DAYS, an impact
-    factor read before the latest Journal Citation Reports release or without its JCR year (it may then come from a
-    third party), anything else after FACT_STALE_AFTER_DAYS. A field nobody recorded is not stale: it is
+    factor (verified or not) read before the latest Journal Citation Reports release, anything else after
+    FACT_STALE_AFTER_DAYS. A field nobody recorded is not stale: it is
     unresearched (`common` lists those)."""
     provenance = v.get("provenance") or {}
     due = []
@@ -1182,12 +1193,10 @@ def stale_facts(v: dict[str, Any], on: date) -> list[dict[str, Any]]:
         when = p.get("checked")
         if field == "jif":
             release = jcr_release(on)
-            if not v.get("jif_year"):
-                reason = "no Journal Citation Reports year is recorded, so the value may come from a third party"
-            elif when is None or when < release:
-                reason = f"Journal Citation Reports released new impact factors in June {release.year}"
-            else:
+            if when is not None and when >= release:
                 continue
+            reason = f"Journal Citation Reports released new impact factors in June {release.year}" + (
+                "" if jif_verified(v) else "; this one is a third-party figure, so look for it on the journal's page")
         else:
             limit = STALE_AFTER_DAYS if field in AI_FIELDS else FACT_STALE_AFTER_DAYS
             if when is not None and (on - when).days <= limit:
@@ -1714,6 +1723,12 @@ def ladder(
                 f"{_and(names)}: {kind}" for kind, names in kinds.items()) + ". Before letting speed decide between "
                 "these journals, compare a like-for-like measure, such as submission to publication for a sample of "
                 "recent papers in each, and say in the report which order that gives.")
+    if Priority.reach in priorities:
+        unverified = [_name(v) for v in rows if v.get("jif") is not None and not jif_verified(v)]
+        if unverified:
+            typer.echo(f"\nImpact factors not verified on the journal's own pages (third-party figures without their "
+                       f"year), so placed below the verified ones at the step for {PRIORITY_WORDS['reach']}: "
+                       f"{_and(unverified)}.")
     for p in priorities:
         missing = [_name(v) for v in rows if priority_value(v, p, journal, use, posted) is None]
         if missing:

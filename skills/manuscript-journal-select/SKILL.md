@@ -193,8 +193,9 @@ shipped `venues.yaml`, edited in place, in the plugin's own checkout; the user's
 unchanged keeps its value and gets the new date. What a fee costs these authors after their own agreements
 and funds goes into the record's `cost_routes`. A page that could not be read goes in as `not_read`, one
 sentence with the reason and the date; `common` then says "the page could not be read" with that reason
-instead of sending the authors to look. An impact factor found only on a third-party site stays unset, with a
-`not_read` sentence saying so. This does not require refreshing unrelated entries.
+instead of sending the authors to look. An impact factor found only on a third-party site is recorded without
+its `jif_year`, with that site as its source: it counts against the authors' floor but ranks below every
+verified impact factor. This does not require refreshing unrelated entries.
 
 When `manuscript-policy-fit` finds a venue-specific rule (a server that declines tool announcements without
 results, a journal's rule on identifiable individuals), it records the rule in the catalogue, in that venue's

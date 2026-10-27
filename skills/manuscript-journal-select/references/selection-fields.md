@@ -43,15 +43,17 @@ The same field names serve every layer:
 Date each fact independently: an AI-policy check does not refresh fees or review statistics. A mapping or a
 list of records carries its own `checked` and `source`; any other field takes them from the venue's
 `provenance` (`provenance: {jif: {source: URL, checked: 2026-10-27}}`), and without either it takes the
-venue's `checked`, else the file's. An impact factor is kept only with its `jif_year` from the journal's or
-publisher's own page or Journal Citation Reports; a value found only on a third-party site (an aggregator) is
-left unset, with a `not_read` sentence saying so.
+venue's `checked`, else the file's. An impact factor read on the journal's or publisher's own page or in Journal
+Citation Reports is recorded with its `jif_year`. A value found only on a third-party site (an aggregator) may be
+recorded too, without `jif_year` and with that site in its `provenance`: it is not verified, so it counts against
+an impact-factor floor but `ladder` places it below every verified impact factor at the reach step, and the
+tables print it as not verified.
 
 ## Re-read only what is old
 
 Before a run reads a venue's pages, `venues.py stale --record REC` (or `stale KEY KEY`) lists the facts of the
 ladder's venues that are due, grouped by the page to re-read: an AI-policy field after 60 days, an impact factor
-once Journal Citation Reports has released newer figures (each June) or when it has no `jif_year`, and any other
+(verified or not) once Journal Citation Reports has released newer figures (each June), and any other
 fact (fees, review speed, article types, limits, preprint rules, transfers, referee forms, figure rules) after a
 year. Read only those, and the fields nobody has recorded yet that the comparison needs. A fact found unchanged
 keeps its value and only its date moves; a changed one is replaced by the new value with the new date and page.
