@@ -85,7 +85,7 @@ and the coordinator's `stages` are for it to read next.
 
 ## Shipping it in the plugin
 
-Done in 0.30.0 and 0.30.1, as the status above says. The plugin's hooks file, `hooks/modules.json`
+Done in 0.30.0 and 0.30.2, as the status above says. The plugin's hooks file, `hooks/modules.json`
 (`{ "hooks": {}, "modules": ["./progress/register.tsx"] }`), names the module; the module, its view model
 and tests are in `hooks/progress/`, and the state contract is named in `.claude-plugin/plugin.json` as
 `"types"`. Every session with the plugin has the view, and the `runs.py` hook works in the session that
