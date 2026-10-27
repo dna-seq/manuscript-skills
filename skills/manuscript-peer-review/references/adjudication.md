@@ -87,7 +87,12 @@ background where the host reports its completion; the verdicts wait for its resu
 copy, the supplementary files, the figures (`figures/`, as the seats had them) and the findings stripped
 of seat names, group counts and severities, so that numbers cannot sway it. Renumber the ids, which name
 their seat (`D1`, `D2` ...), and keep the map from each new id to the original in the run folder
-(`$WORK/defence-ids.json`): every answer goes back to the finding it answers. It never sees the referees'
+(`$WORK/defence-ids.json`): every answer goes back to the finding it answers. Build both with
+`uv run --script scripts/workspaces.py defender "$WORK" --paper PAPER.md --supplement SUPPLEMENT.md --files
+SUPPLEMENTARY_FOLDER --findings "$WORK/findings.merged.json"`, adding `--drop "ID=why"` for a finding the gate or
+the fairness filter dropped that does not carry `route: dropped` yet: it writes `$WORK/defender/` with
+`findings-to-answer.json` (shuffled, renumbered, only the fields the defender may see) and the map, and warns when
+a concern still names a seat or another finding's id, which would tell the defender whose finding it is. It never sees the referees'
 reports, their recommendations or `venue.md`: a defender that knows a referee recommended rejection
 argues against the rejection, not against the finding. For each finding it first tests the premise: does
 the quoted text say what the concern says it says, and is every other statement the concern makes about

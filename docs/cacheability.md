@@ -218,11 +218,14 @@ independence, and catches regressions as well as last run's misses.
 
 To make the run finish sooner, look at the critical path, not at caching. In v0.6 the review phase lasted as long
 as peer review: 10 minutes of setup before the seats could start (1.4 reading the skill, the paper and the
-catalogue's entries, 3 fetching the three
-journals' reviewer pages, about 6 writing the claim map, venue brief, desk screen and briefs and building the
-seats' workspaces with a script the agent wrote for the run), seats until 30.1 min, then the defender, the merge
-and the adjudication until 60.5 min, 19 minutes of which came after the defender. Peer review ended 13 minutes
-after the next-longest stage, so each minute taken off it shortens the run. The venue catalogue's
-`reviewer_form` takes the 3 minutes of fetching off a run for a journal it holds; a shipped script that builds
-the seats' workspaces, a faster merge and adjudication, or a defender handed the reference check's texts and the
-code ledger would cut more.
+catalogue's entries, 3 fetching the three journals' reviewer pages, about 6 writing the claim map, venue brief,
+desk screen and briefs and building the seats' workspaces with a script the agent wrote for the run), seats until
+30.1 min, then the defender, the merge and the adjudication until 60.5 min, 19 minutes of which came after the
+defender. Peer review ended 13 minutes after the next-longest stage, so each minute taken off it shortens the run.
+The venue catalogue's `reviewer_form` takes the 3 minutes of fetching off a run for a journal it holds. Since
+0.32.0, `manuscript-peer-review/scripts/workspaces.py` builds the seats' workspaces and fills in their briefs: 3 s
+on Paper 1 v0.6, giving the same reading copies (word for word), figures and domain questions the agent made by
+hand, and the same supplementary files less one PNG nothing names. It also builds the defender's workspace and
+the findings stripped of who raised them, which the agent scripted by hand between the seats and the defender.
+A faster merge and adjudication, or a defender handed the reference check's texts and the code ledger, would cut
+more.

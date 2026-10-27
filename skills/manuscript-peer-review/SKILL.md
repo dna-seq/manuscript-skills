@@ -155,6 +155,25 @@ the whole paper).
   `manuscript-record.yaml`, no other seat's output, no cover letter, earlier reviews, notes or the
   authors' view of their paper. Quotes are still checked against the original, where comments are not
   quotable either.
+- Build the workspaces and fill in the briefs with one command, from this skill directory, never by hand:
+
+  ```bash
+  uv run --script scripts/workspaces.py seats "$WORK" --paper PAPER.md --supplement SUPPLEMENT.md \
+      --files SUPPLEMENTARY_FOLDER --venue "$WORK/venue.md" --journal "JOURNAL=ARTICLE TYPE" \
+      --design "DESIGN KEYS" --seat MAIN_SEAT --seat skeptic --seat champion --module SEAT=MODULE[,MODULE]
+  ```
+
+  Give the manuscript and its supplement where they are, beside their figures (the run's snapshot in
+  `RUN/inputs/` cannot find them), and `--journal` once per journal. Each seat's remit is its section of
+  [seats.md](references/seats.md), with the default panel's additions (the main seat also takes
+  reproducibility, the skeptic claims and novelty, unless those have seats of their own). A seat without a
+  section there (software-methods, a domain seat, a custom seat) needs `--remit SEAT=TEXT`, a sentence or two
+  in the remit's words, and a custom seat `--prefix SEAT=XY`. It writes `$WORK/seats/SEAT/` and the brief
+  `$WORK/briefs/SEAT.md`, and prints what each workspace holds, the supplementary files it left out (those
+  neither the paper nor its supplement names; `--file` or `--all-files` adds them) and any figure without an
+  image. Run it through `runs.py exec` so its output is kept, read the left-out files and the warnings,
+  register the briefs, and start each seat with its brief file unchanged. A seat run again gets a new
+  workspace (`SEAT.2`) from the same command; the first stays as it was.
 - **Independence is required**, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) sets out: a fresh agent
   per seat whose whole context is its brief, started by the session that can start agents (in
   manuscript-improve, the coordinator itself), the brief filled from the template and nothing else, and
@@ -341,6 +360,10 @@ report too. See [output-format.md](references/output-format.md#saving-and-the-sh
   defence returned for each finding, flags recommendations whose findings the defence refuted or
   adjudication narrowed, and sorts each referee's findings into its report's sections; Markdown and JSON
   output; no scores.
+- `scripts/workspaces.py`: builds each seat's workspace (the reading copy without comments or revision
+  marks, the supplementary files the paper names, the figures as images, `finding-schema.md`, `venue.md`,
+  `domain-questions.md`) and fills in its brief from seats.md; builds the defender's workspace with the
+  findings stripped of who raised them, and the map back to their ids.
 - `references/seats.md`: panel choice by study design, seat remits, the quick pass, the seat brief (with
   `venue.md` and the referee's report).
 - `references/finding-schema.md`: the finding fields, the referee's report, the contract and the script's

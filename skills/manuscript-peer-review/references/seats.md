@@ -183,7 +183,9 @@ questions live only in the workspace of the seat they serve. Fill in the angle b
 named by its absolute path, because a subagent starts in the session's folder (in Claude Code, the
 project), where "this directory" would be the whole project. `<prefix>` is the seat's prefix from
 [finding-schema.md](finding-schema.md#finding-ids) (`SK` for the skeptic); a seat on another model gets the
-same brief, and its CLI's letter is added when merging (`SKX-1`):
+same brief, and its CLI's letter is added when merging (`SKX-1`). `scripts/workspaces.py seats` (SKILL.md,
+step 3) builds the workspace and fills in this brief from the text below, so keep its placeholders as they are
+(a test checks that the script fills every one):
 
 > You are the **<seat>** on a simulated referee panel. <One journal: "The editor of <journal> has asked
 > you to referee this manuscript, submitted as <article type>." Several: "The authors are considering

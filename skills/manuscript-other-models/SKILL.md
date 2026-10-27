@@ -83,7 +83,9 @@ forgets them. Saved models are the authors' standing agreement to send the readi
 ## Step 4: run each seat
 
 Prepare each seat's workspace and brief exactly as its skill says for a seat on the host, in a new folder:
-the same reading copy, figures and files, never a folder another seat has worked in. The script refuses a
+the same reading copy, figures and files, never a folder another seat has worked in. For referee seats,
+manuscript-peer-review's `scripts/workspaces.py seats` with `--suffix @codex` (the model's name) does it:
+`seats/skeptic@codex/` and `briefs/skeptic@codex.md`. The script refuses a
 workspace a seat already ran in (it holds `seat-run.json`), but it cannot tell a host seat's files from the
 authors'. The brief is the skill's template, filled the same way, saved outside the workspace
 (`briefs/skeptic@codex.md`). It names the seat without its model ("You are the skeptic"): the seat need
