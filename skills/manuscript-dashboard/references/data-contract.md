@@ -155,15 +155,17 @@ the skills missed; with one, the missed count is relative to that reference only
 `figures` is optional and comes from `manuscript-figures`' `findings.json`: `limit` (`count`, `counts`, which
 is "figures" or "figures and tables", and `source`), `items` (one per figure or table: `id`, `kind` of
 `figure` or `table`, `part` of `main` or `supplement`, `caption`, `image` (a figure's), `verdict` of `keep`,
-`change`, `move-to-supplement` or `move-to-main-text`, `message`, `why`, `recommendations` each with `kind`
+`change`, `merge`, `move-to-supplement` or `move-to-main-text`, `merge_with` (with `merge` only, and then
+required: the IDs of the other items it joins into one figure or table), `message`, `why`, `recommendations` each with `kind`
 `content` or `visual`, `change` and `why`, `proposed_image`, `code` and `finding_ids`) and `new` (figures to add:
 `title`, `kind`, `shows`, `why`, `placement`, `source`, `replaces`, `finding_ids`). `collect.py` makes the image
 paths relative to the inventory and follows each finding link to the record kept after merging; the renderer
 embeds the images, so the dashboard stays one file, and says when one could not be found or is over 8 MB.
 `summary.json` counts the verdicts, the new figures and the main-text display items now and if the authors
-accept every move and addition (tables count when the venue counts figures and tables together). Which
-figures and tables the paper has is the authors' decision: moves and additions are listed as decisions,
-never counted as applied.
+accept every move, merge and addition (tables count when the venue counts figures and tables together; a
+group of items joined by merges counts once). Which
+figures and tables the paper has is the authors' decision: moves, merges and additions are listed as
+decisions, never counted as applied.
 
 ## Story
 

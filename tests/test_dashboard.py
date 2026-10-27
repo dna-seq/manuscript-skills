@@ -519,13 +519,32 @@ def test_tables_count_against_a_limit_on_display_items_and_a_supplementary_item_
     assert visualize.summarize(visualize.Inventory.model_validate(data))["figures"]["main_now"] == 2  # tables not counted
 
 
-@pytest.mark.parametrize("mutation", ["unknown-link", "duplicate", "verdict"])
+def test_merged_figures_count_once_against_the_limit(data: dict) -> None:
+    data["figures"] = figures_record()
+    data["figures"]["items"] += [{"id": "Figure 3", "verdict": "merge", "merge_with": ["Figure 4"], "why": "The same run on one time axis."},
+                                 {"id": "Figure 4", "verdict": "change"}, {"id": "Figure 5", "verdict": "merge", "merge_with": ["Figure 4"]}]
+    summary = visualize.summarize(visualize.Inventory.model_validate(data))["figures"]
+    # Five main-text figures; Figure 2 moves out, Figures 3, 4 and 5 become one, and one figure is added.
+    assert (summary["by_verdict"]["merge"], summary["main_now"], summary["main_if_accepted"]) == (2, 5, 3)
+    data["figures"]["items"][-1]["merge_with"] = ["Figure 2"]  # merging with a figure that moves out merges nothing here
+    assert visualize.summarize(visualize.Inventory.model_validate(data))["figures"]["main_if_accepted"] == 4
+
+
+@pytest.mark.parametrize("mutation", ["unknown-link", "duplicate", "verdict", "merge-alone", "merge-unknown", "merge-self", "merge-not-merge"])
 def test_figure_records_must_link_real_problems_and_use_known_verdicts(data: dict, mutation: str) -> None:
     data["figures"] = figures_record()
     if mutation == "unknown-link":
         data["figures"]["new"][0]["finding_ids"] = ["absent"]
     elif mutation == "duplicate":
         data["figures"]["items"].append(copy.deepcopy(data["figures"]["items"][0]))
+    elif mutation == "merge-alone":
+        data["figures"]["items"][0]["verdict"] = "merge"
+    elif mutation == "merge-unknown":
+        data["figures"]["items"][0] |= {"verdict": "merge", "merge_with": ["Figure 9"]}
+    elif mutation == "merge-self":
+        data["figures"]["items"][0] |= {"verdict": "merge", "merge_with": ["Figure 1"]}
+    elif mutation == "merge-not-merge":
+        data["figures"]["items"][0]["merge_with"] = ["Figure 2"]
     else:
         data["figures"]["items"][0]["verdict"] = "remove"
     with pytest.raises(ValidationError):

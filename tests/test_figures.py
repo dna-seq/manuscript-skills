@@ -210,11 +210,54 @@ def test_a_seat_workspace_gets_the_figures_and_their_captions_and_nothing_else(t
     assert runner.invoke(figures.app, ["workspace", str(FIXTURES / "seeded" / "paper.md"), "--into", str(into)]).exit_code == 1
 
 
+def test_empty_space_is_measured_as_printed_and_spacing_is_not_counted() -> None:
+    image = Image.new("RGB", (500, 500), "white")
+    image.paste((40, 40, 40), (0, 0, 500, 100))  # content in the top fifth, the rest blank
+    record = figures.empty_space(image, 85.0)
+    assert record["printed_mm"] == [85.0, 85.0] and record["margins_mm"] == [0.0, 0.0, 68.0, 0.0]
+    assert record["trimmed_mm"] == [85.0, pytest.approx(19.0, abs=0.1)] and record["empty_share"] == pytest.approx(0.78, abs=0.01)
+    spaced = Image.new("RGB", (500, 500), "white")
+    for top in (20, 260):  # two panels 3.4 mm apart, 3.4 mm in from the edge: only the margins beyond 2 mm count
+        spaced.paste((40, 40, 40), (20, top, 480, top + 220))
+    assert figures.empty_space(spaced, 85.0)["empty_share"] == pytest.approx(0.06, abs=0.01)
+    assert figures.empty_space(Image.new("RGB", (50, 50), "white"), 85.0)["empty_share"] == 1.0
+
+
+def test_space_notes_go_to_figures_that_would_gain_and_a_page_figure_is_tried_in_one_column(tmp_path: Path) -> None:
+    result = runner.invoke(figures.app, ["inventory", str(FIXTURES / "devices" / "main.tex"), "--output-dir", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+    assert notes_of(tmp_path / "out") == [
+        "Figure 2: figures/runtime spans the page, and printed in one column (85 mm) its smallest text would still be 6.7 pt, at or above "
+        "the 6 pt minimum: column.png shows whether it reads at that width.",
+        "Figure 3: figures/memory prints 85 × 91 mm and about 57% of that is empty (blank margins, or gaps wider than 4 mm between its "
+        "parts); cut to its content it would print 85 × 43 mm."]
+    files = {r["id"]: r["files"][0] for r in json.loads((tmp_path / "out" / "figures.json").read_text())["items"] if r["kind"] == "figure"}
+    assert files["Figure 2"]["column"] == "figure-2/column.png" and "column" not in files["Figure 3"]
+    with Image.open(tmp_path / "out" / "figure-2" / "column.png") as column:
+        assert column.width == round(85 / 25.4 * 150)
+    # The report is 31% blank between its rows and columns, but cut it would print barely smaller: no note.
+    assert files["Figure 1"]["empty_share"] > 0.3 and files["Figure 1"]["trimmed_scale"] < 1.25
+    assert "[in one column](figure-2/column.png)" in (tmp_path / "out" / "figures.md").read_text()
+
+
+def test_small_text_in_a_column_says_what_the_page_width_would_give(tmp_path: Path) -> None:
+    page = figures.Page(vector_pdf(tmp_path / "fig.pdf", width_pt=500, size=4), 1, True, width_pt=500)
+    settings = {"min_pt": 6, "min_line_pt": 0.1, "min_dpi": 300}
+    _, notes = figures.measure(page, tmp_path / "column", 85.0, settings, other_mm=178.0)
+    # 1.9 pt in the column and 4.0 pt across the page: widening alone would not do, so it is not offered.
+    assert any("text as small as 1.9 pt" in n for n in notes) and not any("across the page" in n for n in notes)
+    _, notes = figures.measure(figures.Page(vector_pdf(tmp_path / "big.pdf", width_pt=500, size=8), 1, True, width_pt=500),
+                               tmp_path / "big", 85.0, settings, other_mm=178.0)
+    assert any("text as small as 3.9 pt" in n and n.endswith("; across the page (178 mm) it would print at 8.2 pt") for n in notes)
+    _, notes = figures.measure(page, tmp_path / "supplement", 85.0, settings)  # the supplement is not asked to save space
+    assert not any("empty" in n or "across the page" in n for n in notes)
+
+
 def test_eval_cases_are_well_formed_and_use_files_that_exist() -> None:
     import yaml
 
     cases = yaml.safe_load((ROOT / "evals" / "manuscript-figures.yaml").read_text(encoding="utf-8"))
-    assert 3 <= len(cases) <= 7 and len({c["id"] for c in cases}) == len(cases)
+    assert 3 <= len(cases) <= 8 and len({c["id"] for c in cases}) == len(cases)
     for case in cases:
         assert {"id", "skill", "prompt", "files", "planted", "rubric", "fail_if"} <= set(case), case["id"]
         assert all((ROOT / "evals" / f).is_file() for f in case["files"]), case["id"]

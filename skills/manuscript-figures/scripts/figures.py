@@ -20,8 +20,13 @@ finds each figure's files, caption and label, and writes for each figure:
   protanopia, simulated after Machado et al. 2009), to judge legibility, greyscale print and colour choice.
 
 It measures the smallest text and the thinnest line as printed, exactly, where a PDF or SVG keeps them as
-vectors (a raster's text is judged on the sheet), and the resolution of a raster at its printed width. A
-figure that has a caption but no image file is listed too. For each table (a Markdown pipe table or a LaTeX
+vectors (a raster's text is judged on the sheet), and the resolution of a raster at its printed width. It
+measures the space each figure takes: its printed height, and how much of it is empty (blank margins, and
+blank bands wider than the spacing between panels), with the size it would print at cut to its content. A
+main-text figure that spans the page is also written as `column.png`, at the column width, with its smallest
+vector text at that width, so a reader can see whether it fits one column; for a column figure whose text is
+too small, the size the text would reach across the page is given. A figure that has a caption but no image
+file is listed too. For each table (a Markdown pipe table or a LaTeX
 table environment) it gives the columns and rows, the width it needs printed at the table font, and the
 columns that mix decimal places, hold numbers under a header with no unit, or have empty cells. It lists
 every citation of each figure and table, in the paper and the supplement, with its section and line, and
@@ -46,7 +51,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help=__doc__.split("\n\n")[0])
 
@@ -55,6 +60,10 @@ VECTOR = {".pdf", ".svg"}
 POSTSCRIPT = {".eps", ".ps"}
 TRY_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg", ".tif", ".tiff")
 VIEW_DPI, PRINT_DPI = 300, 150
+# Empty space as printed: a pixel within INK_TOLERANCE of the background colour is blank; a blank margin up to
+# MARGIN_MM and a blank band up to GAP_MM between the parts of a figure are spacing, the rest is empty.
+INK_TOLERANCE, MARGIN_MM, GAP_MM = 24, 2.0, 4.0
+SAVING = 0.25  # a note when cutting the empty space would make a figure a quarter shorter, or its contents a quarter larger
 # Machado, Oliveira & Fernandes (2009), severity 1.0, applied to linear RGB.
 CVD = {
     "Deuteranopia": ((0.367322, 0.860646, -0.227968), (0.280085, 0.672501, 0.047413), (-0.011820, 0.042940, 0.968881)),
@@ -567,20 +576,79 @@ def sheet(printed: Image.Image, width_mm: float) -> Image.Image:
     return canvas
 
 
-def measure(page: Page, folder: Path, width_mm: float, settings: dict) -> tuple[dict, list[str]]:
-    """Write view.png and sheet.png for one page and measure it as printed; return the record and the notes."""
+def empty_space(image: Image.Image, width_mm: float) -> dict[str, Any]:
+    """How much of a figure as printed is empty: blank margins beyond MARGIN_MM and blank bands across it wider
+    than GAP_MM, against the commonest colour of its border (the lightest of equals); and the height it would
+    print at, cut to its content at the same width, with how much larger everything in it would be."""
+    w, h = image.size
+    border: dict[tuple, int] = {}
+    for box in ((0, 0, w, 1), (0, h - 1, w, h), (0, 0, 1, h), (w - 1, 0, w, h)):
+        strip = image.crop(box)
+        for count, colour in strip.getcolors(strip.width * strip.height) or []:
+            border[colour] = border.get(colour, 0) + count
+    background = max(border, key=lambda colour: (border[colour], sum(colour)))
+    red, green, blue = ImageChops.difference(image, Image.new("RGB", image.size, background)).split()
+    ink = ImageChops.lighter(ImageChops.lighter(red, green), blue).point(lambda v: 255 if v > INK_TOLERANCE else 0)
+    mm = width_mm / w
+    record: dict[str, Any] = {"printed_mm": [round(width_mm, 1), round(h * mm, 1)]}
+    if (box := ink.getbbox()) is None:
+        return record | {"empty_share": 1.0}
+    left, top, right, bottom = box
+
+    def kept(blank: list[bool], before: int, after: int) -> float:
+        """Pixels along one axis that hold content or spacing: all but what blank bands exceed GAP_MM by, plus
+        the margins up to MARGIN_MM."""
+        run, cut = 0, 0.0
+        for flag in [*blank, False]:
+            if flag:
+                run += 1
+            else:
+                cut, run = cut + max(run - GAP_MM / mm, 0), 0
+        return len(blank) - cut + min(before, MARGIN_MM / mm) + min(after, MARGIN_MM / mm)
+
+    rows = [ink.crop((left, y, right, y + 1)).getbbox() is None for y in range(top, bottom)]
+    columns = [ink.crop((x, top, x + 1, bottom)).getbbox() is None for x in range(left, right)]
+    width, height = kept(columns, left, w - right), kept(rows, top, h - bottom)
+    scale = w / width
+    return record | {"empty_share": round(1 - width * height / (w * h), 2),
+                     "margins_mm": [round(v * mm, 1) for v in (top, w - right, h - bottom, left)],
+                     "trimmed_mm": [round(width_mm, 1), round(height * scale * mm, 1)], "trimmed_scale": round(scale, 2)}
+
+
+def measure(page: Page, folder: Path, width_mm: float, settings: dict, other_mm: float | None = None) -> tuple[dict, list[str]]:
+    """Write view.png and sheet.png for one page and measure it as printed; return the record and the notes.
+    `other_mm` is the main text's other printed width (the page for a column figure, the column for one that
+    spans the page); None in the supplement, which is not asked to save space. A figure across the page is
+    also written as column.png, at the column width."""
     folder.mkdir(parents=True, exist_ok=True)
     render(page, round(width_mm / 25.4 * VIEW_DPI)).save(folder / "view.png")
-    sheet(render(page, round(width_mm / 25.4 * PRINT_DPI)), width_mm).save(folder / "sheet.png")
-    record: dict[str, Any] = {"page": page.page, "vector": page.vector}
+    printed = render(page, round(width_mm / 25.4 * PRINT_DPI))
+    sheet(printed, width_mm).save(folder / "sheet.png")
+    narrower = other_mm is not None and other_mm < width_mm
+    if narrower:
+        render(page, round(other_mm / 25.4 * PRINT_DPI)).save(folder / "column.png")
+    record: dict[str, Any] = {"page": page.page, "vector": page.vector} | empty_space(printed, width_mm)
     notes = []
+    if other_mm is not None and "trimmed_mm" in record:  # a blank render has nothing to cut to
+        (w, h), cut, scale = record["printed_mm"], record["trimmed_mm"][1], record["trimmed_scale"]
+        if cut <= (1 - SAVING) * h or scale >= 1 + SAVING:
+            notes.append(f"prints {w:g} × {h:.0f} mm and about {record['empty_share']:.0%} of that is empty (blank margins, or gaps wider than "
+                         f"{GAP_MM:g} mm between its parts); cut to its content it would print {w:g} × {cut:.0f} mm"
+                         + (f", with everything in it {scale:.1f} times larger" if scale >= 1.1 else ""))
     if page.vector:
         record |= vector_sizes(page, width_mm / 25.4 * 72 / page.width_pt)
+        if record["min_text_pt"] is not None and other_mm is not None:
+            record["min_text_pt_at"] = {"width_mm": other_mm, "pt": round(record["min_text_pt"] * other_mm / width_mm, 1)}
+        elsewhere = record.get("min_text_pt_at", {}).get("pt", 0)
         if record["min_text_pt"] is None:
             notes.append("holds no text (drawn as outlines), so its size was not measured: judge it on the sheet")
         elif record["min_text_pt"] < settings["min_pt"]:
             words = ", ".join(f"“{s['text'][:30]}” {s['pt']:g} pt" for s in record["smallest_text"][:3])
-            notes.append(f"has text as small as {record['min_text_pt']:g} pt printed {width_mm:g} mm wide ({words}); the minimum used is {settings['min_pt']:g} pt")
+            notes.append(f"has text as small as {record['min_text_pt']:g} pt printed {width_mm:g} mm wide ({words}); the minimum used is {settings['min_pt']:g} pt"
+                         + (f"; across the page ({other_mm:g} mm) it would print at {elsewhere:g} pt" if not narrower and elsewhere >= settings["min_pt"] else ""))
+        elif narrower and elsewhere >= settings["min_pt"]:
+            notes.append(f"spans the page, and printed in one column ({other_mm:g} mm) its smallest text would still be {elsewhere:g} pt, at or above "
+                         f"the {settings['min_pt']:g} pt minimum: column.png shows whether it reads at that width")
         if record["min_line_pt"] is not None and record["min_line_pt"] < settings["min_line_pt"]:
             notes.append(f"has lines as thin as {record['min_line_pt']:g} pt printed {width_mm:g} mm wide; the minimum used is {settings['min_line_pt']:g} pt")
     else:
@@ -657,6 +725,7 @@ def inventory(
             records.append(record)
             continue
         width_mm = page_mm if item.wide or supp else column_mm
+        other_mm = None if supp else column_mm if item.wide else page_mm
         files = []
         if not item.files:
             notes.append({"check": "file", "figure": item.id,
@@ -669,11 +738,12 @@ def inventory(
                 notes.append({"check": "file", "figure": item.id, "note": f"{item.id}: {name} {problem}."})
             for page in pages:
                 folder = output_dir / item.slug / (path.stem if len(item.files) > 1 else "") / (f"page-{page.page}" if len(pages) > 1 else "")
-                measured, problems = measure(page, folder, width_mm, looser if supp else settings)
+                measured, problems = measure(page, folder, width_mm, looser if supp else settings, other_mm)
                 at = f"{name}, page {page.page}" if len(pages) > 1 else name
                 notes += [{"check": "size", "figure": item.id, "note": f"{item.id}: {at} {p}."} for p in problems]
                 files.append({"path": name, **measured, "view": (folder / "view.png").relative_to(output_dir).as_posix(),
-                              "sheet": (folder / "sheet.png").relative_to(output_dir).as_posix()})
+                              "sheet": (folder / "sheet.png").relative_to(output_dir).as_posix()}
+                             | ({"column": (folder / "column.png").relative_to(output_dir).as_posix()} if (folder / "column.png").is_file() else {}))
         records.append(record | {"printed_mm": width_mm, "files": files,
                                  "printed_width": "page (supplement)" if supp else "page (figure*)" if item.wide else "column"})
     for leftover in output_dir.glob("*.from-eps.pdf"):
@@ -717,7 +787,11 @@ def markdown(document: dict) -> str:
                     size = (f"smallest text {f['min_text_pt']:g} pt" if f.get("min_text_pt") else "no vector text") if f["vector"] \
                         else f"{f['dpi']} dpi as printed"
                     line = f"; thinnest line {f['min_line_pt']:g} pt" if f.get("min_line_pt") is not None else ""
-                    lines.append(f"- {f['path']}" + (f" page {f['page']}" if f["page"] > 1 else "") + f": {size}{line}. [sheet]({f['sheet']}), [view]({f['view']})")
+                    space = f"; prints {f['printed_mm'][0]:g} × {f['printed_mm'][1]:.0f} mm, {f['empty_share']:.0%} of it empty"
+                    at = f"; {f['min_text_pt_at']['pt']:g} pt at {f['min_text_pt_at']['width_mm']:g} mm" if f.get("min_text_pt_at") else ""
+                    column = f", [in one column]({f['column']})" if f.get("column") else ""
+                    lines.append(f"- {f['path']}" + (f" page {f['page']}" if f["page"] > 1 else "")
+                                 + f": {size}{at}{line}{space}. [sheet]({f['sheet']}), [view]({f['view']}){column}")
             body = [c for c in r["cited"] if not c["in_caption_of"]]
             main_cites = [c for c in body if c["part"] == "main"]
             lines.append(f"- Cited {len(main_cites)} times in the main text" + (f", first in {main_cites[0]['section']} ({main_cites[0]['where']})" if main_cites else "")

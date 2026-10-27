@@ -1357,8 +1357,8 @@ __REVISION_HTML__
   // ---------- figures ----------
   if (panels.figures) (function figuresTab() {
     const p = panels.figures;
-    const VERDICT = {keep: ['✓', 'Keep', 'good'], change: ['✎', 'Change', 'warning'], 'move-to-supplement': ['↘', 'Move to the supplement', 'muted'],
-      'move-to-main-text': ['↗', 'Move to the main text', 'muted']};
+    const VERDICT = {keep: ['✓', 'Keep', 'good'], change: ['✎', 'Change', 'warning'], merge: ['⧉', 'Merge', 'muted'],
+      'move-to-supplement': ['↘', 'Move to the supplement', 'muted'], 'move-to-main-text': ['↗', 'Move to the main text', 'muted']};
     const slug = id => String(id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const isMain = f => f.part ? f.part === 'main' : !/^(?:supplementary\s+)?(?:figure|table)\s+S\d/i.test(f.id);
     const isTable = f => f.kind === 'table';
@@ -1366,7 +1366,16 @@ __REVISION_HTML__
     // A venue counts figures, or figures and tables together, as its display items.
     const counted = FIG.limit && /table/i.test(FIG.limit.counts) ? f => true : f => !isTable(f);
     const moved = main.filter(f => f.verdict === 'move-to-supplement'), promoted = supplement.filter(f => f.verdict === 'move-to-main-text');
-    const after = main.filter(counted).length - moved.filter(counted).length + promoted.filter(counted).length + FIG.new.length;
+    const merged = FIG.items.filter(f => f.verdict === 'merge');
+    // Merged items become one display item: count the groups the merge links join among the items that stay.
+    const mergedAway = list => {
+      const parent = new Map(list.map(f => [f.id, f.id]));
+      const root = x => { while (parent.get(x) !== x) x = parent.get(x); return x; };
+      for (const f of list) if (f.verdict === 'merge') for (const o of f.merge_with || []) if (parent.has(o)) parent.set(root(o), root(f.id));
+      return list.length - new Set([...parent.keys()].map(root)).size;
+    };
+    const staying = [...main.filter(f => f.verdict !== 'move-to-supplement'), ...promoted].filter(counted);
+    const after = staying.length + FIG.new.length - mergedAway(staying);
     const count = v => FIG.items.filter(f => f.verdict === v).length;
     const kinds = list => [[list.filter(f => !isTable(f)).length, 'figure'], [list.filter(isTable).length, 'table']].filter(([n]) => n).map(([n, k]) => plural(n, k)).join(' and ') || 'none';
     const problemList = ids => {
@@ -1377,20 +1386,22 @@ __REVISION_HTML__
     p.append(h('div', {class: 'kpis'},
       kpi('Figures and tables reviewed', FIG.items.length, `main text: ${kinds(main)} · supplement: ${kinds(supplement)}`, true),
       kpi('To change', count('change'), 'in what they show or how'),
-      kpi('Move to or from the supplement', count('move-to-supplement') + count('move-to-main-text'), 'your decision'),
+      kpi('Merge or move', count('merge') + count('move-to-supplement') + count('move-to-main-text'), 'your decision'),
       kpi('New figures proposed', FIG.new.length, 'your decision'),
       kpi('Figure and table problems', figureFindings.length, 'linked from each figure below')));
     p.append(h('p', {class: 'note'}, 'Each figure as it was rendered for the review and each table as it is set, what it should tell a reader, the problems found by looking at it and at its caption, code and citations, and what to change. The main text gets the full review; the supplement a lighter one (legible, labelled, captioned, consistent with the paper, cited from the main text). Select a figure to see it larger. A redrawn draft is a proposal from your own code and data, shown beside your figure; your files are unchanged.'));
     if (FIG.limit) {
       const over = after > FIG.limit.count || main.length > FIG.limit.count;
       p.append(h('div', {class: over ? 'notice' : 'card', style: 'margin-top: 12px'},
-        `The journal allows ${FIG.limit.count} ${FIG.limit.counts} in the main text. The paper has ${main.filter(counted).length}; with the moves and additions proposed here it would have ${after}.`,
+        `The journal allows ${FIG.limit.count} ${FIG.limit.counts} in the main text. The paper has ${main.filter(counted).length}; with the moves, merges and additions proposed here it would have ${after}.`,
         FIG.limit.source ? h('div', {class: 'note', style: 'margin: 4px 0 0'}, `Limit from: ${FIG.limit.source}`) : null));
     }
-    if (moved.length || promoted.length || FIG.new.length) {
+    if (moved.length || promoted.length || merged.length || FIG.new.length) {
       p.append(h('h2', {class: 'sec'}, 'Needs your decision: which figures and tables the paper has'),
-        h('p', {class: 'note', style: 'margin-top: 0'}, 'Moving an item to or from the supplement or adding one changes what readers see first, so each is a proposal for you; nothing has been moved or added.'));
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Moving an item to or from the supplement, merging items or adding one changes what readers see first, so each is a proposal for you; nothing has been moved, merged or added.'));
       p.append(h('ul', null, moved.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' to the supplement', f.why ? `: ${f.why}` : '.')),
+        merged.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' merged with ',
+          (f.merge_with || []).map((o, i) => [i ? ', ' : '', link(o, () => openFigure(o))]), f.why ? `: ${f.why}` : '.')),
         promoted.map(f => h('li', {style: 'margin-bottom: 6px'}, link(f.id, () => openFigure(f.id)), ' to the main text', f.why ? `: ${f.why}` : '.')),
         FIG.new.map(n => h('li', {style: 'margin-bottom: 6px'}, h('strong', null, `Add: ${n.title}`), `. ${n.why}`, n.replaces ? h('div', {class: 'note', style: 'margin: 2px 0 0'}, `To stay within the limit: ${n.replaces}`) : null))));
     }
@@ -1411,6 +1422,8 @@ __REVISION_HTML__
             picture(f.proposed_image_data, f.proposed_image_note, 'Redrawn draft (a proposal)')),
           f.caption ? h('details', {style: 'margin-top: 8px'}, h('summary', null, 'Caption'), h('blockquote', null, f.caption)) : null,
           f.message ? h('p', null, h('strong', null, 'What it should tell a reader: '), f.message) : null,
+          f.verdict === 'merge' && (f.merge_with || []).length ? h('p', null, h('strong', null, 'Merge with: '),
+            f.merge_with.map((o, i) => [i ? ', ' : '', link(o, () => openFigure(o))])) : null,
           f.why ? h('p', null, h('strong', null, `${label}: `), f.why) : null,
           f.finding_ids.length ? [h('h4', null, 'Problems'), problemList(f.finding_ids)] : null,
           ...[['content', 'Change what it shows'], ['visual', 'Change how it shows it']].map(([kind, title]) => recs(kind).length

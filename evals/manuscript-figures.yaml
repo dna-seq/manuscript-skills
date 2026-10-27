@@ -14,6 +14,10 @@
 # - Agreement with the curated reference, the paper's second result, is only in Table 1.
 # clean/ fixes these: Figure 2 redrawn at 85 mm with 7 pt text from the median, the sweep moved to
 # Supplementary Figure S1 in blue and orange, the memory figure cited as Figure 3. Table 1 stays a table.
+# devices/ is a LaTeX version of the same paper that runs on four computers, with four figures for a journal
+# that allows three; every figure is readable and cited. It wastes space instead: Figure 2 is set across the
+# page but reads in one column, Figure 3 is mostly empty canvas, Figures 3 and 4 trace the same run on the
+# same time axis, and the four computers are compared only in a sentence of numbers.
 
 - id: figures-review-seeded
   skill: manuscript-figures
@@ -180,3 +184,38 @@
     - "Reports that there is nothing to review because the paper has no figure files."
     - "Holds supplementary items to the main-text standard, or ignores the supplement."
     - "Edits a table's numbers or adds a figure in paper.md."
+
+- id: figures-compact-and-merge
+  skill: manuscript-figures
+  settings: {reports: chat, edits: propose}
+  prompt: >-
+    Our journal allows three figures in the main text, with an 85 mm column, a 178 mm page and no text
+    smaller than 6 pt. devices/main.tex has four, and we would rather not lose a result. Review the figures
+    and tell us what to do. Don't change our files.
+  files: [fixtures/manuscript-figures/devices/main.tex, fixtures/manuscript-figures/devices/figures/report.png,
+          fixtures/manuscript-figures/devices/figures/runtime.pdf, fixtures/manuscript-figures/devices/figures/memory.pdf,
+          fixtures/manuscript-figures/devices/figures/threads.pdf]
+  planted:
+    - "Figure 2 (figures/runtime.pdf) is set across the page but drawn one column wide: its smallest text, 14 pt across the page, would still print at about 6.7 pt in one 85 mm column."
+    - "Figure 3 (figures/memory.pdf) prints about 85 by 91 mm and 57% of it is empty canvas: cut to its plot it prints about 85 by 43 mm."
+    - "Figures 3 and 4 show resident memory and busy threads over the same 32 s run, on the same time axis."
+    - "Section 3.2 gives the four computers' median times and peak memory, eight numbers, only in a sentence, with no figure or table."
+    - "Four main-text figures against a limit of three; merging Figures 3 and 4 meets it with nothing moved out."
+  anchors:
+    - {item: 1, id: page-figure-fits-a-column, file: fixtures/manuscript-figures/devices/figures/runtime.pdf}
+    - {item: 2, id: empty-canvas, file: fixtures/manuscript-figures/devices/figures/memory.pdf}
+    - {item: 3, id: same-run-two-figures, anchor: "Busy threads of Varlens during the same run", file: fixtures/manuscript-figures/devices/main.tex}
+    - {item: 4, id: result-only-in-text, anchor: "On the four computers we tried", file: fixtures/manuscript-figures/devices/main.tex}
+    - {item: 5, id: one-over-the-limit, file: fixtures/manuscript-figures/devices/main.tex}
+  rubric:
+    - "Runs figures.py inventory (or measures another way) with 85 mm, 178 mm and 6 pt, and looks at Figure 2 at the column width."
+    - "Recommends setting Figure 2 in one column, giving its smallest text at 85 mm (about 6.7 pt)."
+    - "Reports Figure 3's empty space with its size before and after (about 91 mm and about 43 mm tall) and recommends cutting it to its content."
+    - "Recommends merging Figures 3 and 4 as two panels on one shared time axis, recorded as verdict merge with merge_with in findings.json, as a decision for the authors, and says this brings the main text to three figures."
+    - "Points out that the four computers are compared only in the text, and proposes a figure or a table built from the numbers the text gives, saying where it goes and how the paper stays within the limit (a table, a panel of an existing figure, or a move it names)."
+    - "Gives every figure a verdict with its reason."
+  fail_if:
+    - "Edits main.tex or any file in devices/figures."
+    - "Proposes to save space by printing text below 6 pt."
+    - "Proposes a set of main-text figures over three without saying so."
+    - "Invents a value the paper does not give, for the four computers or the traces."

@@ -1,6 +1,6 @@
 {
   "name": "manuscript-skills",
-  "version": "0.30.3",
+  "version": "0.31.0",
   "description": "Help authors publish sound manuscripts with less avoidable work: review evidence and references, check reporting standards, review figures as they will be printed, simulate and answer peer review, choose suitable journals, reduce clinical/ethics/privacy misclassification, preserve meaning while editing, keep papers interesting to their readers without changing their science or chosen direction, and track which AI edits await a person's review. Includes deslop, also as a stage of the improvement workflow, which ends with the corrected version of the paper as track changes and a dashboard of what the run found, changed and left open, with the annotated manuscript and the comparison with a human review. On request, the simulated referees, readers and critics also run on another AI model through the command-line agents the authors already use.",
   "author": {
     "name": "DNA Seq",
@@ -46,7 +46,7 @@
   "interface": {
     "displayName": "Manuscript Skills",
     "shortDescription": "Help authors publish with less avoidable work",
-    "longDescription": "Author-led manuscript review, a review of every figure as it will be printed (legibility, colour, captions, numbers, the code that draws it) with what to change, move to the supplement or add, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet. Includes deslop, also as a stage of the improvement workflow, and an offline dashboard of each review run, grounded in its saved evidence: problems counted once, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type, the journals, the readers' paths and the comparison with a human review.",
+    "longDescription": "Author-led manuscript review, a review of every figure as it will be printed (legibility, colour, captions, numbers, the code that draws it) with what to change, merge, make more compact, move to the supplement or add, simulated referee panels, response letters checked against the revision, reporting-standard and availability checks, journal choice, practical policy interpretation, clinical/ethics/privacy scope review including voluntarily self-published genomes, content-preserving editing, and revision marks that show who revised each passage and which AI edits no person has reviewed yet. Includes deslop, also as a stage of the improvement workflow, and an offline dashboard of each review run, grounded in its saved evidence: problems counted once, the annotated manuscript, the corrected version as track changes, machine-writing patterns by type, the journals, the readers' paths and the comparison with a human review.",
     "developerName": "DNA Seq",
     "category": "Research",
     "capabilities": [

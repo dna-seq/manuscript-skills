@@ -478,7 +478,8 @@ class FigureItem(Record):
     part: Literal["main", "supplement"] = "main"  # the main text gets the full review, the supplement a lighter one
     caption: str = ""
     image: str = ""  # the figure as rendered, relative to the inventory; embedded in the dashboard (a table has none)
-    verdict: Literal["keep", "change", "move-to-supplement", "move-to-main-text"]
+    verdict: Literal["keep", "change", "merge", "move-to-supplement", "move-to-main-text"]
+    merge_with: list[Text] = Field(default_factory=list)  # with `merge`: the items it joins, as one figure or table
     message: str = ""  # the one thing a reader should take from it
     why: str = ""  # the reason for the verdict
     recommendations: list[FigureChange] = Field(default_factory=list)
@@ -575,6 +576,11 @@ class Inventory(Record):
             for record in [*self.figures.items, *self.figures.new]:
                 if unknown := set(record.finding_ids) - known:
                     raise ValueError(f"Figure {getattr(record, 'id', None) or record.title} links unknown findings: {sorted(unknown)}")
+            for item in self.figures.items:
+                if (item.verdict == "merge") != bool(item.merge_with):
+                    raise ValueError(f"{item.id}: a merge names the items it joins in merge_with, and only a merge does.")
+                if unknown := set(item.merge_with) - set(ids) | ({item.id} & set(item.merge_with)):
+                    raise ValueError(f"{item.id} merges with items that are not other figures or tables of the paper: {sorted(unknown)}")
         rungs = [(venue.ladder, venue.rung) for venue in self.venues]
         if len(rungs) != len(set(rungs)):
             raise ValueError("Two venues share a rung of the same ladder.")
@@ -675,9 +681,25 @@ def competing(changes: list[Change]) -> list[list[str]]:
     return [ids for ids in groups.values() if len(ids) > 1]
 
 
+def merged_away(items: list[FigureItem]) -> int:
+    """How many display items the proposed merges remove: a group of n items joined by `merge` becomes one."""
+    parent = {item.id: item.id for item in items}
+
+    def root(x: str) -> str:
+        while parent[x] != x:
+            x = parent[x]
+        return x
+
+    for item in items:
+        for other in item.merge_with if item.verdict == "merge" else []:
+            if other in parent:
+                parent[root(other)] = root(item.id)
+    return len(items) - len({root(x) for x in parent})
+
+
 def figure_counts(figures: Figures | None) -> dict | None:
     """How many figures and tables got each verdict, the new figures proposed, and the main-text display items
-    the venue counts (figures, or figures and tables together) before and after the proposed moves."""
+    the venue counts (figures, or figures and tables together) before and after the proposed moves and merges."""
     if not figures:
         return None
     verdicts = Counter(item.verdict for item in figures.items)
@@ -689,9 +711,10 @@ def figure_counts(figures: Figures | None) -> dict | None:
     return {"items": len(figures.items), "figures": kinds[("figure", "main")] + kinds[("figure", "supplement")],
             "tables": kinds[("table", "main")] + kinds[("table", "supplement")],
             "supplementary": kinds[("figure", "supplement")] + kinds[("table", "supplement")],
-            "by_verdict": ordered(verdicts, ("keep", "change", "move-to-supplement", "move-to-main-text")),
+            "by_verdict": ordered(verdicts, ("keep", "change", "merge", "move-to-supplement", "move-to-main-text")),
             "new": len(figures.new), "main_now": len(main),
-            "main_if_accepted": len(main) - sum(item.verdict == "move-to-supplement" for item in main) + len(promoted) + len(figures.new),
+            "main_if_accepted": len(main) - sum(item.verdict == "move-to-supplement" for item in main) + len(promoted) + len(figures.new)
+            - merged_away([item for item in main if item.verdict != "move-to-supplement"] + promoted),
             "limit": figures.limit.count if figures.limit else None}
 
 

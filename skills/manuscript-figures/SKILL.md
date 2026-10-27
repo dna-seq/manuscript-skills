@@ -3,14 +3,14 @@ name: manuscript-figures
 description: >-
   Review a manuscript's figures and tables, in the paper and its supplement, as its readers see them:
   render each figure at its printed size and look at it (legibility at the column width, axes and units,
-  colour for colour-blind readers and greyscale print, clutter, consistent style, panel labels, resolution
+  colour for colour-blind readers and greyscale print, clutter, empty space, panel labels, resolution
   against the venue's rules), measure each table (width, units, precision, empty cells, length), then check
   content (one message, a complete caption, numbers that agree with the text, cited in order and for a
   claim it shows) and, where the project has it, the code that draws a figure. Recommend what to keep,
-  change, move to or from the supplement and add, each with its reason; which display items the paper has
-  stays the authors' decision. Use for "check our figures" or "our tables", figure- or table-led papers, "what should go to
-  the supplement", and as the figures and tables stage of manuscript-improve. It does not screen images
-  for duplication or manipulation.
+  change, make compact, merge, move to or from the supplement and add, each with its reason; which display
+  items the paper has stays the authors' decision. Use for "check our figures" or "our tables", figure- or
+  table-led papers, "what should go to the supplement", and as the figures and tables stage of
+  manuscript-improve. It does not screen images for duplication or manipulation.
 ---
 
 # Review the figures and tables as readers see them
@@ -29,8 +29,8 @@ The main text's figures and tables are what readers and referees judge the paper
 whole review below: printed legibility against the venue's rules, one message each, design and colour,
 citation order, the venue's limit on display items. Supplementary figures and tables serve the reader who
 wants the detail. They need to be readable at the page width, labelled with units, captioned so they stand
-alone, consistent with the numbers in the paper and cited from the main text; design polish, one message
-per item and a shared style are not asked of them, and their text and resolution are measured against
+alone, consistent with the numbers in the paper and cited from the main text; design polish, compactness, one
+message per item and a shared style are not asked of them, and their text and resolution are measured against
 looser minimums. A supplementary item that carries a claim the paper makes may be recommended for the
 main text; a main-text item that serves a referee more than a reader, for the supplement.
 
@@ -61,8 +61,13 @@ It reads Markdown or LaTeX (following `\input`), the paper and each `--supplemen
 figure (its files, caption and label) and every table (a pipe table or a `table` environment, with its
 caption). For each figure it writes `sheet.png` (the printed size in colour, greyscale and two simulated
 red-green colour blindnesses) and `view.png` (300 dpi, for details), and measures text size and line
-weight exactly where a PDF or SVG keeps them as vectors, and the resolution of a raster as printed. A
-caption with no image is listed as a figure whose file is missing. For each table it gives the columns and
+weight exactly where a PDF or SVG keeps them as vectors, and the resolution of a raster as printed. It
+measures the space each main-text figure takes: its printed size, the share of it that is empty (blank
+margins and gaps wider than the spacing between panels) and the size it would print at cut to its content,
+noted when that would make it a quarter shorter or its contents a quarter larger. A figure across the page
+is also written as `column.png`, at the column width, with its smallest vector text there (noted when that
+still meets the minimum); a column figure whose text is too small says the size it would reach across the
+page. A caption with no image is listed as a figure whose file is missing. For each table it gives the columns and
 rows, the width it needs at the table font (`--table-pt`, 8 pt) against the column and the page, and the
 columns that mix decimal places, hold measured values with no unit, or have empty cells. Supplementary
 items (from a `--supplement` file, or numbered S1, S2) are measured at the page width against
@@ -86,7 +91,7 @@ A second run of the inventory goes to a new folder (`figures.2`), which the scri
 exists.
 
 Register the outputs with `runs.py add --role check`, each under its path in this skill's folder with
-`--name`: every figure has its own `sheet.png` and `view.png`, so without `--name` the second `view.png`
+`--name`: every figure has its own `sheet.png` and `view.png` (and a figure across the page its `column.png`), so without `--name` the second `view.png`
 lands at the folder's root and is refused as already registered:
 
 ```bash
@@ -96,7 +101,7 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill ma
   --file RUN/manuscript-figures/figures/figure-3/view.png --name figures/figure-3/view.png
 ```
 
-and the same for `figures.md` and each figure's `sheet.png` and `view.png`.
+and the same for `figures.md` and each figure's `sheet.png`, `view.png` and `column.png`.
 
 ## 2. Look at each figure and read each table, then read them against the paper
 
@@ -115,6 +120,11 @@ for the supplement's items:
   the caption says what is shown, n, what error bars or bands show, the test, units and abbreviations;
   every number read off the figure agrees with the text and the tables that give it; it is cited in order,
   and each citing sentence claims what the figure shows.
+- **The space it takes** ([checklist](references/figure-review.md#the-space-it-takes)): the empty share and
+  the cut size the inventory measured; for a figure across the page, whether `column.png` reads in one
+  column; legends and axis titles repeated across panels; figures of the same runs or samples on a shared
+  axis that would read as panels of one figure; a figure whose message is one number, and a small table that
+  repeats a figure's quantity.
 - **Its code**, where the project has it: find what writes the figure file (search the code folders,
   notebooks included, for its file name: `grep -rn FILE_STEM CODE_DIR` in a POSIX shell, the editor's search
   elsewhere), read it, and check it plots what the caption says (the statistic, the samples or runs, the
@@ -127,29 +137,42 @@ for the supplement's items:
   every column header name its quantity and unit; one precision per quantity; abbreviations defined in a
   footnote; what an empty or dashed cell means; can a reader find the rows that carry the claim, or would
   that result read better as a figure; does every number agree with the text and the figures.
+- **Results with no display item**: read the Results for a result given only in the text, a paragraph that
+  compares several numbers (conditions, tools, groups, time points) and cites no figure or table. Readers who
+  skim the figures miss it, and a sentence of six numbers cannot be compared at a glance.
 
 Reuse what other stages of the run found about a figure or table (a number integrity-check recomputed, a
 referee's concern about a panel) instead of redoing it; the dashboard merges the records.
 
 ## 3. Recommend: keep, change, move, add
 
-Give each figure and table a verdict, **keep**, **change**, **move to the supplement** or, for a
-supplementary item that carries a claim of the paper, **move to the main text**, and propose the figures
-the paper lacks, every one with its reason ([patterns and examples](references/figure-review.md#recommendations)):
+Give each figure and table a verdict, **keep**, **change**, **merge** (with the items named in
+`merge_with`, into one figure or table), **move to the supplement** or, for a supplementary item that carries
+a claim of the paper, **move to the main text**, and propose the figures the paper lacks, every one with its
+reason ([patterns and examples](references/figure-review.md#recommendations)):
 
 - **Change** what it shows (split a figure with two messages, show the points behind a bar of means, plot
   what the caption says) or how (chart type, encoding, order by value, direct labels instead of a legend,
   an annotation on the comparison that matters, layout, a colour-blind-safe palette, text sized for the
   printed width). Name the measurement or the passage behind each change.
+- **Make it compact** where the measurements or the sheet show space a reader gains nothing from: cut the
+  empty space, set a figure that reads in one column in one column, share a legend and the axis titles across
+  panels, draw small multiples on shared axes. Give the size before and after; never compact by shrinking
+  text below the venue's minimum. A layout change of one figure is a `change`.
+- **Merge** figures (or a small table into a figure) that show the same runs, samples or quantity, on a shared
+  axis, and serve one message: say which panel each becomes and what is drawn once. A merge is how a paper
+  over the limit keeps a result in the main text that would otherwise move out.
 - **Move to the supplement** what serves a referee more than a reader: a sweep showing that a setting does
   not matter, every rerun, a sensitivity analysis the text sums up in a sentence. Never move out of the
   main text evidence that would change a reader's conclusion.
 - **Add** what readers need and no figure gives: a schematic overview of a multi-step method, the real
   output a user would see (from the authors' own files, never made up), a key result that now sits only in
-  a table. Say what it shows, what it is built from, where it goes and what it replaces to stay within the
+  a table, a comparison the text gives only as numbers in a paragraph (built from those numbers, or the
+  authors' data behind them; a small table when a figure would exceed the limit). Say what it shows, what it is built from, where it goes and what it replaces to stay within the
   limit.
 - **Respect the venue's limit** on figures or display items (figures and tables together where the venue
-  counts them so). An addition over the limit names what moves to make room.
+  counts them so). An addition over the limit names what moves or merges to make room; merged items count as
+  one.
 - **Which figures the paper has is the authors' decision.** Moving, adding, merging or splitting a figure
   is a finding with `decision: true`, under every `edits` setting and also when the authors say "fix
   everything"; nothing is moved or added for them. These are held decisions: listed once, together, with
@@ -192,14 +215,18 @@ dashboard's Figures tab shows with each figure's image, main text first. Each it
              "recommendations": [{"kind": "visual", "change": "Redraw at 178 mm with 7 pt labels.", "why": "..."},
                                  {"kind": "content", "change": "Mark the replicated locus on the plot.", "why": "..."}],
              "proposed_image": "proposed/figure-3.proposed.png", "code": "analysis/manhattan.R",
-             "finding_ids": ["FG-1", "FG-2"]}],
+             "finding_ids": ["FG-1", "FG-2"]},
+            {"id": "Figure 4", "kind": "figure", "part": "main", "verdict": "merge", "merge_with": ["Figure 5"],
+             "why": "Figures 4 and 5 show memory and CPU use over the same run; as panels a and b on one time axis they take one slot.",
+             "finding_ids": ["FG-4"]}],
   "new": [{"title": "An overview of the analysis", "kind": "a schematic overview",
            "shows": "...", "why": "...", "source": "Methods 2.1 to 2.4", "placement": "start of the Results",
            "replaces": "Figure 5 moves to the supplement", "finding_ids": ["FG-6"]}]
 }
 ```
 
-Paths are relative to this stage's folder. Register the report, `findings.json`, the renders and any
+A `merge` names the other items in `merge_with`; the dashboard counts each merged group as one display item
+against the limit. Paths are relative to this stage's folder. Register the report, `findings.json`, the renders and any
 proposed drafts with `runs.py add`, each with `--name` set to that path (`--name figures/figure-3/view.png`,
 `--name proposed/figure-3.proposed.png`), and finish with `runs.py finish`.
 

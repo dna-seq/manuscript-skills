@@ -27,6 +27,32 @@ printed, and that panel is what a reader of the journal sees. `view.png` is for 
 - **Resolution.** A raster reaches the venue's resolution at its printed width; a photograph and a line
   drawing may have different minimums. Prefer vector formats for plots.
 
+## The space it takes
+
+Space in the main text is what a venue's limit and a reader's attention both count. A figure earns its
+size; a compact figure is one where nothing could be removed without losing data, never one with smaller
+text. Look at the inventory's measurements first: the printed size, the share of it that is empty and the
+size it would print at cut to its content, and, for a figure across the page, `column.png` and its smallest
+text in one column.
+
+- **Empty space.** Blank margins, a canvas taller than its plot, gaps between panels wider than spacing, a
+  legend parked far from the data. Cutting it gives the same figure shorter, or larger at the same height.
+- **Width.** A figure across the page whose text still meets the minimum in one column, and that reads
+  there on `column.png`, can take one column and free half a page. The reverse holds too: a dense figure
+  whose text is too small in a column may need the page width rather than smaller text.
+- **Repetition across panels.** One legend for every panel that shares it, one axis title for a row or
+  column of panels on the same scale, tick labels only on the outer panels, and small multiples on shared
+  axes instead of separate figures or one tangle of overplotted lines.
+- **Figures that belong together.** Two figures of the same runs, samples or quantity on a shared axis
+  (memory and CPU use over one run, two conditions of one experiment) read better as panels a and b of one
+  figure with the axis drawn once. Merge only what serves one message; a merged figure with two messages is
+  the problem splitting solves.
+- **Less than a figure.** A figure whose message is one number, or "no difference", can be a sentence in the
+  text with the figure in the supplement; a small table (a few numbers) can be a panel or an annotation of the
+  figure that shows the same quantity; a zoom of one region can be an inset rather than its own panel.
+- **Never by shrinking.** Every compaction keeps text at or above the venue's minimum at the printed size,
+  measured again on the redrawn draft.
+
 ## Its content
 
 - **One message.** Say in one sentence what a reader should take from the figure. If you cannot, or need
@@ -119,7 +145,14 @@ Each recommendation names the figure, the change and the reason, with the measur
 | A table wider than the page | Turn it, split it, or move the detail to the supplement | "Table 3 needs about 240 mm at 8 pt; the page is 178 mm." |
 | A long table in the main text | Keep the rows that carry the claim, move the full listing to the supplement | "Table 4 lists every one of 96 scores; the text uses the median and three outliers." |
 | A key result only in a supplementary table | Bring it into the main text, as a table or a figure | "The headline speed-up rests on Table S2." |
+| A result given only in the text: a paragraph that compares several numbers, with no figure or table | A figure (or a small table) of those numbers, built from the values the text gives or the authors' data | "The four computers' times and memory are six numbers in one sentence; a reader cannot compare them." |
+| A figure with much empty space | Cut it to its content | "Figure 3 prints 85 × 91 mm and 57% of it is empty; cut, it prints 85 × 43 mm." |
+| A figure across the page that reads in one column | Set it in one column | "Figure 2's smallest text would be 6.7 pt at 85 mm, above the 6 pt minimum." |
+| Two figures of the same runs on a shared axis | Merge them as panels of one figure, the axis drawn once (`merge`) | "Figures 3 and 4 show memory and busy threads over the same 32 s run." |
+| Panels that repeat a legend or an axis title | One shared legend and axis title; tick labels on the outer panels | Each repetition takes space and gives the reader nothing new. |
+| A figure whose message is one number or "no difference" | A sentence in the text, the figure in the supplement | "The text says the result does not depend on the cut-off; the figure shows only that." |
+| A small table beside a figure of the same quantity | A panel or annotation of that figure, the table in the supplement or gone | "Table 2's three medians are the bars of Figure 2." |
 
 Moving, adding, merging and splitting figures and tables are decisions for the authors (`decision: true`). A caveat a
 figure carries moves with it and is never lost; evidence that would change a reader's conclusion stays in
-the main text.
+the main text. A merge counts as one display item against the venue's limit.
