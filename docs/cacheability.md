@@ -35,6 +35,9 @@ transcript (its subagents' records), read without changing it. Measured on 2026-
   the peer-review stage spent 3 of the 10 minutes before its referees could start fetching the three journals'
   reviewer pages. Both are what the venue catalogue (0.30.0) now keeps with dates; on a rerun they are read
   again only when `venues.py stale` says so.
+- **The cheapest minutes are not cached ones.** The host refused the first report file of all 13 stage agents in
+  the v0.6 run; each wrote it again, losing 11 minutes of agent time, 5.4 of them on the critical path (see the
+  last section).
 
 ## Where the agents' time went (v0.6)
 
@@ -227,5 +230,39 @@ The venue catalogue's `reviewer_form` takes the 3 minutes of fetching off a run 
 on Paper 1 v0.6, giving the same reading copies (word for word), figures and domain questions the agent made by
 hand, and the same supplementary files less one PNG nothing names. It also builds the defender's workspace and
 the findings stripped of who raised them, which the agent scripted by hand between the seats and the defender.
-A faster merge and adjudication, or a defender handed the reference check's texts and the code ledger, would cut
-more.
+What the 19 minutes after the defender went to, and how little of it a script can take, is the next section.
+
+## The 19 minutes after the defender
+
+From the peer-review agent's records, between the coordinator's message that the defender had finished and the
+agent's hand-back (minutes of agent time; tool calls and the model's time before them):
+
+| Step | Minutes | What it was | Scriptable? |
+| --- | --- | --- | --- |
+| Testing the defender's answers | 6.7 | 21 lookups in the code, the data, the just-prs repository, a dataset README and arXiv (3.7 min), then about 3 min deciding | No: this is adjudication. Some lookups re-derived what other stages had recorded by then: the web interface's restoration default is the integrity check's code claim CC22, and the Generation I preprint is in the reference check's sources |
+| Quote checks | 0.5 | the coordinator's `check_quotes.py` on the planned quotes | Already a script |
+| Writing the 63 verdicts | 2.2 | a 40,000-character script: verdict, severity, triage, route, stage, group and evidence for each finding, plus about 30 lines that map the defender's answers back and write `findings.adjudicated.json` | The 30 lines only: tens of seconds |
+| Checking the adjudicated set | 1.6 | `check_findings.py`, a quote search, two greps | Already scripts |
+| The report | 2.4 | 6,830 words written in one go | No: only 4 of its 297 sentences of eight words or more are copied from the seats or the verdicts |
+| The report again | 1.6 | the host refused the agent's `Write` of `report.md` ("Subagents should return findings as text, not write report files"), and the agent sent the same 42,500 characters again through the shell | Yes: see below |
+| Checking the report | 0.6 | a quote check and the style profile on the report | Already scripts |
+| The stage's `findings.json` | 3.2 | a 46,000-character script: 34 findings and 20 proposed changes for the authors | Little: the texts are new (median similarity of a finding's detail to the adjudicated concern 0.06, of its action to `change_my_mind` 0.28), and severity and stage are set again per group (10 and 22 of 30 groups keep a member's) |
+| Registering and finishing | 0.3 | `runs.py add` and `finish` | Already scripts |
+
+So a script takes about half a minute off this part (folding the defender's answers into the findings and leaving
+a verdict per finding to fill in). The rest is judgement and writing for the authors; it gets shorter only by
+asking for less (a shorter report, or the referees' reports given as the seats wrote them rather than rewritten),
+which is a decision about the deliverable, not about speed.
+
+**The refused report is the larger loss, and it is not peer review's alone.** In the v0.6 run the host refused the
+first `Write` of a report by every stage agent: all 13 (reference, integrity, reporting, figures, policy fit, peer
+review, revise, prose edit, deslop, story and the three readers), 9,000 to 43,000 characters each. Each agent then
+wrote the same report again through the shell, or the readers returned it as text, 24 to 93 seconds later: 11
+minutes of agent time and about 235,000 characters sent twice. About 5.4 of those minutes lie on the critical path
+(peer review 1.6, then the editing stages one after another: revise 0.8, prose edit 0.6, deslop 0.6, story 1.4, and
+the readers, who run side by side, 0.5). project-workflow.md already expects the refusal and asks the agent to
+return the report as text for the coordinator to save; no agent did that, and each lost its first attempt instead.
+Telling stage agents in the stage brief to write their report files with a shell command from the start (as every
+one of them ended up doing), or giving `runs.py` a command that saves a report from standard input and registers it,
+would take those 5.4 minutes off every run for a paragraph of instructions or a few lines of code: more than any
+cache in this note.
