@@ -818,14 +818,41 @@ def pandoc_script(marker: str, tag: str) -> Any:
     return rule
 
 
+# pandoc's attribute block right after an image, `![](figure.png){width=100% alt="..."}` (a quoted value may hold
+# braces); its pairs, quoted or bare.
+IMAGE_ATTRIBUTES = re.compile(r'\{((?:[^{}"]|"[^"]*")*)\}')
+ATTRIBUTE_PAIR = re.compile(r'([\w-]+)=(?:"([^"]*)"|(\S+))')
+
+
+def pandoc_image_attributes(state: Any) -> None:
+    """A markdown-it core rule: the attribute block pandoc reads after an image is taken off the text that follows
+    it, so it is never printed. Its `alt` becomes the image's alternative text (the token's content and its one text
+    child, which the HTML renderer and the Word export read); every pair is kept in the token's `meta`."""
+    from markdown_it.token import Token
+
+    for block in state.tokens:
+        children = block.children or []
+        for image, after in zip(children, children[1:]):
+            if image.type != "image" or after.type != "text" or not (found := IMAGE_ATTRIBUTES.match(after.content)):
+                continue
+            pairs = {key: quoted or bare for key, quoted, bare in ATTRIBUTE_PAIR.findall(found.group(1))}
+            image.meta = {**(image.meta or {}), "attributes": pairs}
+            if pairs.get("alt"):
+                image.content = pairs["alt"]
+                image.children = [Token("text", "", 0, content=pairs["alt"])]
+            after.content = after.content[found.end():]
+
+
 def markdown_parser() -> Any:
-    """The Markdown reader for manuscripts: CommonMark with tables and pandoc's superscript and subscript. Raw HTML
-    is shown as text, so an author's comment stays visible."""
+    """The Markdown reader for manuscripts: CommonMark with tables, pandoc's superscript and subscript, and pandoc's
+    attribute block after an image (read as the image's alt text, never shown). Raw HTML is shown as text, so an
+    author's comment stays visible."""
     from markdown_it import MarkdownIt
 
     parser = MarkdownIt("commonmark", {"html": False}).enable("table")
     parser.inline.ruler.before("emphasis", "pandoc_superscript", pandoc_script("^", "sup"))
     parser.inline.ruler.before("emphasis", "pandoc_subscript", pandoc_script("~", "sub"))
+    parser.core.ruler.after("inline", "pandoc_image_attributes", pandoc_image_attributes)
     return parser
 
 

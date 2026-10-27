@@ -167,7 +167,9 @@ class Builder:
         for folder in self.folders:
             path = (folder / name).resolve()
             if not re.match(r"(?i)^[a-z][a-z0-9+.-]*:", source) and path.is_file() and path.suffix.lower() in IMAGES:
-                paragraph.add_run().add_picture(str(path), width=Inches(6))
+                picture = paragraph.add_run().add_picture(str(path), width=Inches(6))
+                if token.content:  # the alt text, from the image's brackets or its pandoc attribute block
+                    picture._inline.docPr.set("descr", token.content)
                 return
         # Nothing is added to the text: an empty run marks the place, and a comment on it names the image.
         self.missing_images.append((paragraph.add_run(""), source))

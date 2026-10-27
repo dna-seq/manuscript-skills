@@ -131,6 +131,25 @@ def test_pandoc_superscripts_become_superscript_runs_and_quotes_still_anchor() -
     assert builder.locate("Kulaga Anton^1,2,†^, Usanov Nikolay^3^") is not None
 
 
+def test_a_pandoc_attribute_block_after_an_image_is_its_alt_text_and_never_printed(tmp_path: Path) -> None:
+    from PIL import Image
+
+    Image.new("RGB", (8, 8), "white").save(tmp_path / "figure-1.png")
+    markdown = ('![](figure-1.png){width=100% alt="Two screenshots, {not} nested"}\n\n'
+                '![Bracketed alt](figure-1.png) and text after it.\n')
+    html_out = viz.markdown_parser().render(markdown)
+    assert "{width" not in html_out and 'alt="Two screenshots, {not} nested"' in html_out
+    assert "width=100%" not in html_out and 'alt="Bracketed alt"' in html_out and "and text after it." in html_out
+    builder = export.Builder([tmp_path])
+    builder.render('![](figure-1.png){width=100% alt="Two screenshots of the interface"}\n')
+    out = tmp_path / "figure.docx"
+    builder.doc.save(out)
+    with zipfile.ZipFile(out) as docx:
+        document = docx.read("word/document.xml").decode()
+    assert "width=100%" not in document and "{" not in re.sub(r"<[^>]+>", "", document)
+    assert 'descr="Two screenshots of the interface"' in document and not builder.missing_images
+
+
 def test_without_a_corrected_version_the_reviewed_text_carries_the_problems_only(tmp_path: Path) -> None:
     run = make_run(tmp_path)
     out = run / "reviewed.docx"
