@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { ManuscriptReferees, ManuscriptRunView, ManuscriptStage } from '../../types'
+import type { ManuscriptDecision, ManuscriptReferees, ManuscriptRunView, ManuscriptStage } from '../../types'
 import {
   buildView,
   counts,
@@ -29,6 +29,8 @@ const view = atom({ plugin: 'manuscript-skills', key: 'view' } as const, null)
 const problem = atom({ plugin: 'manuscript-skills', key: 'problem' } as const, null)
 const isDecisionsFirst = atom({ plugin: 'manuscript-skills', key: 'isDecisionsFirst' } as const, false)
 const hiddenBand = atom({ plugin: 'manuscript-skills', key: 'hiddenBand' } as const, null)
+const decisionsFold = atom({ plugin: 'manuscript-skills', key: 'decisionsFold' } as const, null)
+const unfoldedDecisions = atom({ plugin: 'manuscript-skills', key: 'unfoldedDecisions' } as const, [])
 
 type $ = EngineInterface
 
@@ -337,7 +339,19 @@ const bar = (done: number, total: number, width: number) => {
   const filled = total === 0 ? 0 : Math.round((done / total) * width)
   return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`
 }
-const cut = (text: string, width: number) => (text.length <= width ? text.padEnd(width) : `${text.slice(0, Math.max(0, width - 1))}…`)
+const clip = (text: string, width: number) => (text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`)
+const cut = (text: string, width: number) => clip(text, width).padEnd(width)
+
+// Each decision's address in the list, the same across refreshes: its stage and id, made unique where two share them.
+function decisionKeys(runId: string, list: ManuscriptDecision[]): string[] {
+  const seen = new Set<string>()
+  return list.map((one, n) => {
+    let key = `${runId}:${one.stage}:${one.id || n}`
+    if (seen.has(key)) key = `${key}#${n}`
+    seen.add(key)
+    return key
+  })
+}
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -427,6 +441,7 @@ export const register: Register = on => {
           variant="primary"
           onPress={async () => {
             await update($, isDecisionsFirst, () => true)
+            await update($, decisionsFold, () => ({ runId: v.runId, isOpen: true }))
             await $.ui.open({ id: PANE, title: TITLE, focus: true })
           }}
         />
@@ -528,17 +543,59 @@ export const register: Register = on => {
       </Box>
     )
 
+    // An accordion: the header folds the list, open by default while the run waits for the authors; each row
+    // unfolds to its whole summary and what the finding says beyond it.
+    const fold = await read($, decisionsFold)
+    const isListOpen = fold?.runId === v.runId ? fold.isOpen : v.isWaiting
+    const unfolded = new Set(await read($, unfoldedDecisions))
+    const keys = decisionKeys(v.runId, v.decisions)
+    const unfold = (key: string) => () =>
+      update($, unfoldedDecisions, list =>
+        list.includes(key) ? list.filter(one => one !== key) : [...list.filter(one => one.startsWith(`${v.runId}:`)), key],
+      )
     const decisions = v.decisions.length > 0 && (
       <Box key="decisions" flexDirection="column" marginBottom={1}>
-        <Text bold color={isEnd ? 'warning' : 'text'}>
-          {isEnd ? 'Decisions for you' : 'Held for the authors'} ({v.decisions.length})
-        </Text>
-        {v.decisions.slice(0, 15).map(one => (
-          <Text wrap="truncate-end">
-            <Text dimColor>{one.id}</Text> {one.summary}
+        <Button
+          key="decisions-fold"
+          plain
+          onPress={() => update($, decisionsFold, () => ({ runId: v.runId, isOpen: !isListOpen }))}
+        >
+          <Text bold color={isEnd ? 'warning' : 'text'}>
+            {isListOpen ? '▾' : '▸'} {isEnd ? 'Decisions for you' : 'Held for the authors'} ({v.decisions.length})
           </Text>
-        ))}
-        {v.decisions.length > 15 && <Text dimColor>and {v.decisions.length - 15} more in the dashboard</Text>}
+        </Button>
+        {isListOpen &&
+          v.decisions.map((one, n) => {
+            const key = keys[n]!
+            if (!unfolded.has(key)) {
+              return (
+                <Button key={`decision-${key}`} plain onPress={unfold(key)}>
+                  <Text wrap="truncate-end">
+                    ▸ <Text dimColor>{one.id}</Text> {clip(one.summary, width - one.id.length - 3)}
+                  </Text>
+                </Button>
+              )
+            }
+            const where = [one.stage, one.section].filter(Boolean).join(' · ')
+            return (
+              <Box key={`decision-open-${key}`} flexDirection="column">
+                <Button key={`decision-${key}`} plain onPress={unfold(key)}>
+                  <Text wrap="truncate-end">
+                    ▾ <Text dimColor>{one.id}</Text> <Text dimColor>{clip(where, width - one.id.length - 3)}</Text>
+                  </Text>
+                </Button>
+                <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
+                  <Text wrap="wrap">{one.summary}</Text>
+                  {one.detail && (
+                    <Text wrap="wrap" dimColor>
+                      {one.detail}
+                    </Text>
+                  )}
+                  {one.action && <Text wrap="wrap">→ {one.action}</Text>}
+                </Box>
+              </Box>
+            )
+          })}
       </Box>
     )
 

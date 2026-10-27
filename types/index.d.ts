@@ -52,7 +52,15 @@ export type ManuscriptSetting = {
 
 export type ManuscriptOutput = { key: string; label: string; path: string }
 
-export type ManuscriptDecision = { id: string; stage: string; summary: string }
+export type ManuscriptDecision = {
+  id: string
+  stage: string
+  summary: string
+  // what the finding says beyond its summary, when it says it: where, why, and what the authors are asked
+  section: string | null
+  detail: string | null
+  action: string | null
+}
 
 export type ManuscriptRunView = {
   runPath: string
@@ -87,6 +95,10 @@ declare module 'claude-code' {
       // why no run is shown: none found yet, or the run.json could not be read
       problem: string | null
       isDecisionsFirst: boolean
+      // the person's fold of the decisions list, for the run it names; another run opens it only while it waits
+      decisionsFold: { runId: string; isOpen: boolean } | null
+      // the decisions unfolded to read whole, as `runId:stage:id`
+      unfoldedDecisions: string[]
       // the waiting signature the person hid the band for; a new decision shows it again
       hiddenBand: string | null
     }

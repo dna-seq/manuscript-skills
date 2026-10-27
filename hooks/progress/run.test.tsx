@@ -358,7 +358,71 @@ test('a run that stops for an answer says so, apart from the decisions held for 
 
     const pane = await $.ui.mount({ ...PANE, surface })
     expect(await pane.find({ type: 'Text', text: /The run waits for your answer/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /Held for the authors \(1\)/ })).toBeDefined()
+    // the list starts open while the run waits for the authors
+    expect((await pane.find({ type: 'Text', text: /Held for the authors/ }))?.text).toBe('▾ Held for the authors (1)')
+    expect(await pane.find({ type: 'Button', key: 'decision-20261027T125139Z-488af17b:Integrity check:IC-2' })).toBeDefined()
+    await pane.unmount()
+  }
+})
+
+test('the held decisions fold under their header and each unfolds to read whole', async ($, on) => {
+  // 22 decisions, as the just-module-creator run of 2026-10-26 holds, each summary wider than the pane
+  const held = Array.from({ length: 22 }, (_, n) => ({
+    id: `IC-${n + 1}`,
+    summary: `Decision ${n + 1} about a claim whose wording only the authors can settle, long enough to be cut`,
+    decision: true,
+  }))
+  const whole = {
+    ...held[20]!,
+    section: '4.2 Production catalog (Table 4)',
+    detail: 'Four modules hold most of the catalog variants and are presented only as evidence the catalog works.',
+    action: 'State what the registry records about these four modules.',
+  }
+  const files = new Map<string, string>([
+    [`${RUN}/run.json`, JSON.stringify(runJson())],
+    [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify({ findings: [...held.slice(0, 20), whole, held[21]] })],
+  ])
+  folder(on, files, { n: 1 })
+  mock.clock(on, { now: Date.parse(at(50)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/author' })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  await $.command.run({ ...TYPED, args: RUN })
+
+  const rows = async (ui: { findAll: (query: { type: string }) => Promise<{ key: string | undefined }[]> }) =>
+    (await ui.findAll({ type: 'Button' })).filter(one => one.key?.startsWith('decision-'))
+  const row = `decision-20261027T125139Z-488af17b:Integrity check:IC-21`
+  for (const surface of ['terminal', 'desktop'] as const) {
+    let pane = await $.ui.mount({ ...PANE, surface })
+    // folded while the run goes on: the header alone, with the count
+    expect((await pane.find({ type: 'Text', text: /Held for the authors/ }))?.text).toBe('▸ Held for the authors (22)')
+    expect(await rows(pane)).toHaveLength(0)
+
+    await pane.press({ key: 'decisions-fold' })
+    expect(await rows(pane)).toHaveLength(22)
+    const cutRow = (await pane.find({ key: row }))?.text ?? ''
+    expect(cutRow).toEndWith('…')
+    expect(cutRow.length).toBeLessThanOrEqual(PANE.props.bodyColumns)
+    expect(await pane.find({ type: 'Text', text: /^Four modules hold/ })).toBeUndefined()
+
+    await pane.press({ key: row })
+    expect((await pane.find({ type: 'Text', text: whole.summary }))?.props.wrap).toBe('wrap')
+    expect(await pane.find({ type: 'Text', text: /Integrity check · 4\.2 Production catalog/ })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeDefined()
+
+    // the fold is kept in $.state, so a redraw from scratch shows it as the person left it
+    await pane.unmount()
+    pane = await $.ui.mount({ ...PANE, surface })
+    expect(await rows(pane)).toHaveLength(22)
+    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
+
+    await pane.press({ key: row })
+    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeUndefined()
+    await pane.press({ key: 'decisions-fold' })
+    expect(await rows(pane)).toHaveLength(0)
     await pane.unmount()
   }
 })

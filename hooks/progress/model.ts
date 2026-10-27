@@ -52,7 +52,11 @@ export type RunJson = {
 }
 
 // What a stage's newest findings*.json holds, in counts and the decisions only the authors can make.
-export type FindingsSummary = { findings: number; proposals: number; decisions: { id: string; summary: string }[] }
+export type FindingsSummary = {
+  findings: number
+  proposals: number
+  decisions: { id: string; summary: string; section?: string; detail?: string; action?: string }[]
+}
 
 // The deliverables the assembly writes, found in the run folder (absolute paths).
 export type AssemblyFiles = {
@@ -383,9 +387,20 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
   const inventory = g.findings[DASHBOARD]
   const sources = inventory ? [[DASHBOARD, inventory] as const] : Object.entries(g.findings)
   for (const [skill, found] of sources) {
-    for (const one of found.decisions) list.push({ id: one.id, stage: label.get(skill) ?? skill, summary: one.summary })
+    for (const one of found.decisions) {
+      list.push({
+        id: one.id,
+        stage: label.get(skill) ?? skill,
+        summary: one.summary,
+        section: one.section || null,
+        detail: one.detail || null,
+        action: one.action || null,
+      })
+    }
   }
-  for (const one of g.files.questions) list.push({ id: one.id, stage: 'Corrected version', summary: one.question })
+  for (const one of g.files.questions) {
+    list.push({ id: one.id, stage: 'Corrected version', summary: one.question, section: null, detail: null, action: null })
+  }
 
   return list
 }
@@ -508,14 +523,22 @@ export function summarizeFindings(parsed: unknown): FindingsSummary | null {
   if (typeof parsed !== 'object' || parsed === null) return null
   const body = parsed as { findings?: unknown; changes?: unknown }
   if (!Array.isArray(body.findings)) return null
-  const findings = body.findings as { id?: string; summary?: string; decision?: boolean }[]
+  type Finding = { id?: string; summary?: string; section?: string; detail?: string; action?: string; decision?: boolean }
+  const findings = body.findings as Finding[]
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined)
 
   return {
     findings: findings.length,
     proposals: Array.isArray(body.changes) ? body.changes.length : 0,
     decisions: findings
       .filter(one => one.decision === true)
-      .map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? '') })),
+      .map(one => ({
+        id: String(one.id ?? ''),
+        summary: String(one.summary ?? ''),
+        section: text(one.section),
+        detail: text(one.detail),
+        action: text(one.action),
+      })),
   }
 }
 

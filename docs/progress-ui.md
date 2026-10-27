@@ -23,12 +23,15 @@ failed to load (its skills still load); with it, 2.1.227 loads cleanly and ignor
   adaptation; assembly: dashboard, corrected version, re-check, Word review, changes workbook, handover);
   each stage's state, elapsed time and counts (findings, proposals, applied edits, decisions held for the
   authors); a button to open each stage's report; the referees' recommendations as seats by journals once
-  peer review has them; the settings the run started with and where each came from (`edits: apply
-  (project)`, `versions: in-place (default)`), with what each means; and buttons that open what the authors
-  can read while the run goes on: the run index, the manuscript being edited, the newest edit's
-  before/after, and later the dashboard, the corrected version, the Word review and the changes workbook.
+  peer review has them; the decisions held for the authors, every one of them, as a list whose header folds
+  it (folded while the run goes on, open while it waits for the authors) and whose rows each unfold to the
+  whole summary, the section, the finding's detail and what the authors are asked; the settings the run
+  started with and where each came from (`edits: apply (project)`, `versions: in-place (default)`), with
+  what each means; and buttons that open what the authors can read while the run goes on: the run index,
+  the manuscript being edited, the newest edit's before/after, and later the dashboard, the corrected
+  version, the Word review and the changes workbook.
 - **Band above the prompt**, only while the run waits for the authors, with a button that opens the
-  decisions at the top of the pane.
+  decisions, unfolded, at the top of the pane.
 - **Toast** when a stage finishes (`Prose edit finished: 5 findings · 1 proposals · 30 edits · 3 held`),
   and a native notification when the run ends or starts waiting for the authors. In the desktop app the
   native notification is not available to mods yet, so it shows as a longer toast.

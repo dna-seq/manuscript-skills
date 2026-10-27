@@ -214,8 +214,9 @@ paper/
 ## Watching a run in Claude Code
 
 In Claude Code 2.1.299 or newer, the plugin shows where a run stands while it works: a status line, a
-**Manuscript run** pane with each phase's progress, counts, the referees' recommendations, the run's
-settings and buttons that open its outputs, a band above the prompt when the run waits for your answer or
+**Manuscript run** pane with each phase's progress, counts, the referees' recommendations, the decisions
+held for you (a list that folds, each row unfolding to the whole finding), the run's settings and buttons
+that open its outputs, a band above the prompt when the run waits for your answer or
 decisions wait for you, and a short notice as each stage finishes. The pane opens by itself in the session that runs the workflow;
 anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
 PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
