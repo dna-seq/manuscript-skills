@@ -217,7 +217,9 @@ async function announce($: $, before: ManuscriptRunView | null, after: Manuscrip
     const detail = counts(stage)
     $.ui.toast(`${stage.label} ${said}${detail ? `: ${detail}` : ''}`)
   }
-  if (!before.isWaiting && after.isWaiting) {
+  if (!before.waitingFor && after.waitingFor) {
+    await notify($, `${after.label} waits for your answer: ${after.waitingFor.questions.join(' · ')}`)
+  } else if (!before.isWaiting && after.isWaiting) {
     await notify($, `${after.label}: ${after.decisions.length} decisions wait for you`)
   } else if (!before.isFinished && after.isFinished) {
     await notify($, `${after.label}: the run finished`)
@@ -303,6 +305,7 @@ function summary(v: ManuscriptRunView): string {
     const parts = own.map(stage => `${stage.label} ${stage.state}${counts(stage) ? ` (${counts(stage)})` : ''}`)
     lines.push(`${phase.label} ${phase.done}/${phase.total}: ${parts.join('; ')}`)
   }
+  if (v.waitingFor) lines.push('The run waits for your answer:', ...v.waitingFor.questions.map(question => `- ${question}`))
   if (v.decisions.length) lines.push(`${v.decisions.length} decisions for the authors.`)
   if (v.dashboard) lines.push(`Dashboard: ${v.dashboard}`)
 
@@ -406,18 +409,21 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const v = await read($, view)
     if (e.props.hasSurvey || !v?.isWaiting) return next(e)
-    const signature = `${v.runId}:${v.decisions.length}`
+    const asked = v.waitingFor?.questions ?? []
+    const signature = `${v.runId}:${asked.join('|')}:${v.decisions.length}`
     if ((await read($, hiddenBand)) === signature) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="row" gap={1}>
         <Text color="warning">
-          {v.label}: {v.decisions.length} decisions wait for you
+          {v.waitingFor
+            ? `${v.label} waits for your answer: ${asked[0] ?? ''}${asked.length > 1 ? ` (+${asked.length - 1} more)` : ''}`
+            : `${v.label}: ${v.decisions.length} decisions wait for you`}
         </Text>
         <Button
           key="open-decisions"
-          label="Open decisions"
+          label={v.waitingFor ? 'Open questions' : 'Open decisions'}
           variant="primary"
           onPress={async () => {
             await update($, isDecisionsFirst, () => true)
@@ -443,7 +449,9 @@ export const register: Register = on => {
     }
     const width = Math.max(30, e.props.bodyColumns)
     const now = Date.now()
-    const isFirst = (await read($, isDecisionsFirst)) || v.isWaiting
+    // the decisions held for the end lead once the run has finished; a question the run stopped for leads anyway
+    const isEnd = v.isWaiting && !v.waitingFor
+    const isFirst = (await read($, isDecisionsFirst)) || isEnd
     const open = (path: string) => () => void openFile($, path)
 
     const header = (
@@ -454,7 +462,9 @@ export const register: Register = on => {
           {v.lastRecordAt ? ` · last record ${duration(now - v.lastRecordAt)} ago` : ''} · {v.runId}
         </Text>
         <Text color={v.isWaiting ? 'warning' : v.isFinished ? 'success' : 'text'}>
-          {v.isWaiting
+          {v.waitingFor
+            ? `Waiting for your answer${v.waitingFor.since ? ` for ${duration(now - v.waitingFor.since)}` : ''}`
+            : v.isWaiting
             ? `Waiting for you: ${v.decisions.length} decisions`
             : v.isFinished
               ? 'Finished'
@@ -507,10 +517,21 @@ export const register: Register = on => {
       </Box>
     ))
 
+    const questions = v.waitingFor && (
+      <Box key="questions" flexDirection="column" marginBottom={1}>
+        <Text bold color="warning">
+          The run waits for your answer
+        </Text>
+        {v.waitingFor.questions.map(question => (
+          <Text wrap="wrap">· {question}</Text>
+        ))}
+      </Box>
+    )
+
     const decisions = v.decisions.length > 0 && (
       <Box key="decisions" flexDirection="column" marginBottom={1}>
-        <Text bold color={v.isWaiting ? 'warning' : 'text'}>
-          {v.isWaiting ? 'Decisions for you' : 'Held for the authors'} ({v.decisions.length})
+        <Text bold color={isEnd ? 'warning' : 'text'}>
+          {isEnd ? 'Decisions for you' : 'Held for the authors'} ({v.decisions.length})
         </Text>
         {v.decisions.slice(0, 15).map(one => (
           <Text wrap="truncate-end">
@@ -582,6 +603,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         {header}
+        {questions}
         {isFirst && decisions}
         {phases}
         {grid}

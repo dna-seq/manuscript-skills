@@ -252,3 +252,113 @@ test('a finished run with decisions raises the band, which opens them', async ($
   }
   expect(opened.at(-1)?.focus).toBe(true)
 })
+
+test('progress records give exact times, the coordinator stages, the plan and the counts', () => {
+  const data = runJson('completed')
+  // story and journal adaptation are not planned; the prose edit's findings file is packed, its counts kept
+  data.plan = [
+    'manuscript-integrity-check',
+    'manuscript-peer-review',
+    'revise',
+    'manuscript-prose-edit',
+    'manuscript-deslop',
+    'manuscript-dashboard',
+    'corrected',
+    'recheck',
+    'handover',
+  ]
+  data.skills['manuscript-improve']!.stages = {
+    revise: { status: 'completed', started_at: at(10), finished_at: at(25), reason: '' },
+    corrected: { status: 'running', started_at: at(45), finished_at: null, reason: '' },
+  }
+  data.skills['manuscript-prose-edit'] = {
+    ...data.skills['manuscript-prose-edit']!,
+    started_at: at(30),
+    finished_at: at(42),
+    counts: { findings: 5, proposals: 1, decisions: 3 },
+  }
+  const view = buildView({
+    runPath: RUN,
+    data,
+    findings: {},
+    files: { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] },
+    referees: null,
+    now: Date.parse(at(50)),
+  })
+  const stage = (id: string) => view.stages.find(one => one.id === id)
+
+  expect(view.isPlanned).toBe(true)
+  expect(view.stages.map(one => one.id)).toEqual([
+    'manuscript-integrity-check',
+    'manuscript-peer-review',
+    'revise',
+    'manuscript-prose-edit',
+    'manuscript-deslop',
+    'manuscript-dashboard',
+    'corrected',
+    'recheck',
+    'word',
+    'workbook',
+    'handover',
+  ])
+  expect(stage('revise')).toMatchObject({ state: 'done', elapsedMs: 15 * 60_000, isElapsedApprox: false, edits: 2 })
+  expect(stage('manuscript-prose-edit')).toMatchObject({
+    state: 'done',
+    elapsedMs: 12 * 60_000,
+    isElapsedApprox: false,
+    findings: 5,
+    proposals: 1,
+    held: 3,
+  })
+  expect(stage('corrected')).toMatchObject({ state: 'running', elapsedMs: 5 * 60_000, isElapsedApprox: false })
+  expect(statusLine(view)).toBe('Paper 1 v0.6 · 4 of 11 stages · corrected version running · 4 edits applied · 3 held')
+})
+
+test('a run that stops for an answer says so, apart from the decisions held for the end', async ($, on) => {
+  const stopped = { ...runJson(), waiting: { since: at(45), questions: ['Which journal should the paper go to first?'] } }
+  const files = new Map<string, string>([
+    [`${RUN}/run.json`, JSON.stringify(runJson())],
+    [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify(FINDINGS)],
+    [`${RUN}/manuscript-peer-review/findings.adjudicated.json`, JSON.stringify(ADJUDICATED)],
+  ])
+  const version = { n: 1 }
+  const notices: string[] = []
+  const statuses: (string | undefined)[] = []
+  folder(on, files, version)
+  mock.clock(on, { now: Date.parse(at(50)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/author' })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', (_, e) => (statuses.push(e.text), { value: undefined }))
+  on('ui.toast', (_, e) => (notices.push(e.text), { value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+
+  await $.command.run({ ...TYPED, args: RUN })
+  files.set(`${RUN}/run.json`, JSON.stringify(stopped))
+  version.n = 2
+  // what the 15-second refresh would read; the command reads it at once
+  await $.command.run({ ...TYPED, args: RUN })
+
+  expect(statuses.at(-1)).toBe(
+    'Paper 1 v0.6 · 3 of 13 stages · waits for your answer (1 question) · 4 edits applied · 1 held',
+  )
+  expect(notices).toContain('Paper 1 v0.6 waits for your answer: Which journal should the paper go to first?')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({
+      plugin: 'manuscript-skills',
+      surface,
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: true, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
+    })
+    expect((await band.find({ type: 'Text', text: /waits for your answer/ }))?.text).toBe(
+      'Paper 1 v0.6 waits for your answer: Which journal should the paper go to first?',
+    )
+    expect((await band.find({ type: 'Button', key: 'open-decisions' }))?.text).toBe('Open questions')
+    await band.unmount()
+
+    const pane = await $.ui.mount({ ...PANE, surface })
+    expect(await pane.find({ type: 'Text', text: /The run waits for your answer/ })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: /Held for the authors \(1\)/ })).toBeDefined()
+    await pane.unmount()
+  }
+})

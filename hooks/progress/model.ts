@@ -23,10 +23,15 @@ export type RunSkill = {
   issues: (RunRecord & { kind: string; message: string })[]
   changes: RunChange[]
   commands: RunRecord[]
-  // proposed in docs/progress-ui.md; absent in runs from runs.py 0.29
+  // progress records, kept by runs.py from 0.30.0; absent in older runs
   started_at?: string
   finished_at?: string
+  // the stage's newest findings.json, counted by `finish`
+  counts?: { findings: number; proposals: number; decisions: number }
+  // the coordinator's own stages (`runs.py stage`), under manuscript-improve
+  stages?: Record<string, RunStep>
 }
+export type RunStep = { status: string | null; started_at?: string | null; finished_at?: string | null; reason?: string }
 export type RunJson = {
   run_id: string
   started_at: string
@@ -40,8 +45,10 @@ export type RunJson = {
   skills: Record<string, RunSkill>
   versions?: { new: string }[]
   handover?: { path: string }[]
-  // proposed in docs/progress-ui.md: the run stops for the authors
+  // the run stops for the authors (`runs.py wait`), cleared by `resume`
   waiting?: { since?: string; questions?: string[] } | null
+  // the stages the run means to run (`start --plan`): skills and the coordinator's own stages
+  plan?: string[]
 }
 
 // What a stage's newest findings*.json holds, in counts and the decisions only the authors can make.
@@ -155,11 +162,12 @@ function elapsed(
   since: number | null,
 ): Pick<ManuscriptStage, 'elapsedMs' | 'isElapsedApprox'> {
   const start = time(skill.started_at)
-  if (start !== null) {
-    const end = time(skill.finished_at) ?? (state === 'running' ? now : null)
-    return { elapsedMs: end === null ? null : end - start, isElapsedApprox: false }
-  }
   const times = records(skill)
+  if (start !== null) {
+    const finished = time(skill.finished_at)
+    const end = state === 'running' ? now : (finished ?? (times.length ? Math.max(...times) : null))
+    return { elapsedMs: end === null ? null : end - start, isElapsedApprox: state !== 'running' && finished === null }
+  }
   if (times.length === 0) return { elapsedMs: since !== null && state === 'running' ? now - since : null, isElapsedApprox: true }
   const end = state === 'running' ? now : Math.max(...times)
   return { elapsedMs: end - Math.min(...times, since ?? Infinity), isElapsedApprox: true }
@@ -169,10 +177,31 @@ function elapsed(
 // last record.
 function endOf(data: RunJson, id: string): number | null {
   if (id === 'revise') {
-    return time(data.skills[COORDINATOR]?.artifacts.filter(item => REVISE_REPORT.test(item.path)).at(-1)?.recorded_at)
+    const coordinator = data.skills[COORDINATOR]
+    return (
+      time(coordinator?.stages?.revise?.finished_at) ??
+      time(coordinator?.artifacts.filter(item => REVISE_REPORT.test(item.path)).at(-1)?.recorded_at)
+    )
   }
-  const times = data.skills[id] ? records(data.skills[id]) : []
-  return times.length ? Math.max(...times) : null
+  const skill = data.skills[id]
+  const times = skill ? records(skill) : []
+  return time(skill?.finished_at) ?? (times.length ? Math.max(...times) : null)
+}
+
+// One of the coordinator's own stages as `runs.py stage` recorded it: its state and exact times.
+function fromStep(g: Gathered, stage: ManuscriptStage, step: RunStep): ManuscriptStage {
+  const state = step.status ? (STATUS[step.status] ?? 'running') : 'pending'
+  const start = time(step.started_at)
+  const end = state === 'running' ? g.now : time(step.finished_at)
+
+  return {
+    ...stage,
+    state,
+    status: step.status,
+    elapsedMs: start === null || end === null ? null : end - start,
+    isElapsedApprox: false,
+    reason: step.reason?.trim() || null,
+  }
 }
 
 // The newest report a stage registered: report.md, then report.2.md and later attempts.
@@ -212,15 +241,17 @@ function fromSkill(
   if (!skill) return stage
   const state = STATUS[skill.status] ?? 'running'
   const found = g.findings[id]
+  // the findings file when it was read; else what `finish` counted (a packed run keeps no findings file)
+  const counted = found ? { ...found, decisions: found.decisions.length } : skill.counts
 
   return {
     ...stage,
     state,
     status: skill.status,
     ...elapsed(skill, state, g.now, since),
-    findings: found?.findings ?? null,
-    proposals: found?.proposals ?? null,
-    held: found ? found.decisions.length : null,
+    findings: counted?.findings ?? null,
+    proposals: counted?.proposals ?? null,
+    held: counted?.decisions ?? null,
     edits: skill.changes.length > 0 ? skill.changes.length : null,
     report: newestReport(g.runPath, skill),
     reason: skill.reason?.trim() || null,
@@ -231,9 +262,16 @@ function revise(g: Gathered, edits: string | undefined): ManuscriptStage {
   const stage = blank('revise', 'Revise', 'editing')
   const coordinator = g.data.skills[COORDINATOR]
   if (!coordinator) return stage
+  const report = coordinator.artifacts.filter(item => REVISE_REPORT.test(item.path)).at(-1)
+  const step = coordinator.stages?.revise
+  if (step) {
+    const recorded = fromStep(g, stage, step)
+    const end = recorded.state === 'running' ? null : time(step.finished_at)
+    const changes = coordinator.changes.filter(change => end === null || (time(change.recorded_at) ?? 0) <= end)
+    return { ...recorded, edits: changes.length, report: report ? `${g.runPath}/${report.path}` : null }
+  }
   if (edits === 'none') return { ...stage, state: 'skipped', reason: 'Report only: nothing is applied.' }
   const brief = coordinator.artifacts.find(item => /(^|\/)stage-brief-revise/.test(item.path))
-  const report = coordinator.artifacts.filter(item => REVISE_REPORT.test(item.path)).at(-1)
   const start = time(brief?.recorded_at) ?? time(coordinator.changes[0]?.recorded_at)
   const end = time(report?.recorded_at)
   const changes = coordinator.changes.filter(change => end === null || (time(change.recorded_at) ?? 0) <= end)
@@ -268,6 +306,8 @@ function assembly(g: Gathered, id: string, label: string): ManuscriptStage {
           : id === 'workbook'
             ? g.files.workbook
             : (g.data.handover?.at(-1)?.path ?? null)
+  const step = g.data.skills[COORDINATOR]?.stages?.[id]
+  if (step) return { ...fromStep(g, stage, step), report: id === 'handover' ? null : file }
   if (id === 'corrected' && g.data.context?.effective?.edits === 'none') {
     return { ...stage, state: 'skipped', reason: 'Report only: no corrected version.' }
   }
@@ -346,9 +386,6 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
     for (const one of found.decisions) list.push({ id: one.id, stage: label.get(skill) ?? skill, summary: one.summary })
   }
   for (const one of g.files.questions) list.push({ id: one.id, stage: 'Corrected version', summary: one.question })
-  for (const [n, question] of (g.data.waiting?.questions ?? []).entries()) {
-    list.push({ id: `Q${n + 1}`, stage: 'Run', summary: question })
-  }
 
   return list
 }
@@ -359,20 +396,27 @@ export function buildView(g: Gathered): ManuscriptRunView {
   const isFull = COORDINATOR in data.skills
   const known = new Set([...REVIEW, ...EDITING, ...ASSEMBLY].map(([id]) => id).concat(COORDINATOR))
 
+  // with a plan, the stages it names and any the run recorded besides; without one, the full workflow's
+  const plan = data.plan?.length ? new Set(data.plan) : null
+  const steps = data.skills[COORDINATOR]?.stages ?? {}
+  const isNamed = (id: string) => id in data.skills || id in steps || Boolean(plan?.has(id))
   const started = time(data.started_at)
-  const review = REVIEW.filter(([id]) => id in data.skills).map(([id, label]) => fromSkill(g, id, label, 'review', started))
-  const others = Object.keys(data.skills)
+  const review = REVIEW.filter(([id]) => isNamed(id)).map(([id, label]) => fromSkill(g, id, label, 'review', started))
+  const others = [...new Set([...Object.keys(data.skills), ...(data.plan ?? [])])]
     .filter(id => !known.has(id))
     .map(id => fromSkill(g, id, id.replace(/^manuscript-/, '').replaceAll('-', ' '), 'review', started))
   // the editing stages run one after another, each from where the one before it left off
   let since: number | null = null
-  const editing = EDITING.filter(([id]) => isFull || id in data.skills).map(([id, label]) => {
+  const editing = EDITING.filter(([id]) => (plan ? isNamed(id) : isFull || id in data.skills)).map(([id, label]) => {
     const stage = id === 'revise' ? revise(g, edits) : fromSkill(g, id, label, 'editing', since)
     if (stage.state !== 'pending') since = endOf(data, id) ?? since
     return stage
   })
-  const hasAssembly = isFull || 'manuscript-dashboard' in data.skills
-  const built = hasAssembly ? ASSEMBLY.map(([id, label]) => assembly(g, id, label)) : []
+  const hasDashboard = plan ? isNamed(DASHBOARD) : isFull || DASHBOARD in data.skills
+  // the Word review and the changes workbook are the dashboard stage's files, not stages of a plan
+  const built = ASSEMBLY.filter(([id]) =>
+    plan ? (id === 'word' || id === 'workbook' ? hasDashboard : isNamed(id)) : hasDashboard,
+  ).map(([id, label]) => assembly(g, id, label))
   const stages = [...review, ...others, ...editing, ...built]
 
   const coordinator = data.skills[COORDINATOR]
@@ -388,6 +432,13 @@ export function buildView(g: Gathered): ManuscriptRunView {
   const current = (running.find(stage => stage.phase !== 'review') ?? running[0] ?? stages.find(s => s.state === 'next'))?.label ?? null
 
   const list = decisions(g, stages)
+  // the dashboard's inventory once it exists; before, each stage's own count, read or recorded by `finish`
+  const inventory = g.findings[DASHBOARD]
+  const held =
+    (inventory
+      ? inventory.decisions.length
+      : stages.filter(stage => stage.id !== DASHBOARD).reduce((sum, stage) => sum + (stage.held ?? 0), 0)) +
+    g.files.questions.length
   const times = Object.values(data.skills).flatMap(records)
 
   return {
@@ -406,11 +457,15 @@ export function buildView(g: Gathered): ManuscriptRunView {
     outputs: outputs(g),
     referees: g.referees,
     decisions: list,
+    waitingFor: data.waiting
+      ? { since: time(data.waiting.since), questions: data.waiting.questions ?? [] }
+      : null,
     isWaiting: Boolean(data.waiting) || (isFinished && list.length > 0),
+    isPlanned: plan !== null,
     isFinished,
     current,
     editsApplied: Object.values(data.skills).reduce((sum, skill) => sum + skill.changes.length, 0),
-    held: list.length,
+    held,
     dashboard: g.files.dashboard,
   }
 }
@@ -482,10 +537,13 @@ export function counts(stage: ManuscriptStage): string {
   return parts.join(' · ')
 }
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
 export function statusLine(view: ManuscriptRunView): string {
   const done = view.stages.filter(stage => FINISHED.includes(stage.state)).length
   const parts = [view.label, `${done} of ${view.stages.length} stages`]
-  if (view.isWaiting) parts.push(`${view.decisions.length} decisions wait for you`)
+  if (view.waitingFor) parts.push(`waits for your answer (${plural(view.waitingFor.questions.length, 'question')})`)
+  else if (view.isWaiting) parts.push(`${view.decisions.length} decisions wait for you`)
   else if (view.isFinished) parts.push('finished')
   else if (view.current) {
     const running = view.stages.some(stage => stage.label === view.current && stage.state === 'running')

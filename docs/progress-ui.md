@@ -46,14 +46,16 @@ The newest run folder under the output folder of the nearest `.manuscript-skills
 `runs.py`). The choice is remembered across sessions. It refreshes every 15 seconds and right after each
 `runs.py` call, re-reading `run.json` only when its size or modification time changed.
 
-## What it reads, and what it has to guess today
+## What it reads, and what it guesses in a run without records
 
 It reads `run.json`; each stage's newest `findings*.json` (counts and the findings marked `decision: true`);
 the peer-review adjudication (its `reports[].recommendations`); the newest `revision*/revision.json`
 (questions for the authors); and the names of the files in `manuscript-dashboard/` and
-`manuscript-improve/`, to see which deliverables exist. Everything else it would need is not recorded yet:
+`manuscript-improve/`, to see which deliverables exist. A run from before 0.30.0 keeps none of the progress
+records below, so for it the view guesses the rest, as it did first; from 0.30.3 it reads the records
+wherever a run has them:
 
-| What the view shows | How it is found today | The problem |
+| What the view shows | How it is found without the records | The problem |
 | --- | --- | --- |
 | a stage has started | its entry appears with its first record (`add`, `exec`, `change`) | a stage that has started but recorded nothing yet shows as next, not running |
 | elapsed time | review stages from the run's start, editing stages from the end of the one before, to the last record; shown with `~` | `finish` records no time, and nothing records a start |
@@ -67,8 +69,9 @@ the peer-review adjudication (its `reports[].recommendations`); the newest `revi
 
 Proposed here and added in 0.30.0; all optional, so older runs and the view's fallbacks keep working.
 When the coordinator calls each command is in `project-workflow.md` ("Progress records") and the
-`manuscript-improve` skill. The view reads `started_at`, `finished_at` and `waiting` already; `plan`, `counts`
-and the coordinator's `stages` are for it to read next.
+`manuscript-improve` skill. The view reads all of them from 0.30.3: exact times (no `~`), the coordinator's
+stages, the plan's stages as the stages to count, `counts` where a findings file is no longer there (a packed
+run), and a wait as its own questions.
 
 1. **Start and finish times.** `ensure_skill` writes `started_at` when it creates an entry, and
    `runs.py begin RUN --skill NAME` writes it before a stage records anything (idempotent: an existing
@@ -77,7 +80,8 @@ and the coordinator's `stages` are for it to read next.
    keeps `skills["manuscript-improve"]["stages"][name] = {status, started_at, finished_at, reason}` for
    revise, corrected version, re-check and handover, so they read like the other stages.
 3. **Waiting for the authors.** `runs.py wait RUN --question TEXT` (repeatable) writes `waiting = {since,
-   questions}` at the top of `run.json`; `runs.py resume RUN` clears it. The view already reads `waiting`.
+   questions}` at the top of `run.json`; `runs.py resume RUN` clears it. The view shows the questions in
+   the band, the pane and a notification, apart from the decisions held for the end of the run.
 4. **The plan.** `start` (or `begin` on the coordinator) writes `plan`, the stages this run means to run,
    so the count is right from the start and a skipped stage is known before it is reached.
 5. **Counts at finish.** `finish` already reads the stage's `findings.json`; it stores `counts =

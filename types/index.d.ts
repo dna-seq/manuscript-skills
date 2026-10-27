@@ -67,8 +67,12 @@ export type ManuscriptRunView = {
   outputs: ManuscriptOutput[]
   referees: ManuscriptReferees | null
   decisions: ManuscriptDecision[]
-  // the run finished and decisions wait for the authors, or the run recorded that it waits
+  // what the run stopped for (`runs.py wait`) and since when; null while it goes on
+  waitingFor: { since: number | null; questions: string[] } | null
+  // the run stopped for an answer, or it finished and decisions wait for the authors
   isWaiting: boolean
+  // the stages come from the run's plan (`start --plan`), not the full workflow's list
+  isPlanned: boolean
   isFinished: boolean
   current: string | null
   editsApplied: number
