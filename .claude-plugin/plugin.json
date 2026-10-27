@@ -47,5 +47,6 @@
     "multi-model"
   ],
   "skills": "./skills",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "hooks": "./hooks/modules.json"
 }

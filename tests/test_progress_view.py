@@ -40,10 +40,15 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
                           errors="replace", timeout=300, cwd=ROOT)
 
 
-def test_hooks_json_loads_on_older_claude_code() -> None:
-    """Claude Code before function hooks requires a `hooks` record in hooks/hooks.json and otherwise reports the
-    plugin's hooks as failed to load; the empty record keeps it quiet there while newer releases load `modules`."""
-    hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+def test_hooks_file_loads_on_older_claude_code_and_codex() -> None:
+    """Codex reads hooks/hooks.json from a plugin and warns that it cannot parse `modules`, so the hooks file has
+    another name, which the Claude Code manifest gives. Claude Code before function hooks requires a `hooks`
+    record in it and otherwise reports the plugin's hooks as failed to load; the empty record keeps it quiet
+    there while newer releases load `modules`."""
+    manifest = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert manifest["hooks"] == "./hooks/modules.json"
+    assert not (ROOT / "hooks" / "hooks.json").exists()
+    hooks = json.loads((ROOT / manifest["hooks"]).read_text(encoding="utf-8"))
     assert hooks["hooks"] == {}
     assert hooks["modules"] == ["./progress/register.tsx"]
     assert (ROOT / "hooks" / "progress" / "register.tsx").is_file()

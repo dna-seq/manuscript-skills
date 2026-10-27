@@ -7,10 +7,14 @@ where the run stands, without anyone asking. It reads; it never writes in the ru
 Status: shipped in 0.30.0 as `hooks/progress/` (tested against the Paper 1 v0.6 run of 2026-10-27). The
 pane opens by itself only when a `runs.py` call in the session names a run (once per run), or on
 `/manuscript-status` and `show_run`; at session start a run of the folder's project only sets the status
-line, and runs of other folders are never shown unasked. `hooks/hooks.json` carries an empty `hooks`
-record beside `modules`: Claude Code 2.1.227 otherwise reports the plugin's hooks as failed to load (its
-skills still load); with it, it loads cleanly and ignores the view. The minimum for the view is 2.1.299,
+line, and runs of other folders are never shown unasked. The minimum for the view is Claude Code 2.1.299,
 the oldest release tested.
+
+The hooks file is `hooks/modules.json`, named in `.claude-plugin/plugin.json` as `"hooks"`, not the
+default `hooks/hooks.json`: Codex 0.152 reads `hooks/hooks.json` from a plugin and warns on every start
+that it cannot parse a file holding `modules` (`unknown field modules`). The file also carries an empty
+`hooks` record beside `modules`, because Claude Code 2.1.227 otherwise reports the plugin's hooks as
+failed to load (its skills still load); with it, 2.1.227 loads cleanly and ignores the view.
 
 ## What the authors see
 
@@ -81,17 +85,13 @@ and the coordinator's `stages` are for it to read next.
 
 ## Shipping it in the plugin
 
-A Claude Code plugin loads hooks modules from `hooks/hooks.json` at its root:
-`{ "modules": ["./progress/register.tsx"] }`, with the module, its view model and tests in
-`hooks/progress/` and the state contract named in `.claude-plugin/plugin.json` as `"types"`. Then every
-session with the plugin shows the pane, and the `runs.py` hook works in the session that runs the
-workflow. Before shipping:
-
-- the function-hooks API is early access and changes between Claude Code releases; check what an older
-  Claude Code does with a `hooks/hooks.json` that holds `modules` (it should ignore it, not refuse the
-  plugin), and pin the minimum version in the README;
-- run `claude plugin validate` and `claude plugin test` in CI beside the Python tests;
-- decide whether the pane opens by itself when a run is found or only on `/manuscript-status`.
+Done in 0.30.0 and 0.30.1, as the status above says. The plugin's hooks file, `hooks/modules.json`
+(`{ "hooks": {}, "modules": ["./progress/register.tsx"] }`), names the module; the module, its view model
+and tests are in `hooks/progress/`, and the state contract is named in `.claude-plugin/plugin.json` as
+`"types"`. Every session with the plugin has the view, and the `runs.py` hook works in the session that
+runs the workflow. `tests/test_progress_view.py` runs `claude plugin validate` and `claude plugin test`
+beside the Python tests when Claude Code is on PATH. The function-hooks API is early access and changes
+between Claude Code releases, so run both after each Claude Code update.
 
 **Codex users would not see it.** Codex has no equivalent of these hooks or panes; there the run's state
 stays in the chat and the run index (`README.md` in the run folder). A `runs.py status RUN` command that
