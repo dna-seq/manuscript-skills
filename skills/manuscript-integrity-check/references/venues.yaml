@@ -336,7 +336,12 @@ venues:
               https://link.springer.com/journal/13059, https://link.springer.com/journal/13059/how-to-publish-with-us]
     penalties: [withdrawal (reference checker), rejection or retraction for hallucinated references, institution notified]
     extra_burden: []
-    limits: null
+    # Software articles: an unstructured abstract of at most 100 words (read 2026-10-19 for Paper 1).
+    limits: {abstract_words: 100}
+    abstract_headings: []
+    provenance:
+      limits: {source: "https://link.springer.com/journal/13059/submission-guidelines/software", checked: 2026-10-19}
+      abstract_headings: {source: "https://link.springer.com/journal/13059/submission-guidelines/software", checked: 2026-10-19}
     software: [public repository with OSI licence, Availability and requirements block with archived DOI]
     software_article: true
     open_science:
@@ -379,6 +384,8 @@ venues:
     oa: full
     software: [software project URL in the abstract, Availability and requirements block with archived DOI]
     open_science: null # Genome Biology's reading is that journal's, not this one's
+    limits: null # likewise
+    abstract_headings: null
     fit_note: clinical genomics venue; expects clinical relevance and safeguards
 
   bmc-bioinformatics:
@@ -395,6 +402,17 @@ venues:
     oa: full
     software: [Availability and requirements block with archived DOI, open-source licence recommended but not required]
     fit_note: "BMC series: judged on scientific validity, not perceived interest"
+    limits: {abstract_words: 350}
+    abstract_headings: [Background, Results, Conclusions]
+    provenance:
+      limits: {source: "https://link.springer.com/journal/12859/submission-guidelines/software-article", checked: 2026-10-19}
+      abstract_headings: {source: "https://link.springer.com/journal/12859/submission-guidelines/software-article", checked: 2026-10-19}
+    submission_rules:
+      - when: submission
+        rule: "the sections Background, Implementation, Results, Discussion and Conclusions, then Availability and requirements"
+        quote: ["Background, Implementation, Results, Discussion, Conclusions"]
+        source: https://link.springer.com/journal/12859/submission-guidelines/software-article
+        checked: 2026-10-19
     open_science:
       summary: "The software must be testable by reviewers anonymously and, once published, free for non-commercial use; an open-source licence is recommended, not required; the archived version's DOI goes in the Availability and requirements block."
       source_code: encouraged
@@ -435,6 +453,8 @@ venues:
     software: [Code availability statement]
     software_article: false
     open_science: null # Genome Biology's reading is that journal's, not this one's
+    limits: null # likewise
+    abstract_headings: null
     fit_note: Data Descriptors (datasets), not software papers
 
   plos-comp-biol:
@@ -452,7 +472,20 @@ venues:
     screening: may_detect_ai
     penalties: [investigation, rejection, retraction, expression of concern, institution notified]
     extra_burden: [AI-written code must be disclosed]
-    limits: null
+    limits: {abstract_words: 300, body_words: 3500}
+    provenance:
+      limits: {source: "https://journals.plos.org/ploscompbiol/s/submission-guidelines", checked: 2026-10-19}
+    submission_rules:
+      - when: submission
+        rule: "the sections Introduction, Design and Implementation, Results, and Availability and Future Directions; the title names the software"
+        quote: ["Design and Implementation"]
+        source: https://journals.plos.org/ploscompbiol/s/submission-guidelines
+        checked: 2026-10-19
+      - when: submission
+        rule: a cover letter that explains how the Software criteria are met
+        quote: ["cover letter"]
+        source: https://journals.plos.org/ploscompbiol/s/submission-guidelines
+        checked: 2026-10-19
     software: [OSI-compliant source code, documentation, test data]
     software_article: true
     validation_requirements:
