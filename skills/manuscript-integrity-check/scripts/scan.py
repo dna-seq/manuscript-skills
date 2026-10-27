@@ -31,6 +31,7 @@ from __future__ import annotations
 import csv
 import fnmatch
 import html
+import importlib.util
 import ipaddress
 import json
 import re
@@ -1284,11 +1285,28 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
 
 # Venue rules, shared with manuscript-journal-adapt/scripts/venues.py.
 VENUES_YAML = Path(__file__).resolve().parent.parent / "references" / "venues.yaml"
+VENUES_PY = Path(__file__).resolve().parents[2] / "manuscript-journal-adapt" / "scripts" / "venues.py"
+
+
+def venue_entries() -> dict[str, dict]:
+    """The venue entries before inheritance: the shipped catalogue with the user's own catalogue laid over it by
+    venues.py, the newest read winning; the shipped file alone when venues.py cannot be loaded."""
+    try:
+        spec = importlib.util.spec_from_file_location("_scan_venues", VENUES_PY)
+        if spec is None or spec.loader is None:
+            raise ImportError(str(VENUES_PY))
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["_scan_venues"] = module
+        spec.loader.exec_module(module)
+        module.VENUES_YAML = VENUES_YAML
+        return module.merged_catalogue()[1]
+    except (ImportError, AttributeError, FileNotFoundError):
+        return yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
 
 
 def load_venue_limits() -> dict[str, dict[str, float]]:
     """Length limits per venue key, following `inherits`; venues with no recorded limits are left out."""
-    venues: dict[str, dict] = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+    venues = venue_entries()
 
     def resolve(key: str) -> dict:
         entry = venues[key]
@@ -1301,7 +1319,7 @@ def load_venue_limits() -> dict[str, dict[str, float]]:
 def venue_name_and_url(venue: str) -> tuple[str, Optional[str]]:
     """The venue's name and its author-guidelines page as venues.yaml records them; the key itself if unknown."""
     try:
-        venues: dict[str, dict] = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))["venues"]
+        venues = venue_entries()
     except (OSError, KeyError, TypeError, yaml.YAMLError):
         return venue, None
     entry, url = venues.get(venue) or {}, None

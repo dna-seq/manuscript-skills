@@ -37,7 +37,7 @@ main text; a main-text item that serves a referee more than a reader, for the su
 Read the shared [author priorities](../manuscript-integrity-check/references/author-priorities.md),
 including [readers first, referees second](../manuscript-integrity-check/references/author-priorities.md#readers-first-referees-second),
 and, when it exists, the [manuscript record](../manuscript-integrity-check/references/manuscript-record.md):
-its `venue` and `venue_facts` give the journal's figure rules, its `story` the direction the figures serve.
+its `venue` names the journal whose figure rules apply, its `story` the direction the figures serve.
 
 Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md):
 resolve saved manuscript-project choices (including the connected code folders), ask only missing first-use
@@ -72,8 +72,11 @@ do not exist. `figures.md` lists every item, main text first; each note is a pla
 finding.
 
 Take the widths, the smallest text, the resolution and the number of figures from the chosen journal's
-rules, which [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) owns: the record's
-`venue_facts`, or `../manuscript-journal-adapt/scripts/venues.py show KEY` and the guideline page it links.
+rules, which [manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) owns: the venue catalogue's
+`figure_rules` (`../manuscript-journal-adapt/scripts/venues.py show KEY`) and the guideline page it links.
+Read a journal's figure page only when `venues.py stale KEY` lists its `figure_rules` or none are recorded, and
+write what you read into the catalogue with the page and the date (`venues.py where` names the file; the fields
+are in the header of `venues.yaml`), so the next run reuses it.
 Before a journal is chosen, use what every venue on the ladder shares, or the defaults above (common single-
 and double-column widths, 6 pt, 300 dpi), and say in the report which values were used and why. For a Word
 manuscript, convert it first (`pandoc paper.docx -t gfm --extract-media=. -o paper.md`); for a manuscript

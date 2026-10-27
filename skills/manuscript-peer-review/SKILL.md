@@ -106,12 +106,16 @@ For each journal, write the referees' `venue.md` (one file in the run folder, `$
 section per journal). Take its facts from
 `../manuscript-journal-adapt/scripts/venues.py show KEY`: the journal's name and the article type, its
 fields and article types, its editorial profile, the rules its editors check on arrival, its validation
-and software requirements, and its length limits. Add what the journal asks its referees when its
-guidelines for reviewers can be read (a page among the entry's `sources`, or the publisher's guidelines
-for reviewers): the questions on its form and its recommendation options, quoted. For a journal not in
-the catalogue, read its author guidelines and guidelines for reviewers. Leave out the authors'
-priorities and why they chose or ranked the journal. Record what each brief was read from and when; the
-result says so, or that the guidelines for reviewers could not be found.
+and software requirements, its length limits and what it asks its referees (`reviewer_form`: the questions
+on its form and its recommendation options, quoted). `venues.py stale KEY` lists the facts old enough to
+re-read; read only those, and what the catalogue lacks: the journal's guidelines for reviewers when no
+`reviewer_form` is recorded (a page among the entry's `sources`, or the publisher's guidelines for
+reviewers), and for a journal not in the catalogue its author guidelines and guidelines for reviewers. Write
+every fact you read into the venue catalogue with its page and date (`venues.py where` names the file;
+[selection-fields.md](../manuscript-journal-select/references/selection-fields.md) gives the fields), a form
+that is not public as a `reviewer_form` with only a `note` saying so, so the next run reuses the reading.
+Leave out the authors' priorities and why they chose or ranked the journal. Record what each brief was read
+from and when; the result says so, or that the guidelines for reviewers could not be found.
 
 **The editor's desk screen.** Before the referees, read the draft against the journal's checkable desk
 rules: article type, length (a current recorded result, or the word count from step 1), required

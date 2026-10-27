@@ -8,12 +8,16 @@ the next. It is a coordination aid, not a log: it holds the current state, never
 
 - Create it when the work spans several sessions (for example review this week, adaptation next
   week, a response to referees months later), when the authors ask for one, or when journal selection runs:
-  the ladders are built from the authors' priorities and the venue facts it holds, and a re-rank reuses them.
+  the ladders are built from the authors' priorities and the venue catalogue, and a re-rank reuses them.
   Otherwise, within one session the conversation carries the state, even when several skills run.
 - If the project already keeps an equivalent (a checklist, a submission tracker, a section in its
   CLAUDE.md or AGENTS.md), use that instead of creating a second record. The ladder helpers read the
-  priorities and venue facts from YAML, so those two still go in a record, kept beside the manuscript or
-  beside the project's venue planning document, never in a scratch location.
+  priorities and cost routes from YAML, so those two still go in a record, kept beside the manuscript or
+  beside the project's venue planning document, never in a scratch location. Venue facts (fees, review times,
+  rules, impact factors) go into the venue catalogue, dated, where every later run finds them
+  (`../../manuscript-journal-select/references/selection-fields.md`). A record from an older version may still
+  hold them under `venue_facts`: venues.py lays them over the catalogue by date, and the next selection run
+  moves them into the catalogue and keeps only the cost routes here.
 - Read it at the start of a task when it exists. Update only the entries your skill owns. Never store
   genomes, medical records, private approvals, reviewer identities or detector scores in it.
 
@@ -50,19 +54,12 @@ ladders:                             # the current order; rerun `venues.py ladde
   journals: [bmc-bioinformatics, genome-biology, bioinformatics]
   checked: 2026-10-19
 
-venue_facts:                         # facts read for this manuscript on the venues' own pages; venues.py ladder and
-  bmc-bioinformatics:                # common lay them over the catalogue, which an author's task never edits
-    review_speed:
-      - {metric: submission-to-first-decision, days: 5, statistic: median,
-         source: "https://link.springer.com/journal/12859", checked: 2026-10-19}
-    publication_costs:
-      - {amount: 2590, currency: EUR, fee_year: 2026, author_cost_eur: 0,
-         route: "the grant pays; Projekt DEAL takes 20% off for the University of Rostock",
-         source: "https://link.springer.com/journal/12859/how-to-publish-with-us", checked: 2026-10-19}
-    abstract_headings: [Background, Results, Conclusions]
-    limits: {abstract_words: 350}    # mappings merge key by key over the catalogue; a list replaces it
-  genome-biology:
-    not_read: "the author guidelines answered 403 to every route, 2026-10-19"   # why a fact is missing
+cost_routes:                         # what pays a venue's fee for these authors; the fee itself, review times, rules
+  bmc-bioinformatics:                # and every other venue fact go into the venue catalogue (venues.py where)
+    author_cost_eur: 0               # what the authors would pay after these routes; ladder compares it
+    route: "the grant pays; Projekt DEAL takes 20% off for the University of Rostock"
+    source: "https://link.springer.com/journal/12859/how-to-publish-with-us"
+    checked: 2026-10-19
 
 study:                               # set by whichever skill first establishes it; a draft until the authors confirm
   designs: [software-tool, public-data-reanalysis]   # keys from the list below; mixed studies list several

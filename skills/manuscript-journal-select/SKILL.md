@@ -34,7 +34,9 @@ The steps, in order (each has its section below):
 
 1. Read the priorities the record or the conversation already states; do not stop to ask for missing ones.
 2. Build the pool: `rank` and the authors' own candidates, narrowed by subject, article type and feasibility.
-3. Do the lookups: read each shortlisted venue's pages and write what you read into the record's `venue_facts`.
+3. Do the lookups: `venues.py stale` lists the shortlist's facts that are old enough to re-read; read those and the
+   fields the comparison needs that nobody has recorded, and write what you read into the venue catalogue
+   (`venues.py where` names the file), each fact with its page and date.
 4. Run `ladder` for both ladders and `common` on every venue of both. Without stated priorities the ladder
    uses its default order, labelled as such.
 5. Move a position where judgement outweighs the sorted order, and record the chosen order in `ladders`.
@@ -100,8 +102,10 @@ folder): `priorities` (one order for each ladder, plus `jif_floor`, `budget_eur`
 conversation establishes it (AI wrote or rewrote whole passages of the Results or Discussion is `drafting`;
 a writing rule that forbids the established use then counts as severe at the AI step, so a journal that
 reserves those sections for the authors sorts below one that allows the use), the study design under `study.designs` with `study.confirmed` once the authors
-confirm it, and the facts read for this manuscript under `venue_facts`. `ladder` reads all of these; an
-option on the command line wins over the record. When the project keeps an equivalent planning document,
+confirm it, and under `cost_routes` the routes that pay a fee for these authors (a university fund, a national
+agreement as it applies to the corresponding author, a library's agreement). Venue facts do not go in the
+record: they go into the catalogue, where every later run finds them. `ladder` reads all of these; an option on
+the command line wins over the record. When the project keeps an equivalent planning document,
 report the ladders there too, edited in place.
 
 An author's in-silico-only budget is a real constraint, so distinguish existing/public independent
@@ -113,7 +117,9 @@ just to fit an expensive journal. APC waivers, institutional agreements and zero
 ## Reuse the database and verify decision-changing requirements
 
 Read `../manuscript-integrity-check/references/venues.yaml` through the existing helpers, or inspect a
-specific entry. Keep these skills together; do not create a second journal database.
+specific entry. Keep these skills together; do not create a second journal database. In an installed plugin
+the helpers also read the user's own catalogue beside `settings.yaml`, where the facts read by earlier runs are
+kept; each fact carries its date, and the newest wins.
 
 Commands below are relative to this skill directory:
 
@@ -133,6 +139,10 @@ $V ladder --only KEY1 --only KEY2 --record $R --study-design software --validati
 $V ladder --only KEY1 --only KEY2 --only KEY3 --record $R --format csv > DIR/STEM.journal-ladder.csv
 $V ladder --preprints --journal KEY1 --journal KEY2 --record $R --format csv > DIR/STEM.preprint-ladder.csv
 $V common KEY1 KEY2 KEY3 SERVER1 --record $R > DIR/STEM.venue-requirements.md   # what every venue asks for
+$V stale KEY1 KEY2 KEY3 SERVER1                                   # facts old enough to re-read, by page
+$V stale --record $R                                              # the same for the record's ladders
+$V where                                                          # the catalogue new facts go into
+$V save FACTS.yaml                                                # installed plugin: merge them into it
 ```
 
 `rank` gives a first pool from the whole catalogue, ordered by AI friction and the recorded validation
@@ -162,12 +172,12 @@ venues the result recommends, with the scripted routes only and without `--updat
 (`uv run --script ../manuscript-journal-adapt/scripts/policy_watch.py check --venue KEY --routes httpx,chrome`),
 then read with your own browser tool whatever it could not reach, before any archived copy. An archived copy
 is dated by its capture and is not the current rule: say so, and read the live page when a decision rests
-on it. During an author's task nothing writes into the plugin's references (no `--update`, and `record`
-without `--update`). When the watcher exits 1 (a passage changed or a page is gone), read the changed
-passage it quotes: if the rule moved, record the new rule in the venue's `venue_facts` with the page and
-the date (the AI fields are listed in `references/selection-fields.md`), rerun `ladder` and `common`, and
-tell the authors in one sentence that the catalogue's entry is out of date; a page that is gone is found
-again at its new address. Publisher sites often block scripts and load fees,
+on it. During an author's task nothing writes the policy snapshots (no `--update`, and `record`
+without `--update`); the facts read go into the catalogue, as below. When the watcher exits 1 (a passage changed or a page is gone), read the changed
+passage it quotes: if the rule moved, write the new rule into the catalogue (`venues.py where`) with the page
+and the date (the AI fields are listed in `references/selection-fields.md`), rerun `ladder` and `common`, and
+tell the authors in one sentence that the rule changed; a page that is gone is found again at its new
+address. Publisher sites often block scripts and load fees,
 agreement lists and review times by script, so follow the shared
 [rule for blocked pages](../manuscript-integrity-check/references/author-priorities.md#minimum-useful-work):
 the authors' own browser, when a browser-control tool is connected, reads what the other routes cannot. Whenever a selection task checks a decision-changing
@@ -175,17 +185,20 @@ requirement, state in the result, in plain sentences, its scope, accepted altern
 page it is on and the date read; `references/selection-fields.md` lists what to capture. Do not
 leave an expensive validation condition buried in background notes.
 
-Write what you read into the record's `venue_facts` for this manuscript (review times, fees with the route
-that pays them, preprint rules, the author-guideline fields the catalogue lacks), each with its source and
-date; `ladder` and `common` lay these facts over the catalogue, mappings such as `limits` key by key. A page
-that could not be read goes in as `not_read`, one sentence with the reason and the date; `common` then says
-"the page could not be read" with that reason instead of sending the authors to look. Write facts into the
-plugin's `venues.yaml` only when the task is maintaining this repository; during an author's task the
-catalogue is read-only (it sits in the plugin cache). This does not require refreshing unrelated entries.
+Write what you read into the venue catalogue (review times, fees and the waivers anyone can use, preprint
+rules, article types, the author-guideline fields it lacks, the impact factor with its JCR year), each fact
+with its source and date, following `references/selection-fields.md`: `venues.py where` names the file (the
+shipped `venues.yaml`, edited in place, in the plugin's own checkout; the user's own catalogue, through
+`venues.py save`, in an installed plugin, whose cache an update replaces). A fact you re-read and found
+unchanged keeps its value and gets the new date. What a fee costs these authors after their own agreements
+and funds goes into the record's `cost_routes`. A page that could not be read goes in as `not_read`, one
+sentence with the reason and the date; `common` then says "the page could not be read" with that reason
+instead of sending the authors to look. An impact factor found only on a third-party site stays unset, with a
+`not_read` sentence saying so. This does not require refreshing unrelated entries.
 
 When `manuscript-policy-fit` finds a venue-specific rule (a server that declines tool announcements without
-results, a journal's rule on identifiable individuals), it records the rule in that venue's `venue_facts`
-under `other_desk_rules`, with the page and the date read. Rerun `ladder` and `common` after it, so the rule
+results, a journal's rule on identifiable individuals), it records the rule in the catalogue, in that venue's
+`other_desk_rules`, with the page and the date read. Rerun `ladder` and `common` after it, so the rule
 reaches both ladders and the requirements file.
 
 ## Feasibility before preference
@@ -286,7 +299,7 @@ Run `common` on every venue of both ladders. It reports:
   statement describes the use that happened, so never offer a rewrite as a way to satisfy a stricter rule.
 - **Not researched yet**: the fields no reading covers, per venue, with the reason when the page could not
   be read. This is your work, not the authors': read those fields from the live author guidelines, add them
-  to `venue_facts` (or `not_read` with the reason when the page stays unreadable) and run `common` again;
+  to the catalogue (or `not_read` with the reason when the page stays unreadable) and run `common` again;
   never report a venue as having no rule.
 
 When the authors want to adapt before choosing, pass the "Adapt now" part to `manuscript-journal-adapt`. It

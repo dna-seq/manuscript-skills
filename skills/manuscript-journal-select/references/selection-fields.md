@@ -1,46 +1,81 @@
 # Recording selection evidence in the shared venue database
 
-This file guides maintenance of the plugin's catalogue,
-`../../manuscript-integrity-check/references/venues.yaml`. During an author's task, report newly
-researched facts in the result as plain sentences that cover the points below, each with the URL of its
-page and the date read (the field names are for the catalogue, not for the authors), and in the shared
-manuscript record's `venue_facts` (below);
-write them into `venues.yaml` only when the task is maintaining this repository, following
-`../../manuscript-journal-adapt/references/policy-maintenance.md`. In an installed plugin the catalogue
-sits in a cache that an update replaces. Preserve existing fields; research only decision-changing gaps
-for the requested comparison. Missing or `null` means unresearched, never no rule,
-zero cost, permissive policy or fast review. Date each new fact independently; an AI-policy check date
-does not refresh fees or review statistics.
+The plugin keeps one store of venue facts, the catalogue
+`../../manuscript-integrity-check/references/venues.yaml`, and every venue fact any task reads goes into it
+with the page it was read on (`source`) and the date (`checked`): journal selection, adaptation, policy fit,
+the referees' venue briefs and the figure rules alike. A later run then reads a page only for the facts that
+have grown old. Report what you read in the result as plain sentences as well, each with the URL of its page and
+the date read (the field names are for the catalogue, not for the authors). Preserve existing fields; research
+only decision-changing gaps for the requested comparison. Missing or `null` means unresearched, never no rule,
+zero cost, permissive policy or fast review.
 
-## Facts read for one manuscript
+## Where a fact goes
 
-During an author's task, what is read goes to the manuscript record's `venue_facts`, keyed by the venue's
-catalogue key, in the same field names as the catalogue, each with `source` and `checked`:
+`venues.py where` names the file. In the plugin's own repository checkout it is the shipped `venues.yaml`:
+edit it in place, keeping its comments. In an installed plugin the shipped file sits in a cache that an update
+replaces, so the facts go into the user's own catalogue, `venues.yaml` beside `settings.yaml`
+(`~/.config/manuscript-skills/` on Linux, `~/Library/Application Support/manuscript-skills/` on macOS,
+`%APPDATA%\manuscript-skills\` on Windows, or `$MANUSCRIPT_SKILLS_CONFIG`), which updates never touch: write
+them to a facts file in the catalogue's form (`venues: {KEY: {...}}`) and run `venues.py save FACTS.yaml`, which
+merges them in. `venues.py` lays the user's catalogue over the shipped one, and the manuscript record over both,
+field by field, the newest `checked` winning; on the same date the later layer wins. A mapping merges key by
+key, so a partial `limits` keeps the other limits (its date is the newer one only when it covers every key of the
+older); a list replaces the older list. A venue the catalogue lacks is added with a `name` (and the
+publisher entry it `inherits`, when there is one).
+
+The same field names serve every layer:
 
 - selection and guidelines: `review_speed`, `publication_costs`, `open_science`, `limits`,
   `abstract_headings`, `required_sections`, `submission_rules` (an addition every other venue's version can
   carry, such as alt text, gets `free_for_others: true`), `software`, `other_desk_rules`,
-  `validation_requirements`, `excluded_study_designs`, `editorial_profile`;
+  `validation_requirements`, `excluded_study_designs`, `editorial_profile`, `article_types`, `jif` with
+  `jif_year`;
 - the AI policy: `writing_help`, `exempt`, `prompts`, `tracking`, `screening`, `disclosure_places`,
   `disclosure_fields`, `disclosure_neutral`, `extra_burden`, `image_rules`, `reviewer_ai`, `ai_policy_url`;
+- what the journal asks its referees (`reviewer_form`) and its rules for figures (`figure_rules`), described in
+  the header of `venues.yaml`;
 - preprint servers: `transfers` and `transfers_checked`;
 - `not_read`: one sentence saying why the venue's author guidelines could not be read, with the date
   (`common` gives the reason instead of a bare gap).
 
-`venues.py ladder` and `common` lay these facts over the catalogue field by field, and a mapping such as
-`limits` or `open_science` key by key, so a partial `limits` keeps the catalogue's other limits; a list
-replaces the catalogue's list. A venue the catalogue lacks can be added with a `name`. The authors'
-`priorities` sit beside them in the record, with what else the ladder reads (`priorities.jif_floor`,
-`priorities.budget_eur`, `priorities.validation_available`, `ai_use`, and `study.designs` with
-`study.confirmed`). When maintaining this repository, the same facts go into `venues.yaml`.
+## The date of each fact
 
-When `policy_watch.py check` exits 1 during an author's task (an AI passage changed, or a page is gone),
-read each changed passage it quotes. If the rule itself moved, write the new rule into that venue's
-`venue_facts` (the AI-policy fields above, with the page and the date), rerun `ladder` and `common`, and say
-in the report, in one sentence, that the catalogue's entry is out of date. A page that is gone is looked for
-at its new address and read there. Do not pass `--update` and do not edit `venues.yaml` or the snapshots:
-that is maintenance. Exit 3 means some pages could not be read; read those with your own browser tool before
-any archived copy, and an archived copy is never the current rule.
+Date each fact independently: an AI-policy check does not refresh fees or review statistics. A mapping or a
+list of records carries its own `checked` and `source`; any other field takes them from the venue's
+`provenance` (`provenance: {jif: {source: URL, checked: 2026-10-27}}`), and without either it takes the
+venue's `checked`, else the file's. An impact factor is kept only with its `jif_year` from the journal's or
+publisher's own page or Journal Citation Reports; a value found only on a third-party site (an aggregator) is
+left unset, with a `not_read` sentence saying so.
+
+## Re-read only what is old
+
+Before a run reads a venue's pages, `venues.py stale --record REC` (or `stale KEY KEY`) lists the facts of the
+ladder's venues that are due, grouped by the page to re-read: an AI-policy field after 60 days, an impact factor
+once Journal Citation Reports has released newer figures (each June) or when it has no `jif_year`, and any other
+fact (fees, review speed, article types, limits, preprint rules, transfers, referee forms, figure rules) after a
+year. Read only those, and the fields nobody has recorded yet that the comparison needs. A fact found unchanged
+keeps its value and only its date moves; a changed one is replaced by the new value with the new date and page.
+`ladder` ends with a pointer to `stale` when any of its venues have facts due.
+
+## What stays in the manuscript record
+
+The record (`../../manuscript-integrity-check/references/manuscript-record.md`) holds what belongs to this
+paper and its authors: `priorities` (with `jif_floor`, `budget_eur`, `validation_available`), `ladders`,
+`ai_use`, `study.designs` with `study.confirmed`, and `cost_routes`, the routes that pay a fee for these
+authors (a university fund, a national agreement as it applies to the corresponding author, a library's
+agreement): `cost_routes: {KEY: {author_cost_eur, route, source, checked}}`. `ladder` compares
+`author_cost_eur` when it is given, else a fee listed in euros. The venue's own fee, with the waivers and
+discounts anyone can use, goes into the catalogue's `publication_costs`. Older records kept venue facts under
+`venue_facts`; `ladder` and `common` still lay them over the catalogue, by date (an entry without dates takes
+the record's `updated`), and a run that finds them moves the venue facts into the catalogue, leaving only cost
+routes in the record.
+
+When `policy_watch.py check` exits 1 during a task (an AI passage changed, or a page is gone), read each changed
+passage it quotes. If the rule itself moved, write the new rule into the catalogue `where` names (the AI-policy
+fields above, with the page and the date), rerun `ladder` and `common`, and say in the report, in one sentence,
+that the rule changed. A page that is gone is looked for at its new address and read there. Do not pass
+`--update` during an author's task: the snapshots are maintenance. Exit 3 means some pages could not be read;
+read those with your own browser tool before any archived copy, and an archived copy is never the current rule.
 
 `review_speed`, `publication_costs`, `editorial_profile`, `submission_rules`, `transfers` and
 `transfers_checked` describe one journal or server and are never inherited from the entry it `inherits`.
@@ -118,7 +153,9 @@ statement about a design means unknown. Journal-specific editorial profiles are 
   from a stated sample. Label a sample's selection bias; accepted-paper dates omit rejected papers.
 
 Never combine desk-inclusive and external-review timing or a target and an observed statistic into one
-rank. Missing timing stays unknown. These metrics are not inherited from other venues.
+rank. Missing timing stays unknown. A venue that publishes no figure gets `review_speed: []`, dated in its
+`provenance`, so a later run does not look again within the year. These metrics are not inherited from other
+venues.
 
 Look before recording unknown: many publishers post timing on the journal's own pages. BMC and Springer
 Nature journal home pages show median days from submission to first decision and to acceptance; PLOS
@@ -127,9 +164,9 @@ or author pages. Record what the source states, with its population and period.
 
 `publication_costs` records researched APC/other fees with `amount`, `currency`, `fee_year`, applicable
 article type, tax caveats where material, waiver/agreement routes (`route`, in words), `source` and
-`checked`. In a manuscript's `venue_facts`, `author_cost_eur` is what these authors would pay after the
-agreements, funds and waivers that cover them; `ladder` compares that figure, else a fee listed in euros,
-and shows a fee in another currency without comparing it. An unresearched fee is not zero. Validation budget
+`checked`. What these authors would pay after the agreements, funds and waivers that cover them is the
+record's `cost_routes.KEY.author_cost_eur`; `ladder` compares that figure, else a fee listed in euros, and
+shows a fee in another currency without comparing it. An unresearched fee is not zero. Validation budget
 and publication budget are separate constraints.
 
 ## Preprints and direct transfer
@@ -149,6 +186,7 @@ Bioinformatics journal entry separately records design exclusions. The PLOS entr
 health-database editorial as conditional, including computational additional-work routes. Do not apply
 that editorial as a blanket wet-lab ban on software papers.
 
-Current primary pages were checked on 2026-10-15; see their exact URLs and conditions in the database.
-The new fields are intentionally incomplete elsewhere. Fill them from sources when comparing actual
+Current primary pages were checked on 2026-10-15, and the journals of one ladder again on 2026-10-19 and
+2026-10-27; see their exact URLs, conditions and dates in the database. The new fields are intentionally
+incomplete elsewhere. Fill them from sources when comparing actual
 candidates, rather than populating every journal with guesses.

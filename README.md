@@ -274,6 +274,12 @@ fuller interview instead: what AI did in each section, which AI-policy burdens y
 named colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed
 since it was last read.
 
+Every venue fact a run reads (a fee, a review time, an article type, a referee form, a figure rule, an AI
+policy) is kept in the plugin's journal catalogue with the page and the date it was read, so a later run reads
+a page again only for facts that have grown old: an AI policy after 60 days, an impact factor after the yearly
+Journal Citation Reports release, anything else after a year. An installed plugin keeps what its runs read in
+`~/.config/manuscript-skills/venues.yaml` on Linux, beside your settings, which plugin updates never replace.
+
 For adaptation to a journal:
 
 > Prepare this manuscript for initial submission to [journal]. Apply its abstract and length rules,

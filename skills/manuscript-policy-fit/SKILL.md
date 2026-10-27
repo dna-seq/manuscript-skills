@@ -143,9 +143,14 @@ unresearched venue permissive. The existing AI-policy ranking does not rank ethi
 
 For a full journal shortlist, pass these policy findings to `manuscript-journal-select` alongside the
 author's validation resources, budget and other priorities. Record each venue-specific finding (a server
-that declines tool announcements without results, a journal's rule on identifiable individuals) for that
-venue in the shared record's `venue_facts`, under `other_desk_rules`, with the URL of the page and the date
-read; `manuscript-journal-select` then reruns `ladder` and `common`, so the rule reaches both ladders and the
+that declines tool announcements without results, a journal's rule on identifiable individuals) in the shared
+venue catalogue, in that venue's `other_desk_rules`, with the URL of the page and the date read
+(`provenance: {other_desk_rules: {source, checked}}`): `../manuscript-journal-adapt/scripts/venues.py where`
+names the file, the shipped `venues.yaml` in the plugin's own checkout or the user's own catalogue in an
+installed plugin ([selection-fields.md](../manuscript-journal-select/references/selection-fields.md)). A list
+replaces the older list, so write the venue's existing rules with the new one. Read first what
+`venues.py stale KEY` says is due; a rule recorded within the year needs no second reading.
+`manuscript-journal-select` then reruns `ladder` and `common`, so the rule reaches both ladders and the
 requirements file. The reference notes here supplement the shared venue database; they are not a second
 ranking engine or an instruction to duplicate venue data.
 

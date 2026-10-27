@@ -6,10 +6,16 @@
 shortlist into a journal ladder and a preprint ladder by the authors' priorities, print what every venue on a
 ladder asks for, print one venue's requirements as a checklist, and list where named researchers publish.
 
-The data is manuscript-integrity-check/references/venues.yaml (keep the two skills side by side); the read
-date of each policy page comes from policy-snapshots/index.yaml, written by policy_watch.py. Facts researched
-for one manuscript (review times, fees, preprint rules, author guidelines the catalogue lacks) and the authors'
-priorities live in that manuscript's record and are passed with --record; the catalogue stays read-only.
+The data is manuscript-integrity-check/references/venues.yaml (keep the two skills side by side), with the
+user's own catalogue laid over it: `venues.yaml` beside settings.yaml (`~/.config/manuscript-skills/` on Linux,
+or $MANUSCRIPT_SKILLS_CONFIG), which keeps the venue facts read in an installed plugin across updates. Every
+fact carries the date it was read (its own `checked`, else `provenance.FIELD.checked`, else its entry's or its
+file's `checked`), and the two catalogues and a manuscript record's `venue_facts` merge field by field, the newest
+date winning. `stale` lists the facts of a ladder that are old enough to re-read; `where` names the catalogue a
+run writes what it reads into, and `save` merges a facts file into the user's catalogue. The read date of each
+policy page also comes from policy-snapshots/index.yaml, written by policy_watch.py. The authors' priorities,
+ladders, AI use, study design and the routes that pay a fee for them (`cost_routes`) live in the manuscript's
+record and are passed with --record.
 
     uv run --script venues.py rank                                    # all journals, least friction first
     uv run --script venues.py rank --ai-use drafting --field aging --refuse prompts --refuse ai-detector
@@ -20,6 +26,10 @@ priorities live in that manuscript's record and are passed with --record; the ca
     uv run --script venues.py ladder --preprints --journal KEY --journal KEY --priority ai --record REC.yaml
     uv run --script venues.py common KEY KEY KEY --record REC.yaml    # what every venue on the ladder asks for
     uv run --script venues.py show <venue-key>                        # keys are listed by `rank`
+    uv run --script venues.py stale --record REC.yaml                 # facts of the record's ladders to re-read
+    uv run --script venues.py stale KEY KEY --format csv
+    uv run --script venues.py where                                   # the catalogue new facts go into
+    uv run --script venues.py save FACTS.yaml                         # merge read facts into the user's catalogue
     uv run --script venues.py peers "First Last" "Other Name" --since 2019
 
 `ladder` reads from the record what the options leave out: the priorities (a default order, labelled as such,
@@ -31,12 +41,14 @@ journal "Does not fit"), `priorities.validation_available`, `priorities.jif_floo
 from __future__ import annotations
 
 import csv
+import importlib.util
 import os
 import re
 import sys
+import tempfile
 import unicodedata
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -47,11 +59,32 @@ import yaml
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-REFERENCES = Path(__file__).resolve().parents[2] / "manuscript-integrity-check" / "references"
+PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+REFERENCES = PLUGIN_ROOT / "skills" / "manuscript-integrity-check" / "references"
 VENUES_YAML = REFERENCES / "venues.yaml"
 SNAPSHOT_INDEX = REFERENCES / "policy-snapshots" / "index.yaml"
-STALE_AFTER_DAYS = 60
+SETTINGS_PY = REFERENCES.parent / "scripts" / "settings.py"
+STALE_AFTER_DAYS = 60  # an AI policy changes often: re-read it after two months
+FACT_STALE_AFTER_DAYS = 365  # fees, review times, article types, limits, preprint rules, transfers: after a year
+# Clarivate releases Journal Citation Reports each June; the end of the month is taken, so that a value read in the
+# days after a release is re-read once more rather than trusted before the new figures reach the journal's pages.
+JCR_RELEASE = (6, 30)
 OPENALEX = "https://api.openalex.org"
+
+# The fields of an AI policy, which go stale after STALE_AFTER_DAYS.
+AI_FIELDS = {"writing_help", "exempt", "permitted_uses", "prompts", "tracking", "screening", "screening_note",
+             "disclosure_places", "disclosure_fields", "disclosure_neutral", "extra_burden", "penalties",
+             "image_rules", "reviewer_ai", "ai_policy_url"}
+# Names, addresses and the catalogue's own notes: dated like any fact, but nothing a run re-reads for its age.
+NEVER_STALE = {"name", "publisher", "url", "sources", "aliases", "openalex", "fields", "status", "fit_note",
+               "not_read", "quoted_from", "jif_year"}
+# Keys of a venue entry that describe the entry rather than the venue: never merged as facts and never dated.
+ENTRY_KEYS = {"key", "kind", "inherits", "checked", "provenance", "from_facts"}
+# Keys inside a fact's mapping that say where and when it was read, not what it says.
+READ_KEYS = {"source", "checked"}
+# An older way to date one field, `<field>_source` and `<field>_checked` (or `_read`) beside the field it dates; read
+# into `provenance`. `transfers_checked` (a list of journals) and `not_read` (a reason) are facts of their own.
+SIDECAR = re.compile(r"^(?P<field>.+)_(?P<what>source|checked|read)$")
 
 WRITING_COST = {"free": 0, "disclose": 1, "disclose_all": 2, "red_line": 2, "banned_drafting": 5}
 # A writing rule that forbids what AI already did to this text (drafting under a red line on results and
@@ -309,11 +342,203 @@ FIRST_DECISION = re.compile(r"first[- ]decision", re.I)
 
 # ------------------------------------------------------------------------------------------------ data
 
-def load_venues() -> tuple[date, dict[str, dict[str, Any]]]:
+def _as_date(value: Any) -> Optional[date]:
+    """A date as YAML gives it, or as text that starts with one ("2026-10-27 (archived copy ...)"); else None."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    m = re.match(r"\s*(\d{4}-\d{2}-\d{2})", str(value)) if value is not None else None
+    return date.fromisoformat(m.group(1)) if m else None
+
+
+def _items(value: Any) -> list[dict[str, Any]]:
+    """The records of a list of records (`review_speed`, `publication_costs`); [] for anything else."""
+    return value if isinstance(value, list) and value and all(isinstance(i, dict) for i in value) else []
+
+
+def _own_date(value: Any, entry_date: Optional[date]) -> Optional[date]:
+    """The date a fact carries itself: a mapping's `checked`, or the oldest of a list's records (a record without
+    one counts at the entry's date), so a list is as fresh as its oldest part."""
+    if isinstance(value, dict):
+        return _as_date(value.get("checked"))
+    if not any("checked" in i for i in _items(value)):
+        return None
+    dates = [d for d in (_as_date(i.get("checked")) or entry_date for i in _items(value)) if d]
+    return min(dates) if dates else None
+
+
+def _own_source(value: Any) -> Optional[str]:
+    if isinstance(value, dict):
+        return value.get("source")
+    return next((i["source"] for i in _items(value) if i.get("source")), None)
+
+
+def _stamp(entry: dict[str, Any], fallback: Optional[date], layer: str) -> dict[str, Any]:
+    """The entry with `provenance` giving, for every fact in it, when it was read, the page and the layer it comes
+    from (`catalogue`, `user` or `record`).
+
+    A fact's date is its own `checked` (a mapping's, or the oldest of a list's records) or `provenance.FIELD`,
+    the later of the two when both are given (a re-read that found the fact unchanged moves only its date); without
+    either, the entry's `checked`, else the file's (`fallback`), else none. A `provenance` date for a field the
+    entry does not set is kept: it confirms the value another layer holds."""
+    entry_date = _as_date(entry.get("checked")) or fallback
+    given = {f: (p if isinstance(p, dict) else {"checked": p}) for f, p in (entry.get("provenance") or {}).items()}
+    facts: dict[str, Any] = {}
+    for field, value in entry.items():
+        m = SIDECAR.match(field)
+        if m and m["field"] in entry and field not in ENTRY_KEYS and not isinstance(value, (list, dict)):
+            given.setdefault(m["field"], {}).setdefault("source" if m["what"] == "source" else "checked", value)
+        else:
+            facts[field] = value
+    provenance: dict[str, dict[str, Any]] = {}
+    for field, value in facts.items():
+        if field in ENTRY_KEYS:
+            continue
+        p = given.get(field, {})
+        dates = [d for d in (_own_date(value, entry_date), _as_date(p.get("checked"))) if d]
+        provenance[field] = {"checked": max(dates) if dates else entry_date,
+                             "source": p.get("source") or _own_source(value), "layer": layer}
+    for field, p in given.items():
+        if field not in provenance and _as_date(p.get("checked")):
+            provenance[field] = {"checked": _as_date(p.get("checked")), "source": p.get("source"), "layer": layer}
+    return {**facts, "provenance": provenance}
+
+
+def _redated(value: Any, when: date) -> Any:
+    """A fact confirmed unchanged on `when`: the dates it carries itself move, nothing else."""
+    if isinstance(value, dict) and "checked" in value:
+        return {**value, "checked": when}
+    if _items(value):
+        return [{**i, "checked": when} if "checked" in i else i for i in value]
+    return value
+
+
+def _content(value: Any) -> Any:
+    """What a fact says, without where and when it was read: to tell a repeated fact from a changed one."""
+    if isinstance(value, dict):
+        return {k: _content(v) for k, v in value.items() if k not in READ_KEYS}
+    if isinstance(value, list):
+        return [_content(v) for v in value]
+    return value
+
+
+def _lay(old: dict[str, Any], new: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+    """The stamped entry `new` laid over the stamped entry `old`, field by field, the newer read winning; and the
+    fields `new` supplied. A fact without a date loses to a dated one only when it is older: an undated fact is
+    laid over the earlier layer, as before facts carried dates. On the same date the later layer wins.
+
+    A mapping merges key by key (the winner's keys over the loser's), and its date is the winner's when the winner
+    covers every key of the loser, else the older of the two, so that a key nobody re-read is not dated by a read
+    that skipped it. Anything else, lists included, is replaced. A mapping with only `source` and `checked`, a
+    `provenance` date without the fact, or the same fact read again confirms the value `old` holds: its date moves
+    when the new read is later, the value and its layer stay, and the field is not counted as supplied."""
+    out = {k: v for k, v in old.items() if k != "provenance"}
+    provenance = dict(old.get("provenance") or {})
+    won: set[str] = set()
+    for k in ("kind", "inherits"):
+        if k in new:
+            out[k] = new[k]
+    dates = [d for d in (_as_date(old.get("checked")), _as_date(new.get("checked"))) if d]
+    if dates:
+        out["checked"] = max(dates)
+    for field, p in (new.get("provenance") or {}).items():
+        before = provenance.get(field) or {}
+        then, now = before.get("checked"), p.get("checked")
+        value = new.get(field)
+        confirms = field not in new or (isinstance(value, dict) and not set(value) - READ_KEYS)
+        if field not in out:
+            if field in new:
+                out[field], provenance[field] = value, p
+                won.add(field)
+            continue
+        newer = now is None or then is None or now >= then
+        confirms = confirms or _content(_merged(out[field], value)) == _content(out[field])
+        if confirms:
+            if now is not None and newer:
+                out[field] = _redated(out[field], now)
+                provenance[field] = {**before, "checked": now, "source": p.get("source") or before.get("source")}
+            continue
+        winner, loser = (value, out[field]) if newer else (out[field], value)
+        merged = _merged(loser, winner)
+        when, src = (now, p.get("source")) if newer else (then, before.get("source"))
+        if isinstance(winner, dict) and isinstance(loser, dict) and not set(loser) - READ_KEYS <= set(winner):
+            when = min(d for d in (now, then) if d) if now or then else None
+        if isinstance(merged, dict) and "checked" in merged and when is not None:
+            merged["checked"] = when
+        out[field] = merged
+        provenance[field] = {**(p if newer else before), "checked": when, "source": src}
+        if newer:
+            won.add(field)
+    return {**out, "provenance": provenance}, won
+
+
+def user_catalogue() -> Path:
+    """The user's own venue catalogue, beside settings.yaml (settings.py `config_dir`), where an installed plugin
+    keeps the venue facts its runs read: a plugin update replaces the shipped catalogue, never this file."""
+    settings = sys.modules.get("_venues_settings")
+    if settings is None:
+        spec = importlib.util.spec_from_file_location("_venues_settings", SETTINGS_PY)
+        if spec is None or spec.loader is None:
+            raise typer.BadParameter(f"cannot load {SETTINGS_PY}")
+        settings = importlib.util.module_from_spec(spec)
+        sys.modules["_venues_settings"] = settings
+        spec.loader.exec_module(settings)
+    return settings.config_dir() / "venues.yaml"
+
+
+def repository_checkout(root: Optional[Path] = None) -> bool:
+    """Whether this copy of the plugin is its own git checkout, whose shipped catalogue a run edits and the
+    maintainers commit, rather than an installed copy in a plugin cache, which an update replaces."""
+    root = PLUGIN_ROOT if root is None else root
+    parts = [p.lower() for p in root.parts]
+    cached = any(a == "plugins" and b == "cache" for a, b in zip(parts, parts[1:]))
+    return (root / ".git").exists() and not cached
+
+
+def fact_target() -> Path:
+    """The catalogue a run writes the venue facts it reads into: the shipped one in the plugin's own checkout,
+    else the user's."""
+    return VENUES_YAML if repository_checkout() else user_catalogue()
+
+
+def _read_layer(path: Path) -> Optional[dict[str, Any]]:
+    """The user's catalogue, or None (with a warning) when it cannot be read: it never stops a run."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        typer.echo(f"WARNING: your venue catalogue {path} could not be read and is left out: {exc}", err=True)
+        return None
+    if not isinstance(raw, dict) or not isinstance(raw.get("venues") or {}, dict):
+        typer.echo(f"WARNING: your venue catalogue {path} has no `venues` mapping and is left out.", err=True)
+        return None
+    return raw
+
+
+def merged_catalogue() -> tuple[date, dict[str, dict[str, Any]]]:
+    """The shipped catalogue's date, and its entries (before inheritance) with the user's catalogue laid over them,
+    entry by entry and field by field, the newest read winning. A venue only the user's catalogue knows is added
+    when it has a name."""
     raw = yaml.safe_load(VENUES_YAML.read_text(encoding="utf-8"))
-    venues: dict[str, dict[str, Any]] = raw["venues"]
+    checked = raw["checked"]
+    venues = {key: _stamp(entry or {}, _as_date(checked), "catalogue") for key, entry in raw["venues"].items()}
+    user = user_catalogue()
+    own = _read_layer(user) if user.is_file() and user.resolve() != VENUES_YAML.resolve() else None
+    for key, entry in ((own or {}).get("venues") or {}).items():
+        entry = entry or {}
+        if key not in venues and not entry.get("name"):
+            typer.echo(f"WARNING: your venue catalogue describes {key!r}, which the plugin's catalogue does not "
+                       "know; give it a name to add it. Left out.", err=True)
+            continue
+        stamped = _stamp(entry, _as_date(own.get("checked")), "user")
+        venues[key] = _lay(venues[key], stamped)[0] if key in venues else stamped
+    return checked, venues
+
+
+def load_venues() -> tuple[date, dict[str, dict[str, Any]]]:
+    checked, venues = merged_catalogue()
     resolved = {key: _resolve(key, venues, set()) for key in venues}
-    return raw["checked"], resolved
+    return checked, resolved
 
 
 def _resolve(key: str, venues: dict[str, dict[str, Any]], seen: set[str]) -> dict[str, Any]:
@@ -337,7 +562,10 @@ def _resolve(key: str, venues: dict[str, dict[str, Any]], seen: set[str]) -> dic
         base["publisher_policy_url"] = base.get("ai_policy_url") or base.get("url")
         for own in ("url", "sources", "jif", "jif_year", "fields", "article_types", "openalex", "aliases", "fit_note"):
             base.pop(own, None)
-    return {**base, **{k: v for k, v in entry.items() if k != "inherits"}, "key": key}
+    # Each field keeps the date and page of the entry it comes from: the parent's for what the journal inherits.
+    provenance = {**{f: p for f, p in (base.get("provenance") or {}).items() if f in base},
+                  **(entry.get("provenance") or {})}
+    return {**base, **{k: v for k, v in entry.items() if k != "inherits"}, "provenance": provenance, "key": key}
 
 
 def journals(venues: dict[str, dict[str, Any]], preprints: bool = False) -> dict[str, dict[str, Any]]:
@@ -358,9 +586,10 @@ def load_snapshot_index() -> dict[str, dict[str, Any]]:
 
 
 def policy_read(v: dict[str, Any], checked: date, index: dict[str, dict[str, Any]]) -> date:
-    """When this venue's AI policy was last read: the later of the research date (the venue's own `checked`, else
-    the file's) and the oldest watcher read among its policy pages. An archived copy counts at its capture date."""
-    researched = v.get("checked") or checked
+    """When this venue's AI policy was last read: the later of the research date (the date of its writing rule,
+    else the venue's own `checked`, else the file's) and the oldest watcher read among its policy pages. An
+    archived copy counts at its capture date."""
+    researched = ((v.get("provenance") or {}).get("writing_help") or {}).get("checked") or v.get("checked") or checked
     dates = [date.fromisoformat(str(index[u]["read"])) for u in policy_urls(v) if index.get(u, {}).get("read")]
     return max(researched, min(dates)) if dates else researched
 
@@ -697,18 +926,27 @@ def _selected(venues: dict[str, dict[str, Any]], *, preprints: bool, only: Optio
 # ------------------------------------------------------------------------------------------------ task facts
 
 def load_record(path: Optional[Path], preprints: bool = False) -> tuple[list[str], dict[str, dict[str, Any]]]:
-    """The authors' priorities for one ladder and the venue facts researched for one manuscript.
+    """The authors' priorities for one ladder, and what the record says about venues: the routes that pay a
+    journal's fee for these authors, and the venue facts older records kept for one manuscript.
 
     Reads the shared manuscript record (`priorities: {journals: [speed, reach], preprints: [transfer, ai]}`, or one
-    list for both ladders; `venue_facts: {key: {...}}`) or a plain facts file with a `venues` mapping. These facts
-    were read from the venues' own pages for this task; the catalogue is not changed by an author's task."""
+    list for both ladders; `cost_routes: {key: {author_cost_eur, route, source, checked}}`, each given to its venue
+    as `cost_route`; `venue_facts: {key: {...}}`, which new runs write to the catalogue instead) or a plain facts
+    file with a `venues` mapping. A venue entry without a date of its own takes the record's `updated`, so a newer
+    read in a catalogue wins over it."""
     if path is None:
         return [], {}
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     priorities = raw.get("priorities") or []
     if isinstance(priorities, dict):
         priorities = priorities.get("preprints" if preprints else "journals") or []
-    facts = raw.get("venue_facts") or raw.get("venues") or {}
+    updated = _as_date(raw.get("updated"))
+    facts = {key: dict(entry or {}) for key, entry in (raw.get("venue_facts") or raw.get("venues") or {}).items()}
+    for key, route in (raw.get("cost_routes") or {}).items():
+        facts.setdefault(key, {})["cost_route"] = route
+    if updated:
+        for entry in facts.values():
+            entry.setdefault("checked", updated)
     return [str(p) for p in priorities], facts
 
 
@@ -779,15 +1017,16 @@ def _merged(base: Any, given: Any) -> Any:
 
 
 def with_facts(venues: dict[str, dict[str, Any]], facts: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """The catalogue with the task's facts laid over it, field by field (mappings such as `limits` and
-    `open_science` key by key). A venue the catalogue lacks can be added by the facts when they give it a name;
-    `from_facts` lists the fields that came from the task."""
+    """The catalogue with the record's facts laid over it, field by field, the newest read winning (mappings such
+    as `limits` and `open_science` key by key; `_lay`). A venue the catalogue lacks can be added by the facts when
+    they give it a name; `from_facts` lists the fields the record supplied."""
     out = dict(venues)
     for key, given in facts.items():
         if key not in venues and not given.get("name"):
             raise typer.BadParameter(f"the facts describe {key!r}, which the catalogue does not know; give it a "
                                      "name to add it for this task")
-        out[key] = {**_merged(venues.get(key, {}), given), "key": key, "from_facts": sorted(given)}
+        merged, won = _lay(venues.get(key, {}), _stamp(given, None, "record"))
+        out[key] = {**merged, "key": key, "from_facts": sorted(won)}
     return out
 
 
@@ -812,21 +1051,33 @@ def speed_days(v: dict[str, Any]) -> tuple[Optional[float], str]:
     return None, "not known"
 
 
+def fee_routes(v: dict[str, Any]) -> tuple[Any, list[str]]:
+    """What these authors would pay in euros after the agreements, funds and waivers that cover them, when the
+    record's cost route (`cost_route`) or an older record's fee says so, and the routes in words: the venue's own
+    (`publication_costs[0].route`) first, then the authors'."""
+    c = (v.get("publication_costs") or [{}])[0]
+    own = v.get("cost_route") or {}
+    cost = own.get("author_cost_eur", c.get("author_cost_eur"))
+    routes = [str(r) for r in (c.get("route"), own.get("route")) if r]
+    return cost, list(dict.fromkeys(routes))
+
+
 def fee_eur(v: dict[str, Any]) -> tuple[Optional[float], str]:
-    """What the authors would pay in euros, and the fee in words. `author_cost_eur` is the amount left to the
-    authors after an agreement, discount, fund or waiver they can use; without it a fee in euros is compared as
-    listed, and a fee in another currency is shown but not compared."""
+    """What the authors would pay in euros, and the fee in words. `author_cost_eur` (in the record's cost route) is
+    the amount left to the authors after an agreement, discount, fund or waiver they can use; without it a fee in
+    euros is compared as listed, and a fee in another currency is shown but not compared."""
     costs = v.get("publication_costs") or []
-    if not costs:
+    if not costs and not v.get("cost_route"):
         return None, "not known"
-    c = costs[0]
+    c = costs[0] if costs else {}
     amount, currency = c.get("amount"), str(c.get("currency") or "")
     shown = (f"{amount} {currency}".strip() + (f" ({c['fee_year']})" if c.get("fee_year") else "")
              if amount is not None else "fee not recorded")
-    if c.get("route"):
-        shown += f"; {c['route']}"
-    if c.get("author_cost_eur") is not None:
-        return float(c["author_cost_eur"]), f"{shown}; the authors would pay about {c['author_cost_eur']} EUR"
+    cost, routes = fee_routes(v)
+    if routes:
+        shown += "; " + "; ".join(routes)
+    if cost is not None:
+        return float(cost), f"{shown}; the authors would pay about {cost} EUR"
     if amount is not None and currency.upper() == "EUR":
         return float(amount), shown
     return None, f"{shown} (no euro figure, so not compared)"
@@ -906,6 +1157,50 @@ def _body_section(text: Any) -> bool:
 
 def _who(names: list[str], total: int) -> str:
     return "every venue" if len(names) == total and total > 1 else _and(names)
+
+
+# ------------------------------------------------------------------------------------------------ staleness
+
+def jcr_release(on: date) -> date:
+    """The latest release of Journal Citation Reports on `on` (each June, taken at JCR_RELEASE)."""
+    this_year = date(on.year, *JCR_RELEASE)
+    return this_year if on >= this_year else date(on.year - 1, *JCR_RELEASE)
+
+
+def stale_facts(v: dict[str, Any], on: date) -> list[dict[str, Any]]:
+    """The facts recorded for a venue that are old enough to re-read on `on`, each with its field, the date it was
+    read, its page, the layer it comes from and why it is due: an AI-policy field after STALE_AFTER_DAYS, an impact
+    factor read before the latest Journal Citation Reports release or without its JCR year (it may then come from a
+    third party), anything else after FACT_STALE_AFTER_DAYS. A field nobody recorded is not stale: it is
+    unresearched (`common` lists those)."""
+    provenance = v.get("provenance") or {}
+    due = []
+    for field in v:
+        p = provenance.get(field)
+        if field in ENTRY_KEYS or field in NEVER_STALE or p is None:
+            continue
+        when = p.get("checked")
+        if field == "jif":
+            release = jcr_release(on)
+            if not v.get("jif_year"):
+                reason = "no Journal Citation Reports year is recorded, so the value may come from a third party"
+            elif when is None or when < release:
+                reason = f"Journal Citation Reports released new impact factors in June {release.year}"
+            else:
+                continue
+        else:
+            limit = STALE_AFTER_DAYS if field in AI_FIELDS else FACT_STALE_AFTER_DAYS
+            if when is not None and (on - when).days <= limit:
+                continue
+            kind = "an AI-policy fact" if field in AI_FIELDS else "this kind of fact"
+            reason = (f"read {(on - when).days} days ago, and {kind} is re-read after {limit}" if when
+                      else "no date is recorded")
+        page = p.get("source") or (policy_page(v) if field in AI_FIELDS else v.get("url"))
+        due.append({"field": field, "checked": when, "source": page, "layer": p.get("layer"), "reason": reason})
+    return due
+
+
+STALE_COLUMNS = ["key", "name", "field", "checked", "source", "layer", "reason"]
 
 
 # ------------------------------------------------------------------------------------------------ commands
@@ -1014,12 +1309,19 @@ def rank(
 PROFILE_LABELS = {"validation_requirements": "Validation requirements",
                   "excluded_study_designs": "Study designs it excludes",
                   "open_science": "Open science and open source", "editorial_profile": "Editorial profile",
-                  "review_speed": "Review times", "publication_costs": "Publication costs"}
+                  "review_speed": "Review times", "publication_costs": "Publication costs",
+                  "reviewer_form": "What the journal asks its referees", "figure_rules": "Figure rules"}
 PROFILE_ITEM = {"validation_requirements": "Rule", "review_speed": "Measure", "publication_costs": "Fee"}
 KEY_WORDS = {"applies_to": "applies to", "accepted_any": "accepted alternatives (any one is enough)",
              "description": "condition", "checked": "read on", "evidence_kind": "kind of evidence",
              "fee_year": "fee year", "source_code": "source code", "software_licence": "software licence",
-             "data_and_artifacts": "data and artifacts", "open_peer_review": "open peer review"}
+             "data_and_artifacts": "data and artifacts", "open_peer_review": "open peer review",
+             "recommendations": "recommendation options", "widths_mm": "widths (mm)",
+             "max_height_mm": "greatest height (mm)", "min_text_pt": "smallest text at print size (pt)",
+             "max_text_pt": "largest text at print size (pt)", "dpi": "resolution (dpi)",
+             "display_items": "display items at most", "alt_text": "alt text required"}
+# The page's own words, each printed as a quoted bullet.
+QUOTED_KEYS = {"questions", "recommendations", "guidance"}
 
 
 def _token(value: Any, key: str) -> str:
@@ -1052,7 +1354,9 @@ def _profile_lines(value: Any, key: str, depth: int) -> list[str]:
         lines: list[str] = []
         for k, sub in value.items():
             label = KEY_WORDS.get(k, k.replace("_", " "))
-            if isinstance(sub, dict) or (isinstance(sub, list) and not _flat(sub)):
+            if k in QUOTED_KEYS and isinstance(sub, list):
+                lines += [f"{pad}- {label}:", *[f"{pad}  - “{q}”" for q in sub]]
+            elif isinstance(sub, dict) or (isinstance(sub, list) and not _flat(sub)):
                 lines += [f"{pad}- {label}:", *_profile_lines(sub, k, depth + 1)]
             else:
                 lines.append(f"{pad}- {label}: {_scalar(sub, k)}")
@@ -1230,7 +1534,10 @@ def show(
             "A missing field has not been researched; it does not mean the journal has no rule.", ""]
     for field, label in PROFILE_LABELS.items():
         value = v.get(field)
-        if value is None or _flat(value):
+        if field == "review_speed" and value == []:
+            read = ((v.get("provenance") or {}).get(field) or {}).get("checked")
+            out.append(f"- **{label}:** the venue publishes none" + (f" (looked for on {read})." if read else "."))
+        elif value is None or _flat(value):
             out.append(f"- **{label}:** {_scalar(value, field)}.")
         else:
             out += [f"- **{label}:**", *_profile_lines(value, field, 1)]
@@ -1416,6 +1723,11 @@ def ladder(
                  for v in rows if set(v.get("from_facts") or []) - TASK_ONLY]
     if from_task:
         typer.echo("\nFacts read for this manuscript and taken from its record: " + "; ".join(from_task) + ".")
+    due = [v for v in rows if stale_facts(v, date.today())]
+    if due:
+        keys = " ".join(v["key"] for v in due)
+        typer.echo(f"\nSome recorded facts about {_and([_name(v) for v in due])} are old enough to re-read before "
+                   f"they decide anything: `venues.py stale {keys}` lists each one with its page.")
     if left_out:
         typer.echo("\nLeft out of the venues you listed: " + "; ".join(left_out) + ".")
     glossary = abbreviations("\n".join(printed + left_out))
@@ -1533,8 +1845,8 @@ def _ladder_csv(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], p
             **{f"ai_{aspect}": f"{level}: {words}" for aspect, (level, words) in flags.items()},
             "ai_reasons": " ".join(why), "ai_policy_url": cell(policy_page(v)),
             "fee_amount": cell(fee.get("amount")), "fee_currency": cell(fee.get("currency")),
-            "fee_year": cell(fee.get("fee_year")), "author_cost_eur": cell(fee.get("author_cost_eur")),
-            "fee_route": cell(fee.get("route")), "fee_source": cell(fee.get("source")),
+            "fee_year": cell(fee.get("fee_year")), "author_cost_eur": cell(fee_routes(v)[0]),
+            "fee_route": "; ".join(fee_routes(v)[1]), "fee_source": cell(fee.get("source")),
             "fee_checked": cell(fee.get("checked")),
             "preprint_rule": cell(rule),
             # A server: the journals it transfers to. A journal: the authors' preprint server when it transfers here
@@ -1779,6 +2091,139 @@ def common(
                            f"{_and(gaps[_name(v)])}." + (f" The page could not be read: {why}." if why else ""))
     glossary = abbreviations("\n".join(out))
     typer.echo("\n".join(out + (["", glossary] if glossary else [])))
+
+
+@app.command()
+def stale(
+    keys: Annotated[Optional[list[str]], typer.Argument(
+        help="The venues to check (keys from `rank`); default: both ladders of the record")] = None,
+    record: Annotated[Optional[Path], typer.Option(
+        help="The manuscript record: its `ladders` when no keys are given, and its venue facts and cost routes, "
+             "which count with their own dates")] = None,
+    every: Annotated[bool, typer.Option("--all", help="Every journal and preprint server in the catalogue")] = False,
+    on: Annotated[Optional[str], typer.Option(help="Judge the age of each fact on this date (YYYY-MM-DD); "
+                                                   "default: today")] = None,
+    output: Annotated[OutputFormat, typer.Option(
+        "--format", help="md: grouped by the page to re-read; csv: one row per fact, in STALE_COLUMNS")] = OutputFormat.md,
+) -> None:
+    """The facts recorded for a ladder's venues that are old enough to re-read, and the page each is on; only these
+    need reading."""
+    day = _as_date(on) if on else date.today()
+    if day is None:
+        raise typer.BadParameter("--on takes a date, YYYY-MM-DD")
+    _, venues = load_venues()
+    venues = with_facts(venues, load_record(record)[1])
+    if every:
+        chosen = [k for k, v in venues.items() if v.get("kind") != "publisher"]
+    else:
+        chosen = list(keys or []) or [*recorded_ladder(record, False), *recorded_ladder(record, True)]
+    if not chosen:
+        raise typer.BadParameter("name the venues, give a record with `ladders`, or pass --all")
+    unknown = [k for k in chosen if k not in venues]
+    if unknown:
+        raise typer.BadParameter(f"unknown venue keys: {', '.join(unknown)}")
+    found = {k: stale_facts(venues[k], day) for k in dict.fromkeys(chosen)}
+    if output == OutputFormat.csv:
+        writer = csv.DictWriter(sys.stdout, fieldnames=STALE_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        for k, due in found.items():
+            for d in due:
+                writer.writerow({"key": k, "name": _name(venues[k]),
+                                 **{c: "" if d.get(c) is None else d[c] for c in STALE_COLUMNS[2:]}})
+        return
+    target = fact_target()
+    out = ["# Venue facts to re-read", "",
+           f"Judged on {day}. An AI-policy fact is re-read after {STALE_AFTER_DAYS} days, an impact factor once "
+           "Journal Citation Reports has released newer figures (each June), and every other fact after "
+           f"{FACT_STALE_AFTER_DAYS} days. Only these need reading: a fact found unchanged keeps its value and takes "
+           "the new date; a changed one is replaced by the new value with the new date, each with the page it was "
+           f"read on. Write them into {target}.", ""]
+    for k, due in found.items():
+        if not due:
+            continue
+        out += [f"## {_name(venues[k])} (`{k}`)", ""]
+        pages: dict[tuple[Any, Any, str], list[str]] = {}
+        for d in due:
+            pages.setdefault((d["source"], d["checked"], d["reason"]), []).append(d["field"])
+        for (page, when, reason), fields in pages.items():
+            read = f"read on {when}" if when else "no date"
+            out.append(f"- {_and([f'`{f}`' for f in fields])}: {read}, from "
+                       f"{page or 'no page recorded'}; {reason}.")
+        out.append("")
+    fresh = [_name(venues[k]) for k, due in found.items() if not due]
+    if fresh and len(fresh) < len(found):
+        out.append(f"Nothing to re-read for {_and(fresh)}.")
+    elif fresh:
+        out.append("Every recorded fact about these venues is within its re-check period.")
+    typer.echo("\n".join(out).rstrip())
+
+
+@app.command()
+def where() -> None:
+    """The catalogue a run writes the venue facts it reads into, and why that one."""
+    target = fact_target()
+    typer.echo(str(target))
+    if target == VENUES_YAML:
+        typer.echo("This is the plugin's own repository checkout: write venue facts into its shipped catalogue, "
+                   "above, in place (keep its comments), each with `source` and `checked`.")
+    else:
+        typer.echo("This is an installed copy of the plugin, which an update replaces: save venue facts to your own "
+                   "catalogue, above, with `venues.py save FACTS.yaml` (or edit it), each with `source` and "
+                   "`checked`. venues.py lays it over the shipped catalogue, the newest date winning.")
+
+
+def _plain(entry: dict[str, Any]) -> dict[str, Any]:
+    """A stamped entry as the user's catalogue keeps it: `provenance` with each fact's date and page."""
+    provenance = {f: {k: p[k] for k in ("checked", "source") if p.get(k) is not None}
+                  for f, p in (entry.get("provenance") or {}).items()}
+    return {**{k: v for k, v in entry.items() if k != "provenance"}, "provenance": provenance}
+
+
+USER_HEADER = ("# Venue facts read by manuscript-skills runs in an installed plugin, which venues.py lays over the\n"
+               "# plugin's catalogue field by field, the newest date winning. Written by `venues.py save`; plugin\n"
+               "# updates never replace it. Each fact's date and page are under the venue's `provenance`.\n")
+
+
+@app.command()
+def save(
+    facts_file: Annotated[Path, typer.Argument(
+        help="A facts file in the catalogue's form: `venues: {KEY: {FIELD: VALUE, ..., provenance: {FIELD: "
+             "{source, checked}}}}`, or a record's `venue_facts`")],
+    user: Annotated[bool, typer.Option(
+        help="Save to your own catalogue even in the plugin's repository checkout")] = False,
+) -> None:
+    """Merge the venue facts a run read into the user's catalogue, field by field, the newest date winning: a fact
+    found unchanged moves only its date, a changed one replaces the old value."""
+    target = user_catalogue()
+    if repository_checkout() and not user:
+        typer.echo(f"This is the plugin's repository checkout: venue facts go into {VENUES_YAML}, edited in place so "
+                   f"its comments stay. Pass --user to save them to {target} instead.", err=True)
+        raise typer.Exit(2)
+    raw = yaml.safe_load(facts_file.read_text(encoding="utf-8")) or {}
+    given = raw.get("venues") or raw.get("venue_facts") or {}
+    file_date = _as_date(raw.get("checked"))
+    stamped = {key: _stamp(entry or {}, file_date, "user") for key, entry in given.items()}
+    undated = [f"{key}.{f}" for key, e in stamped.items() for f, p in e["provenance"].items() if p["checked"] is None]
+    if undated:
+        raise typer.BadParameter("every fact needs the date it was read (`checked`, in the fact, its "
+                                 f"`provenance` or its venue); these have none: {', '.join(undated)}")
+    current = (_read_layer(target) if target.is_file() else {}) or {}
+    if target.is_file() and not current:
+        raise typer.BadParameter(f"{target} cannot be read; fix or move it first, it is never overwritten")
+    mine = current.get("venues") or {}
+    _, known = merged_catalogue()
+    for key, entry in stamped.items():
+        if key not in known and key not in mine and not entry.get("name"):
+            raise typer.BadParameter(f"the facts describe {key!r}, which no catalogue knows; give it a name")
+        old = _stamp(mine[key] or {}, _as_date(current.get("checked")), "user") if key in mine else {}
+        mine[key] = _plain(_lay(old, entry)[0])
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = USER_HEADER + yaml.safe_dump({**current, "venues": mine}, sort_keys=False, allow_unicode=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, suffix=".tmp", delete=False) as tmp:
+        tmp.write(body)
+    os.replace(tmp.name, target)
+    count = sum(len(e["provenance"]) for e in stamped.values())
+    typer.echo(f"Saved {count} facts about {len(stamped)} venues to {target}.")
 
 
 def _fold(name: str) -> str:

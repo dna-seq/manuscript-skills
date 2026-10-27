@@ -1,13 +1,28 @@
-# Venue requirements that matter for AI policy, desk screening and manuscript structure.
-# Read by manuscript-integrity-check/scripts/scan.py (--venue length limits) and by
-# manuscript-journal-adapt/scripts/venues.py (rank, show).
+# Venue requirements that matter for AI policy, desk screening and manuscript structure: the plugin's one store
+# of venue facts. Read by manuscript-integrity-check/scripts/scan.py (--venue length limits) and by
+# manuscript-journal-adapt/scripts/venues.py (rank, show, ladder, common, stale).
 #
-# Every value comes from the venue's own pages as read on `checked` (sources and verbatim quotes:
-# publisher-policies.md, target-journals.md, journal-policies/<publisher>.md). `null` means not
-# researched, never "no rule". A `jif` with a `jif_year` was read on the journal's or publisher's own
-# page; one without is a value circulating in mid-2026: confirm in Journal Citation Reports.
-# policy_watch.py re-reads every url, ai_policy_url and sources entry; policy-snapshots/index.yaml holds
-# the date each page was last read.
+# Every value comes from the venue's own pages (sources and verbatim quotes: publisher-policies.md,
+# target-journals.md, journal-policies/<publisher>.md). `null` means not researched, never "no rule". A `jif`
+# with a `jif_year` was read on the journal's or publisher's own page; one without is a value circulating in
+# mid-2026: confirm it, and leave it unset when only a third-party site gives it. policy_watch.py re-reads every
+# url, ai_policy_url and sources entry; policy-snapshots/index.yaml holds the date each page was last read.
+#
+# Dates. Each fact carries the date it was read and its page, so a run re-reads only what is old:
+#   - a mapping (open_science, editorial_profile, reviewer_form, figure_rules) or a list of records (review_speed,
+#     publication_costs, validation_requirements) carries its own `checked` and `source`;
+#   - any other field takes them from the entry's `provenance`, e.g. provenance: {jif: {source: URL, checked:
+#     2026-10-27}, transfers: {...}}; a later provenance date than a fact's own moves it (re-read, unchanged);
+#   - without either, the entry's `checked`, else the file's `checked` below.
+#   `venues.py stale` lists what is due: an AI-policy field after 60 days, a jif read before the latest Journal
+#   Citation Reports release (each June) or without a jif_year, anything else after 365 days. A fact found
+#   unchanged keeps its value and gets the new date; a changed one is replaced by the new value and date.
+#
+# Where facts go. In this repository's checkout, a run writes what it reads into this file, in place. An installed
+# plugin writes to the user's own catalogue, venues.yaml beside settings.yaml (`venues.py where` names it;
+# `venues.py save` merges into it), which venues.py lays over this file field by field, the newest date winning
+# (a mapping merges key by key, a list replaces). A manuscript record holds only what belongs to its authors
+# (priorities, ladders, ai_use, study, cost_routes); see manuscript-journal-select/references/selection-fields.md.
 #
 # Kinds and inheritance
 #   kind:          absent for a journal; `publisher` for a default that journals inherit (never ranked);
@@ -59,6 +74,19 @@
 #                  page read on `checked`: {source (an Internet Archive URL), copy_date (the capture), checked
 #                  (when it was read), note (why that copy)}
 #   limit_quotes, submission_rules and quoted_from describe one journal's page and are never inherited.
+#
+# What the journal asks its referees and its figure rules (optional; venues.py show prints both; manuscript-peer-
+# review quotes reviewer_form in its venue brief, manuscript-figures measures figures against figure_rules). Both
+# are mappings with their own `source` and `checked`, and a publisher-wide one may sit on the publisher default.
+#   reviewer_form: questions (the form's questions, verbatim), recommendations (its recommendation options,
+#                  verbatim; absent when the page names none), guidance (the page's sentences to referees,
+#                  verbatim), note (in plain words: the parts of the form, the review model, or that the form is
+#                  not public, which is worth recording: the next run need not look again)
+#   figure_rules:  widths_mm (the figure widths the venue sets), max_height_mm, min_text_pt and max_text_pt (the
+#                  smallest and largest text at the printed size), dpi (one number, or per kind of artwork:
+#                  {photo, combination, line}), formats (file formats accepted), display_items (per article
+#                  type, {figures, tables} at most), alt_text (true when the venue asks for alt text), other (rules
+#                  in plain words, such as how a splice is marked)
 #
 # Selection fields: validation_requirements, excluded_study_designs, open_science, editorial_profile,
 # review_speed, publication_costs. See manuscript-journal-select/references/selection-fields.md.
@@ -155,7 +183,7 @@ venues:
     publication_costs:
       - amount: 4376
         currency: USD
-        route: "the same for Original Papers and Application Notes, excluding tax (OUP's charges calculator on the author guidelines, read in a browser); ISCB members get 15% off; OUP's read-and-publish search finds no agreement for the University of Rostock or any Romanian institution, and Romania is not on OUP's low- and middle-income list"
+        route: "the same for Original Papers and Application Notes, excluding tax (OUP's charges calculator on the author guidelines, read in a browser); ISCB members get 15% off"
         source: https://academic.oup.com/bioinformatics/pages/author-guidelines
         checked: 2026-10-19
 
@@ -224,6 +252,25 @@ venues:
     software: [all code public as a condition of publication, available 5 years]
     software_article: false
     fit_note: Web Server or Database issue only
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 18
+        statistic: median
+        period: 2025
+        source: https://academic.oup.com/nar/pages/About
+        checked: 2026-10-27
+        evidence_kind: official statistic
+    open_science:
+      preprints: "a bioRxiv preprint can be submitted to the journal directly from bioRxiv"
+      source: https://academic.oup.com/nar/pages/author-guidelines
+      checked: 2026-10-27
+    editorial_profile:
+      summary: "The Web Server issue takes stand-alone applications from November 2026, on a proposal first: they must run on any operating system with a container that runs without installing software, and show novelty or a clear benefit such as usability."
+      evidence_kind: stated-scope
+      source: https://academic.oup.com/nar/pages/submission_webserver
+      checked: 2026-10-27
+    # Fee: the OUP charges calculator did not load on 2026-10-27; DOAJ lists USD 4,192, a third-party figure not
+    # recorded here.
 
 
   gigascience:
@@ -315,7 +362,7 @@ venues:
       - amount: 4690
         currency: EUR
         fee_year: 2026
-        route: "Projekt DEAL gives German participating institutions, the University of Rostock among them, 20% off, billed centrally; no Springer Nature agreement covers BMC fees for Romanian institutions"
+        route: "Projekt DEAL gives corresponding authors at participating German institutions 20% off, billed centrally"
         source: https://link.springer.com/journal/13059/how-to-publish-with-us
         checked: 2026-10-19
 
@@ -371,7 +418,7 @@ venues:
       - amount: 2590
         currency: EUR
         fee_year: 2026
-        route: "Projekt DEAL gives German participating institutions, the University of Rostock among them, 20% off, billed centrally; no Springer Nature agreement covers BMC fees for Romanian institutions"
+        route: "Projekt DEAL gives corresponding authors at participating German institutions 20% off, billed centrally"
         source: https://link.springer.com/journal/12859/how-to-publish-with-us
         checked: 2026-10-19
 
@@ -444,9 +491,18 @@ venues:
       - amount: 3165
         currency: USD
         fee_year: 2026
-        route: "PLOS's flat-fee institutional agreements list no University of Rostock or Romanian institution; fee assistance on demonstrated need, applied for at submission"
+        route: "fee assistance on demonstrated need, applied for at submission; PLOS also has flat-fee institutional agreements"
         source: https://plos.org/fees/
         checked: 2026-10-19
+    figure_rules:
+      max_height_mm: 222
+      min_text_pt: 8
+      max_text_pt: 12
+      dpi: 300
+      formats: [TIFF, EPS]
+      other: ["at most 2,250 pixels wide and 2,625 pixels high at 300 dpi (about 190 by 222 mm)", "a splice is marked by a line on the figure and explained in the legend"]
+      source: https://journals.plos.org/ploscompbiol/s/figures
+      checked: 2026-10-27
 
   frontiers-default:
     kind: publisher
@@ -470,6 +526,33 @@ venues:
     disclosure_neutral: null
     reviewer_ai: restricted
     fit_note: "text merely edited with generative AI is also covered; prompts and outputs as supplementary files are encouraged; external AI tools are banned for reviewers, who use the in-house AIRA Review Guide (summarises the manuscript, helps draft feedback) and declare it"
+    provenance:
+      # The author guidelines, read again: AI use acknowledged in the Acknowledgements and the Methods if applicable,
+      # with the tool's name, version, model and source; uploading prompts and outputs encouraged, not required.
+      disclosure_places: {source: "https://www.frontiersin.org/guidelines/author-guidelines", checked: 2026-10-27}
+      disclosure_fields: {source: "https://www.frontiersin.org/guidelines/author-guidelines", checked: 2026-10-27}
+      prompts: {source: "https://www.frontiersin.org/guidelines/author-guidelines", checked: 2026-10-27}
+      other_desk_rules: {source: "https://www.frontiersin.org/guidelines/policies-and-publication-ethics", checked: 2026-10-27}
+    other_desk_rules:
+      - "written informed consent for publication of any potentially identifiable human data; the editors decide what is identifiable, and nonessential identifying details are omitted"
+      - "an ethics statement generated by the submission system; an exemption from approval is explained there, and a letter from the committee may be requested"
+      - "a data availability statement for every article, generated from the submission form"
+    reviewer_form:
+      guidance:
+        - "prioritize scientific quality, rigor, and validity"
+        - "They evaluate the methodology of a study for solidity and rigor"
+        - "We don't reject manuscripts based on their perceived potential impact."
+      recommendations: ["Accept in current form", "Minor revision is required", "Major revision is required", "The manuscript should be rejected"]
+      note: "Referees answer a standardized questionnaire adapted to the article type, which is not public, and recommend one of these options in the independent review phase; in the interactive phase that follows they discuss with the authors and endorse, ask for further revisions or recommend rejection."
+      source: https://frontiersin.org/guidelines/peer-review-guidelines
+      checked: 2026-10-27
+    figure_rules:
+      widths_mm: [85, 180]
+      min_text_pt: 8
+      dpi: 300
+      other: ["no longer than one page", "300 dpi at the final size"]
+      source: https://www.frontiersin.org/guidelines/author-guidelines
+      checked: 2026-10-27
     validation_requirements:
       - applies_to: [public-data, bioinformatics, mr, public-health-database]
         strength: required
@@ -497,8 +580,31 @@ venues:
     software_article: true
     oa: full
     limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
-    fit_note: "Technology and Code articles need the code in a repository with a DOI or URI; the IF is shown without a year"
+    fit_note: "Technology and Code articles need the code in a repository with a DOI or URI"
     excluded_study_designs: [mr, bibliometric]
+    jif_year: 2025
+    provenance:
+      # The impact factor with its year as Paper 1's journal-selection run read it; that record does not name the page.
+      jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
+      jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
+      limits: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-27}
+      review_speed: {source: "Paper 1 journal-selection record (just-dna-lite): no statistic on the journal's pages", checked: 2026-10-27}
+    submission_rules:
+      - when: submission
+        rule: "a Technology and Code article in this order: Abstract, Introduction, Method (with the code description), Results (with examples of use and limitations), Discussion (with scalability and limitations)"
+        quote: ["Technology & Code articles should have the following format:", "Method (including any code description)", "Results (including examples of use and limitations)", "Discussion (including scalability and limitations)"]
+        source: https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types
+        checked: 2026-10-27
+      - when: submission
+        rule: "the project link, the operating system, the programming language and any restriction on non-academic use stated in the article"
+        quote: ["The following information must also be included:", "project link (e.g. sourceforge, github)", "operating system (e.g. Windows, Linux, platform independent)", "programming language (e.g. Python)", "any restrictions for non-academic use (e.g. licence needed)"]
+        source: https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types
+        checked: 2026-10-27
+      - when: submission
+        rule: the code placed online in a repository with a DOI or URI for retrieval
+        quote: ["should be placed online in a repository, with an associated DOI/URI for retrieval"]
+        source: https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types
+        checked: 2026-10-27
     open_science:
       summary: "Full open access with CC-BY articles; software-licence and artifact rules need separate checking."
       source_code: null
@@ -510,7 +616,9 @@ venues:
       evidence_kind: stated-scope
       source: https://www.frontiersin.org/journals/bioinformatics/about
       checked: 2026-10-15
-    review_speed: null
+    # Read 2026-10-27: the journal publishes no review-time statistic. The fee for a Rostock corresponding author is a
+    # library agreement and lives in Paper 1's record (cost_routes); the list price was not read on Frontiers' own pages.
+    review_speed: []
     publication_costs: null
 
   peerj:
@@ -556,6 +664,27 @@ venues:
     limits: null
     software_article: false
     fit_note: expects new genome biology or methods with biological insight
+    review_speed:
+      - metric: average turnaround time for review (all papers), not a first-decision median
+        days: 30
+        statistic: mean
+        source: https://genome.cshlp.org/ifora_overview
+        checked: 2026-10-27
+    publication_costs:
+      - amount: 5200
+        currency: USD
+        route: a USD 1,500 publication service charge plus a USD 3,700 open-access charge
+        source: https://genome.cshlp.org/publication_fees
+        checked: 2026-10-27
+    open_science:
+      preprints: "a preprint is not prior publication, and bioRxiv transfers to the journal directly"
+      source: https://genome.cshlp.org/ifora_overview
+      checked: 2026-10-27
+    editorial_profile:
+      summary: "Resource articles present useful tools or databases of broad appeal and must include novel biological information or technology."
+      evidence_kind: stated-scope
+      source: https://genome.cshlp.org/ifora_mspreparation
+      checked: 2026-10-27
 
   f1000research:
     name: F1000Research
@@ -704,14 +833,29 @@ venues:
     penalties: [not posted (out of scope), formal withdrawal with a public statement in extreme cases]
     extra_burden: []
     other_desk_rules: [no narrative reviews, no announcements of tools or services without data, no hypotheses without new data,
-                       no editorials, letters, opinion pieces, white papers or policy statements]
+                       "no editorials, letters, opinion pieces, white papers or policy statements",
+                       "no images or information that could identify an individual, because consent cannot be verified; no stated exception for a person's own self-released data"]
     software_article: false
     fit_note: a software paper must read as a research article with results, not a tool announcement; a paper with health-related information may be closed and sent to medRxiv
-    # Direct transfer to journals (B2J), read on https://www.biorxiv.org/submit-a-manuscript on 2026-10-19 for the
-    # journals in transfers_checked only; the list has about 250 entries.
-    transfers: [bioinformatics, bioinformatics-note, bioinformatics-advances, nar-genomics-bioinformatics, plos-comp-biol]
+    # Direct transfer to journals (B2J), read on https://www.biorxiv.org/submit-a-manuscript on 2026-10-27 for the
+    # journals in transfers_checked only (2026-10-19 for the first nine); the list has about 250 entries.
+    transfers: [bioinformatics, bioinformatics-note, bioinformatics-advances, nar-genomics-bioinformatics, plos-comp-biol,
+                iscience, cell-genomics, molecular-systems-biology, life-science-alliance, elife, nar, genome-research,
+                gigascience, frontiers-genetics, frontiers-bioinformatics]
     transfers_checked: [bioinformatics, bioinformatics-note, bioinformatics-advances, nar-genomics-bioinformatics,
-                        plos-comp-biol, genome-biology, bmc-bioinformatics, gpb, cell-reports-methods]
+                        plos-comp-biol, iscience, cell-genomics, molecular-systems-biology, life-science-alliance, elife,
+                        nar, genome-research, gigascience, frontiers-genetics, frontiers-bioinformatics,
+                        cell-reports-methods, patterns, cell-systems, j-biomed-inform, genomics, database, genes,
+                        f1000research, bmc-bioinformatics, genome-biology, human-mutation, briefings-bioinformatics, gpb,
+                        jamia, jamia-open]
+    provenance:
+      transfers: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-27}
+      transfers_checked: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-27}
+      other_desk_rules: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
+      # The FAQ's generative-AI paragraph, read again in full: authors answer for AI output and describe its use in
+      # the manuscript like other computational methods.
+      writing_help: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
+      disclosure_places: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
 
   medrxiv:
     kind: preprint
@@ -721,8 +865,12 @@ venues:
     ai_policy_url: https://www.medrxiv.org/about/FAQ
     fields: [clinical, genetics, aging]
     other_desk_rules: [simple automated or formulaic analyses of public data are generally not sufficient,
-                       tool announcements alone are not sufficient (needs Introduction, Results, Discussion),
-                       papers with inappropriate causal language may be declined, no narrative reviews]
+                       "tool announcements alone are not sufficient (needs Introduction, Results, Discussion)",
+                       papers with inappropriate causal language may be declined, no narrative reviews,
+                       "real names, initials, sample IDs and exact dates linked to individuals are direct identifiers and are removed before posting",
+                       "a statement of ethical oversight by an independent body for human data, unless the data are already openly available; the cases that need it include samples from the researchers themselves"]
+    provenance:
+      other_desk_rules: {source: "https://www.medrxiv.org/about/FAQ", checked: 2026-10-27}
     fit_note: a software paper must read as a research article with results, not a tool announcement; human data need a statement of ethical oversight by an independent body unless the data are already openly available, and clinical case reports are not posted
 
   research-square:
@@ -898,7 +1046,7 @@ venues:
     publication_costs:
       - amount: 3035
         currency: USD
-        route: "the same for Standard, Methods and Application Notes, excluding tax (OUP's charges calculator, read in a browser); OUP's read-and-publish search finds no agreement for the University of Rostock or any Romanian institution"
+        route: "the same for Standard, Methods and Application Notes, excluding tax (OUP's charges calculator, read in a browser)"
         source: https://academic.oup.com/nargab/pages/author-guidelines
         checked: 2026-10-19
 
@@ -918,6 +1066,17 @@ venues:
     software_article: true
     fit_note: on Oxford Academic; page carries only the AI-authorship sentence (no disclosure sentence), so the OUP default
       governs disclosure; Database and Webserver articles under 3000 words, Method and Application note 4-6 pages
+    # Read 2026-10-19: no review-time statistic is published.
+    review_speed: []
+    provenance:
+      review_speed: {source: "https://academic.oup.com/gpb/pages/general-instructions", checked: 2026-10-19}
+    publication_costs:
+      - amount: 4050
+        currency: USD
+        route: the same for Research Articles and Application Notes, excluding tax
+        source: https://academic.oup.com/gpb/pages/general-instructions
+        checked: 2026-10-19
+        evidence_kind: OUP's charges calculator, read in a browser
 
   briefings-functional-genomics:
     name: Briefings in Functional Genomics
@@ -1171,6 +1330,76 @@ venues:
     software_article: false
     fit_note: only the OUP authorship/AI clause; no dedicated software type, but Research and Applications covers innovative
       applications and new methodology; Brief Communications 2000 words
+
+  jamia-open:
+    name: JAMIA Open (Application Note)
+    publisher: OUP (American Medical Informatics Association)
+    inherits: oup
+    jif: 4.7
+    jif_year: 2025
+    status: VERIFIED
+    url: https://academic.oup.com/jamiaopen/pages/General_Instructions
+    sources: [https://academic.oup.com/jamiaopen/pages/for-reviewers]
+    fields: [clinical, data, software]
+    # Research and Applications, Reviews, Brief Communications, Case Reports, Perspectives, Application Notes, Database
+    # Notes and Patient/Community Perspectives.
+    article_types: [research, software, database, review, perspective]
+    oa: full
+    software_article: true
+    checked: 2026-10-27
+    screening: plagiarism
+    screening_note: submissions are screened for plagiarism; no papermill or AI-text screening stated on the journal page
+    # Application Notes: "Word count: up to 2000 words." "Abstract: up to 150 words." Research and Applications allow
+    # 4,000 words and a 250-word abstract.
+    limits: {abstract_words: 150, body_words: 2000, over_limit_return: null}
+    abstract_headings: [Objectives, Materials and Methods, Results, Discussion, Conclusion]
+    required_sections: [Background and Significance, Data Availability Statement]
+    submission_rules:
+      - when: submission
+        rule: a link to a publicly accessible code repository, and a Jupyter notebook with working code examples where one applies
+        quote: ["Manuscripts must include a link to a publicly accessible code repository (e.g., GitHub or BitBucket)"]
+    other_desk_rules:
+      - "an ethics statement that gives the review board's approval and number, or says that no approval was required"
+      - "identifying information only when essential, with written informed consent given after the person has seen the manuscript"
+      - "a Data Availability Statement, with public datasets cited in the references with the [dataset] tag"
+      - "alt text under the legend of each figure"
+    fit_note: a lay summary of at most 200 words comes with the revision, and an accepted paper needs a patient- or
+      community-facing abstract; a full research paper is a Research and Applications article (4,000 words, a 250-word
+      structured abstract, 6 figures and 4 tables)
+    quoted_from:
+      source: https://web.archive.org/web/20261017013545/https://academic.oup.com/jamiaopen/pages/General_Instructions
+      copy_date: 2026-10-17
+      checked: 2026-10-27
+      note: the live page stopped at a bot check on 2026-10-27, so the rules above were read on this copy
+    # Read 2026-10-27: the journal publishes no review-time statistic. Fee: the OUP charges calculator did not load;
+    # DOAJ lists USD 3,582, a third-party figure not recorded here.
+    review_speed: []
+    editorial_profile:
+      summary: "Application Notes describe computer software or algorithm implementations, including web services and mobile applications, in up to 2,000 words with at most 3 figures and 2 tables."
+      evidence_kind: stated-scope
+      source: https://academic.oup.com/jamiaopen/pages/General_Instructions
+      checked: 2026-10-27
+    reviewer_form:
+      guidance:
+        - "adherence to reviewer guidelines, specificity and accuracy, completeness"
+        - "usefulness of recommendations to both editors and authors, tone, internal consistency"
+        - "mindfulness of the needs of our readers and the medical community as a whole"
+      note: "The referee form and its recommendation options are not public; the page for reviewers lists what makes a good review. Review is single-blind."
+      source: https://academic.oup.com/jamiaopen/pages/for-reviewers
+      checked: 2026-10-27
+    figure_rules:
+      display_items:
+        application note: {figures: 3, tables: 2}
+        research and applications: {figures: 6, tables: 4}
+      alt_text: true
+      source: https://academic.oup.com/jamiaopen/pages/General_Instructions
+      checked: 2026-10-27
+    provenance:
+      # The impact factor as Paper 1's journal-selection run read it; that record does not name the page.
+      jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
+      jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
+      review_speed: {source: "https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-27}
+      other_desk_rules: {source: "https://web.archive.org/web/20261017013545/https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-27}
 
   database:
     name: 'Database: The Journal of Biological Databases and Curation'
@@ -2008,6 +2237,12 @@ venues:
     tracking: recommended
     disclosure_neutral: null
     reviewer_ai: banned
+    figure_rules:
+      widths_mm: [90, 140, 190]
+      min_text_pt: 7
+      dpi: {photo: 300, combination: 500, line: 1000}
+      source: https://www.elsevier.com/about/policies-and-standards/author/artwork-and-media-instructions/artwork-sizing
+      checked: 2026-10-27
     image_rules:
     - AI-assisted explanatory images named in the caption
     - no general-purpose gen-AI graphical abstracts
@@ -2249,6 +2484,25 @@ venues:
     software_article: false
     fit_note: '''Manuscripts analysing existing sequence data only are no longer suitable, unless adding new sequence data
       or a introducing a new algorithm''; the algorithm must be public; accepts the top 25-30%'
+    review_speed:
+      - metric: submission-to-first-decision (desk rejections included)
+        days: 6
+        statistic: median
+        source: https://www.sciencedirect.com/journal/genomics
+        checked: 2026-10-27
+        evidence_kind: official statistic
+      - metric: submission to first decision after review
+        days: 64
+        statistic: median
+        source: https://www.sciencedirect.com/journal/genomics
+        checked: 2026-10-27
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 3460
+        currency: USD
+        route: "Projekt DEAL gives corresponding authors at participating German institutions 20% off fully open-access Elsevier journals"
+        source: https://www.sciencedirect.com/journal/genomics
+        checked: 2026-10-27
 
   gene:
     name: Gene
@@ -2438,6 +2692,36 @@ venues:
     software_article: false
     fit_note: '''a robust, reproducible method'' is the main criterion; Articles need method, comparison with related methods,
       validation; no software-specific type'
+    review_speed:
+      - metric: submission-to-first-decision (first editorial decision, desk-inclusive)
+        days: 7
+        statistic: median
+        period: a calendar year, updated annually (the page does not name the year)
+        source: https://www.cell.com/cell-reports-methods/information-for-authors
+        checked: 2026-10-19
+        evidence_kind: official statistic, read in a browser
+      - metric: acceptance to online publication
+        days: 26
+        statistic: median
+        source: https://www.cell.com/cell-reports-methods/information-for-authors
+        checked: 2026-10-19
+    publication_costs:
+      - amount: 4970
+        currency: USD
+        route: "excluding taxes; geographical pricing pilot; Projekt DEAL gives corresponding authors at participating German institutions 15% off fully open-access Cell Press journals"
+        source: https://www.cell.com/open-access
+        checked: 2026-10-27
+    open_science:
+      summary: "Original code deposited in a repository that mints DOIs, or included as supplemental information, before acceptance; a Resource availability section with a data and code availability statement."
+      source_code: required
+      preprints: "manuscripts with preprints on established servers (arXiv, bioRxiv, SSRN) are considered, and only the original submitted version may be posted; Cell Genomics, Cell Reports, Current Biology and iScience take direct submission from bioRxiv, this journal does not"
+      source: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
+      checked: 2026-10-19
+    editorial_profile:
+      summary: "Research articles present 'the method, a comparison of the method with related methods when appropriate, and validation'; the primary criterion is 'a robust, reproducible method that will spur scientific progress'."
+      evidence_kind: stated-scope
+      source: https://www.cell.com/cell-reports-methods/information-for-authors/article-types
+      checked: 2026-10-19
 
   ajhg:
     name: American Journal of Human Genetics
@@ -2542,6 +2826,25 @@ venues:
     software_article: true
     fit_note: 'Technology format: ''new experimental or computational methods and other technologies'' (under 7,000 words,
       step-by-step protocol in SI)'
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 5
+        statistic: median
+        period: a calendar year (not named)
+        source: https://www.cell.com/cell-genomics/information-for-authors
+        checked: 2026-10-27
+        evidence_kind: official statistic
+    publication_costs:
+      - amount: 8900
+        currency: USD
+        route: "Projekt DEAL gives corresponding authors at participating German institutions 15% off fully open-access Cell Press journals"
+        source: https://www.cell.com/open-access
+        checked: 2026-10-27
+    editorial_profile:
+      summary: "Technology articles need significant improvements over existing methods and broad utility, with a step-by-step protocol."
+      evidence_kind: stated-scope
+      source: https://www.cell.com/cell-genomics/information-for-authors/article-types
+      checked: 2026-10-27
 
   iscience:
     name: iScience
@@ -2558,6 +2861,86 @@ venues:
     limits: null
     software_article: false
     fit_note: advises research articles below 8,000 words (not a hard limit)
+    sources: [https://www.cell.com/iscience/information-for-authors, https://www.cell.com/iscience/information-for-authors/article-types, https://www.cell.com/iscience/reviewers, https://www.cell.com/open-access]
+    provenance:
+      article_types: {source: "https://www.cell.com/iscience/information-for-authors/article-types", checked: 2026-10-27}
+      other_desk_rules: {source: "https://www.cell.com/iscience/information-for-authors/journal-policies", checked: 2026-10-27}
+      excluded_study_designs: {source: "https://www.cell.com/iscience/information-for-authors/article-types", checked: 2026-10-27}
+    review_speed:
+      - metric: submission-to-first-decision (desk accept, desk reject or sent to review)
+        days: 6
+        statistic: median
+        period: a calendar year (the page does not name the year)
+        source: https://www.cell.com/iscience/information-for-authors
+        checked: 2026-10-27
+        evidence_kind: official statistic
+      - metric: acceptance to online publication
+        days: 4
+        statistic: median
+        source: https://www.cell.com/iscience/information-for-authors
+        checked: 2026-10-27
+    publication_costs:
+      - amount: 3240
+        currency: USD
+        route: "Projekt DEAL's Elsevier agreement (to 31 December 2028) gives corresponding authors at participating German institutions 15% off fully open-access Cell Press journals"
+        source: https://www.cell.com/open-access
+        checked: 2026-10-27
+    open_science:
+      preprints: "bioRxiv preprints are welcome, and bioRxiv transfers to the journal directly; Cell Press supports posting only the original submitted version, not revised or accepted versions"
+      source: https://www.cell.com/iscience/information-for-authors/journal-policies
+      checked: 2026-10-27
+    editorial_profile:
+      summary: "All original research is a Research Article, which must report a significant contribution ('Manuscripts that are technically accurate but do not report a significant contribution will not be considered'). Areas no longer considered include machine-learning or AI methods without benchmarking against similar methods and demonstrated superior performance, data mining of single datasets without validation in original or external cohorts, biomarkers or decision algorithms without external cohort validation, case reports, single-centre retrospective studies, bibliometric analyses, network pharmacology without experimental validation, and Mendelian randomisation outside a list of named analyses. An editor judges scope, the advance and the support for the conclusions, and may decline without review."
+      evidence_kind: stated-scope
+      source: https://www.cell.com/iscience/information-for-authors/article-types
+      checked: 2026-10-27
+    excluded_study_designs: [bibliometric]
+    validation_requirements:
+      - applies_to: [public-data, bioinformatics]
+        strength: required
+        accepted_any: [independent-cohort, wet-lab]
+        description: "Areas no longer considered: 'Datamining studies using single datasets without experimental validation in original or external cohorts and strong originality, novelty and advance', and biomarkers, nomograms or decision algorithms 'without external cohort validation'. The page does not name software or resource papers; a tool paper benchmarked on public data needs the editors' reading."
+        source: https://www.cell.com/iscience/information-for-authors/article-types
+        checked: 2026-10-27
+    other_desk_rules:
+      - "studies involving humans name the approving committee in STAR Methods, or the committee that granted an exemption"
+      - "sex or gender and age reported for human participants, or the reason they are not"
+      - "consents, permissions and releases for personal information about any individual; nonessential identifying information omitted"
+      - "a structured data and code availability statement (data, code, additional information) in a Resource availability section"
+      - "AI tools that are part of the methods named with model or tool, version and developer in STAR Methods"
+    submission_rules:
+      - when: submission
+        rule: "no particular format for the first submission: a title, the authors and affiliations, a summary and enough experimental information to interpret the results"
+        quote: ["A summary/abstract", "Sufficient experimental information for us to interpret the results in context."]
+        source: https://www.cell.com/iscience/information-for-authors/submit-manuscript
+        checked: 2026-10-27
+      - when: submission
+        rule: "a cover letter, seen only by the editors, that explains the background, the conceptual advance and the significance of the work, and a completed declaration of interests form"
+        quote: ["The conceptual advance provided by your work", "The significance of the work and its potential impact."]
+        source: https://www.cell.com/iscience/information-for-authors/submit-manuscript
+        checked: 2026-10-27
+      - when: after_review
+        rule: "a summary of one paragraph of at most 150 words, without novelty claims such as 'novel' or 'first'"
+        quote: ["a single paragraph of no more than 150 words"]
+        source: https://www.cell.com/iscience/information-for-authors/revise-manuscript
+        checked: 2026-10-27
+      - when: after_review
+        rule: "a limitations-of-the-study subsection within the Discussion, specific to the paper, and a Resource availability section with lead contact, materials availability, and data and code availability"
+        quote: ["specific to the paper", "lead contact,", "materials availability,", "data and code availability."]
+        source: https://www.cell.com/iscience/information-for-authors/revise-manuscript
+        checked: 2026-10-27
+    reviewer_form:
+      questions:
+        - "What are the main findings/advancements the paper makes with respect to literature?"
+        - "For each of the main points of the paper indicated above, please discuss whether the data sufficiently support the conclusions."
+        - "assess any critical flaws with reported research design and data robustness."
+        - "additional work that would strengthen the paper but is not strictly necessary to prove its main claims."
+        - "Does the paper adequately report the methods, statistics, data, and code? Are data and code availability sufficient to evaluate the manuscript?"
+      guidance:
+        - "the points to discuss are those around the main claims of the paper itself (and whether those points are substantiated by the data shown in the manuscript), as opposed to additional work that might be more appropriate for inclusion in a future publication."
+      note: "The form (its use is strongly suggested) has a Recommendation, Main findings, Revisions required for publication, Optional and minor work, Transparency of reporting, and a part for the editors only: how strong a candidate the paper is as presented and after reasonable revisions, and whether another journal suits it equally or better. The page names the Recommendation field without listing its options. Research articles typically go to two or more referees; review is single-anonymous."
+      source: https://www.cell.com/iscience/reviewers
+      checked: 2026-10-27
 
   # ------------------------------------------------------------------ Wiley, Taylor & Francis, Sage and Mary Ann Liebert, Karger
   # Read 2026-10-15; sources and verbatim quotes: journal-policies/wiley.md
@@ -3348,7 +3731,7 @@ venues:
     publisher: Frontiers
     inherits: frontiers-default
     jif: 3.0
-    jif_year: null
+    jif_year: 2025
     status: VERIFIED
     url: https://www.frontiersin.org/journals/genetics/for-authors/author-guidelines
     fields: [genetics, genomics]
@@ -3357,7 +3740,11 @@ venues:
     limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
     software_article: true
     fit_note: 'scope page: bioinformatics or computational analyses of public data without validation (independent cohort
-      or in vitro / in vivo) "or are not highly innovative are not suitable". IF shown without a year'
+      or in vitro / in vivo) "or are not highly innovative are not suitable"'
+    provenance:
+      # The impact factor's year as Paper 1's journal-selection run read it; that record does not name the page.
+      jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
+      jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
 
   ijms:
     name: International Journal of Molecular Sciences
@@ -3667,6 +4054,7 @@ venues:
   life-science-alliance:
     name: Life Science Alliance
     publisher: Life Science Alliance LLC (EMBO Press, Rockefeller University Press, CSHL Press)
+    # Not on the journal's pages (2026-10-27); about 3.1 circulates on aggregator sites, which is not recorded.
     jif: null
     jif_year: null
     status: VERIFIED
@@ -3691,7 +4079,16 @@ venues:
     software_article: false
     fit_note: 'AI wording matches Genome Research (CSHL Press); reviewer_ai restricted: reviewers may not upload to LLMs
       that ingest input for training, "noting this excludes most publicly available AI/LLM tools"; transfers from EMBO,
-      RUP and CSHL journals; fee $3,975'
+      RUP and CSHL journals'
+    publication_costs:
+      - amount: 3975
+        currency: USD
+        source: https://www.life-science-alliance.org/copyright-license-fee
+        checked: 2026-10-27
+    open_science:
+      preprints: "preprints are encouraged; bioRxiv transfers to the journal directly, and the journal is a Review Commons affiliate"
+      source: https://www.biorxiv.org/submit-a-manuscript
+      checked: 2026-10-27
 
   rsos:
     name: Royal Society Open Science

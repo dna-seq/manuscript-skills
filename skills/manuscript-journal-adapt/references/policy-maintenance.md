@@ -15,8 +15,19 @@ uv run --script scripts/policy_watch.py record URL saved.html --update
 
 `--update` (on `check` and `record`) writes the snapshots and `index.yaml` into the plugin's references. It
 belongs to this maintenance only: during an author's task run `check --venue KEY --routes httpx,chrome`
-without it, and record what was read in the manuscript record's `venue_facts` instead
-([selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)).
+without it. The venue facts any task reads, the AI rule included, go into the catalogue with their page and
+date ([selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)): the shipped
+`venues.yaml` in this repository's checkout, the user's own catalogue beside `settings.yaml` in an installed
+plugin (`venues.py where` names it; `venues.py save FACTS.yaml` merges into it). venues.py lays the user's
+catalogue over the shipped one, the newest `checked` winning, so an installed plugin keeps what its runs read
+across updates.
+
+To refresh only what is old, list it first: `venues.py stale --all` (or `stale KEY ...`) groups the facts that
+are due by the page to re-read, an AI-policy field after 60 days, an impact factor after a newer Journal
+Citation Reports release or without its JCR year, anything else after a year. A fact re-read and found
+unchanged keeps its value and gets the new date; a changed one is replaced by the new value with the new date.
+To bring the facts a user's catalogue gathered into the shipped one, copy each with its date and page into the
+venue's entry here (a value with no date of its own takes its date from the entry's `provenance`).
 
 `policy_watch.py` watches the pages cited by `venues.yaml` (`url`, `ai_policy_url`, `sources`), reduces
 them to passages about AI and compares them with
@@ -34,7 +45,8 @@ the remaining obstacle to a material decision. Do not treat a paraphrased fetch 
 
 "Changed since the last read" means the AI passages differ; the report quotes each passage before and
 after, with the page's URL. Determine whether the rule itself changed, then update
-the shared venue fields, `checked` date and relevant reference notes. Exit code 1 means something changed
+the shared venue fields, the date of each field re-read (`provenance.FIELD.checked`, or the entry's `checked`
+when the whole entry was re-read) and relevant reference notes. Exit code 1 means something changed
 or disappeared; 3 means nothing changed but at least one page could not be read, which is not a clean
 result. Use [selection-fields.md](../../manuscript-journal-select/references/selection-fields.md)
 when recording selection requirements. Preserve one authoritative venue database.

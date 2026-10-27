@@ -191,6 +191,16 @@ authors ask whether a target's AI policy has changed, this skill answers it: run
 plugin's own files and belongs to catalogue maintenance), then read with your own browser tool whatever it
 could not reach, before any archived copy, which is never the current rule.
 
+Before reading the chosen journal's pages, run `scripts/venues.py stale KEY`: it lists the recorded facts old
+enough to re-read (an AI policy after 60 days, an impact factor after a newer Journal Citation Reports
+release, anything else after a year), with the page each is on. Read those and the rules the checklist marks as
+not researched; a fact recorded within its period needs no second reading. Every venue fact you read, a moved
+AI rule included, goes into the venue catalogue with its page and date (`scripts/venues.py where` names the
+file: the shipped `venues.yaml` in the plugin's own checkout, the user's own catalogue, through
+`scripts/venues.py save`, in an installed plugin; the fields are in
+[selection-fields.md](../manuscript-journal-select/references/selection-fields.md)). A fact found unchanged
+keeps its value and gets the new date.
+
 When the chosen journal restricts the use the authors describe (a ban on AI drafting, for example), adapt
 the manuscript and draft the statement as asked, under
 [authors first, journals second](../manuscript-integrity-check/references/author-priorities.md#the-author-decides-authors-first-journals-second).
@@ -229,9 +239,12 @@ to the manuscript and the report in the same turn and drop the questions they se
 
 ## Shared resources and maintenance
 
-- `scripts/venues.py`: `rank`, `show`, `ladder`, `common` and `peers` (PEP 723; `uv run --script`). Reads the shared
-  `../manuscript-integrity-check/references/venues.yaml`; `peers` queries OpenAlex (set `OPENALEX_MAILTO`
-  for its polite pool). Keep the companion skills together.
+- `scripts/venues.py`: `rank`, `show`, `ladder`, `common`, `stale`, `where`, `save` and `peers` (PEP 723;
+  `uv run --script`). Reads the shared `../manuscript-integrity-check/references/venues.yaml` with the user's own
+  catalogue beside `settings.yaml` laid over it, the newest dated fact winning; `stale` lists the facts old enough
+  to re-read, `where` names the catalogue the venue facts a task reads go into (the shipped file in the
+  plugin's checkout, the user's in an installed plugin) and `save` merges a facts file into the user's;
+  `peers` queries OpenAlex (set `OPENALEX_MAILTO` for its polite pool). Keep the companion skills together.
 - `scripts/ai_use.py`: on request, drafts the AI-use statement from what this run's stages changed (see
   Disclosure).
 - [policy-maintenance.md](references/policy-maintenance.md): read when updating the shared catalogue or
