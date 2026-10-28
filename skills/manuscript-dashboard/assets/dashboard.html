@@ -1108,8 +1108,8 @@ __REVISION_HTML__
     if (K.new_problems.length) box.append(card('New problems the re-check found', h('ul', {style: 'margin: 0; padding-left: 18px'}, K.new_problems.map(p => h('li', {style: 'margin-bottom: 6px'},
       h('span', {class: 'tag'}, p.origin === 'introduced' ? 'introduced by an edit' : 'missed earlier'), p.section ? h('strong', null, `${p.section}: `) : null, p.problem,
       h('div', {class: 'note', style: 'margin: 2px 0 0'}, `"${p.quote}"`))))));
-    const checks = [['numbers', 'Number checks'], ['references', 'Reference checks']].filter(([k]) => K.numbers[k]);
-    if (checks.length) box.append(card('Number and reference checks, run again on the corrected version', h('ul', {style: 'margin: 0; padding-left: 18px'}, checks.map(([k, label]) => {
+    const checks = [['numbers', 'Number checks'], ['references', 'Reference checks'], ['placement', 'Detail in the wrong section']].filter(([k]) => K.numbers[k]);
+    if (checks.length) box.append(card('Number, reference and section checks, run again on the corrected version', h('ul', {style: 'margin: 0; padding-left: 18px'}, checks.map(([k, label]) => {
       const c = K.numbers[k];
       return h('li', null, `${label}: ${plural(c.introduced.length, 'candidate')} the edits introduced, ${c.resolved.length} resolved, ${c.unchanged} unchanged.`,
         c.introduced.length ? h('ul', null, c.introduced.map(x => h('li', null, x.message))) : null);

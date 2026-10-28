@@ -32,7 +32,11 @@ write `findings.json` with the `PE` prefix.
 ## Edit and check the result
 
 Read [prose-edit-contract.md](references/prose-edit-contract.md) for the editing procedure and preservation
-rules, and [section-guide.md](references/section-guide.md) when a section's purpose matters. Apply
+rules, and [section-guide.md](references/section-guide.md) when a section's purpose matters. Which section a
+detail belongs in is the shared [section roles](../manuscript-integrity-check/references/section-roles.md): an
+edit never brings a procedure, a threshold or a measured count into the Abstract or the Introduction to make it
+concrete (a rounded figure and a pointer at most), and a measured result it finds in Methods, or procedure in
+Results, is reported as *Misplaced detail* with the section it moves to. Apply
 [manuscript-deslop](../manuscript-deslop/SKILL.md) for the pattern check: it owns the catalogue,
 false-positive exceptions and style profiler. **The smell check is required for every edit**, including a
 short pasted passage saved as before/after files. Run its counts before and after editing, then read the

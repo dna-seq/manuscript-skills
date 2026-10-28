@@ -284,6 +284,7 @@ sentence for the item.
 | route `author-required` (new work, or the narrower claim instead) | `decision: true`; `action` names both, the narrower claim first |
 | route `fixable-in-text`, a claim narrowed to its evidence included | `decision: false`: it follows the `edits` setting |
 | route `venue` | stage `journal`, category "Journal fit" |
+| a detail in a section whose job is another's (a result only in the methods, procedure or a measured comparison in the introduction, a contribution framed by how its inputs were prepared) | category "Misplaced detail", stage `writing` (`journal` when a venue's layout asks for the move); `action` names the section it moves to and what stays behind ([section roles](../../manuscript-integrity-check/references/section-roles.md#the-finding-misplaced-detail)) |
 | route `policy`, or a `hand_to` another check ("Also found, belongs to other checks") | the stage the authors can act on it: `now`, `writing` or `final`; `detail` names the skill that handles it; a policy point's category is "Ethics, privacy and scope" |
 | any other stage | the same stage: `now`, `writing`, `journal` or `final` |
 | severity `blocker`, `major`, `optional`, `uncertain` | `blocker`, `major`, `info`, `unknown` |

@@ -34,14 +34,17 @@ These change how the paper tells its story, within the recorded direction:
 
 - A stake or hook in the first sentences of the Abstract or the Introduction that serves the recorded lead
   theme, built from facts the paper already has. A hook built on a fact from outside the paper (a source that
-  `manuscript-reference-check` verified) adds a fact, so it is a proposal under `conservative`.
+  `manuscript-reference-check` verified) adds a fact, so it is a proposal under `conservative`. A fact brought
+  forward from a later section brings its claim, a rounded figure at most and a pointer; the measured counts and
+  the setup of a comparison stay where they were measured
+  ([section roles](../../manuscript-integrity-check/references/section-roles.md#rounded-figures-and-pointers)).
 - A headline sentence, in plain words, before a result's numbers, in that result's paragraph: it names no
   number, citation or term the paragraph does not have and claims no more than the paragraph does, so the
   claim check passes it; one number the reader keeps.
 - Connected sentences: each follows from the last by cause, contrast or time.
 - Connected paragraphs: a paragraph that brings in a new domain, example or audience says why in its first
-  sentence, with a reason the paper already states elsewhere, brought forward; a "such" or "this" names what
-  it refers to. A reason the paper does not state is a question for the authors, never an edit.
+  sentence, with a reason the paper already states elsewhere, brought forward as a claim and a pointer (its
+  counts stay where they are measured); a "such" or "this" names what it refers to. A reason the paper does not state is a question for the authors, never an edit.
 - A worked example of real output in the text (a report row), built from the authors' own files or runs,
   replacing an abstract description of the same thing. It adds numbers the text did not have, so it is a
   proposal under `conservative` and applied under `apply`. A new or moved figure, such as one of what a user
@@ -135,7 +138,7 @@ and after.
 ## The gates, and what to do when they disagree with the story
 
 Run in order on the edited text: science (guard with `--relocated`, the record's claims and non-claims,
-reference-check for new citations), the journal (format, limits, abstract headings, required sections;
+reference-check for new citations, `section_roles.py --before` for detail brought out of its section), the journal (format, limits, abstract headings, required sections;
 editors' screening signals), AI-written prose (`style_profile.py --check` and a reading against its list).
 Every failure is fixed by restoring the wording or dropping the edit, and listed; none becomes a question for
 the authors.

@@ -65,6 +65,10 @@ abstract, introduction and conclusions against the results.
 - Do the abstract and conclusions claim more than the results show (the claim ceiling)? Do they quietly
   switch to a different outcome than the one measured?
 - Does the paper answer the question it poses, or a nearby easier one?
+- Does the introduction say what each contribution does and adds, or does it describe how the inputs were
+  prepared (a tool presented as a cleaned copy of a public dataset)? Does it state a measured comparison
+  (a speed-up, a count that passed a filter) without the setup that makes the comparison fair? Quote it; the
+  measurement and its setup belong in the results, the introduction keeps a rounded figure.
 
 Leaves citation identity and the support of individual citations to manuscript-reference-check.
 
@@ -93,6 +97,10 @@ Judges whether another group could repeat the work from what is written and rele
 - Software: versions, parameters, random seeds, environment; code released and archived at the version
   used; supplementary files that the text refers to actually exist.
 - Could the main table or figure be regenerated from the stated inputs?
+- Are the procedures stated as rules in the methods (a threshold, a filter, how a label is assigned), and is
+  every outcome of them reported in the results? A count of what passed a filter, or a classifier's accuracy,
+  that appears only in the methods is a result a reader of the results will not find; a procedure explained only
+  in the results cannot be repeated from the methods.
 
 Leaves the formal availability statements to manuscript-reporting-check and
 manuscript-integrity-check. Never installs or runs the authors' code unless asked (see

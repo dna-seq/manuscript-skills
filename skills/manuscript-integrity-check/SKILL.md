@@ -99,7 +99,7 @@ Select the steps the request needs and run each once over unchanged material. Sc
 the report belong in this skill's run folder, `RUN/manuscript-integrity-check/` in the commands below (`RUN` is the
 run directory `runs.py start` printed); the `reports` setting controls presentation in chat, and a full list the
 authors are to open goes beside the manuscript ([where files go](references/author-priorities.md#where-files-go)). Paths are relative to this skill's directory: `scripts/`
-holds `scan.py`, `number_check.py`, `code_claims.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py`, `policy_watch.py` and `ai_use.py` are in
+holds `scan.py`, `number_check.py`, `code_claims.py`, `section_roles.py`, `hygiene.py`, `precommit.py` and `settings.py` (the plugin-wide settings); `venues.py`, `policy_watch.py` and `ai_use.py` are in
 `../manuscript-journal-adapt/scripts/`, and the other skills' scripts are in their own `scripts/` folders.
 
 | Request | Steps |
@@ -108,6 +108,7 @@ holds `scan.py`, `number_check.py`, `code_claims.py`, `hygiene.py`, `precommit.p
 | "Check our numbers" (values, arithmetic, p-values) | 3 (`number_check.py`) |
 | Statistics reporting (n per analysis, tests, intervals) | `manuscript-reporting-check` §4 (also part of Step 4) |
 | "Are the claims overstated?" | 5 |
+| "Is each detail in the right section?" ("the Introduction reads like Methods") | 5, its last part (`section_roles.py`) |
 | "Anything we shouldn't upload?" | 7, and 1 offline for leftovers |
 | Citations only | `manuscript-reference-check` |
 
@@ -325,6 +326,24 @@ Leave calibrated claims and stated non-claims alone. Limitations should name a r
 stock phrases and vocabulary density only when they impair clarity or break the house style (CLAUDE.md /
 AGENTS.md).
 
+**Each detail in its section.** A claim reads differently where it stands: a speed-up in the Introduction
+without the setup that makes it fair, or a classifier's accuracy that only Methods report, misleads a reader or
+hides from one. List the candidates, then read each against the shared
+[section roles](references/section-roles.md):
+
+```bash
+uv run --script scripts/section_roles.py PAPER.md --md RUN/manuscript-integrity-check/section-roles.md
+```
+
+It lists procedure and measured results in the Abstract and the Introduction (feature lists included), results
+in Methods, procedure-only paragraphs in Results and numbers first stated in the Discussion, with the section
+each usually belongs in. A candidate is a passage to read, not a finding: a methods-last layout, a software
+paper's mixed sections or a rule stated with its threshold can make it right where it is. Report what is
+misplaced as *Misplaced detail*, with the section it moves to and what stays behind (a rounded figure and a
+pointer), and read the Introduction's contributions for their framing: a tool built on a public data source is
+described by what it adds to the source, not as a cleaned copy of it. Moving a detail changes no number and no
+caveat.
+
 ### Step 6: AI-generated science (only when AI produced scientific content)
 
 Use only the claim-relevant parts of `references/ai-science-design.md`. Distinguish an evaluation of an
@@ -440,9 +459,13 @@ The fixes this skill applies under `edits` go through `manuscript-prose-edit` (i
 
 - Scripts (PEP 723, `uv run --script`, offline unless `--online`; exit codes under Workflow): `scan.py`, the
   mechanical scan; `number_check.py`, ledger, GRIM/GRIMMER, statistics and tables (`references/number-checks.md`);
+  `section_roles.py`, detail that may belong in another section (`references/section-roles.md`; 0 whatever it
+  lists, with `--before` 1 when an edit added a candidate);
   `hygiene.py`, the package check (`references/submission-package.md`); `precommit.py`, the hook (`--hygiene`
   fails on text hidden for AI reviewers and on a leaked secret; comments stay advisory).
 - `references/claim-evidence.md`: claim types, the evidence each needs, inference gaps, design ceilings.
+- `references/section-roles.md`: what each section holds and where a detail goes, for IMRaD, methods-last and
+  software or resource layouts; the *Misplaced detail* finding; shared by every skill that reviews or edits.
 - `references/manuscript-record.md`: the optional shared per-paper record, study-design keys, outcome words.
 - `references/venue-requirements.md`: the Step 4 checklist for the chosen venue.
 - `references/publisher-policies.md`, `references/venues-and-preprints.md`, `references/target-journals.md`:

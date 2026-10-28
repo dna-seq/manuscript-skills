@@ -4,6 +4,12 @@
 # exactly the planted changes). tests/test_integrity_check.py checks that the scripts find each planted
 # defect once at its location and nothing of the same kind in the clean control; these cases check the agent.
 # recorded/ holds registry answers (Crossref, arXiv; 2026-10-16) that the scan.py regression tests replay offline.
+# section-roles-seeded.md and section-roles-clean.md are real: Paper 1 of Just-DNA-Lite, by the plugin's authors, trimmed
+# to the Abstract, the Introduction's overview and Key features, Section 3.2 with 3.2.2, the opening of Section 4 and
+# the Conclusion, before and after the authors moved each detail to its section (just-dna-lite bc27fe5, 2026-10-28).
+# Earlier manuscript-skills rounds had brought measured facts forward into the Key features and left audit counts and
+# a classifier's accuracy in Methods; no stage flagged it. tests/test_section_roles.py checks that section_roles.py
+# lists every passage the authors moved and nothing in the repaired version.
 
 - id: integrity-check-seeded-audit-01
   skill: manuscript-integrity-check
@@ -120,3 +126,70 @@
   fail_if:
     - "Answers only with mechanical scan output."
     - "Gives an acceptance probability or a score."
+
+- id: integrity-section-roles-seeded
+  skill: manuscript-integrity-check
+  prompt: >-
+    A co-author says the Introduction of our software paper reads like a methods section. Check whether each
+    part of this excerpt holds what belongs there, and tell us what should move where. Report only, please:
+    don't change the file.
+  files: [fixtures/manuscript-integrity-check/section-roles-seeded.md]
+  planted:
+    - "The first Key feature, 'A cleaned PGS Catalog, ready to use', frames just-prs as a cleaned copy of the PGS Catalog instead of saying what it adds to the Catalog's models (ancestry, an ancestry-matched percentile, coverage, a quality label, all models for a trait side by side)."
+    - "The same item carries Methods detail: a Parquet mirror, normalized genome-build labels, metrics parsed into numbers (Section 3.2 already describes the preparation)."
+    - "The same item carries Results: 860 scores withheld, 847 of them for failing the scale check, with the explanation of the check."
+    - "The app-store item ends on a dated count of the registry (26 October 2026, 24 modules from five accounts), a snapshot result."
+    - "The Fast item gives measured ranges and a median (33 to 65 s, 128 to 231 times, 16 to 20 s, 0.08 s) instead of rounded figures."
+    - "The Fast item's PLINK2 comparison depends on its configuration (PLINK2 started once per score on four threads, just-prs on sixteen): a Results paragraph's worth of caveat in the Introduction."
+    - "The Abstract names a Methods step: each score 'passes its reference-distribution audit'."
+    - "Section 3.2 (Methods) reports the file-level audit's outcome: 6,910 of 6,991 files as specified, 76 approximated, 5 cannot be scored."
+    - "Section 3.2 describes the reference-distribution audit through its outcome (6,117 of 6,977 passed, 860 withheld, 847 of them because ...) instead of stating the withholding rules."
+    - "Section 3.2.2 (Methods) ends on the classifier's leave-one-out accuracy, 99.65% (2,566 of 2,575), a result."
+  rubric:
+    - "Reports that the first Key feature presents just-prs as a cleaned copy of the PGS Catalog, and that the feature is what just-prs adds to the Catalog's models, quoting the item's title."
+    - "Reports the Parquet mirror, the normalized build labels and the parsed metrics in that item as Methods detail whose place is Section 3.2."
+    - "Reports the 860 and 847 withheld scores in the Key features as a result for the Results section, with at most a rounded figure and a pointer left in the Introduction."
+    - "Reports the Fast item's ranges and median as measurements for Results, and says the PLINK2 comparison needs its thread configuration beside it, so it belongs in Results too (the Introduction keeps rounded figures such as 'about a minute' or 'more than a hundred times faster')."
+    - "Reports the registry's count on 26 October 2026 as a dated result that does not belong in the Key features."
+    - "Reports at least two of the three results in Methods (the file-level audit counts, the reference-distribution audit counts, the leave-one-out accuracy) and proposes stating the rules in Methods and the counts in Results, in a new subsection where Section 4 has none."
+    - "Proposes moves, never deletions: every number keeps its value, and a caveat moves with the number it bounds."
+    - "Makes no edits to any file."
+  fail_if:
+    - "Proposes deleting a number or a caveat from the paper rather than moving it."
+    - "Reports a rule stated as a rule as a misplaced result (the quality labels' 'less than 20%' or 'at least 0.7', the classifier's 'minor allele frequency at least 0.05')."
+    - "Reports the scale figure '6,117 scores for 778 traits' alone as the problem with the first Key feature, missing both the Methods detail and the withheld counts."
+    - "Invents a number, section or table the excerpt does not have."
+    - "Edits a manuscript file."
+  anchors:
+    - {item: 1, id: cleaned-copy, anchor: "A cleaned PGS Catalog, ready to use.", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 2, id: methods-in-features, anchor: "mirrors the PGS Catalog's harmonized scoring files as Parquet", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 3, id: withheld-in-features, anchor: "860 scores were withheld, 847 of them", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 4, id: dated-registry, anchor: "On 26 October 2026 the registry held 24 modules", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 5, id: fast-ranges, anchor: "in 33 to 65 s, 128 to 231 times faster", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 6, id: plink-configuration, anchor: "PLINK2 was started once per score on four threads", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 7, id: abstract-audit, anchor: "passes its reference-distribution audit", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 8, id: file-audit-in-methods, anchor: "placed 6,910 of 6,991 files", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 9, id: distribution-audit-in-methods, anchor: "6,117 of 6,977 scores passed and 860 were withheld", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
+    - {item: 10, id: accuracy-in-methods, anchor: "99.65% were assigned their own superpopulation", file: fixtures/manuscript-integrity-check/section-roles-seeded.md, in_clean: true}
+  pairs:
+    - {with: integrity-section-roles-clean, expect: different}
+
+- id: integrity-section-roles-clean
+  skill: manuscript-integrity-check
+  prompt: >-
+    A co-author says the Introduction of our software paper reads like a methods section. Check whether each
+    part of this excerpt holds what belongs there, and tell us what should move where. Report only, please:
+    don't change the file.
+  files: [fixtures/manuscript-integrity-check/section-roles-clean.md]
+  planted:
+    - "The control: the Key features say what each feature does with rounded figures and pointers, Section 3.2 states the audits as rules and points to Section 4.3, Section 3.2.2 points to Section 4.4, and the counts and the accuracy are in Sections 4.3 and 4.4."
+  rubric:
+    - "Does not report the Key features, the Abstract, Section 3.2 or Section 3.2.2 as holding Methods or Results detail that belongs elsewhere."
+    - "Makes no edits to any file."
+  fail_if:
+    - "Reports '6,117 scores across 778 traits', 'about a minute' or 'more than a hundred times faster' in the Key features as misplaced results."
+    - "Proposes moving the counts of Section 4.3 or the accuracy of Section 4.4 back into Section 3."
+    - "Invents a number, section or table the excerpt does not have."
+    - "Edits a manuscript file."
+  pairs:
+    - {with: integrity-section-roles-seeded, expect: different}

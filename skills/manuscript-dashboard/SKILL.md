@@ -185,8 +185,8 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   asked, or stronger with nothing asking for it (from `requested-claims.yaml` beside the revision folder), and
     each title, Abstract or Conclusions sentence that claims more than the body (`guard.py --summary`), and
   the independent re-check: each confirmed problem's verdict against the corrected version, by who raised it,
-  the new problems it found (introduced by the edits or missed earlier) and the number and reference checks
-  run again on the corrected version (a re-check of an earlier build says so); the
+  the new problems it found (introduced by the edits or missed earlier) and the number, reference and
+  section-roles checks run again on the corrected version (a re-check of an earlier build says so); the
   comparison with the reference review; the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the

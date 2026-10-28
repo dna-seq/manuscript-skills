@@ -111,6 +111,20 @@ tables, figure legends), give the count both ways and say which one the page lea
 skill owns drafting and placing AI-use statements; `manuscript-integrity-check` only checks that they are
 present.
 
+**Set the layout the venue expects, with each detail in its section.** The venue's body sections and their
+order come from `venues.py show` (`required_sections`, the article type) or, where the catalogue has none, from
+its author guide, read and recorded with its date; never from memory. Map the paper's headings to their roles
+first ([section roles](../manuscript-integrity-check/references/section-roles.md#layouts): "System and Methods"
+and "Implementation" are Methods, "Benchmarking and Validation" and "Use cases" are Results), then restructure:
+a methods-last venue (Cell Press STAR Methods, many Nature-family and BMC journals) moves Methods to the end and
+opens each Results section with one sentence of what was done; a section that mixes roles is split, its procedure
+to Methods and its measurements to Results. Each move keeps its numbers and its caveats and leaves a pointer
+behind. A restructure is a journal step, done once the journal is chosen and applied as the `edits` setting
+allows a substantial restructuring; before the choice, a layout every venue on the ladders shares is adapted now,
+and differing layouts wait under "Choose per venue". A misplaced detail found on the way that no layout makes
+right (a measured count in the Introduction's feature list) is reported as *Misplaced detail* and moved in any
+layout.
+
 **Fill what the material settles; ask only for the rest.** A venue rule often turns on a fact about the
 work: whether a component is a trained classifier and on what data (a machine-learning subsection), where a
 dataset came from (its URL or accession for the data availability statement), what format the software

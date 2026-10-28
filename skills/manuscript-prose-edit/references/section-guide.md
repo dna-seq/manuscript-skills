@@ -5,7 +5,11 @@ Use with [deslop catalogue](../../manuscript-deslop/references/llm-smells.md) (p
 venue's author guidelines override anything here (structured abstracts, section names, word limits).
 
 These are editorial suggestions, not a mandatory template. Follow the shared author-priority rules;
-preserve the author's effective style and the quantities needed for the paper's actual claims.
+preserve the author's effective style and the quantities needed for the paper's actual claims. Which section
+a detail belongs in (procedure in Methods, measured outcomes in Results, a rounded figure and a pointer in the
+Introduction) is the shared [section roles](../../manuscript-integrity-check/references/section-roles.md), with
+the layouts of software papers and methods-last venues; this guide says what each section needs once the detail
+is in its place.
 
 ## Title
 
@@ -43,6 +47,10 @@ the contributions repeated later word for word [D5].
 **Fix:** start from the stake or the gap, not the field's history; cite the closest prior work, including
 what it already does; state the aim as the authors' choice ("We wanted …", "We asked whether …"). Where
 the story needs more than a fix of wording, `manuscript-story` owns it.
+**Feature and contribution lists:** each item says what the feature does for the reader, with at most a rounded
+figure and a pointer ("about a minute (Section 4)"). Storage formats, cleaning steps, thresholds, audit counts,
+measured ranges and dated counts belong in Methods or Results; a tool built on a data source is described by what
+it adds to the source, not as a cleaned copy of it.
 
 ## Related work (where the venue has the section)
 
@@ -59,6 +67,8 @@ availability.
 **Reads as AI:** "rigorous", "carefully", "meticulously" [B1, J6]; "a variety of filtering strategies" instead
 of the filters [B11]; signposting [C4]; hidden decisions ("it was decided") [C10].
 **Normal here:** passive voice, long parameter lists, repetitive sentence shapes across similar steps.
+**Not here:** what the procedure produced on the data (how many items passed or were withheld, a classifier's
+accuracy): state the rule here and the outcome in Results, with a pointer.
 
 ## Results
 

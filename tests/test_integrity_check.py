@@ -643,7 +643,7 @@ def test_eval_cases_parse_and_point_at_existing_fixtures() -> None:
     import yaml
 
     cases = yaml.safe_load((ROOT / "evals" / "manuscript-integrity-check.yaml").read_text(encoding="utf-8"))
-    assert 3 <= len(cases) <= 6 and len({c["id"] for c in cases}) == len(cases)
+    assert 3 <= len(cases) <= 8 and len({c["id"] for c in cases}) == len(cases)
     for case in cases:
         assert case["rubric"] and case["fail_if"]
         for name in case["files"]:

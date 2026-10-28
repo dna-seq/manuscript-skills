@@ -62,7 +62,9 @@ passages too when drafting the entry, and put the starting point in its `origin`
 theme with a Results section, a Box row or a worked example of its own reaches the Introduction with its
 reason, where the Introduction first turns to it. A theme the Introduction brings in without saying why
 fails the story test *Connected paragraphs*, even when a later section gives the reason: the reader met the
-theme first.
+theme first. The reason comes forward as a claim with a pointer to the section that holds it ("the first
+generation was built for longevity research (Section 3.1)"); the counts and measurements behind it stay there
+([section roles](../manuscript-integrity-check/references/section-roles.md#rounded-figures-and-pointers)).
 
 **Check for drift.** Compare the recorded direction with the title, the Abstract's first sentence, the
 Introduction's last paragraph and the Conclusion, and, when earlier versions exist, how those passages
@@ -133,6 +135,14 @@ The contract is in [story-contract.md](references/story-contract.md). In short:
   elsewhere moves only within its section (to the end of its result, or the section's limitations); defensive
   detail for a referee moves, whole, to the supplement or the response letter. Delete only filler that
   carries no qualification. Rewriting a caveat while moving it is a claim change the authors must see.
+- **Keep each detail in its section** ([section roles](../manuscript-integrity-check/references/section-roles.md)).
+  A stake, a hook, a theme's reason or a contribution brought forward into the Abstract or the Introduction
+  brings the claim, a rounded figure at most and a pointer to the section with the measurement ("about a minute
+  (Section 4)"); the measured counts, ranges and medians, the setup of a comparison and the procedure stay in
+  Results and Methods. "Concrete" in a feature list means what the feature does for the reader, never how its
+  data were prepared. Detail a story test finds out of its section (the run history in Results, a result only
+  in Methods, a feature list holding thresholds and audit counts) is a finding of the kind *Misplaced detail*,
+  moved whole with its numbers and caveats.
 
 Sentence-level work follows the [prose-edit contract](../manuscript-prose-edit/references/prose-edit-contract.md),
 including its claim ceiling: a story edit never raises a claim's certainty, causality, novelty,
@@ -149,7 +159,11 @@ authors.
    section, about the same thing, states is reported as moved, not lost, and so is a headline that restates its
    paragraph. A scope qualifier lost from the Abstract or Introduction, a caveat found only in another section
    or the supplement, and anything else the guard protects still fail. The record's `claims` and `non_claims`
-   hold. Every new citation passes `manuscript-reference-check`.
+   hold. Every new citation passes `manuscript-reference-check`. No detail leaves its section:
+   `uv run --script ../manuscript-integrity-check/scripts/section_roles.py AFTER --before BEFORE` exits 1 for a
+   passage the edit made a candidate (a measured count or a benchmark setup brought into the Abstract or the
+   Introduction, a result moved into Methods); keep a rounded figure and a pointer there instead, or drop the
+   edit.
 2. **The journal.** Read the venue from the record (or the ladder's shared requirements when no journal
    is chosen) and check the edit against it: article type, word, figure and reference limits, abstract
    headings, required sections ([manuscript-journal-adapt](../manuscript-journal-adapt/SKILL.md) owns

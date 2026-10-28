@@ -48,7 +48,7 @@ KINDS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("discussion", re.compile(r"\bdiscussion\b", re.IGNORECASE)),
     ("introduction", re.compile(r"\b(introduction|background)\b", re.IGNORECASE)),
     ("results", re.compile(r"\b(results?|benchmark\w*|validation|evaluation|performance|case stud\w*|"
-                           r"experiments?|comparison)\b", re.IGNORECASE)),
+                           r"experiments?|comparison|use cases?|usage examples?|database content)\b", re.IGNORECASE)),
     ("methods", re.compile(r"\b(methods?|implementation|system|architecture|design|materials|algorithms?|"
                            r"pipeline|approach)\b", re.IGNORECASE)),
 )

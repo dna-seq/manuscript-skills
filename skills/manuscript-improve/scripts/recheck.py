@@ -24,8 +24,9 @@ prompt. The agent writes `answer.json`: per problem a verdict (fully, partly, no
 quote from the corrected version and one sentence why, and new problems, each labelled introduced (the text is new
 in the corrected version) or missed (the same text was in the reviewed one).
 
-`numbers` runs the number checks (number_check.py) and the offline reference checks (scan.py --references-only) on
-both versions and keeps the candidates the edits introduced and those they resolved.
+`numbers` runs the number checks (number_check.py), the offline reference checks (scan.py --references-only) and the
+section-roles check (section_roles.py: procedure or a measurement in the Abstract or Introduction, a result in
+Methods) on both versions and keeps the candidates the edits introduced and those they resolved.
 
 `check` holds the answer to the contract: every problem answered once with a known verdict, every quote verbatim in
 the corrected version, an introduced problem's text absent from the reviewed version and a missed one's present in
@@ -35,8 +36,8 @@ version's sha256).
 Exit codes: prepare and numbers 0; check 0 when the answer meets the contract and no edit made anything worse, 1 when
 the answer breaks the contract (nothing is written; correct the quote from the text, or mark the problem unchecked,
 never ask the agent to judge again), 3 when it meets the contract but an edit made a problem worse, introduced one,
-or introduced a number or reference candidate (hold or reverse those edits and rebuild; there is no second
-re-check); 2 usage error.
+or introduced a number, reference or section-roles candidate (hold or reverse those edits and rebuild; there is no
+second re-check); 2 usage error.
 """
 
 from __future__ import annotations
@@ -83,8 +84,10 @@ For each problem in `concerns.json`, read the place it names in `{corrected}` an
 Give a quote copied word for word from `{corrected}` that shows your verdict (the passage as it now reads; none
 for `unchecked`), and one sentence saying why. Judge what the text says, never what an edit meant to do.
 
-Then read the passages the edits changed, and their neighbours, as a referee would, and list any new problem: a
-quote copied word for word from `{corrected}`, its section, one sentence on what is wrong, and its origin:
+Then read the passages the edits changed, and their neighbours, as a referee would, and list any new problem,
+including detail an edit put in the wrong section (a procedure, a threshold or a measured count brought into the
+Abstract or the Introduction; a result left in Methods): a quote copied word for word from `{corrected}`, its
+section, one sentence on what is wrong, and its origin:
 `introduced` when the quoted text is new in `{corrected}`, `missed` when the same text is in `{original}`.
 
 Write `answer.json` in this folder and nothing else:
@@ -214,20 +217,28 @@ def _key(f: dict) -> tuple[str, str]:
     return str(f["check"]), " ".join(LINE_WORDS.sub("", str(f["message"])).split())
 
 
+CHECKS = ("numbers", "references", "placement")
+
+
 def _candidates(path: Path, online: bool) -> dict[str, list[dict]]:
     numbers = _load("recheck_number_check", SKILLS / "manuscript-integrity-check" / "scripts" / "number_check.py")
     scan = _load("recheck_scan", SKILLS / "manuscript-integrity-check" / "scripts" / "scan.py")
+    roles = _load("recheck_section_roles", SKILLS / "manuscript-integrity-check" / "scripts" / "section_roles.py")
     found = numbers.run(path)
     refs = scan.check_references(path, online, search_unidentified=False)
     pick = lambda fs, levels: [{"check": f.check, "severity": f.severity.value, "message": f.message,  # noqa: E731
                                 "section": f.section or ""} for f in fs if f.severity.value in levels]
+    placed = roles.check(path.read_text(encoding="utf-8"), str(path)).candidates
     return {"numbers": pick(found.findings, ("major", "minor")),
-            "references": pick(refs.findings, ("blocker", "major", "minor"))}
+            "references": pick(refs.findings, ("blocker", "major", "minor")),
+            "placement": [{"check": c.direction, "severity": "minor", "section": c.section,
+                           "message": f"{c.label}, {c.section}: \"{c.quote}\" (belongs in {c.belongs})"}
+                          for c in placed]}
 
 
 def compare_candidates(before: dict[str, list[dict]], after: dict[str, list[dict]]) -> dict[str, dict]:
     out = {}
-    for kind in ("numbers", "references"):
+    for kind in CHECKS:
         b, a = {_key(f): f for f in before[kind]}, {_key(f): f for f in after[kind]}
         out[kind] = {"introduced": [a[k] for k in a if k not in b], "resolved": [b[k] for k in b if k not in a],
                      "unchanged": sum(1 for k in a if k in b)}
@@ -241,7 +252,8 @@ def numbers(
     json_out: Annotated[Path, typer.Option("--json", help="Where to write the comparison")],
     online: Annotated[bool, typer.Option(help="Also resolve the references online")] = False,
 ) -> None:
-    """Run the number and reference checks on both versions: what the edits introduced and what they resolved."""
+    """Run the number, reference and section-roles checks on both versions: what the edits introduced and what they
+    resolved."""
     result = compare_candidates(_candidates(original, online), _candidates(proposed, online))
     result["original_sha256"] = digest(original.read_text(encoding="utf-8"))
     result["proposed_sha256"] = digest(proposed.read_text(encoding="utf-8"))
@@ -325,20 +337,21 @@ def check(
                             "summary": by_id[a.id].get("problem", "")[:300], "raised_by": by_id[a.id].get("raised_by", [])}
                            for a in answer.concerns],
               "new_problems": [p.model_dump() for p in answer.new_problems],
-              "numbers": {k: compared[k] for k in ("numbers", "references") if k in compared}}
+              "numbers": {k: compared[k] for k in CHECKS if k in compared}}
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         raise typer.BadParameter(f"{out} exists; write the next attempt under a new name.")
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     counts = {v: sum(a.verdict == v for a in answer.concerns) for v in VERDICTS}
     introduced = [p for p in answer.new_problems if p.origin == "introduced"]
-    flagged = [c for k in ("numbers", "references") for c in result["numbers"].get(k, {}).get("introduced", [])]
+    flagged = [c for k in CHECKS for c in result["numbers"].get(k, {}).get("introduced", [])]
     typer.echo(json.dumps({"out": str(out.resolve()), "verdicts": counts, "new_problems": {
         "introduced": len(introduced), "missed": len(answer.new_problems) - len(introduced)},
         "checks_introduced": len(flagged)}, indent=2))
     if counts["worse"] or introduced or flagged:
-        typer.echo("An edit made a problem worse, introduced one, or introduced a number or reference candidate: hold "
-                   "or reverse those edits and rebuild the corrected version. There is no second re-check.", err=True)
+        typer.echo("An edit made a problem worse, introduced one, or introduced a number, reference or section-roles "
+                   "candidate: hold or reverse those edits and rebuild the corrected version. There is no second "
+                   "re-check.", err=True)
         raise typer.Exit(3)
 
 

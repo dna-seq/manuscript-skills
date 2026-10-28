@@ -99,7 +99,12 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
   ([author priorities](../../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 - Categories, in these words: References; Claims and evidence; Numbers and statistics; Methods and
   reproducibility; Text versus code; Reporting and availability; Figures and tables; Writing and
-  clarity; Story and structure; Ethics, privacy and scope; Journal fit; Submission package.
+  clarity; Story and structure; Misplaced detail; Ethics, privacy and scope; Journal fit; Submission package.
+  Misplaced detail is a passage in a section whose job is another's: procedure or a measured result in the
+  Abstract or the Introduction, a result in Methods, procedure in Results, a result first stated in the
+  Discussion, a contribution framed by how its data were prepared. Its summary names the direction and its
+  `action` the section the detail moves to and what stays behind
+  ([section roles](../../manuscript-integrity-check/references/section-roles.md#the-finding-misplaced-detail)).
 - Two stages add an object of their own beside the findings, which collect carries into the inventory:
   manuscript-story's `story` (its SKILL.md, "What goes to the dashboard") and manuscript-figures' `figures`
   (its SKILL.md, section 4; [data contract](data-contract.md#figures)), with image paths relative to the

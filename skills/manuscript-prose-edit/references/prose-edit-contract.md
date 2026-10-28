@@ -118,8 +118,10 @@ finish every independent check and permitted edit before yielding for answers.
 
 ### 3.1 Read the whole section, and what it rests on
 
-Know the section's job (`section-guide.md`), the venue and its register, the results and tables the
-section cites, and the paper's defined terms. Track the terms needed for consistent wording; a formal
+Know the section's job (`section-guide.md`, and for which section a detail belongs in, the shared
+[section roles](../../manuscript-integrity-check/references/section-roles.md)), the venue and its register, the
+results and tables the section cites, and the paper's defined terms. "Make it concrete" in an Introduction or a
+feature list means a rounded figure and a pointer, never the measured counts, ranges or the configuration. Track the terms needed for consistent wording; a formal
 inventory is unnecessary for a small edit.
 
 ### 3.2 Writer profile (when the authors give samples, or have earlier papers)
