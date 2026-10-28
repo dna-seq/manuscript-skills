@@ -277,6 +277,42 @@ def test_a_recommended_abstract_length_is_called_a_recommendation(
     assert says in finding.message and finding.severity == scan.Severity.major
 
 
+@pytest.mark.parametrize("kind, says, severity", [
+    ("recommended", "over the length of about 5000 words Synthetic recommends", scan.Severity.minor),
+    (None, "over the limit of about 5000 for", scan.Severity.major),
+])
+def test_an_advised_body_length_stays_advice(monkeypatch: pytest.MonkeyPatch, kind: str | None, says: str,
+                                             severity: scan.Severity) -> None:
+    limits = {"body_words": 5000, **({"body_words_kind": kind} if kind else {})}
+    monkeypatch.setattr(scan, "load_venue_limits", lambda: {"synthetic": limits})
+    monkeypatch.setattr(scan, "venue_name_and_url", lambda venue: ("Synthetic", None))
+    (finding,) = [f for f in scan._venue_findings([], 6000, None, "synthetic", "zenodo") if f.check == "venue"]
+    assert says in finding.message and finding.severity == severity
+
+
+def test_a_body_length_read_and_found_absent_is_not_reported_as_unrecorded(monkeypatch: pytest.MonkeyPatch) -> None:
+    for limits, notes in (({"abstract_words": 200, "none_stated": ["body_words"]}, 0), ({"abstract_words": 200}, 1)):
+        monkeypatch.setattr(scan, "load_venue_limits", lambda: {"synthetic": limits})
+        found = [f for f in scan._venue_findings([], 9000, 150, "synthetic", "zenodo") if f.check == "venue"]
+        assert len(found) == notes, limits  # "No body length limit is recorded" only when nobody read it
+
+
+def test_the_catalogue_has_no_duplicate_keys() -> None:
+    """PyYAML keeps the last of two equal keys without a word, so a second `limits:` in an entry hides the first."""
+    class Strict(yaml.SafeLoader):
+        pass
+
+    def mapping(loader: yaml.SafeLoader, node: yaml.MappingNode) -> dict:
+        keys = [loader.construct_object(k) for k, _ in node.value]
+        dupes = {k for k in keys if keys.count(k) > 1}
+        assert not dupes, f"duplicate keys {sorted(map(str, dupes))} at line {node.start_mark.line + 1}"
+        return loader.construct_mapping(node)
+
+    Strict.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, mapping)
+    yaml.load((SKILLS / "manuscript-integrity-check" / "references" / "venues.yaml").read_text(encoding="utf-8"),
+              Loader=Strict)
+
+
 def test_bioinformatics_recommends_its_abstract_length() -> None:
     (finding,) = [f for f in scan._venue_findings([], 4000, 261, "bioinformatics", "zenodo") if f.check == "venue"]
     assert "Bioinformatics (Original Paper) recommends at most 150" in finding.message

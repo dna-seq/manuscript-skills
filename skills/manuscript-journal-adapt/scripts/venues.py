@@ -1574,7 +1574,9 @@ def show(
     recommended = " (recommended, not required)" if limits.get("abstract_words_kind") == "recommended" else ""
     parts = [f"the abstract at most {limits['abstract_words']} words{recommended}" if limits.get("abstract_words")
              else None,
-             f"the body about {limits['body_words']} words" if limits.get("body_words") else None,
+             f"the body about {limits['body_words']} words"
+             + (" (recommended, not required)" if limits.get("body_words_kind") == "recommended" else "")
+             if limits.get("body_words") else None,
              f"papers more than {round(100 * (limits['over_limit_return'] - 1))}% over the limit are returned "
              "without review" if limits.get("over_limit_return") else None]
     parts = [x for x in parts if x]
@@ -2129,22 +2131,26 @@ def common(
 
     for key, label in (("body_words", "the body"), ("abstract_words", "the abstract")):
         have = [(v, (v.get("limits") or {}).get(key)) for v in vs]
+        # A page read and found to set no such limit (`limits.none_stated`) is known, not a gap.
+        free = [v for v, n in have if not n and key in ((v.get("limits") or {}).get("none_stated") or [])]
         for v, n in have:
-            if not n:
+            if not n and v not in free:
                 gap(v, f"the length of {label}")
         known = [(v, n) for v, n in have if n]
         if not known:
             continue
-        listing = "; ".join(f"{_name(v)}, {n}" for v, n in known)
+        listing = "; ".join(f"{_name(v)}, {n}" + (" (recommended)" if (v.get("limits") or {}).get(f"{key}_kind")
+                                                  == "recommended" else "") for v, n in known)
+        none = f"; {_and([_name(v) for v in free])} {'sets' if len(free) == 1 else 'set'} none" if free else ""
         shortest = min(n for _, n in known)
-        if len(known) == total and len({n for _, n in known}) == 1:
+        if len(known) + len(free) == total and len({n for _, n in known}) == 1:
             now.append(f"- [ ] Length of {label}: at most {shortest} words, the limit of every venue that states one "
-                       f"({listing}).")
-        elif len(known) < total:
-            differ.append(f"- Length of {label}: recorded limits are {listing} words; other venues' limits are unknown. "
+                       f"({listing}{none}).")
+        elif len(known) + len(free) < total:
+            differ.append(f"- Length of {label}: recorded limits are {listing} words{none}; other venues' limits are unknown. "
                           "Keep this as a venue-specific choice until those rules are checked; no shared cap is established.")
         else:
-            differ.append(f"- Length of {label}: the limits differ ({listing} words). Writing to the shortest, "
+            differ.append(f"- Length of {label}: the limits differ ({listing} words{none}). Writing to the shortest, "
                           f"{shortest} words, fits all of them; whether that cut is worth making before the choice "
                           "is your decision.")
 

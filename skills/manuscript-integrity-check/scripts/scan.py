@@ -1412,7 +1412,9 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
         returned_at = limits.get("over_limit_return")
         body_rule = (" The count runs from the start of the file to the reference list and includes the title, "
                      "headings, tables and back matter, so it is approximate.")
-        if body_max is None:
+        if body_max is None and "body_words" in (limits.get("none_stated") or []):
+            pass  # the guidelines were read and set no body length
+        elif body_max is None:
             out.append(Finding(check="venue", severity=Severity.info, section=WHOLE_MANUSCRIPT,
                                message=f"No body length limit is recorded for {name}, so the body length was not "
                                        f"checked.",
@@ -1439,9 +1441,13 @@ def _venue_findings(lines: list[str], body_words: int, abstract_words: Optional[
                                        f"{name}, and the journal returns such manuscripts without review." + body_rule,
                                suggestion="Move material to the supplement."))
         elif body_words > body_max:
-            out.append(Finding(check="venue", severity=Severity.major, section=WHOLE_MANUSCRIPT,
-                               message=f"The body has about {body_words} words, over the limit of about {body_max} "
-                                       f"for {name}." + body_rule,
+            # Like the abstract: a length the page only advises (`body_words_kind: recommended`) stays advice.
+            advised = limits.get("body_words_kind") == "recommended"
+            over = (f"the length of about {body_max} words {name} recommends" if advised
+                    else f"the limit of about {body_max} for {name}")
+            out.append(Finding(check="venue", severity=Severity.minor if advised else Severity.major,
+                               section=WHOLE_MANUSCRIPT,
+                               message=f"The body has about {body_words} words, over {over}." + body_rule,
                                suggestion=f"Trim it, or check the page count in the journal's template{guidelines}."))
     elif venue:
         out.append(Finding(check="venue", severity=Severity.info, section=WHOLE_MANUSCRIPT,

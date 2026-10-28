@@ -62,8 +62,10 @@
 # Length limits and the page's own words (venues.py show prints the quotes; scan.py --venue reads `limits`)
 #   limits:        abstract_words and body_words (words); over_limit_return, the multiple of the body limit
 #                  past which the venue says it returns papers without review (1.2 = more than 20% over);
-#                  abstract_words_kind: required (the default when absent) | recommended (the page recommends
-#                  the length and allows some flexibility; scan.py says "recommends", not "asks for")
+#                  abstract_words_kind and body_words_kind: required (the default when absent) | recommended (the
+#                  page recommends or advises the length; scan.py says "recommends", not "asks for", and an advised
+#                  body length is a minor finding); none_stated: the limits the page was read for and does not set
+#                  ([body_words] for a journal without a length limit), so `common` lists them as known, not as gaps
 #   limit_quotes:  per limit, the sentences of the page it rests on, verbatim
 #   submission_rules: rules of the author guidelines that venues.py show lists with the current-draft items,
 #                  each {when, rule, quote}: when is `submission` (needed for the first submission) or
@@ -1235,7 +1237,6 @@ venues:
     fields: [genomics, bioinformatics, software]
     article_types: [research, methods, software, database, review, perspective]
     oa: full
-    limits: null
     software_article: true
     fit_note: only the OUP authorship/AI clause (no ISCB text); Application Notes max 3000 words, 3 figures/tables, 30
       references; novel bioinformatics components must be open source
@@ -1283,6 +1284,45 @@ venues:
           rules 'will be strictly enforced'."
         source: https://academic.oup.com/nargab/pages/scope_and_criteria
         checked: 2026-10-28
+    # Read in the authors' Chrome on 2026-10-28 (author guidelines; its bot check passed on its own). A standard paper has no
+    # length limit on the page; Application Notes (scope and criteria) are at most 3,000 words.
+    limits: {abstract_words: 200, body_words: null, over_limit_return: null, none_stated: [body_words]}
+    abstract_headings: []
+    required_sections: [Introduction, Materials and methods, Results, Discussion, Data availability]
+    submission_rules:
+      - when: submission
+        rule: "a text abstract of one paragraph of at most 200 words, without subheadings, citations, URLs or non-standard
+          abbreviations; a graphical abstract is optional; Results and Discussion may be combined"
+        quote: ["Single paragraph, not exceeding 200 words. Subheadings are not permitted."]
+        source: https://academic.oup.com/nargab/pages/author-guidelines
+        checked: 2026-10-28
+      - when: submission
+        rule: "after the Data availability statement: a supplementary data statement when there is supplementary material,
+          then Acknowledgements, an Author contributions statement, Funding and Conflict of interest"
+        quote: ["Articles should include a Data Availability Statement, following the Discussion"]
+        source: https://academic.oup.com/nargab/pages/author-guidelines
+        checked: 2026-10-28
+      - when: submission
+        rule: "an Application Note is at most 3,000 words with 3 figures or tables and 30 references"
+        quote: ["Application Notes"]
+        source: https://academic.oup.com/nargab/pages/scope_and_criteria
+        checked: 2026-10-28
+    other_desk_rules:
+      - "only contributions whose novel bioinformatics components are open source are considered"
+      - "software without an OSI-recognised licence is not reviewed"
+    software:
+      - "code on GitHub and archived in Zenodo before acceptance; not on the authors' own servers"
+      - "an OSI-recognised licence, or the paper is not reviewed"
+      - "simple commands that deploy the software on the reference datasets"
+      - "a Docker container in BioContainers when deployment compiles binaries"
+      - "a public web service kept up for two years, without registration"
+      - "all data and software code public as a condition of publication, with a data availability statement"
+    provenance:
+      limits: {source: "https://academic.oup.com/nargab/pages/author-guidelines", checked: 2026-10-28}
+      abstract_headings: {source: "https://academic.oup.com/nargab/pages/author-guidelines", checked: 2026-10-28}
+      required_sections: {source: "https://academic.oup.com/nargab/pages/author-guidelines", checked: 2026-10-28}
+      other_desk_rules: {source: "https://academic.oup.com/nargab/pages/scope_and_criteria", checked: 2026-10-28}
+      software: {source: "https://academic.oup.com/nargab/pages/scope_and_criteria", checked: 2026-10-28}
 
   gpb:
     name: Genomics, Proteomics & Bioinformatics
@@ -2946,11 +2986,17 @@ venues:
     status: VERIFIED
     url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
     ai_policy_url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
-    sources: [https://www.cell.com/cell-reports-methods/information-for-authors/article-types, https://www.cell.com/cell-reports-methods/aims]
+    sources: [https://www.cell.com/cell-reports-methods/information-for-authors/article-types, https://www.cell.com/cell-reports-methods/aims, https://www.cell.com/cell-reports-methods/information-for-authors/revise-manuscript,
+      https://www.cell.com/cell-reports-methods/information-for-authors/submit-manuscript, https://www.cell.com/cell-reports-methods/information-for-authors/final-submission, https://www.cell.com/information-for-authors/after-you-submit]
     fields: [general, bioinformatics]
     article_types: [methods, research, review, perspective]
     oa: full
-    limits: {abstract_words: null, body_words: 7000, over_limit_return: null}
+    # Read in the authors' Chrome on 2026-10-28 (article types, revise page); the submit, final-submission and policy
+    # pages the same day by the research agent. Research articles: under 7,000 words "not including the reference
+    # list or the STAR Methods", no more than seven figures and/or tables.
+    limits: {abstract_words: 150, body_words: 7000, over_limit_return: null}
+    abstract_headings: []
+    required_sections: []
     software_article: false
     fit_note: '''a robust, reproducible method'' is the main criterion; Articles need method, comparison with related methods,
       validation; no software-specific type'
@@ -2998,6 +3044,42 @@ venues:
       evidence_kind: stated-scope
       source: https://www.cell.com/cell-reports-methods/information-for-authors/article-types
       checked: 2026-10-19
+    submission_rules:
+      - when: submission
+        rule: "no particular format for the first submission: a title, the authors and affiliations, a summary and enough
+          experimental information to interpret the results; a cover letter, seen only by the editors, on the
+          background, the conceptual advance and the significance; a completed declaration of interests form; at most
+          20 MB of files in all"
+        quote: ["For initial submissions, your manuscript does not need to follow a specific format."]
+        source: https://www.cell.com/cell-reports-methods/information-for-authors/submit-manuscript
+        checked: 2026-10-28
+      - when: after_review
+        rule: "the revision follows the Cell Press structure: a summary of one paragraph of at most 150 words; up to 10
+          keywords; an Introduction without subheadings; Results under informative subheadings; Discussion, ending with a required 'limitations of the study' subsection that names the conditions the method needs and where related methods might be preferable;
+          Resource availability (lead contact, materials availability, data and code availability); Author
+          contributions; Declaration of interests; the declaration of generative AI use when AI was used; STAR Methods
+          with a key resources table; numbered superscript references"
+        quote: ["The summary is a single paragraph of no more than 150 words"]
+        source: https://www.cell.com/cell-reports-methods/information-for-authors/revise-manuscript
+        checked: 2026-10-28
+      - when: after_review
+        rule: "a Motivation section at final submission: the problem that prompted the method and how the method addresses it"
+        quote: ["In the motivation section, please succinctly state the problem that prompted the development of the method"]
+        source: https://www.cell.com/cell-reports-methods/information-for-authors/final-submission
+        checked: 2026-10-28
+    other_desk_rules:
+      - "data and code for the reviewers at submission; raw data deposited at resubmission"
+      - "editors weigh the fit to scope, the advance in the context of the field and the support for the conclusions"
+    software:
+      - "data and code for the reviewers at the first submission"
+      - "all original code deposited in a repository that mints DOIs, or in the supplement, before acceptance"
+      - "a data and code availability statement under Resource availability"
+    provenance:
+      limits: {source: "https://www.cell.com/cell-reports-methods/information-for-authors/article-types", checked: 2026-10-28}
+      abstract_headings: {source: "https://www.cell.com/cell-reports-methods/information-for-authors/revise-manuscript", checked: 2026-10-28}
+      required_sections: {source: "https://www.cell.com/cell-reports-methods/information-for-authors/submit-manuscript", checked: 2026-10-28}
+      other_desk_rules: {source: "https://www.cell.com/cell-reports-methods/aims", checked: 2026-10-28}
+      software: {source: "https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies", checked: 2026-10-28}
 
   ajhg:
     name: American Journal of Human Genetics
@@ -3095,11 +3177,17 @@ venues:
     status: VERIFIED
     url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
     ai_policy_url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
-    sources: [https://www.cell.com/cell-genomics/information-for-authors/article-types, https://www.cell.com/cell-genomics/aims]
+    sources: [https://www.cell.com/cell-genomics/information-for-authors/article-types, https://www.cell.com/cell-genomics/aims, https://www.cell.com/cell-genomics/information-for-authors/revise-manuscript,
+      https://www.cell.com/cell-genomics/information-for-authors/submit-manuscript, https://www.cell.com/information-for-authors/after-you-submit]
     fields: [genomics]
     article_types: [research, data, methods, review, perspective, letter]
     oa: full
-    limits: {abstract_words: null, body_words: 8000, over_limit_return: null}
+    # Read in the authors' Chrome on 2026-10-28 (article types, revise page); the submit page and journal policies on
+    # the same day by the research agent. Articles: under 8,000 words "not including the reference list, STAR
+    # Methods, or supplemental information", up to 7 display items; Technology articles under 7,000 words.
+    limits: {abstract_words: 150, body_words: 8000, over_limit_return: null}
+    abstract_headings: []
+    required_sections: []
     software_article: true
     fit_note: 'Technology format: ''new experimental or computational methods and other technologies'' (under 7,000 words,
       step-by-step protocol in SI)'
@@ -3139,6 +3227,44 @@ venues:
           Limitations subsection and a step-by-step protocol in the supplement come with the format."
         source: https://www.cell.com/cell-genomics/information-for-authors/article-types
         checked: 2026-10-28
+    submission_rules:
+      - when: submission
+        rule: "no particular format for the first submission: a title, the authors and affiliations, a summary and enough
+          experimental information to interpret the results; a cover letter, seen only by the editors, on the
+          background, the conceptual advance and the significance; a completed declaration of interests form; at most
+          20 MB of files in all"
+        quote: ["For initial submissions, your manuscript does not need to follow a specific format."]
+        source: https://www.cell.com/cell-genomics/information-for-authors/submit-manuscript
+        checked: 2026-10-28
+      - when: after_review
+        rule: "the revision follows the Cell Press structure: a summary of one paragraph of at most 150 words; up to 10
+          keywords; an Introduction without subheadings; Results under informative subheadings; Discussion;
+          Resource availability (lead contact, materials availability, data and code availability); Author
+          contributions; Declaration of interests; the declaration of generative AI use when AI was used; STAR Methods
+          with a key resources table; numbered superscript references"
+        quote: ["The summary is a single paragraph of no more than 150 words"]
+        source: https://www.cell.com/cell-genomics/information-for-authors/revise-manuscript
+        checked: 2026-10-28
+      - when: after_review
+        rule: "a Technology article is under 7,000 words with up to 7 display items, has a Design section between the
+          Introduction and the Results (the issues that prompted the technology, the rationale, the development, the
+          options considered) and a step-by-step protocol in the supplement"
+        quote: ["Technology articles should be under 7,000 words"]
+        source: https://www.cell.com/cell-genomics/information-for-authors/article-types
+        checked: 2026-10-28
+    other_desk_rules:
+      - "datasets and software or code available with the initial submission, so that they can be vetted in review"
+      - "editors weigh the fit to scope, the advance in the context of the field and the support for the conclusions"
+    software:
+      - "datasets and software or code made available with the initial submission"
+      - "all original code deposited in a repository that mints DOIs, or in the supplement, before acceptance"
+      - "a data and code availability statement under Resource availability"
+    provenance:
+      limits: {source: "https://www.cell.com/cell-genomics/information-for-authors/article-types", checked: 2026-10-28}
+      abstract_headings: {source: "https://www.cell.com/cell-genomics/information-for-authors/revise-manuscript", checked: 2026-10-28}
+      required_sections: {source: "https://www.cell.com/cell-genomics/information-for-authors/submit-manuscript", checked: 2026-10-28}
+      other_desk_rules: {source: "https://www.cell.com/cell-genomics/aims", checked: 2026-10-28}
+      software: {source: "https://www.cell.com/cell-genomics/information-for-authors/journal-policies", checked: 2026-10-28}
 
   iscience:
     name: iScience
@@ -3152,11 +3278,25 @@ venues:
     fields: [general]
     article_types: [research, review, perspective, letter]
     oa: full
-    limits: null
+    # Read in the authors' Chrome on 2026-10-28 (article types, revise and submit pages, journal policies). The
+    # 8,000 words are advice ("we would advise keeping article length below 8,000 words"), and the summary limit
+    # applies from the revision on; the first submission has no set format.
+    limits: {abstract_words: 150, body_words: 8000, body_words_kind: recommended, over_limit_return: null}
+    abstract_headings: []
+    required_sections: []
+    software:
+      - "all original code deposited in a repository that mints DOIs, or in the supplement, before acceptance, its DOI in the paper"
+      - "a data and code availability statement in three parts (data, code, additional information) under Resource availability"
+      - "datasets and program code cited in the references, with persistent identifiers such as DOIs"
     software_article: false
     fit_note: advises research articles below 8,000 words (not a hard limit)
-    sources: [https://www.cell.com/iscience/information-for-authors, https://www.cell.com/iscience/information-for-authors/article-types, https://www.cell.com/iscience/reviewers, https://www.cell.com/open-access]
+    sources: [https://www.cell.com/iscience/information-for-authors, https://www.cell.com/iscience/information-for-authors/article-types,
+      https://www.cell.com/iscience/information-for-authors/revise-manuscript, https://www.cell.com/iscience/information-for-authors/submit-manuscript, https://www.cell.com/iscience/reviewers, https://www.cell.com/open-access]
     provenance:
+      limits: {source: "https://www.cell.com/iscience/information-for-authors/revise-manuscript", checked: 2026-10-28}
+      abstract_headings: {source: "https://www.cell.com/iscience/information-for-authors/revise-manuscript", checked: 2026-10-28}
+      required_sections: {source: "https://www.cell.com/iscience/information-for-authors/submit-manuscript", checked: 2026-10-28}
+      software: {source: "https://www.cell.com/iscience/information-for-authors/journal-policies", checked: 2026-10-28}
       article_types: {source: "https://www.cell.com/iscience/information-for-authors/article-types", checked: 2026-10-27}
       other_desk_rules: {source: "https://www.cell.com/iscience/information-for-authors/journal-policies", checked: 2026-10-27}
       excluded_study_designs: {source: "https://www.cell.com/iscience/information-for-authors/article-types", checked: 2026-10-27}

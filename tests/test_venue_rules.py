@@ -226,3 +226,15 @@ def test_a_condition_must_say_met_true_false_or_partly(catalogue: Path, tmp_path
     record = tmp_path / "manuscript-record.yaml"
     record.write_text(yaml.safe_dump({"conditions": {"methods": {"comparison": {"met": "yes"}}}}), encoding="utf-8")
     assert _run("ladder", "--only", "methods", "--only", "open", "--record", str(record))[0] != 0
+
+
+def test_a_length_the_guidelines_do_not_set_is_known_not_a_gap(catalogue: Path, tmp_path: Path) -> None:
+    read = yaml.safe_load(catalogue.read_text(encoding="utf-8"))
+    read["venues"]["open"]["limits"] = {"abstract_words": 200, "none_stated": ["body_words"]}
+    read["venues"]["methods"]["limits"] = {"abstract_words": 150, "body_words": 7000}
+    catalogue.write_text(yaml.safe_dump(read), encoding="utf-8")
+    code, out, _ = _run("common", "open", "methods")
+    assert code == 0
+    gaps = out.split("## Not researched yet", 1)[1] if "## Not researched yet" in out else ""
+    assert "the length of the body" not in gaps.split("Open Journal", 1)[-1].split("\n", 1)[0]
+    assert "Methods Journal, 7000; Open Journal sets none)" in out  # the one limit fits both
