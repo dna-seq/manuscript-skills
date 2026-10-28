@@ -2131,10 +2131,13 @@ def common(
 
     for key, label in (("body_words", "the body"), ("abstract_words", "the abstract")):
         have = [(v, (v.get("limits") or {}).get(key)) for v in vs]
-        # A page read and found to set no such limit (`limits.none_stated`) is known, not a gap.
+        # A page read and found to set no such limit (`limits.none_stated`) is known, not a gap, and so is an abstract
+        # limited in characters (`limits.abstract_characters`), which is listed but not compared with word limits.
         free = [v for v, n in have if not n and key in ((v.get("limits") or {}).get("none_stated") or [])]
+        chars = [(v, (v.get("limits") or {}).get("abstract_characters")) for v, n in have
+                 if not n and key == "abstract_words" and (v.get("limits") or {}).get("abstract_characters")]
         for v, n in have:
-            if not n and v not in free:
+            if not n and v not in free and v not in [c for c, _ in chars]:
                 gap(v, f"the length of {label}")
         known = [(v, n) for v, n in have if n]
         if not known:
@@ -2142,6 +2145,8 @@ def common(
         listing = "; ".join(f"{_name(v)}, {n}" + (" (recommended)" if (v.get("limits") or {}).get(f"{key}_kind")
                                                   == "recommended" else "") for v, n in known)
         none = f"; {_and([_name(v) for v in free])} {'sets' if len(free) == 1 else 'set'} none" if free else ""
+        none += "".join(f"; {_name(v)}, at most {c} characters" for v, c in chars)
+        free = free + [v for v, _ in chars]
         shortest = min(n for _, n in known)
         if len(known) + len(free) == total and len({n for _, n in known}) == 1:
             now.append(f"- [ ] Length of {label}: at most {shortest} words, the limit of every venue that states one "

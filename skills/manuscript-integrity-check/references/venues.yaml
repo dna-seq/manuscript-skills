@@ -65,7 +65,8 @@
 #                  abstract_words_kind and body_words_kind: required (the default when absent) | recommended (the
 #                  page recommends or advises the length; scan.py says "recommends", not "asks for", and an advised
 #                  body length is a minor finding); none_stated: the limits the page was read for and does not set
-#                  ([body_words] for a journal without a length limit), so `common` lists them as known, not as gaps
+#                  ([body_words] for a journal without a length limit), so `common` lists them as known, not as gaps;
+#                  abstract_characters: an abstract limited in characters, not words (arXiv's 1,920)
 #   limit_quotes:  per limit, the sentences of the page it rests on, verbatim
 #   submission_rules: rules of the author guidelines that venues.py show lists with the current-draft items,
 #                  each {when, rule, quote}: when is `submission` (needed for the first submission) or
@@ -484,7 +485,19 @@ venues:
     penalties: [investigation, rejection, retraction, expression of concern, institution notified]
     extra_burden: [AI-written code must be disclosed]
     limits: {abstract_words: 300, body_words: 3500}
+    # Read on 2026-10-28: the abstract "must not exceed 300 words" and takes no headings; a Software article is "less
+    # than 3500 words" in this order.
+    abstract_headings: []
+    required_sections: [Introduction, Design and Implementation, Results, Availability and Future Directions]
+    other_desk_rules:
+      - "an open-source tool of broad utility that represents a significant advance in providing new biological insights, widely adopted or with the promise of wide adoption"
+      - "a cover letter explaining how the software meets these criteria"
+      - "the results reproducible when reviewers run the software on the deposited dataset with the parameters given"
+      - "the source code with its OSI-compliant licence, documentation and test data deposited with the journal at submission"
     provenance:
+      abstract_headings: {source: "https://journals.plos.org/ploscompbiol/s/submission-guidelines", checked: 2026-10-28}
+      required_sections: {source: "https://journals.plos.org/ploscompbiol/s/submission-guidelines", checked: 2026-10-28}
+      other_desk_rules: {source: "https://journals.plos.org/ploscompbiol/s/submission-guidelines", checked: 2026-10-28}
       limits: {source: "https://journals.plos.org/ploscompbiol/s/submission-guidelines", checked: 2026-10-19}
     submission_rules:
       - when: submission
@@ -622,22 +635,38 @@ venues:
     status: VERIFIED
     inherits: frontiers-default
     url: https://www.frontiersin.org/journals/bioinformatics/about
-    sources: [https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines]
+    sources: [https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines, https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types]
     fields: [bioinformatics, genomics, software]
     article_types: [research, methods, software, data, review, perspective]
     software_article: true
     oa: full
-    limits: {abstract_words: null, body_words: 12000, over_limit_return: null}
+    # Read on 2026-10-28: the abstract is "no longer than a single paragraph" with no length on the guidelines or article-
+    # types page; a Technology and Code article has "a maximum word count of 12,000".
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null, none_stated: [abstract_words]}
+    abstract_headings: []
+    required_sections: [Introduction, Method, Results, Discussion]
+    software:
+      - "the code novel, documented in a human-readable format and placed online in a repository with a DOI or URI"
+      - "the project link, operating system, programming language and any restriction on non-academic use stated in the article"
+      - "an optional metadata file (JSON-LD, Microdata or RDFa) using the schema.org SoftwareApplication or SoftwareSourceCode vocabulary"
     fit_note: "Technology and Code articles need the code in a repository with a DOI or URI"
     excluded_study_designs: [mr, bibliometric]
     jif_year: 2025
     provenance:
+      limits: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
+      abstract_headings: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines", checked: 2026-10-28}
+      required_sections: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
+      software: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
       # The impact factor with its year as Paper 1's journal-selection run read it; that record does not name the page.
       jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
       jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
-      limits: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-27}
       review_speed: {source: "Paper 1 journal-selection record (just-dna-lite): no statistic on the journal's pages", checked: 2026-10-27}
     submission_rules:
+      - when: submission
+        rule: "5 to 8 keywords, and a scope statement of 200 words on the paper's relevance to the journal at submission"
+        quote: ["All article types require a minimum of five and a maximum of eight keywords."]
+        source: https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines
+        checked: 2026-10-28
       - when: submission
         rule: "a Technology and Code article in this order: Abstract, Introduction, Method (with the code description), Results (with examples of use and limitations), Discussion (with scalability and limitations)"
         quote: ["Technology & Code articles should have the following format:", "Method (including any code description)", "Results (including examples of use and limitations)", "Discussion (including scalability and limitations)"]
@@ -835,6 +864,8 @@ venues:
       - https://blog.arxiv.org/2026/10/01/updated-rate-limit-policy/
       - https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
       - https://blog.arxiv.org/2026/01/21/attention-authors-updated-endorsement-policy/
+      - https://info.arxiv.org/help/policies/format_requirements.html
+      - https://info.arxiv.org/help/prep.html
     fields: [general, bioinformatics, genomics, systems-biology, software]
     article_types: [research, methods, software, review, perspective]
     oa: full
@@ -852,6 +883,25 @@ venues:
     penalties: [declined for lacking originality, novelty or significance, closer scrutiny after a decline,
                 may be required to publish in conventional journals first, one-year ban for unchecked LLM output (SECONDARY)]
     extra_burden: []
+    # Read on 2026-10-28: the abstract field takes "1920 characters" at most; no body length, abstract headings or sections.
+    limits: {abstract_words: null, abstract_characters: 1920, body_words: null, over_limit_return: null, none_stated: [body_words]}
+    abstract_headings: []
+    required_sections: []
+    software:
+      - "links to code or datasets must resolve to a publicly available repository"
+      - "long code, images or tables go in ancillary files rather than the article"
+    submission_rules:
+      - when: submission
+        rule: "a title and named authors, complete references, machine-readable single-spaced text in 10 to 14 point with
+          1-inch margins; no line numbers, obstructing watermarks, highlighted text, margin notes or referee remarks"
+        quote: ["Links to code or data sets must resolve to a publicly available repository"]
+        source: https://info.arxiv.org/help/policies/format_requirements.html
+        checked: 2026-10-28
+      - when: submission
+        rule: "the abstract field: at most 1,920 characters, without the word Abstract"
+        quote: ["abstracts longer than 1920 characters will not be accepted"]
+        source: https://info.arxiv.org/help/prep.html
+        checked: 2026-10-28
     other_desk_rules: [at most 2 submissions per calendar month and 3 active per submitter; rejected ones count,
                        CS review and position papers need a peer-reviewed version (journal ref and DOI),
                        a full English version is required, new submitters need an endorsement (institutional email alone no longer suffices)]
@@ -870,6 +920,11 @@ venues:
           q-bio.QM."
         source: https://info.arxiv.org/help/moderation/index.html
         checked: 2026-10-28
+    provenance:
+      limits: {source: "https://info.arxiv.org/help/prep.html", checked: 2026-10-28}
+      abstract_headings: {source: "https://info.arxiv.org/help/prep.html", checked: 2026-10-28}
+      required_sections: {source: "https://info.arxiv.org/help/policies/format_requirements.html", checked: 2026-10-28}
+      software: {source: "https://info.arxiv.org/help/policies/format_requirements.html", checked: 2026-10-28}
 
   biorxiv:
     kind: preprint
@@ -878,7 +933,20 @@ venues:
     status: VERIFIED
     url: https://www.biorxiv.org/about/FAQ
     ai_policy_url: https://www.biorxiv.org/about/FAQ
-    sources: [https://openrxiv.org/trust-signals-and-accountability/, https://connect.biorxiv.org/news/2022/06/13/screening_procedures]
+    sources: [https://openrxiv.org/trust-signals-and-accountability/, https://connect.biorxiv.org/news/2022/06/13/screening_procedures,
+      https://www.biorxiv.org/submit-a-manuscript]
+    # Read on 2026-10-28: the submission guide sets no length, abstract form, sections or software rule.
+    limits: {abstract_words: null, body_words: null, over_limit_return: null, none_stated: [abstract_words, body_words]}
+    abstract_headings: []
+    required_sections: []
+    software: []
+    submission_rules:
+      - when: submission
+        rule: "one PDF with the text and figures, or a Word file and separate figure files; LaTeX converted to PDF first;
+          supplementary material in separate files, and large datasets in the community database for them"
+        quote: ["The simplest way to deposit a manuscript on bioRxiv is to upload a single PDF"]
+        source: https://www.biorxiv.org/submit-a-manuscript
+        checked: 2026-10-28
     fields: [general, bioinformatics, genomics, genetics, systems-biology, aging]
     article_types: [research, methods, data]
     oa: full
@@ -912,6 +980,10 @@ venues:
                         f1000research, bmc-bioinformatics, genome-biology, human-mutation, briefings-bioinformatics, gpb,
                         jamia, jamia-open]
     provenance:
+      limits: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-28}
+      abstract_headings: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-28}
+      required_sections: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-28}
+      software: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-28}
       transfers: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-27}
       transfers_checked: {source: "https://www.biorxiv.org/submit-a-manuscript", checked: 2026-10-27}
       other_desk_rules: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
@@ -1628,6 +1700,10 @@ venues:
     limits: {abstract_words: 150, body_words: 2000, over_limit_return: null}
     abstract_headings: [Objectives, Materials and Methods, Results, Discussion, Conclusion]
     required_sections: [Background and Significance, Data Availability Statement]
+    software:
+      - "an Application Note links a publicly accessible code repository (such as GitHub or BitBucket) and, where one applies, a Jupyter notebook of working examples"
+      - "a code repository link is encouraged for computational Research and Applications articles"
+      - "non-sensitive datasets publicly accessible in a repository such as Dryad"
     submission_rules:
       - when: submission
         rule: a link to a publicly accessible code repository, and a Jupyter notebook with working code examples where one applies
@@ -1669,6 +1745,7 @@ venues:
       source: https://academic.oup.com/jamiaopen/pages/General_Instructions
       checked: 2026-10-27
     provenance:
+      software: {source: "https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-28}
       # The impact factor as Paper 1's journal-selection run read it; that record does not name the page.
       jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
       jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
@@ -2759,7 +2836,31 @@ venues:
     fields: [genomics, bioinformatics]
     article_types: [research, review]
     oa: full
-    limits: {abstract_words: 250, body_words: null, over_limit_return: null}
+    # The Guide for Authors sets no length for research articles (reviews are typically 5,000 to 8,000 words).
+    limits: {abstract_words: 250, body_words: null, over_limit_return: null, none_stated: [body_words]}
+    required_sections: ["Author contributions (CRediT roles)", "Funding sources", "Declaration of generative AI and
+        AI-assisted technologies in the manuscript preparation process, before the references (when AI was used)"]
+    other_desk_rules:
+      - "the editors aim to accept only the top 25-30% of submitted manuscripts"
+      - "manuscripts analysing existing sequence data only are no longer suitable, unless they add new sequence data or a new algorithm, public as a web page or code"
+      - "differential-expression RNA-seq needs three or more biological replicates"
+      - "a statement on ethical approval and informed consent for human participants, with no names or personal identifiers"
+    submission_rules:
+      - when: submission
+        rule: "an editable Word or LaTeX source (a PDF is not a source file), Word in a single column; 1 to 7 keywords; a
+          data statement and the completed declarations tool"
+        quote: ["A PDF is not an acceptable source file."]
+        source: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
+        checked: 2026-10-28
+      - when: submission
+        rule: "highlights are encouraged: 3 to 5 bullet points of at most 85 characters each, in a separate file"
+        quote: ["Highlights should consist of 3 to 5 bullet points, each a maximum of 85 characters"]
+        source: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
+        checked: 2026-10-28
+        free_for_others: true
+    software:
+      - "research data, which may include software and code, deposited in a relevant repository and cited (Option C), or a statement why they cannot be shared"
+      - "an algorithm offered as the new contribution public as a web page or as code"
     software_article: false
     fit_note: '''Manuscripts analysing existing sequence data only are no longer suitable, unless adding new sequence data
       or a introducing a new algorithm''; the algorithm must be public; accepts the top 25-30%'
@@ -2804,6 +2905,11 @@ venues:
           journal is the editors' reading."
         source: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
         checked: 2026-10-28
+    provenance:
+      limits: {source: "https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors", checked: 2026-10-28}
+      required_sections: {source: "https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors", checked: 2026-10-28}
+      other_desk_rules: {source: "https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors", checked: 2026-10-28}
+      software: {source: "https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors", checked: 2026-10-28}
 
   gene:
     name: Gene

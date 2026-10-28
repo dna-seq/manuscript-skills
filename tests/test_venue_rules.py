@@ -238,3 +238,14 @@ def test_a_length_the_guidelines_do_not_set_is_known_not_a_gap(catalogue: Path, 
     gaps = out.split("## Not researched yet", 1)[1] if "## Not researched yet" in out else ""
     assert "the length of the body" not in gaps.split("Open Journal", 1)[-1].split("\n", 1)[0]
     assert "Methods Journal, 7000; Open Journal sets none)" in out  # the one limit fits both
+
+
+def test_an_abstract_limited_in_characters_is_known_and_listed_in_characters(catalogue: Path) -> None:
+    read = yaml.safe_load(catalogue.read_text(encoding="utf-8"))
+    read["venues"]["wide"]["limits"] = {"abstract_characters": 1920, "none_stated": ["body_words"]}
+    read["venues"]["methods"]["limits"] = {"abstract_words": 150, "body_words": 7000}
+    catalogue.write_text(yaml.safe_dump(read), encoding="utf-8")
+    code, out, _ = _run("common", "wide", "methods")
+    assert code == 0 and "Methods Journal, 150; Wide Server, at most 1920 characters" in out
+    wide = next((line for line in out.splitlines() if line.startswith("- Wide Server (")), "")
+    assert "the length of the abstract" not in wide and "the length of the body" not in wide
