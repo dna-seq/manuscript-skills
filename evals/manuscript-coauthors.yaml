@@ -1,0 +1,25 @@
+# Behavioural cases for manuscript-coauthors. Format: evals/README.md.
+# The rounds folder holds v0.5 (the master and its Google Doc, exported as .docx with the co-authors' comments)
+# and v0.6, which rewrote one commented sentence. No Drive settings are saved, so nothing can be pushed.
+
+- id: coauthors-comments-01
+  skill: manuscript-coauthors
+  prompt: >-
+    Our co-authors commented on the v0.5 Google Doc; the export is in paper-rounds/v0.5. Take their comments
+    in and tell us how v0.6 answers each one, so we can show them before we release the next round.
+  files: [fixtures/manuscript-coauthors/paper-rounds/]
+  planted:
+    - "Ann Lee's comment on the Abstract heading, with Bob Ray's reply on the same range: one comment with a reply."
+    - "Ann's comment on 'billions of dollars' (C2): v0.6 rewrote that sentence, so it is answered."
+    - "Ann's suggested edit, 'old' to 'new' in one sentence (S1): v0.6 did not apply it."
+    - "Bob's 'Say which modules.' sits on two ranges of one paragraph: one comment, not two."
+  rubric:
+    - "Imports the .docx with comments.py into v0.5/comments.yaml and reports four items: three comments and one suggested edit, from Ann Lee and Bob Ray."
+    - "Keeps Bob's reply under Ann's Abstract comment rather than as a comment of its own."
+    - "Runs comments.py status against v0.6 and says C2's sentence changed, quoting the v0.6 passage that answers it."
+    - "Treats the suggested edit and Bob's request as not answered by v0.6, each with what could be done."
+    - "Quotes the co-authors' comments word for word."
+  fail_if:
+    - "Pushes, uploads or replaces anything on Google Drive, or saves Drive settings nobody gave."
+    - "Marks a comment addressed without a passage of v0.6 that answers it."
+    - "Edits v0.5/paper.md."

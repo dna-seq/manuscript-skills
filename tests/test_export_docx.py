@@ -261,3 +261,31 @@ def test_the_changes_workbook_lists_applied_edits_and_what_needs_the_authors(tmp
     assert book["Applied"].freeze_panes == "A2" and book["Applied"].auto_filter.ref
     refused = CliRunner().invoke(changes.app, args)
     assert refused.exit_code != 0 and "manuscript-changes.2.xlsx" in refused.output
+
+
+def test_the_changes_workbook_adds_the_co_authors_comments_only_when_the_run_tracked_them(tmp_path: Path) -> None:
+    changes = load("export_changes", ROOT / "skills/manuscript-dashboard/scripts/export_changes.py")
+    run = make_run(tmp_path)
+    data = json.loads((run / "findings.json").read_text())
+    revision = json.loads((run / "revision" / "revision.json").read_text())
+    book, counts = changes.build(viz.Inventory.model_validate(data), revision)
+    assert book.sheetnames == ["Applied", "For you", "Open problems", "Held"] and counts["coauthors"] == 0
+    data["coauthors"] = {"round": "0.5", "next_round": "0.6", "source": "comments.yaml", "items": [
+        {"id": "C1", "kind": "comment", "author": "Robi Tacutu", "where": "2. Methods", "comment": "Which key do we join on?",
+         "status": "partly", "before": "The pipeline joins by rsID.", "after": "The pipeline joins by position. It is fast.",
+         "now": "The pipeline joins by position.", "why": "The key is named.", "next": "Say which genome build.",
+         "finding_ids": ["IC-1"]},
+        {"id": "S1", "kind": "suggestion", "author": "Olga Ivanova", "where": "1. Introduction",
+         "edits": [{"deleted": "cheap", "inserted": "inexpensive"}], "status": "declined", "why": "Cheap is the plainer word."}]}
+    book, counts = changes.build(viz.Inventory.model_validate(data), revision)
+    assert book.sheetnames == ["Applied", "For you", "Open problems", "Held", "Co-authors' comments"] and counts["coauthors"] == 2
+    out = run / "with-coauthors.xlsx"
+    book.save(str(out))
+    sheet = openpyxl.load_workbook(out)["Co-authors' comments"]
+    rows = list(sheet.iter_rows(values_only=True))
+    assert rows[0] == ("Id", "Author", "Kind", "Section", "Comment", "Status", "Was", "Now", "Why", "What could be done")
+    assert rows[1] == ("C1", "Robi Tacutu", "Comment", "2. Methods", "Which key do we join on?", "Partly addressed",
+                       "The pipeline joins by rsID.", "The pipeline joins by position.", "The key is named.", "Say which genome build.")
+    assert rows[2][:6] == ("S1", "Olga Ivanova", "Suggested edit", "1. Introduction", "Delete: “cheap” Insert: “inexpensive”", "Declined")
+    assert rows[2][8:] == ("Cheap is the plainer word.", None)
+    assert sheet.freeze_panes == "A2" and sheet.auto_filter.ref

@@ -42,8 +42,8 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
 - IDs start with the skill's prefix and are unique within the file: IC integrity-check, RF
   reference-check, RP reporting-check, PR peer-review, PF policy-fit, JS journal-select, JA
   journal-adapt, PE prose-edit, DS deslop, ST story, FG figures, IM improve, RR reviewer-response, RM
-  revision-marks, MP mark-people. Collect namespaces a clash it still finds (`RP.RC-1`) rather than lose a
-  record.
+  revision-marks, MP mark-people, CA coauthors. Collect namespaces a clash it still finds (`RP.RC-1`) rather
+  than lose a record.
 - One record per distinct problem. Group a root cause with its symptoms; never one record per scanner
   hit. Repeats across skills are expected: the merge step joins them. Peer review's records end their `detail` with the
   referee concern IDs they merge ("(EV-1, SK-3)"), which the dashboard links to the referees' reports.
@@ -105,7 +105,9 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
   Discussion, a contribution framed by how its data were prepared. Its summary names the direction and its
   `action` the section the detail moves to and what stays behind
   ([section roles](../../manuscript-integrity-check/references/section-roles.md#the-finding-misplaced-detail)).
-- Two stages add an object of their own beside the findings, which collect carries into the inventory:
-  manuscript-story's `story` (its SKILL.md, "What goes to the dashboard") and manuscript-figures' `figures`
+- Three stages add an object of their own beside the findings, which collect carries into the inventory:
+  manuscript-story's `story` (its SKILL.md, "What goes to the dashboard"), manuscript-figures' `figures`
   (its SKILL.md, section 4; [data contract](data-contract.md#figures)), with image paths relative to the
-  stage's folder.
+  stage's folder, and manuscript-coauthors' `coauthors`, the co-authors' comments on the previous release and
+  how this one answers each ([data contract](data-contract.md#co-authors-comments)), with its ledger named,
+  never located.

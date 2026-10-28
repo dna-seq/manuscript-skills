@@ -355,3 +355,26 @@ def test_exit_codes(tmp_path):
     assert run("changes", good, tmp_path / "missing.md").returncode == 3
     assert run("changes", good, pdf).returncode == 3
     assert run("changes", good).returncode == 2
+
+
+def test_seen_marks_what_the_co_authors_have_not_seen(tmp_path):
+    """--seen SEEN: against the base itself every row is new to the co-authors; against the finished round, every
+    row is as they saw it; and a segment rewritten again after they saw it is "changed again"."""
+    base_rows = rows_of(OLD, NEW)
+    unseen = json.loads(run("changes", OLD, NEW, "--json", "--seen", OLD).stdout)
+    assert [r["since_seen"] for r in unseen["rows"]] == ["new"] * len(base_rows)
+    seen_all = json.loads(run("changes", OLD, NEW, "--json", "--seen", NEW).stdout)
+    assert {r["since_seen"] for r in seen_all["rows"]} == {"same"} and seen_all["seen"] == str(NEW)
+    text = NEW.read_text(encoding="utf-8")
+    revised = next(r["id"] for r in base_rows if r["status"] == "revised" and not r["inside"])
+    first = rm.parse(text, MD).segment(revised)
+    later = tmp_path / "later.md"  # the round goes on after the co-authors saw NEW: a revised segment is rewritten again
+    body = text[first.open.end:first.close.start]
+    later.write_text(text[:first.open.end] + body.replace(" ", "  ", 1).rstrip() + " Rewritten once more.\n"
+                     + text[first.close.start:], encoding="utf-8")
+    table = run("changes", OLD, later, "--seen", NEW)
+    assert table.returncode == 0, table.stderr
+    assert "| Since they saw it |" in table.stdout and "1 changed again" in table.stdout
+    row = next(line for line in table.stdout.splitlines() if line.startswith(f"| {first.id} |"))
+    assert row.rstrip().endswith("| Changed again |")
+    assert run("changes", OLD, NEW, "--seen", tmp_path / "missing.md").returncode == 3

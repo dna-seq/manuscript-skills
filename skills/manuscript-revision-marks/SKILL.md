@@ -5,9 +5,11 @@ description: >-
   often, by whom, and which AI edits still await human review. Use when marks already exist or the
   authors request traceability, linting, clean reading copies, revision reports, blind spots, a
   heat map, or a changelog between two rounds (what each passage was, is now and why, for
-  co-authors). Build PDFs from clean copies and measure page limits. Marks are opt-in and do not
-  establish what kind of AI use occurred. Use manuscript-mark-people to identify confirmed human
-  reviewers and manuscript-reviewer-response for the response-letter ledger.
+  co-authors, extended on each iteration of a round and marking what changed since the draft they saw).
+  Build PDFs from clean copies and measure page limits. Marks are opt-in and do not establish what kind
+  of AI use occurred. Use manuscript-mark-people to identify confirmed human reviewers,
+  manuscript-reviewer-response for the response-letter ledger, and manuscript-coauthors for co-authors'
+  Google Doc comments and rounds released to Drive.
 ---
 
 # Revision marks: who revised what, and what nobody has read
@@ -222,7 +224,13 @@ from memory of the edits:
 git show ROUND_BASE:v0.5/PAPER.md > OLD.md        # the previous master as it was when this round opened
 uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md          # the table skeleton and its record
 uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --json   # the same rows, for tools
+git show CIRCULATED:v0.6/PAPER.md > SEEN.md       # this round as the co-authors last saw it, if it went out already
+uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --seen SEEN.md   # which rows they have not seen
 ```
+
+When the co-authors comment on Google Docs and the project keeps its rounds on Drive, manuscript-coauthors
+builds the same table with `comments.py changelog`, Why filled from the comment each segment answers (a
+segment named `C12a` answers comment C12 of its ledger), and keeps the round's base and circulated commits.
 
 - **The list is the checklist.** It names every segment that is new, removed, rewritten or given another
   round, and every changed paragraph no segment covers (`(none)`), in the order of the new text. Every
@@ -239,9 +247,20 @@ uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --json   # the
   round (`--strict` exits 1 on either), and a row of an existing hand-written changelog that the command
   does not list (the master does not have that change). The record under the table (rounds, new `by=`
   entries, lines) is for whoever writes Why; it stays out of the co-authors' changelog.
+- **One changelog per round, extended on every iteration.** A round is often revised several times before
+  the next one opens (v0.6 sent on Monday, edited again on Tuesday). The changelog always runs from the
+  round's base, so a co-author who knows only v0.5 reads every change once, in its latest form; never a
+  second changelog from the last iteration. On each iteration, run the command again against the same base
+  and extend the existing changelog: add the rows it lacks, update Now (and Why, from the record) where the
+  text moved on, and strike a row whose change was undone ("~~…~~ undone on 28 October") rather than drop
+  it. Keep the wording of rows the authors wrote; change only what the text no longer supports.
+- **What is new since they read it.** Once the round has gone to the co-authors, add `--seen` with the
+  version they got: its column marks each row "New since then", "Changed again" or as they saw it. Put one
+  dated line at the top of the changelog ("Updated 28 October: 5 changes since the draft of 26 October,
+  marked") and mark those rows, so a co-author rereads only them.
 - Without marks the command lists the changed paragraphs, with no ids. Write the changelog where the
-  authors keep it and never over one they wrote; when one exists, check it against the list and report
-  what it misses.
+  authors keep it and never write over the authors' words in it; when one exists, check it against the list,
+  report what it misses, and extend it as above.
 
 ## Files
 

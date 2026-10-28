@@ -61,12 +61,13 @@ SENTINEL = re.compile("(\\d+)|(\\d+)|[]")
 SENTENCE = re.compile(r"(?<=[.!?])(?=\s)")
 PREFIX = {"IC": "integrity-check", "RF": "reference-check", "RP": "reporting-check", "PR": "peer-review",
           "PF": "policy-fit", "JS": "journal-select", "JA": "journal-adapt", "PE": "prose-edit", "DS": "deslop",
-          "ST": "story", "FG": "figures", "IM": "improve", "RR": "reviewer-response", "RM": "revision-marks", "MP": "mark-people"}
+          "ST": "story", "FG": "figures", "IM": "improve", "RR": "reviewer-response", "RM": "revision-marks", "MP": "mark-people",
+          "CA": "coauthors"}
 NAME = {"integrity-check": "Integrity check", "reference-check": "Reference check", "reporting-check": "Reporting check",
         "peer-review": "Simulated reviewers", "policy-fit": "Policy fit", "journal-select": "Journal selection",
         "journal-adapt": "Journal adaptation", "prose-edit": "Prose edit", "deslop": "Deslop", "story": "Story",
         "figures": "Figures and tables", "improve": "Workflow", "reviewer-response": "Reviewer response",
-        "revision-marks": "Revision marks", "mark-people": "People behind the marks"}
+        "revision-marks": "Revision marks", "mark-people": "People behind the marks", "coauthors": "Co-authors' comments"}
 # The words the authors read for each severity and stage, as in the dashboard (stage-findings.md).
 SEVERITY = {"blocker": "Blocker", "major": "Major", "minor": "Minor", "info": "Optional", "unknown": "Could not be checked"}
 WHEN = {"now": "fix now", "writing": "then the writing", "journal": "once you have chosen the journal",

@@ -6,7 +6,8 @@ description: >-
   skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
   corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
   figures with their verdicts and recommendations, the simulated reviewers' concerns and suggestions and
-  the readers' paths, and, when a reference review
+  the readers' paths, the co-authors' comments on the previous release and how this one answers each, and,
+  when a reference review
   exists (a human referee's comments on the same version), which of its problems the run caught and
   missed. manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
   earlier run or a focused skill's results. Formerly manuscript-visualize. New reviews and scientific
@@ -38,7 +39,7 @@ The files of this skill, in `RUN/manuscript-dashboard/`:
 | `findings.json` | The adjudicated inventory, collected with `--merge` (and `--reference`); revise.py, the dashboard and the Word file read this one. |
 | `dashboard/` | The rendered dashboard and `summary.json`. |
 | `manuscript-review.docx` | The annotated Word document: by default only what needs the authors. |
-| `manuscript-changes.xlsx` | The changes workbook: every applied edit, what needs the authors, the open problems and the held proposals. |
+| `manuscript-changes.xlsx` | The changes workbook: every applied edit, what needs the authors, the open problems and the held proposals (and the co-authors' comments, when the run tracked them). |
 
 **Second attempts.** Nothing is overwritten, and every script here (and revise.py) refuses an existing output
 and names the next free one. The next attempt of a file takes a number before its extension
@@ -187,7 +188,11 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   the independent re-check: each confirmed problem's verdict against the corrected version, by who raised it,
   the new problems it found (introduced by the edits or missed earlier) and the number, reference and
   section-roles checks run again on the corrected version (a re-check of an earlier build says so); the
-  comparison with the reference review; the journals, with each venue's AI policy as icons
+  comparison with the reference review; the co-authors' comments on the previous release, from
+  manuscript-coauthors (each comment or suggested edit with its thread, where it sits and the text it is
+  attached to, its status by co-author, the before-and-after word diff, the passage that answers it, why and
+  what could still be done, with links to its problems and to the passage's edit history; `#coauthors/C40`
+  opens one); the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
   figures (each one as rendered, with its verdict, problems and recommended changes, a redrawn draft beside
@@ -254,8 +259,9 @@ uv run --script scripts/export_changes.py RUN/manuscript-dashboard/findings.json
 
 Sheets: **Applied** (every edit in this version: stage, section, before, after, why, the problems it answers),
 **For you** (the decisions, questions and proposals the Word review comments on), **Open problems** (every
-problem no applied edit answers, all severities) and **Held** (the proposals left out of this version, with
-why). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
+problem no applied edit answers, all severities), **Held** (the proposals left out of this version, with
+why) and, when the run tracked them, **Co-authors' comments** (each comment on the previous release: its
+author, kind, section, status, the passage before and now, why, and what could still be done). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
 waits for the authors to ask, like the Word file.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments,
 tracked changes become suggestions and the paragraphs stay justified. Uploading is sending the paper somewhere, so it waits for the authors to ask.

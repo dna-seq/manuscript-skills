@@ -15,7 +15,8 @@ The first command writes the draft (`findings.draft.json`), unmerged; the second
 It reads run.json for coverage, the manuscript snapshot for its title and sections, every skill's
 findings.json (../references/stage-findings.md; the newest attempt, findings.2.json, when a stage reran),
 the check outputs as raw signal counts, the reader reports, the reviewers' recommendations, concerns,
-suggestions and strengths, journal selection's ladders, and the recorded before/after changes.
+suggestions and strengths, journal selection's ladders, the co-authors' comments with how this release answers
+each (manuscript-coauthors), and the recorded before/after changes.
 
 Applied or proposed: the changes recorded with runs.py change are replayed on the reviewed text, in the order
 the skills recorded them. When the replay ends on the revised manuscript, every change that found its
@@ -60,7 +61,7 @@ PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF"
           "manuscript-peer-review": "PR", "manuscript-policy-fit": "PF", "manuscript-journal-select": "JS",
           "manuscript-journal-adapt": "JA", "manuscript-prose-edit": "PE", "manuscript-deslop": "DS",
           "manuscript-story": "ST", "manuscript-figures": "FG", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
-          "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP"}
+          "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP", "manuscript-coauthors": "CA"}
 # A stage's findings and the adjudication are records, not raw signals; neither are their later attempts.
 SKIP = re.compile(r"^(?:findings|merges)(?:\.\d+)?\.json$")
 # Peer review keeps every finding three times (merged, adjudicated, and the check of each): the merged file is
@@ -249,13 +250,39 @@ def figures(run: Path, out_dir: Path) -> dict | None:
     return doc
 
 
-def link_figures(inventory: dict) -> None:
-    """A figure's problems follow a merged record to the one kept; a dismissed one is dropped."""
+def coauthors(run: Path) -> dict | None:
+    """The co-authors' comments on the previous release and how this one answers each, when the coauthors stage's
+    findings.json gives them; its ledger is kept by name, never by where it lives."""
+    path = newest_findings(run / "manuscript-coauthors")
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8")).get("coauthors") if path else None
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        return None
+    if not isinstance(doc, dict):
+        return None
+    if isinstance(doc.get("source"), str):
+        doc["source"] = re.split(r"[\\/]", doc["source"])[-1]
+    return doc
+
+
+def relink(inventory: dict, skill: str, records: list[dict]) -> None:
+    """A stage record's problems follow a merged record to the one kept; a dismissed one is dropped."""
     final = {(source["skill"], source["id"]): finding["id"] for finding in inventory["findings"]
              for source in finding.get("sources") or []}
-    for record in [*(inventory["figures"] or {}).get("items", []), *(inventory["figures"] or {}).get("new", [])]:
-        ids = [final.get(("manuscript-figures", fid)) for fid in record.get("finding_ids") or []]
+    for record in records:
+        ids = [final.get((skill, fid)) for fid in record.get("finding_ids") or []]
         record["finding_ids"] = list(dict.fromkeys(fid for fid in ids if fid))
+
+
+def link_figures(inventory: dict) -> None:
+    """A figure's problems follow a merged record to the one kept; a dismissed one is dropped."""
+    figures = inventory["figures"] or {}
+    relink(inventory, "manuscript-figures", [*figures.get("items", []), *figures.get("new", [])])
+
+
+def link_coauthors(inventory: dict) -> None:
+    """A co-author comment's problems follow a merged record to the one kept; a dismissed one is dropped."""
+    relink(inventory, "manuscript-coauthors", (inventory["coauthors"] or {}).get("items", []))
 
 
 def isolation(data: dict | None) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
@@ -747,6 +774,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "not_checked": records["not_checked"] + ladder_gaps(run, data),
         "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
         "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run),
+        "coauthors": coauthors(run),
     }
     mentions = concern_mentions(inventory["findings"])
     if merge:
@@ -757,6 +785,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
             raise typer.Exit(1) from exc
     link_concerns(inventory, mentions)
     link_figures(inventory)
+    link_coauthors(inventory)
     if reference:
         ref = json.loads(reference.read_text(encoding="utf-8"))
         source = ref["source"]

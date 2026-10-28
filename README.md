@@ -8,7 +8,7 @@ the referees after a decision. They work with manuscripts written with or withou
 
 Start with `manuscript-improve`. One request runs the relevant checks and edits across the whole paper
 and ends with a corrected version and a dashboard of what the run found. For a single task, use
-[one of the sixteen focused skills](#choose-the-task-you-need).
+[one of the seventeen focused skills](#choose-the-task-you-need).
 
 The aim is to help you publish sound research with less avoidable delay, expense and paperwork. You
 decide which journal to pursue and how to handle uncertain or burdensome requirements. Made by
@@ -139,7 +139,8 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. |
 | Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Length, structure and required statements adapted to the journal and shown before and after, plus submission materials and an AI-use disclosure where needed. |
 | Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A revision plan in the referees' own numbering with the decisions you need to make, a point-by-point response letter, and a check that the revision answers each comment. |
-| Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest. |
+| Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest; with co-authors' comments on the previous round, how this round answers each one. |
+| Work in rounds with co-authors who comment on Google Docs | [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) | The shared Drive folder and how each release (`v0.5/`, `v0.6/`) goes there, remembered once for the project. The comments and suggested edits co-authors left on a round, pulled from the Google Doc into a ledger beside the round with stable ids; for each, how the next round answers it (addressed, partly, declined with the reason, or still open with what could be done), shown in the dashboard's "Co-authors' comments" section. The round's changelog for co-authors who read only the previous round, its Why taken from the comments and each change marked if it came after the draft they saw. And the release itself: the next round's folder opened, its Docs built and uploaded to Drive, never over a Doc that has comments. |
 | See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, a PDF measured against a page limit, and the list a changelog between two rounds starts from: every passage that changed, with what it was and what it is now, for the co-authors. |
 | List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
 | Have more than one AI model read the paper | [manuscript-other-models](skills/manuscript-other-models/SKILL.md) | Only when you ask: the simulated referees and readers also read on another model, through the command-line agents you already use and pay for (from Claude Code on Codex, from Codex on Claude Code, or on Gemini), using each one's own sign-in: provider API keys in your environment are not passed on. Each seat runs in a fresh session in its own copy of the paper: Claude Code cannot read outside it, while Codex and Gemini can write only there and are told to read nothing else. Every report says which model wrote it. |
@@ -162,6 +163,9 @@ you can ask for selected sections or one stage at a time instead.
 - Simulated referees and readers run on a second AI model only when you ask for it by name or save it for
   the project. The reading copy of the paper then goes to that model's provider, under your own account
   with its command-line agent.
+- Co-authors' rounds on Google Drive (manuscript-coauthors) go only to the shared Drive folder you set for
+  the project, and only when you ask to release a round; the comments come back from your own Docs through
+  rclone or your Drive connector and stay in the round's folder.
 - Reports, the corrected version and the dashboard are saved in the manuscript project or the output
   folder you chose, with the evidence behind each finding. Unrelated downloads may still use temporary
   storage.
@@ -250,6 +254,19 @@ Use `manuscript-deslop` for a focused pattern check or cleanup, and `manuscript-
 language editing; either can list the patterns without editing. A prose edit run on its own ends by offering
 a deslop pass for the patterns the draft already had and the edit left in place. If another installed plugin also offers
 a "humanizer", name `manuscript-deslop` to get this plugin's version, written for manuscripts.
+
+For a round with co-authors who comment on Google Docs:
+
+> Pull what the co-authors commented on v0.5 in the Google Doc, show how v0.6 answers each comment, update
+> the changelog from v0.5 so they can see what changed since the draft they read, and push v0.6 to the
+> shared Drive folder.
+
+The first time, the assistant asks once how the rounds reach Drive (rclone into the shared folder, a folder
+Drive for desktop syncs, or by hand) and saves it with the project. Each round's comments are kept beside
+it (`v0.5/comments.yaml`) under ids that never change (`C12` for a comment, `S3` for a suggested edit), so a
+revision mark or a changelog row can name the comment it answers. A round revised several times before the
+next one opens keeps one changelog from its start, extended each time, with the changes made after the
+co-authors last read it marked.
 
 For the review dashboard (manuscript-improve builds it at the end of every run):
 
@@ -530,6 +547,7 @@ conversation overrides the project's saved choices, and those override your glob
 | `peer_review` | `auto`, `on-request`, `off` | Whether a whole-manuscript improvement includes the simulated referee panel: three referees plus a defender, who tests their concerns against the paper. Focused tasks never expand into peer review. |
 | `readers` | a skimmer, a potential user and an informed outsider | Who reads the paper for `manuscript-story`. Each reads in its own order and says where it would close the paper, not just where attention dipped. Save your own audiences with `project.py configure ROOT --reader "clinician: ..." --reader ...`. |
 | `other_models` | none | Other models the simulated referees, readers and critics also run on, through [manuscript-other-models](skills/manuscript-other-models/SKILL.md): `project.py configure ROOT --other-model codex/gpt-5.6-sol`; `--one-model` returns to the host model alone. Every seat on another model sends the reading copy to its provider. |
+| `coauthors` | none | Where your co-authors comment and how each round reaches them, for [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md): `project.py configure ROOT --drive rclone --drive-remote gdrive --drive-folder-id LINK --release-doc "paper.md=Paper (v{round})" --release-file "build/*.pdf"` (or `--drive folder --drive-folder PATH` for the folder Drive for desktop syncs, or `--drive connector`), `--round-folder v{round}` and `--release-build` for your own .docx build; `--no-coauthors` forgets them. The skill keeps each round's base commit, release date, Doc links and the dates it went to the co-authors beside them. |
 
 Every run has an index and one subfolder per applied skill. Reports, the simulated readers' and
 referees' actual responses, checks, contradictions, blocked sources, failed attempts and before/after
@@ -557,7 +575,7 @@ In Codex, to add the whole **DNA Seq Genomics** catalog instead, paste
 `https://github.com/dna-seq/dna-seq-claude-marketplace` as the marketplace source and install
 **manuscript-skills** from it.
 
-The plugin installs all seventeen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
+The plugin installs all eighteen skills. The automated checks need [uv](https://docs.astral.sh/uv/) on
 the computer running the assistant; their dependencies install on first use. Building a PDF from a
 marked manuscript also needs the document tools [pandoc](https://pandoc.org/) and
 [tectonic](https://tectonic-typesetting.github.io/), which uv does not install. Looking up references

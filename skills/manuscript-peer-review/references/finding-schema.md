@@ -127,7 +127,7 @@ way.
 
 Each seat numbers its findings with its own prefix: two capital letters, a hyphen and a number (`EV-1`,
 `EV-2`). The dashboard links a referee's concern to the authors' list only by an id of this form, and the
-prefixes of the run's other skills (IC, RF, RP, PR, PF, JS, JA, PE, DS, ST, FG, IM, RR, RM, MP) are taken.
+prefixes of the run's other skills (IC, RF, RP, PR, PF, JS, JA, PE, DS, ST, FG, IM, RR, RM, MP, CA) are taken.
 
 | Seat | Prefix | Seat | Prefix |
 |---|---|---|---|

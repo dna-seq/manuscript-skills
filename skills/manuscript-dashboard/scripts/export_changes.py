@@ -18,6 +18,8 @@ changes are listed. It opens in Excel, LibreOffice and Google Sheets, one sheet 
 - **Open problems**: every problem no applied edit answers, with its severity and when to fix it, whatever its
   severity (the Word review keeps only the blockers and major ones).
 - **Held**: the proposals left out of this version and why (another file, an alternative chosen, a decision).
+- **Co-authors' comments**, only when the run tracked them (manuscript-coauthors): each comment or suggested edit
+  on the previous release, with its author, status, the passage before and now, why, and what could still be done.
 
 Each header row stays in view and every column filters. An existing output is never overwritten: the message
 names the next attempt (manuscript-changes.2.xlsx). `runs.py handover` puts the newest one beside the
@@ -45,7 +47,12 @@ import export_docx as words  # noqa: E402
 # Column widths in characters; long prose wraps inside them.
 WIDTHS = {"Id": 14, "Stage": 18, "Section": 28, "Change": 40, "Was": 60, "Now": 60, "Why": 60, "Problems": 40,
           "Status": 22, "Kind": 22, "What": 60, "Question or reason": 60, "Severity": 18, "When": 26,
-          "Problem": 50, "Detail": 60, "Fix": 50, "Found by": 26, "Answered by": 18}
+          "Problem": 50, "Detail": 60, "Fix": 50, "Found by": 26, "Answered by": 18, "Author": 22, "Comment": 60,
+          "What could be done": 50}
+# A co-author comment's status and kind in the words the dashboard uses.
+COAUTHOR_STATUS = {"addressed": "Addressed", "partly": "Partly addressed", "open": "Open", "declined": "Declined",
+                   "not-on-point": "Not on point"}
+COAUTHOR_KIND = {"comment": "Comment", "suggestion": "Suggested edit"}
 HEADER_FILL = PatternFill("solid", fgColor="DDE4EE")
 app = typer.Typer(add_completion=False)
 
@@ -71,6 +78,20 @@ def sheet(book: Workbook, title: str, header: list[str], rows: list[list[object]
             value.alignment = Alignment(wrap_text=True, vertical="top")
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
+
+
+def coauthor_rows(data: viz.Inventory) -> list[list[object]]:
+    """One row per co-author comment: what was asked, its status, the passage before and now, why and what next. A
+    suggestion's edits follow its comment, so a filtered sheet still says what it proposed."""
+    rows = []
+    for item in data.coauthors.items if data.coauthors else []:
+        edits = [" ".join(part for part in (f"Delete: \u201c{e.deleted}\u201d" if e.deleted else "",
+                                            f"Insert: \u201c{e.inserted}\u201d" if e.inserted else "") if part)
+                 for e in item.edits]
+        asked = "\n".join(text for text in (item.comment, *edits) if text)
+        rows.append([item.id, item.author, COAUTHOR_KIND[item.kind], item.where, asked, COAUTHOR_STATUS[item.status],
+                     item.before, item.now or item.after, item.why, item.next])
+    return rows
 
 
 def build(data: viz.Inventory, revision: dict | None) -> tuple[Workbook, dict]:
@@ -144,10 +165,15 @@ def build(data: viz.Inventory, revision: dict | None) -> tuple[Workbook, dict]:
     sheet(book, "Open problems", ["Id", "Severity", "When", "Section", "Problem", "Detail", "Fix", "Found by", "Answered by"],
           open_rows)
     sheet(book, "Held", ["Id", "Stage", "Section", "Change", "Question or reason", "Was", "Now"], held_rows)
+    coauthors = coauthor_rows(data)
+    if coauthors:
+        sheet(book, "Co-authors' comments", ["Id", "Author", "Kind", "Section", "Comment", "Status", "Was", "Now", "Why",
+                                             "What could be done"], coauthors)
     book.properties.title = data.title
     book.properties.creator = "manuscript-improve"
     return book, {"applied": sum(r[4] == "applied" for r in applied), "restored": sum(r[4] != "applied" for r in applied),
-                  "for_you": len(for_you), "open_problems": len(open_rows), "held": len(held_rows)}
+                  "for_you": len(for_you), "open_problems": len(open_rows), "held": len(held_rows),
+                  "coauthors": len(coauthors)}
 
 
 @app.command()

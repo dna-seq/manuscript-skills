@@ -91,6 +91,15 @@ theirs as well: `--other-model codex/gpt-5.6-sol` (repeatable) saves the other m
 run on ([manuscript-other-models](../../manuscript-other-models/SKILL.md)), and their agreement to send the
 reading copy to those providers; `--one-model` forgets them. Never set it without their asking.
 
+Where co-authors comment on Google Docs, the project file also remembers the Drive side
+([manuscript-coauthors](../../manuscript-coauthors/SKILL.md)): `--drive rclone|folder|connector`, with
+`--drive-remote` and `--drive-folder-id` (the shared folder's id or link) for rclone or `--drive-folder` for
+the folder Drive for desktop syncs, `--round-folder v{round}`, `--release-build` (the project's own .docx build),
+and `--release-doc PATH=Title` and `--release-file PATTERN` for what a release uploads; `--no-coauthors`
+forgets them. They are saved as the `coauthors` block, whose `rounds` (each round's base commit, release
+date, Doc links and circulation dates) `rounds.py` keeps. Asked once, when the authors first mention
+co-authors on Drive; never again for a later round.
+
 For linked papers use `--related-manuscript LOCATION` and record their relationship in the scientific
 shared record. Companions keep their own project choices. Read both when publication order, overlapping
 claims, cross-citations, shared releases or preprint updates depend on the relationship.

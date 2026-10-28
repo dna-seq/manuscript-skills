@@ -50,6 +50,10 @@ OUTPUT_DIR = "reviews"
 OTHER_MODEL = re.compile(r"[a-z][a-z0-9-]*(/[\w.:@\[\]-]+)?")
 OUTPUT_WHY = ("A reviews/ folder in the manuscript's folder keeps every run with the paper: you and your co-authors "
               "find the reports where the paper is, and later runs and the next revision can reuse them.")
+# How each release reaches the co-authors' Drive folder (manuscript-coauthors): rclone into the folder by its id,
+# a copy into the local folder Drive for desktop syncs, or by hand through a Drive connector.
+DRIVES = ("rclone", "folder", "connector")
+ROUND_FOLDER = "v{round}"
 
 
 class ProjectError(ValueError):
@@ -77,6 +81,14 @@ def stored_location(root: Path, location: str) -> str:
         return path.as_posix()
 
 
+def folder_id(value: str | None) -> str | None:
+    """A Drive folder's id, from the id itself or a drive.google.com/drive/folders/<id> link."""
+    if value is None:
+        return None
+    found = re.search(r"/folders/([\w-]{10,})", value)
+    return found.group(1) if found else value.strip()
+
+
 def posix(path: Path | None) -> str | None:
     return path.as_posix() if path is not None else None
 
@@ -93,6 +105,43 @@ def config_path(target: str, project: Path | None = None) -> Path:
         if (candidate / CONFIG).is_file():
             return candidate / CONFIG
     return folder / CONFIG
+
+
+def _strings(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(v, str) and v.strip() for v in value)
+
+
+def check_coauthors(block: Any, where: Path | str) -> None:
+    """The `coauthors` block: where each release goes on Drive, how it is built, and the rounds released so far
+    (manuscript-coauthors' rounds.py keeps `rounds`)."""
+    if not isinstance(block, dict):
+        raise ProjectError(f"{where}: coauthors must be a mapping.")
+    drive = block.get("drive")
+    if drive not in DRIVES:
+        raise ProjectError(f"{where}: coauthors.drive must be one of {', '.join(DRIVES)}.")
+    needs = {"rclone": ("remote", "folder_id"), "folder": ("folder",), "connector": ()}[drive]
+    for key in ("remote", "folder_id", "folder", "build", "round_folder"):
+        if key in block and (not isinstance(block[key], str) or not block[key].strip()):
+            raise ProjectError(f"{where}: coauthors.{key} must be a non-empty string.")
+    if missing := [key for key in needs if key not in block]:
+        raise ProjectError(f"{where}: coauthors.drive {drive} needs {' and '.join(missing)}.")
+    if "{round}" not in block.get("round_folder", ROUND_FOLDER):
+        raise ProjectError(f"{where}: coauthors.round_folder must contain {{round}}, such as v{{round}}.")
+    release = block.get("release", {})
+    if not isinstance(release, dict) or set(release) - {"docs", "files"} or not all(_strings(v) for v in release.values()):
+        raise ProjectError(f"{where}: coauthors.release takes docs and files, each a list of paths.")
+    rounds = block.get("rounds", {})
+    if not isinstance(rounds, dict):
+        raise ProjectError(f"{where}: coauthors.rounds must map each round to what was released.")
+    for name, entry in rounds.items():
+        if not isinstance(entry, dict) or set(entry) - {"base", "released", "docs", "circulated"}:
+            raise ProjectError(f"{where}: coauthors.rounds.{name} takes base, released, docs and circulated.")
+        if not isinstance(entry.get("docs", {}), dict) or any(
+                not isinstance(v, str) or not v.strip() for v in entry.get("docs", {}).values()):
+            raise ProjectError(f"{where}: coauthors.rounds.{name}.docs must map each document to its link.")
+        circulated = entry.get("circulated", [])
+        if not isinstance(circulated, list) or any(not isinstance(c, dict) or "commit" not in c for c in circulated):
+            raise ProjectError(f"{where}: coauthors.rounds.{name}.circulated lists {{date, commit}} entries.")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -131,6 +180,8 @@ def read(path: Path) -> dict[str, Any]:
             raise ProjectError(f"{path}: invalid project setting {key}: {choices[key]!r}.")
     if "peer_review" in choices and choices["peer_review"] not in PEER_REVIEW:
         raise ProjectError(f"{path}: peer_review must be one of {', '.join(PEER_REVIEW)}.")
+    if "coauthors" in data:
+        check_coauthors(data["coauthors"], path)
     return data
 
 
@@ -255,6 +306,17 @@ def configure(
     default_panels: Annotated[bool, typer.Option("--default-panels", help="Forget saved readers and referees")] = False,
     other_model: Annotated[list[str] | None, typer.Option("--other-model", help="Also run the panels' seats on this CLI, or CLI/MODEL (manuscript-other-models); repeat")] = None,
     one_model: Annotated[bool, typer.Option("--one-model", help="Forget the other models: seats run on the host only")] = False,
+    drive: Annotated[str | None, typer.Option("--drive", help="How releases reach the co-authors' Drive folder "
+                                              "(manuscript-coauthors): rclone, folder or connector")] = None,
+    drive_remote: Annotated[str | None, typer.Option("--drive-remote", help="The rclone remote, e.g. gdrive")] = None,
+    drive_folder_id: Annotated[str | None, typer.Option("--drive-folder-id", help="The shared folder's Drive id, or its link")] = None,
+    drive_folder: Annotated[str | None, typer.Option("--drive-folder", help="The local folder Drive for desktop syncs")] = None,
+    round_folder: Annotated[str | None, typer.Option("--round-folder", help="Each round's folder name, e.g. v{round}")] = None,
+    release_build: Annotated[str | None, typer.Option("--release-build", help="The project's own .docx build, "
+                                                      "{file} for the master, e.g. 'uv run manuscript build {file} --no-pdf'")] = None,
+    release_doc: Annotated[list[str] | None, typer.Option("--release-doc", help="A master that goes to Drive as a Google Doc; repeat")] = None,
+    release_file: Annotated[list[str] | None, typer.Option("--release-file", help="A file that goes to Drive as it is (PDF, data); repeat")] = None,
+    no_coauthors: Annotated[bool, typer.Option("--no-coauthors", help="Forget the co-author Drive settings")] = False,
     reports: str | None = None,
     edits: str | None = None,
     versions: str | None = None,
@@ -302,6 +364,24 @@ def configure(
             if bad := [v for v in other_model if not OTHER_MODEL.fullmatch(v.strip())]:
                 raise ProjectError(f"Not a CLI or CLI/MODEL name: {', '.join(bad)} (for example codex/gpt-5.6-sol).")
             data["other_models"] = list(dict.fromkeys(v.strip() for v in other_model))
+        given = {"drive": drive, "remote": drive_remote, "folder_id": folder_id(drive_folder_id),
+                 "folder": drive_folder, "round_folder": round_folder, "build": release_build}
+        if no_coauthors and (any(v is not None for v in given.values()) or release_doc or release_file):
+            raise ProjectError("Choose the co-author Drive settings or --no-coauthors, not both.")
+        if no_coauthors:
+            data.pop("coauthors", None)
+        elif any(v is not None for v in given.values()) or release_doc or release_file:
+            block = dict(data.get("coauthors", {}))
+            block.update({k: v.strip() for k, v in given.items() if v is not None})
+            release = dict(block.get("release", {}))
+            for key, values in (("docs", release_doc), ("files", release_file)):
+                if values:
+                    release[key] = [v.strip() for v in values]
+            if release:
+                block["release"] = release
+            block.setdefault("round_folder", ROUND_FOLDER)
+            check_coauthors(block, "coauthors")
+            data["coauthors"] = block
         for key, seats, limit in (("readers", reader, 8), ("referees", referee, 2)):
             if seats:
                 if len(seats) > limit:

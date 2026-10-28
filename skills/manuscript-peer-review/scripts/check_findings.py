@@ -125,7 +125,7 @@ OTHER_CHECKS = ("manuscript-integrity-check", "manuscript-reference-check", "man
 # Finding ids the dashboard links to the stage's findings.json records (collect.py, concern_mentions), and the
 # prefixes the stages' own records use (stage-findings.md), which a referee's id must not take.
 CONCERN_ID = re.compile(r"[A-Z]{2,3}-\d+")
-STAGE_PREFIXES = ("IC", "RF", "RP", "PR", "PF", "JS", "JA", "PE", "DS", "ST", "FG", "IM", "RR", "RM", "MP")
+STAGE_PREFIXES = ("IC", "RF", "RP", "PR", "PF", "JS", "JA", "PE", "DS", "ST", "FG", "IM", "RR", "RM", "MP", "CA")
 
 # --- normalisation ------------------------------------------------------------------------------------
 # Every mask keeps the text's length, so a token's offsets point into the original file and give its line.

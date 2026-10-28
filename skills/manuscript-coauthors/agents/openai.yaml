@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manuscript co-authors"
+  short_description: "Pull co-authors' Google Doc comments, track how each round answers them, and release rounds to Drive"
+  default_prompt: "Use $manuscript-coauthors to pull the comments our co-authors left on the Google Doc of the last round, show for each one how the new round answers it or what could still be done, write the changelog for co-authors who only read the last round, and push the new round to our shared Drive folder."

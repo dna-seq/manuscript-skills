@@ -11,8 +11,9 @@
 to distinct findings, cross-filtered breakdowns, the manuscript with every quoted problem highlighted and
 explained in a margin comment, which skills found the same problem, every finding with its evidence, the
 edits as word-level diffs, the corrected version with track changes (from manuscript-improve's revise.py),
-counts of machine-writing patterns by type in each version, the simulated reviewers and readers and, when a
-reference review is supplied, which of its problems the run caught. `summary.json` holds every derived count.
+counts of machine-writing patterns by type in each version, the simulated reviewers and readers, the co-authors'
+comments on the previous release with how this one answers each, and, when a reference review is supplied, which
+of its problems the run caught. `summary.json` holds every derived count.
 
 Counts are derived from distinct adjudicated records, never supplied headline totals. Evidence checks
 establish local file/quotation identity, not scientific support or correctness of the adjudication.
@@ -523,6 +524,67 @@ class Figures(Record):
     new: list[NewFigure] = Field(default_factory=list)
 
 
+COAUTHOR_STATUSES = ("addressed", "partly", "open", "declined", "not-on-point")
+
+
+class CoauthorReply(Record):
+    """A reply in a co-author's comment thread, verbatim."""
+    author: str = ""
+    date: str = ""
+    text: Text
+
+
+class CoauthorEdit(Record):
+    """One suggested edit in the Doc: the words a co-author struck and the words they put in."""
+    deleted: str = ""
+    inserted: str = ""
+
+
+class CoauthorComment(Record):
+    """One comment or suggested edit a co-author left on the previous release, and how the next release answers it."""
+    id: Identity  # C40 for a comment, S3 for a suggested edit
+    kind: Literal["comment", "suggestion"]
+    author: Text
+    date: str = ""
+    where: str = ""  # the manuscript heading it sits under
+    anchor: str = ""  # the text the comment is attached to in the Doc
+    comment: str = ""  # verbatim; a suggestion may have none
+    replies: list[CoauthorReply] = Field(default_factory=list)
+    edits: list[CoauthorEdit] = Field(default_factory=list)  # a suggestion's own edits
+    resolved: bool | None = None  # None: unknown (a .docx export does not say)
+    status: Literal["addressed", "partly", "open", "declined", "not-on-point"]
+    # moved: the paragraph has no counterpart in place, but a revision-mark segment named for the comment holds it
+    # elsewhere in the new round (its text is `after`)
+    change: Literal["changed", "unchanged", "removed", "moved", "not-located"] | None = None
+    before: str | None = None  # the paragraph in the round commented on
+    after: str | None = None  # the paragraph in the round that answers it
+    now: str = ""  # the verbatim passage of the new round that answers it
+    why: str = ""  # what was done and why, or why not
+    next: str = ""  # what could still be done
+    rev_ids: list[Identity] = Field(default_factory=list)  # revision-mark segments of the new round
+    finding_ids: list[Identity] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def answered(self) -> CoauthorComment:
+        if self.edits and self.kind != "suggestion":
+            raise ValueError(f"Co-author comment {self.id}: only a suggestion carries edits.")
+        if self.status in ("declined", "not-on-point") and not self.why.strip():
+            raise ValueError(f"Co-author comment {self.id} is {self.status}: say why.")
+        if self.status in ("open", "partly") and not self.next.strip():
+            raise ValueError(f"Co-author comment {self.id} is {self.status}: say what could still be done.")
+        if self.status in ("addressed", "partly") and not self.now.strip():
+            raise ValueError(f"Co-author comment {self.id} is {self.status}: quote the passage that answers it.")
+        return self
+
+
+class Coauthors(Record):
+    """The co-authors' comments on one release and how the next answers each, from manuscript-coauthors."""
+    round: Text  # the release the comments were left on
+    next_round: str | None = None  # the release that answers them; None while it is not written
+    source: str = ""  # the ledger's file name, never a path
+    items: list[CoauthorComment] = Field(default_factory=list)
+
+
 class Inventory(Record):
     schema_version: Literal[2]
     title: Text
@@ -544,6 +606,7 @@ class Inventory(Record):
     story: Story | None = None
     figures: Figures | None = None
     reference_list: list[ListedReference] = Field(default_factory=list)
+    coauthors: Coauthors | None = None
 
     @model_validator(mode="after")
     def reconcile(self) -> Inventory:
@@ -582,6 +645,13 @@ class Inventory(Record):
                     raise ValueError(f"{item.id}: a merge names the items it joins in merge_with, and only a merge does.")
                 if unknown := set(item.merge_with) - set(ids) | ({item.id} & set(item.merge_with)):
                     raise ValueError(f"{item.id} merges with items that are not other figures or tables of the paper: {sorted(unknown)}")
+        if self.coauthors:
+            ids = [item.id for item in self.coauthors.items]
+            if len(ids) != len(set(ids)):
+                raise ValueError("Two co-author comments share an ID.")
+            for item in self.coauthors.items:
+                if unknown := set(item.finding_ids) - known:
+                    raise ValueError(f"Co-author comment {item.id} links unknown findings: {sorted(unknown)}")
         rungs = [(venue.ladder, venue.rung) for venue in self.venues]
         if len(rungs) != len(set(rungs)):
             raise ValueError("Two venues share a rung of the same ladder.")
@@ -719,6 +789,24 @@ def figure_counts(figures: Figures | None) -> dict | None:
             "limit": figures.limit.count if figures.limit else None}
 
 
+def coauthor_counts(coauthors: Coauthors | None) -> dict | None:
+    """How the next release answered the co-authors' comments: by status, by co-author, and how many are answered
+    (addressed, or declined or set aside with the reason given)."""
+    if not coauthors:
+        return None
+    statuses = Counter(item.status for item in coauthors.items)
+    authors: dict[str, Counter] = {}
+    for item in coauthors.items:
+        authors.setdefault(item.author, Counter())[item.status] += 1
+    return {"round": coauthors.round, "next_round": coauthors.next_round, "total": len(coauthors.items),
+            "comments": sum(item.kind == "comment" for item in coauthors.items),
+            "suggestions": sum(item.kind == "suggestion" for item in coauthors.items),
+            "by_status": {status: statuses[status] for status in COAUTHOR_STATUSES},
+            "by_author": {author: {"total": sum(counts.values()), **ordered(counts, COAUTHOR_STATUSES)}
+                          for author, counts in authors.items()},
+            "answered": statuses["addressed"] + statuses["declined"] + statuses["not-on-point"]}
+
+
 def decision_list(data: Inventory) -> list[dict]:
     """The decisions for the authors: those the adjudication wrote, then every stage's `decision: true` finding that
     none of them links, so writing one decision never hides the stages' own."""
@@ -757,6 +845,7 @@ def summarize(data: Inventory) -> dict:
         "chosen_venues": [v.name for v in sorted(data.venues, key=lambda v: v.rung) if v.chosen],
         "competing_proposals": competing(data.changes),
         "figures": figure_counts(data.figures),
+        "coauthors": coauthor_counts(data.coauthors),
         "coverage": [item.model_dump(exclude={"evidence"}) for item in data.coverage],
     }
 
@@ -1097,6 +1186,8 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
             if item[key]:
                 item[f"{key}_data"], item[f"{key}_note"] = image_data(base, item[key]) if base is not None else ("", "")
                 item[key] = Path(item[key]).name
+    if payload["coauthors"] and payload["coauthors"]["source"]:  # the ledger by its name, never where it lives
+        payload["coauthors"]["source"] = re.split(r"[\\/]", payload["coauthors"]["source"])[-1]
     paper, revisions = "", None
     if base is not None and data.manuscript and data.manuscript.path:
         path = (base / data.manuscript.path).resolve()

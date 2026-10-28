@@ -14,7 +14,7 @@
   --sev-blocker: #8f1f1f; --sev-major: #d03b3b; --sev-minor: #ec835a; --sev-info: #f0b9a3; --sev-unknown: #c3c2b7;
   --hl-blocker: rgba(208,59,59,0.46); --hl-major: rgba(208,59,59,0.28); --hl-minor: rgba(236,131,90,0.22);
   --hl-info: rgba(236,131,90,0.10); --hl-unknown: rgba(195,194,183,0.35); --hl-active: #8f1f1f;
-  --b-full: #2a78d6; --b-partial: #1baf7a; --b-missed: #eb6834;
+  --b-full: #2a78d6; --b-partial: #1baf7a; --b-missed: #eb6834; --b-declined: #7c5cc4;
   --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
   --heat-1: #fbe3dc; --heat-2: #f6c2b3; --heat-3: #ef9a85; --heat-4: #e06b57; --heat-5: #c4433a; --heat-6: #8f1f1f;
   --heat-ink-lo: #0b0b0b; --heat-ink-hi: #ffffff;
@@ -29,7 +29,7 @@
     --sev-blocker: #ffb0b0; --sev-major: #e66767; --sev-minor: #ec835a; --sev-info: #8a5a48; --sev-unknown: #52514e;
     --hl-blocker: rgba(230,103,103,0.55); --hl-major: rgba(230,103,103,0.36); --hl-minor: rgba(236,131,90,0.30);
     --hl-info: rgba(236,131,90,0.14); --hl-unknown: rgba(82,81,78,0.5); --hl-active: #ffb0b0;
-    --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
+    --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926; --b-declined: #a08ae6;
     --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
     --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
     --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26); --note-bg: #facc15; --note-ink: #1f1a00;
@@ -43,7 +43,7 @@
   --sev-blocker: #ffb0b0; --sev-major: #e66767; --sev-minor: #ec835a; --sev-info: #8a5a48; --sev-unknown: #52514e;
   --hl-blocker: rgba(230,103,103,0.55); --hl-major: rgba(230,103,103,0.36); --hl-minor: rgba(236,131,90,0.30);
   --hl-info: rgba(236,131,90,0.14); --hl-unknown: rgba(82,81,78,0.5); --hl-active: #ffb0b0;
-  --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926;
+  --b-full: #3987e5; --b-partial: #199e70; --b-missed: #d95926; --b-declined: #a08ae6;
   --heat-1: #3a1c18; --heat-2: #5c2620; --heat-3: #82302a; --heat-4: #b04238; --heat-5: #e06b57; --heat-6: #ffb0b0;
   --heat-ink-lo: #f0efec; --heat-ink-hi: #0b0b0b;
   --ins: rgba(25,158,112,0.30); --del: rgba(230,103,103,0.26); --note-bg: #facc15; --note-ink: #1f1a00;
@@ -122,6 +122,8 @@ a.ref-cell { cursor: pointer; }
 .kpi .value { font-size: 32px; font-weight: 650; line-height: 1.15; margin: 4px 0 2px; }
 .kpi .sub { color: var(--ink-2); font-size: 13px; }
 .kpi.hero { grid-column: span 2; }
+.kpi.go { cursor: pointer; }
+.kpi.go:hover { border-color: var(--focus); }
 .kpi.hero .value { font-size: 52px; }
 @media (max-width: 480px) { .kpi.hero { grid-column: span 1; } }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -300,6 +302,29 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .fig h4 { font-size: 13px; margin: 12px 0 4px; }
 .fig ul { margin: 0; padding-left: 18px; }
 .fig li { margin-bottom: 4px; }
+/* Co-authors' comments: one card per comment, the comment and its status always in view, the answer below it. */
+.ca-list { display: grid; gap: 12px; }
+.ca[hidden], .ca .body[hidden] { display: none; }
+.ca.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ca header { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; }
+.ca header .who { font-weight: 600; }
+.ca header .ghost { margin-left: auto; padding: 2px 10px; }
+.ca .on { color: var(--ink-2); font-size: 13px; margin: 8px 0 0; overflow-wrap: anywhere; }
+.ca .asked { margin: 6px 0 0; }
+.ca .edit-line { margin-top: 4px; }
+.ca .body { margin-top: 4px; border-top: 1px solid var(--grid); }
+.ca h4 { font-size: 13px; margin: 14px 0 4px; }
+.ca .thread { display: grid; gap: 6px; margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--grid); }
+.ca .reply .who { font-size: 12px; color: var(--ink-2); }
+.ca .reply p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; }
+.ca .next { border-left: 4px solid var(--warning); background: var(--surface-2); border-radius: 6px; padding: 6px 10px; margin-top: 12px; }
+.ca .links { display: flex; gap: 6px 14px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; }
+.ca-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 10px 1px 3px; font-size: 13px; font-weight: 600; background: var(--surface); }
+.ca-chip .icon { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; }
+.bar-row.pick { cursor: pointer; }
+.bar-row.pick:hover { background: var(--surface-2); }
+article.paper mark.said-here { color: inherit; background: none; }
+article.paper mark.said-here.lit { background: color-mix(in srgb, var(--focus) 18%, transparent); outline: 2px solid var(--focus); outline-offset: 1px; border-radius: 2px; }
 @media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment, aside.rail .history { position: static; margin-bottom: 8px; } .rev-list { position: static; max-height: none; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -385,10 +410,11 @@ __REVISION_HTML__
     'manuscript-journal-select': ['\u2606', 'Journal selection'], 'manuscript-journal-adapt': ['\u21C4', 'Journal adaptation'],
     'manuscript-prose-edit': ['\u00B6', 'Prose edit'], 'manuscript-deslop': ['\u2702\uFE0E', 'Deslop'], 'manuscript-improve': ['\u2699\uFE0E', 'Workflow'],
     'manuscript-reviewer-response': ['\u21A9\uFE0E', 'Reviewer response'], 'manuscript-revision-marks': ['\u270E', 'Revision marks'],
-    'manuscript-mark-people': ['\u263B\uFE0E', 'People behind the marks']};
+    'manuscript-mark-people': ['\u263B\uFE0E', 'People behind the marks'], 'manuscript-coauthors': ['\u275D', "Co-authors' comments"]};
   const short = s => String(s).replace(/^manuscript-/, '');
   const skillName = s => (SKILL[s] || [null, short(s)])[1];
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
+  const release = r => /^v/i.test(String(r)) ? String(r) : `v${r}`;  // "0.5" is read as v0.5
 
   function h(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -524,6 +550,16 @@ __REVISION_HTML__
   const motion = () => loaded ? 'smooth' : 'auto';
   const kpi = (label, value, sub, hero) => h('div', {class: 'kpi' + (hero ? ' hero' : '')}, h('div', {class: 'label'}, label), h('div', {class: 'value'}, String(value)), sub ? h('div', {class: 'sub'}, sub) : null);
   const card = (title, ...body) => h('section', {class: 'card'}, title ? h('h3', null, title) : null, ...body);
+  // A headline tile that opens the tab it counts.
+  const tileTo = (tile, key) => {
+    const go = () => selectTab(key);
+    tile.classList.add('go');
+    tile.setAttribute('role', 'link');
+    tile.tabIndex = 0;
+    tile.addEventListener('click', go);
+    tile.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    return tile;
+  };
   const link = (text, onclick, label) => h('button', {class: 'link', type: 'button', onclick, 'aria-label': label || null}, text);
   function said(sources) {
     return sources.map(s => h('div', {class: 'said'}, h('div', {class: 'who'}, s.skill ? [badge(s.skill), skillName(s.skill)] : null, `· ${s.path}`), h('blockquote', null, s.quote)));
@@ -552,6 +588,8 @@ __REVISION_HTML__
   if (D.has_paper) tabs.push(['manuscript', 'Manuscript', null]);
   if (R) tabs.push(['revised', 'Corrected version', R.proposed_in_this_version.length + R.applied.length]);
   if (inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
+  // Co-authors' comments: what each co-author asked of the previous release, and how this one answers it.
+  if (inv.coauthors && inv.coauthors.items.length) tabs.push(['coauthors', "Co-authors' comments", inv.coauthors.items.length]);
   if (inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
   if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
   if (inv.panel && (inv.panel.recommendations.length || (inv.panel.reviewers || []).length))
@@ -583,10 +621,10 @@ __REVISION_HTML__
     if (key === 'manuscript') requestAnimationFrame(layoutRail);
     if (location.hash.slice(1).split('/')[0] !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
-  let openFigure = null;
+  let openFigure = null, openComment = null;
   const OLD = {panel: panels.reviewers ? 'reviewers' : 'readers'};  // the tab that held both before 0.9.1
   // An address names a tab, and optionally one item in it: #manuscript/IC-1 opens the paper at that problem,
-  // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version.
+  // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version, #coauthors/C40 that co-author comment.
   const address = () => {
     const [key, item] = location.hash.slice(1).split('/');
     return [OLD[key] || key, item ? decodeURIComponent(item) : ''];
@@ -598,6 +636,7 @@ __REVISION_HTML__
     else if (item && key === 'findings' && byId.has(item)) openFinding(item);
     else if (item && key === 'revised' && openRevised) openRevised(item);
     else if (item && key === 'figures' && openFigure) openFigure(item);
+    else if (item && key === 'coauthors' && openComment) openComment(item);
     else if (key !== current) selectTab(key);
     return true;
   }
@@ -770,7 +809,8 @@ __REVISION_HTML__
     }
     return spans.length ? spans : null;
   }
-  function wrap([start, end], f) {
+  // A problem's passage gets its highlight; `make` gives another passage (a co-author's answer) an element of its own.
+  function wrap([start, end], f, make) {
     const pieces = [];
     for (let i = start; i < end; i++) {
       if (mapNode[i] < 0) continue;
@@ -782,9 +822,9 @@ __REVISION_HTML__
       let node = piece.node;
       if (piece.to < node.nodeValue.length) node.splitText(piece.to);
       if (piece.from > 0) node = node.splitText(piece.from);
-      const mark = h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0,
+      const mark = make ? make() : h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0,
         'aria-label': `${SEV_LABEL[f.severity]}: ${f.summary}`});
-      withTip(mark, () => margin === 'problems' && !mark.classList.contains('off') ? [f.summary, `${SEV_LABEL[f.severity]} · found by ${f.skills.map(skillName).join(', ')}`] : []);
+      if (!make) withTip(mark, () => margin === 'problems' && !mark.classList.contains('off') ? [f.summary, `${SEV_LABEL[f.severity]} · found by ${f.skills.map(skillName).join(', ')}`] : []);
       node.parentNode.insertBefore(mark, node);
       mark.append(node);
       marks.push(mark);
@@ -951,6 +991,9 @@ __REVISION_HTML__
     if (S.decisions) tiles.push(kpi('Decisions for the authors', S.decisions, 'choices only the authors can make'));
     const b = S.benchmark;
     if (b) tiles.push(kpi('Caught of the reference review', `${b.full + b.partial} of ${b.items}`, `${b.full} matched, ${b.partial} partly, ${b.missed} not caught`));
+    const CS = S.coauthors;
+    if (CS && CS.total && panels.coauthors) tiles.push(tileTo(kpi("Co-authors' comments answered", `${CS.answered} of ${CS.total}`,
+      `on ${release(CS.round)}${CS.next_round ? ` by ${release(CS.next_round)}` : ''} · ${CS.by_status.open} open · ${CS.by_status.partly} partly addressed`), 'coauthors'));
     if ((S.chosen_venues || []).length) tiles.push(kpi('Journals to target', S.chosen_venues.length, S.chosen_venues.join(' · ')));
     const picked = inv.venues.filter(v => v.chosen && v.ai_policy);
     const amber = v => Object.values(v.ai_policy.aspects).filter(a => a.level === 'warning').length;
@@ -1376,6 +1419,171 @@ __REVISION_HTML__
     p.append(h('h2', {class: 'sec'}, 'Every problem it raised'), h('div', {class: 'filters', style: 'display: flex; gap: 8px; max-width: 520px; margin-bottom: 12px'}, filter, origin), box);
     draw();
     p.append(h('p', {class: 'note'}, `Source: ${R.source.path}. A match is an adjudicated judgement that a finding names the same problem. "Not caught" means no finding of this run corresponds; it does not say the item was right. Findings without a counterpart are not false alarms by default: the reference review is one reading, not a complete list of the manuscript's problems.`));
+  })();
+
+  // ---------- co-authors' comments ----------
+  // Each comment or suggested edit a co-author left on the previous release, verbatim with its thread, and how the
+  // next release answers it: the passage before and after, the answer, why, and what could still be done.
+  if (panels.coauthors) (function coauthorsTab() {
+    const p = panels.coauthors, C = inv.coauthors, items = C.items;
+    const from = release(C.round), to = C.next_round ? release(C.next_round) : null;
+    // Status: icon, label, colour (the re-check's verdict colours, with one for a reasoned refusal) and the icon's ink.
+    const ORDER = ['addressed', 'partly', 'open', 'declined', 'not-on-point'];
+    const STATE = {addressed: ['✓', 'Addressed', 'var(--good)', '#0b0b0b'], partly: ['◐', 'Partly addressed', 'var(--warning)', '#0b0b0b'],
+      open: ['○', 'Open', 'var(--sev-minor)', '#0b0b0b'], declined: ['⊘', 'Declined', 'var(--b-declined)', '#ffffff'],
+      'not-on-point': ['–', 'Not on point', 'var(--sev-unknown)', 'var(--ink)']};
+    // What became of the commented paragraph in the new version: a short tag, with the longer words in its tooltip.
+    const later = to || 'the next version';
+    const CHANGE = {changed: ['Changed', `The paragraph is changed in ${later}.`], unchanged: ['Unchanged', `The paragraph is the same in ${later}.`],
+      removed: ['Removed', `The paragraph is not in ${later}.`],
+      moved: ['Moved', `The paragraph is not where it was; a revision mark named for this comment holds it elsewhere in ${later}.`],
+      'not-located': ['Not found', `The paragraph could not be found in ${later}.`]};
+    const KIND = {comment: 'Comment', suggestion: 'Suggested edit'};
+    const when = iso => { const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return d ? `${Number(d[3])} ${MONTH[Number(d[2]) - 1]} ${d[1]}` : (iso || ''); };
+    const chip = s => { const [icon, label, color, ink] = STATE[s]; return h('span', {class: 'ca-chip'}, h('span', {class: 'icon', 'aria-hidden': 'true', style: `background: ${color}; color: ${ink}`}, icon), label); };
+    const n = s => items.filter(c => c.status === s).length;
+    const answered = n('addressed') + n('declined') + n('not-on-point');
+    const authors = [...new Set(items.map(c => c.author))];
+
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, to ? `Comments on ${from}, and how ${to} answers them` : `Comments on ${from}: no later version answers them yet`));
+    p.append(h('p', {class: 'note', style: 'margin-top: 0'}, `Each comment and suggested edit your co-authors left on ${from}, word for word with its replies, and what ${to || 'the next version'} does with it: addressed, partly addressed, still open, declined with the reason, or not on point (the comment does not apply to the text, with the reason). Removed words are struck through; added words are underlined on a tinted background.`,
+      C.source ? ` From ${C.source}.` : ''));
+    p.append(h('div', {class: 'kpis'},
+      kpi('Answered', `${answered} of ${items.length}`, 'addressed, or declined or set aside with the reason given', true),
+      kpi('Addressed', n('addressed'), to ? `the change is in ${to}` : 'the change is made'),
+      kpi('Partly addressed', n('partly'), 'some of it is done; what is left is said'),
+      kpi('Open', n('open'), 'not answered yet'),
+      kpi('Declined', n('declined'), 'not done, with the reason'),
+      kpi('Not on point', n('not-on-point'), 'does not apply, with the reason')));
+
+    // One bar per co-author, split by status; its length is how many comments they left. Select one to see only theirs.
+    const most = Math.max(...authors.map(a => items.filter(c => c.author === a).length), 1);
+    const statusPick = h('select', {'aria-label': 'Status', style: 'width: auto; flex: 1 1 200px'},
+      options([['pending', `Open or partly addressed (${n('open') + n('partly')})`], ...ORDER.filter(n).map(s => [s, `${STATE[s][1]} (${n(s)})`])], 'Every status'));
+    const authorPick = h('select', {'aria-label': 'Co-author', style: 'width: auto; flex: 1 1 200px'},
+      options(authors.map(a => [a, `${a} (${items.filter(c => c.author === a).length})`]), 'Every co-author'));
+    const bars = h('div', {class: 'bars'}, authors.map(a => {
+      const mine = items.filter(c => c.author === a);
+      const row = stackRow(a, ORDER.map(s => ({label: STATE[s][1], color: STATE[s][2], count: mine.filter(c => c.status === s).length})), mine.length);
+      row.querySelector('.stack').style.flex = `0 0 calc((100% - 5em) * ${mine.length / most})`;
+      const pick = () => { authorPick.value = authorPick.value === a ? '' : a; draw(); };
+      row.classList.add('pick');
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-label', `${a}: ${plural(mine.length, 'comment')}; select to show only theirs`);
+      row.tabIndex = 0;
+      row.addEventListener('click', pick);
+      row.addEventListener('keydown', e => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(); } });
+      return row;
+    }));
+    p.append(h('div', {class: 'grid', style: 'margin-top: 16px'}, card('By co-author', bars,
+      h('div', {class: 'ladder-key'}, ORDER.map(s => h('span', null, h('span', {class: 'sw', style: `background: ${STATE[s][2]}; height: 10px; width: 10px`}), STATE[s][1]))),
+      h('p', {class: 'note'}, 'The numbers after each bar count its statuses in the order of the key, leaving out those with none. Select a co-author to see only their comments.'))));
+
+    // Where the answer stands in the manuscript: the passage's revision-mark history, or the passage itself.
+    const inText = new Set();
+    if (D.has_paper && paper) { index(); for (const c of items) if (c.now && locate(c.now)) inText.add(c.id); }
+    const quoted = new Map();
+    let lit = [];
+    const showHistory = seg => {
+      selectTab('manuscript');
+      const button = panels.manuscript.querySelector('.margin-bar .views button:last-child');
+      if (margin !== 'history' && button) button.click();
+      requestAnimationFrame(() => activateHistory(seg, 'text'));
+    };
+    const showPassage = c => {
+      selectTab('manuscript');
+      for (const el of lit) el.classList.remove('lit');
+      if (!quoted.has(c.id)) { index(); const spans = locate(c.now); quoted.set(c.id, spans ? spans.flatMap(span => wrap(span, null, () => h('mark', {class: 'said-here'}))) : []); }
+      lit = quoted.get(c.id);
+      for (const el of lit) el.classList.add('lit');
+      if (lit[0]) requestAnimationFrame(() => lit[0].scrollIntoView({block: 'center', behavior: motion()}));
+    };
+    const diffView = (before, after) => {
+      const diff = before != null && after != null ? wordDiff(before, after) : null;
+      const view = h('div', {class: 'diff'});
+      if (diff) for (const [op, t] of diff) view.append(op === '=' ? document.createTextNode(t) : h(op === '+' ? 'ins' : 'del', null, t));
+      else view.append(before == null ? h('ins', null, after) : after == null ? h('del', null, before) : `${before}\n→\n${after}`);
+      return view;
+    };
+
+    const boxes = new Map(), openers = new Map();
+    for (const c of items) {
+      const pending = c.status === 'open' || c.status === 'partly';
+      const toggle = h('button', {class: 'ghost', type: 'button', 'aria-controls': `ca-body-${c.id}`});
+      const head = h('header', null, h('strong', null, c.id), chip(c.status),
+        h('span', {class: 'tag'}, KIND[c.kind]), h('span', {class: 'who'}, c.author), c.date ? h('span', {class: 'note', style: 'margin: 0'}, when(c.date)) : null,
+        c.where ? h('span', {class: 'note', style: 'margin: 0'}, `· ${c.where}`) : null,
+        c.resolved === true ? h('span', {class: 'tag'}, 'resolved in the Doc') : c.resolved === false ? h('span', {class: 'tag'}, 'unresolved in the Doc') : null,
+        c.replies.length ? h('span', {class: 'note', style: 'margin: 0'}, `· ${plural(c.replies.length, 'reply', 'replies')}`) : null, toggle);
+      const asked = [
+        c.anchor ? h('p', {class: 'on'}, `On “${c.anchor}”`) : null,
+        c.comment ? h('blockquote', {class: 'asked'}, c.comment) : null,
+        c.edits.map(e => h('div', {class: 'diff edit-line'}, h('span', {class: 'note', style: 'margin: 0'}, 'Suggested: '),
+          e.deleted ? h('del', null, e.deleted) : null, e.deleted && e.inserted ? ' ' : null, e.inserted ? h('ins', null, e.inserted) : null))];
+      const links = [
+        ...c.finding_ids.filter(id => byId.has(id)).map(id => link(`Problem ${id}`, () => openFinding(id), `Open problem ${id}`)),
+        ...c.rev_ids.filter(seg => historyCards.has(seg)).map(seg => link(c.rev_ids.length > 1 ? `Edit history of ${seg}` : 'Its edit history in the manuscript', () => showHistory(seg),
+          `Show the edit history of revision mark ${seg} in the manuscript`)),
+        inText.has(c.id) ? link(`Show the answer in the manuscript`, () => showPassage(c), `Show the passage that answers ${c.id} in the manuscript`) : null].filter(Boolean);
+      const body = h('div', {class: 'body', id: `ca-body-${c.id}`},
+        c.replies.length ? [h('h4', null, 'Replies'), h('div', {class: 'thread'}, c.replies.map(r => h('div', {class: 'reply'},
+          h('div', {class: 'who'}, [r.author || 'Unnamed', r.date ? when(r.date) : null].filter(Boolean).join(' · ')), h('p', null, r.text))))] : null,
+        h('h4', null, to ? `In ${to}` : 'Now', c.change ? withTip(h('span', {class: 'tag', tabindex: 0, style: 'margin-left: 8px; font-weight: 400'}, CHANGE[c.change][0]), [CHANGE[c.change][1]]) : null),
+        c.before != null || c.after != null ? [diffView(c.before, c.after),
+          h('details', {style: 'margin-top: 6px'}, h('summary', null, 'Before and after in full'),
+            h('div', {class: 'grid', style: 'margin-top: 8px'}, h('div', null, h('h3', null, from), h('blockquote', null, c.before == null ? '(not in this version)' : c.before)),
+              h('div', null, h('h3', null, to || 'Now'), h('blockquote', null, c.after == null ? '(not in this version)' : c.after))))]
+          : h('p', {class: 'empty'}, 'No passage before or after was recorded.'),
+        c.now ? h('div', null, h('h4', null, 'The passage that answers it'), h('blockquote', null, c.now)) : null,
+        c.why ? h('p', null, h('strong', null, 'Why: '), c.why) : null,
+        c.next ? h('div', {class: pending ? 'next' : null}, h('strong', null, 'What could be done: '), c.next) : null,
+        links.length ? h('div', {class: 'links'}, links) : null);
+      const box = h('article', {class: 'card ca', id: `ca-${c.id}`}, head, asked, body);
+      const setOpen = on => { body.hidden = !on; toggle.setAttribute('aria-expanded', String(on)); toggle.textContent = on ? 'Hide the answer' : 'Show the answer'; };
+      toggle.addEventListener('click', () => setOpen(body.hidden));
+      setOpen(pending);
+      boxes.set(c.id, box);
+      openers.set(c.id, setOpen);
+    }
+
+    const shown = h('span', {class: 'note', role: 'status', style: 'margin: 0; align-self: center'});
+    const passes = c => (!statusPick.value || c.status === statusPick.value || (statusPick.value === 'pending' && (c.status === 'open' || c.status === 'partly')))
+      && (!authorPick.value || c.author === authorPick.value);
+    function draw() {
+      let k = 0;
+      for (const c of items) { const on = passes(c); boxes.get(c.id).hidden = !on; k += on; }
+      shown.textContent = `${k} of ${items.length} shown`;
+      for (const row of bars.children) row.classList.toggle('active', row.querySelector('.bar-label').textContent === authorPick.value);
+    }
+    const every = on => () => { for (const c of items) if (passes(c)) openers.get(c.id)(on); };
+    statusPick.addEventListener('change', draw); authorPick.addEventListener('change', draw);
+    p.append(h('h2', {class: 'sec'}, 'Every comment, in order'),
+      h('div', {class: 'filters', style: 'display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px'}, statusPick, authorPick,
+        h('button', {class: 'ghost', type: 'button', onclick: every(true)}, 'Show every answer'), h('button', {class: 'ghost', type: 'button', onclick: every(false)}, 'Hide every answer'), shown),
+      h('div', {class: 'ca-list'}, [...boxes.values()]));
+    draw();
+
+    const linked = new Set(items.flatMap(c => c.finding_ids));
+    const rest = findings.filter(f => f.assessment !== 'dismissed' && f.skills.includes('manuscript-coauthors') && !linked.has(f.id));
+    if (rest.length) {
+      p.append(h('h2', {class: 'sec'}, 'Other problems from the co-authors\' comments'));
+      p.append(h('div', {class: 'table-wrap'}, h('table', null,
+        h('thead', null, h('tr', null, ['ID', 'Severity', 'Section', 'Problem'].map(t => h('th', null, t)))),
+        h('tbody', null, rest.map(f => h('tr', null, h('td', null, link(f.id, () => openFinding(f.id))), h('td', null, sevBadge(f.severity)),
+          h('td', null, f.section), h('td', null, f.summary)))))));
+    }
+
+    openComment = id => {
+      const c = items.find(x => x.id === id), el = boxes.get(id);
+      if (!c || !el) { selectTab('coauthors'); return; }
+      if (!passes(c)) { statusPick.value = ''; authorPick.value = ''; draw(); }
+      selectTab('coauthors');
+      openers.get(id)(true);
+      el.scrollIntoView({block: 'start', behavior: motion()});
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1600);
+      if (location.hash.slice(1) !== `coauthors/${encodeURIComponent(id)}`) try { history.replaceState(null, '', `#coauthors/${encodeURIComponent(id)}`); } catch (err) { /* a sandboxed frame */ }
+    };
   })();
 
   // ---------- journals ----------

@@ -6,8 +6,8 @@ description: >-
   manuscript locations, and check that the revised paper actually addresses each response. Use for
   journal response letters, revision verification, multiple review rounds, one-shot conference
   rebuttals, or deciding between revision and submission elsewhere. Use manuscript-peer-review for
-  simulated reports before submission and the focused reference/reporting skills for evidence
-  checks.
+  simulated reports before submission, the focused reference/reporting skills for evidence checks, and
+  manuscript-coauthors for co-authors' comments on a shared Google Doc.
 ---
 
 # Respond to referees and verify the revision

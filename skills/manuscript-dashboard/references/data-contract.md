@@ -33,6 +33,8 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `reference` | a review to compare with; [below](#reference-review). |
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
 | `story` | optional, from `manuscript-story`: the direction, the story tests and the options only the authors can choose; [below](#story). |
+| `coauthors` | optional, from `manuscript-coauthors`: the co-authors' comments on the previous release and how the next one answers each; [below](#co-authors-comments). |
+| `reference_list` | optional, the manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check folder, else the integrity-check one): one record per entry with `n` (its place in the list), `line`, `text`, `state` (its worst: `fine`, `corrected`, `unverified`, `not-checked`, `wrong` or `retracted`), `link` (doi.org, PubMed or arXiv) and `notes` (what the scanner found, in its words). The Overview shows it as one cell per entry. |
 | `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused`, `in_progress` (the stage was
@@ -166,6 +168,30 @@ accept every move, merge and addition (tables count when the venue counts figure
 group of items joined by merges counts once). Which
 figures and tables the paper has is the authors' decision: moves, merges and additions are listed as
 decisions, never counted as applied.
+
+## Co-authors' comments
+
+`coauthors` is optional and comes from `manuscript-coauthors`' `findings.json`: `round` (the release the
+co-authors commented on, such as "0.5"), `next_round` (the release that answers them, or null while it is
+not written), `source` (the ledger's file name, never a path) and `items`, one per comment or suggested edit,
+in the ledger's order: `id` (unique; `C<n>` for a comment, `S<n>` for a suggestion), `kind` of `comment` or
+`suggestion`, `author`, `date`, `where` (the manuscript heading), `anchor` (the text the comment is attached
+to in the Doc), `comment` (verbatim), `replies` (each `author`, `date`, `text`), `edits` (a suggestion's
+own: `deleted`, `inserted`), `resolved` (true, false, or null when the export does not say), `status` of
+`addressed`, `partly`, `open`, `declined` or `not-on-point`, `change` of `changed`, `unchanged`, `removed`,
+`moved` (no counterpart in place, but a revision-mark segment named for the comment holds it
+elsewhere; its text is `after`), `not-located` or null, `before` and `after` (the paragraph in each release, or null), `now` (the verbatim
+passage of the new release that answers it), `why` (what was done and why, or why not), `next` (what could
+still be done), `rev_ids` (the revision-mark segments of the new release that hold the answer) and
+`finding_ids` (the `CA-n` findings for a comment not fully answered). The renderer rejects two items with
+one ID, a `declined` or `not-on-point` item without `why`, an `open` or `partly` one without `next`, an
+`addressed` or `partly` one without `now`, edits on a comment, and a link to a finding the inventory does
+not have. `collect.py` takes the object from the stage's newest `findings.json`, keeps the ledger's name
+only and follows each finding link to the record kept after merging (a dismissed one is dropped).
+`summary.json` counts the items by status and by co-author and how many are answered: addressed, or
+declined or set aside with the reason given. The Co-authors' comments tab (`#coauthors/C40` opens one) shows
+each comment with its thread, the before-and-after word diff, the reason and what could still be done, and
+links to its findings and to the passage's edit history in the manuscript.
 
 ## Story
 

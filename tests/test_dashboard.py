@@ -672,3 +672,130 @@ def test_collect_keeps_a_proposals_reasoning_and_question(tmp_path: Path) -> Non
     assert CliRunner().invoke(collect.app, [str(run), "--output", str(out)]).exit_code == 0
     change = next(c for c in visualize.Inventory.model_validate_json(out.read_text()).changes if c.id == "IC-C1")
     assert (change.summary, change.why, change.comment) == ("Name the join key", "The code joins by position.", "Which genome build?")
+
+
+def coauthors_record() -> dict:
+    """Five co-author comments on v0.5, one in each status, as manuscript-coauthors writes them."""
+    return {"round": "0.5", "next_round": "0.6", "source": "comments.yaml", "items": [
+        {"id": "C1", "kind": "comment", "author": "Robi Tacutu", "date": "2026-09-25T11:02:36Z", "where": "Introduction",
+         "anchor": "published associations", "comment": "Which associations?\nName the source.",
+         "replies": [{"author": "Anton Kulaga", "date": "2026-09-26T08:00:00Z", "text": "The GWAS Catalog; will say so."}],
+         "resolved": True, "status": "addressed", "change": "changed", "before": "We use published associations.",
+         "after": "We use the GWAS Catalog's associations.", "now": "the GWAS Catalog's associations",
+         "why": "The source is named.", "rev_ids": ["C1a"]},
+        {"id": "C2", "kind": "comment", "author": "Olga Ivanova", "where": "Methods", "comment": "Give the cohort size.",
+         "status": "partly", "change": "changed", "before": "The cohort was large.", "after": "The cohort had 1,204 people.",
+         "now": "The cohort had 1,204 people.", "why": "The size is given.", "next": "Give the size of each arm too.",
+         "finding_ids": ["F2"]},
+        {"id": "C3", "kind": "comment", "author": "Robi Tacutu", "comment": "Cite the replication.", "status": "open",
+         "change": "unchanged", "before": "It replicates.", "after": "It replicates.", "next": "Cite the replication study.",
+         "finding_ids": ["F2"]},
+        {"id": "S1", "kind": "suggestion", "author": "Olga Ivanova", "edits": [{"deleted": "very ", "inserted": ""}],
+         "status": "declined", "why": "The emphasis is the authors' choice."},
+        {"id": "C4", "kind": "comment", "author": "Robi Tacutu", "comment": "Figure 3 is missing.", "status": "not-on-point",
+         "change": "moved", "after": "Figure 3 shows the runtime.", "why": "Figure 3 is in the supplement, where the comment did not look."}]}
+
+
+def test_co_author_comments_are_counted_by_status_and_by_co_author(data: dict) -> None:
+    data["coauthors"] = coauthors_record()
+    summary = visualize.summarize(visualize.Inventory.model_validate(data))
+    assert summary["coauthors"] == {
+        "round": "0.5", "next_round": "0.6", "total": 5, "comments": 4, "suggestions": 1,
+        "by_status": {"addressed": 1, "partly": 1, "open": 1, "declined": 1, "not-on-point": 1},
+        "by_author": {"Robi Tacutu": {"total": 3, "addressed": 1, "open": 1, "not-on-point": 1},
+                      "Olga Ivanova": {"total": 2, "partly": 1, "declined": 1}},
+        "answered": 3}  # addressed, declined and not on point; partly is not answered
+    data["coauthors"]["items"] = []
+    empty = visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"]
+    assert (empty["total"], empty["answered"], empty["by_author"]) == (0, 0, {})
+    data.pop("coauthors")
+    assert visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"] is None
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "status", "change", "declined-without-why", "not-on-point-without-why",
+                                      "open-without-next", "partly-without-next", "addressed-without-now",
+                                      "partly-without-now", "unknown-finding", "edits-on-a-comment"])
+def test_co_author_comments_must_say_why_what_next_and_link_real_problems(data: dict, mutation: str) -> None:
+    data["coauthors"] = coauthors_record()
+    c1, c2, c3, s1, c4 = data["coauthors"]["items"]
+    if mutation == "duplicate":
+        data["coauthors"]["items"].append(copy.deepcopy(c1))
+    elif mutation == "status":
+        c1["status"] = "done"
+    elif mutation == "change":
+        c1["change"] = "rewritten"
+    elif mutation == "declined-without-why":
+        s1["why"] = " "
+    elif mutation == "not-on-point-without-why":
+        c4["why"] = ""
+    elif mutation == "open-without-next":
+        c3["next"] = ""
+    elif mutation == "partly-without-next":
+        del c2["next"]
+    elif mutation == "addressed-without-now":
+        c1["now"] = ""
+    elif mutation == "partly-without-now":
+        c2["now"] = ""
+    elif mutation == "unknown-finding":
+        c3["finding_ids"] = ["absent"]
+    else:
+        c1["edits"] = [{"deleted": "published", "inserted": "the GWAS Catalog's"}]
+    with pytest.raises(ValidationError):
+        visualize.Inventory.model_validate(data)
+
+
+def test_the_co_authors_tab_carries_the_comments_and_names_the_ledger_only(data: dict, tmp_path: Path) -> None:
+    data["coauthors"] = coauthors_record()
+    data["coauthors"]["source"] = str(tmp_path / "ledgers" / "comments.yaml")
+    inventory = visualize.Inventory.model_validate(data)
+    page = visualize.dashboard_html(inventory, visualize.summarize(inventory), tmp_path)
+    document = embedded(page)
+    assert document["inventory"]["coauthors"]["source"] == "comments.yaml" and str(tmp_path) not in page
+    assert [item["id"] for item in document["inventory"]["coauthors"]["items"]] == ["C1", "C2", "C3", "S1", "C4"]
+    assert document["inventory"]["coauthors"]["items"][4]["change"] == "moved"
+    assert document["summary"]["coauthors"]["answered"] == 3
+    assert "['coauthors', \"Co-authors' comments\"" in page and "openComment(item)" in page
+    data["coauthors"]["items"] = []  # nothing to show: no tab
+    inventory = visualize.Inventory.model_validate(data)
+    assert embedded(visualize.dashboard_html(inventory, visualize.summarize(inventory)))["inventory"]["coauthors"]["items"] == []
+
+
+def test_collect_carries_the_co_authors_comments_and_follows_merged_problems(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    run = synthetic_run(tmp_path)
+    stage = run / "manuscript-coauthors"
+    stage.mkdir()
+    (stage / "README.md").write_text("# manuscript-coauthors\n\nStatus: **completed**. Covered.\n")
+    (stage / "stage-report.md").write_text("Comment C3 asks for the join key; v0.6 does not name it. Comment C5 is a duplicate.")
+    record = coauthors_record()
+    record["source"] = str(tmp_path / "doc" / "comments.yaml")
+    record["items"][1]["finding_ids"] = ["CA-1"]
+    record["items"][2]["finding_ids"] = ["CA-1", "CA-2"]
+    (stage / "findings.json").write_text(json.dumps({"findings": [
+        {"id": "CA-1", "category": "Methods and reproducibility", "section": "2. Methods", "quote": "We join by rsID.",
+         "summary": "A co-author's question on the join key is open", "severity": "minor", "stage": "writing", "confidence": "confirmed",
+         "evidence": [{"path": "stage-report.md", "quote": "Comment C3 asks for the join key; v0.6 does not name it."}]},
+        {"id": "CA-2", "category": "Writing and clarity", "section": "2. Methods", "quote": None,
+         "summary": "A duplicate comment", "severity": "info", "stage": "writing", "confidence": "candidate",
+         "evidence": [{"path": "stage-report.md", "quote": "Comment C5 is a duplicate."}]}],
+        "coauthors": record}))
+    manifest = json.loads((run / "run.json").read_text())
+    manifest["skills"]["manuscript-coauthors"] = {"status": "completed", "reason": "Covered.", "artifacts": [], "issues": [],
+                                                  "changes": [], "commands": []}
+    (run / "run.json").write_text(json.dumps(manifest))
+    merges = tmp_path / "merges.json"
+    merges.write_text(json.dumps({"merge": [{"keep": "IC-1", "ids": ["CA-1"]}], "dismiss": [{"id": "CA-2", "why": "A duplicate."}]}))
+    out = run / "manuscript-dashboard/findings.json"
+    result = CliRunner().invoke(collect.app, [str(run), "--output", str(out), "--merge", str(merges)])
+    assert result.exit_code == 0, result.output
+    inventory = visualize.Inventory.model_validate_json(out.read_text())
+    assert (inventory.coauthors.round, inventory.coauthors.next_round, inventory.coauthors.source) == ("0.5", "0.6", "comments.yaml")
+    assert [item.id for item in inventory.coauthors.items] == ["C1", "C2", "C3", "S1", "C4"]
+    # CA-1 was merged into the integrity check's record; the dismissed CA-2 is dropped.
+    assert inventory.coauthors.items[1].finding_ids == ["IC-1"] and inventory.coauthors.items[2].finding_ids == ["IC-1"]
+    assert visualize.summarize(inventory)["coauthors"]["by_status"]["open"] == 1
+    # Without the merge, the stage's own record is linked under its own ID.
+    draft = run / "manuscript-dashboard/findings.draft.json"
+    assert CliRunner().invoke(collect.app, [str(run), "--output", str(draft)]).exit_code == 0
+    assert visualize.Inventory.model_validate_json(draft.read_text()).coauthors.items[2].finding_ids == ["CA-1", "CA-2"]

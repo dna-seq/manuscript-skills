@@ -9,7 +9,7 @@ rounds, by whom; and the blind spots, prose no round has read.
     uv run --script rev_marks.py strip FILE [--out OUT] [--check]  write the clean twin, FILE minus its marks
     uv run --script rev_marks.py report FILE [--blind] [--unreviewed] [--html OUT]
     uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD]
-    uv run --script rev_marks.py changes OLD NEW [--json] [--full] [--strict]
+    uv run --script rev_marks.py changes OLD NEW [--seen SEEN] [--json] [--full] [--strict]
 
 lint and report also take --config PATH (default: rev-marks.toml, found from FILE up to the git
 root) and --unknown agent|human (overrides the config's `unknown`).
@@ -20,6 +20,8 @@ text and its new `by=` entries, and every changed paragraph no segment covers. W
 changed paragraphs. The output is a Markdown table, Id | Where | Was | Now | Why with Why left empty, and
 the record behind each row; --json gives the same rows to tools, --full puts whole texts in the cells, and
 --strict exits 1 on a change that no new round records (no segment covers it, or its segment got no round).
+--seen SEEN, the round as the co-authors last saw it within the round (a circulated commit), adds a column:
+each row is new since then, changed again, or as they saw it.
 
 A rewritten segment sits between two HTML comments, which renderers and pandoc drop:
 
@@ -1551,11 +1553,46 @@ def record_line(r: Row) -> str:
     return f"{head}; {'; '.join(notes)}."
 
 
+def present(fragment: str, text: str) -> bool:
+    """Whether every piece of an excerpt (its parts between "…") reads in *text*."""
+    pieces = [norm(p) for p in fragment.split("…") if norm(p)]
+    return bool(pieces) and all(p in text for p in pieces)
+
+
+def since_seen(rows: list[Row], seen: Marks) -> list[str]:
+    """For each row of a round's changelog, how it stands against the draft the co-authors last saw: "new" (the
+    draft still read as the round's base there), "changed" (they saw an earlier form of this change) or "same"."""
+    seen_text = norm(seen.clean_text())
+    out = []
+    for r in rows:
+        segment = seen.segment(r.id) if r.id else None
+        if r.status == Change.REMOVED:
+            out.append("new" if segment is not None or (r.old_text and present(r.old_text, seen_text)) else "same")
+        elif r.status == Change.ROUNDS:
+            out.append("same" if segment is not None and segment.rounds == r.new_rounds else "changed")
+        elif segment is not None:
+            then = norm(segment.text)
+            out.append("same" if then == norm(r.new_text) else "new" if then == norm(r.old_text) else "changed")
+        elif r.id is not None:
+            out.append("new" if r.status == Change.NEW else "changed")
+        elif r.old_text and present(r.old_text, seen_text):  # an unmarked change: the old words still read there
+            out.append("new")
+        else:
+            out.append("same" if present(r.new_text, seen_text) else "changed")
+    return out
+
+
+SINCE = {"new": "New since then", "changed": "Changed again", "same": ""}
+
+
 def change_totals(rows: list[Row]) -> dict[str, int]:
     return {c.value: sum(1 for r in rows if r.status == c) for c in Change}
 
 
-def format_changes(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row], full: bool = False) -> str:
+def format_changes(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row], full: bool = False,
+                   since: list[str] | None = None, seen_name: str = "", why: list[str] | None = None) -> str:
+    """The changelog table. With *since* (since_seen against SEEN), a column says which rows the co-authors
+    have not seen; with *why*, the Why cells come from a record (manuscript-coauthors' ledger), else empty."""
     t = change_totals(rows)
     out = [f"# Changes from {old_name} to {new_name}", ""]
     if old.segments or new.segments:
@@ -1567,20 +1604,35 @@ def format_changes(old: Marks, new: Marks, old_name: str, new_name: str, rows: l
                    " a row, with no id.")
     if not rows:
         return "\n".join([*out, "", "No changes."]) + "\n"
+    if since is not None:
+        out.append(f"Against {seen_name}, the draft the co-authors last saw: {since.count('new')} row(s) new since then,"
+                   f" {since.count('changed')} changed again, {since.count('same')} as they saw them.")
     out += ["Why is empty: write it from the record (commit messages, the review run, the authors' words),"
-            " never as a guess.", "", "| Id | Where | Was | Now | Why |", "|---|---|---|---|---|"]
-    out += ["| " + " | ".join(cell(c) for c in table_row(r, full)) + " |" for r in rows]
+            " never as a guess." if why is None else
+            "Why comes from the co-authors' comments ledger where a row answers a comment; the rest is empty: write"
+            " it from the record, never as a guess.", ""]
+    head = ["Id", "Where", "Was", "Now", "Why"] + (["Since they saw it"] if since is not None else [])
+    out += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+    for k, r in enumerate(rows):
+        cells = table_row(r, full)
+        if why is not None:
+            cells[4] = why[k]
+        if since is not None:
+            cells.append(SINCE[since[k]])
+        out.append("| " + " | ".join(cell(c) for c in cells) + " |")
     out += ["", "## The record behind each row", "",
             "For whoever writes Why, not for co-authors. Lines are in the marked masters."]
     out += [record_line(r) for r in rows]
     return "\n".join(out) + "\n"
 
 
-def changes_json(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row]) -> dict:
+def changes_json(old: Marks, new: Marks, old_name: str, new_name: str, rows: list[Row],
+                 since: list[str] | None = None, seen_name: str = "") -> dict:
     return {"old": old_name, "new": new_name, "segments": {"old": len(old.segments), "new": len(new.segments)},
-            "totals": change_totals(rows),
+            "totals": change_totals(rows), **({"seen": seen_name} if since is not None else {}),
             "rows": [{**dataclasses.asdict(r), "status": r.status.value, "new_by": list(r.new_by),
-                      "inside": list(r.inside)} for r in rows]}
+                      "inside": list(r.inside), **({"since_seen": since[k]} if since is not None else {})}
+                     for k, r in enumerate(rows)]}
 
 
 # --- command line ----------------------------------------------------------------------------
@@ -1681,14 +1733,16 @@ def cmd_bump(args) -> int:
 def cmd_changes(args) -> int:
     old_path, new_path = args.old, args.new
     old, new = load(old_path), load(new_path)
-    if old is None or new is None:
+    seen = load(args.seen) if args.seen else None
+    if old is None or new is None or (args.seen and seen is None):
         return 1
     rows = changes(old, new)
+    since = since_seen(rows, seen) if seen is not None else None
     if args.json:
-        sys.stdout.write(json.dumps(changes_json(old, new, str(old_path), str(new_path), rows), ensure_ascii=False,
-                                    indent=2) + "\n")
+        sys.stdout.write(json.dumps(changes_json(old, new, str(old_path), str(new_path), rows, since, str(args.seen)),
+                                    ensure_ascii=False, indent=2) + "\n")
     else:
-        sys.stdout.write(format_changes(old, new, str(old_path), str(new_path), rows, args.full))
+        sys.stdout.write(format_changes(old, new, str(old_path), str(new_path), rows, args.full, since, str(args.seen)))
     loose = [r for r in rows if r.status == Change.UNMARKED or r.unbumped]
     if args.strict and loose:
         print(f"{new_path}: {len(loose)} change(s) no new round records: "
@@ -1730,9 +1784,12 @@ def main(argv: list[str]) -> int:
     p.add_argument("--full", action="store_true", help="whole old and new texts in the cells, not the changed words")
     p.add_argument("--strict", action="store_true",
                    help="exit 1 on a change no new round records: unmarked, or in a segment with no new round")
+    p.add_argument("--seen", type=Path, metavar="SEEN",
+                   help="this round as the co-authors last saw it: mark each row new, changed again or as they saw it")
     p.set_defaults(run=cmd_changes)
     args = ap.parse_args(argv)
-    for path in getattr(args, "files", None) or [getattr(args, k) for k in ("file", "old", "new") if hasattr(args, k)]:
+    for path in getattr(args, "files", None) or [getattr(args, k) for k in ("file", "old", "new", "seen")
+                                                  if getattr(args, k, None) is not None]:
         if not path.is_file():
             print(f"rev_marks.py: cannot read {path}", file=sys.stderr)
             return 3
