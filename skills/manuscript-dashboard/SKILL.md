@@ -238,6 +238,11 @@ for the authors on their edit, one comment per edit, and each edit's reasoning (
 follows in parentheses. Nothing is added to the text: an image that could not be embedded is named in a comment
 where it stands. Without `--revision` it annotates the reviewed version.
 
+The paragraphs are justified, as the paper is typeset, so neither the Word file nor the Google Doc made from it
+needs reformatting: body text, list items and quotes are justified; headings, tables, code and a paragraph
+broken into lines by hand (an author block) stay left-aligned. A Google Doc this workflow writes any other way,
+through a Google Docs or Drive connection, justifies its paragraphs the same way.
+
 ### The changes workbook
 
 The applied edits are checked in a workbook, filtered by stage, section or problem, not one comment at a time:
@@ -252,8 +257,8 @@ Sheets: **Applied** (every edit in this version: stage, section, before, after, 
 problem no applied edit answers, all severities) and **Held** (the proposals left out of this version, with
 why). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
 waits for the authors to ask, like the Word file.
-For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments and
-tracked changes become suggestions. Uploading is sending the paper somewhere, so it waits for the authors to ask.
+For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments,
+tracked changes become suggestions and the paragraphs stay justified. Uploading is sending the paper somewhere, so it waits for the authors to ask.
 
 ## 5. Check and deliver
 

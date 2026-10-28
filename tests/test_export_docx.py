@@ -131,6 +131,19 @@ def test_pandoc_superscripts_become_superscript_runs_and_quotes_still_anchor() -
     assert builder.locate("Kulaga Anton^1,2,†^, Usanov Nikolay^3^") is not None
 
 
+def test_body_paragraphs_are_justified_and_headings_tables_code_and_broken_lines_are_not() -> None:
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    builder = export.Builder([])
+    builder.render("# Title\n\n## 1. Introduction\n\nBody text that wraps.\n\n- A list item.\n\n> A quote.\n\n"
+                   "Kulaga Anton\\\nUniversity of Rostock\n\n```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n")
+    alignment = {p.text: p.paragraph_format.alignment for p in builder.doc.paragraphs}
+    assert all(alignment[text] == WD_ALIGN_PARAGRAPH.JUSTIFY for text in ("Body text that wraps.", "A list item.", "A quote."))
+    assert alignment["Title"] is None and alignment["1. Introduction"] is None and alignment["code"] is None
+    assert alignment["Kulaga Anton\nUniversity of Rostock"] is None
+    assert builder.doc.tables[0].cell(1, 0).paragraphs[0].paragraph_format.alignment is None
+
+
 def test_a_pandoc_attribute_block_after_an_image_is_its_alt_text_and_never_printed(tmp_path: Path) -> None:
     from PIL import Image
 

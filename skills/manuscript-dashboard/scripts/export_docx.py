@@ -26,8 +26,11 @@ in a comment where it stands.
 
 An existing output is never overwritten: the message names the next attempt (manuscript-review.2.docx).
 
-Google Docs keeps both: upload the file to Google Drive and open it with Google Docs, and the comments arrive
-as comments and the tracked changes as suggestions.
+The body paragraphs, list items and quotes are justified; headings, tables, code and a paragraph broken into lines
+by hand stay left-aligned.
+
+Google Docs keeps all of it: upload the file to Google Drive and open it with Google Docs, and the comments arrive
+as comments, the tracked changes as suggestions and the paragraphs justified.
 """
 from __future__ import annotations
 
@@ -41,6 +44,7 @@ from typing import Annotated
 
 import typer
 from docx import Document as new_document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.opc.constants import RELATIONSHIP_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -229,6 +233,10 @@ class Builder:
             elif kind == "paragraph_open":
                 style = (lists[-1] + (f" {len(lists)}" if len(lists) > 1 else "")) if lists else ("Quote" if quote else None)
                 paragraph = self.doc.add_paragraph(style=style if style in styles else None)
+                # Body text is justified, as the paper is typeset; Google Docs keeps it on upload. Lines broken by
+                # hand (an author block, an address) stay left-aligned, where Word would stretch them.
+                if not any(child.type == "hardbreak" for child in tokens[i + 1].children or []):
+                    paragraph.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 start = len(self.runs)
                 self.inline(paragraph, tokens[i + 1].children)
                 runs = self.runs[start:]
