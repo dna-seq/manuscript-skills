@@ -1,13 +1,13 @@
 ---
 name: manuscript-integrity-check
 description: >-
-  Review a manuscript for concrete scientific and submission problems, prioritising publication and low
-  author burden: unfinished content, claims beyond their evidence, numbers and statistics that do not add
-  up, venue requirements, and submission files that leak comments, hidden text, secrets or metadata. Use for
-  a manuscript audit, submission-readiness review, a check that the numbers add up, or pre-upload file check.
-  Use manuscript-reference-check for citations and source support, manuscript-reporting-check for reporting
-  guidelines, availability and statistics reporting, manuscript-peer-review for simulated referees,
-  manuscript-reviewer-response for real referees, manuscript-prose-edit for language editing,
+  Review a manuscript for concrete scientific and submission problems, at low author burden: unfinished
+  content, claims beyond their evidence, numbers and statistics that do not add up, detail in the wrong
+  section (results in the Introduction or Methods), venue requirements, and upload files that leak comments,
+  hidden text, secrets or metadata. Use for an audit, submission readiness, or a numbers, section or upload
+  check. Use manuscript-reference-check for citations and source support, manuscript-reporting-check for
+  reporting guidelines, availability and statistics reporting, manuscript-peer-review for simulated
+  referees, manuscript-reviewer-response for real referees, manuscript-prose-edit for language editing,
   manuscript-story for flow and motivation, manuscript-journal-select for journal choice,
   manuscript-journal-adapt for venue formatting and AI-use statements, and manuscript-policy-fit for
   clinical, ethics, privacy and regulatory scope, including authors' voluntarily public genomes or

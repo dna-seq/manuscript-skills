@@ -99,9 +99,11 @@ moved word for word to Section 4.4; comparing text alone would have missed a mov
   figures, cited background and plans are left alone.
 - `evals/manuscript-integrity-check.yaml` has a paired case, `integrity-section-roles-seeded` and
   `integrity-section-roles-clean`, on the two versions trimmed to the Abstract, the Introduction's overview
-  and Key features, Section 3.2 with 3.2.2, the opening of Section 4 and the Conclusion. The case had not been
-  run behaviourally when this was written; run it as `evals/README.md` describes before calling the skill
-  change effective.
+  and Key features, Section 3.2 with 3.2.2, the opening of Section 4 and the Conclusion. Its first run
+  ([evals/results/2026-10-28-integrity-section-roles.md](../evals/results/2026-10-28-integrity-section-roles.md))
+  passed the seeded case with the new skill (8 of 8 rubric items) where the skill before it and no skill held 3;
+  the clean control reported three passages the authors had left on purpose, two of them gaps in this
+  reference.
 
 ## Limits
 

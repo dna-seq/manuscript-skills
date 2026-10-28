@@ -20,8 +20,8 @@ from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "evals" / "fixtures" / "manuscript-integrity-check"
-SEEDED = FIXTURES / "section-roles-seeded.md"
-CLEAN = FIXTURES / "section-roles-clean.md"
+SEEDED = FIXTURES / "software-paper-seeded.md"
+CLEAN = FIXTURES / "software-paper-clean.md"
 
 
 def _load(name: str, path: Path) -> ModuleType:
@@ -91,7 +91,7 @@ def test_the_eval_case_plants_what_the_check_lists() -> None:
     case = CASES["integrity-section-roles-seeded"]
     quotes = [c.quote for c in _check(SEEDED)]
     for anchor in case["anchors"]:
-        if anchor["file"].endswith("section-roles-seeded.md") and not anchor.get("in_clean"):
+        if anchor["file"].endswith("software-paper-seeded.md") and not anchor.get("in_clean"):
             assert any(_fold(anchor["anchor"]) in _fold(q) for q in quotes), anchor["id"]
 
 

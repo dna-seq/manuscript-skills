@@ -4,7 +4,7 @@
 # exactly the planted changes). tests/test_integrity_check.py checks that the scripts find each planted
 # defect once at its location and nothing of the same kind in the clean control; these cases check the agent.
 # recorded/ holds registry answers (Crossref, arXiv; 2026-10-16) that the scan.py regression tests replay offline.
-# section-roles-seeded.md and section-roles-clean.md are real: Paper 1 of Just-DNA-Lite, by the plugin's authors, trimmed
+# software-paper-seeded.md and software-paper-clean.md are real: Paper 1 of Just-DNA-Lite, by the plugin's authors, trimmed
 # to the Abstract, the Introduction's overview and Key features, Section 3.2 with 3.2.2, the opening of Section 4 and
 # the Conclusion, before and after the authors moved each detail to its section (just-dna-lite bc27fe5, 2026-10-28).
 # Earlier manuscript-skills rounds had brought measured facts forward into the Key features and left audit counts and
@@ -131,9 +131,9 @@
   skill: manuscript-integrity-check
   prompt: >-
     A co-author says the Introduction of our software paper reads like a methods section. Check whether each
-    part of this excerpt holds what belongs there, and tell us what should move where. Report only, please:
-    don't change the file.
-  files: [fixtures/manuscript-integrity-check/section-roles-seeded.md]
+    part of this excerpt, software-paper-seeded.md, holds what belongs there, and tell us what should move where.
+    Report only, please: don't change the file.
+  files: [fixtures/manuscript-integrity-check/software-paper-seeded.md]
   planted:
     - "The first Key feature, 'A cleaned PGS Catalog, ready to use', frames just-prs as a cleaned copy of the PGS Catalog instead of saying what it adds to the Catalog's models (ancestry, an ancestry-matched percentile, coverage, a quality label, all models for a trait side by side)."
     - "The same item carries Methods detail: a Parquet mirror, normalized genome-build labels, metrics parsed into numbers (Section 3.2 already describes the preparation)."
@@ -161,16 +161,16 @@
     - "Invents a number, section or table the excerpt does not have."
     - "Edits a manuscript file."
   anchors:
-    - {item: 1, id: cleaned-copy, anchor: "A cleaned PGS Catalog, ready to use.", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 2, id: methods-in-features, anchor: "mirrors the PGS Catalog's harmonized scoring files as Parquet", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 3, id: withheld-in-features, anchor: "860 scores were withheld, 847 of them", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 4, id: dated-registry, anchor: "On 26 October 2026 the registry held 24 modules", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 5, id: fast-ranges, anchor: "in 33 to 65 s, 128 to 231 times faster", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 6, id: plink-configuration, anchor: "PLINK2 was started once per score on four threads", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 7, id: abstract-audit, anchor: "passes its reference-distribution audit", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 8, id: file-audit-in-methods, anchor: "placed 6,910 of 6,991 files", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 9, id: distribution-audit-in-methods, anchor: "6,117 of 6,977 scores passed and 860 were withheld", file: fixtures/manuscript-integrity-check/section-roles-seeded.md}
-    - {item: 10, id: accuracy-in-methods, anchor: "99.65% were assigned their own superpopulation", file: fixtures/manuscript-integrity-check/section-roles-seeded.md, in_clean: true}
+    - {item: 1, id: cleaned-copy, anchor: "A cleaned PGS Catalog, ready to use.", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 2, id: methods-in-features, anchor: "mirrors the PGS Catalog's harmonized scoring files as Parquet", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 3, id: withheld-in-features, anchor: "860 scores were withheld, 847 of them", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 4, id: dated-registry, anchor: "On 26 October 2026 the registry held 24 modules", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 5, id: fast-ranges, anchor: "in 33 to 65 s, 128 to 231 times faster", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 6, id: plink-configuration, anchor: "PLINK2 was started once per score on four threads", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 7, id: abstract-audit, anchor: "passes its reference-distribution audit", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 8, id: file-audit-in-methods, anchor: "placed 6,910 of 6,991 files", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 9, id: distribution-audit-in-methods, anchor: "6,117 of 6,977 scores passed and 860 were withheld", file: fixtures/manuscript-integrity-check/software-paper-seeded.md}
+    - {item: 10, id: accuracy-in-methods, anchor: "99.65% were assigned their own superpopulation", file: fixtures/manuscript-integrity-check/software-paper-seeded.md, in_clean: true}
   pairs:
     - {with: integrity-section-roles-clean, expect: different}
 
@@ -178,9 +178,9 @@
   skill: manuscript-integrity-check
   prompt: >-
     A co-author says the Introduction of our software paper reads like a methods section. Check whether each
-    part of this excerpt holds what belongs there, and tell us what should move where. Report only, please:
-    don't change the file.
-  files: [fixtures/manuscript-integrity-check/section-roles-clean.md]
+    part of this excerpt, software-paper-clean.md, holds what belongs there, and tell us what should move where.
+    Report only, please: don't change the file.
+  files: [fixtures/manuscript-integrity-check/software-paper-clean.md]
   planted:
     - "The control: the Key features say what each feature does with rounded figures and pointers, Section 3.2 states the audits as rules and points to Section 4.3, Section 3.2.2 points to Section 4.4, and the counts and the accuracy are in Sections 4.3 and 4.4."
   rubric:
