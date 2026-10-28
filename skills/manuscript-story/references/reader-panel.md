@@ -53,7 +53,8 @@ and save the answer. Each seat reads the whole paper, so more than five or six c
    whole paper asking: what would I get, what would I see, could I run or apply it, what would stop me.
 3. **The informed outsider.** A scientist from a neighbouring field (for a genomics tool, a biologist or a
    clinician-scientist without bioinformatics training; for a method paper, a domain scientist who would
-   use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them.
+   use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them,
+   and every paragraph whose topic they could not have predicted from the one before.
 
 A seat the authors name gets a brief in the same form: who the reader is, why they opened the paper, and
 the order they read in (a skim like the skimmer's, or the whole paper).
@@ -93,7 +94,7 @@ wanted:                                  # what I looked for and did not find
 stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
     section: "the section"
-    problem: "undefined term | assumed knowledge | lost the thread | repetition | too many numbers"
+    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers"
 next: "stop here | bookmark | forward it | read the full text | try it | cite it"
 because: "one sentence; a reader who left before what it came for cannot try or cite it"
 ```
@@ -101,14 +102,22 @@ because: "one sentence; a reader who left before what it came for cannot try or 
 No scores, ratings or predictions. Quotes are verbatim; a seat that cannot point to a passage says where
 it looked. The parent checks that `next` agrees with `left` and returns a seat's answer that does not.
 
+"Why is this here" is a paragraph whose topic the reader could not have predicted from the one before and
+which does not say why it comes next: a new domain, example or audience, or a "such" or "this" that points
+back at nothing the reader has just read. The quote is the paragraph's first sentence. "Lost the thread" is
+a passage the reader could not follow; "why is this here" is one they followed without knowing why it was
+there.
+
 ## Prompt for a seat
 
 > You are [seat brief]. You have never seen this paper and know nothing about its authors. Read it as that
 > reader would, [reading order for the seat]. The figures are images in `figures/` (listed in
 > `figures/index.md`): open each one when your reading reaches it, as you would look at it on the page, and
-> say what it told you or where it lost you, like any passage. Then answer in the format below. Be honest about where your
-> attention dropped and why; quote the paper's own words. Do not review its science, recommend a decision
-> or suggest edits: say only what happened to you as a reader.
+> say what it told you or where it lost you, like any passage. Whenever a paragraph's topic is one you
+> could not have predicted from the paragraph before, and the paper does not say why it comes next, note it
+> as a stumble ("why is this here"), quoting its first sentence. Then answer in the format below. Be honest
+> about where your attention dropped and why; quote the paper's own words. Do not review its science,
+> recommend a decision or suggest edits: say only what happened to you as a reader.
 
 ## Putting the answers together
 
@@ -122,6 +131,13 @@ it looked. The parent checks that `next` agrees with `left` and returns a seat's
 - Merge what readers wanted and did not find; each item is a question for the story tests (an output not
   shown, a difference from a known tool not stated).
 - Collect stumbles into a list of terms to define at first use or keep out of the Abstract.
+- Hand each "why is this here" stumble to the story test *Connected paragraphs*
+  ([story-tests.md](story-tests.md)), which looks in the rest of the paper for the reason the paragraph is
+  there. A topic the readers did not expect is a finding even when the reason sits in a later section: they
+  met the topic before the reason. Their silence is not a pass: a reader whom the Abstract has told about a
+  topic does not stop when the Introduction turns to it without saying why (on Paper 1 v0.6 seven readers
+  read past the turn to longevity, two of them told to note exactly that), so the story test reads every
+  paragraph break whatever the panel reported.
 - Never average, count votes or turn the answers into a score.
 
 ## Limits

@@ -36,33 +36,56 @@ an option for the authors.
    Connectedness was the narrative feature most associated with citation in one study of 732 abstracts
    (Hillier et al. 2016; correlational, small effect). Fix: reorder so each sentence picks up the last
    one's new information; a connective word is not a connection.
-8. **Autobiography.** Does the text tell how the authors did the project (the order runs were made, the
+8. **Connected paragraphs.** Does each paragraph of the Introduction follow from the one before? Test 7
+   reads inside a paragraph; this one reads across the break. Read each paragraph's first sentence right
+   after the previous paragraph's last one: it should take up something that sentence said, and a reader
+   should have been able to guess its topic. A paragraph that brings in a new domain, example or audience
+   must say why this one. The reason is often the authors' own starting point (the domain an earlier
+   version of the tool was built for, the field the worked example comes from), and it may already be in
+   the paper, only later: a Methods or Results sentence on where the modules or data came from. A
+   demonstrative at the opening ("such tools", "this need", "these problems") whose referent is not in the
+   previous paragraph is a connective word, not a connection: it points back at nothing the reader has just
+   read. Read the Discussion the same way. Fix: give the reason in the new paragraph's first sentence,
+   from a fact the paper already states (bringing it forward from a later section keeps the direction), and
+   make the demonstrative name what it refers to, or restore the sentence it referred to. When the paper
+   never says why, ask the authors; never supply a reason. Example: after a paragraph ending on a
+   comparison of 23 tools, "Recent progress in the genetics of longevity illustrates the need for such
+   extensible annotation tools" leaves the reader asking why longevity, and which tools are "such". The
+   paper said why only in Section 3 ("That system was built around longevity"); a first sentence saying
+   that the project began in longevity research answers it where the turn happens. "Such" had pointed to
+   "extensibility" at the end of the previous paragraph until a revision replaced that sentence (test 11).
+9. **Autobiography.** Does the text tell how the authors did the project (the order runs were made, the
    versions tried) where it should tell why a reader should believe the result? Fix: lead with the
    result and the reason to believe it; keep the history in Methods or the supplement.
 
 ## Caveats and accretion
 
-9. **Caveats in their place.** Sort every caveat as the contract does. Flag key sentences that end on a
-   caveat (the stress position, Gopen & Swan 1990), inline caveat clauses in the Abstract and
-   Introduction, and results paragraphs that end on what the result does not show.
-   `reader_metrics.py` gives caveats per kind of section and the share of sentences ending on one.
-10. **Accretion.** Against the earlier version: what was added since, and for whom? For each addition ask
+10. **Caveats in their place.** Sort every caveat as the contract does. Flag key sentences that end on a
+    caveat (the stress position, Gopen & Swan 1990), inline caveat clauses in the Abstract and
+    Introduction, and results paragraphs that end on what the result does not show.
+    `reader_metrics.py` gives caveats per kind of section and the share of sentences ending on one.
+11. **Accretion.** Against the earlier versions: what was added since, and for whom? For each addition ask
     whether it tells the reader what was found or tells a referee why an objection does not overturn it;
     the second kind belongs in the supplement or the response letter. Also list what was lost: a hook, an
-    example, a voice, an argument. The reading measures' "What moved" list is the starting point.
-11. **Said once.** The same disclaimer, pointer or limitation repeated in the Abstract, Introduction,
+    example, a voice, an argument, a link between paragraphs. The reading measures' "What moved" list is
+    the starting point. Where a revision changed a paragraph's last sentence, read the next paragraph's
+    opening against the new ending: a reference back to it ("such", "this", "these", a term repeated from
+    the old ending) must still point at something there, or test 8 fails. Compare with the earliest version
+    the project holds as well as the previous one: a link that broke two versions ago reads the same in
+    the last two and shows only against the earliest.
+12. **Said once.** The same disclaimer, pointer or limitation repeated in the Abstract, Introduction,
     Discussion and Conclusion. Fix: once per section, in the place a reader looks for it. A repeat that
     carries a scope or limit stays in each section that states it, and always in the Abstract and
     Introduction: the claim check counts a caveat only within its own section.
 
 ## The ending and the whole
 
-12. **What the paper argues against.** If the recorded direction has one, is it named fairly, with a
+13. **What the paper argues against.** If the recorded direction has one, is it named fairly, with a
     citation, early enough to give the reader a reason to read on? Never invent one.
-13. **The ending.** Does the last paragraph end on what the reader can do (use it, try the demo, extend
+14. **The ending.** Does the last paragraph end on what the reader can do (use it, try the demo, extend
     it), or on the open question the work raises, rather than on a limitation or a restatement?
-14. **Memory.** After the reader panel, do the three things readers remember match `story.remember`?
-15. **The boring checklist.** A satirical guide to writing boringly lists "avoid focus", "avoid
+15. **Memory.** After the reader panel, do the three things readers remember match `story.remember`?
+16. **The boring checklist.** A satirical guide to writing boringly lists "avoid focus", "avoid
     originality and personality", "remove implications and speculations" and "use many abbreviations"
     (Sand-Jensen 2007). Read a revision against it: each point a revision moved towards is a cost to the
     reader. Acronyms in the title and Abstract also go with fewer citations (Martínez & Mammola 2021).

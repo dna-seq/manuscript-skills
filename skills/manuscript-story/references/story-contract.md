@@ -19,6 +19,7 @@ story:                                  # set by manuscript-story from the autho
   remember: "A whole genome annotated on your own computer in about half a minute, against modules anyone can publish."
   argues_against: "consumer reports that ask for the genome and do not show how a result was reached"   # optional
   example: "the report for one author's published genome"   # the real output the paper shows; optional
+  origin: "the first version was built for longevity research; its modules are the defaults"   # where the work came from, and so why a theme is there; optional
   confirmed: 2026-10-19                 # when the authors confirmed it; without it the entry is a draft
 ```
 
@@ -38,6 +39,9 @@ These change how the paper tells its story, within the recorded direction:
   number, citation or term the paragraph does not have and claims no more than the paragraph does, so the
   claim check passes it; one number the reader keeps.
 - Connected sentences: each follows from the last by cause, contrast or time.
+- Connected paragraphs: a paragraph that brings in a new domain, example or audience says why in its first
+  sentence, with a reason the paper already states elsewhere, brought forward; a "such" or "this" names what
+  it refers to. A reason the paper does not state is a question for the authors, never an edit.
 - A worked example of real output in the text (a report row), built from the authors' own files or runs,
   replacing an abstract description of the same thing. It adds numbers the text did not have, so it is a
   proposal under `conservative` and applied under `apply`. A new or moved figure, such as one of what a user

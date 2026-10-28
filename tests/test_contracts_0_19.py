@@ -75,3 +75,21 @@ def test_the_reader_template_names_no_paper_of_its_own() -> None:
     block = panel.split('## What each seat returns', 1)[1].split('```', 2)[1]
     assert not re.search(r'section: "\d', block)
     assert not re.search(r'"Figures? \d', block)
+
+
+def test_the_story_reads_across_paragraph_breaks_and_back_to_the_earliest_version() -> None:
+    """Paper 1 v0.6's Introduction turned to longevity with no reason given, its "such extensible annotation tools"
+    pointing back at nothing, and a full run let it through: the connected-sentences test read only inside a
+    paragraph, the readers' answer format had no stumble for it, and accretion compared only with the previous
+    version, which was already broken (evals: story-introduction-turn-seeded)."""
+    story = ROOT / 'skills/manuscript-story'
+    tests = (story / 'references/story-tests.md').read_text(encoding='utf-8')
+    panel = (story / 'references/reader-panel.md').read_text(encoding='utf-8')
+    skill = (story / 'SKILL.md').read_text(encoding='utf-8')
+    numbers = [int(n) for n in re.findall(r'(?m)^\s*(\d+)\. \*\*', tests)]
+    assert numbers == list(range(1, len(numbers) + 1))  # the tests cite each other by number
+    assert '**Connected paragraphs.**' in tests and '*Connected paragraphs*' in panel and '*Connected paragraphs*' in skill
+    block = panel.split('## What each seat returns', 1)[1].split('```', 2)[1]
+    prompt = panel.split('## Prompt for a seat', 1)[1].split('\n## ', 1)[0]
+    assert 'why is this here' in block and 'why is this here' in prompt  # a brief copies both
+    assert all('earliest version the project holds' in ' '.join(text.split()) for text in (tests, skill))

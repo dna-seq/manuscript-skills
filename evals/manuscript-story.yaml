@@ -1,11 +1,20 @@
 # Behavioural cases for manuscript-story. Format and grading: evals/README.md.
-# Fixtures (all fictional): lively.md (the authors' first draft of an Application Note for a fictional tool,
+# Fictional fixtures: lively.md (the authors' first draft of an Application Note for a fictional tool,
 # with a privacy stake, one idea, headline results, a report figure and an ending on use), accreted.md (the
 # same paper after referee-driven rounds: a field-landscape opener that drifted from the recorded direction,
 # a repeated clinical disclaimer, a results section that tells the run history with caveats in the stress
 # position, an apologising caption, a Conclusion that ends on limitations, no worked example),
 # manuscript-record.yaml (the confirmed story direction, the venue's limits, the locked claim),
 # outputs/report-excerpt.md (the real report output the paper can show).
+# Real fixtures, from the plugin authors' own paper (Just-DNA-Lite, Paper 1), the regression case for a turn in
+# the Introduction that a full manuscript-improve run let through on 2026-10-27: personal-genome-seeded.md (v0.6
+# as that run's readers read it, trimmed to the Abstract, Introduction, Section 3's opening and the Conclusion:
+# three paragraphs on personal genomics in general, then a fourth that turns to longevity without saying why,
+# its "such extensible annotation tools" pointing back at a paragraph that now ends on a 23-tool comparison;
+# the reason, Generation I being built around longevity, only in Section 3), personal-genome-clean.md (the same
+# with the fourth paragraph opening on the authors' starting point and the "such" gone),
+# personal-genome-first.md (v0.3, the earliest draft the authors keep, trimmed the same way, whose third
+# paragraph still ended on "ease of use, transparency, and extensibility").
 
 - id: story-review-compare-versions
   skill: manuscript-story
@@ -109,3 +118,52 @@
   fail_if:
     - "Copies an exemplar's wording into the manuscript."
     - "Cites a paper whose identity it did not check."
+
+- id: story-introduction-turn-seeded
+  skill: manuscript-story
+  prompt: >-
+    How does personal-genome-seeded.md read now, compared with our first draft, personal-genome-first.md?
+    Tell us where a reader would struggle with it. Don't edit anything.
+  files: [fixtures/manuscript-story/personal-genome-seeded.md, fixtures/manuscript-story/personal-genome-first.md]
+  planted:
+    - "The Introduction's fourth paragraph turns from personal-genome annotation in general to longevity without saying why."
+    - "Its 'such extensible annotation tools' has no referent: the paragraph before ends on the Table S7 comparison of 23 tools."
+    - "The reason for longevity is in the paper, but only in Section 3: Generation I was built around longevity."
+    - "In the first draft the third paragraph ended on 'ease of use, transparency, and extensibility', which 'extensible annotation tools' picked up; a later revision replaced that sentence."
+  rubric:
+    - "Reports the turn to longevity as a place readers would not know why they are reading it, quoting the fourth paragraph's first sentence."
+    - "Says that 'such extensible annotation tools' points back at nothing in the paragraph before, which ends on the Table S7 comparison."
+    - "Finds the reason the paper gives in Section 3 ('That system was built around longevity') and proposes bringing it forward to where the Introduction turns to longevity, as an edit that keeps the direction."
+    - "Compares with the first draft and names that the third paragraph's ending changed from 'ease of use, transparency, and extensibility' to the Table S7 comparison, which broke the link."
+    - "Makes no edits to any file."
+  fail_if:
+    - "Reports the Introduction's paragraphs, or its sentences, as connected without mentioning the turn to longevity."
+    - "Supplies a reason for longevity that the paper does not give."
+    - "Proposes dropping longevity or changing the paper's lead theme as an edit rather than as an option for the authors."
+    - "Gives a story score, a predicted citation count or an acceptance chance."
+    - "Edits a manuscript file."
+  anchors:
+    - {item: 1, id: turn-to-longevity, anchor: "Recent progress in the genetics of longevity illustrates the need for such extensible annotation tools", file: fixtures/manuscript-story/personal-genome-seeded.md}
+    - {item: 2, id: no-referent, anchor: "none of them documents a graphical interface, annotation sets added without code", file: fixtures/manuscript-story/personal-genome-seeded.md, in_clean: true}
+    - {item: 3, id: reason-in-section-3, anchor: "That system was built around longevity and longevity-associated traits, which is why the default set centres on that domain", file: fixtures/manuscript-story/personal-genome-seeded.md, in_clean: true}
+    - {item: 4, id: first-draft-ending, anchor: "There is no open-source platform that combines comprehensive variant annotation with ease of use, transparency, and extensibility.", file: fixtures/manuscript-story/personal-genome-first.md}
+  pairs:
+    - {with: story-introduction-turn-clean, expect: different}
+
+- id: story-introduction-turn-clean
+  skill: manuscript-story
+  prompt: >-
+    How does personal-genome-clean.md read now, compared with our first draft, personal-genome-first.md?
+    Tell us where a reader would struggle with it. Don't edit anything.
+  files: [fixtures/manuscript-story/personal-genome-clean.md, fixtures/manuscript-story/personal-genome-first.md]
+  planted:
+    - "The control: the fourth Introduction paragraph opens on the authors' starting point (the first generation was built for longevity research) before the genetics of longevity, and no 'such' points back at the paragraph before."
+  rubric:
+    - "Does not report the turn to longevity as unexplained: the fourth paragraph gives its reason in its first sentence."
+    - "Makes no edits to any file."
+  fail_if:
+    - "Reports that the fourth Introduction paragraph turns to longevity without saying why, or that a 'such' in it points back at nothing."
+    - "Supplies a reason for longevity that the paper does not give."
+    - "Edits a manuscript file."
+  pairs:
+    - {with: story-introduction-turn-seeded, expect: different}

@@ -55,15 +55,26 @@ passages it rests on, among the end-of-run decisions. Until they confirm it, edi
 against the direction the text has now, and the draft entry never licenses a direction change. Record what they
 confirm, in their words ([story-contract.md](references/story-contract.md#the-story-entry)).
 
+**Look at where the work came from.** The passages above say what the paper is about; why a theme is in
+it often sits elsewhere: an earlier generation of the tool, the domain of the worked example, a section
+titled "(example)", default data or modules carried over from the authors' first project. Read those
+passages too when drafting the entry, and put the starting point in its `origin`. Then check that every
+theme with a Results section, a Box row or a worked example of its own reaches the Introduction with its
+reason, where the Introduction first turns to it. A theme the Introduction brings in without saying why
+fails the story test *Connected paragraphs*, even when a later section gives the reason: the reader met the
+theme first.
+
 **Check for drift.** Compare the recorded direction with the title, the Abstract's first sentence, the
 Introduction's last paragraph and the Conclusion, and, when earlier versions exist, how those passages
-changed. A lead theme that disappeared or was replaced over revisions without an author decision is
-drift: report it with the before and after text and offer to restore it or to record the new direction.
+changed, against the earliest version the project holds as well as the previous one. A lead theme that
+disappeared or was replaced over revisions without an author decision is drift: report it with the before
+and after text and offer to restore it or to record the new direction.
 
 ## 2. Read as readers do
 
 1. **Reading measures.** Run `scripts/reader_metrics.py` on the manuscript, with `--before` an earlier
-   version when one exists (an earlier release, the pre-revision copy, git): sentence length, caveats
+   version when one exists (an earlier release, the pre-revision copy, git), and across every version the
+   project holds when there are more than two, earliest first: sentence length, caveats
    by kind of section and at sentence ends, first person, acronyms, the share of each kind of section.
    They are proxies; they point to passages to read.
 
@@ -78,13 +89,14 @@ drift: report it with the before and after text and offer to restore it or to re
    skimmer, a potential user and an informed outsider. Each reads in the order its kind would (figures
    first, straight to the results, Methods skipped) and records that path; skipping is not leaving.
    Each says where on its path a real reader would close the paper, where attention only dipped, the
-   one sentence they would tell a colleague, what they wanted and did not get, and the terms that
-   stopped them; a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
+   one sentence they would tell a colleague, what they wanted and did not get, the terms that
+   stopped them and the paragraphs whose topic they could not have predicted from the one before ("why is
+   this here"); a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
    ([independence is required](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
 3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake, the gap, the one idea,
-   a headline per result, a worked example of real output, where the caveats sit, what the paper argues
-   against, how it ends, and whether it tells how the authors did the project or why a reader should
-   believe the result.
+   a headline per result, a worked example of real output, sentences and paragraphs that follow from the
+   ones before, where the caveats sit, what the paper argues against, how it ends, and whether it tells how
+   the authors did the project or why a reader should believe the result.
 
 ## 3. Compare with other papers
 
@@ -103,7 +115,8 @@ The contract is in [story-contract.md](references/story-contract.md). In short:
 - **Edits that keep the direction** may be applied under `edits: apply` (the default) and `edits: conservative`, are
   proposed under `edits: propose`, and under `edits: none` the reader review names them without writing them: a stake or hook built from facts the paper already has, a headline
   sentence before a result's numbers (in that result's paragraph, naming nothing the paragraph lacks),
-  connected sentences, caveats moved within their section to where they cost the reader least, repetition
+  connected sentences and paragraphs (the reason a new topic is there, brought forward from where the paper
+  already gives it), caveats moved within their section to where they cost the reader least, repetition
   and defensive detail moved to the supplement or the response letter, an ending on what the reader can do.
   Each still shows as exact before/after text in the chat. A worked example of real output and a hook built
   on a fact from outside the paper add numbers or facts, so `conservative` proposes them and `apply` applies

@@ -8,9 +8,10 @@ description: >-
   Use manuscript-reference-check for citations and source support, manuscript-reporting-check for reporting
   guidelines, availability and statistics reporting, manuscript-peer-review for simulated referees,
   manuscript-reviewer-response for real referees, manuscript-prose-edit for language editing,
-  manuscript-journal-select for journal choice, manuscript-journal-adapt for venue formatting and AI-use
-  statements, and manuscript-policy-fit for clinical-scope, ethics, privacy and regulatory applicability,
-  including authors' voluntarily public personal genomes or biomedical data.
+  manuscript-story for flow and motivation, manuscript-journal-select for journal choice,
+  manuscript-journal-adapt for venue formatting and AI-use statements, and manuscript-policy-fit for
+  clinical, ethics, privacy and regulatory scope, including authors' voluntarily public genomes or
+  biomedical data.
 ---
 
 # Manuscript integrity check
