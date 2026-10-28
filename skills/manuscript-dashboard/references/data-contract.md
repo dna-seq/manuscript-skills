@@ -210,7 +210,9 @@ tab shows it with the story stage's findings and edits; without it the tab shows
 `todo` is what collect found of the marks the authors made in the dashboard's To-do tab: `file` (the file's name,
 never its folder; the name the tab saves under while there are no marks yet), `schema_version` (`1`), `manuscript`
 (the manuscript's file name) and `marks`. The file beside the manuscript holds the same fields but `file`, and the
-marks of every run of the paper, the oldest first. Each mark is on one item of one run, at most once:
+marks of every run of the paper, the oldest first. The To-do tab writes it, and so does the Decisions pane in
+Claude Code (`hooks/progress`), for decisions only, in the same shape. Each mark is on one item of one run, at
+most once:
 
 | Field | Meaning |
 |---|---|

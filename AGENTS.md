@@ -58,7 +58,17 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   or redundant and saves `STEM.todo.json` beside the manuscript (`MarksFile`/`Mark`; the File System Access API
   where the browser has it, else a download; localStorage meanwhile). `collect.py` carries the file into the
   inventory's `todo` and lists word-for-word repeats (`restates`); `todo.py edits` turns marked edits into the
-  list `runs.py apply` takes. The Decisions pane's answers are still session-only.
+  list `runs.py apply` takes.
+- **The Decisions pane shares the marks file (0.50.0).** Once the dashboard's inventory exists, the pane lists
+  the decisions as `todo_items` does (`summarizeFindings`: the adjudication's `decisions`, D1 and on, then each
+  `decision: true` finding none links and not dismissed), so its IDs are the To-do tab's. It reads
+  `STEM.todo.json` (`marksPath()`, the same place as `collect.py marks_path`) on every refresh: a decision marked
+  there for this run counts as answered and shows its mark and reason. **Go ahead** and **Leave as is** on a
+  decision also write `approved`/`redundant` there with `$.fs.write` (`setAnswer`, `todoMark()` = the tab's
+  `markOf`), reading the file afresh and keeping every other mark; Undo puts back the mark it replaced, unless
+  the tab changed it since; a file that does not parse is never written over. The corrected version's questions
+  show a mark but write none (leave as is means "keep the edit" there, "drop it" for a proposal). Before the
+  dashboard, the pane neither reads nor writes the file.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

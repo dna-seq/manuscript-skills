@@ -3,6 +3,8 @@
 A `manuscript-improve` run takes two to four hours, and until now the authors followed it only through chat
 messages. The prototype is a Claude Code mod (a plugin hooks module) that reads the run folder and shows
 where the run stands, without anyone asking. It reads; it never writes in the run folder or the manuscript.
+The one file it writes is the authors' to-do marks beside the manuscript (`STEM.todo.json`, from 0.50.0),
+which it shares with the dashboard's To-do tab.
 
 Status: shipped in 0.30.0 as `hooks/progress/` (tested against the Paper 1 v0.6 run of 2026-10-27). The
 pane opens by itself only when a `runs.py` call in the session names a run (once per run), or on
@@ -54,7 +56,10 @@ The newest run folder under the output folder of the nearest `.manuscript-skills
 It reads `run.json`; each stage's newest `findings*.json` (counts and the findings marked `decision: true`);
 the peer-review adjudication (its `reports[].recommendations`); the newest `revision*/revision.json`
 (questions for the authors); and the names of the files in `manuscript-dashboard/` and
-`manuscript-improve/`, to see which deliverables exist. A run from before 0.30.0 keeps none of the progress
+`manuscript-improve/`, to see which deliverables exist. Once the dashboard's inventory exists, its decisions
+are the ones the pane lists (the adjudication's, then the stages' own none of them links, as the To-do tab
+lists them), and it reads `STEM.todo.json` beside the manuscript: a decision marked there for this run counts
+as answered, and **Go ahead** and **Leave as is** mark a decision there too. A run from before 0.30.0 keeps none of the progress
 records below, so for it the view guesses the rest, as it did first; from 0.30.3 it reads the records
 wherever a run has them:
 

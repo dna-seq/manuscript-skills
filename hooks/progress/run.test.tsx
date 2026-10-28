@@ -1,8 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { buildView, manuscriptTitle, runLabel, statusLine } from './model'
-import type { RunJson } from './model'
+import { buildView, manuscriptTitle, marksPath, runLabel, statusLine, summarizeFindings } from './model'
+import type { MarksFile, RunJson } from './model'
 
 const PROJECT = '/work/paper/v0.6'
 const RUN = `${PROJECT}/reviews/20261027T125139Z-488af17b`
@@ -78,7 +78,7 @@ test('the status line reads like the run', () => {
   const view = buildView({
     runPath: RUN,
     data: runJson(),
-    findings: { 'manuscript-integrity-check': { findings: 2, proposals: 1, decisions: [{ id: 'IC-2', summary: 'x' }] } },
+    findings: { 'manuscript-integrity-check': { findings: 2, proposals: 1, decisions: [{ id: 'IC-2', summary: 'x', findingIds: ['IC-2'] }] } },
     files: { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] },
     referees: null,
     now: Date.parse(at(50)),
@@ -120,6 +120,7 @@ function folder(on: On, files: Map<string, string>, version: { n: number }) {
     }
     return { value: [...names].map(([name, kind]) => ({ name, kind, size: 1, mtimeMs: version.n, isLink: false })) }
   })
+  on('fs.write', (_, e) => (files.set(e.path, e.text), { value: undefined }))
 }
 
 // The command as the person types it in a fullscreen terminal or the desktop app.
@@ -504,5 +505,212 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   expect(submitted[1]!.text).toContain(`"Just-DNA-Lite: a Local-First Platform", called Just-DNA-Lite v0.6 here`)
   expect((await pane.find({ type: 'Button', key: `decision-${key('IC-3')}` }))?.text).toEndWith('· asked in a new session')
   expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('18 of 22 decisions wait for you')
+  await pane.unmount()
+})
+
+// The dashboard's inventory, shaped like the Paper 1 v0.6 run's: the adjudication's decisions link the stages'
+// `decision: true` findings, which the To-do tab then lists under the decision's ID, not their own.
+const INVENTORY = {
+  findings: [
+    { id: 'IC-11', summary: 'Consent of a named author', section: 'Ethics Statement', quote: 'with her consent', action: 'Confirm with her.', decision: true },
+    { id: 'PF-7', summary: 'Names on the figures', section: 'Figures 1b, 2 and 3', decision: true },
+    { id: 'RP-12', summary: 'No licence for the data', section: 'Data Availability', action: 'Choose a licence.', decision: true },
+    { id: 'RP-11', summary: 'No licence for the code', section: 'Code Availability', decision: true },
+    { id: 'PF-3', summary: 'Say what the platform is not', section: '5.3 Platform Philosophy', decision: true },
+    { id: 'PF-9', summary: 'Dismissed by the adjudication', decision: true, assessment: 'dismissed' },
+    { id: 'IC-1', summary: 'A number does not add up', decision: false },
+  ],
+  decisions: [
+    { id: 'D1', summary: "Livia Zaharia's consent: confirm it, or narrow the consent sentence.", finding_ids: ['IC-11'] },
+    { id: 'D2', summary: 'Keep the names on the figures?', finding_ids: ['PF-7'] },
+    { id: 'D5', summary: 'Choose a licence for the curated data and the code.', finding_ids: ['RP-12', 'RP-11'] },
+  ],
+  changes: [],
+}
+
+test('the pane lists the decisions the To-do tab lists, and the marks file sits beside the manuscript', () => {
+  const found = summarizeFindings(INVENTORY)!
+  // the adjudication's decisions, then a stage's own decision none links; a dismissed one is not the authors' to make
+  expect(found.decisions.map(one => one.id)).toEqual(['D1', 'D2', 'D5', 'PF-3'])
+  expect(found.decisions[2]).toEqual({
+    id: 'D5',
+    summary: 'Choose a licence for the curated data and the code.',
+    findingIds: ['RP-12', 'RP-11'],
+    section: 'Data Availability, Code Availability',
+    detail: undefined,
+    action: 'Choose a licence.',
+    quote: undefined,
+  })
+  expect(found.decisions[0]).toMatchObject({ section: 'Ethics Statement', quote: 'with her consent', action: 'Confirm with her.' })
+  // a stage's own findings.json has no adjudicated decisions: its `decision: true` findings, as before
+  expect(summarizeFindings(FINDINGS)!.decisions).toEqual([
+    { id: 'IC-2', summary: 'Which journal comes first', findingIds: ['IC-2'], section: undefined, detail: undefined, action: undefined, quote: undefined },
+  ])
+
+  expect(marksPath(runJson())).toBe(`${PROJECT}/paper1-just-dna-lite.todo.json`)
+  // a connected manuscript's in the project folder, named after its reading copy, as runs.py handover puts the dashboard
+  const remote = runJson()
+  remote.inputs = [{ original: `${PROJECT}/.connected/paper.docx`, snapshot: 'inputs/01-paper.docx', remote: 'gdoc:abc' }]
+  expect(marksPath(remote)).toBe(`${PROJECT}/paper.todo.json`)
+  expect(marksPath({ ...runJson(), inputs: [] })).toBeNull()
+})
+
+test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do tab', async ($, on) => {
+  const RUN_ID = '20261027T125139Z-488af17b'
+  const TODO = `${PROJECT}/paper1-just-dna-lite.todo.json`
+  const mark = (id: string, kind: string, chosen: string, marked_at: string, reason = '', run_id = RUN_ID) => ({
+    run_id, kind, id, mark: chosen, reason, marked_at, summary: `What ${id} said`, section: '', category: '', quote: null,
+    action: '', before: null, after: null, anchor: null, finding_ids: [],
+  })
+  const saved = {
+    schema_version: 1,
+    manuscript: 'paper1-just-dna-lite.md',
+    marks: [
+      // an earlier run's mark on its own D1, which says nothing about this run's
+      mark('D1', 'decision', 'approved', '2026-10-20T09:00:00.000Z', '', '20261020T090000Z-0badc0de'),
+      // the To-do tab's mark on D2, and on a problem the pane does not list
+      mark('D2', 'decision', 'redundant', '2026-10-27T13:40:00.000Z', 'The names stay; she agreed.'),
+      mark('PR-4', 'problem', 'approved', '2026-10-27T13:41:00.000Z'),
+    ],
+  }
+  const data = runJson('completed', 'completed')
+  data.skills['manuscript-dashboard'] = { ...empty, status: 'completed' }
+  const version = { n: 1 }
+  const files = new Map<string, string>([
+    [`${RUN}/run.json`, JSON.stringify(data)],
+    [`${RUN}/manuscript-dashboard/findings.json`, JSON.stringify(INVENTORY)],
+    [TODO, `${JSON.stringify(saved, null, 2)}\n`],
+  ])
+  const submitted: { text: string }[] = []
+  const toasts: string[] = []
+  folder(on, files, version)
+  mock.clock(on, { now: Date.parse(at(59)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/user' })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => (toasts.push(e.text), { value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  on('prompt.submit', (_, e) => (submitted.push(e), { text: e.text }))
+  const answer = await $.command.run({ ...TYPED, args: RUN })
+  expect(answer.text).toContain(`4 decisions for the authors, 1 of them marked in ${TODO}.`)
+
+  const key = (id: string) => `${RUN_ID}:Dashboard:${id}`
+  const row = async (ui: { find: (q: { type: string; key: string }) => Promise<{ text?: string } | undefined> }, id: string) =>
+    (await ui.find({ type: 'Button', key: `decision-${key(id)}` }))?.text
+  const marks = () => (JSON.parse(files.get(TODO)!) as MarksFile).marks
+  const pane = await $.ui.mount({ ...DECISIONS, surface: 'desktop' })
+  // D2, marked in the To-do tab, counts as answered and shows the mark with its reason
+  expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('3 of 4 decisions wait for you')
+  expect(await row(pane, 'D2')).toEndWith('· marked redundant: “The names stay; she agreed.”')
+  expect(await row(pane, 'D1')).toEndWith("Livia Zaharia's consent: confirm it, or narrow the consent sentence.")
+  await pane.press({ key: `decision-${key('D2')}` })
+  expect(
+    await pane.find({ type: 'Text', text: 'Marked redundant on 27 Oct 2026 in paper1-just-dna-lite.todo.json: “The names stay; she agreed.”' }),
+  ).toBeDefined()
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({ ...BAND, surface })
+    expect((await band.find({ type: 'Text', text: /wait for you/ }))?.text).toBe('Paper 1 just-dna-lite v0.6: 3 decisions wait for you')
+    await band.unmount()
+  }
+
+  // Go ahead marks D1 approved in the file, with what the decision said, as the To-do tab's markOf does; every other
+  // mark stays, the oldest first
+  await pane.press({ key: `decision-${key('D1')}` })
+  await pane.press({ key: `go-ahead-${key('D1')}` })
+  expect(marks().map(one => `${one.run_id.slice(0, 8)}:${one.kind}:${one.id}:${one.mark}`)).toEqual([
+    '20261020:decision:D1:approved',
+    '20261027:decision:D2:redundant',
+    '20261027:problem:PR-4:approved',
+    '20261027:decision:D1:approved',
+  ])
+  expect(marks().at(-1)).toEqual({
+    run_id: RUN_ID,
+    kind: 'decision',
+    id: 'D1',
+    mark: 'approved',
+    reason: '',
+    marked_at: '2026-10-27T13:59:00.000Z',
+    summary: "Livia Zaharia's consent: confirm it, or narrow the consent sentence.",
+    section: 'Ethics Statement',
+    category: '',
+    quote: 'with her consent',
+    action: 'Confirm with her.',
+    before: null,
+    after: null,
+    anchor: null,
+    finding_ids: ['IC-11'],
+  })
+  expect(JSON.parse(files.get(TODO)!).manuscript).toBe('paper1-just-dna-lite.md')
+  expect(await row(pane, 'D1')).toEndWith('· go ahead')
+  expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('2 of 4 decisions wait for you')
+
+  // Leave as is marks PF-3, a stage's own decision, redundant; Undo takes the mark back out of the file
+  await pane.press({ key: `decision-${key('PF-3')}` })
+  await pane.press({ key: `leave-${key('PF-3')}` })
+  expect(marks().find(one => one.id === 'PF-3')).toMatchObject({ kind: 'decision', mark: 'redundant', section: '5.3 Platform Philosophy' })
+  await pane.press({ key: `undo-${key('PF-3')}` })
+  expect(marks().find(one => one.id === 'PF-3')).toBeUndefined()
+
+  // leaving D2 as is marks it anew over the To-do tab's mark, its reason kept; Undo puts that mark back as it was
+  await pane.press({ key: `leave-${key('D2')}` })
+  expect(marks().find(one => one.id === 'D2' && one.run_id === RUN_ID)).toMatchObject({
+    mark: 'redundant',
+    reason: 'The names stay; she agreed.',
+    marked_at: '2026-10-27T13:59:00.000Z',
+  })
+  expect(await row(pane, 'D2')).toEndWith('· leave as is: “The names stay; she agreed.”')
+  await pane.press({ key: `undo-${key('D2')}` })
+  expect(marks().find(one => one.id === 'D2' && one.run_id === RUN_ID)).toEqual(saved.marks[1])
+  expect(await row(pane, 'D2')).toEndWith('· marked redundant: “The names stay; she agreed.”')
+
+  // the answers still go to Claude in one message, which says where they are marked
+  await pane.press({ key: 'send-answers' })
+  for (let n = 0; n < 50 && submitted.length === 0; n += 1) await Promise.resolve()
+  expect(submitted[0]!.text).toContain(`Go ahead:\n- D1 (Ethics Statement): Livia Zaharia's consent`)
+  expect(submitted[0]!.text).toContain(`They are marked in ${TODO} too (go ahead as approved, leave as redundant)`)
+  expect(await row(pane, 'D1')).toEndWith('· go ahead, sent')
+
+  // the To-do tab marks D1 again later: the row shows its mark beside the answer sent
+  const later = mark('D1', 'decision', 'redundant', '2026-10-27T14:10:00.000Z', 'On reflection, no.')
+  files.set(TODO, JSON.stringify({ ...saved, marks: marks().map(one => (one.id === 'D1' && one.run_id === RUN_ID ? later : one)) }))
+  version.n = 2
+  await $.command.run({ ...TYPED, args: RUN })
+  expect(await row(pane, 'D1')).toEndWith('· go ahead, sent · marked redundant: “On reflection, no.”')
+
+  // a file that does not read as marks is never written over
+  files.set(TODO, '{"schema_version": 1, "marks": [')
+  version.n = 3
+  await pane.press({ key: `decision-${key('D5')}` })
+  await pane.press({ key: `leave-${key('D5')}` })
+  expect(files.get(TODO)).toBe('{"schema_version": 1, "marks": [')
+  expect(toasts).toContain("paper1-just-dna-lite.todo.json does not read as the To-do tab's marks, so the answer is kept in this session only.")
+  expect(await row(pane, 'D5')).toEndWith('· leave as is')
+  await pane.unmount()
+})
+
+test('before the dashboard lists the decisions, the pane neither reads nor writes the marks file', async ($, on) => {
+  const TODO = `${PROJECT}/paper1-just-dna-lite.todo.json`
+  const files = new Map<string, string>([
+    [`${RUN}/run.json`, JSON.stringify(runJson('completed', 'completed'))],
+    [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify(FINDINGS)],
+  ])
+  folder(on, files, { n: 1 })
+  mock.clock(on, { now: Date.parse(at(59)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/user' })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  await $.command.run({ ...TYPED, args: RUN })
+
+  const key = '20261027T125139Z-488af17b:Integrity check:IC-2'
+  const pane = await $.ui.mount({ ...DECISIONS, surface: 'terminal' })
+  expect(await pane.find({ type: 'Text', text: /To-do tab saves/ })).toBeUndefined()
+  await pane.press({ key: `decision-${key}` })
+  await pane.press({ key: `leave-${key}` })
+  expect((await pane.find({ type: 'Button', key: `decision-${key}` }))?.text).toEndWith('· leave as is')
+  expect(files.has(TODO)).toBe(false)
   await pane.unmount()
 })

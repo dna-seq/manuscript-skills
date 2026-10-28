@@ -11,6 +11,7 @@ import type {
   ManuscriptSetting,
   ManuscriptStage,
   ManuscriptStageState,
+  ManuscriptTodoMark,
 } from '../../types'
 
 // The parts of run.json (written by runs.py) the view reads.
@@ -42,7 +43,8 @@ export type RunJson = {
     project_root?: string
     project?: { readers?: string[]; other_models?: string[] }
   }
-  inputs?: { original: string; snapshot: string }[]
+  // `remote`: a connected document's location; `original` is then its local reading copy
+  inputs?: { original: string; snapshot: string; remote?: string | null }[]
   skills: Record<string, RunSkill>
   versions?: { new: string }[]
   handover?: { path: string }[]
@@ -56,8 +58,19 @@ export type RunJson = {
 export type FindingsSummary = {
   findings: number
   proposals: number
-  decisions: { id: string; summary: string; section?: string; detail?: string; action?: string }[]
+  decisions: {
+    id: string
+    summary: string
+    section?: string
+    detail?: string
+    action?: string
+    quote?: string
+    findingIds: string[]
+  }[]
 }
+
+// STEM.todo.json as the dashboard's To-do tab saves it (dashboard.py `MarksFile`): every mark of every run.
+export type MarksFile = { schema_version: 1; manuscript: string; marks: ManuscriptTodoMark[] }
 
 // The deliverables the assembly writes, found in the run folder (absolute paths).
 export type AssemblyFiles = {
@@ -78,6 +91,8 @@ export type Gathered = {
   referees: ManuscriptReferees | null
   // the manuscript's title, read from the run's snapshot
   title?: string | null
+  // the marks in STEM.todo.json, read once the dashboard's inventory exists
+  marks?: ManuscriptTodoMark[]
   now: number
 }
 
@@ -426,8 +441,111 @@ function outputs(g: Gathered): ManuscriptOutput[] {
   return list
 }
 
+// Where the authors' to-do marks are kept: STEM.todo.json beside the manuscript, where runs.py handover puts the
+// dashboard (collect.py `marks_path`); a connected manuscript's in the project folder, named after its reading copy.
+export function marksPath(data: RunJson): string | null {
+  const source = data.inputs?.[0]
+  if (!source?.original) return null
+  const cut = Math.max(source.original.lastIndexOf('/'), source.original.lastIndexOf('\\'))
+  const root = data.context?.project_root
+  const folder = source.remote && root ? root : cut < 0 ? '.' : source.original.slice(0, cut) || '/'
+  const stem = source.original.slice(cut + 1).replace(/(.)\.[^.]+$/, '$1')
+
+  return `${folder.replace(/[\\/]+$/, '')}/${stem}.todo.json`
+}
+
+// The marks file the Decisions pane shares with the dashboard's To-do tab, once the dashboard's inventory lists the
+// decisions: from then on both list the same decisions under the same IDs.
+export function marksFile(data: RunJson, findings: Record<string, FindingsSummary>): string | null {
+  return findings[DASHBOARD] ? marksPath(data) : null
+}
+
+const MARK_KINDS: readonly string[] = ['decision', 'question', 'proposal', 'problem']
+
+// STEM.todo.json as read, or null where it is not a marks file the To-do tab wrote (dashboard.html's own check).
+export function parseMarks(parsed: unknown): MarksFile | null {
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const body = parsed as { schema_version?: unknown; manuscript?: unknown; marks?: unknown }
+  if (body.schema_version !== 1 || !Array.isArray(body.marks)) return null
+  const isMark = (one: unknown) => {
+    const m = one as Partial<Record<keyof ManuscriptTodoMark, unknown>> | null
+    return (
+      typeof m === 'object' &&
+      m !== null &&
+      typeof m.run_id === 'string' &&
+      typeof m.id === 'string' &&
+      MARK_KINDS.includes(String(m.kind)) &&
+      (m.mark === 'approved' || m.mark === 'redundant')
+    )
+  }
+  if (!body.marks.every(isMark)) return null
+
+  return {
+    schema_version: 1,
+    manuscript: typeof body.manuscript === 'string' ? body.manuscript : '',
+    marks: body.marks as ManuscriptTodoMark[],
+  }
+}
+
+const markKey = (m: Pick<ManuscriptTodoMark, 'run_id' | 'kind' | 'id'>) => `${m.run_id}:${m.kind}:${m.id}`
+
+// The mark the To-do tab saves for a decision (its `markOf`): what the decision said, so a later run whose IDs are
+// its own still recognises it.
+export function todoMark(
+  runId: string,
+  one: ManuscriptDecision,
+  mark: ManuscriptTodoMark['mark'],
+  reason: string,
+  markedAt: string,
+): ManuscriptTodoMark {
+  return {
+    run_id: runId,
+    kind: one.kind,
+    id: one.id,
+    mark,
+    reason,
+    marked_at: markedAt,
+    summary: one.summary,
+    section: one.section ?? '',
+    category: '',
+    quote: one.quote,
+    action: one.action ?? '',
+    before: null,
+    after: null,
+    anchor: null,
+    finding_ids: one.findingIds,
+  }
+}
+
+// The marks file with one item's mark put in, or taken out where `mark` is null, every other mark kept as it was;
+// the oldest first, as the To-do tab writes it.
+export function withMark(
+  file: MarksFile | null,
+  manuscript: string,
+  item: Pick<ManuscriptTodoMark, 'run_id' | 'kind' | 'id'>,
+  mark: ManuscriptTodoMark | null,
+): MarksFile {
+  const others = (file?.marks ?? []).filter(one => markKey(one) !== markKey(item))
+  const marks = [...others, ...(mark ? [mark] : [])].sort((a, b) =>
+    String(a.marked_at ?? '').localeCompare(String(b.marked_at ?? '')),
+  )
+
+  return { schema_version: 1, manuscript: file?.manuscript || manuscript, marks }
+}
+
 function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[] {
   const label = new Map(stages.map(stage => [stage.id, stage.label]))
+  // this run's marks by kind and ID; of two marks on one item, the later wins
+  const own = new Map<string, ManuscriptTodoMark>()
+  for (const one of g.marks ?? []) {
+    if (one.run_id !== g.data.run_id) continue
+    const was = own.get(markKey(one))
+    if (!was || String(one.marked_at ?? '') > String(was.marked_at ?? '')) own.set(markKey(one), one)
+  }
+  const markOf = (kinds: ManuscriptTodoMark['kind'][], id: string): ManuscriptDecision['mark'] => {
+    const found = kinds.map(kind => own.get(markKey({ run_id: g.data.run_id, kind, id }))).find(Boolean)
+    return found ? { mark: found.mark, reason: found.reason ?? '', markedAt: found.marked_at ?? '' } : null
+  }
   const list: ManuscriptDecision[] = []
   // once the dashboard has adjudicated the stages' findings, its inventory is the one list without repeats
   const inventory = g.findings[DASHBOARD]
@@ -436,16 +554,32 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
     for (const one of found.decisions) {
       list.push({
         id: one.id,
+        kind: 'decision',
         stage: label.get(skill) ?? skill,
         summary: one.summary,
         section: one.section || null,
         detail: one.detail || null,
         action: one.action || null,
+        quote: one.quote || null,
+        findingIds: one.findingIds,
+        mark: markOf(['decision'], one.id),
       })
     }
   }
+  // the To-do tab lists a question on an applied edit, else on a proposal
   for (const one of g.files.questions) {
-    list.push({ id: one.id, stage: 'Corrected version', summary: one.question, section: null, detail: null, action: null })
+    list.push({
+      id: one.id,
+      kind: 'question',
+      stage: 'Corrected version',
+      summary: one.question,
+      section: null,
+      detail: null,
+      action: null,
+      quote: null,
+      findingIds: [],
+      mark: markOf(['question', 'proposal'], one.id),
+    })
   }
 
   return list
@@ -480,6 +614,12 @@ export function answersMessage(view: ManuscriptRunView, answers: Record<string, 
   if (leave.length) {
     lines.push('', 'Leave as it is:')
     for (const one of leave) lines.push(`- ${where(one)}: ${one.summary}`)
+  }
+  if (view.todo && keys.some(key => answers[key]?.markedAt && !answers[key]!.isSent)) {
+    lines.push(
+      '',
+      `They are marked in ${view.todo.path} too (go ahead as approved, leave as redundant), where the dashboard's To-do tab and the next run read them.`,
+    )
   }
   lines.push(
     '',
@@ -564,6 +704,7 @@ export function buildView(g: Gathered): ManuscriptRunView {
   const current = (running.find(stage => stage.phase !== 'review') ?? running[0] ?? stages.find(s => s.state === 'next'))?.label ?? null
 
   const list = decisions(g, stages)
+  const todo = marksFile(data, g.findings)
   // the dashboard's inventory once it exists; before, each stage's own count, read or recorded by `finish`
   const inventory = g.findings[DASHBOARD]
   const held =
@@ -591,6 +732,7 @@ export function buildView(g: Gathered): ManuscriptRunView {
     outputs: outputs(g),
     referees: g.referees,
     decisions: list,
+    todo: todo ? { path: todo, manuscript: data.inputs?.[0]?.original.split(/[\\/]/).at(-1) ?? '' } : null,
     waitingFor: data.waiting
       ? { since: time(data.waiting.since), questions: data.waiting.questions ?? [] }
       : null,
@@ -637,27 +779,52 @@ export function refereeGrid(
   return { venues: venues.map(journal), seats }
 }
 
-// One findings*.json, counted: findings, proposals, and the findings only the authors can decide.
+// One findings*.json, counted: findings, proposals, and the decisions only the authors can make. In the dashboard's
+// inventory these are the ones its To-do tab lists (dashboard.py `decision_list`, `todo_items`): the adjudication's
+// decisions, then each `decision: true` finding none of them links and that was not dismissed; each with the
+// sections of the findings behind it and their first passage, detail and action.
 export function summarizeFindings(parsed: unknown): FindingsSummary | null {
   if (typeof parsed !== 'object' || parsed === null) return null
-  const body = parsed as { findings?: unknown; changes?: unknown }
+  const body = parsed as { findings?: unknown; changes?: unknown; decisions?: unknown }
   if (!Array.isArray(body.findings)) return null
-  type Finding = { id?: string; summary?: string; section?: string; detail?: string; action?: string; decision?: boolean }
+  type Finding = {
+    id?: string
+    summary?: string
+    section?: string
+    detail?: string
+    action?: string
+    quote?: string | null
+    decision?: boolean
+    assessment?: string
+  }
+  type Decision = { id?: string; summary?: string; finding_ids?: unknown }
   const findings = body.findings as Finding[]
+  const adjudicated = Array.isArray(body.decisions) ? (body.decisions as Decision[]) : []
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined)
+  const idsOf = (one: Decision) => (Array.isArray(one.finding_ids) ? one.finding_ids.map(String) : [])
+  const linked = new Set(adjudicated.flatMap(idsOf))
+  const byId = new Map(findings.map(one => [String(one.id ?? ''), one]))
+  const listed = [
+    ...adjudicated.map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? ''), findingIds: idsOf(one) })),
+    ...findings
+      .filter(one => one.decision === true && one.assessment !== 'dismissed' && !linked.has(String(one.id ?? '')))
+      .map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? ''), findingIds: [String(one.id ?? '')] })),
+  ]
 
   return {
     findings: findings.length,
     proposals: Array.isArray(body.changes) ? body.changes.length : 0,
-    decisions: findings
-      .filter(one => one.decision === true)
-      .map(one => ({
-        id: String(one.id ?? ''),
-        summary: String(one.summary ?? ''),
-        section: text(one.section),
-        detail: text(one.detail),
-        action: text(one.action),
-      })),
+    decisions: listed.map(one => {
+      const behind = one.findingIds.map(id => byId.get(id)).filter((f): f is Finding => f !== undefined)
+      const first = (field: 'quote' | 'detail' | 'action') => behind.map(f => text(f[field])).find(Boolean)
+      return {
+        ...one,
+        section: text([...new Set(behind.map(f => text(f.section)).filter(Boolean))].join(', ')),
+        detail: first('detail'),
+        action: first('action'),
+        quote: first('quote'),
+      }
+    }),
   }
 }
 

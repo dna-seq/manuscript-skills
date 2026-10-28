@@ -239,15 +239,18 @@ with the paper's name, which asks you the question with its options and makes th
 desktop app; in a terminal, where no session can be started, Claude asks you in the session you are in).
 **Go ahead** as it suggests, **Leave as is**, or **Write answer**, which puts the decision in the prompt box
 for your own words. **Send answers to Claude** sends the go-aheads and leaves in one message, as yours, to the
-session the pane is in; until then they stay in the pane, for this session only. To keep an answer for later
-runs, mark the decision in the dashboard's To-do tab instead. The band, the panes and the
+session the pane is in. Once the run has made its dashboard, the pane and the dashboard's To-do tab list the
+same decisions and share one file, `STEM.todo.json` beside the manuscript: **Go ahead** marks a decision
+approved there and **Leave as is** marks it redundant, at once, keeping every other mark in the file, and a
+decision you marked in the To-do tab counts as answered in the pane, with your mark and reason on its row. The
+next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
 ("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
 folder where the file is just `manuscript`), then the version folder, never by what kind of paper it is. The
 panes show its whole title, so a session that watches another paper's run says which paper waits for you. The progress pane opens by itself in the session that runs the workflow;
 anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
 PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
-folder. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so
+folder; the one file it writes is the marks file beside the manuscript. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so
 Codex users do not get the view: there the run's state stays in the chat and the run index.
 
 ## More details

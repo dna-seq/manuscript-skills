@@ -1,7 +1,8 @@
 // A manuscript-skills run, watched read-only: a status line, a "Manuscript run" pane, a "Decisions" pane and a
 // band when the authors have decisions to make, toasts as stages finish and /manuscript-status. Reads run.json
 // and the stages' own report files; writes nothing in the run folder. The authors' answers go to Claude as a
-// message of theirs, which the session acts on.
+// message of theirs, which the session acts on; go ahead and leave as is on a decision are also marked in
+// STEM.todo.json beside the manuscript, the file the dashboard's To-do tab shares and the next run reads.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
@@ -12,6 +13,7 @@ import type {
   ManuscriptReferees,
   ManuscriptRunView,
   ManuscriptStage,
+  ManuscriptTodoMark,
 } from '../../types'
 import {
   answerDraft,
@@ -22,12 +24,16 @@ import {
   duration,
   FINISHED,
   manuscriptTitle,
+  marksFile,
+  parseMarks,
   refereeGrid,
   sessionRequest,
   statusLine,
   summarizeFindings,
+  todoMark,
+  withMark,
 } from './model'
-import type { AssemblyFiles, FindingsSummary, RunJson } from './model'
+import type { AssemblyFiles, FindingsSummary, MarksFile, RunJson } from './model'
 
 const PANE = 'manuscript-run'
 const TITLE = 'Manuscript run'
@@ -117,6 +123,8 @@ let title: string | null = null
 let titleFrom = ''
 let files: AssemblyFiles = { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] }
 let filesStamp = ''
+let marks: ManuscriptTodoMark[] = []
+let marksStamp = ''
 let refreshing: Promise<void> | null = null
 let opener: string[] | null = null
 // The run a runs.py call opened the pane for: opened unasked once per run, not again after the person closes it
@@ -127,6 +135,8 @@ async function choose($: $, run: string): Promise<void> {
   runPath = run
   runStamp = ''
   filesStamp = ''
+  marks = []
+  marksStamp = ''
   data = null
   findings = {}
   referees = null
@@ -229,6 +239,87 @@ async function readFiles($: $, run: string): Promise<void> {
   }
 }
 
+// The authors' marks in STEM.todo.json, re-read when the file changes; none while there is no file, or the dashboard
+// has not listed the decisions yet. A file caught mid-save is read again at the next tick, its marks kept meanwhile.
+async function readMarks($: $, path: string | null): Promise<void> {
+  const stat = path ? await $.fs.stat(path).catch(() => null) : null
+  const stamp = path && stat ? `${path}@${stampOf(stat)}` : '-'
+  if (stamp === marksStamp) return
+  if (!path || !stat) {
+    marks = []
+    marksStamp = stamp
+    return
+  }
+  const file = parseMarks(await readJson($, path))
+  if (!file) return
+  marks = file.marks
+  marksStamp = stamp
+}
+
+const fileName = (path: string) => path.split(/[\\/]/).at(-1) ?? path
+
+// Changes the marks file as `edit` says, keeping every other mark in it: read afresh just before it is written, so
+// a mark the To-do tab saved meanwhile stays. `edit` answers null to leave the file as it is. A file that is there
+// but does not read as marks is never written over. Says whether the file holds the change.
+async function editMarks($: $, path: string, edit: (file: MarksFile | null) => MarksFile | null): Promise<boolean> {
+  const isThere = await $.fs.exists(path).catch(() => false)
+  const file = isThere ? parseMarks(await readJson($, path)) : null
+  if (isThere && !file) {
+    $.ui.toast(`${fileName(path)} does not read as the To-do tab's marks, so the answer is kept in this session only.`)
+    return false
+  }
+  const next = edit(file)
+  if (!next) return true
+  const isWritten = await $.fs.write(path, `${JSON.stringify(next, null, 2)}\n`).then(
+    () => true,
+    () => false,
+  )
+  if (!isWritten) {
+    $.ui.toast(`${fileName(path)} could not be written, so the answer is kept in this session only.`)
+    return false
+  }
+  marks = next.marks
+  marksStamp = ''
+
+  return true
+}
+
+const MARK: Partial<Record<ManuscriptAnswer['choice'], ManuscriptTodoMark['mark']>> = { 'go-ahead': 'approved', leave: 'redundant' }
+
+// The person's answer to one decision, in the session's answers and, for go ahead and leave as is on a decision, in
+// the marks file as approved or redundant, its reason kept. An answer that replaces or undoes one the pane marked
+// takes that mark back, putting back what it replaced, unless the To-do tab has changed the mark since.
+async function setAnswer(
+  $: $,
+  v: ManuscriptRunView,
+  one: ManuscriptDecision,
+  key: string,
+  choice: ManuscriptAnswer['choice'] | null,
+  isSent = choice === 'written',
+): Promise<void> {
+  const before = (await read($, answers))[key]
+  const mark = choice ? MARK[choice] : undefined
+  let filed: Pick<ManuscriptAnswer, 'markedAt' | 'replaced'> = {}
+  if (v.todo && one.kind === 'decision' && (mark || before?.markedAt)) {
+    const todo = v.todo
+    const at = new Date(await $.clock.now()).toISOString()
+    const item = { run_id: v.runId, kind: one.kind, id: one.id }
+    let replaced: ManuscriptTodoMark | null = before?.markedAt ? (before.replaced ?? null) : null
+    const isFiled = await editMarks($, todo.path, file => {
+      const was = file?.marks.find(m => m.run_id === item.run_id && m.kind === item.kind && m.id === item.id) ?? null
+      if (!before?.markedAt) replaced = was
+      if (mark) return withMark(file, todo.manuscript, item, todoMark(v.runId, one, mark, was?.reason ?? '', at))
+      return was?.marked_at === before?.markedAt ? withMark(file, todo.manuscript, item, replaced) : null
+    })
+    if (mark && isFiled) filed = { markedAt: at, replaced }
+  }
+  await update($, answers, all => {
+    const { [key]: _, ...rest } = all
+    return choice ? { ...rest, [key]: { choice, isSent, ...filed } } : rest
+  })
+  if (v.todo) await refresh($)
+}
+
 async function notify($: $, text: string): Promise<void> {
   const sent = await $.ui.notify(text, { title: TITLE }).catch(() => null)
   if (!sent?.isSent) $.ui.toast(text, { timeoutMs: 10_000 })
@@ -275,7 +366,8 @@ async function refresh($: $, isForced = false): Promise<void> {
       await readTitle($, run, json)
     }
     await readFiles($, run)
-    const next = buildView({ runPath: run, data, findings, files, referees, title, now: await $.clock.now() })
+    await readMarks($, marksFile(data, findings))
+    const next = buildView({ runPath: run, data, findings, files, referees, title, marks, now: await $.clock.now() })
     const before = await read($, view)
     await update($, view, () => next)
     await update($, problem, () => null)
@@ -334,7 +426,11 @@ function summary(v: ManuscriptRunView): string {
     lines.push(`${phase.label} ${phase.done}/${phase.total}: ${parts.join('; ')}`)
   }
   if (v.waitingFor) lines.push('The run waits for your answer:', ...v.waitingFor.questions.map(question => `- ${question}`))
-  if (v.decisions.length) lines.push(`${v.decisions.length} decisions for the authors.`)
+  const marked = v.decisions.filter(one => one.mark).length
+  if (v.decisions.length) {
+    const where = marked && v.todo ? `, ${marked} of them marked in ${v.todo.path}` : ''
+    lines.push(`${v.decisions.length} decisions for the authors${where}.`)
+  }
   if (v.dashboard) lines.push(`Dashboard: ${v.dashboard}`)
 
   return lines.join('\n')
@@ -370,14 +466,22 @@ const cut = (text: string, width: number) => clip(text, width).padEnd(width)
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-// The run's decisions still without an answer, and the answers given but not yet sent to Claude.
+// The run's decisions with neither an answer here nor a mark in STEM.todo.json, and the answers given but not yet
+// sent to Claude.
 function tally(v: ManuscriptRunView, given: Record<string, ManuscriptAnswer>) {
   const keys = decisionKeys(v.runId, v.decisions)
   return {
     keys,
-    open: keys.filter(key => !given[key]).length,
+    open: keys.filter((key, n) => !given[key] && !v.decisions[n]!.mark).length,
     unsent: keys.filter(key => given[key] && !given[key]!.isSent).length,
   }
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// "2026-10-28T09:15:00.000Z" reads "28 Oct 2026", as the To-do tab writes dates
+const day = (iso: string) => {
+  const found = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return found ? `${Number(found[3])} ${MONTHS[Number(found[2]) - 1]} ${found[1]}` : ''
 }
 
 // The Decisions pane, titled with the manuscript so a session watching another paper's run says which.
@@ -411,11 +515,7 @@ async function sendAnswers($: $, v: ManuscriptRunView): Promise<void> {
 // "Ask me in a new session": Claude is asked, in the person's words, to start a session of its own for the decision
 // (the desktop app's sessions; elsewhere Claude asks here). Marked at once; put back if the prompt does not enter.
 async function askInSession($: $, v: ManuscriptRunView, one: ManuscriptDecision, key: string): Promise<void> {
-  const mark = (isAsked: boolean) =>
-    update($, answers, all => {
-      const { [key]: _, ...rest } = all
-      return isAsked ? { ...rest, [key]: { choice: 'session' as const, isSent: true } } : rest
-    })
+  const mark = (isAsked: boolean) => setAnswer($, v, one, key, isAsked ? 'session' : null, true)
   await mark(true)
   void $.prompt.submit({ text: sessionRequest(v, one), asUser: true }).then(
     async result => {
@@ -717,7 +817,8 @@ export const register: Register = on => {
   // The decisions the run left for the authors, each a row pressed to unfold it: its whole summary and, unfolded,
   // what the finding says beyond it and the answers: a new session that asks the authors about it, go ahead,
   // leave as is, or write an answer in the prompt box. Go ahead and leave go to Claude together in one message,
-  // from the button at the top.
+  // from the button at the top, and are marked in STEM.todo.json at once, where a row shows the mark the To-do
+  // tab made too.
   on('ui.render', { component: 'Pane', requestId: DECISIONS }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await read($, view)
@@ -736,17 +837,15 @@ export const register: Register = on => {
       update($, unfoldedDecisions, list =>
         list.includes(key) ? list.filter(one => one !== key) : [...list.filter(one => one.startsWith(`${v.runId}:`)), key],
       )
-    const answer = (key: string, choice: ManuscriptAnswer['choice'] | null) => () =>
-      update($, answers, all => {
-        const { [key]: _, ...rest } = all
-        return choice ? { ...rest, [key]: { choice, isSent: choice === 'written' } } : rest
-      })
+    const answer = (key: string, one: ManuscriptDecision, choice: ManuscriptAnswer['choice'] | null) => () =>
+      setAnswer($, v, one, key, choice)
     const SAID: Record<ManuscriptAnswer['choice'], [string, string]> = {
       'go-ahead': ['go ahead', 'success'],
       leave: ['leave as is', 'inactive'],
       written: ['answered in the chat', 'success'],
       session: ['asked in a new session', 'success'],
     }
+    const MARKED: Record<ManuscriptTodoMark['mark'], string> = { approved: 'success', redundant: 'inactive' }
 
     const header = (
       <Box key="header" flexDirection="column" marginBottom={1}>
@@ -759,6 +858,11 @@ export const register: Register = on => {
           Press a decision to open it: have a new session ask you about it, go ahead as it suggests, leave the text
           as it is, or write your own answer in the prompt box. Send the go-aheads and leaves to Claude together.
         </Text>
+        {v.todo && (
+          <Text dimColor wrap="wrap">
+            {`Go ahead and leave as is also mark a decision approved or redundant in ${fileName(v.todo.path)} beside the manuscript, the file the dashboard's To-do tab saves and the next run reads; its marks count as answers here.`}
+          </Text>
+        )}
         {unsent > 0 && (
           <Box marginTop={1}>
             <Button
@@ -799,16 +903,21 @@ export const register: Register = on => {
       const isOpen = unfolded.has(key)
       const mine = given[key]
       const said = mine && SAID[mine.choice]
+      // the file's mark, unless it is the one this answer made
+      const filed = one.mark && one.mark.markedAt !== mine?.markedAt ? one.mark : null
+      const reason = one.mark?.reason ? `: “${one.mark.reason}”` : ''
       const where = [one.stage, one.section].filter(Boolean).join(' · ')
       return (
         <Box key={`row-${key}`} flexDirection="column" marginBottom={isOpen ? 1 : 0}>
-          <Button key={`decision-${key}`} plain dimColor={Boolean(mine?.isSent)} onPress={unfold(key)}>
+          <Button key={`decision-${key}`} plain dimColor={Boolean(mine?.isSent || (!mine && filed))} onPress={unfold(key)}>
             <Text dimColor>{`${isOpen ? '▾' : '▸'} ${one.id}`}</Text> {one.summary}
             {said && (
               <Text color={said[1]}>
                 {` · ${said[0]}${mine!.isSent && (mine!.choice === 'go-ahead' || mine!.choice === 'leave') ? ', sent' : ''}`}
+                {filed ? '' : reason}
               </Text>
             )}
+            {filed && <Text color={MARKED[filed.mark]}>{` · marked ${filed.mark}${reason}`}</Text>}
           </Button>
           {isOpen && (
             <Box flexDirection="column" paddingLeft={2}>
@@ -819,6 +928,11 @@ export const register: Register = on => {
               )}
               {one.detail && <Text wrap="wrap">{one.detail}</Text>}
               {one.action && <Text wrap="wrap">→ {one.action}</Text>}
+              {one.mark && v.todo && (
+                <Text dimColor wrap="wrap">
+                  {`Marked ${one.mark.mark}${one.mark.markedAt ? ` on ${day(one.mark.markedAt)}` : ''} in ${fileName(v.todo.path)}${reason}`}
+                </Text>
+              )}
               <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={1}>
                 <Button
                   key={`session-${key}`}
@@ -826,17 +940,17 @@ export const register: Register = on => {
                   label="Ask me in a new session"
                   onPress={() => askInSession($, v, one, key)}
                 />
-                {one.action && <Button key={`go-ahead-${key}`} label="Go ahead" onPress={answer(key, 'go-ahead')} />}
-                <Button key={`leave-${key}`} label="Leave as is" onPress={answer(key, 'leave')} />
+                {one.action && <Button key={`go-ahead-${key}`} label="Go ahead" onPress={answer(key, one, 'go-ahead')} />}
+                <Button key={`leave-${key}`} label="Leave as is" onPress={answer(key, one, 'leave')} />
                 <Button
                   key={`write-${key}`}
                   label="Write answer"
                   onPress={async () => {
-                    if (await writeAnswer($, answerDraft(v, one))) await answer(key, 'written')()
+                    if (await writeAnswer($, answerDraft(v, one))) await answer(key, one, 'written')()
                   }}
                 />
                 {mine && (!mine.isSent || mine.choice === 'written' || mine.choice === 'session') && (
-                  <Button key={`undo-${key}`} label="Undo" onPress={answer(key, null)} />
+                  <Button key={`undo-${key}`} label="Undo" onPress={answer(key, one, null)} />
                 )}
               </Box>
             </Box>

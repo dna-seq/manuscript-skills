@@ -54,20 +54,52 @@ export type ManuscriptOutput = { key: string; label: string; path: string }
 
 export type ManuscriptDecision = {
   id: string
+  // as the dashboard's To-do tab lists it: a decision only the authors can make, or a question the corrected
+  // version asks them
+  kind: 'decision' | 'question'
   stage: string
   summary: string
   // what the finding says beyond its summary, when it says it: where, why, and what the authors are asked
   section: string | null
   detail: string | null
   action: string | null
+  // the passage it is about and the findings behind it, which a mark copies
+  quote: string | null
+  findingIds: string[]
+  // the authors' mark on it for this run in STEM.todo.json, made in the dashboard's To-do tab or in the pane
+  mark: { mark: 'approved' | 'redundant'; reason: string; markedAt: string } | null
+}
+
+// One mark in STEM.todo.json beside the manuscript, the file the dashboard's To-do tab saves and the next run
+// reads (data-contract.md, "To-do"; dashboard.py `Mark`): approved or redundant, on one item of one run, with what
+// the item said.
+export type ManuscriptTodoMark = {
+  run_id: string
+  kind: 'decision' | 'question' | 'proposal' | 'problem'
+  id: string
+  mark: 'approved' | 'redundant'
+  reason: string
+  marked_at: string
+  summary: string
+  section: string
+  category: string
+  quote: string | null
+  action: string
+  before: string | null
+  after: string | null
+  anchor: string | null
+  finding_ids: string[]
 }
 
 // The authors' answer to one decision, given in the Decisions pane: go ahead as it suggests, leave the text as it
 // is, their own words put in the prompt box, or a new session of its own that asks them about it. The first two
-// wait to go to Claude together in one message.
+// wait to go to Claude together in one message, and on a decision are marked in STEM.todo.json at once.
 export type ManuscriptAnswer = {
   choice: 'go-ahead' | 'leave' | 'written' | 'session'
   isSent: boolean
+  // when the pane marked it in STEM.todo.json, and the mark it replaced there, which Undo puts back
+  markedAt?: string
+  replaced?: ManuscriptTodoMark | null
 }
 
 export type ManuscriptRunView = {
@@ -89,6 +121,9 @@ export type ManuscriptRunView = {
   outputs: ManuscriptOutput[]
   referees: ManuscriptReferees | null
   decisions: ManuscriptDecision[]
+  // STEM.todo.json beside the manuscript and the manuscript's file name, once the dashboard's inventory lists the
+  // decisions: the pane and the To-do tab then list the same ones, and keep the authors' marks there
+  todo: { path: string; manuscript: string } | null
   // what the run stopped for (`runs.py wait`) and since when; null while it goes on
   waitingFor: { since: number | null; questions: string[] } | null
   // the run stopped for an answer, or it finished and decisions wait for the authors
