@@ -45,8 +45,11 @@ Drive link in the project's README, an rclone remote from `rclone listremotes`, 
 - how the round folders are named (`v{round}` by default), the same in the repository and on Drive;
 - the project's own .docx build, if it has one (`{file}` stands for the master); without one, pandoc builds
   the Doc from the clean copy, which loses table borders and column widths;
-- what a release uploads: the masters that go up as Google Docs (`PATH=Title`, with `{round}` and
-  `{previous}`), and the files that go up as they are (PDFs, data, scans).
+- what a release uploads: the Docs (`PATH=Title`, with `{round}` and `{previous}`: a master is built to .docx
+  first, a .docx or .xlsx such as the changes workbook goes up as it is and becomes a Doc or a Sheet), and the
+  files that go up as they are (`PATTERN=DEST`: PDFs, data, scans; a DEST ending in `/` is a subfolder of the
+  round's folder, such as `Figures/`, otherwise the file's name on Drive). Copy the titles from the round
+  already on Drive (`rclone lsjson`), so the next release keeps them.
 
 Save the answers, then show them back:
 
@@ -60,7 +63,13 @@ uv run --script scripts/rounds.py show --project PROJECT
 
 `rounds` in the block is kept by `rounds.py`: each round's base commit, release date, Doc links and the dates
 it went to the co-authors. A project with one project file per round folder carries the block into each new
-round (`rounds.py open` copies it). Never invent a folder id or a Doc link: take them from the authors, a
+round (`rounds.py open` copies it). For rounds released before the settings existed, record them once from
+the git history and Drive: `rounds.py record 0.6 --base COMMIT --released 2026-10-26`, then `rounds.py record
+0.6` to read its Docs and Sheets back (rclone lists a Google Doc as "Title.docx"; `record` tells them from Word
+files), and `rounds.py circulated 0.6 --commit COMMIT --date 2026-10-26` for the commit the co-authors got. A
+round with several Docs (the paper, the supplement, separate tables) pulls each into the same ledger; a comment
+on another Doc than the main master keeps that Doc's master (`master:` on the item), and `status` reads the
+same file in the next round. Never invent a folder id or a Doc link: take them from the authors, a
 README, `rclone lsjson` or a connector's `search_files`.
 
 ## 1. Pull the comments
@@ -171,9 +180,11 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
 
 - `open` copies the released round, leaving behind its reviews, build, comments and dashboards, records the
   base commit, and lists the lines that still name the old round (the draft label) for you to change.
-- Run `push --go` when the authors ask to release or send the round: the upload is the release. It never
-  replaces a file already in the round's Drive folder: replacing a Doc keeps its link but can detach the
-  co-authors' comments from their text. Before `--replace`, pull that Doc's comments (step 1) and ask.
+- Run `push --go` when the authors ask to release or send the round: the upload is the release. Read the dry
+  run first: its `not_found` lists release files that do not exist yet (a PDF built by hand), which `--go`
+  would leave out. It never replaces a file already in the round's Drive folder: replacing a Doc keeps its
+  link but can detach the co-authors' comments from their text. Before `--replace`, pull that Doc's comments
+  (step 1) and ask.
 - After the upload, open the Docs (or their PDF export) and look at every figure and table page before calling
   the round released; a Drive-for-desktop upload stays a Word file until it is saved as a Google Doc.
 - Replies to co-authors inside the Doc are the authors' to post: no connector here writes Doc comments. The

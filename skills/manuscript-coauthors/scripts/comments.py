@@ -429,22 +429,31 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
     elif "round" not in data:
         name = ledger_path.resolve().parent.name
         data["round"] = name[1:] if re.fullmatch(r"v\d[\w.-]*", name) else name
-    if master is not None and "master" not in data:
-        data["master"] = Path(master.path).resolve().relative_to(ledger_path.resolve().parent).as_posix() \
-            if Path(master.path).resolve().is_relative_to(ledger_path.resolve().parent) else str(master.path)
+    own_master = None
+    if master is not None:
+        where = Path(master.path).resolve()
+        here = ledger_path.resolve().parent
+        own_master = where.relative_to(here).as_posix() if where.is_relative_to(here) else str(master.path)
+        data.setdefault("master", own_master)  # the round's main master; a comment on another Doc names its own
+        own_master = None if own_master == data["master"] else own_master
     by_key = {item.get("key"): item for item in data["items"]}
+
+    def key_of(f: Found) -> str:  # an item of another Doc of the round is known within that Doc
+        return f"{own_master}|{f.key}" if own_master else f.key
     ids = used_ids(ledger_path, master) | {item["id"] for item in data["items"]}
     numbers = {"comment": next_number(ids, "C"), "suggestion": next_number(ids, "S")}
     added = 0
     for f in found:
-        item = by_key.get(f.key)
+        item = by_key.get(key_of(f))
         if item is None:
             letter = "C" if f.kind == "comment" else "S"
             item = {"id": f"{letter}{numbers[f.kind]}", "kind": f.kind, "author": f.author, "date": f.date,
-                    "key": f.key}
+                    "key": key_of(f)}
             numbers[f.kind] += 1
             data["items"].append(item)
             added += 1
+        if own_master:
+            item["master"] = own_master
         item.update({"anchor": f.anchor, "context_before": " ".join(f.before.split()[-CONTEXT_WORDS:]),
                      "context_after": " ".join(f.after.split()[:CONTEXT_WORDS]), "comment": f.comment})
         if f.edits:
@@ -458,13 +467,15 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
             item["where"], item["line"] = master.where(span) if span else ("", None)
         for key, default in (("status", "open"), ("now", ""), ("why", ""), ("next", "")):
             item.setdefault(key, default)
-    known = {f.key for f in found}
-    gone = [item["id"] for item in data["items"] if item.get("key") not in known]
+    known = {key_of(f) for f in found}
+    # This pull speaks only for its own Doc: the comments of the round's other Docs are neither gone nor reordered.
+    gone = [item["id"] for item in data["items"] if item.get("master") == own_master and item.get("key") not in known]
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     data.setdefault("sources", []).append({k: v for k, v in {"doc": doc, "file": source_file, "pulled": stamp,
                                                              "items": len(found), "new": added}.items() if v is not None})
-    order = {f.key: n for n, f in enumerate(found)}
-    data["items"].sort(key=lambda i: (order.get(i.get("key"), len(order)), i["id"]))
+    order = {key_of(f): n for n, f in enumerate(found)}
+    place = {id(i): n for n, i in enumerate(data["items"])}
+    data["items"].sort(key=lambda i: (i.get("master") or "", order.get(i.get("key"), len(order) + place[id(i)])))
     ordered = {k: data[k] for k in ("round", "master", "sources", "items") if k in data}
     write_ledger(ledger_path, ordered | {k: v for k, v in data.items() if k not in ordered})
     return {"ledger": ledger_path.as_posix(), "round": data["round"], "items": len(data["items"]), "new": added,
@@ -476,12 +487,13 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
 # --- the next round's answer ----------------------------------------------------------------------------
 
 
-def assess(data: dict[str, Any], old: Master | None, new: Master | None) -> list[dict[str, Any]]:
+def assess(data: dict[str, Any], pairs: Masters) -> list[dict[str, Any]]:
     """Each item with where its passage went in the new round, and the ledger's problems with it."""
     rm = rev_marks()
-    ops = rm.align(old.blocks, new.blocks)[2] if old and new else None
     out = []
     for item in data["items"]:
+        old, new = pairs.of(item)
+        ops = pairs.ops(old, new)
         status = item.get("status", "open")
         row = {"id": item["id"], "status": status, "change": None, "before": None, "after": None, "segments": [],
                "rev_ids": [], "quote": None, "problems": [], "hints": []}
@@ -559,10 +571,41 @@ def quote(master: Master, span: tuple[int, int]) -> str | None:
     return master.verbatim(lo, hi) if hi - lo >= 3 else None
 
 
-def masters(data: dict[str, Any], ledger: Path, old: Path | None, new: Path | None) -> tuple[Master | None, Master | None]:
-    if old is None and data.get("master"):
-        old = (ledger.parent / data["master"]) if not Path(data["master"]).is_absolute() else Path(data["master"])
-    return (Master(old) if old else None), (Master(new) if new else None)
+class Masters:
+    """The old and new master of each item: the round's main master (--old, or the ledger's `master`) and --new,
+    or for a comment on another Doc of the round (its own `master`, say the supplement) that file in the
+    ledger's round and the same path in --new's round. Each is read once."""
+
+    def __init__(self, data: dict[str, Any], ledger: Path, old: Path | None, new: Path | None):
+        main = data.get("master")
+        self.old = old or ((ledger.parent / main if not Path(main).is_absolute() else Path(main)) if main else None)
+        self.new, self.ledger = new, ledger
+        self.read: dict[Path, Master] = {}
+        self.aligned: dict[tuple[int, int], list] = {}
+
+    def get(self, path: Path | None) -> Master | None:
+        if path is None or not path.is_file():
+            return None
+        key = path.resolve()
+        if key not in self.read:
+            self.read[key] = Master(path)
+        return self.read[key]
+
+    def of(self, item: dict[str, Any]) -> tuple[Master | None, Master | None]:
+        own = item.get("master")
+        if not own:
+            if self.old is not None and not self.old.is_file():
+                raise Failure(f"{self.old}: cannot read the master.", 3)
+            return self.get(self.old), self.get(self.new)
+        return self.get(self.ledger.parent / own), self.get(self.new.parent / own) if self.new else None
+
+    def ops(self, old: Master | None, new: Master | None) -> list | None:
+        if old is None or new is None:
+            return None
+        key = (id(old), id(new))
+        if key not in self.aligned:
+            self.aligned[key] = rev_marks().align(old.blocks, new.blocks)[2]
+        return self.aligned[key]
 
 
 def first_line(text: str) -> str:
@@ -677,8 +720,9 @@ def run(args: argparse.Namespace) -> int:
     data = read_ledger(ledger)
     if not data["items"] and not ledger.exists():
         raise Failure(f"{ledger}: no ledger; pull the comments first (comments.py import).", 3)
-    old, new = masters(data, ledger, Path(args.old) if args.old else None, Path(args.new) if args.new else None)
-    rows = assess(data, old, new)
+    if args.new and not Path(args.new).is_file():
+        raise Failure(f"{args.new}: cannot read the new round's master.", 3)
+    rows = assess(data, Masters(data, ledger, Path(args.old) if args.old else None, Path(args.new) if args.new else None))
     if args.command == "status":
         problems = sum(len(r["problems"]) for r in rows)
         if args.json:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import zipfile
@@ -60,7 +61,7 @@ def comment(cid: int, author: str, date: str, text: str) -> str:
     return (f'<w:comment w:id="{cid}" w:author="{author}" w:date="{date}"><w:p>{run_(text)}</w:p></w:comment>')
 
 
-def export(path: Path, extra: bool = False) -> Path:
+def export(path: Path, extra: bool = False, month: str = "10") -> Path:
     """A Google Doc of MASTER with Ann's comment on the Abstract heading and Bob's reply on the same range, Ann's
     comment on "billions of dollars", one comment of Bob's over two ranges, and Ann's suggested replacement."""
     body = (
@@ -85,6 +86,7 @@ def export(path: Path, extra: bool = False) -> Path:
              + comment(3, BOB, "2026-10-21T08:00:00Z", "Say which modules.")
              + comment(4, BOB, "2026-10-21T08:00:00Z", "Say which modules.")
              + (comment(5, BOB, "2026-10-22T08:00:00Z", "Cite the registry here.") if extra else ""))
+    notes = notes.replace("2026-10-", f"2026-{month}-")  # another Doc's comments: other days
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("word/document.xml", f'<w:document {NS}><w:body>{body}</w:body></w:document>')
         z.writestr("word/comments.xml", f'<w:comments {NS}>{notes}</w:comments>')
@@ -334,3 +336,110 @@ def test_record_and_pull_without_rclone_say_what_to_do(rounds: Path, tmp_path: P
     [step] = plan["steps"]
     assert step["master"] == (folder / "paper.md").as_posix() and "download_file_content" in plan["by_hand"]
     assert "1xYz0123456789abcdefghij" in step["commands"][0]
+
+
+FAKE_RCLONE = '''#!{python}
+"""rclone as Drive answers it: a Google Doc is listed as "Title.docx" (a Sheet as "Title.xlsx"), like a Word
+file, and only --drive-skip-gdocs tells them apart. Every call is logged."""
+import json, sys
+from pathlib import Path
+log = Path({log!r})
+log.write_text(log.read_text() + " ".join(sys.argv[1:]) + "\\n" if log.exists() else " ".join(sys.argv[1:]) + "\\n")
+if sys.argv[1] == "lsjson":
+    entries = [{{"Path": "Paper (v0.5).docx", "Name": "Paper (v0.5).docx", "ID": "1DocDocDocDocDocDocDocDoc", "IsDir": False}},
+               {{"Path": "Paper (v0.5).pdf", "Name": "Paper (v0.5).pdf", "ID": "1PdfPdfPdfPdfPdfPdfPdf", "IsDir": False}},
+               {{"Path": "Figures", "Name": "Figures", "ID": "1FolderFolderFolder", "IsDir": True}}]
+    if "--drive-skip-gdocs" in sys.argv:
+        entries = entries[1:]
+    print(json.dumps(entries))
+'''
+
+
+def drive_project(rounds: Path, tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
+    """v0.5 with a paper, a changes workbook, a figure and data files, released by rclone to a fake Drive."""
+    folder = rounds / "v0.5"
+    (folder / "figures").mkdir()
+    (folder / "figures" / "figure-1.png").write_bytes(b"png")
+    (folder / "data").mkdir()
+    for name in ("S4.csv", "S5.csv"):
+        (folder / "data" / name).write_text("a,b\n", encoding="utf-8")
+    (folder / "build").mkdir()
+    (folder / "build" / "paper.docx").write_bytes(b"docx")
+    (folder / "build" / "paper.pdf").write_bytes(b"pdf")
+    (folder / "build" / "changes-from-v0.4.xlsx").write_bytes(b"xlsx")
+    configure(folder, "--drive", "rclone", "--drive-remote", "gdrive", "--drive-folder-id", "1AbCdEfGhIjKlMnOp",
+              "--release-doc", "paper.md=Paper (v{round})", "--release-doc",
+              "build/changes-from-v{previous}.xlsx=Changes from v{previous} to v{round}",
+              "--release-file", "build/paper.pdf=Paper (v{round}).pdf", "--release-file", "figures/*=Figures/",
+              "--release-file", "data/*.csv=Supplementary data files/", "--release-build", f'"{sys.executable}" -c pass')
+    (rounds / "v0.4").mkdir()
+    bin_dir, log = tmp_path / "bin", tmp_path / "rclone.log"
+    bin_dir.mkdir()
+    fake = bin_dir / "rclone"
+    fake.write_text(FAKE_RCLONE.format(python=sys.executable, log=str(log)), encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    return folder, log
+
+
+def test_a_release_takes_sheets_subfolders_and_new_names(rounds: Path, tmp_path: Path, monkeypatch) -> None:
+    folder, _ = drive_project(rounds, tmp_path, monkeypatch)
+    plan = json.loads(rounds_cli("push", "0.5", "--project", folder).stdout)
+    assert len(plan["build"]) == 1  # the workbook is uploaded as it is
+    upload = "\n".join(plan["upload"])
+    assert "'gdrive:v0.5/Changes from v0.4 to v0.5.xlsx'" in upload and "--drive-import-formats xlsx" in upload
+    assert "'gdrive:v0.5/Paper (v0.5).pdf'" in upload
+    assert " gdrive:v0.5/Figures/figure-1.png " in upload
+    assert "'gdrive:v0.5/Supplementary data files/S4.csv'" in upload and "data files/S5.csv'" in upload
+
+
+def test_push_sees_a_google_doc_rclone_lists_as_docx_and_will_not_duplicate_it(rounds: Path, tmp_path: Path,
+                                                                                monkeypatch) -> None:
+    folder, log = drive_project(rounds, tmp_path, monkeypatch)
+    refused = rounds_cli("push", "0.5", "--go", "--project", folder)
+    assert refused.returncode == 1 and "Paper (v0.5)" in refused.stderr and "Paper (v0.5).pdf" in refused.stderr
+    assert "copyto" not in log.read_text(encoding="utf-8")
+    done = rounds_cli("push", "0.5", "--go", "--replace", "--project", folder)
+    assert done.returncode == 0, done.stderr
+    calls = log.read_text(encoding="utf-8")
+    assert calls.count("copyto") == 6 and "--ignore-times" in calls
+    recorded = projects.read(folder / ".manuscript-skills.yaml")["coauthors"]["rounds"]["0.5"]
+    assert recorded["docs"] == {"Paper (v0.5)": "https://docs.google.com/document/d/1DocDocDocDocDocDocDocDoc/edit"}
+
+
+def test_record_and_circulated_take_a_round_released_by_hand(rounds: Path) -> None:
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector")
+    assert rounds_cli("record", "0.5", "--base", "966c29f", "--released", "2026-10-19", "--project", folder).returncode == 0
+    assert rounds_cli("circulated", "0.5", "--commit", "2d6aae5", "--date", "2026-10-26", "--project", folder).returncode == 0
+    assert rounds_cli("record", "0.5", "--released", "19 October", "--project", folder).returncode == 2
+    entry = projects.read(folder / ".manuscript-skills.yaml")["coauthors"]["rounds"]["0.5"]
+    assert entry == {"base": "966c29f", "released": "2026-10-19", "circulated": [{"date": "2026-10-26", "commit": "2d6aae5"}]}
+
+
+def test_comments_on_a_second_doc_keep_their_own_master(rounds: Path, capsys) -> None:
+    """The supplement's Doc pulled after the paper's: its comments are found in the supplement, the paper's are not
+    reported gone, and status maps each to its own file in the next round."""
+    folder = rounds / "v0.5"
+    ledger = folder / "comments.yaml"
+    supplement = "# Supplement\n\n## Abstract\n\nTables of every module.\n\n## 1. Introduction\n\n" \
+                 "Whole genome sequencing costs have fallen from billions of dollars to under a thousand since 2003.\n"
+    (folder / "supplement.md").write_text(supplement, encoding="utf-8")
+    cli("import", export(rounds / "paper.docx"), "--ledger", ledger, "--master", folder / "paper.md")
+    capsys.readouterr()
+    cli("import", export(rounds / "supplement.docx", extra=True, month="11"), "--ledger", ledger, "--master", folder / "supplement.md")
+    result = json.loads(capsys.readouterr().out)
+    assert result["not_in_this_pull"] == [] and result["new"] == 5
+    data = ledger_of(ledger)
+    assert data["master"] == "paper.md"
+    own = [i for i in data["items"] if i.get("master") == "supplement.md"]
+    assert len(own) == 5 and [i["id"] for i in data["items"][:4]] == ["C1", "C2", "S1", "C3"]
+    (rounds / "v0.6").mkdir()
+    (rounds / "v0.6" / "paper.md").write_text(MASTER, encoding="utf-8")
+    (rounds / "v0.6" / "supplement.md").write_text(supplement.replace("billions of dollars", "US$80"), encoding="utf-8")
+    capsys.readouterr()
+    cli("status", ledger, "--new", rounds / "v0.6" / "paper.md", "--json")
+    rows = {r["id"]: r for r in json.loads(capsys.readouterr().out)["items"]}
+    billions = next(i["id"] for i in own if i.get("anchor") == "billions of dollars")
+    assert rows[billions]["change"] == "changed" and "US$80" in rows[billions]["after"]
+    assert rows["C2"]["change"] == "unchanged"  # the paper's own sentence did not change

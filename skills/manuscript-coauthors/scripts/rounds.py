@@ -39,6 +39,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
@@ -49,7 +50,7 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "manuscript-integrity-check" / "
 COMMENTS = Path(__file__).resolve().parent / "comments.py"
 LEFT_BEHIND = ("reviews", "build", "comments.yaml", "changes-from-*.md", "*.dashboard.html", "*.review.docx",
                "*.changes.xlsx", "*.proposed.*")  # a round's run outputs and its co-authors' comments stay with it
-DOC_MIME = "application/vnd.google-apps.document"
+OFFICE = (".docx", ".xlsx", ".pptx")  # a release entry already in Drive's import format: uploaded as it is
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -127,36 +128,77 @@ def fill(text: str, **values: str) -> str:
     return text
 
 
-def releases(project: Project, name: str) -> tuple[list[tuple[Path, str]], list[Path]]:
-    """What the round uploads: masters with the title of their Doc, and files as they are."""
+@dataclass(frozen=True)
+class Doc:
+    """One Google Doc (or Sheet) of a release: a master built to .docx, or an office file imported as it is."""
+
+    source: Path
+    title: str
+
+    @property
+    def office(self) -> bool:
+        return self.source.suffix.lower() in OFFICE
+
+    @property
+    def upload(self) -> Path:
+        return self.source if self.office else built(self.source)
+
+    @property
+    def kind(self) -> str:  # the format Drive imports it from, and the extension rclone lists it with
+        return self.upload.suffix.lower()[1:]
+
+    @property
+    def on_drive(self) -> str:
+        return f"{self.title}.{self.kind}"
+
+
+@dataclass(frozen=True)
+class File:
+    """One file of a release, uploaded as it is, to its path below the round's Drive folder."""
+
+    source: Path
+    dest: str
+
+
+def releases(project: Project, name: str) -> tuple[list[Doc], list[File], list[str]]:
+    """What the round uploads: its Docs with their titles, its files with where each goes, and the file
+    patterns that match nothing (a PDF not built yet)."""
     folder = project.folder(name)
-    previous = project.previous(name) or ""
+    values = {"round": name, "previous": project.previous(name) or ""}
     release = project.block.get("release", {})
-    docs: list[tuple[Path, str]] = []
+    docs = []
     for entry in release.get("docs", []):
-        path, _, title = entry.partition("=")
-        path = fill(path, round=name, previous=previous).strip()
-        docs.append((folder / path, fill(title, round=name, previous=previous).strip() or Path(path).stem))
-    files: list[Path] = []
-    for pattern in release.get("files", []):
-        found = sorted(folder.glob(fill(pattern, round=name, previous=previous)))
-        files += [f for f in found if f.is_file()]
-    return docs, files
+        path, _, title = (fill(part, **values).strip() for part in entry.partition("="))
+        docs.append(Doc(folder / path, title or Path(path).stem))
+    files: list[File] = []
+    unmatched: list[str] = []
+    for entry in release.get("files", []):
+        pattern, _, dest = (fill(part, **values).strip() for part in entry.partition("="))
+        found = [f for f in sorted(folder.glob(pattern)) if f.is_file()]
+        if dest and not dest.endswith("/") and len(found) > 1:
+            raise Refused(f"{entry}: {len(found)} files cannot all take the name {dest}; end it with / for a folder.")
+        files += [File(f, f"{dest}{f.name}" if not dest or dest.endswith("/") else dest) for f in found]
+        unmatched += [] if found else [pattern]
+    return docs, files, unmatched
 
 
 def built(master: Path) -> Path:
     return master.parent / "build" / f"{master.stem}.docx"
 
 
-def build_commands(project: Project, docs: list[tuple[Path, str]]) -> list[list[str]]:
-    """How each master becomes a .docx: the project's own build, or pandoc from the clean copy."""
+def build_commands(project: Project, folder: Path, docs: list[Doc]) -> list[list[str]]:
+    """How each master becomes a .docx: the project's own build ({file} is the master below the round folder),
+    or pandoc from the clean copy. An office file needs none."""
     out = []
-    for master, _ in docs:
+    for doc in docs:
+        if doc.office:
+            continue
         if project.block.get("build"):
-            out.append(shlex.split(fill(project.block["build"], file=master.name, stem=master.stem)))
+            relative = doc.source.relative_to(folder).as_posix()
+            out.append(shlex.split(fill(project.block["build"], file=relative, stem=doc.source.stem)))
         else:
-            clean = master.with_name(f"{master.stem}.clean{master.suffix}")
-            out.append(["pandoc", str(clean if clean.exists() else master), "-o", str(built(master))])
+            clean = doc.source.with_name(f"{doc.source.stem}.clean{doc.source.suffix}")
+            out.append(["pandoc", str(clean if clean.exists() else doc.source), "-o", str(built(doc.source))])
     return out
 
 
@@ -165,9 +207,9 @@ def remote(project: Project, name: str, file: str = "") -> list[str]:
     return [target, "--drive-root-folder-id", project.block["folder_id"]]
 
 
-def listing(project: Project, name: str) -> list[dict[str, Any]]:
-    """The round's Drive folder as rclone lists it (empty when it does not exist yet)."""
-    done = subprocess.run(["rclone", "lsjson", *remote(project, name)], capture_output=True, text=True, encoding="utf-8")
+def lsjson(project: Project, name: str, *flags: str) -> list[dict[str, Any]]:
+    done = subprocess.run(["rclone", "lsjson", "-R", *flags, *remote(project, name)], capture_output=True, text=True,
+                          encoding="utf-8")
     if done.returncode != 0:
         if "directory not found" in done.stderr.lower():
             return []
@@ -175,8 +217,23 @@ def listing(project: Project, name: str) -> list[dict[str, Any]]:
     return json.loads(done.stdout or "[]")
 
 
+def listing(project: Project, name: str) -> list[dict[str, Any]]:
+    """The round's Drive folder as rclone lists it, each entry's Path below it. rclone shows a Google Doc as
+    "Title.docx" (a Sheet as "Title.xlsx"), like a Word file; the Docs are what --drive-skip-gdocs leaves out,
+    so each entry says whether it is one (`gdoc`)."""
+    every = lsjson(project, name)
+    plain = {e["ID"] for e in lsjson(project, name, "--drive-skip-gdocs")} if every else set()
+    return [e | {"gdoc": e["ID"] not in plain and not e.get("IsDir")} for e in every]
+
+
 def doc_link(entry: dict[str, Any]) -> str:
-    return f"https://docs.google.com/document/d/{entry['ID']}/edit"
+    kind = {"xlsx": "spreadsheets", "pptx": "presentation"}.get(Path(entry["Name"]).suffix[1:].lower(), "document")
+    return f"https://docs.google.com/{kind}/d/{entry['ID']}/edit"
+
+
+def gdocs(entries: list[dict[str, Any]]) -> dict[str, str]:
+    """The Google Docs and Sheets at the top of the round's folder: title -> link."""
+    return {Path(e["Name"]).stem: doc_link(e) for e in entries if e["gdoc"] and "/" not in e.get("Path", e["Name"])}
 
 
 def execute(commands: list[list[str]], cwd: Path) -> None:
@@ -257,38 +314,40 @@ def push(name: str, go: Annotated[bool, typer.Option("--go", help="Build and upl
     folder = project.folder(name)
     if not folder.is_dir():
         raise Refused(f"{folder} does not exist; open the round first.")
-    docs, files = releases(project, name)
+    docs, files, unmatched = releases(project, name)
     if not docs and not files:
         raise Refused("Nothing to release: save release docs and files with project.py configure --release-doc/--release-file.")
-    if missing := [m.as_posix() for m, _ in docs if not m.is_file()]:
-        raise Refused(f"Missing masters: {', '.join(missing)}.")
+    if missing := [d.source.as_posix() for d in docs if not d.source.is_file()]:
+        raise Refused(f"Missing: {', '.join(missing)}.")
     drive = project.block["drive"]
-    builds = build_commands(project, docs)
+    builds = build_commands(project, folder, docs)
     uploads: list[list[str]] = []
     existing: list[str] = []
     destination = project.pattern.format(round=name)
+    again = ["--ignore-times"] if replace else []
     if drive == "rclone":
-        on_drive = {e["Name"] for e in listing(project, name)} if go else set()
-        for master, title in docs:
-            existing += [title] if title in on_drive else []
-            uploads.append(["rclone", "copyto", str(built(master)), *remote(project, name, f"{title}.docx"),
-                            "--drive-import-formats", "docx", *(["--ignore-times"] if replace else [])])
+        entries = listing(project, name) if go else []
+        on_drive = {(e["gdoc"], e.get("Path", e["Name"])) for e in entries}
+        for doc in docs:
+            existing += [doc.title] if (True, doc.on_drive) in on_drive else []
+            uploads.append(["rclone", "copyto", str(doc.upload), *remote(project, name, doc.on_drive),
+                            "--drive-import-formats", doc.kind, *again])
         for file in files:
-            existing += [file.name] if file.name in on_drive else []
-            uploads.append(["rclone", "copyto", str(file), *remote(project, name, file.name),
-                            *(["--ignore-times"] if replace else [])])
+            existing += [file.dest] if (False, file.dest) in on_drive else []
+            uploads.append(["rclone", "copyto", str(file.source), *remote(project, name, file.dest), *again])
     elif drive == "folder":
         target = Path(project.block["folder"]).expanduser() / destination
-        for master, title in docs:
-            existing += [title] if (target / f"{title}.docx").exists() else []
-            uploads.append(["copy", str(built(master)), str(target / f"{title}.docx")])
+        for doc in docs:
+            existing += [doc.title] if (target / doc.on_drive).exists() else []
+            uploads.append(["copy", str(doc.upload), str(target / doc.on_drive)])
         for file in files:
-            existing += [file.name] if (target / file.name).exists() else []
-            uploads.append(["copy", str(file), str(target / file.name)])
+            existing += [file.dest] if (target / file.dest).exists() else []
+            uploads.append(["copy", str(file.source), str(target / file.dest)])
     plan = {"round": name, "drive": drive, "destination": destination, "build": [shlex.join(c) for c in builds],
-            "upload": [shlex.join(c) for c in uploads]}
+            "upload": [shlex.join(c) for c in uploads], **({"not_found": unmatched} if unmatched else {})}
     if drive == "connector":
-        plan["by_hand"] = [f"{built(m).as_posix()} as the Google Doc “{t}”" for m, t in docs] + [f.as_posix() for f in files]
+        plan["by_hand"] = ([f"{d.upload.as_posix()} as the Google {'Sheet' if d.kind == 'xlsx' else 'Doc'} “{d.title}”"
+                            for d in docs] + [f"{f.source.as_posix()} as {f.dest}" for f in files])
         plan["note"] = "Upload these through the Drive connector or the Drive web page; then record the Doc links."
     if drive == "folder":
         plan["note"] = ("Drive for desktop uploads a .docx as a Word file unless its 'Convert uploads' setting is on; "
@@ -300,7 +359,7 @@ def push(name: str, go: Annotated[bool, typer.Option("--go", help="Build and upl
         raise Refused(f"Already in {destination} on Drive: {', '.join(existing)}. Replacing a Doc keeps its link but "
                       "can detach the co-authors' comments; check its comments, then use --replace.", 1)
     execute(builds, folder)
-    if not_built := [built(m).as_posix() for m, _ in docs if not built(m).is_file()]:
+    if not_built := [d.upload.as_posix() for d in docs if not d.upload.is_file()]:
         raise Refused(f"The build did not write {', '.join(not_built)}.", 3)
     if drive != "connector":
         execute(uploads, folder)
@@ -310,17 +369,26 @@ def push(name: str, go: Annotated[bool, typer.Option("--go", help="Build and upl
     if commit:
         entry.setdefault("circulated", []).append({"date": date.today().isoformat(), "commit": commit})
     if drive == "rclone":
-        titles = {t for _, t in docs}
-        entry["docs"] = entry.get("docs", {}) | {e["Name"]: doc_link(e) for e in listing(project, name)
-                                                 if e.get("MimeType") == DOC_MIME and e["Name"] in titles}
+        titles = {d.title for d in docs}
+        entry["docs"] = entry.get("docs", {}) | {t: link for t, link in gdocs(listing(project, name)).items() if t in titles}
     project.save()
     say(plan | {"uploaded": drive != "connector", "recorded": entry})
 
 
+def a_day(value: str | None) -> str:
+    try:
+        return date.fromisoformat(value).isoformat() if value else date.today().isoformat()
+    except ValueError as exc:
+        raise Refused(f"Not a date (YYYY-MM-DD): {value}.") from exc
+
+
 @app.command()
 def record(name: str, doc: Annotated[list[str] | None, typer.Option("--doc", help="NAME=LINK of a Doc of this round; repeat")] = None,
+           base: Annotated[str | None, typer.Option(help="The commit the round opened from (for a round opened by hand)")] = None,
+           released: Annotated[str | None, typer.Option(help="The day the round went to Drive, YYYY-MM-DD")] = None,
            project_dir: ProjectOption = None) -> None:
-    """Record the round's Doc links: given, or read from its Drive folder with rclone."""
+    """Record the round's Doc links (given, or read from its Drive folder with rclone), and for a round released
+    before these settings existed, its base commit and release day."""
     project = Project(project_dir)
     entry = project.rounds().setdefault(name, {})
     found: dict[str, str] = {}
@@ -329,17 +397,23 @@ def record(name: str, doc: Annotated[list[str] | None, typer.Option("--doc", hel
         if not title.strip() or not link.strip():
             raise Refused(f"--doc takes NAME=LINK, not {item!r}.")
         found[title.strip()] = link.strip()
-    if not doc:
+    if not doc and not base and not released:
         if project.block["drive"] != "rclone":
             raise Refused("Give the links with --doc NAME=LINK; only rclone can read them from Drive.")
-        found = {e["Name"]: doc_link(e) for e in listing(project, name) if e.get("MimeType") == DOC_MIME}
-    entry["docs"] = entry.get("docs", {}) | found
+        found = gdocs(listing(project, name))
+    if base:
+        entry["base"] = base
+    if released:
+        entry["released"] = a_day(released)
+    if found:
+        entry["docs"] = entry.get("docs", {}) | found
     project.save()
-    say({"round": name, "docs": entry["docs"]})
+    say({"round": name, **entry})
 
 
 @app.command()
 def circulated(name: str, commit: Annotated[str | None, typer.Option(help="The commit the co-authors got (default: HEAD)")] = None,
+               day: Annotated[str | None, typer.Option("--date", help="When, YYYY-MM-DD (default: today)")] = None,
                project_dir: ProjectOption = None) -> None:
     """Note that the round went to the co-authors again, as of a commit: the changelog marks what changed since."""
     project = Project(project_dir)
@@ -347,7 +421,7 @@ def circulated(name: str, commit: Annotated[str | None, typer.Option(help="The c
     if not commit:
         raise Refused("No commit: give --commit, or run inside the git repository.", 3)
     entry = project.rounds().setdefault(name, {})
-    entry.setdefault("circulated", []).append({"date": date.today().isoformat(), "commit": commit})
+    entry.setdefault("circulated", []).append({"date": a_day(day), "commit": commit})
     project.save()
     say({"round": name, "circulated": entry["circulated"]})
 
@@ -362,9 +436,11 @@ def pull(name: str, out: Annotated[Path, typer.Option("--out", help="Where the e
     docs = project.rounds().get(name, {}).get("docs", {})
     if not docs:
         raise Refused(f"No Docs recorded for round {name}: rounds.py record {name} --doc NAME=LINK.")
-    masters = {title: master for master, title in releases(project, name)[0]}
+    masters = {d.title: d.source for d in releases(project, name)[0] if not d.office}
     steps = []
     for title, link in docs.items():
+        if "/spreadsheets/" in link or "/presentation/" in link:
+            continue  # a Sheet or Slides: no manuscript text for its comments to sit in
         found = re.search(r"/d/([\w-]{20,})", link)
         file_id = found.group(1) if found else link
         master = masters.get(title)

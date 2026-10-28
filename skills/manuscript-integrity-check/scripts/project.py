@@ -314,8 +314,12 @@ def configure(
     round_folder: Annotated[str | None, typer.Option("--round-folder", help="Each round's folder name, e.g. v{round}")] = None,
     release_build: Annotated[str | None, typer.Option("--release-build", help="The project's own .docx build, "
                                                       "{file} for the master, e.g. 'uv run manuscript build {file} --no-pdf'")] = None,
-    release_doc: Annotated[list[str] | None, typer.Option("--release-doc", help="A master that goes to Drive as a Google Doc; repeat")] = None,
-    release_file: Annotated[list[str] | None, typer.Option("--release-file", help="A file that goes to Drive as it is (PDF, data); repeat")] = None,
+    release_doc: Annotated[list[str] | None, typer.Option("--release-doc", help="PATH=Title: a master built to a Google Doc, "
+                                                          "or a .docx/.xlsx imported as a Doc or Sheet; {round} and {previous} "
+                                                          "are filled in; repeat")] = None,
+    release_file: Annotated[list[str] | None, typer.Option("--release-file", help="PATTERN[=DEST]: files uploaded as they are "
+                                                           "(PDF, data); DEST ending in / is a subfolder, else the file's name "
+                                                           "on Drive; repeat")] = None,
     no_coauthors: Annotated[bool, typer.Option("--no-coauthors", help="Forget the co-author Drive settings")] = False,
     reports: str | None = None,
     edits: str | None = None,
