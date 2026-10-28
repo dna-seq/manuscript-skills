@@ -50,10 +50,18 @@ submitted by mistake.
 
 ## How it differs from other academic-writing skills
 
-Several popular skill collections also review, edit and reference-check papers. Compared with the
-most-starred of them in October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-each-skill-stands-against-popular-skill-repos-2026-10-24)),
-these parts have no counterpart there:
+Several popular skill collections also review, edit and reference-check papers. Compared with the six
+most-starred of them on 28 October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-the-plugin-stands-against-popular-skill-repos-2026-10-28),
+which also lists what they do and this plugin does not), these parts have no counterpart there:
 
+- **A run you can watch and answer in Claude Code.** While a run works, a pane shows each phase and what it
+  found, and a [Decisions pane](#watching-a-run-in-claude-code) asks you each decision: answer it with a
+  button, or have it asked in a session of its own. Your answers go into the same file as the dashboard's
+  To-do tab, and the next run reads it, so a point you dismissed is not raised again. The others report in
+  the chat; one sends approval cards to a messenger.
+- **Rounds with co-authors on Google Docs.** [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md)
+  pulls the comments and suggested edits co-authors left on a round's Google Doc, says how the next round
+  answers each, and releases the round to your shared Drive folder.
 - **Which rules apply to the study.** [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md)
   works out which clinical, ethics and privacy requirements apply, including to authors' own public
   genomes and to papers referred between bioRxiv and medRxiv, and drafts the clarification.
@@ -73,13 +81,17 @@ these parts have no counterpart there:
 Where other skills do the same job, these parts add a check:
 
 - **Every edit is checked by a script**, sentence by sentence, for a stronger claim, a dropped qualifier
-    or a changed number or citation, and no declaration (consent, competing interests, funding, who did
+  or a changed number or citation, and no declaration (consent, competing interests, funding, who did
   what) is written or changed without the facts you gave. The title, Abstract and Conclusions are checked
   against the body, so the summary never claims more than the Results, and no edit moves a detail into the
   wrong section (a measured count or a benchmark setup into the Introduction, a result into Methods).
 - **The corrected version is re-checked by a reader who did not write it:** a fresh agent, which took no
   part in the review or the edits, says for each problem whether the corrected version fixed it, in part or
-  not at all, or made it worse, and the number, reference and section checks run again; an edit that made something worse is undone before the result is handed over.
+  not at all, or made it worse, as academic-research-skills' re-review also does. Here the number,
+  reference and section checks run again too, on the supplement as well as the main text, and an edit that
+  made something worse is undone before the result is handed over.
+- **Claims about the software are checked against its code**, each one on its own, with the file and line
+  that bears it out or contradicts it.
 - **The upload files are checked too:** hidden text and prompts aimed at AI reviewers, LaTeX
   comments, leaked keys and location data in figures.
 - **Figures are judged as printed:** at the journal's column width, in greyscale and as colour-blind

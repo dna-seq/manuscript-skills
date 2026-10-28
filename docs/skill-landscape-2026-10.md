@@ -21,8 +21,8 @@ Most of this survey has been implemented:
 - The optional shared record with study-design keys, and behavioural evaluations under `evals/`.
 
 Every skill was then run on two real manuscripts and graded by independent evaluators; the defects found
-were fixed. Still open from this list:
-- An automated eval runner.
+were fixed. The automated eval runner followed in 0.23.0 (`claude plugin eval`, with and without the
+plugin). Still open from this list:
 - Calibration of the reviewer panel against open life-science reviews.
 - Field-corpus base rates for the style catalogue.
 - Grant proposals.
@@ -34,56 +34,140 @@ to, so the invited-referee mode starts without questions; the panel is stated in
 author can change it; and an in-silico-only budget is recorded as the real reason, beside what was done
 instead.
 
-## Where each skill stands against popular skill repos (2026-10-24)
+## Where the plugin stands against popular skill repos (2026-10-28)
 
-A recheck of all seventeen skills against the most-starred skill repos for academic writing, as they stood
-on 2026-10-24: [blader/humanizer](https://github.com/blader/humanizer) (60,114 stars),
-[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (54,343),
-[Imbad0202/academic-research-skills](https://github.com/Imbad0202/academic-research-skills) (ARS, 53,675),
-[wanshuiyin/Auto-claude-code-research-in-sleep](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)
-(ARIS, 17,990), [Galaxy-Dawn/claude-scholar](https://github.com/Galaxy-Dawn/claude-scholar) (5,888), and
-[Boom5426/Nature-Paper-Skills](https://github.com/Boom5426/Nature-Paper-Skills) (626), the closest
-life-science match. [Leey21/awesome-ai-research-writing](https://github.com/Leey21/awesome-ai-research-writing)
-(35,213) holds only prompts and was left out.
+A recheck of the plugin at release 0.50.1 (eighteen skills and a Claude Code view of a run) against the same
+six skill repos for academic writing, as they stood on 2026-10-28. It replaces the check of 2026-10-24
+(release 0.16.1, seventeen skills), which came before the progress view, the Decisions pane, the To-do tab,
+the co-authors' rounds and the re-check of the corrected version.
 
-**Method.** A shallow clone of each repo; their SKILL.md descriptions were read, and their Markdown, YAML and
-JSON files searched for each capability below. None of their skills was run. A match means their files
-describe the capability; whether it works was not tested, and a capability that lives only in their code
-may be missed.
+| Repo | Stars | Version, skills | Licence | Changed since 2026-10-24 |
+|---|---|---|---|---|
+| [blader/humanizer](https://github.com/blader/humanizer) | 61,799 | 3.1.0; one skill, 26 patterns | MIT | One commit, to its plugin manifest. |
+| [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (K-Dense) | 55,073 | 2.72.0; 177 skills | MIT | One commit, a security-scan report. |
+| [Imbad0202/academic-research-skills](https://github.com/Imbad0202/academic-research-skills) (ARS) | 54,306 | 3.24.0; 5 skills, 35 modes | CC BY-NC 4.0 | A subagent now checks each claim of the referee panel against the manuscript, on by default (their own audit of 805 panel claims put the false ones at 1.5 to 12.9%); the works the panel recommends are looked up; the reviewer waits for the user to confirm its reviewer cards. |
+| [wanshuiyin/Auto-claude-code-research-in-sleep](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep) (ARIS) | 18,225 | 87 skills, in Claude and Codex packs | MIT | A web-search skill and new reviewer defaults; nothing on manuscript checking. |
+| [Galaxy-Dawn/claude-scholar](https://github.com/Galaxy-Dawn/claude-scholar) | 5,923 | 45 skills | MIT | Nothing (last commit 2026-10-19). |
+| [Boom5426/Nature-Paper-Skills](https://github.com/Boom5426/Nature-Paper-Skills) (Boom5426) | 637 | 0.2.0; 27 skills | MIT, with Apache-2.0 parts | Nothing (last commit 2026-10-13). The closest life-science match. |
 
-**No counterpart found in the six repos**
+[Leey21/awesome-ai-research-writing](https://github.com/Leey21/awesome-ai-research-writing) holds only
+prompts and is again left out.
 
-| Skill | What it does | Closest thing found |
+**Method.** As on 2026-10-24: a clone of each repo; its README, plugin manifests, hooks, commands and SKILL.md
+files read; its Markdown, YAML, JSON and code searched, this time for 20 capabilities, the newer parts of this
+plugin among them. None of their skills was run. A match means their files describe the capability; whether it
+works was not tested, and a capability that lives only in their code may be missed. A dash below means nothing
+was found.
+
+### What the plugin added since 2026-10-24
+
+| Area | Added | Release |
 |---|---|---|
-| `manuscript-policy-fit` | Which clinical, ethics and privacy requirements apply, including authors' voluntarily public genomes and bioRxiv/medRxiv referral loops. | None. K-Dense mentions medRxiv only in its literature-search skills. |
-| `manuscript-revision-marks`, `manuscript-mark-people` | Which passages an AI or agent wrote that no person has reviewed since, from marks in the source. | None. |
-| `manuscript-story` | Simulated readers say where they would stop reading; the repair keeps the authors' direction and every caveat. | Boom5426 `manuscript-optimizer` restructures toward a claim chain for a broad reader, without simulated readers. |
-| `manuscript-dashboard` | One offline file, and a Word version with tracked changes, of what a run found, changed and left open, and how much of a human review of the same draft it caught. | ARS keeps auditable quality-assurance files, not a dashboard. |
+| Watching a run in Claude Code | A Claude Code mod (`hooks/progress/`): a status line, a **Manuscript Skills · run** pane with each phase, its counts and the referees' recommendations, a band above the prompt while decisions wait, a notice as each stage finishes, `/manuscript-status` and a `show_run` tool. Codex has no equivalent. | 0.30.0 to 0.50.1 |
+| Answering decisions | A **Decisions** pane: each decision with its section, reason and suggestion, answered with **Go ahead**, **Leave as is** or **Write answer**, or **Ask me in a new session**, which has Claude start a session of its own for that one decision. | 0.34.0, 0.43.0 |
+| What the authors already settled | The dashboard's **To-do** tab: each decision, question, proposal and open major problem marked approved or redundant, saved as `paper.todo.json` beside the manuscript and read by the next run, so a dismissed point is not raised again. The Decisions pane reads and writes the same file. | 0.48.0, 0.50.0 |
+| Co-authors | `manuscript-coauthors`: comments and suggested edits pulled from a Google Doc export into a ledger with stable ids; how the next round answers each (addressed, partly, declined, open); a dashboard section for them; rounds released to a shared Drive folder. | 0.42.0, 0.46.1 |
+| Between rounds | A changelog between two rounds, from the revision marks, its Why taken only from the record, with `--seen` marking what changed since the draft the co-authors last read. | 0.28.0 |
+| Outputs | Fixes that need no decision of the authors applied by default and listed in a changes workbook (`paper.changes.xlsx`); the Word review keeps only what needs the authors; a report-only mode that changes no file; immutable versions that never overwrite an earlier one; one command that applies a stage's edits to a marked manuscript. | 0.27.0, 0.29.0, 0.46.0 |
+| Re-check | A fresh agent, which took no part in the review or the edits, says for each problem whether the corrected version fixed it, in part, not at all, or made it worse; the supplement and the version handed over are re-checked too. | 0.21.0, 0.45.0 |
+| Sections | The title, Abstract and Conclusions checked against the body; each detail held to its section (no measured count in the Introduction, no result in Methods), and a check that no edit brought one forward. | 0.20.0, 0.40.0, 0.48.1 |
+| Code | Each claim about the software checked on its own against the code, with its file and line. | 0.26.0 |
+| References | Every field of a reference checked; text aimed at AI in cited sources found; a random sample of the other cited sentences checked and reported as an estimate; every text read for a cited work kept across runs. | 0.18.0, 0.22.0, 0.49.0 |
+| Referees | Demands grounded in the paper; each seat's and the defender's workspace built by a script; the authors' instructions and memory kept out of the referees' and readers' sessions. | 0.18.0, 0.32.0, 0.47.0 |
+| Venues | One dated store of venue facts, re-read only when old; unchecked venues ranked last; a condition the paper can settle checked against the manuscript; pages that block scripts read in the authors' own Chrome. | 0.30.0, 0.35.0, 0.37.0, 0.39.0 |
+| Figures | Empty space measured, page-wide figures tried in one column, merges recommended. | 0.31.0 |
+| AI-use statement | The short template filled from what the authors say; the run's own edits counted only on request. | 0.24.0, 0.25.0 |
+| Evaluation | Behavioural cases run with `claude plugin eval`, with and without the plugin, a seeded case beside its clean control among them. | 0.23.0, 0.42.1 |
+
+### At a glance
+
+| Capability | manuscript-skills | humanizer | K-Dense | ARS | ARIS | claude-scholar | Boom5426 |
+|---|---|---|---|---|---|---|---|
+| Claude Code interface beyond skills | Status line, two panes, band, notices, a command, a tool | – | – | Two hooks (update notice, write guard), 16 commands | One command; hook templates to merge by hand | Five hooks (security guard, session start, stop and end summaries, skill prompt), 66 commands | – |
+| A long run followed while it works | Panes and status line in Claude Code | – | – | Text status in chat, on request | Feishu cards; a macOS widget of the sessions awaiting a permission | – | – |
+| Decisions answered outside the chat | Buttons in a pane; a session per decision | – | – | – (checkpoints in chat) | Feishu cards (approve, reject, custom), off by default | – | – |
+| Plugin hosts | Claude Code, Codex | Claude Code, Cursor | Skills installed by `npx` for many agents | Claude Code, Pi; Codex in a sibling repo | Claude Code, Codex; adapters for Cursor, Copilot and others | Claude Code; Codex, OpenCode and Kimi on branches | Claude Code and Codex by an installer; ChatGPT Work |
+| A report of the whole run | Offline HTML dashboard | – | – | Process record (Markdown, PDF) | HTML of review scores by round | – | – |
+| Word file with tracked changes and comments; a workbook of changes | Both | – | – | Plain DOCX | – | – | – |
+| The authors' dismissals read by the next run | `paper.todo.json` | – | – | Triage of referee comments (will or won't address) | Integrity waivers only | – | A log of scope decisions |
+| Report-only mode; earlier versions kept | Both | – (writes over the file) | Its scaffold never overwrites | Patches written to a new file; the reviewer is read-only | Each round's PDF kept | – | A review request edits nothing |
+| Co-authors' comments; rounds on a shared drive | Google Docs and Drive | – | – | – | Two-way Overleaf sync, no comments | – | – |
+| Changelog between rounds | From the revision marks | – | – | An apply report per round | A diff per round | – | – |
+| Which passages an AI wrote and no person reviewed since | Per passage | – | Per claim: a hash of text a person verified | – | – | – | – |
+| The revision re-checked by a fresh agent | Per problem: fixed, in part, not, worse | – | – | Five states, made worse among them | A fresh reviewer each round | – | A fresh sceptic, for claim sources only |
+| Summary against the body; each detail in its section | Both, by script | – | Guidance | Summary against the body | Title and abstract overclaim | A question on scope | Both, as section contracts |
+| Software claims against the code | Each, with file and line | – | – | – | Numbers against result files | – | – |
+| Simulated referees kept apart | A workspace per seat; the authors' instructions and memory left out | – | – | No peer reports before each seat commits | Another model family; no earlier rounds shown | – | One referee |
+| Evaluations with and without the skills | `claude plugin eval`; seeded and clean cases | – | One paired case | `claude plugin eval`; seeded and clean cases | Tests of contracts and gates | Fixtures, no runner | Hidden rubrics, graded by hand |
+| Texts of cited works kept across runs | Yes | – | – | Within a run | arXiv PDFs, opt-in | Full text from the user's Zotero | – |
+| Venue facts with page and date | One store, every fact dated | – | About 15 venues, dated | AI policies of 15 venues, dated | ML checklists, no sources | ML checklists, no sources | Three Nature journals, undated |
+| AI-use statement | From the authors' account; the run's edits on request | – | Lists the facts, drafts none | From commit history and pipeline log | – | – | A two-sentence template |
+| Supplement corrected and re-checked | Yes | – | Read, not edited | – | Appendix checked for theorem drift | – | A section contract of its own |
+
+### No counterpart found in the six repos
+
+| Part | What it does | Closest thing found |
+|---|---|---|
+| The progress view and Decisions pane in Claude Code (`hooks/progress/`) | A run of two to four hours shown as it works: a status line, a pane with each phase, its counts and the referees' recommendations, a band and a notice when decisions wait, and a pane where each decision is answered with a button or opened in a session of its own. The answers go into the marks file the dashboard's To-do tab writes and the next run reads. | ARIS sends Feishu cards with approve, reject and custom replies (off by default) and ships a separate macOS widget that shows which Claude Code sessions wait for a permission. claude-scholar's hooks print summaries at the start and end of a session. ARS prints a text status in chat. None draws inside Claude Code. |
+| `manuscript-coauthors` | Co-authors' comments and suggested edits pulled from a Google Doc into a ledger with stable ids; how the next round answers each; rounds released to a shared Drive folder. | ARIS `overleaf-sync` keeps a local folder and an Overleaf project in step; it reads no comments. |
+| `manuscript-dashboard` and its To-do tab | One offline file, a Word version with tracked changes and comments, and a workbook of changes, of what a run found, changed and left open, and how much of a human review of the same draft it caught. The authors mark each item approved or redundant, and the next run reads the marks. | ARS keeps a process record (Markdown, PDF) and a will-or-won't-address triage of referee comments; ARIS renders its review scores by round as HTML. |
+| `manuscript-policy-fit` | Which clinical, ethics and privacy requirements apply, including authors' voluntarily public genomes and bioRxiv/medRxiv referral loops. | None. K-Dense names medRxiv only as a source to search. |
+| `manuscript-revision-marks`, `manuscript-mark-people` | Which passages an AI or agent wrote that no person has reviewed since, from marks in the source, and the changelog between two rounds. | K-Dense hashes each claim a person verified and rejects text changed since, per claim, not per passage. ARS's apply report and ARIS's diff per round list what changed, not who changed it. |
+| `manuscript-story` | Simulated readers say where they would stop reading; the repair keeps the authors' direction and every caveat. | Boom5426 `manuscript-optimizer` writes for an editor, a reviewer and a broad peer as framing, without simulated readers. |
 | `manuscript-journal-select` | Preprint and journal ladders ordered by the authors' priorities, AI-policy burden among them, from dated and sourced venue entries. | Boom5426 `nature-portfolio-playbook` (Nature, Nature Methods and Nature Biotechnology only); K-Dense `venue-templates` (formatting, not choice). |
 
-**Ahead in a crowded area**
+### Ahead in a crowded area
 
 | Skill | Popular alternatives | What ours adds |
 |---|---|---|
-| `manuscript-prose-edit` | humanizer; claude-scholar `nature-polishing` | `guard.py` aligns the sentences of the two versions and fails a stronger claim, a lost qualifier or a changed number or citation. The alternatives edit without such a check; ARIS forbids new numbers and citations in an edit, a narrower rule. |
-| `manuscript-integrity-check` | ARIS `integrity-forensics` and `paper-claim-audit`; Boom5426 `submission-audit` | `hygiene.py` checks the upload files for hidden text and prompts aimed at AI reviewers, LaTeX comments, secrets, EXIF data and anonymity; we found this in none of the six. Numbers are also checked against the project's code and run logs. ARIS checks numbers against raw result files, for ML papers. |
-| `manuscript-figures` | Boom5426 `nature-figure` and `figure-style`; ARIS `paper-figure`; claude-scholar `publication-chart-skill` | These mostly make figures. Ours reviews the authors' existing figures at print size, in greyscale and as colour-blind readers see them, against caption, text and code, and gives a keep, change or supplement verdict without touching the files. |
-| `manuscript-reporting-check` | K-Dense; Boom5426 `data-availability`; claude-scholar `nature-data` | `check_availability.py` resolves accessions and packages (GEO, EGA, dbGaP, Zenodo, Bioconductor, bioconda, PyPI, CRAN, RRID, Software Heritage), and the guidelines include DOME, STREGA, TRIPOD+AI and MDAR. The omics standards are no longer ours alone: K-Dense now names MINSEQE, MIAME and MIxS. |
+| `manuscript-prose-edit` | humanizer; claude-scholar `nature-polishing` | `guard.py` aligns the sentences of the two versions and fails a stronger claim, a lost qualifier or a changed number or citation. The alternatives edit without such a check; ARIS can forbid new numbers and citations with an edit whitelist, off by default. |
+| `manuscript-integrity-check` | ARIS `integrity-forensics` and `paper-claim-audit`; Boom5426 `submission-audit` and its section contracts | `hygiene.py` checks the upload files for hidden text and prompts aimed at AI reviewers, LaTeX comments, secrets, EXIF data and anonymity; we found this in none of the six. Each claim about the software is checked against the code with its file and line; ARIS checks numbers against result files, for ML papers. A detail in the wrong section, and an edit that brings one forward, are found by script; Boom5426 states the same rules as contracts for the agent to follow. |
+| `manuscript-figures` | Boom5426 `nature-figure` and `figure-style`; ARIS `paper-figure`; claude-scholar `publication-chart-skill` | These mostly make figures; claude-scholar's also reviews an existing one, and Boom5426's scripts check overlaps and panel alignment. Ours reviews the authors' figures at print size, in greyscale and as colour-blind readers see them, against caption, text and code, measures empty space, tries a page-wide figure in one column, and gives a keep, change, merge or supplement verdict without touching the files. |
+| `manuscript-reporting-check` | K-Dense; Boom5426 `data-availability`; claude-scholar `nature-data` | `check_availability.py` resolves accessions and packages (GEO, EGA, dbGaP, Zenodo, Bioconductor, bioconda, PyPI, CRAN, RRID, Software Heritage), and the guidelines include DOME, STREGA, TRIPOD+AI and MDAR. K-Dense also names MINSEQE, MIAME and MIxS, and picks guidelines from a dated list (CONSORT 2025, SPIRIT 2025, TRIPOD+AI). |
 
-**On par; the value is in the combination**
+### On par; the value is in the combination
 
 | Skill | Popular alternatives | Note |
 |---|---|---|
-| `manuscript-peer-review` | ARS `academic-paper-reviewer` (five seats, a calibration mode); K-Dense `peer-review`; Boom5426 `paper-reviewer` | ARS is more elaborate but CC BY-NC. Ours reviews for a real journal whose pages were read, with a defender, script-checked quotes and no scores. |
-| `manuscript-reviewer-response` | Boom5426 `rebuttal-response`; ARIS `rebuttal`; ARS rebuttal-audit mode; claude-scholar `review-response` | `check_response.py` checks that each reply's location, quoted text and numbers exist in the revised manuscript, round after round. Boom5426 comes close. |
-| `manuscript-reference-check` | ARIS `citation-audit`; Boom5426 `claim-source-verification`; K-Dense `citation-management` | Comparable: identity, retractions, preprints since published, and support quoted from the source. |
-| `manuscript-deslop` | humanizer; claude-scholar `writing-anti-ai` | The same Wikipedia source. Ours adds exceptions for scientific writing and the counted before/after check. |
-| `manuscript-journal-adapt` | K-Dense `venue-templates`; ARS disclosure mode | K-Dense ships LaTeX templates and we do not; `policy_watch.py` notices changed AI policies. |
-| `manuscript-other-models` | ARIS (a Codex reviewer by default, with Gemini and Claude variants); ARS (Codex for citation checks) | Not new. Ours runs in either direction through the command-line agents the authors already use. |
-| `manuscript-improve` | ARS `academic-pipeline`; ARIS research and paper pipelines | Theirs start from research and write the paper; ours improves an existing one and ends with the corrected version and the dashboard. |
+| `manuscript-peer-review` | ARS `academic-paper-reviewer`; K-Dense `peer-review`; Boom5426 `paper-reviewer`; ARIS reviewers from another model family | ARS is more elaborate (five seats, a calibration mode, and now a subagent that checks each panel claim against the manuscript) but CC BY-NC. Ours reviews for a real journal whose pages were read, with a defender, script-checked quotes, a workspace per seat built by a script, and no scores. |
+| `manuscript-reviewer-response` | Boom5426 `rebuttal-response` (its `check_coverage.py` is in `paper-reviewer`); ARIS `rebuttal`; ARS rebuttal-audit mode; claude-scholar `review-response` and `nature-response` | `check_response.py` checks that each reply's location, quoted text and numbers exist in the revised manuscript, round after round. Boom5426 comes close. |
+| `manuscript-reference-check` | ARIS `citation-audit` and `citation-crosscheck`; ARS citation gate; Boom5426 `claim-source-verification`; K-Dense `citation-management` | Comparable: identity, retractions, preprints since published, and support quoted from the source. ARS looks the reference up in four indexes by script; ours also keeps every text read for a cited work across runs and estimates the rest from a random sample of cited sentences. |
+| `manuscript-deslop` | humanizer; claude-scholar `writing-anti-ai`; Boom5426 `ai_tells.py` | The same Wikipedia source (humanizer now lists 26 patterns); Boom5426 counts rates against 28 published papers. Ours adds exceptions for scientific writing and the counted before/after check. |
+| `manuscript-journal-adapt` | K-Dense `venue-templates`; ARS disclosure mode | K-Dense ships LaTeX templates and we do not. ARS drafts the AI-use statement from the commit history and its pipeline log, for 15 venue policies; ours fills a short template from what the authors say, counts the run's own edits on request, and `policy_watch.py` notices changed AI policies. |
+| `manuscript-other-models` | ARIS (Codex by default; Gemini, Grok or Claude selectable); ARS (Codex, optional, for citation checks) | Not new. Ours runs in either direction through the command-line agents the authors already use, under their own sign-ins. |
+| `manuscript-improve` | ARS `academic-pipeline`; ARIS research, paper-writing and improvement loops | ARS can also start from an existing paper or from referee comments, and its re-review also tells fixed from made worse; ARIS's loop edits its own LaTeX until a fresh reviewer is satisfied, autonomously by default. Ours improves the authors' paper, applies only the fixes that need no decision of theirs, and ends with the corrected version, its re-check and the dashboard. |
+| Behavioural evaluation (the whole plugin) | ARS `plugin-evals` | Both run `claude plugin eval` with and without the plugin, on seeded cases and clean controls. |
+
+### Where they are ahead
+
+| What | Who | Here |
+|---|---|---|
+| Writing a paper from research or from scratch | ARS, ARIS, K-Dense `scientific-writing`, Boom5426 `paper-workflow` | Out of scope: the plugin improves a paper the authors wrote. |
+| Making figures | Boom5426 `nature-figure`, ARIS `paper-figure`, claude-scholar `publication-chart-skill` | Figures are reviewed; the files are left alone. |
+| LaTeX venue templates | K-Dense `venue-templates` | None. |
+| A reviewer calibrated against a gold set | ARS calibration mode | Open (see the status above). |
+| Systematic-review screening | ARS `sr-screener` (two blinded reviewers, kappa, PRISMA counts) | Not covered. |
+| Reference managers and notes | ARS and claude-scholar (Zotero, Obsidian) | The bibliography files are read and their identifiers looked up. |
+| A hook that limits what each agent may write | ARS write guard; claude-scholar security guard | Referees' and readers' workspaces are built by a script; no hook guards writes. |
+| Notices away from the computer | ARIS Feishu cards | Notices only inside Claude Code; Codex users follow a run in the chat and the run index. |
+| Overleaf | ARIS `overleaf-sync` | Rounds go to Google Drive, not Overleaf. |
+| Languages | ARS (READMEs in six languages), claude-scholar (Chinese and Japanese), Boom5426 (Chinese triggers) | English only. |
+
+### Corrections to the 2026-10-24 check
+
+- ARIS's edit whitelist (no new numbers or citations) is opt-in and off by default; only its resubmission
+  pipeline makes one by itself. Its reviewer is Codex by default, and since 2026-10-19 Gemini, Grok or Claude
+  can be chosen instead.
+- ARS can start from an existing paper or from referee comments, not only from research. It uses Codex only
+  optionally, for citation checks; its citation gate looks references up in Crossref, OpenAlex, Semantic
+  Scholar and arXiv by script.
+- Boom5426's `check_coverage.py` belongs to `paper-reviewer`, not `rebuttal-response`.
+- claude-scholar's `publication-chart-skill` also reviews an existing figure or table.
+- K-Dense's footer that adds its own paper to the user's references is in 136 of its 177 SKILL.md files.
 
 Across the plugin: it is MIT-licensed where ARS is non-commercial, its venue data is strongest in
-bioinformatics, genomics and aging, and it improves a manuscript the authors wrote instead of writing one.
+bioinformatics, genomics and aging, it improves a manuscript the authors wrote instead of writing one, and it
+is the only one of the seven that shows a run inside Claude Code; Codex users do not get that view.
 
 The repository descriptions below are as surveyed on 2026-10-15.
 
