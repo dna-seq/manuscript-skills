@@ -48,13 +48,25 @@ submitted by mistake.
 </tr>
 </table>
 
-## How it differs from other academic-writing skills
+## How it differs from Claude Science and other academic-writing skills
 
-[![Manuscript Skills 0.50.1 against the six most-starred academic-writing skill repos (humanizer, K-Dense skills, Academic Research Skills, ARIS, claude-scholar, Nature-Paper-Skills) on 20 capabilities, each included, partial, opt-in or not found, with a short note; checked 28 October 2026](docs/images/comparison.png)](docs/skill-landscape-2026-10.md#at-a-glance)
+[![Manuscript Skills 0.50.1 against Claude Science and the six most-starred academic-writing skill repos (humanizer, K-Dense skills, Academic Research Skills, ARIS, claude-scholar, Nature-Paper-Skills) on 24 capabilities, each included, partial, opt-in or not found, with a short note; checked 28 October 2026](docs/images/comparison.png)](docs/skill-landscape-2026-10.md#at-a-glance)
+
+The main alternative is [Claude Science](https://claude.com/product/claude-science), Anthropic's research
+workbench, where many researchers already write papers and grant applications. It is strongest before the
+draft: it runs your analyses on your own computer, cluster or cloud GPUs, keeps the code and environment behind
+every result, has a reviewer check its claims against what actually ran, and searches funding opportunities.
+This plugin starts from the draft, wherever it was written: it reviews and edits the paper as a whole under a
+script that fails any edit that strengthens a claim or changes a number, simulates the target journal's
+referees, ranks journals by your priorities, works through co-authors' comments, and leaves you a dashboard, a
+Word review with tracked changes and a To-do list the next run reads. Claude Science has none of these built
+in, and this plugin runs no analyses and does not write grants. The two can be combined: Claude Science imports
+skills from a GitHub repository laid out like this one, though that has not been tried.
 
 Several popular skill collections also review, edit and reference-check papers. Compared with the six
-most-starred of them on 28 October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-the-plugin-stands-against-popular-skill-repos-2026-10-28),
-which also lists what they do and this plugin does not), these parts have no counterpart there:
+most-starred of them on 28 October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-the-plugin-stands-against-claude-science-and-popular-skill-repos-2026-10-28),
+which also lists what they and Claude Science do and this plugin does not), these parts have no counterpart
+there:
 
 - **A run you can watch and answer in Claude Code.** While a run works, a pane shows each phase and what it
   found, and a [Decisions pane](#watching-a-run-in-claude-code) asks you each decision: answer it with a
