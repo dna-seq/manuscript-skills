@@ -138,7 +138,7 @@ Omit when empty.>
 - <Each missing input and its consequence, e.g. "Supplementary Table S1 was not supplied, so the test
   set's composition was judged from the Methods alone.">
 <Which models the referees ran on, when more than one ("The three referees ran on Claude Opus 5.5 and
-again on GPT-5.6-Sol through Codex CLI"), and any seat that failed on one. When the stakes justify it,
+again on GPT-6.1-Sol through Codex CLI"), and any seat that failed on one. When the stakes justify it,
 one sentence offering the robustness check or referees on another model family, with their cost
 (options.md).>
 ```

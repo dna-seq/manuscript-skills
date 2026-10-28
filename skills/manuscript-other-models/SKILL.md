@@ -32,20 +32,28 @@ Relative to this skill's directory:
 
 ```bash
 uv run --script scripts/models.py detect
-uv run --script scripts/models.py check codex --model gpt-5.6-sol
+uv run --script scripts/models.py check codex
 ```
 
 `detect` lists the CLIs installed here (Claude Code, Codex CLI, Gemini CLI), which one this session runs in
-(the host), which are another model family, and the models each offers. `check` makes one tiny call in an
-empty folder, without the manuscript, and says whether the CLI is signed in and accepts the model, in the
-CLI's own words. Run it once before the first seat on each model.
+(the host), which are another model family, and the models each offers; for Codex it also says how the CLI
+is signed in (a ChatGPT work workspace, a personal ChatGPT plan or a stored API key). `check` makes one tiny
+call in an empty folder, without the manuscript, and says whether the CLI is signed in and accepts the
+model, in the CLI's own words. Without `--model`, Codex uses the default the authors configured, which is the
+model to use unless they choose another. Run `check` once before the first seat on each model.
 
 - **Not signed in**: the authors sign in themselves (`codex login`, `claude` then `/login`, `gemini`). Never
   type a credential or set an API key for them. A CLI that works in their terminal only through an API key
   reports "not signed in" here too: `check` and `run` leave provider keys out, so that the seats use the
   CLI's own sign-in and nobody's API account is billed unasked.
-- **A model refused**: Codex's configured default can be one its ChatGPT sign-in refuses; pass one it lists
-  with `--model`.
+- **A model refused**: Codex answers "not supported when using Codex with a ChatGPT account" both for a CLI
+  too old for the model and for a sign-in that is not offered it, so never fall back to an older model it
+  lists. First update Codex CLI (`codex update`, or the package manager it came from; its list of models is
+  rewritten by the new version) and run `check` again: on 28 October 2026 an outdated CLI was refused
+  GPT-6.1-Sol on a work workspace, and the updated one accepted it. If it is still refused, look at the
+  sign-in `check` reports: Codex offers a personal ChatGPT plan fewer and older models than a work (business
+  or enterprise) workspace, so where the authors have one they sign in to it themselves (`codex logout`, then
+  `codex login`, choosing the work workspace). A weaker model is the authors' choice, made knowingly.
 - **From inside Codex**, its sandbox has no network for commands: run `check` and `run` with escalated
   permissions (Codex asks the authors to approve), or the other CLI cannot reach its model. `detect` says
   so. A Claude Code session with its sandbox switched on needs the same.
@@ -59,7 +67,7 @@ A choice made in the conversation applies to this run. When the authors want it 
 paper, save it in the project:
 
 ```bash
-uv run --script ../manuscript-integrity-check/scripts/project.py configure ROOT --other-model codex/gpt-5.6-sol
+uv run --script ../manuscript-integrity-check/scripts/project.py configure ROOT --other-model codex/gpt-6.1-sol
 ```
 
 Each `--other-model` is a CLI, or a CLI and model as `CLI/MODEL`; repeat it for several. `--one-model`
@@ -94,7 +102,7 @@ the workspace by its absolute path, as the template says ("Work only from the fi
 /abs/path/to/WS"); the script replaces that path with the copy's and sends the brief otherwise as it is:
 
 ```bash
-uv run --script scripts/models.py run codex --workspace WS --brief BRIEF --model gpt-5.6-sol --timeout 3600
+uv run --script scripts/models.py run codex --workspace WS --brief BRIEF --model gpt-6.1-sol --timeout 3600
 ```
 
 `run` copies the workspace to a new temporary folder outside every project, starts a new session of the
@@ -140,7 +148,7 @@ Register each seat's output as its skill says, with its model, and its `seat-run
 ```bash
 uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-peer-review \
   --file WS/findings.json --role referee --seat skeptic@codex --isolation fresh-agent \
-  --model codex/gpt-5.6-sol --name referees/skeptic@codex/findings.json
+  --model codex/gpt-6.1-sol --name referees/skeptic@codex/findings.json
 uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill manuscript-peer-review \
   --file WS/seat-run.json --role other --name referees/skeptic@codex/seat-run.json
 ```
@@ -160,7 +168,7 @@ read every seat.
 - **Count nothing as corroboration.** A concern three models raised is not confirmed by that; one only one
   model raised is not weaker for it. The verdict comes from the quote and the defence.
 - **Say which models read the paper**, in words, in the report's opening or "What this review did not
-  have": "Three referees on Claude Opus 5.5 and the same three on GPT-5.6-Sol through Codex CLI." Seat
+  have": "Three referees on Claude Opus 5.5 and the same three on GPT-6.1-Sol through Codex CLI." Seat
   names stay in parentheses. For a seat whose reads only its brief kept in its copy (Codex, Gemini), say so
   in "What this review did not have": "the referees on Codex were told to read only their copy of the
   paper; Codex limits what they write, not what they read." Note a concern only another model raised when

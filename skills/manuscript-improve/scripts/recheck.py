@@ -15,7 +15,7 @@ change reasons, no summary, no adjudication.
         --json RUN/manuscript-improve/recheck/numbers.json [--online]
     uv run --script recheck.py check RUN/manuscript-improve/recheck/answer.json \\
         --numbers RUN/manuscript-improve/recheck/numbers.json --out RUN/manuscript-improve/recheck.json \\
-        [--isolation fresh-agent] [--model codex/gpt-5.6-sol]
+        [--isolation fresh-agent] [--model codex/gpt-6.1-sol]
 
 `prepare` writes the agent's folder: the reviewed text (`original<ext>`), the corrected version (`corrected<ext>`),
 the content changes between them as the claim guard lists them (`changes.json`), each confirmed problem with its

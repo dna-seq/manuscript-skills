@@ -87,7 +87,7 @@ readers (the default three, or the readers saved for the project). Explicitly as
 Who reads the paper is the authors' choice too: `configure PROJECT_FOLDER --reader "clinician: a hospital
 physician who orders genetic tests" --reader ...` saves the story panel's readers, and `--referee` adds
 up to two custom referee seats; `--default-panels` returns to the default seats. Which models read it is
-theirs as well: `--other-model codex/gpt-5.6-sol` (repeatable) saves the other models the panels' seats also
+theirs as well: `--other-model codex/gpt-6.1-sol` (repeatable) saves the other models the panels' seats also
 run on ([manuscript-other-models](../../manuscript-other-models/SKILL.md)), and their agreement to send the
 reading copy to those providers; `--one-model` forgets them. Never set it without their asking.
 
@@ -263,7 +263,7 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    starts in the session's folder, so "this directory" would be the whole project. For seats on Codex and
    Gemini that instruction is the only read boundary (they limit writes, not reads); Claude Code enforces it.
 5. **Record how each seat ran.** Register its output with `--isolation fresh-agent`, or `--isolation
-   one-agent` under the fallback below, and with `--model` (`codex/gpt-5.6-sol`) when the run uses more
+   one-agent` under the fallback below, and with `--model` (`codex/gpt-6.1-sol`) when the run uses more
    than one model. `runs.py validate` refuses a completed story or peer-review stage
    whose reader, referee, seat or defence output does not say, and the dashboard shows which seats were
    not independent. For a run registered before this rule, `runs.py isolation RUN --skill SKILL --path

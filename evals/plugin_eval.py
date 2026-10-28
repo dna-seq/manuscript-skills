@@ -8,7 +8,7 @@ on a model of another family.
     uv run --script evals/plugin_eval.py export [--name RUN] [--case GLOB] [--runs 3]
     uv run --script evals/plugin_eval.py run [--name RUN] [--case GLOB] [--runs 3] [--model M] [--judge-model M] \\
         [--max-cost-usd 20] [--network]
-    uv run --script evals/plugin_eval.py grade evals/plugin-eval-runs/RUN/result.json --model codex/gpt-5.6-sol
+    uv run --script evals/plugin_eval.py grade evals/plugin-eval-runs/RUN/result.json --model codex/gpt-6.1-sol
     uv run --script evals/plugin_eval.py pairs evals/plugin-eval-runs/RUN/result.json
 
 `export` writes each case of evals/*.yaml as a `claude plugin eval` case folder in `evals/plugin-eval-runs/RUN/` (the
@@ -280,7 +280,7 @@ def call_second_grader(cli_model: str, workspace: Path) -> dict[str, Any]:
 @app.command()
 def grade(
     result: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="claude plugin eval's result.json")],
-    model: Annotated[str, typer.Option(help="The second grader, as CLI or CLI/MODEL (codex/gpt-5.6-sol)")],
+    model: Annotated[str, typer.Option(help="The second grader, as CLI or CLI/MODEL (codex/gpt-6.1-sol)")],
     out: Annotated[Optional[Path], typer.Option(help="Where to write the comparison (default: beside the result)")] = None,
 ) -> None:
     """Grade every run's transcript again on another model family and set its verdicts beside the Claude judge's."""

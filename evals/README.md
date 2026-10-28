@@ -74,7 +74,7 @@ verdict its own files call for, so a pair holds when both cases pass.
 
 ```bash
 uv run --script evals/plugin_eval.py run --case "reviewer-response-*" --runs 3 --judge-model sonnet --max-cost-usd 20
-uv run --script evals/plugin_eval.py grade evals/plugin-eval-runs/RUN/result.json --model codex/gpt-5.6-sol
+uv run --script evals/plugin_eval.py grade evals/plugin-eval-runs/RUN/result.json --model codex/gpt-6.1-sol
 uv run --script evals/plugin_eval.py pairs evals/plugin-eval-runs/RUN/result.json
 ```
 

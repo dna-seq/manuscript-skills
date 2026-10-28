@@ -113,7 +113,9 @@ def test_detect_names_the_host_the_other_families_and_a_codex_default_it_does_no
     clis = {c["cli"]: c for c in data["clis"]}
     assert data["host"] == "claude" and clis["claude"]["host"] and not clis["claude"]["other_family"]
     assert clis["codex"]["other_family"] and clis["gemini"]["other_family"] and clis["codex"]["version"] == "codex 9.9.9"
-    assert clis["codex"]["models"] == ["gpt-y"] and "gpt-old" in clis["codex"]["notes"][0]
+    assert clis["codex"]["models"] == ["gpt-y"] and any("gpt-old" in note for note in clis["codex"]["notes"])
+    # Not listed is no reason to drop to a listed model: the note sends the authors to `check` and an update first.
+    assert any("Pass an older model with --model only when the authors choose it" in n for n in clis["codex"]["notes"])
     # A Codex session started from Claude Code inherits CLAUDECODE: the innermost host is Codex.
     monkeypatch.setenv("CODEX_THREAD_ID", "t")
     monkeypatch.setenv("CODEX_SANDBOX_NETWORK_DISABLED", "1")
@@ -201,3 +203,66 @@ def test_check_makes_one_tiny_call_without_the_manuscript(fakes) -> None:
     assert result.exit_code == 0 and "Codex CLI: ready, model codex/gpt-y" in result.output
     [call] = calls(fakes)
     assert call["prompt"] == models.PING and not Path(call["cwd"]).exists()
+
+
+def _id_token(plan: str) -> str:
+    """A token shaped like the one Codex keeps: only its claims are read, so the signature is a placeholder."""
+    claims = {"https://api.openai.com/auth": {"chatgpt_plan_type": plan}, "email": "someone@example.org"}
+    payload = models.base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    return f"header.{payload}.signature"
+
+
+@pytest.mark.parametrize("auth, expected, words", [
+    ({"auth_mode": "chatgpt", "tokens": {"id_token": _id_token("self_serve_business_prolite")}},
+     {"auth_mode": "chatgpt", "plan": "self_serve_business_prolite", "workspace": "work"}, "a work workspace"),
+    ({"auth_mode": "chatgpt", "tokens": {"id_token": _id_token("enterprise")}},
+     {"auth_mode": "chatgpt", "plan": "enterprise", "workspace": "work"}, "a work workspace"),
+    ({"auth_mode": "chatgpt", "tokens": {"id_token": _id_token("plus")}},
+     {"auth_mode": "chatgpt", "plan": "plus", "workspace": "personal"}, "choosing the work workspace"),
+    ({"auth_mode": "apikey", "OPENAI_API_KEY": "sk-not-a-key"}, {"auth_mode": "apikey"}, "an API key it stores"),
+    ({"auth_mode": "chatgpt", "tokens": {"id_token": "not.a-token"}}, {"auth_mode": "chatgpt"}, "chatgpt"),
+])
+def test_codex_sign_in_is_named_without_any_secret(fakes, tmp_path, auth: dict, expected: dict, words: str) -> None:
+    (tmp_path / "codex-home" / "auth.json").write_text(json.dumps(auth), encoding="utf-8")
+    account = models.codex_account()
+    assert account == expected
+    line = models.codex_account_line(account)
+    assert words in line and "sk-not-a-key" not in line and "someone@example.org" not in line
+    detected = json.loads(runner.invoke(models.app, ["detect", "--json"]).output)
+    codex = next(c for c in detected["clis"] if c["cli"] == "codex")
+    assert codex["sign_in"] == expected and line in codex["notes"]
+    assert "sk-not-a-key" not in json.dumps(detected) and "header." not in json.dumps(detected)
+
+
+def test_codex_with_no_sign_in_says_so(fakes) -> None:
+    assert models.codex_account() == {} and "not found" in models.codex_account_line({})
+
+
+@pytest.mark.parametrize("error, advised", [
+    ("The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.", True),
+    ("model_not_found", True),
+    ("Not logged in", False),
+    ("Codex gave no final message.", False),
+])
+def test_a_refused_codex_model_sends_the_authors_to_an_update_before_an_older_model(fakes, error, advised) -> None:
+    advice = models.codex_refusal_advice(error, "codex-cli 0.152.0")
+    assert bool(advice) == advised
+    if advised:
+        assert "codex update" in advice and "0.152.0" in advice and "never a silent fallback" in advice
+
+
+def test_a_codex_model_list_written_by_another_version_is_named(fakes, tmp_path) -> None:
+    cache = tmp_path / "codex-home" / "models_cache.json"
+    cache.write_text(json.dumps({"client_version": "0.1.0", **json.loads(cache.read_text())}), encoding="utf-8")
+    codex = next(c for c in json.loads(runner.invoke(models.app, ["detect", "--json"]).output)["clis"]
+                 if c["cli"] == "codex")
+    assert any("written by Codex CLI 0.1.0" in note for note in codex["notes"])
+
+
+def test_only_the_route_settings_a_cli_reads_are_named(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gateway.example.org")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    assert models.sign_in("codex")["route_settings_kept"] == []
+    assert models.sign_in("claude")["route_settings_kept"] == ["ANTHROPIC_BASE_URL"]
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://proxy.example.org")
+    assert models.sign_in("codex")["route_settings_kept"] == ["OPENAI_BASE_URL"]

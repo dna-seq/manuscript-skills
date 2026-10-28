@@ -338,7 +338,7 @@ def artifact(run: Path, data: dict[str, Any], name: str, source: Path, role: str
             shutil.copyfileobj(original, output)
     item = {"path": target.relative_to(run.resolve()).as_posix(), "role": role, "seat": seat,
             "sha256": digest(target), "recorded_at": now()}
-    if model:  # the model that produced it, as manuscript-other-models names it: codex/gpt-5.6-sol
+    if model:  # the model that produced it, as manuscript-other-models names it: codex/gpt-6.1-sol
         item["model"] = model
     if role in PANEL:
         item["isolation"] = isolation
@@ -709,7 +709,7 @@ def begin(run: Path, skill: Annotated[str, typer.Option('--skill')],
 def add(run: Path, skill: Annotated[str, typer.Option('--skill')],
         file: Annotated[Path, typer.Option('--file')], role: Role = Role.other,
         name: str | None = None, seat: str | None = None, isolation: Isolation | None = None,
-        model: Annotated[str | None, typer.Option(help="The model that produced it, e.g. codex/gpt-5.6-sol")] = None) -> None:
+        model: Annotated[str | None, typer.Option(help="The model that produced it, e.g. codex/gpt-6.1-sol")] = None) -> None:
     """Retain an actual output with its role. --seat identifies a reader or referee, --isolation says whether it
     ran as a fresh agent and --model which model read it; files cannot be overwritten."""
     run = run.resolve()

@@ -33,6 +33,7 @@ why); 2 bad arguments, an unknown or missing CLI, or a workspace a seat already 
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -65,8 +66,8 @@ CREDENTIALS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "C
                "GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS")
 # Not secrets, but each sends a CLI's requests another way than its own sign-in (a gateway, a cloud account). They
 # are kept, since the authors may rely on them, and named in the record.
-ROUTE_SETTINGS = ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "OPENAI_BASE_URL",
-                  "GOOGLE_GENAI_USE_VERTEXAI")
+ROUTE_SETTINGS = {"claude": ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"),
+                  "codex": ("OPENAI_BASE_URL",), "gemini": ("GOOGLE_GENAI_USE_VERTEXAI",)}
 
 
 @dataclass(frozen=True)
@@ -132,6 +133,72 @@ def codex_models() -> tuple[str | None, list[str]]:
     except (OSError, ValueError, AttributeError, TypeError):
         listed = []
     return default, listed
+
+
+def codex_cache_version() -> str:
+    """The Codex CLI version that wrote its model list: an older CLI is offered fewer, older models."""
+    try:
+        return str(json.loads((codex_home() / "models_cache.json").read_text(encoding="utf-8")).get("client_version") or "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+# ChatGPT plans of a work workspace. A personal plan (free, plus, pro, go) is offered fewer and older models in Codex.
+WORK_PLANS = ("business", "team", "enterprise", "edu")
+
+
+def codex_account() -> dict[str, str]:
+    """How Codex CLI is signed in, from its auth.json and without any secret: `auth_mode` (chatgpt, or apikey for a
+    key it stores), and for a ChatGPT sign-in the plan its token names and whether that is a work workspace or a
+    personal plan. Only the token's claims are decoded; the token itself is never kept or shown."""
+    try:
+        auth = json.loads((codex_home() / "auth.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(auth, dict):
+        return {}
+    out = {"auth_mode": str(auth.get("auth_mode") or ("apikey" if auth.get("OPENAI_API_KEY") else ""))}
+    token = str((auth.get("tokens") or {}).get("id_token") or "")
+    try:
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        plan = str((claims.get("https://api.openai.com/auth") or {}).get("chatgpt_plan_type") or "")
+    except (IndexError, ValueError, TypeError, AttributeError):
+        plan = ""
+    if plan:
+        out |= {"plan": plan, "workspace": "work" if any(word in plan.lower() for word in WORK_PLANS) else "personal"}
+    return out
+
+
+def codex_account_line(account: dict[str, str]) -> str:
+    if not account:
+        return "Codex sign-in: not found (codex login)."
+    if account.get("auth_mode") == "apikey":
+        return "Codex sign-in: an API key it stores (codex login --with-api-key); the key's account is billed."
+    if account.get("workspace") == "work":
+        return f"Codex sign-in: ChatGPT, a work workspace (plan {account['plan']})."
+    if account.get("workspace") == "personal":
+        return (f"Codex sign-in: ChatGPT, a personal plan ({account['plan']}), which Codex offers fewer and older "
+                "models than a work workspace. Where the authors have a work workspace, they sign in to it: "
+                "codex logout, then codex login, choosing the work workspace.")
+    return f"Codex sign-in: {account.get('auth_mode') or 'unknown'}."
+
+
+# Codex's words when the server will not run a model for this CLI or this sign-in.
+REFUSED_MODEL = re.compile(r"not supported when using Codex|model_not_found|model .* (?:does not exist|not supported)",
+                           re.IGNORECASE)
+
+
+def codex_refusal_advice(error: str, cli_version: str) -> str:
+    """What to do when Codex refused a model. Both causes seen so far leave a weaker model looking like the only
+    choice: a CLI older than the model (its error blames "a ChatGPT account"), and a personal plan."""
+    if not REFUSED_MODEL.search(error):
+        return ""
+    return (f"Codex refused this model. Before choosing an older one, update Codex CLI (this one is "
+            f"{cli_version or 'of unknown version'}; codex update, or the package manager it came from): a CLI too old "
+            f"for a model is refused with the words \"not supported when using Codex with a ChatGPT account\" even on "
+            f"a work workspace. Then check the sign-in below. A weaker model is the authors' choice, never a silent "
+            f"fallback.")
 
 
 # --- how each CLI is started, and how its answer is read ------------------------------------------------------
@@ -252,11 +319,12 @@ def environment(key: str) -> dict[str, str]:
     return env
 
 
-def sign_in() -> dict[str, Any]:
-    """How the CLI was signed in, without any secret: the key variables removed and the route settings left."""
+def sign_in(key: str) -> dict[str, Any]:
+    """How the CLI was signed in, without any secret: the key variables removed and the route settings left that
+    this CLI reads (a gateway for Claude Code says nothing about how Codex reached its model)."""
     names = {name.upper() for name in os.environ}
     return {"route": "the CLI's own sign-in", "credential_variables_removed": [n for n in CREDENTIALS if n in names],
-            "route_settings_kept": [n for n in ROUTE_SETTINGS if os.environ.get(n)]}
+            "route_settings_kept": [n for n in ROUTE_SETTINGS.get(key, ()) if os.environ.get(n)]}
 
 
 # --- one session in a throwaway copy -----------------------------------------------------------------------------
@@ -359,7 +427,7 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
     configured = codex_models()[0] if key == "codex" and not model else None
     return record | {"status": status, "error": error, "answer": outcome.answer, "session_id": outcome.session,
                      "model_requested": model, "models_reported": outcome.models, "usage": outcome.usage,
-                     "model": f"{key}/{reported or model or configured or 'default'}", "sign_in": sign_in()}
+                     "model": f"{key}/{reported or model or configured or 'default'}", "sign_in": sign_in(key)}
 
 
 def emit(result: dict[str, Any], as_json: bool, lines: list[str]) -> None:
@@ -381,10 +449,18 @@ def detect(as_json: Annotated[bool, typer.Option("--json")] = False) -> None:
                                  "efforts": list(cli.efforts), "models": cli.models_hint, "notes": []}
         if key == "codex" and path:
             default, listed = codex_models()
-            entry["default_model"], entry["models"] = default, listed or entry["models"]
+            account, written_by = codex_account(), codex_cache_version()
+            entry["default_model"], entry["models"], entry["sign_in"] = default, listed or entry["models"], account
+            entry["notes"].append(codex_account_line(account))
+            if written_by and entry["version"] and written_by not in entry["version"]:
+                entry["notes"].append(f"Its list of models was written by Codex CLI {written_by}, not by this one "
+                                      f"({entry['version']}); `check` asks the server itself.")
             if default and listed and default not in listed:
                 entry["notes"].append(f"Its configured default model, {default}, is not among the models it lists for "
-                                      f"this account ({', '.join(listed)}): pass --model.")
+                                      f"this sign-in ({', '.join(listed)}). Run `check codex` first: an older Codex CLI "
+                                      "and a personal ChatGPT plan are each offered fewer models, and updating the CLI "
+                                      "or signing in to a work workspace keeps the default. Pass an older model with "
+                                      "--model only when the authors choose it.")
         clis.append(entry)
     notes = []
     if os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1":
@@ -420,8 +496,13 @@ def check(cli: str, model: Annotated[str | None, typer.Option()] = None,
         result = session(cli, base / "copy", PING, model, effort, timeout, base / "stdout", base / "stderr")
     result = {"cli": cli, "name": info.name, "version": version(cli)} | result
     ok = result["status"] == "answered"
-    emit(result, as_json, [f"{info.name}: {'ready' if ok else result['status']}, model {result['model']}"
-                           + ("" if ok else f". {result['error']}"), *sign_in_lines(result["sign_in"])])
+    advice = codex_refusal_advice(result["error"], result["version"]) if cli == "codex" and not ok else ""
+    if cli == "codex":
+        result["account"] = codex_account()
+    emit(result | ({"advice": advice} if advice else {}), as_json,
+         [f"{info.name}: {'ready' if ok else result['status']}, model {result['model']}"
+          + ("" if ok else f". {result['error']}"), *([advice] if advice else []),
+          *([codex_account_line(result["account"])] if cli == "codex" else []), *sign_in_lines(result["sign_in"])])
     raise typer.Exit(0 if ok else 3 if result["status"] == "timeout" else 1)
 
 
@@ -487,6 +568,9 @@ def run(cli: str,
     lines = [f"{info.name} ({record['model']}): {record['status']} in {record['seconds']} s"
              + (f". {record['error']}" if record["error"] else ""),
              f"Isolation: {READS[info.read_isolation]}."]
+    if cli == "codex" and record["status"] != "answered" and (advice := codex_refusal_advice(record["error"],
+                                                                                          record["version"])):
+        lines[1:1] = [advice, codex_account_line(codex_account())]
     lines += sign_in_lines(record["sign_in"])
     if returned:
         lines.append("Returned: " + ", ".join(returned))

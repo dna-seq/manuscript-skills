@@ -160,7 +160,7 @@ def read(path: Path) -> dict[str, Any]:
             raise ProjectError(f"{path}: {key} must be a list of non-empty locations.")
     if "other_models" in data and (not isinstance(data["other_models"], list)
                                    or any(not isinstance(v, str) or not OTHER_MODEL.fullmatch(v) for v in data["other_models"])):
-        raise ProjectError(f"{path}: other_models must be a list of CLI or CLI/MODEL names, such as codex/gpt-5.6-sol.")
+        raise ProjectError(f"{path}: other_models must be a list of CLI or CLI/MODEL names, such as codex/gpt-6.1-sol.")
     if "manuscripts" in data and not data["manuscripts"]:
         raise ProjectError(f"{path}: manuscripts cannot be empty.")
     for key in ("output_dir", "output_url"):
@@ -362,7 +362,7 @@ def configure(
             data.pop("other_models", None)
         if other_model:
             if bad := [v for v in other_model if not OTHER_MODEL.fullmatch(v.strip())]:
-                raise ProjectError(f"Not a CLI or CLI/MODEL name: {', '.join(bad)} (for example codex/gpt-5.6-sol).")
+                raise ProjectError(f"Not a CLI or CLI/MODEL name: {', '.join(bad)} (for example codex/gpt-6.1-sol).")
             data["other_models"] = list(dict.fromkeys(v.strip() for v in other_model))
         given = {"drive": drive, "remote": drive_remote, "folder_id": folder_id(drive_folder_id),
                  "folder": drive_folder, "round_folder": round_folder, "build": release_build}
