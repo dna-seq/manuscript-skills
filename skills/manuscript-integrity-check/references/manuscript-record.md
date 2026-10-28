@@ -61,6 +61,13 @@ cost_routes:                         # what pays a venue's fee for these authors
     source: "https://link.springer.com/journal/12859/how-to-publish-with-us"
     checked: 2026-10-19
 
+conditions:                          # what a reading of this manuscript found for a venue's rule (journal selection)
+  cell-reports-methods:              # venue key, then the rule's id in the venue catalogue
+    comparison-and-validation:
+      met: true                      # true | false | partly; a met condition fits, partly stays "depends" with the gap
+      evidence: "Section 4.2 compares just-prs with PLINK2 on 100 scores"   # the passage, and what is missing
+      checked: 2026-10-28
+
 study:                               # set by whichever skill first establishes it; a draft until the authors confirm
   designs: [software-tool, public-data-reanalysis]   # keys from the list below; mixed studies list several
   confirmed: 2026-10-19              # absent: a draft, so the ladder lowers a venue to "depends", never "does not fit"

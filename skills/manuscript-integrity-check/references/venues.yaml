@@ -498,7 +498,8 @@ venues:
     software: [OSI-compliant source code, documentation, test data]
     software_article: true
     validation_requirements:
-      - applies_to: [public-health-database]
+      - id: open-health-database
+        applies_to: [public-health-database]
         strength: conditional
         accepted_any: [wet-lab, primary-analysis]
         description: "For the retrospective open-health-database manuscripts discussed in the editorial, additional work must validate results and establish the contribution; computational primary analyses are among its examples. Verify applicability; this is not a blanket wet-lab rule for software papers."
@@ -597,13 +598,15 @@ venues:
       source: https://www.frontiersin.org/guidelines/author-guidelines
       checked: 2026-10-27
     validation_requirements:
-      - applies_to: [public-data, bioinformatics, mr, public-health-database]
+      - id: cohort-or-biological-validation
+        applies_to: [public-data, bioinformatics, mr, public-health-database]
         strength: required
         accepted_any: [independent-cohort, wet-lab]
         description: "Predominantly bioinformatics/public-data/MR findings need cohort or biological validation. The policy does not establish that a cohort must be newly collected or private; assess actual independence and suitability."
         source: https://www.frontiersin.org/guidelines/policies-and-publication-ethics
         checked: 2026-10-15
-      - applies_to: [bibliometric]
+      - id: bibliometric-multi-database
+        applies_to: [bibliometric]
         strength: required
         accepted_any: [independent-cohort, wet-lab, multi-database]
         description: "The multi-database validation alternative is limited to bibliometric studies; individual journals can exclude this design."
@@ -855,7 +858,8 @@ venues:
     # health papers to medRxiv or biology to bioRxiv, and none asks for ethics, consent or identifiability
     # statements. Endorsement, the monthly limit and the format rules apply to every paper (other_desk_rules).
     screening_rules:
-      - applies_to: [clinical]
+      - id: classification-scheme
+        applies_to: [clinical]
         outcome: declined
         strength: conditional
         description: "A paper may be declined when it does not fit the classification scheme or its intended community
@@ -917,7 +921,8 @@ venues:
     # back and forth between bioRxiv and medRxiv (a personal-genome tool paper of these authors went both ways)
     # comes from these rules and medRxiv's: neither server's pages say what happens when the second sends it back.
     screening_rules:
-      - applies_to: [clinical]
+      - id: clinical-trials
+        applies_to: [clinical]
         outcome: redirected
         redirect_to: medrxiv
         strength: required
@@ -925,7 +930,8 @@ venues:
           epidemiology should be; the Clinical Trials and Epidemiology categories are closed to new papers."
         source: https://www.biorxiv.org/about/FAQ
         checked: 2026-10-28
-      - applies_to: [health]
+      - id: health-information
+        applies_to: [health]
         outcome: redirected
         redirect_to: medrxiv
         strength: conditional
@@ -935,7 +941,8 @@ venues:
           findings about people (disease risk, clinical variants) can send a genomics tool paper there."
         source: https://www.biorxiv.org/about/FAQ
         checked: 2026-10-28
-      - applies_to: [software, public-data]
+      - id: tool-with-data
+        applies_to: [software, public-data]
         outcome: condition
         strength: required
         accepted_any: [benchmark, primary-analysis]
@@ -944,7 +951,8 @@ venues:
           data, and simple automated analyses of public data, are not posted."
         source: https://connect.biorxiv.org/news/2022/06/13/screening_procedures
         checked: 2026-10-28
-      - applies_to: [human-data]
+      - id: identifiable-individual
+        applies_to: [human-data]
         outcome: declined
         strength: conditional
         description: "bioRxiv does not post images or information that could identify an individual, because it cannot
@@ -972,7 +980,8 @@ venues:
     sources: [https://connect.medrxiv.org/news/2022/06/13/screening_procedures, https://www.medrxiv.org/content/about-medrxiv]
     # Read 2026-10-28: the FAQ, the submission guide, the About page and the screening post.
     screening_rules:
-      - applies_to: [software, bioinformatics]
+      - id: not-clinical
+        applies_to: [software, bioinformatics]
         outcome: redirected
         redirect_to: biorxiv
         strength: conditional
@@ -982,7 +991,8 @@ venues:
           transfer it, so a tool paper without patients, a cohort or a health outcome goes back to bioRxiv."
         source: https://www.medrxiv.org/about/FAQ
         checked: 2026-10-28
-      - applies_to: [software, public-data]
+      - id: computational-results
+        applies_to: [software, public-data]
         outcome: condition
         strength: required
         accepted_any: [benchmark, primary-analysis]
@@ -991,7 +1001,8 @@ venues:
           without research data produced by applying the tool."
         source: https://www.medrxiv.org/about/FAQ
         checked: 2026-10-28
-      - applies_to: [human-data]
+      - id: ethics-oversight
+        applies_to: [human-data]
         outcome: condition
         strength: required
         description: "A statement of ethical oversight by an independent ethics committee is needed whenever human
@@ -1000,7 +1011,8 @@ venues:
           themselves is not stated."
         source: https://www.medrxiv.org/about/FAQ
         checked: 2026-10-28
-      - applies_to: [human-data]
+      - id: identifiers
+        applies_to: [human-data]
         outcome: declined
         strength: conditional
         description: "Participants must not be identifiable: real names, initials, sample IDs and exact dates tied to a
@@ -1030,7 +1042,8 @@ venues:
     extra_burden: []
     # Read 2026-10-28: the editorial policies (sections cited). No routing to another server.
     screening_rules:
-      - applies_to: [software]
+      - id: method-article
+        applies_to: [software]
         outcome: condition
         strength: required
         accepted_any: [benchmark, primary-analysis]
@@ -1039,14 +1052,16 @@ venues:
           (section 1.2)."
         source: https://www.researchsquare.com/legal/editorial
         checked: 2026-10-28
-      - applies_to: [human-data, clinical]
+      - id: ethics-identifiers
+        applies_to: [human-data, clinical]
         outcome: condition
         strength: required
         description: "Screening checks ethics and consent statements and the absence of patient identifiers (section 6);
           content that violates a third party's privacy is not posted (section 15)."
         source: https://www.researchsquare.com/legal/editorial
         checked: 2026-10-28
-      - applies_to: [health]
+      - id: data-unavailable
+        applies_to: [health]
         outcome: declined
         strength: conditional
         description: "For medical research it may refuse to post when the data are unavailable (section 4), and strong
@@ -1078,14 +1093,16 @@ venues:
       https://www.elsevier.support/ssrn/answer/previously-published]
     # Read 2026-10-28 on SSRN's help pages at elsevier.support (ssrn.com links there). No routing to another server.
     screening_rules:
-      - applies_to: [software]
+      - id: guides-and-frameworks
+        applies_to: [software]
         outcome: declined
         strength: conditional
         description: "Frameworks and guides or how-tos are usually not accepted; SSRN wants rigorous methods and original
           findings, so a tool paper that reads as a user guide risks those labels."
         source: https://www.elsevier.support/ssrn/answer/get-started
         checked: 2026-10-28
-      - applies_to: [health, clinical, human-data]
+      - id: medical-screening
+        applies_to: [health, clinical, human-data]
         outcome: condition
         strength: required
         description: "Medical and health papers get extra screening: unpublished patient data or retrospective studies
@@ -1116,7 +1133,8 @@ venues:
     # 2026-10-20 (http://web.archive.org/web/20261020104844/https://www.preprints.org/instructions-for-authors),
     # dated by its capture. No routing to another server.
     screening_rules:
-      - applies_to: [human-data, clinical]
+      - id: ethics-approval
+        applies_to: [human-data, clinical]
         outcome: condition
         strength: required
         description: "Human research follows the Declaration of Helsinki and gives the ethics approval in the Methods (at
@@ -1246,7 +1264,8 @@ venues:
     # Read 2026-10-28: the scope and criteria, the author guidelines and NAR's data-deposition page. Reanalysis of public
     # data is an accepted route ('computational re-analysis of public datasets'), with no cohort or laboratory rule.
     validation_requirements:
-      - applies_to: [software]
+      - id: methods-benchmarks
+        applies_to: [software]
         strength: conditional
         accepted_any: [benchmark]
         description: "A Methods Paper must 'include benchmarks against an adequate number of relevant alternative state
@@ -1255,7 +1274,8 @@ venues:
           words, 3 figures or tables) is meant for software, and there these benchmarks are only encouraged."
         source: https://academic.oup.com/nargab/pages/scope_and_criteria
         checked: 2026-10-28
-      - applies_to: [software]
+      - id: open-source-deposit
+        applies_to: [software]
         strength: required
         description: "Every novel bioinformatics component must be open source; code goes on GitHub and is archived in
           Zenodo before acceptance under an OSI-recognised licence (or the paper is not reviewed), with simple commands
@@ -2722,26 +2742,27 @@ venues:
         route: "Projekt DEAL gives corresponding authors at participating German institutions 20% off fully open-access Elsevier journals"
         source: https://www.sciencedirect.com/journal/genomics
         checked: 2026-10-27
-    not_read: "the Guide for Authors returned HTTP 403 and Elsevier's block page to every route on 2026-10-28; the aims
-      and scope were read on Elsevier's journal page instead"
-    # Read 2026-10-28 on Elsevier's journal page (its aims and scope); the Guide for Authors, where the article types are
-    # set, could not be read, so the software rule below is a check, not a finding of no rule.
+    # Read 2026-10-28 in the authors' own browser (scripted routes get HTTP 403): the Guide for Authors, whose
+    # "Article types" section is empty ("primarily publishes original research articles"; "accept only the top 25-30%").
+    # No validation, benchmark or comparison rule for software or tool papers anywhere on it; tools are in scope
+    # ("the development of novel tools and techniques"; "Medical Genomics, Personal Genomics").
+    abstract_headings: []
+    open_science:
+      summary: "Research data deposited in a repository and cited, or a statement why they cannot be shared (Elsevier
+        Option C); a data statement is required at submission."
+      preprints: "a preprint does not count as prior publication; the journal offers free posting on SSRN at submission"
+      source: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
+      checked: 2026-10-28
     validation_requirements:
-      - applies_to: [public-data, bioinformatics]
+      - id: existing-data-only
+        applies_to: [public-data, bioinformatics]
         strength: conditional
         accepted_any: [primary-analysis]
         description: "'Manuscripts analysing existing sequence data only are no longer suitable, unless adding new sequence
           data or [introducing] a new algorithm for analysis', and the algorithm must be public as a web page or code.
           The sentence sits in the functional-genomics topic of the aims and scope, so whether it binds the whole
           journal is the editors' reading."
-        source: https://shop.elsevier.com/journals/genomics/0888-7543
-        checked: 2026-10-28
-      - applies_to: [software]
-        strength: conditional
-        description: "Tools are in scope ('development of novel tools and techniques', and personal genomics under
-          medical genomics); the aims and scope state no validation rule for them, but the Guide for Authors could not
-          be read, so check its article types before submitting."
-        source: https://shop.elsevier.com/journals/genomics/0888-7543
+        source: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
         checked: 2026-10-28
 
   gene:
@@ -2937,7 +2958,8 @@ venues:
     # laboratory rule; no article type for a paper whose contribution is a biological finding (Articles and Reports
     # are methodological advances, Resources evaluate existing methods and "do not present a new method per se").
     validation_requirements:
-      - applies_to: [software]
+      - id: comparison-and-validation
+        applies_to: [software]
         strength: required
         accepted_any: [benchmark]
         description: "'The basic components of a research article will be the presentation of the method, a comparison of
@@ -3105,7 +3127,8 @@ venues:
     # a public-data reanalysis or a computational finding meets only the Article bar ("conceptual advances or
     # discoveries that will be of unusual significance"), which is editorial, not a validation rule.
     validation_requirements:
-      - applies_to: [software]
+      - id: technology-bar
+        applies_to: [software]
         strength: conditional
         accepted_any: [benchmark]
         description: "A tool goes in as a Technology article, which 'should demonstrate significant improvements to existing
@@ -3167,7 +3190,8 @@ venues:
       checked: 2026-10-27
     excluded_study_designs: [bibliometric]
     validation_requirements:
-      - applies_to: [public-data, bioinformatics]
+      - id: datamining-single-dataset
+        applies_to: [public-data, bioinformatics]
         strength: required
         accepted_any: [independent-cohort, wet-lab]
         description: "Areas no longer considered: 'Datamining studies using single datasets without experimental validation in original or external cohorts and strong originality, novelty and advance', and biomarkers, nomograms or decision algorithms 'without external cohort validation'. The page does not name software or resource papers; a tool paper benchmarked on public data needs the editors' reading."

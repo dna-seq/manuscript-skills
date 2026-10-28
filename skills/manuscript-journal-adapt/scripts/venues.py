@@ -824,11 +824,24 @@ def validation_fit(v: dict[str, Any], study: Optional[str] = None, available: Op
         return "go", (f"None of its {words}{_read_on(v, field)} applies to {_or([_paper(k) for k in kinds])}; they "
                       f"cover {covered}.")
     outcomes: list[tuple[str, str]] = []
+    checked = v.get(MANUSCRIPT_CHECKS) or {}
     for rule in applicable:
         options = set(rule.get("accepted_any") or [])
         description = _sentence(rule.get("description") or "check the recorded rule")
         outcome = rule.get("outcome")
-        if outcome in ("declined", "redirected") and not options:
+        verdict = checked.get(rule.get("id")) if rule.get("id") else None
+        if verdict is not None:
+            # The manuscript was checked against this rule: its verdict settles it, with the passage that shows it.
+            met, evidence = verdict["met"], _sentence(verdict.get("evidence") or "no passage recorded")
+            if met is True:
+                outcomes.append(("go", f"{description} The manuscript meets it: {evidence}"))
+            elif met == "partly":
+                outcomes.append(("conditional", f"{description} The manuscript meets part of it: {evidence}"))
+            else:
+                certain = rule.get("strength") == "required" and study is not None
+                outcomes.append(("no-go" if certain else "conditional",
+                                 f"{description} The manuscript does not meet it: {evidence}"))
+        elif outcome in ("declined", "redirected") and not options:
             to = _redirect_name(rule, venues)
             certain = rule.get("strength") == "required" and study is not None
             hit = next((k for k in kinds if k in rule.get("applies_to", [])), None)
@@ -847,6 +860,27 @@ def validation_fit(v: dict[str, Any], study: Optional[str] = None, available: Op
     severity = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
     worst = max(outcomes, key=lambda item: severity[item[0]])[0]
     return worst, " ".join(dict.fromkeys(reason for _, reason in outcomes))
+
+
+# Where a venue, laid out for one manuscript, carries the record's `conditions` for it: rule id -> {met, evidence}.
+MANUSCRIPT_CHECKS = "manuscript_conditions"
+MET_VALUES = {True, False, "partly"}
+
+
+def with_conditions(venues: dict[str, dict[str, Any]], conditions: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The venues with this manuscript's checked conditions on them (the record's `conditions`), so that a rule the
+    manuscript meets fits and one it does not meet says so, instead of both staying "Depends"."""
+    return {k: ({**v, MANUSCRIPT_CHECKS: conditions[k]} if k in conditions else v) for k, v in venues.items()}
+
+
+def open_conditions(v: dict[str, Any], designs: list[str]) -> list[dict[str, Any]]:
+    """The applicable rules of a venue the manuscript was not checked against yet, which a reading of the manuscript
+    could settle: a requirement or condition, not a server's or editor's own call (a redirect or a refusal)."""
+    _, rules, _ = venue_rules(v)
+    checked = v.get(MANUSCRIPT_CHECKS) or {}
+    kinds = set(designs)
+    return [r for r in rules or [] if (not kinds or kinds & set(r.get("applies_to") or []))
+            and r.get("outcome") not in ("declined", "redirected") and r.get("id") not in checked]
 
 
 def unread_rules(v: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1079,9 +1113,11 @@ def record_context(path: Optional[Path]) -> dict[str, Any]:
     - `validation`: `priorities.validation_available`, the validation routes the authors have or can afford;
     - `ai_use`: what AI did to the text, `ai_use: polish | revision | drafting` (a mapping per section gives the
       most substantial use);
-    - `jif_floor` and `budget_eur`: `priorities.jif_floor` and `priorities.budget_eur`."""
+    - `jif_floor` and `budget_eur`: `priorities.jif_floor` and `priorities.budget_eur`;
+    - `conditions`: `conditions.VENUE.RULE_ID: {met: true | false | partly, evidence, checked}`, what a reading of
+      this manuscript found for a venue's rule, with the passage that shows it."""
     out: dict[str, Any] = {"designs": None, "confirmed": False, "validation": None, "ai_use": None,
-                           "jif_floor": None, "budget_eur": None}
+                           "jif_floor": None, "budget_eur": None, "conditions": {}}
     if path is None:
         return out
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -1116,6 +1152,12 @@ def record_context(path: Optional[Path]) -> dict[str, Any]:
         if str(use) not in {u.value for u in AiUse}:
             raise typer.BadParameter("the record's ai_use must be polish, revision, drafting or unknown")
         out["ai_use"] = AiUse(str(use))
+    conditions = raw.get("conditions") if isinstance(raw.get("conditions"), dict) else {}
+    for key, rules in conditions.items():
+        for rule_id, verdict in (rules or {}).items():
+            if not isinstance(verdict, dict) or verdict.get("met") not in MET_VALUES:
+                raise typer.BadParameter(f"the record's conditions.{key}.{rule_id}.met must be true, false or partly")
+    out["conditions"] = conditions
     for name in ("jif_floor", "budget_eur"):
         if priorities.get(name) is not None:
             try:
@@ -1801,6 +1843,7 @@ def ladder(
     budget = budget_eur if budget_eur is not None else context["budget_eur"]
     kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
                                software=software, oa=oa, min_jif=floor, refused=set(refuse or []))
+    kept = with_conditions(kept, context["conditions"])
     feasible = {key: feasibility(v, designs, available, confirmed, venues) for key, v in kept.items()}
     if preprints:
         # A server that may send the paper to one that may send it back: say so on its rung, as a condition, with
@@ -1813,6 +1856,8 @@ def ladder(
             feasible[key] = (_worse(status, "conditional") if status != "unknown" else status, f"{reason} {sentence}")
     rows = sorted(kept.values(), key=lambda v: ladder_order(v, priorities, feasible[v["key"]][0], journal, use, posted))
     unread = [v for v in rows if unread_rules(v)]
+    unsettled = {v["key"]: open_conditions(v, designs) for v in rows
+                 if feasible[v["key"]][0] == "conditional" and open_conditions(v, designs)}
     verdicts = {v["key"]: overall_fit(v, feasible[v["key"]], use, budget) for v in rows}
     notes = _ladder_notes(default_order, priorities, preprints, designs, confirmed, bool(study_design),
                           available, use, floor, budget, posted)
@@ -1828,6 +1873,8 @@ def ladder(
             typer.echo("Left out of the venues listed with --only: " + "; ".join(left_out) + ".", err=True)
         if unread:
             typer.echo(_unread_note(unread), err=True)
+        if unsettled:
+            typer.echo(_unsettled_note(unsettled, venues), err=True)
         return
     kind = "Preprint" if preprints else "Journal"
     typer.echo(f"# {kind} ladder\n")
@@ -1877,6 +1924,8 @@ def ladder(
         typer.echo("\nFacts read for this manuscript and taken from its record: " + "; ".join(from_task) + ".")
     if unread:
         typer.echo("\n" + _unread_note(unread))
+    if unsettled:
+        typer.echo("\n" + _unsettled_note(unsettled, venues))
     due = [v for v in rows if stale_facts(v, date.today())]
     if due:
         keys = " ".join(v["key"] for v in due)
@@ -1897,6 +1946,16 @@ def _unread_note(unread: list[dict[str, Any]]) -> str:
             f"\"Could not be checked\". Read them before handing the ladder over (`venues.py stale {keys}` names "
             "each page), write them into the catalogue, `[]` when the pages state none, or `not_read` with the "
             "reason when a page cannot be read, and run the ladder again.")
+
+
+def _unsettled_note(unsettled: dict[str, list[dict[str, Any]]], venues: dict[str, dict[str, Any]]) -> str:
+    """The "Depends" a reading of the manuscript could settle: check it and record the verdict, so a venue whose
+    condition the paper meets fits and keeps its place."""
+    names = "; ".join(_name(venues[k]) + " (" + _and(["`" + str(r.get("id") or "unnamed rule") + "`" for r in rules])
+                      + ")" for k, rules in unsettled.items())
+    return (f"Not checked against the manuscript: {names}. Each is a condition the paper itself can settle. Check the "
+            "manuscript against it and record the verdict in the record's `conditions` (met: true, false or partly, "
+            "with the passage that shows it), then run the ladder again: a met condition fits.")
 
 
 # Fields of `venue_facts` that describe the reading, not the venue: not listed as facts taken from the record.

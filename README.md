@@ -292,7 +292,9 @@ until a budget is known, and no venue is left out for its AI rules unless you sa
 ladder over, it reads each journal's validation requirements and each preprint server's screening rules (what
 the server declines, and the papers it sends to another server) that nobody has read yet; a ladder that still
 shows "could not be checked" for an unread rule says it is not finished, and ranks that venue below every
-venue whose rules were read. The plugin ships these rules for the
+venue whose rules were read. A condition the paper itself can settle (a comparison with existing methods, an
+ethics statement) is checked against the manuscript and marked met, partly met or not met, with the passage
+that shows it, so a venue whose condition the paper meets fits. The plugin ships these rules for the
 common preprint servers, and the preprint ladder warns when two servers may pass a paper back and forth, as
 bioRxiv and medRxiv can with a tool paper about personal genomes. You can ask for a
 fuller interview instead: what AI did in each section, which AI-policy burdens you refuse, and where

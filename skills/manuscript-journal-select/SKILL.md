@@ -235,12 +235,26 @@ inside the scripts):
   reason ("its validation rules have not been researched"). Keep this visible rather than silently treating
   it as permissive.
 
+"Depends" on a condition the paper itself can settle is unfinished work too. Where a rule asks for something the
+manuscript either shows or does not (a comparison with existing methods, a validation, an ethics statement, a
+benchmark showing an improvement), read the manuscript and record the verdict in the record's `conditions`:
+`conditions.VENUE.RULE_ID: {met: true | false | partly, evidence, checked}`, the evidence naming the passage
+(section, table, sentence) and, for `partly` or `false`, what is missing. A met condition fits and keeps the
+venue's place; one not met says so in the venue's reason; `partly` stays "Depends" with the gap named. `ladder`
+lists the conditions nobody checked ("Not checked against the manuscript"). A server's or editor's own call (a
+redirect, a "may decline") is not a condition the manuscript settles and stays "Depends", though the
+manuscript can still be checked against it (a paper that names its genome donors does not meet a rule against
+identifying people).
+
 "Could not be checked" because nobody read a venue's rules is unfinished lookup work, not a verdict to hand
 over. `ladder` ends with "Not finished" and names those venues; `stale` lists their pages. Read each one
 (a journal: its article types, aims and scope and author guidelines; a server: what it declines and where it
 sends papers) and write the rules into the catalogue, `[]` when the pages state none: a list that was read is
-the venue's complete rules, so a design none of them covers fits. A page that cannot be read gets `not_read`
-with the reason, and only then may the verdict stay, with that reason. Never call a venue a fit, or say it
+the venue's complete rules, so a design none of them covers fits. Publisher sites (Elsevier, Cell Press, OUP)
+block scripted fetching and the built-in browser but not the authors' own Chrome: when a browser-control tool
+for it is connected (Claude in Chrome), read the page there, and brief any agent that reads pages to do the
+same. Only a page that route cannot read either gets `not_read`, naming each route tried, and only then may
+the verdict stay, with that reason. Never call a venue a fit, or say it
 "meets all your criteria", while its verdict says "Could not be checked".
 
 The ladder's `fits` is the whole verdict: the recorded validation rules, a conflict between a journal's AI

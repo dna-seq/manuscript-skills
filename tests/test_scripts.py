@@ -1324,6 +1324,8 @@ def test_recorded_validation_rules_have_supported_values_and_discoverable_source
     for key, venue in resolved.items():
         field, rules, _ = venues.venue_rules(venue)
         assert venue.get("validation_requirements" if field == "screening_rules" else "screening_rules") is None, key
+        ids = [rule.get("id") for rule in rules or []]
+        assert all(ids) and len(set(ids)) == len(ids), key  # a manuscript record names the rule it was checked against
         for rule in rules or []:
             assert set(rule["applies_to"]) <= designs, key
             assert set(rule.get("accepted_any") or []) <= alternatives, key

@@ -48,7 +48,7 @@ CATALOGUE = {
                                                                "cohort"}]},
         "methods": {"name": "Methods Journal", "url": "https://methods.example/guidelines",
                     "writing_help": "disclose",
-                    "validation_requirements": [{"applies_to": ["software"], "strength": "required",
+                    "validation_requirements": [{"id": "comparison", "applies_to": ["software"], "strength": "required",
                                                  "accepted_any": ["benchmark"],
                                                  "description": "A method is compared with related methods"}]},
         "unread": {"name": "Unread Journal", "url": "https://unread.example/guidelines", "writing_help": "disclose"},
@@ -189,3 +189,40 @@ def test_a_required_refusal_does_not_fit_only_once_the_design_is_confirmed(catal
     assert venues.validation_fit(v, "software")[0] == "no-go"
     assert venues.feasibility(v, ["software"], None, confirmed=False)[0] == "conditional"
     assert venues.validation_fit(v, "health")[0] == "go"
+
+
+# ---------------------------------------------------------------------------------------- the manuscript's own verdict
+
+@pytest.mark.parametrize("met,confirmed,status,words", [
+    (True, False, "Fits", "The manuscript meets it: Section 4 compares it with PLINK2."),
+    ("partly", False, "Depends", "The manuscript meets part of it: Section 4 compares it with PLINK2."),
+    (False, False, "Depends", "The manuscript does not meet it: Section 4 compares it with PLINK2."),
+    (False, True, "Does not fit the stated constraints", "The manuscript does not meet it"),
+])
+def test_a_condition_checked_against_the_manuscript_settles_the_verdict(catalogue: Path, tmp_path: Path, met: object,
+                                                                         confirmed: bool, status: str, words: str) -> None:
+    study = {"designs": ["software-tool"], **({"confirmed": True} if confirmed else {})}
+    record = tmp_path / "manuscript-record.yaml"
+    record.write_text(yaml.safe_dump({"study": study, "conditions": {"methods": {"comparison": {
+        "met": met, "evidence": "Section 4 compares it with PLINK2", "checked": "2026-10-28"}}}}), encoding="utf-8")
+    code, out, err = _run("ladder", "--only", "methods", "--only", "open", "--priority", "reach", "--record", str(record),
+                          "--format", "csv")
+    row = _rows(out)["methods"]
+    assert code == 0 and row["fits"] == status and words in row["fits_reason"]
+    assert "Not checked against the manuscript" not in err  # it was checked
+
+
+def test_the_ladder_names_the_conditions_nobody_checked_against_the_manuscript(catalogue: Path) -> None:
+    code, out, _ = _run("ladder", "--only", "methods", "--only", "open", "--priority", "reach",
+                        "--study-design", "software")
+    assert code == 0 and "Not checked against the manuscript: Methods Journal (`comparison`)" in out
+    # A server's redirect is its screeners' call, which no reading of the manuscript settles: never listed.
+    code, out, _ = _run("ladder", "--preprints", "--only", "bio", "--only", "med", "--priority", "ai",
+                        "--study-design", "software", "--study-design", "health")
+    assert "Not checked against the manuscript" not in out
+
+
+def test_a_condition_must_say_met_true_false_or_partly(catalogue: Path, tmp_path: Path) -> None:
+    record = tmp_path / "manuscript-record.yaml"
+    record.write_text(yaml.safe_dump({"conditions": {"methods": {"comparison": {"met": "yes"}}}}), encoding="utf-8")
+    assert _run("ladder", "--only", "methods", "--only", "open", "--record", str(record))[0] != 0

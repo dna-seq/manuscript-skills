@@ -35,8 +35,9 @@ The same field names serve every layer:
 - what the journal asks its referees (`reviewer_form`) and its rules for figures (`figure_rules`), described in
   the header of `venues.yaml`;
 - preprint servers: `transfers` and `transfers_checked`;
-- `not_read`: one sentence saying why the venue's author guidelines could not be read, with the date
-  (`common` gives the reason instead of a bare gap).
+- `not_read`: one sentence saying why the venue's author guidelines could not be read, with the date and every
+  route tried (`common` gives the reason instead of a bare gap). The authors' own browser comes before it: a page
+  that blocks scripts and the built-in browser usually opens in their Chrome through Claude in Chrome.
 
 ## The date of each fact
 
@@ -112,6 +113,9 @@ checked"; `stale` lists it until it is read. Record:
   needed. Record whether an existing public dataset could suffice, whether that is unstated, and whether
   primary data collection is actually required. Do not invent a requirement for a private cohort.
 - `source`, `checked`: direct primary URL and read date, plus a short decisive quote when useful.
+- `id`: a short name for the rule, unique within the venue. The manuscript record's `conditions` name the rule
+  they checked the paper against by it (`conditions.VENUE.RULE_ID: {met: true | false | partly, evidence,
+  checked}`); a met condition fits, with the passage that shows it.
 
 Use `excluded_study_designs` for explicit prohibitions, with source/date in the editorial profile.
 Do not replace a conditional standard with an absolute ban. Put every new primary URL in the entry's
