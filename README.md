@@ -628,6 +628,25 @@ and current journal policies requires internet access. Ask the assistant to chec
 
 </details>
 
+## Citing
+
+If Manuscript Skills helped with a paper, please cite the version you used. GitHub's **Cite this repository**
+button, on the right of the repository page, gives the reference in APA and BibTeX from
+[CITATION.cff](CITATION.cff):
+
+```bibtex
+@software{kulaga_manuscript_skills,
+  author  = {Kulaga, Anton and {DNA Seq}},
+  title   = {Manuscript Skills},
+  year    = {2026},
+  version = {0.50.1},
+  url     = {https://github.com/dna-seq/manuscript-skills},
+  license = {MIT}
+}
+```
+
+A DOI for each release, archived on Zenodo, will be added here once the archive is set up.
+
 ## Development
 
 `uv run pytest` runs the offline tests of every script, and, where Claude Code 2.1.299 or newer is on PATH

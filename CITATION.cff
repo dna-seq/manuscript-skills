@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use Manuscript Skills, please cite the version you used."
+type: software
+title: "Manuscript Skills"
+abstract: >-
+  Skills for Claude Code and Codex that help scientists prepare manuscripts for publication: they review a
+  draft, check its references, numbers and figures, simulate the referees of a target journal, edit the prose
+  under a script that fails any edit that strengthens a claim or changes a number, choose and prepare for a
+  journal, and answer the referees after a decision.
+authors:
+  - given-names: Anton
+    family-names: Kulaga
+    orcid: "https://orcid.org/0000-0001-7449-7054"
+  - name: DNA Seq
+repository-code: "https://github.com/dna-seq/manuscript-skills"
+url: "https://github.com/dna-seq/manuscript-skills"
+license: MIT
+version: 0.50.1
+date-released: "2026-10-28"
+keywords:
+  - scientific writing
+  - manuscript
+  - peer review
+  - reference checking
+  - journal selection
+  - Claude Code
+  - Codex
+  - agent skills

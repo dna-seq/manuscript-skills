@@ -104,7 +104,8 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
 ## Releasing
 
 - Run `uv run pytest` (the whole suite).
-- Bump `"version"` in both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`; `pyproject.toml`
-  stays at 0.1.0. There is no CHANGELOG file: the release notes are the commit message,
+- Bump `"version"` in both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`, and `version` and
+  `date-released` in `CITATION.cff` with the version in the README's BibTeX (`tests/test_citation.py` checks
+  they agree); `pyproject.toml` stays at 0.1.0. There is no CHANGELOG file: the release notes are the commit message,
   `Release X.Y.Z: <what changed, in plain words>`, then prose paragraphs.
 - Mention a new feature here and in the README, so the next session knows it exists.
