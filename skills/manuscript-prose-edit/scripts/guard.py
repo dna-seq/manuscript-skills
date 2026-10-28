@@ -28,6 +28,7 @@ diff in context.
     uv run --script guard.py ORIGINAL.tex REVISED.tex --revision --json inventory.json
     uv run --script guard.py ORIGINAL.md PROPOSED.md --revision --authorised requested.yaml  # fail on unrequested widening
     uv run --script guard.py BEFORE.md AFTER.md --moved-to SUPPLEMENT.md  # text moved to another file (repeatable)
+    uv run --script guard.py SUPP_BEFORE.md SUPP_AFTER.md --moved-from MAIN_BEFORE.md  # text moved in (repeatable)
     uv run --script guard.py BEFORE.md AFTER.md --relocated               # a story edit: caveats moved on purpose
         uv run --script guard.py BEFORE.md AFTER.md --only Discussion           # the edit was asked for there only
     uv run --script guard.py PAPER.md --summary                            # title, Abstract, Conclusions vs body
@@ -117,6 +118,11 @@ claims nothing and is skipped. Summary sentences no body sentence is close to ar
 Moved text (`--moved-to FILE`, once per file): a sentence of BEFORE found in FILE is moved, not deleted (alignment
 `moved_to_other_file`); one changed on the way is compared with its copy there (`after_file`, with `after_line` in
 that file), and the whole-text counts do not report as removed what FILE holds (`moved_to`).
+
+Text moved in (`--moved-from FILE`, once per file: the other file as it was before the edit, the main text when a
+paragraph went from it into the supplement): a number, citation or identifier new to this file that FILE holds came
+with the moved text (`token_status` "from_other_file", a warning to check, not a protected change), and the
+whole-text counts do not report as added what FILE holds (`moved_from`).
 
 Exit codes: 0 no protected change (with --revision: no unrequested widening or declaration when --authorised is
 given, else always), 1 a protected change or a change outside the `--only` sections (with --summary: a summary
@@ -1305,6 +1311,9 @@ def _declaration_findings(g: Group, bs: list[Sentence], as_: list[Sentence]) -> 
                      added=_surface(gained, text_a), note=note)]
 
 
+MOVED_IN = 0.6  # how alike (word dice) a sentence and one of a --moved-from file must be to count as moved in
+
+
 def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: list[dict[str, Counter[str]]],
                     tok_a: list[dict[str, Counter[str]]], ctx: dict[str, object]) -> list[dict[str, object]]:
     found: list[dict[str, object]] = []
@@ -1312,19 +1321,27 @@ def _token_findings(g: Group, bs: list[Sentence], as_: list[Sentence], tok_b: li
     a_blocks = {as_[j].block for j in g.after}
     near_b = b_blocks | {b for a in a_blocks for b in ctx["a2b"].get(a, ())}  # type: ignore[union-attr]
     near_a = a_blocks | {a for b in b_blocks for a in ctx["b2a"].get(b, ())}  # type: ignore[union-attr]
+    moved_in = any(_dice(as_[j].words, s.words) >= MOVED_IN for j in g.after
+                   for _, s in ctx.get("from_sentences", ()))  # type: ignore[union-attr]
     for kind in TOKEN_KINDS:
         cb: Counter[str] = sum((tok_b[i][kind] for i in g.before), Counter())
         ca: Counter[str] = sum((tok_a[j][kind] for j in g.after), Counter())
         for token in sorted(ca - cb):
             in_paragraph = any(token in ctx["block_b"][b][kind] for b in near_b)  # type: ignore[index]
+            came_from = ctx["doc_from"][kind].get(token)  # type: ignore[index]
+            # A sentence that is itself in the file text came from brings its own tokens, wherever else they occur.
             status = ("moved_within_paragraph" if in_paragraph else
-                      "from_elsewhere" if token in ctx["doc_b"][kind] else "new")  # type: ignore[index]
-            found.append(_finding(kind, "added", "warning" if in_paragraph else "protected", g, bs, as_,
-                                  added=[token], token=token, token_status=status,
+                      "from_other_file" if came_from and moved_in else
+                      "from_elsewhere" if token in ctx["doc_b"][kind] else  # type: ignore[index]
+                      "from_other_file" if came_from else "new")
+            found.append(_finding(kind, "added", "warning" if in_paragraph or came_from and status == "from_other_file"
+                                  else "protected", g, bs, as_, added=[token], token=token, token_status=status,
+                                  token_file=came_from if status == "from_other_file" else None,
                                   note={"new": "It is not in the original.", "from_elsewhere": "It appears "
                                         "elsewhere in the original, but not in this sentence or its paragraph.",
                                         "moved_within_paragraph": "It moved here from another sentence of the same "
-                                        "paragraph."}[status]))
+                                        "paragraph.", "from_other_file": f"It came with text moved here from "
+                                        f"{came_from}."}[status]))
         for token in sorted(cb - ca):
             in_paragraph = any(token in ctx["block_a"].get(a, {}).get(kind, ()) for a in near_a)  # type: ignore[union-attr]
             other_file = None if in_paragraph or token in ctx["doc_a"][kind] else (  # type: ignore[index]
@@ -1741,7 +1758,8 @@ def sentence_changes(before_text: str, after_text: str, moved: list[tuple[str, s
 
 
 def _analyse(before_text: str, after_text: str, moved: list[tuple[str, str]] | tuple[()] = (), *,
-             revision: bool = False, relocated: bool = False, passages: Optional[list[str]] = None
+             revision: bool = False, relocated: bool = False, passages: Optional[list[str]] = None,
+             moved_from: list[tuple[str, str]] | tuple[()] = ()
              ) -> tuple[list[dict[str, object]], dict[str, int], dict[str, object]]:
     """sentence_changes, plus what the whole-text counts need: the sentences and how paragraphs correspond."""
     bs, main = segment(before_text), segment(after_text)
@@ -1778,7 +1796,16 @@ def _analyse(before_text: str, after_text: str, moved: list[tuple[str, str]] | t
         for k in TOKEN_KINDS:
             for token in t[k]:
                 doc_ext[k].setdefault(token, str(s.file))
+    doc_from: dict[str, dict[str, str]] = {k: {} for k in TOKEN_KINDS}
+    from_sentences: list[tuple[str, Sentence]] = []
+    for name, text in moved_from:
+        for s in segment(text, file=name):
+            from_sentences.append((name, s))
+            for k, found in sentence_tokens(s.text).items():
+                for token in found:
+                    doc_from[k].setdefault(token, name)
     ctx: dict[str, object] = {
+        "doc_from": doc_from, "from_sentences": from_sentences,
         "b2a": b2a, "a2b": a2b, "block_b": by_block(bs, tok_b), "block_a": by_block(as_, tok_a),
         "doc_b": {k: set().union(*(t[k] for t in tok_b)) for k in TOKEN_KINDS},
         "doc_a": {k: set().union(*(t[k] for t in tok_a[:len(main)])) for k in TOKEN_KINDS},
@@ -2099,18 +2126,22 @@ def summary_check(text: str) -> dict[str, object]:
 def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revision: bool = False,
             allow_strengthening: bool = False, moved: list[tuple[str, str]] | tuple[()] = (),
             relocated: bool = False, authorised: list[dict[str, object]] | None = None,
-            relocated_in: list[str] | None = None, only: list[str] | None = None) -> dict[str, object]:
+            relocated_in: list[str] | None = None, only: list[str] | None = None,
+            moved_from: list[tuple[str, str]] | tuple[()] = ()) -> dict[str, object]:
     """Compare two versions. `moved` lists (name, text) of the files part of the text was moved to (a
     supplement, say): what is found there counts as moved, not removed. `relocated`: a story edit moved caveats
     on purpose, so the story moves of the module docstring are warnings. `relocated_in`: the folded passages
     (relocation_passages) those moves are limited to; it implies `relocated`. `authorised`: the requested claim
     changes (parse_authorisations); a widened claim no entry matches is unrequested. `only`: the sections the request
-    covered; a sentence changed anywhere else is listed in `only.outside` and fails."""
+    covered; a sentence changed anywhere else is listed in `only.outside` and fails. `moved_from` lists (name, text) of
+    the files text was moved in from, as they were before: what this text gained that they hold came with it."""
     relocated = relocated or relocated_in is not None
     latex = _is_latex(before_text) or _is_latex(after_text)
     before, after = _prose(before_text, latex), _prose(after_text, latex)
     elsewhere = "\n\n".join(_prose(text, _is_latex(text)) for _, text in moved)
+    source = "\n\n".join(_prose(text, _is_latex(text)) for _, text in moved_from)
     moved_counts: dict[str, dict[str, int]] = {}
+    came_counts: dict[str, dict[str, int]] = {}
     protected, watched = {}, {}
     for patterns, out in ((PROTECTED, protected), (WATCHED, watched)):
         for name, rx in patterns.items():
@@ -2119,8 +2150,14 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
             out[name] = _diff(ib, ia, im)
             if im is not None and patterns is PROTECTED and _moved_items(ib, ia, im):
                 moved_counts[name] = _moved_items(ib, ia, im)
+            if moved_from and out[name]["added"]:  # gained here, held by a file text was moved in from: it came along
+                came = Counter(out[name]["added"]) & _items(source, rx)
+                if came:
+                    out[name]["added"] = dict(Counter(out[name]["added"]) - came)
+                    if patterns is PROTECTED:
+                        came_counts[name] = dict(came)
     changes, alignment, parts = _analyse(before_text, after_text, moved, revision=revision, relocated=relocated,
-                                         passages=relocated_in)
+                                         passages=relocated_in, moved_from=moved_from)
     if only is not None:
         sents = parts["before"] + parts["after"]  # type: ignore[operator]
         missing = [name for name in only if not any(in_sections(x, [name]) for x in sents)]
@@ -2155,6 +2192,7 @@ def compare(before_text: str, after_text: str, threshold: float = 0.5, *, revisi
         "moved_to": {"files": [name for name, _ in moved], "sentences": alignment["moved_to_other_file"],
                      "sentences_changed": alignment["moved_to_other_file_changed"],
                      "counts": moved_counts} if moved else None,
+        "moved_from": {"files": [name for name, _ in moved_from], "counts": came_counts} if moved_from else None,
         "rewritten_paragraphs": _rewritten_paragraphs(before, after, threshold, [(n, _prose(t, _is_latex(t)))
                                                                                   for n, t in moved]),
         "words_before": len(before.split()),
@@ -2443,6 +2481,8 @@ TOKEN_SENTENCES = {
                         "Check that {they} still {belong} to the right claim."),
     "in_other_file": ("{items} {was} removed here and {is} now only in {file}, a file the text was moved to.",
                       "Check that {they} still {belong} to the right claim there."),
+    "from_other_file": ("{items} {is} new to this file; {they} came with text moved here from {file}.",
+                        "Check that {they} still {belong} to the right claim here."),
 }
 
 
@@ -2590,6 +2630,14 @@ def to_markdown(report: dict[str, object]) -> str:
                   + (f"; {_count_word(changed, 'of them was', 'of them were')} changed on the way, and the changes "
                      "below compare each with its copy there." if changed else
                      (", word for word." if n else ".")), ""]
+    came = report.get("moved_from")
+    if came:
+        files = _listed([str(f) for f in came["files"]])  # type: ignore[index]
+        counted = {name: sum(c.values()) for name, c in came["counts"].items()}  # type: ignore[union-attr]
+        what = _listed([f"{n} {name}" for name, n in counted.items()]) if counted else "nothing protected"
+        lines += [f"Text was moved here from {files}. The counts over the whole text leave out what this file gained "
+                  f"that {files} holds ({what}); the sentences below say which came with the moved text and which "
+                  "are still new to their sentence.", ""]
     relocations = int(report.get("summary", {}).get("relocated", 0))  # type: ignore[union-attr]
     if relocations:
         one = relocations == 1
@@ -2743,6 +2791,10 @@ def main(
     moved_to: Annotated[Optional[list[Path]], typer.Option(
         "--moved-to", exists=True, dir_okay=False, help="A file part of the text was moved to (a supplement, say); "
         "repeat for several. Text found there counts as moved, not removed")] = None,
+    moved_from: Annotated[Optional[list[Path]], typer.Option(
+        "--moved-from", exists=True, dir_okay=False, help="A file text was moved in from, as it was before the edit "
+        "(the main text, for a paragraph moved into the supplement); repeat for several. What this text gained that "
+        "it holds came with the moved text")] = None,
     relocated: Annotated[bool, typer.Option("--relocated", help="A story edit moved caveats on purpose: a lost scope, "
                                             "limiting, null-result or evidence-status marker is a warning when another "
                                             "sentence of the same top-level section, about the same thing, states it "
@@ -2768,7 +2820,8 @@ def main(
         "states, fails")] = False,
 ) -> None:
     if summary:
-        if after is not None or against or revision or only or moved_to or relocated or relocated_in or authorised:
+        if (after is not None or against or revision or only or moved_to or moved_from or relocated or relocated_in
+                or authorised):
             raise typer.BadParameter("--summary checks one manuscript on its own: give only the file, and --json or "
                                      "--md if wanted.")
         try:
@@ -2790,6 +2843,7 @@ def main(
         raise typer.BadParameter("Give the edited file as the second argument, or name the git version to "
                                  "compare with in --against.")
     moved = [(path.name, path.read_text(encoding="utf-8")) for path in moved_to or []]
+    came_from = [(path.name, path.read_text(encoding="utf-8")) for path in moved_from or []]
     requests = None
     if authorised is not None:
         try:
@@ -2799,7 +2853,7 @@ def main(
     scope = relocation_passages(relocated_in) if relocated_in else None
     try:
         report = compare(before_text, after_text, threshold, revision=revision,
-                         allow_strengthening=allow_strengthening, moved=moved, relocated=relocated,
+                         allow_strengthening=allow_strengthening, moved=moved, moved_from=came_from, relocated=relocated,
                          authorised=requests, relocated_in=scope, only=only)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc

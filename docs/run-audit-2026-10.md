@@ -312,7 +312,21 @@ scripts for that.
   its change since the run began. The improve skill and the stage brief ask that an addition nothing asks for
   come with a cut of its size, or stay a proposal, and that the summary give the length before and after.
 
-Still open: item 13, and the source cache.
+## Fixed in 0.49.0
+
+- Item 13: `guard.py --moved-from FILE` (the other file as it was before the edit) reports what came with text moved
+  in from FILE as such, a warning to check rather than a protected addition, and leaves it out of the whole-text
+  counts. On the v0.6 story stage's supplement pair, with the main text's before-copy as FILE, the eleven numbers
+  and identifiers of the paragraph moved in from the main text are reported as moved in; only the two numbers of the
+  capture date the stage changed itself stay protected, which is the one thing the stage had to explain.
+- The source cache: `source_cache.py` and `support.py` keep every text read for a work across runs. Seeded from the
+  v0.5 and v0.6 runs (58 texts of 53 works; the 37 web pages and policy notes with no identifier are listed, not
+  guessed) and given v0.5's browser excerpt of Mordaunt et al. 2024, v0.6's own claims file run offline on an empty
+  run folder reads 24 sources and locates 21 quotes, against none without the cache, and the Mordaunt source now
+  carries the excerpt that names equipment.
+
+Every item of this audit is now fixed or built, except the parts of the cache design listed as not built in
+docs/cacheability.md.
 
 ## Suggested order
 

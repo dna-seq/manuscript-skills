@@ -116,7 +116,14 @@ Follow [claim-support.md](references/claim-support.md). In short:
    such sentences for its own reasons), and report what does, and every hidden one, quoted, under "Fix now" with
    the claim that cites the source. Exit codes: 0 every quote located, nothing flagged; 1 a claim flagged or a
    source that hides text for AI systems; 3 nothing flagged, but a source was unavailable; 2 a malformed claims
-   file.
+   file. Every text read for a work is kept across runs (`scripts/source_cache.py`, in the platform's cache
+   folder): support.py reads a work with every text held for it, the fullest first, fetches only when none is
+   the full text, keeps what it fetched, and says which sources it read with texts kept from earlier reads, from
+   which run and when. The verdicts are always this run's own. When the cache is new on this machine, index the
+   earlier runs of the paper first (`uv run --script scripts/source_cache.py seed EARLIER_RUN...`), and whenever a
+   text is read in a browser, keep it for the next run: `source_cache.py save doi:... TEXT.txt --scope excerpt
+   --via browser --url URL --run RUN_ID` (in the Paper 1 v0.6 run, a passage v0.5 had read in the full text was
+   missing, and the stage proposed deleting a word the source supports). `--no-shared-cache` reads afresh.
 4. **Read, then challenge what matters:** `confirmed` needs a verbatim passage that carries the claim as
    written; `partial` supports a weaker or narrower claim (give the narrowed wording); `rejected` means the
    source does not say it or says otherwise; `blocked` means the source text could not be read (paywalled, not
@@ -208,6 +215,8 @@ optional suggestion is `info`; a check the scan could not run is `unknown`. Coun
 
 ## Files
 
+- `scripts/source_cache.py`: every text read for a cited work, kept across runs (`save`, `seed`, `show`);
+  support.py reads and adds to it.
 - `scripts/support.py`: the mechanical quote, number and polarity gate for claim support, with optional
   open-access fetching (PEP 723; `uv run --script`; exit codes in part 2, step 3).
 - `scripts/sample_claims.py`: the seeded random sample of the cited sentences the priority claims left out,

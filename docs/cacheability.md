@@ -1,4 +1,11 @@
-# What a rerun could reuse (analysis, not built)
+# What a rerun could reuse (analysis; the source texts built in 0.49.0)
+
+Built in 0.49.0: the first change below. `scripts/source_cache.py` (manuscript-reference-check) keeps every text read
+for a work across runs (`save` for a browser read, `seed` from earlier runs' `sources/`), and `support.py` reads with
+it and says in its report which sources it read with texts kept from earlier reads, from which run and when. The run
+keeps its own copy of each text it read. Not built: `runs.py reuse`, `reused_from` on artifacts and its `validate`
+check (the stage's support report carries the reuse instead), the verdict diff, and the registry, link and render
+caches.
 
 A `manuscript-improve` run on Paper 1 of just-dna-lite takes two to four hours, and the next version's run, a day
 later, repeats much of the same work: it fetches the same sources again, resolves the same references and checks

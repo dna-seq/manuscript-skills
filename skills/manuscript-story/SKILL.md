@@ -155,7 +155,8 @@ failure is fixed: restore the wording or drop the edit and list it. Only a direc
 authors.
 
 1. **Science.** `uv run --script ../manuscript-prose-edit/scripts/guard.py BEFORE AFTER --relocated` (add
-   `--moved-to` for each supplement or letter text moved into). A caveat that another sentence of the same
+   `--moved-to` for each supplement or letter text moved into; on the supplement's own pair, add `--moved-from`
+   with the main text's before-copy, so numbers that came with a moved paragraph are not reported as new). A caveat that another sentence of the same
    section, about the same thing, states is reported as moved, not lost, and so is a headline that restates its
    paragraph. A scope qualifier lost from the Abstract or Introduction, a caveat found only in another section
    or the supplement, and anything else the guard protects still fail. The record's `claims` and `non_claims`

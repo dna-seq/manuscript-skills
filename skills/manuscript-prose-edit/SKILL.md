@@ -157,6 +157,7 @@ contract's author-supplied content), list them instead of failing on them:
 uv run --script scripts/guard.py ORIGINAL.md REVISED.md --revision --json inventory.json
 uv run --script scripts/guard.py REVISED.md --against v1-submitted --revision
 uv run --script scripts/guard.py ORIGINAL.md MAIN.md --revision --moved-to SUPPLEMENT.md  # text moved to another file is moved, not removed; repeat --moved-to per file
+uv run --script scripts/guard.py SUP_BEFORE.md SUP_AFTER.md --moved-from MAIN_BEFORE.md  # the other side: what came in with moved text is not new
 ```
 
 It reports every number, citation, identifier, claim-strength, scope, null-result, evidence-status and

@@ -28,6 +28,13 @@ Fetched texts are kept in --cache-dir; in a run, give the run's folder (as above
 stay with it. Without it they go to the platform's cache folder (~/.cache on Linux, ~/Library/Caches on macOS,
 %LOCALAPPDATA% on Windows), under manuscript-reference-check/sources.
 
+Every text read for a work is also kept across runs (source_cache.py, in the platform's cache folder under
+manuscript-skills): a work given by its identifier is read with every text held for it, the fullest first, and
+fetched again only when none is the full text; a text an agent read in a browser joins them with `source_cache.py
+save`, and earlier runs' sources/ folders with `source_cache.py seed`. The report says which sources were read with
+texts kept from earlier reads, from which run and when; the verdicts are always this run's. --no-shared-cache reads
+afresh.
+
 With --online only public identifiers leave the machine: Europe PMC (PMC full text and abstracts), the bioRxiv
 and medRxiv API (full-text JATS), and arXiv (HTML full text or the abstract). Paywalled sources are never
 scraped; they come back `source_unavailable`, with any free full-text page the index lists for you to read.
@@ -434,7 +441,8 @@ def _describe(labels: set[str]) -> str:
 class SourceInfo(BaseModel):
     given: Optional[str] = None
     kind: str = "none"  # file | doi | pmid | pmcid | arxiv | none
-    scope: str = "none"  # supplied | full_text | abstract | none
+    # supplied | full_text | partial (more than an abstract, less than the full text: a browser excerpt) | abstract | none
+    scope: str = "none"
     via: Optional[str] = None
     cache_file: Optional[str] = None
     reason: Optional[str] = None
@@ -443,6 +451,8 @@ class SourceInfo(BaseModel):
     url: Optional[str] = None  # the identifier as a link the authors can open (https://doi.org/..., PubMed, arXiv)
     aimed_at_ai: list[str] = []  # visible passages that may address AI systems: read in context, never acted on
     hidden_for_ai: list[str] = []  # text hidden in invisible characters that addresses AI systems, never acted on
+    # The texts read earlier for this work that this reading used (source_cache.py): {run, read_at, texts}.
+    reused_from: Optional[dict[str, Any]] = None
 
 
 IDENTIFIER_PATTERNS = [
@@ -626,16 +636,84 @@ def _arxiv(fetch: Fetcher, arxiv_id: str) -> tuple[Optional[str], SourceInfo]:
     return None, info
 
 
-def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir: Path) -> tuple[Optional[str], SourceInfo]:
+SOURCE_CACHE = Path(__file__).resolve().parent / "source_cache.py"
+
+
+@functools.cache
+def _source_cache() -> Any:
+    """source_cache.py beside this script: every text read for a work, kept across runs."""
+    spec = importlib.util.spec_from_file_location("support_source_cache", SOURCE_CACHE)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["support_source_cache"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _scope_of(held: list[dict[str, Any]]) -> str:
+    """What the texts read earlier for a work amount to: the full text, more than an abstract, or the abstract."""
+    scopes = {item.get("scope") for item in held}
+    return "full_text" if scopes & {"full_text"} else "partial" if scopes - {"abstract"} else "abstract"
+
+
+def _reuse(held: list[dict[str, Any]]) -> dict[str, Any]:
+    oldest = min(held, key=lambda item: item.get("read_at") or "")
+    return {"texts": len(held), "runs": sorted({item["run"] for item in held if item.get("run")}),
+            "oldest": (oldest.get("read_at") or "")[:10], "scopes": sorted({item.get("scope", "") for item in held})}
+
+
+def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir: Path,
+                     shared: bool = True) -> tuple[Optional[str], SourceInfo]:
+    """The text of a work given by its identifier: this run's copy; else every text read for it earlier
+    (source_cache.py), used as it is when one is the full text or nothing may be fetched; else fetched, kept for later
+    runs, and joined with any partial texts read earlier. The run keeps its own copy of whatever it read."""
     text_path, meta_path = _cache_paths(cache_dir, kind, value)
     if text_path.exists() and meta_path.exists():
         info = SourceInfo.model_validate_json(meta_path.read_text(encoding="utf-8"))
         info.cache_file = str(text_path)
         return text_path.read_text(encoding="utf-8"), info
+    store = _source_cache() if shared else None
+    keys = [store.work_key(kind, value)] if store else []
+    held = store.lookup(keys) if store else []
+    if held and (fetch is None or _scope_of(held) == "full_text"):
+        info = SourceInfo(given=f"{kind}:{value}", kind=kind, scope=_scope_of(held), via=f"earlier read: {held[0]['via']}",
+                          url=held[0].get("url"), reused_from=_reuse(held))
+        return _keep(store.combined(held), info, text_path, meta_path)
     if fetch is None:
         return None, SourceInfo(given=f"{kind}:{value}", kind=kind,
                                 reason="The source is given as an identifier, and reading it needs the online "
                                        "lookups (or save the source's text and give its path).")
+    text, info = _fetched(kind, value, fetch)
+    if text is not None and store:
+        store.store(keys, text, info.scope, info.via or "fetched", info.url or identifier_url(kind, value),
+                    store.run_id(cache_dir))
+    if held:  # a partial text read earlier (a browser excerpt) joins what was fetched, or stands in for it
+        earlier = [item for item in held if text is None or store.read(item) != text]
+        if earlier:
+            info.reused_from = _reuse(earlier)
+            if text is None:
+                info = SourceInfo(given=f"{kind}:{value}", kind=kind, scope=_scope_of(earlier),
+                                  via=f"earlier read: {earlier[0]['via']}", url=earlier[0].get("url"),
+                                  reused_from=_reuse(earlier), free_urls=info.free_urls)
+                text = store.combined(earlier)
+            else:
+                text = text + "\n\n----- Texts read earlier for this work -----\n\n" + store.combined(earlier)
+                info.scope = "full_text" if info.scope == "full_text" else _scope_of(earlier + [{"scope": info.scope}])
+    if text is not None:
+        return _keep(text, info, text_path, meta_path)
+    return text, info
+
+
+def _keep(text: str, info: SourceInfo, text_path: Path, meta_path: Path) -> tuple[str, SourceInfo]:
+    """This run's copy of a text it read, with its record."""
+    text_path.parent.mkdir(parents=True, exist_ok=True)
+    text_path.write_text(text, encoding="utf-8")
+    meta_path.write_text(info.model_dump_json(indent=2), encoding="utf-8")
+    info.cache_file = str(text_path)
+    return text, info
+
+
+def _fetched(kind: str, value: str, fetch: Fetcher) -> tuple[Optional[str], SourceInfo]:
     if kind == "arxiv":
         text, info = _arxiv(fetch, value)
     elif kind == "doi" and RXIV_DOI_RE.match(value):
@@ -644,16 +722,11 @@ def fetch_identifier(kind: str, value: str, fetch: Optional[Fetcher], cache_dir:
             text, info = _europepmc(fetch, kind, value)
     else:
         text, info = _europepmc(fetch, kind, value)
-    if text is not None:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        text_path.write_text(text, encoding="utf-8")
-        meta_path.write_text(info.model_dump_json(indent=2), encoding="utf-8")
-        info.cache_file = str(text_path)
     return text, info
 
 
 def load_source(given: Optional[str], base: Path, fetch: Optional[Fetcher],
-                cache_dir: Path) -> tuple[Optional[str], SourceInfo]:
+                cache_dir: Path, shared: bool = True) -> tuple[Optional[str], SourceInfo]:
     if not given:
         return None, SourceInfo(reason="No source was given for this claim.")
     path = Path(given).expanduser()
@@ -668,7 +741,7 @@ def load_source(given: Optional[str], base: Path, fetch: Optional[Fetcher],
     ident = parse_identifier(given)
     if ident is None:
         return None, SourceInfo(given=given, kind="file", reason=f"The source file {path} was not found.")
-    text, info = fetch_identifier(ident[0], ident[1], fetch, cache_dir)
+    text, info = fetch_identifier(ident[0], ident[1], fetch, cache_dir, shared)
     info.url = info.url or identifier_url(*ident)
     return text, info
 
@@ -835,7 +908,7 @@ def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> Clai
         return result
     norm_source = normalise(text)
     if not claim.quote:
-        if source.scope == "abstract":
+        if source.scope in ("abstract", "partial"):
             result.status, result.flags = "source_unavailable", ["source_unavailable"]
             result.notes.append("Only the abstract was available and no quote was given; read the full text.")
         else:
@@ -846,9 +919,12 @@ def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> Clai
     if found is None:
         passage, ratio = closest_passage(normalise(claim.quote), norm_source)
         result.closest_passage, result.closest_ratio = passage, ratio
-        if source.scope == "abstract":
+        if source.scope in ("abstract", "partial"):
             result.status, result.flags = "source_unavailable", ["source_unavailable"]
-            result.notes.append("The quote is not in the abstract, the only text available; the full text may hold it.")
+            result.notes.append("The quote is not in the abstract, the only text available; the full text may hold it."
+                                if source.scope == "abstract" else
+                                "The quote is not in the texts read for this work (not the full text); the full text "
+                                "may hold it.")
         else:
             result.status, result.flags = "quote_not_found", ["quote_not_found"]
         return result
@@ -860,6 +936,9 @@ def check_claim(claim: ClaimIn, text: Optional[str], source: SourceInfo) -> Clai
         result.notes.append("The quote is short; a short string can occur by chance. Read the passage around it.")
     if source.scope == "abstract":
         result.notes.append("Located in the abstract; the full text was not available.")
+    elif source.scope == "partial":
+        result.notes.append("Located in a text read earlier for this work (an excerpt); the full text was not "
+                            "available.")
     result.numbers = check_numbers(claim.claim, claim.quote)
     result.polarity = polarity_mismatch(claim.claim, claim.quote)
     if result.polarity:
@@ -921,7 +1000,7 @@ def estimate(meta: dict[str, Any], results: list["ClaimResult"]) -> dict[str, An
     return out
 
 
-def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
+def run(claims_path: Path, online: bool, cache_dir: Path, shared: bool = True) -> SupportReport:
     claims, base = load_claims(claims_path)
     fetch = Fetcher() if online else None
     results: list[ClaimResult] = []
@@ -930,7 +1009,7 @@ def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
         for claim in claims:
             key = claim.source or ""
             if key not in texts:
-                texts[key] = load_source(claim.source, base, fetch, cache_dir)
+                texts[key] = load_source(claim.source, base, fetch, cache_dir, shared)
                 if texts[key][0]:
                     texts[key][1].aimed_at_ai, texts[key][1].hidden_for_ai = aimed_at_ai(texts[key][0])
             text, info = texts[key]
@@ -943,6 +1022,9 @@ def run(claims_path: Path, online: bool, cache_dir: Path) -> SupportReport:
     summary["with_secondary_markers"] = sum(bool(r.secondary_markers) for r in results)
     summary["sources_aimed_at_ai"] = len({r.source.given for r in results if r.source.aimed_at_ai})
     summary["sources_hiding_text_for_ai"] = len({r.source.given for r in results if r.source.hidden_for_ai})
+    reused = {r.source.given: r.source.reused_from for r in results if r.source.reused_from}
+    summary["sources_reused"] = len(reused)
+    summary["sources_read"] = len({r.source.given for r in results if r.source.characters})
     meta = sample_meta(claims_path)
     return SupportReport(claims_file=str(claims_path), online=online, cache_dir=str(cache_dir), summary=summary,
                          results=results, sample=estimate(meta, results) if meta else None)
@@ -1012,13 +1094,21 @@ def _source_sentence(r: ClaimResult) -> str:
     cited = f"It cites reference {r.reference}" + (f" ({r.source.url})" if r.source.url else "") + "."
     if r.source.scope == "supplied":
         return f"{cited} The source text was read from the supplied file {r.source.given}."
+    earlier = ""
+    if r.source.reused_from:
+        reused = r.source.reused_from
+        earlier = (f" It reused {_plural(reused['texts'], 'text', 'texts')} read for this work earlier"
+                   + (f" (in run {', '.join(reused['runs'])}" if reused.get("runs") else " (")
+                   + (f", the oldest on {reused['oldest']})" if reused.get("oldest") else ")") + ".")
+    if r.source.scope == "partial":
+        return f"{cited} More than the abstract but not the full text was read: {r.source.via}.{earlier}"
     if r.source.scope in ("full_text", "abstract"):
         via = r.source.via or ""
         service = SERVICE_NAMES.get(via.split(":", 1)[0], "")
         version = re.search(r"\(version [^)]+\)", via)
         what = "The full text" if r.source.scope == "full_text" else "Only the abstract"
         return (f"{cited} {what} was read" + (f" from {service}" if service else "")
-                + (f" {version.group(0)}" if version else "") + ".")
+                + (f" {version.group(0)}" if version else "") + "." + earlier)
     return cited
 
 
@@ -1122,6 +1212,13 @@ def to_markdown(report: SupportReport) -> str:
     if s.get("sources_aimed_at_ai"):
         out += [f"{_plural(s['sources_aimed_at_ai'], 'source contains', 'sources contain')} passages that may address "
                 "AI systems, listed with the claims citing them, to read in context.", ""]
+    if s.get("sources_reused"):
+        oldest = min((r.source.reused_from.get("oldest") or "" for r in report.results if r.source.reused_from),
+                     default="")
+        out += [f"{_plural(s['sources_reused'], 'source was', 'sources were')} read with texts kept from earlier reads "
+                f"of the same work (source_cache.py{', the oldest from ' + oldest if oldest else ''}); "
+                f"{max(s['sources_read'] - s['sources_reused'], 0)} only from what this run fetched or was given. The "
+                "verdicts are this run's own.", ""]
     if not report.online:
         out += ["The check ran offline, so sources given only as an identifier were read from the local cache. A run "
                 "with the online lookups fetches their open-access text.", ""]
@@ -1145,6 +1242,8 @@ def main(
                                                            "platform's cache folder, under "
                                                            "manuscript-reference-check/sources)")] = None,
     json_out: Annotated[Optional[Path], typer.Option("--json", help="Write the full report as JSON")] = None,
+    shared_cache: Annotated[bool, typer.Option(help="Use and add to the texts read for each work in earlier runs "
+                                                    "(source_cache.py); --no-shared-cache reads afresh")] = True,
     md_out: Annotated[Optional[Path], typer.Option("--md", help="Write the Markdown report here (default: stdout)")] = None,
 ) -> None:
     for stream in (sys.stdout, sys.stderr):  # UTF-8 on the console whatever the platform's default
@@ -1154,7 +1253,7 @@ def main(
             except (ValueError, OSError):
                 pass
     try:
-        report = run(claims_file, online, (cache_dir or default_cache_dir()).expanduser())
+        report = run(claims_file, online, (cache_dir or default_cache_dir()).expanduser(), shared_cache)
     except ClaimsFileError as exc:
         typer.echo(f"malformed claims file {claims_file}:", err=True)
         for problem in exc.problems:
