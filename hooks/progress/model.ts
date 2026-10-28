@@ -336,10 +336,19 @@ const GENERIC = /^(manuscripts?|papers?|main|draft|article|ms|text|index|preprin
 const VERSION = /^v?\d+(\.\d+)*$/i
 const NUMBERED = /^(paper|chapter|manuscript|article|study|part|ms)[-_ ]?(\d+)(?:[-_ ]+(.*))?$/i
 
-// Which manuscript the run is about, short enough for the band: the file's name ("paper1-just-dna-lite" reads
-// "Paper 1 just-dna-lite"), the project's folder in place of a name that says nothing ("manuscript"), and the
-// project's version folder.
-export function runLabel(data: RunJson): string {
+// The paper's own name, from its title: the short name before the colon ("Just-DNA-Lite: a Local-First Platform
+// ..." reads "Just-DNA-Lite"); null where the title opens with a sentence rather than a name.
+export function paperName(title: string | null | undefined): string | null {
+  const head = /^([^:]+):\s/.exec(title ?? '')?.[1]?.trim() ?? ''
+
+  return head && head.length <= 40 && head.split(/\s+/).length <= 4 ? head : null
+}
+
+// Which manuscript the run is about, short enough for the band: the paper's own name from its title, else the
+// file's name ("paper1-just-dna-lite" reads "Paper 1 just-dna-lite"), the project's folder in place of a name
+// that says nothing ("manuscript"); then the project's version folder. Never the kind of paper it is: one
+// author's two software papers would read the same.
+export function runLabel(data: RunJson, title: string | null = null): string {
   const original = data.inputs?.[0]?.original ?? ''
   const parts = original.split(/[\\/]/).filter(Boolean)
   const stem = (parts.at(-1) ?? '').replace(/\.[^.]+$/, '')
@@ -347,7 +356,8 @@ export function runLabel(data: RunJson): string {
   const numbered = head ? `${head[1]![0]!.toUpperCase()}${head[1]!.slice(1).toLowerCase()} ${head[2]}` : ''
   const rest = head ? (head[3] ?? '') : stem
   const folder = parts.slice(0, -1).reverse().find(part => !GENERIC.test(part) && !part.startsWith('.')) ?? ''
-  const name = !rest || GENERIC.test(rest) ? [folder, numbered].filter(Boolean).join(' ') : [numbered, rest].filter(Boolean).join(' ')
+  const file = !rest || GENERIC.test(rest) ? [folder, numbered].filter(Boolean).join(' ') : [numbered, rest].filter(Boolean).join(' ')
+  const name = paperName(title) ?? file
   const version = (data.context?.project_root ?? '').split(/[\\/]/).at(-1) ?? ''
 
   return `${name || stem || data.run_id}${VERSION.test(version) ? ` ${version}` : ''}`
@@ -486,6 +496,32 @@ export function answerDraft(view: ManuscriptRunView, one: ManuscriptDecision): s
   return `On decision ${where(one)} of the ${view.label} manuscript run (${view.runPath}), "${one.summary}": `
 }
 
+// What "Ask me in a new session" sends Claude, in the person's words: start a session of its own for this one
+// decision, titled with the paper's name, with a brief that holds everything it needs, so this session gives it
+// nothing it found and keeps on with its own work.
+export function sessionRequest(view: ManuscriptRunView, one: ManuscriptDecision): string {
+  const short = one.summary.length > 60 ? `${one.summary.slice(0, 59).trimEnd()}…` : one.summary
+  const brief = [
+    `Ask me, the author, about one decision the ${view.label} manuscript run left for me, then make the change I choose.`,
+    '',
+    `The paper: ${view.title ? `"${view.title}"` : view.label}, called ${view.label} here.${view.manuscript ? ` File: ${view.manuscript}.` : ''}`,
+    `Run folder: ${view.runPath} (the findings behind the decision are in its stages' findings.json).`,
+    `Decision ${one.id}, from ${one.stage}${one.section ? `, section ${one.section}` : ''}: ${one.summary}`,
+    ...(one.detail ? [`Why: ${one.detail}`] : []),
+    ...(one.action ? [`Suggested: ${one.action}`] : []),
+    '',
+    'Read that section of the manuscript first. Then ask me the decision as one question, with the options and the ' +
+      'one you recommend, each in a sentence that quotes the text it would change. Make the change I choose in the ' +
+      'manuscript file and tell me what changed. Call the paper by its name, never by what kind of paper it is.',
+  ]
+
+  return [
+    `Start a new Claude Code session that asks me about decision ${one.id} of the ${view.label} manuscript run. Title it "${view.label} · ${one.id}: ${short}" and give it the brief below as it stands. If no new session can be started here, ask me about it in this one instead.`,
+    '',
+    ...brief,
+  ].join('\n')
+}
+
 export function buildView(g: Gathered): ManuscriptRunView {
   const { data } = g
   const edits = data.context?.effective?.edits
@@ -540,8 +576,9 @@ export function buildView(g: Gathered): ManuscriptRunView {
   return {
     runPath: g.runPath,
     runId: data.run_id,
-    label: runLabel(data),
+    label: runLabel(data, g.title ?? null),
     title: g.title ?? null,
+    manuscript: data.versions?.at(-1)?.new ?? data.inputs?.[0]?.original ?? null,
     startedAt: time(data.started_at),
     lastRecordAt: times.length ? Math.max(...times) : null,
     stages,

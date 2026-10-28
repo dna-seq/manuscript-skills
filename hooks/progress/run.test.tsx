@@ -387,6 +387,10 @@ test('the label names the manuscript, and the title comes from its text', () => 
   expect(named(`${lite}/paper1-just-dna-lite.md`, lite)).toBe('Paper 1 just-dna-lite v0.6')
   expect(named('/home/user/thesis/paper2.md')).toBe('thesis Paper 2')
   expect(named('/home/user/drafts/sirt6-aging.md')).toBe('sirt6-aging')
+  // the paper's own name from its title wins; a title that opens with a sentence leaves the file's name
+  const run = { run_id: 'r', started_at: at(0), skills: {}, inputs: [{ original: `${lite}/paper1-just-dna-lite.md`, snapshot: 'x' }], context: { project_root: lite } }
+  expect(runLabel(run, 'Just-DNA-Lite: a Local-First Platform')).toBe('Just-DNA-Lite v0.6')
+  expect(runLabel(run, 'Creating and Sharing Genomic Annotation Modules with AI: The Just-DNA Ecosystem')).toBe('Paper 1 just-dna-lite v0.6')
 
   const easrp = '\\easrpauthor{Anonymous}\n\\easrptitle{Creating and Sharing Genomic Annotation Modules with AI: The\nJust-DNA Ecosystem}\n\\maketitle'
   expect(manuscriptTitle(easrp, 'inputs/01-manuscript.tex')).toBe(
@@ -438,13 +442,14 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
     (await ui.findAll({ type: 'Button' })).filter(one => one.key?.startsWith('decision-'))
   for (const surface of ['terminal', 'desktop'] as const) {
     const pane = await $.ui.mount({ ...DECISIONS, surface })
-    expect(await pane.find({ type: 'Text', text: 'Paper 1 just-dna-lite v0.6' })).toBeDefined()
+    // named by the paper's own name from its title, not by its file or its kind
+    expect(await pane.find({ type: 'Text', text: 'Just-DNA-Lite v0.6' })).toBeDefined()
     expect(await pane.find({ type: 'Text', text: 'Just-DNA-Lite: a Local-First Platform' })).toBeDefined()
     expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('22 of 22 decisions wait for you')
     // every decision listed, its summary whole and wrapped, never cut
     expect(await rows(pane)).toHaveLength(22)
-    expect((await pane.find({ type: 'Text', text: /^IC-22 Decision 22 / }))?.text).toBe(`IC-22 ${held[21]!.summary}`)
-    expect((await pane.find({ type: 'Text', text: /^IC-22 / }))?.props.wrap).toBe('wrap')
+    // each row is one press, its summary whole
+    expect((await pane.find({ type: 'Button', key: `decision-${key('IC-22')}` }))?.text).toContain(held[21]!.summary)
     expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-21')}` })).toBeUndefined()
     await pane.unmount()
   }
@@ -455,17 +460,18 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   expect(await pane.find({ type: 'Text', text: 'Integrity check · 4.2 Production catalog (Table 4)' })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeDefined()
+  expect(await pane.find({ type: 'Button', key: `session-${key('IC-21')}` })).toBeDefined()
   await pane.press({ key: `go-ahead-${key('IC-21')}` })
   // one with nothing suggested can be left or answered, not gone ahead with
   await pane.press({ key: `decision-${key('IC-1')}` })
   expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-1')}` })).toBeUndefined()
   await pane.press({ key: `leave-${key('IC-1')}` })
-  expect((await pane.find({ type: 'Text', text: /^IC-21 / }))?.text).toEndWith('· go ahead')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· go ahead')
   expect((await pane.find({ type: 'Button', key: 'send-answers' }))?.text).toBe('Send 2 answers to Claude')
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
   expect((await band.find({ type: 'Text', text: /wait for you/ }))?.text).toBe(
-    'Paper 1 just-dna-lite v0.6: 20 decisions wait for you · 2 answers not sent yet',
+    'Just-DNA-Lite v0.6: 20 decisions wait for you · 2 answers not sent yet',
   )
   await band.unmount()
 
@@ -478,15 +484,25 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   expect(submitted[0]!.text).toContain(`Go ahead:\n- IC-21 (4.2 Production catalog (Table 4)): ${whole.summary} Suggested: ${whole.action}`)
   expect(submitted[0]!.text).toContain(`Leave as it is:\n- IC-1: ${held[0]!.summary}`)
   expect(await pane.find({ type: 'Button', key: 'send-answers' })).toBeUndefined()
-  expect((await pane.find({ type: 'Text', text: /^IC-21 / }))?.text).toEndWith('· go ahead, sent')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· go ahead, sent')
 
   // an answer in the person's own words goes through the prompt box
   await pane.press({ key: `decision-${key('IC-2')}` })
   await pane.press({ key: `write-${key('IC-2')}` })
   expect(filled).toEqual([
-    `On decision IC-2 of the Paper 1 just-dna-lite v0.6 manuscript run (${RUN}), "${held[1]!.summary}": `,
+    `On decision IC-2 of the Just-DNA-Lite v0.6 manuscript run (${RUN}), "${held[1]!.summary}": `,
   ])
-  expect((await pane.find({ type: 'Text', text: /^IC-2 / }))?.text).toEndWith('· answered in the chat')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-2')}` }))?.text).toEndWith('· answered in the chat')
   expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('19 of 22 decisions wait for you')
+
+  // a decision asked in a session of its own: Claude is asked, as the person, to start one titled with the paper
+  await pane.press({ key: `decision-${key('IC-3')}` })
+  await pane.press({ key: `session-${key('IC-3')}` })
+  for (let n = 0; n < 50 && submitted.length < 2; n += 1) await Promise.resolve()
+  expect(submitted[1]!.origin).toEqual({ kind: 'plugin', name: 'manuscript-skills', asUser: true })
+  expect(submitted[1]!.text).toStartWith('Start a new Claude Code session that asks me about decision IC-3 of the Just-DNA-Lite v0.6')
+  expect(submitted[1]!.text).toContain(`"Just-DNA-Lite: a Local-First Platform", called Just-DNA-Lite v0.6 here`)
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-3')}` }))?.text).toEndWith('· asked in a new session')
+  expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('18 of 22 decisions wait for you')
   await pane.unmount()
 })

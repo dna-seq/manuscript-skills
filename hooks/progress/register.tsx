@@ -6,7 +6,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { ManuscriptAnswer, ManuscriptReferees, ManuscriptRunView, ManuscriptStage } from '../../types'
+import type {
+  ManuscriptAnswer,
+  ManuscriptDecision,
+  ManuscriptReferees,
+  ManuscriptRunView,
+  ManuscriptStage,
+} from '../../types'
 import {
   answerDraft,
   answersMessage,
@@ -17,6 +23,7 @@ import {
   FINISHED,
   manuscriptTitle,
   refereeGrid,
+  sessionRequest,
   statusLine,
   summarizeFindings,
 } from './model'
@@ -401,6 +408,28 @@ async function sendAnswers($: $, v: ManuscriptRunView): Promise<void> {
   )
 }
 
+// "Ask me in a new session": Claude is asked, in the person's words, to start a session of its own for the decision
+// (the desktop app's sessions; elsewhere Claude asks here). Marked at once; put back if the prompt does not enter.
+async function askInSession($: $, v: ManuscriptRunView, one: ManuscriptDecision, key: string): Promise<void> {
+  const mark = (isAsked: boolean) =>
+    update($, answers, all => {
+      const { [key]: _, ...rest } = all
+      return isAsked ? { ...rest, [key]: { choice: 'session' as const, isSent: true } } : rest
+    })
+  await mark(true)
+  void $.prompt.submit({ text: sessionRequest(v, one), asUser: true }).then(
+    async result => {
+      if (result.drop === undefined) return
+      await mark(false)
+      $.ui.toast(`The new session was not asked for: ${result.drop}`)
+    },
+    async () => {
+      await mark(false)
+      $.ui.toast('The new session could not be asked for; the decision is kept in the Decisions pane.')
+    },
+  )
+}
+
 // "Write answer": the decision, named, in the prompt box, after whatever the person had typed.
 async function writeAnswer($: $, draft: string): Promise<boolean> {
   const box = await $.prompt.read()
@@ -685,9 +714,10 @@ export const register: Register = on => {
     )
   })
 
-  // The decisions the run left for the authors, each with its whole summary and, unfolded, what the finding says
-  // beyond it and the answers: go ahead, leave as is, or write an answer in the prompt box. The answers chosen
-  // here go to Claude together in one message, from the button at the top.
+  // The decisions the run left for the authors, each a row pressed to unfold it: its whole summary and, unfolded,
+  // what the finding says beyond it and the answers: a new session that asks the authors about it, go ahead,
+  // leave as is, or write an answer in the prompt box. Go ahead and leave go to Claude together in one message,
+  // from the button at the top.
   on('ui.render', { component: 'Pane', requestId: DECISIONS }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await read($, view)
@@ -715,6 +745,7 @@ export const register: Register = on => {
       'go-ahead': ['go ahead', 'success'],
       leave: ['leave as is', 'inactive'],
       written: ['answered in the chat', 'success'],
+      session: ['asked in a new session', 'success'],
     }
 
     const header = (
@@ -725,8 +756,8 @@ export const register: Register = on => {
           {open > 0 ? `${open} of ${plural(v.decisions.length, 'decision')} wait for you` : `All ${plural(v.decisions.length, 'decision')} answered`}
         </Text>
         <Text dimColor wrap="wrap">
-          Unfold a decision to answer it: go ahead as it suggests, leave the text as it is, or write your own answer
-          in the prompt box. Send the answers to Claude together when you are ready.
+          Press a decision to open it: have a new session ask you about it, go ahead as it suggests, leave the text
+          as it is, or write your own answer in the prompt box. Send the go-aheads and leaves to Claude together.
         </Text>
         {unsent > 0 && (
           <Box marginTop={1}>
@@ -771,19 +802,14 @@ export const register: Register = on => {
       const where = [one.stage, one.section].filter(Boolean).join(' · ')
       return (
         <Box key={`row-${key}`} flexDirection="column" marginBottom={isOpen ? 1 : 0}>
-          <Box flexDirection="row" gap={1}>
-            <Button key={`decision-${key}`} plain label={isOpen ? '▾' : '▸'} onPress={unfold(key)} />
-            <Text wrap="wrap" dimColor={Boolean(mine?.isSent)}>
-              <Text dimColor>{one.id}</Text> {one.summary}
-              {said && (
-                <Text color={said[1]}>
-                  {' '}
-                  · {said[0]}
-                  {mine!.isSent && mine!.choice !== 'written' ? ', sent' : ''}
-                </Text>
-              )}
-            </Text>
-          </Box>
+          <Button key={`decision-${key}`} plain dimColor={Boolean(mine?.isSent)} onPress={unfold(key)}>
+            <Text dimColor>{`${isOpen ? '▾' : '▸'} ${one.id}`}</Text> {one.summary}
+            {said && (
+              <Text color={said[1]}>
+                {` · ${said[0]}${mine!.isSent && (mine!.choice === 'go-ahead' || mine!.choice === 'leave') ? ', sent' : ''}`}
+              </Text>
+            )}
+          </Button>
           {isOpen && (
             <Box flexDirection="column" paddingLeft={2}>
               {where && (
@@ -794,6 +820,12 @@ export const register: Register = on => {
               {one.detail && <Text wrap="wrap">{one.detail}</Text>}
               {one.action && <Text wrap="wrap">→ {one.action}</Text>}
               <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={1}>
+                <Button
+                  key={`session-${key}`}
+                  variant="primary"
+                  label="Ask me in a new session"
+                  onPress={() => askInSession($, v, one, key)}
+                />
                 {one.action && <Button key={`go-ahead-${key}`} label="Go ahead" onPress={answer(key, 'go-ahead')} />}
                 <Button key={`leave-${key}`} label="Leave as is" onPress={answer(key, 'leave')} />
                 <Button
@@ -803,7 +835,7 @@ export const register: Register = on => {
                     if (await writeAnswer($, answerDraft(v, one))) await answer(key, 'written')()
                   }}
                 />
-                {mine && (!mine.isSent || mine.choice === 'written') && (
+                {mine && (!mine.isSent || mine.choice === 'written' || mine.choice === 'session') && (
                   <Button key={`undo-${key}`} label="Undo" onPress={answer(key, null)} />
                 )}
               </Box>

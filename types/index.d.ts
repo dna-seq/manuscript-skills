@@ -63,19 +63,23 @@ export type ManuscriptDecision = {
 }
 
 // The authors' answer to one decision, given in the Decisions pane: go ahead as it suggests, leave the text as it
-// is, or their own words put in the prompt box. The first two wait to go to Claude together in one message.
+// is, their own words put in the prompt box, or a new session of its own that asks them about it. The first two
+// wait to go to Claude together in one message.
 export type ManuscriptAnswer = {
-  choice: 'go-ahead' | 'leave' | 'written'
+  choice: 'go-ahead' | 'leave' | 'written' | 'session'
   isSent: boolean
 }
 
 export type ManuscriptRunView = {
   runPath: string
   runId: string
-  // which manuscript: its file's name, with the project's folder where the name alone says nothing ("manuscript")
+  // which manuscript: the paper's own name from its title ("Just-DNA-Lite"), else its file's name, with the
+  // project's folder where the name alone says nothing ("manuscript"); then the project's version folder
   label: string
   // the manuscript's own title, from the run's snapshot of it
   title: string | null
+  // the manuscript file the run works on: its newest version, else the first input
+  manuscript: string | null
   startedAt: number | null
   // time of the newest record in the run
   lastRecordAt: number | null
