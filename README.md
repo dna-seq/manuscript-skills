@@ -223,13 +223,17 @@ In Claude Code 2.1.299 or newer, the plugin shows where a run stands while it wo
 decisions are held for you, the run's settings and buttons that open its outputs, a **Decisions** pane, a band
 above the prompt when the run waits for your answer or decisions wait for you, and a short notice as each
 stage finishes. The band's **Open decisions** opens the Decisions pane: every decision with its whole
-summary, each unfolding to where it is, why, and what it suggests, with buttons to answer it: **Go ahead**
-as it suggests, **Leave as is**, or **Write answer**, which puts the decision in the prompt box for your own
-words. **Send answers to Claude** sends the answers you chose in one message, as yours, to the session the
-pane is in; until then they stay in the pane, for this session only. The band, the panes and the status line
-name the manuscript (its file's name, or its project's folder where the file is just `manuscript`, and the
-version folder), and the panes show its title, so a session that watches another paper's run says which
-paper waits for you. The progress pane opens by itself in the session that runs the workflow;
+summary, each a row you click to open it: where it is, why, what it suggests, and buttons to answer it.
+**Ask me in a new session** has Claude start a Claude Code session of its own for that one decision, titled
+with the paper's name, which asks you the question with its options and makes the change you choose (in the
+desktop app; in a terminal, where no session can be started, Claude asks you in the session you are in).
+**Go ahead** as it suggests, **Leave as is**, or **Write answer**, which puts the decision in the prompt box
+for your own words. **Send answers to Claude** sends the go-aheads and leaves in one message, as yours, to the
+session the pane is in; until then they stay in the pane, for this session only. The band, the panes and the
+status line name the manuscript by its own name: the short name before the colon in its title
+("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
+folder where the file is just `manuscript`), then the version folder, never by what kind of paper it is. The
+panes show its whole title, so a session that watches another paper's run says which paper waits for you. The progress pane opens by itself in the session that runs the workflow;
 anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
 PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
 folder. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so

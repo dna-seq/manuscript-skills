@@ -44,6 +44,14 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).
 - **The reference review** (dashboard): a human review of the same version, matched against the run's
   frozen findings (`collect.py --reference`).
+- **A decision asked in a session of its own (0.43.0).** In the progress mod's Decisions pane
+  (`hooks/progress`) each decision row is one Button; opened, **Ask me in a new session** submits, as the
+  person, `sessionRequest()` (`model.ts`): a request that Claude start a session (the desktop app's
+  `start_session`) titled `<label> · <id>: <summary>`, with a self-contained brief. A mod cannot start a
+  session itself. The answer is recorded as `choice: 'session'`.
+- **Papers are named by their own name.** `runLabel(data, title)` takes the short name before the title's
+  colon (`paperName()`, at most four words), else the file's name; never the kind of paper, since one author
+  may have two software papers.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery
