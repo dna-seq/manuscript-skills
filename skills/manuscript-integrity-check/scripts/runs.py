@@ -306,10 +306,13 @@ def save(run: Path, data: dict[str, Any]) -> None:
         folder = run / name
         folder.mkdir(exist_ok=True)
         lines = [f"# {name}", "", f"Status: **{seat['status']}**. {seat.get('reason', '')}", ""]
+        if seat.get('length'):
+            lines.extend([f"Length after this stage: {length_line(data, seat['length'])}.", ""])
         if name == 'manuscript-peer-review':
             lines.append(f"Review mode: {seat.get('review_mode', 'full')}.\n")
         for step, record in seat.get('stages', {}).items():
-            lines.append(f"- Stage {step}: **{record['status']}**" + (f". {record['reason']}" if record.get('reason') else ""))
+            lines.append(f"- Stage {step}: **{record['status']}**" + (f". {record['reason']}" if record.get('reason') else "")
+                         + (f" Length after it: {length_line(data, record['length'])}." if record.get('length') else ""))
         if seat.get('stages'):
             lines.append("")
         for item in seat["artifacts"]:
@@ -328,7 +331,8 @@ def save(run: Path, data: dict[str, Any]) -> None:
         counted = seat.get('counts')
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s)."
                      + (f" {counted['findings']} finding(s), {counted['proposals']} proposal(s), {counted['decisions']} "
-                        "decision(s) for the authors." if counted else ""))
+                        "decision(s) for the authors." if counted else "")
+                     + (f" Length after it: {length_line(data, seat['length'])}." if seat.get('length') else ""))
     for item in data.get('versions', []):
         index.extend(["", f"New version: {item['new']}, made from {item['previous']}, which is kept as it was."])
     for location in data.get('not_snapshotted', []):
@@ -777,7 +781,8 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
         dest.parent.mkdir(exist_ok=True)
         shutil.copyfile(source, dest)
         data['inputs'].append({'original': source.as_posix(), 'snapshot': dest.relative_to(run).as_posix(),
-                               'sha256': digest(dest)} | extra)
+                               'sha256': digest(dest)} | extra
+                              | ({'words': words} if (words := manuscript_words(dest)) is not None else {}))
     for name in skill:
         ensure_skill(data, name, at=data['started_at'])
     save(run, data)
@@ -976,6 +981,58 @@ def rev_marks() -> Any:
     return sys.modules['runs_rev_marks']
 
 
+REFERENCES_HEADING = re.compile(r'^\s*#{1,6}\s.*\b(?:references|bibliography|literature cited|works cited)\b',
+                                re.IGNORECASE)
+WORD_TOKEN = re.compile(r"\w[\w'’-]*")
+
+
+def manuscript_words(path: Path) -> int | None:
+    """The length of a manuscript's running text as editing changes it: the words of its clean text (without
+    revision marks) from the start to the first references heading, title, headings and tables included, as
+    scan.py counts a body. Approximate, and the same rule at every count, so the changes compare."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return None
+    if '@rev' in text:
+        marks = rev_marks()
+        try:
+            text = marks.strip_marks(text, marks.syntax_for(path))
+        except marks.MarkErrors:
+            pass  # lint reports them; the words are counted with the marks' own few
+    lines = text.splitlines()
+    end = next((n for n, line in enumerate(lines) if REFERENCES_HEADING.match(line)), len(lines))
+    return len(WORD_TOKEN.findall("\n".join(lines[:end])))
+
+
+def working_file(data: dict[str, Any], source: dict[str, Any]) -> Path:
+    """The file a run's edits go into for an input: the new version with versions: immutable, else the input."""
+    original = Path(source['original'])
+    made = next((item['new'] for item in data.get('versions', []) if item['previous'] == original.resolve().as_posix()),
+                None)
+    return Path(made) if made else original
+
+
+def lengths_now(data: dict[str, Any]) -> dict[str, int]:
+    """Each local input's length now, by file name, as `manuscript_words` counts it."""
+    out = {}
+    for source in data['inputs']:
+        if not source.get('remote') and (words := manuscript_words(working_file(data, source))) is not None:
+            out[Path(source['original']).name] = words
+    return out
+
+
+def length_line(data: dict[str, Any], lengths: dict[str, int]) -> str:
+    """The lengths after a stage, each with its change since the run began."""
+    start = {Path(s['original']).name: s.get('words') for s in data['inputs']}
+    parts = []
+    for name, words in lengths.items():
+        began = start.get(name)
+        delta = f" ({words - began:+,} since the run began)" if isinstance(began, int) else ""
+        parts.append(f"{name} {words:,} words{delta}")
+    return "; ".join(parts)
+
+
 @app.command('apply')
 @serialized
 def apply_edits(run: Path, skill: Annotated[str, typer.Option('--skill')],
@@ -1081,6 +1138,8 @@ def finish(run: Path, skill: Annotated[str, typer.Option('--skill')],
     errors = problems(run, data)
     if status in {'completed', 'partial'} and skill not in NO_FINDINGS and not findings_problem(run, data, skill):
         errors += contract_problems(run, data, skill)
+    if status in {'completed', 'partial'} and entry['changes'] and (lengths := lengths_now(data)):
+        entry['length'] = lengths  # each editing stage's mark on the paper's length (length_line shows it)
     if (moved := plugin_moved(data)) and not any(i.get('message') == moved for i in entry['issues']):
         entry['issues'].append({'kind': 'contradiction', 'message': moved, 'recorded_at': now()})
     if errors:
@@ -1114,6 +1173,8 @@ def stage(run: Path, name: Annotated[Step, typer.Option('--name')], status: Anno
     else:
         record['finished_at'] = now()
     record.update(status=status.value, reason=' '.join(reason.split()))
+    if name.value == 'revise' and status.value in {'completed', 'partial'} and (lengths := lengths_now(data)):
+        record['length'] = lengths  # the revise stage edits too: its mark on the paper's length
     save(run, data)
     typer.echo(f"{name.value}: {status.value}")
 

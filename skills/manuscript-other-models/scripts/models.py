@@ -22,7 +22,11 @@ and changed is reported and left as it was. Its last message is saved as WS/seat
 WS/seat-run.json records the CLI and its version, the model, the exact command, the exit status, the
 duration, the files returned, and where the prompt as sent, the CLI's output and its errors were saved.
 The copy is then deleted. Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md,
-GEMINI.md), its git history and the agent's memory of the project away from the seat.
+GEMINI.md), its git history and the agent's memory of the project away from the seat. The authors' own setup in
+their home folder is left out where the CLI allows it: Claude Code reads no user settings (`--setting-sources
+project,local`, so not the user's CLAUDE.md, hooks or plugins), and Codex no user config (`--ignore-user-config`:
+not its plugins, skills or MCP servers; its configured model and effort are named on the command line instead).
+Gemini CLI still loads the user's GEMINI.md. seat-run.json says which (`standing_instructions`).
 
 The path of WS written in BRIEF (as the system writes it, or with forward slashes) is replaced by the copy's
 path, so a brief that names its workspace works; otherwise the brief is sent as it is.
@@ -81,14 +85,21 @@ class Cli:
     # "enforced": the CLI itself refuses to read outside the copy; "instruction-only": it limits writes, and only the
     # brief's instruction keeps its reads inside the copy.
     read_isolation: str = "instruction-only"
+    # What of the authors' own setup reaches a seat started by `run`: their instructions, memory and plugins.
+    instructions: str = "loaded"
 
 
 CLIS = {
     "claude": Cli("claude", "Claude Code", "Anthropic", ("CLAUDECODE",), ("low", "medium", "high", "xhigh", "max"),
-                  "an alias (fable, opus, sonnet, haiku) or a full model id", "enforced"),
+                  "an alias (fable, opus, sonnet, haiku) or a full model id", "enforced",
+                  "left out: no project folder above the copy (no CLAUDE.md, no memory of the project), and no user "
+                  "settings (not the user's CLAUDE.md, hooks or plugins)"),
     "codex": Cli("codex", "Codex CLI", "OpenAI", ("CODEX_THREAD_ID", "CODEX_SESSION_ID"),
-                 ("minimal", "low", "medium", "high", "xhigh")),
-    "gemini": Cli("gemini", "Gemini CLI", "Google", ("GEMINI_CLI",), (), "a Gemini model id, e.g. gemini-2.5-pro"),
+                 ("minimal", "low", "medium", "high", "xhigh"), instructions=(
+                     "left out: no project folder above the copy (no AGENTS.md), and no user config (not its plugins, "
+                     "skills or MCP servers); the user's own AGENTS.md in CODEX_HOME, if there is one, still loads")),
+    "gemini": Cli("gemini", "Gemini CLI", "Google", ("GEMINI_CLI",), (), "a Gemini model id, e.g. gemini-2.5-pro",
+                  instructions="partly: no project folder above the copy, but the user's own GEMINI.md still loads"),
 }
 READS = {"enforced": "reads limited to the copy by the CLI",
          "instruction-only": "writes limited to the copy by the CLI; reads only by the brief's instruction"}
@@ -118,6 +129,14 @@ def version(binary: str) -> str:
 
 def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+
+
+def codex_effort() -> str | None:
+    """Codex's configured reasoning effort, which a seat run without the user config would otherwise lose."""
+    try:
+        return tomllib.loads((codex_home() / "config.toml").read_text(encoding="utf-8")).get("model_reasoning_effort")
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
 
 
 def codex_models() -> tuple[str | None, list[str]]:
@@ -215,9 +234,11 @@ class Outcome:
 def claude_argv(model: str | None, effort: str | None, last: Path) -> list[str]:
     # File tools only, no shell; acceptEdits lets it write inside the copy, and a read or write outside it is refused
     # in print mode. No MCP servers, skills or saved session.
+    # No user settings: the authors' CLAUDE.md, hooks and plugins stay out of a seat (their sign-in does not live
+    # there). Name the model: the user's default lives in those settings.
     argv = ["claude", "-p", "--output-format", "json", "--tools", "Read,Glob,Grep,Write,Edit",
             "--permission-mode", "acceptEdits", "--strict-mcp-config", "--disable-slash-commands",
-            "--no-session-persistence"]
+            "--no-session-persistence", "--setting-sources", "project,local"]
     return argv + (["--model", model] if model else []) + (["--effort", effort] if effort else [])
 
 
@@ -243,8 +264,10 @@ def claude_read(stdout: str, stderr: str, last: Path) -> Outcome:
 
 def codex_argv(model: str | None, effort: str | None, last: Path) -> list[str]:
     # workspace-write: it may write inside the copy (and its temporary folder), with no network for commands.
-    argv = ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "workspace-write", "--json",
-            "-o", str(last)]
+    # No user config: the authors' plugins, skills and MCP servers stay out of a seat; auth still comes from
+    # CODEX_HOME, and the configured model and effort are passed by `session`.
+    argv = ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config", "-s", "workspace-write",
+            "--json", "-o", str(last)]
     argv += ["-m", model] if model else []
     argv += ["-c", f"model_reasoning_effort={effort}"] if effort else []
     return argv + ["-"]
@@ -393,6 +416,7 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
     # Codex without a model runs the default the authors configured: name it on the command line, so the command the
     # record keeps says which model was asked for, as `codex exec --model gpt-6.1-sol` would.
     configured = codex_models()[0] if key == "codex" and not model else None
+    effort = effort or (codex_effort() if key == "codex" else None)
     argv = build(model or configured, effort, last)
     argv[0] = shutil.which(argv[0]) or argv[0]
     started = time.monotonic()
@@ -560,7 +584,7 @@ def run(cli: str,
     if answer:
         (workspace / ANSWER).write_text(answer + "\n", encoding="utf-8")
     record = {"cli": cli, "name": info.name, "family": info.family, "version": version(cli), "host": host()} | result | {
-        "read_isolation": info.read_isolation, "write_isolation": "enforced",
+        "read_isolation": info.read_isolation, "write_isolation": "enforced", "standing_instructions": info.instructions,
         "workspace": str(workspace), "brief": str(brief.resolve()),
         "workspace_path_in_brief_replaced": sum(text.count(given_path) for given_path in named),
         "prompt": "seat-run.prompt.md", "answer": ANSWER if answer else None,
@@ -569,7 +593,8 @@ def run(cli: str,
     (workspace / RECORD).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     lines = [f"{info.name} ({record['model']}): {record['status']} in {record['seconds']} s"
              + (f". {record['error']}" if record["error"] else ""),
-             f"Isolation: {READS[info.read_isolation]}."]
+             f"Isolation: {READS[info.read_isolation]}; the authors' own instructions, memory and plugins "
+             f"{info.instructions}."]
     if cli == "codex" and record["status"] != "answered" and (advice := codex_refusal_advice(record["error"],
                                                                                           record["version"])):
         lines[1:1] = [advice, codex_account_line(codex_account())]

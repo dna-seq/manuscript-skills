@@ -318,7 +318,15 @@ def test_provider_keys_never_reach_a_cli_and_the_record_says_how_far_reads_were_
                                  "credential_variables_removed": ["OPENAI_API_KEY", "GEMINI_API_KEY"],
                                  # A gateway for Claude Code is named only for Claude Code: Codex and Gemini never read it.
                                  "route_settings_kept": ["ANTHROPIC_BASE_URL"] if cli == "claude" else []}
-    assert f"Isolation: {models.READS[reads]}." in result.output
+    assert f"Isolation: {models.READS[reads]};" in result.output
+    # The authors' own setup: left out where the CLI allows it, and said so in the record and the output.
+    assert record["standing_instructions"] == models.CLIS[cli].instructions
+    assert models.CLIS[cli].instructions in result.output
+    argv = record["command"]
+    if cli == "claude":
+        assert argv[argv.index("--setting-sources") + 1] == "project,local"
+    if cli == "codex":
+        assert "--ignore-user-config" in argv
     assert "Not passed to the CLI, so that it used its own sign-in: OPENAI_API_KEY, GEMINI_API_KEY." in result.output
     assert ("ANTHROPIC_BASE_URL is set" in result.output) == (cli == "claude")
 

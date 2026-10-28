@@ -294,7 +294,25 @@ scripts for that.
 - Item 9: `revise.py` puts a reference entry added after another, in a list of one entry per paragraph, in a
   paragraph of its own.
 
-Still open: items 10, 11 and 13, and the source cache.
+## Fixed in 0.47.0
+
+- Item 10: every panel seat (referees, readers, the defender, critics, the sceptic, the re-check) runs as a
+  separate session through `models.py run`, on the host's own CLI as well, in a copy outside every project, and
+  that session leaves the authors' own setup out: Claude Code reads no user settings (`--setting-sources
+  project,local`), so not their CLAUDE.md, hooks or plugins, and Codex no user config (`--ignore-user-config`),
+  so not its plugins, skills or MCP servers, its configured model and effort passed on the command line. Checked
+  on this machine: asked whether any instruction or memory says to push to main without asking, or that the
+  authors' own prototype is not prior art, a seat started this way answers no; the same question from inside the
+  project, user settings left out, still finds the memory rule; a Codex seat lists 15 bundled skills instead of 77
+  entries. `seat-run.json` records what reached each seat (`standing_instructions`); Gemini CLI still loads the
+  user's GEMINI.md. A host subagent is the fallback, and the report then says its seats carried the authors'
+  instructions and memory. The wording that promised "whole context is its brief" now says what is true.
+- Item 11: `runs.py start` records each input's length (words of the clean running text up to the references),
+  `finish` and `stage --name revise` record it after every stage that edits, and the run index shows each with
+  its change since the run began. The improve skill and the stage brief ask that an addition nothing asks for
+  come with a cut of its size, or stay a proposal, and that the summary give the length before and after.
+
+Still open: item 13, and the source cache.
 
 ## Suggested order
 

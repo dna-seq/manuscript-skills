@@ -174,15 +174,18 @@ the whole paper).
   image. Run it through `runs.py exec` so its output is kept, read the left-out files and the warnings,
   register the briefs, and start each seat with its brief file unchanged. A seat run again gets a new
   workspace (`SEAT.2`) from the same command; the first stays as it was.
-- **Independence is required**, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) sets out: a fresh agent
-  per seat whose whole context is its brief, started by the session that can start agents (in
+- **Independence is required**, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) sets out: a fresh session
+  per seat whose only context is its brief, free of the authors' standing instructions and memory, started by
+  the session that can start agents (in
   manuscript-improve, the coordinator itself), the brief filled from the template and nothing else, and
   `--isolation` recorded for every seat and the defender.
-- Start each seat as a fresh subagent with the seat brief from
-  [seats.md](references/seats.md#the-seat-brief), never as a fork of this conversation. Launch all seats
-  in one message, so that they run in parallel, and receive every result before merging: as blocking
-  calls, or in the background where the host reports each agent's completion (a coordinator running other
-  stages meanwhile). Never merge, adjudicate or end the workflow while a seat is still running. Retry a seat that fails to start (for example at a concurrency
+- Start each seat as a fresh session with the seat brief from
+  [seats.md](references/seats.md#the-seat-brief): `models.py run` on the host's own CLI
+  ([manuscript-other-models](../manuscript-other-models/SKILL.md), with `--model` the host's model id), so the
+  authors' standing instructions and memory stay out of it; a host subagent only when that cannot run, said
+  in the report. Never a fork of this conversation. Launch all seats at once, so that they run in parallel
+  (each `run` in the background), and receive every result before merging: as blocking calls, or in the
+  background where the host reports each one's completion (a coordinator running other stages meanwhile). Never merge, adjudicate or end the workflow while a seat is still running. Retry a seat that fails to start (for example at a concurrency
   limit). Before merging, check that each seat's `findings.json` exists, parses and ends with its
   `report`; ask a seat that left the report out again (below), and never write one for it.
 - **Other models, when chosen, start now.** When the authors asked for more than one model, or the

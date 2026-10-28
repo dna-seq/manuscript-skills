@@ -256,9 +256,19 @@ problems, a hint where to look, what the authors meant, what the run changed) ma
 coordinator instead of reading the paper. These rules hold in every skill that runs a panel
 (`manuscript-peer-review`, `manuscript-story`, the deslop reflection loop) and are not optional:
 
-1. **A fresh agent per seat.** Each seat runs as a new agent whose whole context is its brief: in Claude
-   Code, the Agent tool with a general-purpose agent, never a `fork` (a fork inherits this conversation)
-   and never a message to an agent that has already worked on this paper, except resuming a seat's own
+1. **A fresh session per seat, free of the authors' own setup.** Each seat runs as a new session whose only
+   context is its brief, started with
+   [manuscript-other-models](../../manuscript-other-models/SKILL.md)' `models.py run` on the host's own CLI
+   (`models.py run claude --workspace WS --brief BRIEF --model <the host's model id>` in Claude Code;
+   `run codex` in Codex), in a copy of its workspace outside every project. A host's own subagent is not
+   enough: it starts with the authors' standing instructions and the project's memory, and in the Paper 1
+   v0.6 run the sceptical referee left out an objection "following the user's memory rule". The separate
+   session leaves both out, and the authors' plugins with them (Claude Code reads no user settings, Codex no
+   user config); its `seat-run.json` says what reached it (`standing_instructions`). Only when that cannot run
+   here (the CLI missing or refused, a sandbox without network) does a seat run as the host's subagent (in
+   Claude Code, the Agent tool with a general-purpose agent), and the report says in "What this review did not
+   have" that those seats carried the authors' standing instructions and memory. Never a `fork` (a fork
+   inherits this conversation) and never a message to an agent that has already worked on this paper, except resuming a seat's own
    agent to finish what its own brief asked (a missing report, a coverage line, a field) with a message
    that adds nothing else; a seat that cannot be resumed runs again fresh in a new workspace or is recorded
    as having given none. In other hosts, their equivalent of a new agent. One agent per seat: a reader is never reused as another reader, a referee

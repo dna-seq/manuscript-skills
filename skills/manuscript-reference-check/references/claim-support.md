@@ -155,7 +155,8 @@ two outcomes, so the extra reading is proportionate to them:
 
 Start the skeptic yourself; it is part of this check, so the user does not need to ask for subagents. It is a
 seat like a referee's and follows [Independent readers and referees](../../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees):
-a fresh agent whose whole context is its brief (the claims, the sources and the instructions below), the brief
+a fresh session whose only context is its brief (the claims, the sources and the instructions below), started
+outside the project so the authors' standing instructions stay out of it, the brief
 saved and the output registered with `runs.py add --role seat --seat skeptic --isolation fresh-agent`. When
 the authors chose another model, the skeptic runs on it instead of the host
 ([manuscript-other-models](../../manuscript-other-models/SKILL.md)), recorded as `skeptic@CLI` with `--model`. A

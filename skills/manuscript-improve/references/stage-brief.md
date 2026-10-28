@@ -83,6 +83,9 @@ before the choice, the paper's stage of work}
   "IC3"`, an id the project's ledger accepts). Write no edit script of your own.
 - After the pass: the claim guard and the smell check on before and after, as your skill says, and fix what
   they list before you finish.
+- Keep the length: an addition no confirmed finding and no requirement every venue shares asks for comes with
+  a cut of about its size in the same section, or stays a proposal. `finish` records the paper's length after
+  your pass; give its change in your final message.
 
 ## This paper
 

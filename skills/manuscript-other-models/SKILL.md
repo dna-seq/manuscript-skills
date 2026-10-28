@@ -120,8 +120,15 @@ route: the names of the key variables left out and of any setting that sends the
 way (a gateway, a cloud account), never their values.
 
 Working in a copy keeps the project's own instructions (CLAUDE.md, AGENTS.md, GEMINI.md), its git history
-and the agent's memory of the project away from the seat. The authors' personal instructions for the CLI
-(in their home folder) still load. The copy limits what a seat can change, not always what it can read:
+and the agent's memory of the project away from the seat. The authors' own setup in their home folder stays
+out too where the CLI allows it: a Claude Code seat reads no user settings (`--setting-sources project,local`:
+not their CLAUDE.md, hooks or plugins; their sign-in is not a setting), and a Codex seat no user config
+(`--ignore-user-config`: not its plugins, skills or MCP servers; the configured model and effort are passed on
+the command line). Gemini CLI still loads the user's GEMINI.md. `seat-run.json` records which
+(`standing_instructions`). This is why every panel seat runs through `run`, on the host's own CLI as well, and
+not as a host subagent, which starts with all of it. A sign-in that lives in the user's settings (an
+`apiKeyHelper`, a gateway) is not read either: `check` then says the CLI is not signed in. The copy limits what
+a seat can change, not always what it can read:
 
 - **Writes** stay in the copy for every CLI, and only new files come back.
 - **Reads** are limited by the CLI only for Claude Code, which refuses a file outside the copy
@@ -153,7 +160,7 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py add RUN --skill ma
   --file WS/seat-run.json --role other --name referees/skeptic@codex/seat-run.json
 ```
 
-A session started by `run` is a fresh agent whose whole context is its brief: `--isolation fresh-agent`.
+A session started by `run` is a fresh agent whose only context is its brief: `--isolation fresh-agent`.
 Give the host's seats `--model` too (the host's model id), so the run and the dashboard show which model
 read every seat.
 

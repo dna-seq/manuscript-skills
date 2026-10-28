@@ -117,8 +117,9 @@ unaffordable validation requirement can justify settling journal fit before edit
 | Track who revised what (where the manuscript keeps revision marks) | [manuscript-revision-marks](../manuscript-revision-marks/SKILL.md) keeps the `@rev` marks current through every stage under the shared [marks rule](../manuscript-integrity-check/references/author-priorities.md#scope-iteration-and-review) (each applied edit bumps or opens its segment; routine fixes share one "copy edit" round per section), lists the AI edits no person has reviewed and the prose no round has read, and builds the PDF from the clean copy against the page limit; [manuscript-mark-people](../manuscript-mark-people/SKILL.md) sets up who counts as a person, asking its one question among the end-of-run decisions. Every comparison of versions in this workflow (the claim guard, `revise.py`, the change records) reads the clean copies. Never introduced into a project that does not use marks unless the authors ask. |
 
 **Simulated referees and readers are independent, and the coordinator starts them.** Every referee seat,
-reader, defender and critic (the deslop reflection loop's) is a fresh agent whose whole context is its
-brief, never a fork of this conversation, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) requires.
+reader, defender, critic (the deslop reflection loop's) and the re-check agent is a fresh session whose only
+context is its brief, started with `models.py run` outside the project so that the authors' standing
+instructions and memory stay out of it, never a fork of this conversation, as [Independent readers and referees](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees) requires.
 Delegated agents often cannot start agents of their own, so start the seats, readers and critics from this
 session even when another agent prepares the stage's workspaces and briefs; a stage agent never reads as the panel itself because it could not start one. Give
 them nothing from this run: not the findings so far, not the authors' messages, not what the run changed.
@@ -127,6 +128,16 @@ starts each seat on each chosen model, and the critics on the chosen model, with
 [manuscript-other-models](../manuscript-other-models/SKILL.md), at the same time as the host's seats.
 
 **Brief each stage from the template.** A stage another agent carries out gets [the stage brief](references/stage-brief.md) with its fields filled in: the paths, the resolved settings, the stage's prefix and the paper's facts. Never write a stage's rules in your own words; a paraphrase of the contracts is how a run's records stop meeting them.
+
+**Keep the length in view.** The run records the manuscript's length when it starts and after each stage
+that edits (`runs.py finish`, and `stage --name revise`): the words of the running text up to the references,
+with the change since the run began, in the run index. Under `edits: apply` the stages add conditions, leads,
+subsections and examples that each have their reason; together they took Paper 1 v0.6 from about 6,880 to 7,470
+words, further from every venue's limit, and the re-check rated the length problem worse. So an addition that
+no confirmed finding and no requirement every venue shares asks for comes with a cut of about its size in the
+same section, or stays a proposal; each editing stage's summary gives its change in length; and the run's
+summary gives the length before and after and, where a journal is chosen or the ladder's tightest limit is
+known, how far it is from it.
 
 **One stage edits the working copy at a time.** The review stages (integrity, references, reporting, figures, policy fit, peer review) may run side by side, so in this workflow they do not edit the working copy: each records the corrections it can settle as proposals in its `findings.json` (`changes`, each with every field of the change record: its id and kind, the section, the before, the after, the why, the finding it rests on, its evidence as a list, and the file it changes when that is the supplement), and the revise stage applies them under the `edits` setting before the prose edit, recording each with `runs.py change`. The editing stages then run one after another on the same working copy.
 
