@@ -19,10 +19,13 @@ suggestions and strengths, journal selection's ladders, the co-authors' comments
 each (manuscript-coauthors), and the recorded before/after changes.
 
 Applied or proposed: the changes recorded with runs.py change are replayed on the reviewed text, in the order
-the skills recorded them. When the replay ends on the revised manuscript, every change that found its
-before-text counts as applied, including an edit a later stage edited again. Otherwise a change counts as
-applied only when the revised manuscript holds its after-text and no longer holds its before-text; the rest
-are listed as recorded changes not in the revision.
+the skills recorded them, each on the file it changed (the manuscript, or a supplement the run also read), and
+on clean copies: a manuscript that keeps revision marks is read without them, as the records were written.
+When the replay ends on the revised file, every change that found its before-text counts as applied, including
+an edit a later stage edited again. Otherwise a change counts as applied only when the revised file holds its
+after-text and no longer holds its before-text; the rest are listed as recorded changes not in the revision. A
+change to another file than the manuscript carries that file's name (`document`), so the corrected version,
+built from the manuscript, leaves it alone.
 
 The merge file is the adjudication: which records describe one problem, which a reviewer verified,
 corrected or dismissed, and the decisions for the authors. Collect never makes those calls; it applies
@@ -36,6 +39,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -47,6 +51,7 @@ import typer
 import yaml
 
 import dashboard as viz
+import stage_check
 
 # Every skill's and script's severity words, onto the one scale (stage-findings.md): `optional` is a
 # possible improvement (info, shown as "Optional"), `uncertain` and `not_assessed` could not be checked.
@@ -57,11 +62,7 @@ STATUS_WORDS = {"not_run": "not run", "running": "in progress", "in_progress": "
 # The coordinator of a whole run: it is still running while it collects, so it has no coverage of its own.
 COORDINATOR = "manuscript-improve"
 DEFENCE = {"premise not supported", "answered", "partly answered", "not answered"}
-PREFIX = {"manuscript-integrity-check": "IC", "manuscript-reference-check": "RF", "manuscript-reporting-check": "RP",
-          "manuscript-peer-review": "PR", "manuscript-policy-fit": "PF", "manuscript-journal-select": "JS",
-          "manuscript-journal-adapt": "JA", "manuscript-prose-edit": "PE", "manuscript-deslop": "DS",
-          "manuscript-story": "ST", "manuscript-figures": "FG", "manuscript-improve": "IM", "manuscript-reviewer-response": "RR",
-          "manuscript-revision-marks": "RM", "manuscript-mark-people": "MP", "manuscript-coauthors": "CA"}
+PREFIX = stage_check.PREFIX
 # A stage's findings and the adjudication are records, not raw signals; neither are their later attempts.
 SKIP = re.compile(r"^(?:findings|merges)(?:\.\d+)?\.json$")
 # Peer review keeps every finding three times (merged, adjudicated, and the check of each): the merged file is
@@ -69,12 +70,38 @@ SKIP = re.compile(r"^(?:findings|merges)(?:\.\d+)?\.json$")
 PEER_SIGNALS = re.compile(r"^findings\.merged(?:\.\d+)?\.json$")
 OWN = {"manuscript-dashboard", "manuscript-visualize"}  # this skill, and its name before 0.10.0 in older runs
 CHANGE_FIELDS = ("id", "kind", "section", "summary", "status", "finding_ids", "before", "after", "anchor", "why", "comment",
-                 "evidence")
+                 "evidence", "document")
+REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
 app = typer.Typer(add_completion=False)
 
 
 def relative(path: Path, out_dir: Path) -> str:
     return os.path.relpath(path.resolve(), out_dir.resolve())
+
+
+def rev_marks() -> Any:
+    """manuscript-revision-marks' rev_marks.py, whose strip_marks wrote the clean copies the change records come from."""
+    if "collect_rev_marks" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("collect_rev_marks", REV_MARKS)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["collect_rev_marks"] = module  # dataclasses resolve their module through sys.modules
+        spec.loader.exec_module(module)
+    return sys.modules["collect_rev_marks"]
+
+
+def clean_copy(text: str, path: Path) -> str:
+    """The text as an editor reads it. Change records are written from clean copies, so a manuscript that keeps
+    revision marks is compared without them; one without marks is returned as it is."""
+    if "@rev" not in text:
+        return text
+    marks = rev_marks()
+    try:
+        return marks.strip_marks(text, marks.syntax_for(path))
+    except marks.MarkErrors as exc:
+        raise ValueError(f"{path.name} has {len(exc.issues)} revision-mark error(s), so its clean copy cannot be made "
+                         f"and the recorded changes cannot be compared with it. Fix them first: "
+                         f"uv run --script {REV_MARKS} lint {path}") from exc
 
 
 def heading(line: str) -> str | None:
@@ -171,6 +198,21 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
                 known["summary"] = f"{known.get('summary', '')} ({'; '.join(map(str, extra))})".strip()
             found["changes"].append({**known, "evidence": rebase(record.get("evidence") or [])})
     return found
+
+
+def contract_errors(run: Path) -> list[str]:
+    """What in the stages' newest findings files collect could not read at all (stage_check.fatal), every record
+    named, so one pass fixes them instead of a traceback on the first."""
+    out = []
+    for path in [p for folder in sorted(run.glob("manuscript-*")) if folder.is_dir() and folder.name not in OWN
+                 and (p := newest_findings(folder))]:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            out.append(f"{path.parent.name}/{path.name}: not valid JSON ({exc})")
+            continue
+        out += [f"{path.parent.name}/{path.name}: {problem}" for problem in stage_check.fatal(doc)]
+    return out
 
 
 def severity(value: Any) -> str:
@@ -386,20 +428,32 @@ def criteria(run: Path) -> dict[str, list[dict]]:
 REFERENCE_STATES = ("retracted", "wrong", "corrected", "unverified", "not-checked", "fine")
 
 
-def reference_list(run: Path) -> list[dict]:
+def reference_list(run: Path, inputs: list[dict] | None = None) -> list[dict]:
     """The manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check or
     integrity-check folder, the reference check's own first): per entry its worst state, a link to its record and
-    what the scanner found, in its words."""
-    found = [p for folder in ("manuscript-reference-check", "manuscript-integrity-check")
-             for p in sorted(run.glob(f"{folder}/**/*.json"))]
-    for path in found:
+    what the scanner found, in its words. A scan names the file it read (`path`): with the run's `inputs`, the
+    manuscript's scan comes first and a scan of another input (a supplement, with a list of its own) is never drawn
+    as the paper's, whatever its file sorts before."""
+    names = [{Path(item[key]).name for key in ("original", "snapshot") if item.get(key)} for item in inputs or []]
+    main, others = (names[0], set().union(*names[1:])) if names else (set(), set())
+
+    def read(path: Path) -> dict | None:
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
-            continue
+            return None
         refs = doc.get("references") if isinstance(doc, dict) else None
         if not isinstance(refs, list) or not refs or not all(isinstance(r, dict) and "status" in r for r in refs):
-            continue
+            return None
+        return doc
+
+    scans = [(path, doc) for folder in ("manuscript-reference-check", "manuscript-integrity-check")
+             for path in sorted(run.glob(f"{folder}/**/*.json")) if (doc := read(path)) is not None]
+    scanned = [Path(str(doc.get("path") or "")).name for _, doc in scans]
+    scans = [scan for scan, name in zip(scans, scanned) if name not in others or name in main]
+    scans.sort(key=lambda scan: Path(str(scan[1].get("path") or "")).name not in main)  # stable: folder order kept
+    for path, doc in scans:
+        refs = doc["references"]
         notes: dict[tuple[int, str], list[tuple[str, str]]] = {}
         for f in doc.get("findings") or []:
             if isinstance(f, dict) and f.get("check") == "references" and f.get("severity") != "info":
@@ -591,13 +645,75 @@ def ladder_gaps(run: Path, data: dict) -> list[dict]:
              "leaves_open": "The order of the venues and their AI policies, which the stage's report still gives."}]
 
 
-def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: str) -> list[dict]:
+def document_of(entry: dict, section: str, before: str | None, after: str | None,
+                documents: list[tuple[str, str, str]], main_name: str) -> str:
+    """The file a recorded change edited, by its name in `documents` ("" for the manuscript): the one runs.py change
+    named; for a record from before changes named their file, the only file whose reviewed or revised text holds
+    its before- or after-text, else, for a section named "Supplement ...", the supplement, else the manuscript.
+    The order matters: an edit to a sentence the supplement repeats from the manuscript names a Supplement
+    section, and replaying it on the manuscript would change the wrong copy."""
+    names = {name for name, _, _ in documents}
+    if (named := entry.get("document")) is not None:
+        named = "" if named == main_name else named
+        if named not in names:
+            raise ValueError(f"A change record names the file {named!r}, which is not one of the run's inputs "
+                             f"({', '.join(sorted(n or main_name for n in names))}).")
+        return named
+    texts = [text for text in (before, after) if text]
+    holding = [name for name, start, current in documents if any(t in start or t in current for t in texts)]
+    if len(holding) == 1:
+        return holding[0]
+    others = [name for name, _, _ in documents if name]
+    if section.strip().lower().startswith("supplement") and others:
+        return next((name for name in others if "suppl" in name.lower()), others[0])
+    return ""
+
+
+def replay(out: list[dict], indexes: list[int], start: str) -> tuple[list[int], str]:
+    """Replay the change records at `indexes` on `start` in their order. Each must find its before-text; one that
+    does not yet is tried again after the others, so the coordinator's own follow-up edit, recorded last under
+    manuscript-improve, still replays after the stage edits it changed."""
+    pending, text, took = list(indexes), start, []
+    while pending:
+        waiting = []
+        for index in pending:
+            before, after = out[index]["before"], out[index]["after"]
+            if before is not None and before in text:
+                text = text.replace(before, after or "", 1)
+                took.append(index)
+            elif before is not None:
+                waiting.append(index)
+        if len(waiting) == len(pending):
+            break
+        pending = waiting
+    return took, text
+
+
+def blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def reaches(replayed: str, current: str, additions: list[str]) -> bool:
+    """Whether the replay ended on the revised text. An addition recorded without a before-text cannot be placed
+    by the replay, so the revised text is compared without it."""
+    if replayed == current:
+        return True
+    for addition in additions:
+        if addition not in current:
+            return False
+        current = current.replace(addition, "", 1)
+    return bool(additions) and blank_lines(replayed) == blank_lines(current)
+
+
+def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: str,
+                     others: list[tuple[str, str, str]] | tuple = (), main_name: str = "") -> list[dict]:
     """runs.py change records, replayed on the reviewed text in the order they were recorded (by their time; a run
-    from before changes had one goes skill by skill). Each must find its before-text; one that does not yet is tried
-    again after the others, so the coordinator's own follow-up edit, recorded last under manuscript-improve, still
-    replays after the stage edits it changed. When the replay ends on the revised manuscript, every one that took is
-    applied, including an edit a later stage edited again. Otherwise a change counts as applied only when the
-    revised manuscript holds its after-text and not its before-text."""
+    from before changes had one goes skill by skill), each on the file it changed (`document_of`): `current` and
+    `start` are the manuscript's revised and reviewed clean texts, `others` the (name, reviewed, revised) clean
+    texts of the run's other inputs, a supplement among them. When the replay of a file ends on its revised text,
+    every one of its changes that took is applied, including an edit a later stage edited again. Otherwise a change
+    counts as applied only when the revised file holds its after-text and not its before-text."""
+    documents = [("", start, current), *others]
     out, order = [], []
     for skill, seat in data["skills"].items():
         for number, change in enumerate(seat["changes"], 1):
@@ -616,33 +732,48 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             out.append({"id": f"{skill.removeprefix('manuscript-')}.C{number}", "section": section,
                         "summary": summary, "why": reason.strip() if reason.strip() != summary else "", "comment": (comment or "").strip(),
                         "finding_ids": [], "before": before, "after": after,
+                        "document": document_of(change, section, before, after, documents, main_name),
                         "evidence": [{"path": relative(path, out_dir), "quote": reason.strip() or (after or before)[:200]}]})
     # By time only when every record has one; a run recorded before changes carried a time replays skill by skill.
     if all(time for time, _ in order):
         order.sort(key=lambda item: item[0])
-    pending = [index for _, index in order]
-    text, took = start, []
-    while pending:
-        waiting = []
-        for index in pending:
+    took: list[int] = []
+    for name, begin, end in documents:
+        mine = [index for _, index in order if out[index]["document"] == name]
+        took_here, text = replay(out, mine, begin)
+        took += took_here
+        replayed = reaches(text, end, [out[i]["after"] for i in mine if out[i]["before"] is None and out[i]["after"]])
+        for index in mine:
             before, after = out[index]["before"], out[index]["after"]
-            if before is not None and before in text:
-                text = text.replace(before, after or "", 1)
-                took.append(index)
-            elif before is not None:
-                waiting.append(index)
-        if len(waiting) == len(pending):
-            break
-        pending = waiting
-    replayed = text == current
-    for index, record in enumerate(out):
-        before, after = record["before"], record["after"]
-        applied = (index in took) if replayed else (after is None or after in current) and (before is None or before not in current)
-        record.update(kind="Applied edit" if applied else "Recorded change, not in the revision",
-                      status="applied" if applied else "proposed")
+            if replayed:
+                applied = index in took_here or (before is None and after is not None and after in end)
+            else:
+                applied = (after is None or after in end) and (before is None or before not in end)
+            out[index].update(kind="Applied edit" if applied else "Recorded change, not in the revision",
+                              status="applied" if applied else "proposed")
     # Listed in the order they replayed, so revise.py, which undoes the applied edits newest first, meets each
     # edit's after-text before a later edit changed it.
     return [out[index] for index in [*took, *(i for i in range(len(out)) if i not in took)]]
+
+
+TEXT_INPUTS = {".md", ".markdown", ".qmd", ".rmd", ".tex", ".txt"}
+
+
+def clean_texts(run: Path, data: dict, snapshot: Path, original: Path, current: str,
+                from_copy: bool = False) -> tuple[str, str, list[tuple[str, str, str]], str]:
+    """recorded_changes' texts: the manuscript as revised and as reviewed, each other text input of the run (a
+    supplement) as (file name, reviewed, revised), and the manuscript's file name; every one a clean copy. A file
+    the run read that is gone since is taken as it was reviewed."""
+    others = []
+    for item in [] if from_copy else data.get("inputs", [])[1:]:
+        source, copy = Path(item["original"]), run / item["snapshot"]
+        if copy.suffix.lower() not in TEXT_INPUTS or not copy.is_file():
+            continue
+        reviewed = copy.read_text(encoding="utf-8")
+        revised = source.read_text(encoding="utf-8") if source.is_file() else reviewed
+        others.append((source.name, clean_copy(reviewed, copy), clean_copy(revised, source)))
+    return (clean_copy(current, original), clean_copy(snapshot.read_text(encoding="utf-8"), snapshot), others,
+            original.name)
 
 
 def apply_merges(inventory: dict, merges: dict, out_dir: Path, base: Path) -> None:
@@ -756,6 +887,16 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
                    "reading-copy.md), and collect again with --manuscript COPY. A new run of a connected document "
                    "records its reading copy when it starts (runs.py start --reading-copy COPY).", err=True)
         raise typer.Exit(1)
+    try:
+        texts = clean_texts(run, data, snapshot, Path(original), current, from_copy=manuscript_copy is not None)
+    except ValueError as exc:
+        typer.echo(f"{exc}\nNothing was written.", err=True)
+        raise typer.Exit(1) from exc
+    if unreadable := contract_errors(run):
+        typer.echo("These stages' findings files do not meet the stage-findings contract, so nothing was written. Write "
+                   "each stage's next attempt (findings.2.json) with them fixed; uv run --script stage_check.py RUN "
+                   "--skill SKILL checks one:\n" + "\n".join(unreadable), err=True)
+        raise typer.Exit(1)
     out_dir = output.resolve().parent
     out_dir.mkdir(parents=True, exist_ok=True)
     records = stage_records(run, out_dir, snapshot)
@@ -768,12 +909,12 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "scope": scope or f"Whole-manuscript run started {data['started_at'][:10]}; skills: "
                           + ", ".join(f"{k.removeprefix('manuscript-')} {STATUS_WORDS.get(v, v)}" for k, v in statuses.items()) + ".",
         "coverage": coverage(run, data, out_dir, skip), "findings": records["findings"],
-        "changes": records["changes"] + recorded_changes(run, data, out_dir, current, snapshot.read_text(encoding="utf-8")),
+        "changes": records["changes"] + recorded_changes(run, data, out_dir, *texts),
         "limitations": limitation or [], "manuscript": manuscript(snapshot, original, sha256, version, out_dir),
         "signals": signals(run), "dismissed": records["dismissed"],
         "not_checked": records["not_checked"] + ladder_gaps(run, data),
         "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
-        "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run),
+        "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run, data.get("inputs")),
         "coauthors": coauthors(run),
     }
     mentions = concern_mentions(inventory["findings"])

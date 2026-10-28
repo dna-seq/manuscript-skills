@@ -41,8 +41,11 @@ what is still open.
   user message and the long idle gaps.
 - The current plugin, read file by file. `collect.py` and `scan.py` were run on a copy of the run in a scratch
   folder, never on the run itself.
-- A second opinion from Codex (`gpt-5.6-sol`, read-only, given the same evidence and none of these
-  conclusions). It found the stale re-check, which this audit had missed, and agreed on version drift, seat
+- A second opinion from Codex (read-only, given the same evidence and none of these conclusions). It ran on
+  `gpt-5.6-sol`, not the authors' configured `gpt-6.1-sol`: the Codex CLI here was 0.152.0, too old for the
+  newer model, and its refusal read "not supported when using Codex with a ChatGPT account" although the
+  sign-in was a work workspace. Updated to 0.165.0, the same sign-in accepts `gpt-6.1-sol` (see the 0.43.0
+  section below). It found the stale re-check, which this audit had missed, and agreed on version drift, seat
   isolation, the contract drift, the replay and the reference list. It could not run scripts in its sandbox,
   and it missed the edit scripts, the main-text-only revision, the bibliography insertion, the scanner bug, the
   lock and the length. Where we disagree is said below.
@@ -72,8 +75,9 @@ what is still open.
 
 Not the plugin's doing: the story stage's four-hour gap (15:03 to 19:20 UTC) was the session's usage limit
 ("You've hit your session limit · resets 7:10pm"), after which the run resumed from its records as designed;
-Chrome timeouts during journal research; and Codex's configured default model not being offered to this
-account, which `models.py detect` already warns about.
+and Chrome timeouts during journal research. (This note first counted Codex refusing its configured model
+here as well; that was an outdated Codex CLI, and the plugin's advice for it pointed at the weaker model.
+0.44.0 fixes the advice.)
 
 ## The open items, most costly first
 
@@ -234,6 +238,38 @@ Five stage agents called the app's task-list tool and were refused. One line in 
 `docs/cacheability.md` shows that a source cache would have prevented one wrong finding: v0.5 had read the
 open-access full text of Mordaunt et al. 2024 naming equipment, v0.6 saw only the abstract and proposed
 deleting "equipment" from the paper. Its design (cache the fetched texts by work, never the verdicts) stands.
+
+## Fixed in 0.44.0
+
+Checked on a copy of the v0.6 run, with the masters as they stood at the run's end (just-dna-lite
+`c176c69`): with the stage files as the run wrote them, `collect.py` now names every record it cannot read
+(the 12 missing `kind` fields and 4 evidence sentences) instead of failing on the first; with those records
+fixed, it counts all 129 main-text and 15 supplement edits as applied, puts the Supplement S12 edit in the
+supplement and draws the main text's 31 references, and `revise.py` with the run's own adjudication and
+choices builds a corrected version byte for byte the one the run handed over. The run needed three wrapper
+scripts for that.
+
+- Item 1: `collect.py` replays the change records on clean copies, each on its own file (`document`, named by
+  `runs.py change --document`, or for older records inferred from where the text is and a "Supplement"
+  section); an addition no longer spoils the replay. `revise.py` leaves another file's changes alone and lists
+  them as `other_files`; the changes workbook counts them as applied.
+- Item 4: `scripts/stage_check.py` (manuscript-dashboard) checks a stage's findings; `runs.py finish` refuses
+  until they meet the contract, and `collect.py` lists what it cannot read. On the v0.6 run it would have
+  flagged, at each stage's finish, the 16 records above, the `RC` prefix, and four supplement proposals the
+  coordinator held back by hand.
+- Items 5 and 14: `manuscript-improve/references/stage-brief.md`, the brief the coordinator fills in; it
+  also tells a delegated agent that it has no task list.
+- Item 7: the scanner ends a reference list at a bold section line or a table and skips revision-mark lines
+  (27 entries in the v0.6 supplement, was 59); the collector draws the scan of the manuscript.
+- Item 8: `runs.py start` records the plugin (version, commit, uncommitted changes), and `finish` records it
+  as an issue when a stage finishes on another.
+- Item 12: `runs.py` waits up to a minute for another stage's write.
+- Codex (`manuscript-other-models`): `detect` and `check` say how Codex is signed in (a work workspace, a
+  personal plan or a stored key) and when its model list came from another CLI version; a refused model is
+  answered with "update the CLI, then check the sign-in", never a quiet older model; a seat is started with
+  its model named (`codex exec -m gpt-6.1-sol`), the configured default included.
+
+Still open: items 2, 3, 6, 9, 10, 11 and 13, and the source cache.
 
 ## Suggested order
 

@@ -316,10 +316,11 @@ def test_provider_keys_never_reach_a_cli_and_the_record_says_how_far_reads_were_
     assert record["read_isolation"] == reads and record["write_isolation"] == "enforced"
     assert record["sign_in"] == {"route": "the CLI's own sign-in",
                                  "credential_variables_removed": ["OPENAI_API_KEY", "GEMINI_API_KEY"],
-                                 "route_settings_kept": ["ANTHROPIC_BASE_URL"]}
+                                 # A gateway for Claude Code is named only for Claude Code: Codex and Gemini never read it.
+                                 "route_settings_kept": ["ANTHROPIC_BASE_URL"] if cli == "claude" else []}
     assert f"Isolation: {models.READS[reads]}." in result.output
     assert "Not passed to the CLI, so that it used its own sign-in: OPENAI_API_KEY, GEMINI_API_KEY." in result.output
-    assert "ANTHROPIC_BASE_URL is set" in result.output
+    assert ("ANTHROPIC_BASE_URL is set" in result.output) == (cli == "claude")
 
 
 def test_the_brief_option_says_the_workspace_path_is_replaced() -> None:

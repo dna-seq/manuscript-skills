@@ -192,7 +192,9 @@ same five steps before `finish`:
    `uv run --script ../manuscript-deslop/scripts/style_profile.py RUN/<skill>/stage-report.md --report --check`;
    rewrite what it lists, then reread the report against the pattern list it prints.
 3. **`findings.json`** beside the report, with the skill's prefix ([stage findings](../../manuscript-dashboard/references/stage-findings.md));
-   an empty `findings` list is valid when nothing was found.
+   an empty `findings` list is valid when nothing was found. `finish` checks it with
+   `../manuscript-dashboard/scripts/stage_check.py` and names each record the dashboard could not use; run
+   the check first and fix what it lists in the next attempt (`findings.2.json`).
 4. **Every applied edit recorded** with `runs.py change`: one record per consequential edit, shown in the
    chat; routine edits may share one record per paragraph or section, whose before and after are the whole
    paragraph or section and whose reason names the kind of fix. Never attest `--shown-in-chat` for a change
@@ -218,6 +220,16 @@ The `keep` setting decides only what stays visible once the run ends (see the ha
 records the same evidence whichever it is.
 Stable project documents, such as the scientific record and venue planning document, remain in place;
 register the version used or produced in this run rather than moving their authoritative masters.
+
+### Several writers, and the plugin under a run
+
+Stages that run side by side register files in the same run: a `runs.py` command waits up to a minute for
+another's write before it reports the run busy (exit 3), so a stage need not retry by hand. `runs.py start`
+records the plugin the run's scripts come from (`plugin`: version, and in a git checkout its commit and
+whether files differ from it); when a stage finishes on another, `finish` records it as an issue on that
+stage. Run a whole run from one installed or tagged copy of the plugin, and change the plugin in another
+checkout or a worktree: in the Paper 1 v0.6 run, other sessions committed to the checkout the run used, and
+the record format changed under the story stage.
 
 ### Files a delegated agent cannot create
 
@@ -283,7 +295,11 @@ additions and deletions. Save it as well with `runs.py change RUN --skill SKILL 
 --reason REASON --before BEFORE_FILE --after AFTER_FILE --shown-in-chat`. The reason is one to three
 sentences, what was wrong and why the new wording fixes it, its first a short title: the dashboard shows the
 first as the edit's summary and the whole as its reasoning. Omit `--before` for an addition,
-`--after` for a deletion. `shown RUN --skill SKILL --number N` can acknowledge an existing change after
+`--after` for a deletion. Before and after are clean text (a manuscript that keeps revision marks without
+them, as `rev_marks.py strip` writes it): collect replays the records on clean copies. An edit to another
+input than the manuscript names it with `--document FILE` (a supplement's file name as the run took it in),
+so the dashboard replays it on that file and the corrected version, built from the manuscript, leaves it
+alone. `shown RUN --skill SKILL --number N` can acknowledge an existing change after
 showing it. These flags are agent attestations: the script cannot see or verify the conversation.
 A diff link does not satisfy the chat requirement. Classify genuine routine-only changes with a
 specific `--routine-only-reason` when finishing, rather than fabricating consequential excerpts.

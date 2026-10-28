@@ -130,10 +130,19 @@ def test_a_stage_skipped_before_it_began_has_no_start(manuscript: Path) -> None:
 def test_finish_counts_the_newest_findings_its_proposals_and_the_decisions_for_the_authors(manuscript: Path) -> None:
     run = start(manuscript, '--skill', 'manuscript-integrity-check')
     report(run, 'manuscript-integrity-check')
-    findings(run, 'manuscript-integrity-check', {'findings': [{'id': 'ic-1'}]})
+    said = [{'path': 'report.md', 'quote': 'What the stage found'}]
+
+    def finding(fid: str, decision: object) -> dict:
+        return {'id': fid, 'summary': 'A problem.', 'evidence': said, 'decision': decision}
+
+    def proposal(cid: str, before: str, after: str) -> dict:
+        return {'id': cid, 'kind': 'Proposed edit', 'section': 'Abstract', 'summary': 'An edit.', 'status': 'proposed',
+                'before': before, 'after': after, 'evidence': said}
+    findings(run, 'manuscript-integrity-check', {'findings': [finding('IC-1', False)]})
     findings(run, 'manuscript-integrity-check', {
-        'findings': [{'id': 'ic-1', 'decision': False}, {'id': 'ic-2', 'decision': True}, {'id': 'ic-3', 'decision': 'yes'}],
-        'changes': [{'before': 'a', 'after': 'b'}, {'before': 'c', 'after': 'd'}]}, name='findings.2.json')
+        'findings': [finding('IC-1', False), finding('IC-2', True), finding('IC-3', 'yes')],
+        'changes': [proposal('IC-C1', 'Local analysis.', 'Local analysis, offline.'),
+                    proposal('IC-C2', 'A test paper', 'A tested paper')]}, name='findings.2.json')
     findings(run, 'manuscript-integrity-check', {'findings': [{'id': 'x'}] * 9}, name='findings.draft.json')  # never counted
     result = invoke('finish', run, '--skill', 'manuscript-integrity-check', '--status', 'completed')
     assert result.exit_code == 0, result.output

@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import importlib.util
 import inspect
 import itertools
 import json
@@ -167,23 +168,75 @@ P = ParamSpec('P')
 T = TypeVar('T')
 
 
+# How long a write waits for another stage's: review stages run side by side and register files constantly, and a
+# lock that gave up at once made every stage agent retry by hand.
+LOCK_WAIT = 60
+
+
 def serialized(function: Callable[P, T]) -> Callable[P, T]:
-    """Fail fast on a concurrent writer; never lose a manifest update or overwrite an attempt."""
+    """Wait up to LOCK_WAIT seconds for a concurrent writer; never lose a manifest update or overwrite an attempt."""
     @wraps(function)
     def call(*args: P.args, **kwargs: P.kwargs) -> T:
         arguments = inspect.signature(function).bind(*args, **kwargs).arguments
         run = arguments['run'].resolve()
         try:
-            with FileLock(run / '.writer.lock', timeout=0):
+            with FileLock(run / '.writer.lock', timeout=LOCK_WAIT):
                 if function.__name__ not in WHEN_PACKED and read(run).get('packed'):
                     typer.echo(f"This run's evidence is packed in {ARCHIVE}; run `runs.py unpack {run}` before "
                                "adding to it. Nothing was changed.", err=True)
                     raise typer.Exit(3)
                 return function(*args, **kwargs)
         except Timeout as exc:
-            typer.echo(f"Run is busy: {run}. Retry this operation after the active writer finishes; no evidence was overwritten.", err=True)
+            typer.echo(f"Run is busy: {run}. Another writer held it for {LOCK_WAIT} s; retry once it finishes. No evidence "
+                       "was overwritten.", err=True)
             raise typer.Exit(3) from exc
     return call
+
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+
+
+def plugin_state() -> dict[str, Any]:
+    """Which plugin this run's scripts come from: its version, and in a git checkout its commit and whether files
+    differ from it (`dirty`, a hash of the differences). A checkout other sessions commit to can change under a
+    running run; finish compares and records it."""
+    try:
+        version = json.loads((PLUGIN_ROOT / '.claude-plugin' / 'plugin.json').read_text(encoding='utf-8'))['version']
+    except (OSError, ValueError, KeyError):
+        version = None
+    state: dict[str, Any] = {'version': version, 'path': PLUGIN_ROOT.as_posix()}
+
+    def git(*args: str) -> str | None:
+        try:
+            done = subprocess.run(['git', '-C', str(PLUGIN_ROOT), *args], capture_output=True, text=True, encoding='utf-8',
+                                  errors='replace', timeout=20, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return done.stdout if done.returncode == 0 else None
+
+    if (commit := git('rev-parse', 'HEAD')) is not None:
+        changed = (git('status', '--porcelain', '--untracked-files=no', '--', 'skills') or '') + \
+            (git('diff', 'HEAD', '--', 'skills') or '')
+        state |= {'commit': commit.strip(), 'dirty': hashlib.sha256(changed.encode()).hexdigest()[:12] if changed else None}
+    return state
+
+
+def plugin_moved(data: dict[str, Any]) -> str | None:
+    """Why the plugin now differs from the one the run started on; None when it does not, or was not recorded."""
+    then, current = data.get('plugin'), plugin_state()
+    keys = ('version', 'commit', 'dirty')
+    if not then or {k: then.get(k) for k in keys} == {k: current.get(k) for k in keys}:
+        return None
+
+    def name(state: dict[str, Any]) -> str:
+        label = str(state.get('version'))
+        if state.get('commit'):
+            label += f" ({state['commit'][:7]}{', with uncommitted changes' if state.get('dirty') else ''})"
+        return label
+
+    return (f"The plugin changed while this run was going: it started on {name(then)} and this stage finished on "
+            f"{name(current)}, at {current['path']}. Stages before and after may have followed different rules or "
+            "scripts; run a whole run from one installed or tagged copy, and change the plugin in another checkout.")
 
 
 def now() -> str:
@@ -445,6 +498,27 @@ def newest_findings(run: Path, data: dict[str, Any], name: str) -> dict[str, Any
     return record
 
 
+STAGE_CHECK = Path(__file__).resolve().parents[2] / 'manuscript-dashboard' / 'scripts' / 'stage_check.py'
+
+
+def contract_problems(run: Path, data: dict[str, Any], name: str) -> list[str]:
+    """What in a finishing stage's newest findings.json the dashboard could not use, from manuscript-dashboard's
+    stage_check.py, so that the stage fixes its own records while it can: collect reads them only when the run is
+    assembled. Each line names the file, the record and the field."""
+    if 'runs_stage_check' not in sys.modules:
+        spec = importlib.util.spec_from_file_location('runs_stage_check', STAGE_CHECK)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['runs_stage_check'] = module
+        spec.loader.exec_module(module)
+    check = sys.modules['runs_stage_check']
+    attempts = findings_files(run, data, name)
+    doc = newest_findings(run, data, name)
+    label = PurePosixPath(attempts[-1]).name if attempts else 'findings.json'
+    return [f"{name}/{label}: {problem}" for problem in
+            check.problems(doc, name, run / name, check.input_texts(run, data))]
+
+
 def findings_problem(run: Path, data: dict[str, Any], name: str) -> str | None:
     """Why a finished stage's newest findings.json cannot be counted; None when it holds a findings list."""
     found = newest_findings(run, data, name)
@@ -660,7 +734,7 @@ def start(target: str, skill: Annotated[list[str], typer.Option("--skill")], pro
     run = Path(ctx['output_dir']) / run_id
     run.mkdir(parents=True)
     data = {'schema_version': 1, 'run_id': run_id, 'started_at': now(), **({'plan': stages} if stages else {}),
-            'context': ctx, 'inputs': [], 'skills': {}}
+            'plugin': plugin_state(), 'context': ctx, 'inputs': [], 'skills': {}}
     for number, location in enumerate(manuscripts, 1):
         extra: dict[str, Any] = {}
         if projects.is_remote(location):
@@ -813,11 +887,19 @@ def issue(run: Path, skill: Annotated[str, typer.Option('--skill')],
 def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
            section: Annotated[str, typer.Option('--section')], reason: Annotated[str, typer.Option('--reason')], before: Path | None = None,
            after: Path | None = None, shown_in_chat: bool = False,
-           comment: Annotated[str, typer.Option(help="A question for the authors about this edit; never put it in the text")] = "") -> None:
-    """Save exact consequential before/after text. Omit before for an addition, after for a deletion."""
+           comment: Annotated[str, typer.Option(help="A question for the authors about this edit; never put it in the text")] = "",
+           document: Annotated[str | None, typer.Option(
+               help="The file the edit changes when it is not the manuscript: a supplement's file name, as the run "
+                    "took it in")] = None) -> None:
+    """Save exact consequential before/after text. Omit before for an addition, after for a deletion. An edit to
+    another input than the manuscript (a supplement) names it with --document, so the dashboard replays it on that
+    file and the corrected version, built from the manuscript, leaves it alone."""
     if before is None and after is None:
         raise typer.BadParameter('Supply before, after, or both.')
     data = read(run)
+    names = [Path(source['original']).name for source in data['inputs']]
+    if document is not None and document not in names:
+        raise typer.BadParameter(f"--document names one of the run's inputs: {', '.join(names) or 'none'}.")
     if chosen(data, 'edits') == 'none':
         typer.echo("This run is report only (edits: none): it changes no file, so there is no edit to record. Put the "
                    "fix in the finding instead: the passage, what is wrong and the kind of change.", err=True)
@@ -833,7 +915,8 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
     with path.open('x', encoding='utf-8') as output:
         output.write(text)
     entry['changes'].append({'section': section, 'path': relative, 'sha256': digest(path), 'shown_in_chat': shown_in_chat,
-                             'recorded_at': now()})
+                             'recorded_at': now(),
+                             **({'document': document} if document and document != (names or [''])[0] else {})})
     save(run, data)
     typer.echo(str(path))
 
@@ -874,6 +957,10 @@ def finish(run: Path, skill: Annotated[str, typer.Option('--skill')],
         entry['review_mode'] = review_mode
     entry.update(status=status, reason=reason, routine_only_reason=routine_only_reason, finished_at=now())
     errors = problems(run, data)
+    if status in {'completed', 'partial'} and skill not in NO_FINDINGS and not findings_problem(run, data, skill):
+        errors += contract_problems(run, data, skill)
+    if (moved := plugin_moved(data)) and not any(i.get('message') == moved for i in entry['issues']):
+        entry['issues'].append({'kind': 'contradiction', 'message': moved, 'recorded_at': now()})
     if errors:
         typer.echo('\n'.join(errors), err=True)
         raise typer.Exit(1)

@@ -707,15 +707,24 @@ REF_BOUNDARY = re.compile(rf"(?<=\.)\s+(?={REF_START})")
 REF_LEAD_IN = re.compile(rf"(?P<lead>[^:]{{3,160}}?):\s+(?={REF_START})")
 
 
+# A paragraph that opens with a bold run-in heading and no year in it: "**S8. Software repositories.**". A
+# reference whose authors are set in bold carries its year inside or right after them, so it never matches.
+RUN_IN_HEADING = re.compile(r"^\*\*(?![^*]*\b(?:19|20)\d{2}\b)[^*]{2,200}\*\*(?!\s*\(?(?:19|20)\d{2})")
+
+
 def _list_entries(lines: list[str], start: int, further: bool) -> list[tuple[int, str]]:
-    """Each non-empty line after a list's label, up to the next heading, is one entry. A further list also ends at
-    a bold label or a table; a lead-in ending in a colon ("Software without a paper:") is not an entry."""
+    """Each non-empty line after a list's label, up to the next heading, is one entry. A list also ends at a table
+    or a paragraph opening with a bold run-in heading ("**S8. Software repositories.**"), as a supplement's
+    sections often do, and a further list at any bold label; a lead-in ending in a colon ("Software without a
+    paper:") and a comment line (a revision mark) are not entries."""
     entries: list[tuple[int, str]] = []
     for i in range(start, len(lines)):
         line = lines[i].strip()
-        if HEADING.match(line) or (further and (line.startswith("**") or line.startswith("|"))):
+        if (HEADING.match(line) or line.startswith("|") or RUN_IN_HEADING.match(line)
+                or (further and line.startswith("**"))):
             break
-        if len(line) < 25 or (line.startswith("*(") and line.endswith(")*")) or line.endswith(":"):
+        if (len(line) < 25 or (line.startswith("*(") and line.endswith(")*")) or line.endswith(":")
+                or (line.startswith("<!--") and line.endswith("-->"))):
             continue
         entries.append((i + 1, line))
     return entries

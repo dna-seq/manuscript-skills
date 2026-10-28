@@ -67,7 +67,11 @@ Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment
 ## Changes and evidence
 
 A change has `id`, `kind`, `section`, `summary`, `status` (`applied` or `proposed`), `finding_ids`,
-`before`, `after`, `anchor`, `why`, `comment` and `evidence`. `comment` is a question for the authors about the edit, shown
+`before`, `after`, `anchor`, `why`, `comment`, `evidence` and, for a change to another file than the
+manuscript, `document`: that file's name as the run took it in (`paper-supplementary.md`), empty for the
+manuscript. The corrected version is built from the manuscript and leaves another file's changes alone;
+`collect.py` replays an applied edit on its own file, so a sentence the supplement repeats from the
+manuscript is never changed in the wrong copy. `comment` is a question for the authors about the edit, shown
 beside it and never written into the text. `why` is the reasoning in one to three sentences: what was wrong
 and why the new wording fixes it; the `summary` is only its title. For an applied edit, `collect.py` takes
 `why` from the reason recorded with `runs.py change`, whose first sentence becomes the summary. Use null for the before text of an addition or after text of a deletion;

@@ -126,7 +126,9 @@ When the authors asked for more than one model, or the project saves `other_mode
 starts each seat on each chosen model, and the critics on the chosen model, with
 [manuscript-other-models](../manuscript-other-models/SKILL.md), at the same time as the host's seats.
 
-**One stage edits the working copy at a time.** The review stages (integrity, references, reporting, figures, policy fit, peer review) may run side by side, so in this workflow they do not edit the working copy: each records the corrections it can settle as proposals in its `findings.json` (`changes`, with the before, the after, the why and the finding it rests on), and the revise stage applies them under the `edits` setting before the prose edit, recording each with `runs.py change`. The editing stages then run one after another on the same working copy.
+**Brief each stage from the template.** A stage another agent carries out gets [the stage brief](references/stage-brief.md) with its fields filled in: the paths, the resolved settings, the stage's prefix and the paper's facts. Never write a stage's rules in your own words; a paraphrase of the contracts is how a run's records stop meeting them.
+
+**One stage edits the working copy at a time.** The review stages (integrity, references, reporting, figures, policy fit, peer review) may run side by side, so in this workflow they do not edit the working copy: each records the corrections it can settle as proposals in its `findings.json` (`changes`, each with every field of the change record: its id and kind, the section, the before, the after, the why, the finding it rests on, its evidence as a list, and the file it changes when that is the supplement), and the revise stage applies them under the `edits` setting before the prose edit, recording each with `runs.py change`. The editing stages then run one after another on the same working copy.
 
 **Record where the run stands** ([progress records](../manuscript-integrity-check/references/project-workflow.md#progress-records)),
 so the authors can follow a run of several hours without asking. Start the run with `--skill manuscript-improve`

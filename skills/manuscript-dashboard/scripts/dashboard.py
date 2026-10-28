@@ -207,6 +207,7 @@ class Change(Record):
     why: str = ""  # the reasoning: what was wrong with the passage and why this wording fixes it
     comment: str = ""  # a question for the authors about this edit: a fact or decision only they have, never put in the text
     evidence: Annotated[list[Evidence], Field(min_length=1)]
+    document: str = ""  # the file it changes when that is not the manuscript (a supplement's file name); "" the manuscript
 
     @model_validator(mode="after")
     def has_text(self) -> Change:
@@ -266,7 +267,7 @@ class Reader(Record):
     round: str = ""  # which panel, when a run has more than one
     path: list[Step] = Field(default_factory=list)  # the sections in the order the reader visited them
     isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
-    model: str = ""  # the model that read it (codex/gpt-5.6-sol); "" when the run did not record it
+    model: str = ""  # the model that read it (codex/gpt-6.1-sol); "" when the run did not record it
 
 
 class Concern(Record):
@@ -301,7 +302,7 @@ class Reviewer(Record):
     seat: Text
     summary: str = ""
     isolation: Literal["", "fresh-agent", "one-agent"] = ""  # how it ran; "" when the run did not record it
-    model: str = ""  # the model that read it (codex/gpt-5.6-sol); "" when the run did not record it
+    model: str = ""  # the model that read it (codex/gpt-6.1-sol); "" when the run did not record it
     strengths: list[str] = Field(default_factory=list)
     concerns: list[Concern] = Field(default_factory=list)
     criteria: list[Criterion] = Field(default_factory=list)

@@ -37,6 +37,14 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
 }
 ```
 
+`runs.py finish` checks the stage's newest `findings.json` against these rules with
+`scripts/stage_check.py` and refuses to finish until it meets them, naming each record and field: the shape
+collect needs (a change's `kind` and its evidence as a list of `{path, quote}`), the prefix, each evidence
+quote in its file, each finding's `quote` in the manuscript (a revision mark inside it is named), and each
+proposal's before-text once in its file. Run it yourself before finishing:
+`uv run --script ../manuscript-dashboard/scripts/stage_check.py RUN --skill SKILL`. Fix a refused record in
+the next attempt (`findings.2.json`), never in a registered file.
+
 ## Rules
 
 - IDs start with the skill's prefix and are unique within the file: IC integrity-check, RF
@@ -85,7 +93,9 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
   run manifest. A proposal's `before` is copied from the working copy exactly; an addition has `before:
   null` and `anchor`, the verbatim passage it goes after, so the corrected version can place it. A move is
   two records with the same summary: the deletion where the text was (`after: null`) and the addition, with
-  its anchor, where it goes. A record whose before and after are the same text changes nothing. Change
+  its anchor, where it goes. A record whose before and after are the same text changes nothing. A proposal
+  for another file than the manuscript (a supplement) names it in `document`, the file's name as the run
+  took it in; its before-text or anchor occurs exactly once in that file's clean text. Change
   IDs take the skill's prefix and a C (`PE-C1`, `ST-C4`), so the Word export can sign each tracked change
   with its stage.
 - Every change gives `why`: one to three sentences on what was wrong with the passage and why this wording

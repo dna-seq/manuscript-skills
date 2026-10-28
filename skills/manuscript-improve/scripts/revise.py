@@ -334,11 +334,18 @@ def check_choices(choices: object, name: str = "The choices file") -> dict:
 
 def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tuple[Document, dict]:
     choices = check_choices(choices)
+    # A change to another file (a supplement) is not part of this manuscript's corrected version: it is neither undone
+    # nor proposed here, so a sentence the supplement repeats from the manuscript is never changed in the wrong copy.
+    elsewhere = [c for c in data.changes if c.document]
+    data = data.model_copy(update={"changes": [c for c in data.changes if not c.document]})
     changes = {c.id: c for c in data.changes}
     proposals = {c.id: c for c in data.changes if c.status == "proposed"}
-    prefer = list(choices["prefer"])
-    held = {h["id"]: h["why"] for h in choices["hold"]}
-    anchors = {a["id"]: a["after"] for a in choices["anchor"]}
+    # A choice about another file's change has nothing to choose here (a choices file written before changes named
+    # their file held each supplement edit by hand).
+    outside = {c.id for c in elsewhere}
+    prefer = [cid for cid in choices["prefer"] if cid not in outside]
+    held = {h["id"]: h["why"] for h in choices["hold"] if h["id"] not in outside}
+    anchors = {a["id"]: a["after"] for a in choices["anchor"] if a["id"] not in outside}
     if unknown := sorted((set(prefer) | set(held) | set(anchors)) - set(proposals)):
         raise ValueError(f"The choices name changes that are not proposals in the inventory: {', '.join(unknown)}")
     if both := sorted(set(prefer) & set(held)):
@@ -448,6 +455,9 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
         "notes_in_working_copy": from_edits,
         "changes": {cid: {"section": c.section, "summary": c.summary, "kind": c.kind, "status": c.status,
                           "finding_ids": c.finding_ids} for cid, c in changes.items()},
+        # Changes to the run's other files, each as the file holds it now: an applied one is in that file already.
+        "other_files": [{"id": c.id, "document": c.document, "status": c.status, "section": c.section,
+                         "summary": c.summary} for c in elsewhere],
     }
     return document, record
 

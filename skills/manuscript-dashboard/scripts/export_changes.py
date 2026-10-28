@@ -102,7 +102,9 @@ def build(data: viz.Inventory, revision: dict | None) -> tuple[Workbook, dict]:
         return "; ".join(f"{findings[fid].summary.rstrip('.')} ({fid})" if fid in findings else fid for fid in change.finding_ids)
 
     if revision is not None:
-        applied_ids = list(revision.get("applied", []))
+        # The corrected version's applied edits, then those applied to the run's other files (a supplement).
+        applied_ids = list(revision.get("applied", [])) + [item["id"] for item in revision.get("other_files", [])
+                                                           if item["status"] == "applied"]
         in_text = set(applied_ids) | set(revision.get("proposed_in_this_version", []))
         restored = {cid: item["why"] for item in revision.get("restored", []) for cid in item["ids"]}
     else:
