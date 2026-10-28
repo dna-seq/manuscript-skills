@@ -162,7 +162,7 @@ test('the pane shows the live run on the terminal and the desktop, and a finishe
   folder(on, files, version)
   const clock = mock.clock(on, { now: Date.parse(at(50)) })
   mock.store(on)
-  mock.env(on, { HOME: '/home/author' })
+  mock.env(on, { HOME: '/home/user' })
   on('command.register', () => ({ value: { command: 'manuscript-status' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__manuscript-skills__show_run' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -211,7 +211,7 @@ test('the pane opens by itself only for the run this session works on', async ($
   mock.clock(on, { now: Date.parse(at(50)) })
   // the last run watched, in another folder's project
   mock.store(on, { runPath: OTHER })
-  mock.env(on, { HOME: '/home/author' })
+  mock.env(on, { HOME: '/home/user' })
   on('command.register', () => ({ value: { command: 'manuscript-status' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__manuscript-skills__show_run' } }))
   on('ui.open', (_, e) => (opened.push(e.id), { value: { isPlaced: true } }))
@@ -241,7 +241,7 @@ test('a finished run with decisions raises the band, which opens them', async ($
   folder(on, files, { n: 1 })
   mock.clock(on, { now: Date.parse(at(59)) })
   mock.store(on)
-  mock.env(on, { HOME: '/home/author' })
+  mock.env(on, { HOME: '/home/user' })
   on('ui.open', (_, e) => (opened.push(e), { value: { isPlaced: true } }))
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
@@ -338,7 +338,7 @@ test('a run that stops for an answer says so, apart from the decisions held for 
   folder(on, files, version)
   mock.clock(on, { now: Date.parse(at(50)) })
   mock.store(on)
-  mock.env(on, { HOME: '/home/author' })
+  mock.env(on, { HOME: '/home/user' })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.status', (_, e) => (statuses.push(e.text), { value: undefined }))
   on('ui.toast', (_, e) => (notices.push(e.text), { value: undefined }))
@@ -381,12 +381,12 @@ test('the label names the manuscript, and the title comes from its text', () => 
   const named = (original: string, root = '') =>
     runLabel({ run_id: 'r', started_at: at(0), skills: {}, inputs: [{ original, snapshot: 'x' }], context: { project_root: root } })
   // two papers of one person: each named apart, never "manuscript"
-  const creator = '/home/author/just-module-creator/docs/manuscript'
+  const creator = '/home/user/just-module-creator/docs/manuscript'
   expect(named(`${creator}/manuscript.tex`, creator)).toBe('just-module-creator')
-  const lite = '/home/author/just-dna-lite/docs/manuscript/v0.6'
+  const lite = '/home/user/just-dna-lite/docs/manuscript/v0.6'
   expect(named(`${lite}/paper1-just-dna-lite.md`, lite)).toBe('Paper 1 just-dna-lite v0.6')
-  expect(named('/home/author/thesis/paper2.md')).toBe('thesis Paper 2')
-  expect(named('/home/author/drafts/sirt6-aging.md')).toBe('sirt6-aging')
+  expect(named('/home/user/thesis/paper2.md')).toBe('thesis Paper 2')
+  expect(named('/home/user/drafts/sirt6-aging.md')).toBe('sirt6-aging')
 
   const easrp = '\\easrpauthor{Anonymous}\n\\easrptitle{Creating and Sharing Genomic Annotation Modules with AI: The\nJust-DNA Ecosystem}\n\\maketitle'
   expect(manuscriptTitle(easrp, 'inputs/01-manuscript.tex')).toBe(
@@ -423,7 +423,7 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   folder(on, files, { n: 1 })
   mock.clock(on, { now: Date.parse(at(59)) })
   mock.store(on)
-  mock.env(on, { HOME: '/home/author' })
+  mock.env(on, { HOME: '/home/user' })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
