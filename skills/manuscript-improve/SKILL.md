@@ -207,19 +207,21 @@ inventory, so the end of a run goes in this order:
    `matched_by` (manuscript-dashboard, steps 1 to 3).
 4. Collect the adjudicated `findings.json` once, with `--merge` (and `--reference`).
 5. Write `revision-choices.json` and run `revise.py` into `revision/` (`runs.py stage RUN --name corrected
-   --status running` first).
+   --status running` first), with the supplement's two clean texts when the run took one in, so the supplement
+   gets its corrected version from its own changes.
 6. Verify `revision/proposed<ext>` with the checks of the "Verify the revision" row. Fix a failure by
    holding the proposal or recording the reverse change; when a change was recorded, collect again as
    `findings.2.json` and rebuild into `revision.2`. Then `stage --name corrected --status completed`; a
    rebuild after the re-check sets it `running` again.
-7. Re-check it independently, once, between `stage --name recheck --status running` and `completed`. The stages' own agents are the ones most inclined to see their fixes as
+7. Re-check it independently, between `stage --name recheck --status running` and `completed`. The stages' own agents are the ones most inclined to see their fixes as
    done, so one fresh agent that took no part in the review or the edits reads each confirmed problem against
    the corrected version, and the number, reference and section-roles checks run again on it (from this skill's
    folder):
 
    ```bash
    uv run --script scripts/recheck.py prepare --inventory RUN/manuscript-dashboard/findings.json \
-       --revision RUN/manuscript-improve/revision --original ORIGINAL --into RUN/manuscript-improve/recheck
+       --revision RUN/manuscript-improve/revision --original ORIGINAL --into RUN/manuscript-improve/recheck \
+       [--supplement-original SUPPLEMENT_ORIGINAL]
    uv run --script scripts/recheck.py numbers --original ORIGINAL \
        --proposed RUN/manuscript-improve/revision/proposed<ext> --json RUN/manuscript-improve/recheck/numbers.json
    uv run --script scripts/recheck.py check RUN/manuscript-improve/recheck/answer.json \
@@ -239,8 +241,19 @@ inventory, so the end of a run goes in this order:
    section-roles candidate: hold or reverse those edits as in step 6 and rebuild. Reversing an applied correction that a
    confirmed finding asked for would bring the error back: keep it, fix a slip it left (a tense, a missing
    abbreviation) with a recorded routine edit, and list what remains for the authors with the end-of-run
-   items. There is no second re-check, and nothing here goes to the authors as a question. The dashboard
-   reads `recheck.json` beside the revision folder.
+   items. Nothing here goes to the authors as a question.
+
+   The rebuilt version then gets one second re-check, which reads only what the fixes changed: `prepare
+   --since RUN/manuscript-improve/recheck.json --previous RUN/manuscript-improve/revision` (the folder the
+   first re-check read) with the rebuilt `--revision` and `--into RUN/manuscript-improve/recheck.2`, a fresh
+   agent again, `numbers` with the first re-check's corrected version as `--original`, and `check ... --out
+   RUN/manuscript-improve/recheck.2.json`. It judges again each problem the first found made worse, each new
+   problem it found introduced, and each whose quoted passage the fixes changed; the rest keep the first's
+   verdict (`carried_over`). When it exits 3 there is no third: hold or reverse those fixes, rebuild, and
+   finish the stage `stage --name recheck --status partial --reason ...` with what stays unchecked.
+   `runs.py validate --final` refuses a handover whose newest re-check read another build than the corrected
+   version unless that reason is recorded. The dashboard reads the newest `recheck*.json` beside the revision
+   folder.
 8. Render the dashboard and the Word file from the same attempts.
 9. Write the summary, run the smell check on it and register it; `finish` every stage, run
    `validate --final`, then `runs.py handover` (between `stage --name handover --status running` and
@@ -275,8 +288,15 @@ Then run, from this skill directory:
 
 ```bash
 uv run --script scripts/revise.py ORIGINAL WORKING RUN/manuscript-dashboard/findings.json \
-  --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision
+  --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision \
+  [--supplement-original SUPPLEMENT_ORIGINAL --supplement-working SUPPLEMENT_WORKING]
 ```
+
+A change to the supplement names it (`document`), and the manuscript's corrected version leaves it alone. With
+the supplement's clean texts, revise.py builds the supplement's corrected version from its own changes by the
+same rules and choices (`supplement-proposed<ext>`, `supplement-revised<ext>`, `supplement-changes.md`, and
+`supplement` in `revision.json`), and `runs.py handover` puts it beside the supplement as
+`SUPPLEMENT_STEM.proposed<ext>`.
 
 It locates every applied edit in the working copy and stops when undoing them does not give the original,
 so an unrecorded edit cannot hide. It then applies the chosen proposals in manuscript order:

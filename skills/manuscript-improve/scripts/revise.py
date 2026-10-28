@@ -5,7 +5,8 @@
 """Build the corrected version of a manuscript from a run: the edits applied, then every proposal.
 
     uv run --script revise.py ORIGINAL WORKING RUN/manuscript-dashboard/findings.json \
-        --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision
+        --choices RUN/manuscript-improve/revision-choices.json --output-dir RUN/manuscript-improve/revision \
+        [--supplement-original SUP_ORIGINAL --supplement-working SUP_WORKING [--supplement-document NAME]]
 
 ORIGINAL is the run's snapshot of the manuscript as it was before the workflow (RUN/inputs/01-paper.md, the copy
 `runs.py start` made). WORKING is the working copy: the manuscript as it is now, with every applied edit. Where
@@ -37,6 +38,13 @@ its ID in parentheses, and the questions for the authors as comments) and revisi
 restored, held, left as an alternative or not placed, the questions for the authors, the notes still in the
 text, and the track-changes view that manuscript-dashboard shows in the dashboard's Corrected version tab. An
 existing output folder is refused; the message names the next attempt (revision.2).
+
+A change to another file than the manuscript names it (`document`, from `runs.py change --document`), and the
+manuscript's corrected version leaves it alone. Given the supplement's reviewed text and working copy (clean, like
+the manuscript's), the supplement gets its own corrected version from its own changes, by the same rules and the
+same choices file: supplement-revised, supplement-proposed and supplement-changes.md beside the manuscript's, and
+`supplement` in revision.json with the same lists. Without them, the supplement's changes are only listed
+(`other_files`).
 
 No note to the authors goes into the text. A question comes as a proposal's `comment`; a `[AUTHORS: ...]` note
 a stage left in a proposal's text is lifted out of it and becomes a comment too, so the corrected version
@@ -332,12 +340,14 @@ def check_choices(choices: object, name: str = "The choices file") -> dict:
     return {"prefer": prefer, **{key: choices.get(key, []) for key in CHOICE_FIELDS}}
 
 
-def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tuple[Document, dict]:
+def build(original: str, working: str, data: viz.Inventory, choices: dict, document: str = "") -> tuple[Document, dict]:
+    """The corrected version of one file: the manuscript (`document` "") or another input, a supplement, named as the
+    inventory's changes name it."""
     choices = check_choices(choices)
-    # A change to another file (a supplement) is not part of this manuscript's corrected version: it is neither undone
-    # nor proposed here, so a sentence the supplement repeats from the manuscript is never changed in the wrong copy.
-    elsewhere = [c for c in data.changes if c.document]
-    data = data.model_copy(update={"changes": [c for c in data.changes if not c.document]})
+    # A change to another file is not part of this file's corrected version: it is neither undone nor proposed here,
+    # so a sentence the supplement repeats from the manuscript is never changed in the wrong copy.
+    elsewhere = [c for c in data.changes if c.document != document]
+    data = data.model_copy(update={"changes": [c for c in data.changes if c.document == document]})
     changes = {c.id: c for c in data.changes}
     proposals = {c.id: c for c in data.changes if c.status == "proposed"}
     # A choice about another file's change has nothing to choose here (a choices file written before changes named
@@ -347,7 +357,10 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict) -> tu
     held = {h["id"]: h["why"] for h in choices["hold"] if h["id"] not in outside}
     anchors = {a["id"]: a["after"] for a in choices["anchor"] if a["id"] not in outside}
     if unknown := sorted((set(prefer) | set(held) | set(anchors)) - set(proposals)):
-        raise ValueError(f"The choices name changes that are not proposals in the inventory: {', '.join(unknown)}")
+        applied_ids = sorted(cid for cid in unknown if cid in changes)
+        raise ValueError(f"The choices name changes that are not proposals in the inventory: {', '.join(unknown)}"
+                         + (f". {', '.join(applied_ids)} are applied edits, which a choice cannot hold back; to take one "
+                            "back, record the reverse change with runs.py change" if applied_ids else ""))
     if both := sorted(set(prefer) & set(held)):
         raise ValueError(f"Preferred and held at once: {', '.join(both)}")
     alternatives: dict[str, str] = {}
@@ -578,10 +591,23 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, h
          output_dir: Annotated[Path, typer.Option("--output-dir", help=(
              "RUN/manuscript-improve/revision; a second attempt goes to revision.2"))],
          choices: Annotated[Path | None, typer.Option(help=(
-             "revision-choices.json: prefer, hold (with the reason) and anchor, e.g. " + CHOICES_EXAMPLE))] = None) -> None:
+             "revision-choices.json: prefer, hold (with the reason) and anchor, e.g. " + CHOICES_EXAMPLE))] = None,
+         supplement_original: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, help=(
+             "The supplement as the run took it (RUN/inputs/02-...), clean; with --supplement-working, the supplement's "
+             "corrected version is built too"))] = None,
+         supplement_working: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, help=(
+             "The supplement now, with its applied edits, clean"))] = None,
+         supplement_document: Annotated[str | None, typer.Option(help=(
+             "The supplement's file name as the inventory's changes name it (`document`); default: the only other file "
+             "they name"))] = None) -> None:
     suffix = original.suffix or ".md"
     names = (f"revised{suffix}", f"proposed{suffix}", "changes.md", "revision.json")
-    if any((output_dir / name).exists() for name in names):
+    if (supplement_original is None) != (supplement_working is None):
+        raise typer.BadParameter("Give the supplement's reviewed text and its working copy together "
+                                 "(--supplement-original and --supplement-working).")
+    sup_suffix = (supplement_original.suffix or ".md") if supplement_original else ""
+    sup_names = (f"supplement-revised{sup_suffix}", f"supplement-proposed{sup_suffix}", "supplement-changes.md")
+    if any((output_dir / name).exists() for name in names + (sup_names if supplement_original else ())):
         raise typer.BadParameter(f"Output files already exist in {output_dir.name}; write this attempt to "
                                  f"{viz.next_attempt(output_dir, folder=True).name} to keep the previous one.")
     try:
@@ -595,6 +621,16 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, h
             decided = check_choices(decided, choices.name)
         source, revised = original.read_text(encoding="utf-8"), working.read_text(encoding="utf-8")
         document, record = build(source, revised, data, decided)
+        supplement = None
+        if supplement_original is not None and supplement_working is not None:
+            named = sorted({c.document for c in data.changes if c.document})
+            if supplement_document is None and len(named) > 1:
+                raise ValueError(f"The inventory's changes name several other files ({', '.join(named)}); say which is "
+                                 "the supplement with --supplement-document.")
+            sup_name = supplement_document or (named[0] if named else supplement_original.name)
+            sup_source = supplement_original.read_text(encoding="utf-8")
+            sup_revised = supplement_working.read_text(encoding="utf-8")
+            supplement = (sup_name, sup_source, sup_revised, *build(sup_source, sup_revised, data, decided, sup_name))
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     proposed = document.current()
@@ -616,13 +652,31 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, h
     (output_dir / names[0]).write_text(revised, encoding="utf-8")
     (output_dir / names[1]).write_text(proposed, encoding="utf-8")
     (output_dir / "changes.md").write_text(critic(document, asked, info), encoding="utf-8")
+    if supplement is not None:
+        sup_name, sup_source, sup_revised, sup_document, sup_record = supplement
+        sup_asked: dict[str, list[str]] = {}
+        for comment in sup_record["comments"]:
+            for cid in comment["ids"]:
+                sup_asked.setdefault(cid, []).append(comment["question"])
+        sup_proposed = sup_document.current()
+        (output_dir / sup_names[0]).write_text(sup_revised, encoding="utf-8")
+        (output_dir / sup_names[1]).write_text(sup_proposed, encoding="utf-8")
+        (output_dir / sup_names[2]).write_text(critic(sup_document, sup_asked, info), encoding="utf-8")
+        # The supplement's corrected version, as the manuscript's is recorded above; its changes are the same
+        # inventory's, so the record leaves out the per-change table and the track-changes view.
+        record["supplement"] = {key: value for key, value in sup_record.items() if key not in ("changes", "other_files")} | {
+            "document": sup_name, "files": {"revised": sup_names[0], "proposed": sup_names[1], "changes": sup_names[2]},
+            "original_sha256": digest(sup_source), "revised_sha256": digest(sup_revised),
+            "proposed_sha256": digest(sup_proposed)}
     (output_dir / "revision.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     # notes_in_working_copy: notes the applied edits left in the working copy (remove each with a recorded change);
     # notes_in_text: the authors' own draft notes, listed for them.
-    typer.echo(json.dumps({"files": record["files"],
-                           **{key: len(record[key]) for key in ("applied", "restored", "proposed_in_this_version", "held",
-                                                                "alternatives", "not_placed", "comments",
-                                                                "notes_in_working_copy", "notes_in_text")}}, indent=2))
+    counted = ("applied", "restored", "proposed_in_this_version", "held", "alternatives", "not_placed", "comments",
+               "notes_in_working_copy", "notes_in_text")
+    typer.echo(json.dumps({"files": record["files"], **{key: len(record[key]) for key in counted},
+                           **({"supplement": {"files": record["supplement"]["files"],
+                                              **{key: len(record["supplement"][key]) for key in counted}}}
+                              if "supplement" in record else {})}, indent=2))
 
 
 if __name__ == "__main__":

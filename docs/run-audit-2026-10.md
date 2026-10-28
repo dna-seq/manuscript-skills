@@ -269,7 +269,20 @@ scripts for that.
   answered with "update the CLI, then check the sign-in", never a quiet older model; a seat is started with
   its model named (`codex exec -m gpt-6.1-sol`), the configured default included.
 
-Still open: items 2, 3, 6, 9, 10, 11 and 13, and the source cache.
+## Fixed in 0.45.0
+
+- Item 2: `revise.py --supplement-original --supplement-working` builds the supplement's corrected version from
+  its own changes by the same rules and choices (`supplement-proposed`, and `supplement` in `revision.json`);
+  `recheck.py prepare --supplement-original` gives the re-check agent both versions of the supplement, and its
+  quotes may come from either file; `runs.py handover` puts the supplement's corrected version beside the
+  supplement. On the v0.6 copy the supplement's 15 applied edits undo exactly to the reviewed supplement, and the
+  re-check would have read 37 supplement changes its first run never saw.
+- Item 3: after the first re-check's exit 3, the rebuilt version gets one narrow second re-check (`prepare
+  --since ... --previous ...`): the problems the first found made worse, the new ones it found introduced, and
+  those whose quoted passage the fixes changed; the rest keep the first's verdict. `runs.py validate --final`
+  refuses a handover whose newest re-check read another build, unless the re-check stage records why.
+
+Still open: items 6, 9, 10, 11 and 13, and the source cache.
 
 ## Suggested order
 

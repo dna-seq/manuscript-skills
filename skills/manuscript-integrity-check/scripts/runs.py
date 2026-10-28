@@ -146,6 +146,7 @@ DASHBOARD = 'manuscript-dashboard/*manuscript-dashboard*.html'
 WORD = 'manuscript-dashboard/*.docx'
 WORKBOOK = 'manuscript-dashboard/*changes*.xlsx'  # the changes workbook export_changes.py writes
 CORRECTED = 'manuscript-improve/revision*/proposed*'  # proposed.md, or proposed.tex for a LaTeX manuscript
+SUPPLEMENT_CORRECTED = 'manuscript-improve/revision*/supplement-proposed*'  # the supplement's, when revise.py built it
 INVENTORY = 'manuscript-dashboard/findings*.json'  # the adjudicated inventory collect.py writes
 # Commands that may run on a packed run; every other writer needs the files back first.
 WHEN_PACKED = {'validate', 'pack', 'unpack', 'handover'}
@@ -568,10 +569,37 @@ def improvement_problems(run: Path, data: dict[str, Any]) -> list[str]:
             (WORD, "the Word version of the dashboard", "export it with export_docx.py"))
     if chosen(data, 'edits') == 'none':  # report only: no corrected version is written
         owed = tuple(item for item in owed if item[0] != CORRECTED)
-    return [f"manuscript-improve: {what} is missing ({pattern}); {how}, or finish manuscript-dashboard or "
-            "manuscript-improve as partial or blocked with the reason"
-            for pattern, what, how in owed
-            if not (findings_files(run, data, 'manuscript-dashboard') if pattern == INVENTORY else matching(run, pattern, data))]
+    missing = [f"manuscript-improve: {what} is missing ({pattern}); {how}, or finish manuscript-dashboard or "
+               "manuscript-improve as partial or blocked with the reason"
+               for pattern, what, how in owed
+               if not (findings_files(run, data, 'manuscript-dashboard') if pattern == INVENTORY else matching(run, pattern, data))]
+    return missing + ([stale] if (stale := stale_recheck(run, data)) else [])
+
+
+RECHECK = re.compile(r'manuscript-improve/recheck(?:\.\d{1,3})?\.json')
+
+
+def stale_recheck(run: Path, data: dict[str, Any]) -> str | None:
+    """Why the corrected version handed over was never re-checked: the newest re-check read another build, and the
+    coordinator recorded no reason (its recheck stage partial, blocked or not run). None when there is no re-check or
+    corrected version on disk, or the re-check read this build."""
+    corrected = latest(run, CORRECTED)
+    results = [relative for relative in matching(run, 'manuscript-improve/recheck*.json') if RECHECK.fullmatch(relative)]
+    if corrected is None or not results:
+        return None
+    try:
+        read_sha = json.loads((run / results[-1]).read_text(encoding='utf-8')).get('proposed_sha256')
+    except (OSError, ValueError):
+        return f"manuscript-improve: {results[-1]} cannot be read"
+    if read_sha == digest(corrected):
+        return None
+    step = data['skills'].get('manuscript-improve', {}).get('stages', {}).get('recheck', {})
+    if step.get('status') in EXCUSED and step.get('reason'):
+        return None
+    return (f"manuscript-improve: the re-check ({results[-1]}) read another build than the corrected version "
+            f"({corrected.relative_to(run).as_posix()}), so the version handed over was never re-checked. Run the "
+            "second re-check on it (recheck.py prepare --since the re-check's result --previous the revision folder it "
+            "read), or record why not: runs.py stage RUN --name recheck --status partial --reason ...")
 
 
 def problems(run: Path, data: dict[str, Any], final: bool = False) -> list[str]:
@@ -1231,11 +1259,17 @@ def handover(run: Path,
               for kind, (pattern, label, always) in HANDOVER.items()]
     wanted += [('report', report_of(run, data, skill), f".{skill.removeprefix('manuscript-')}", replace)
                for skill in dict.fromkeys(report or [])]
+    # The supplement's corrected version goes beside the supplement's own name: STEM-supplementary.proposed.md.
+    stems = {}
+    if (supplement := latest(run, SUPPLEMENT_CORRECTED)) is not None:
+        record = json.loads((supplement.parent / 'revision.json').read_text(encoding='utf-8')).get('supplement') or {}
+        stems['corrected-supplement'] = Path(record.get('document') or f'{name}-supplementary').stem
+        wanted.append(('corrected-supplement', supplement, '.proposed', replace or replace_proposed))
     handed, kept = [], []
     for kind, made, label, replaces in wanted:
         if made is None:
             continue
-        copy, earlier, written = deliver(made, folder, name, label, replaces, stamp)
+        copy, earlier, written = deliver(made, folder, stems.get(kind, name), label, replaces, stamp)
         handed.append(copy)
         if earlier is not None:
             kept.append({'file': earlier.as_posix(), 'this_run': copy.as_posix(), 'kind': kind})
@@ -1249,7 +1283,7 @@ def handover(run: Path,
         raise typer.Exit(1)
     save(run, data)
     typer.echo(json.dumps({'handed_over': [p.as_posix() for p in handed], 'kept': kept}, indent=2, ensure_ascii=False))
-    flags = {'docx': '--replace-docx', 'corrected': '--replace-proposed'}
+    flags = {'docx': '--replace-docx', 'corrected': '--replace-proposed', 'corrected-supplement': '--replace-proposed'}
     for item in kept:
         typer.echo(f"{Path(item['file']).name} already exists and differs (the authors may have worked in it): it is "
                    f"kept as it is, and this run's copy is {Path(item['this_run']).name} beside it. To replace it "

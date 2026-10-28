@@ -397,6 +397,10 @@ class Recheck(Record):
     concerns: list[RecheckConcern]
     new_problems: list[RecheckProblem] = Field(default_factory=list)
     numbers: dict[str, Any] = Field(default_factory=dict)
+    # A second re-check reads only what the fixes after the first changed: the rest are the first's verdicts.
+    round: Literal[1, 2] = 1
+    since_sha256: str = ""
+    carried_over: list[Identity] = Field(default_factory=list)
 
 
 # A re-check verdict as the problem's resolution in the dashboard.
