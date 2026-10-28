@@ -52,6 +52,13 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
 - **Papers are named by their own name.** `runLabel(data, title)` takes the short name before the title's
   colon (`paperName()`, at most four words), else the file's name; never the kind of paper, since one author
   may have two software papers.
+- **The To-do tab and the authors' marks (0.48.0).** `dashboard.todo_items` is the one list of what a run leaves
+  for the authors (decisions, applied edits that ask, proposals, open blocker/major problems nothing answers);
+  the Word review's comments and the workbook's "For you" sheet are the same items. The tab marks each approved
+  or redundant and saves `STEM.todo.json` beside the manuscript (`MarksFile`/`Mark`; the File System Access API
+  where the browser has it, else a download; localStorage meanwhile). `collect.py` carries the file into the
+  inventory's `todo` and lists word-for-word repeats (`restates`); `todo.py edits` turns marked edits into the
+  list `runs.py apply` takes. The Decisions pane's answers are still session-only.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

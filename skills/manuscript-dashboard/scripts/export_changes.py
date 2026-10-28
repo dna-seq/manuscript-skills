@@ -105,48 +105,28 @@ def build(data: viz.Inventory, revision: dict | None) -> tuple[Workbook, dict]:
         # The corrected version's applied edits, then those applied to the run's other files (a supplement).
         applied_ids = list(revision.get("applied", [])) + [item["id"] for item in revision.get("other_files", [])
                                                            if item["status"] == "applied"]
-        in_text = set(applied_ids) | set(revision.get("proposed_in_this_version", []))
         restored = {cid: item["why"] for item in revision.get("restored", []) for cid in item["ids"]}
     else:
         applied_ids = [c.id for c in data.changes if c.status == "applied"]
-        in_text, restored = set(applied_ids), {}
+        restored = {}
     applied = [[cid, words.stage_of(cid), changes[cid].section, changes[cid].summary,
                 "original wording restored" if cid in restored else "applied",
                 changes[cid].before, changes[cid].after, changes[cid].why or restored.get(cid, ""), problems(changes[cid])]
                for cid in [*applied_ids, *(r for r in restored if r not in applied_ids)] if cid in changes]
 
-    asked: dict[str, list[str]] = {}
-    for item in (revision or {}).get("comments", []):
-        for cid in item["ids"]:
-            asked.setdefault(cid, []).append(item["question"])
-    for change in data.changes:  # without a corrected version, a change's own question still asks
-        if change.comment and change.id not in asked:
-            asked[change.id] = [change.comment]
+    # What needs the authors: the To-do tab's items (dashboard.todo_items) but the open problems, which have their sheet.
+    label = {"decision": "decision", "question": "question on an applied edit"}
     for_you: list[list[object]] = []
-    answered: set[str] = {fid for cid in applied_ids if cid in changes for fid in changes[cid].finding_ids}
-    for decision in viz.decision_list(data):
-        answered |= set(decision["finding_ids"])
-        for_you.append(["decision", decision["id"], ", ".join(dict.fromkeys(findings[f].section for f in decision["finding_ids"]
-                                                                            if f in findings)),
-                        decision["summary"], "", "", "A decision only you can make.",
-                        ", ".join(decision["finding_ids"])])
+    for item in viz.todo_items(data, revision):
+        if item["kind"] == "decision":
+            for_you.append(["decision", item["id"], item["section"], item["summary"], "", "", "A decision only you can make.",
+                            ", ".join(item["finding_ids"])])
+        elif item["kind"] != "problem":
+            for_you.append([label.get(item["kind"], f"proposal {item['status']}"), item["id"], item["section"], item["summary"],
+                            item["before"], item["after"],
+                            " ".join([*(f"Question: {q}" for q in item["questions"]), item["why"]]).strip(),
+                            ", ".join(item["finding_ids"])])
     held = {item["id"]: item["why"] for item in (revision or {}).get("held", [])}
-    for change in data.changes:
-        questions = asked.get(change.id, [])
-        if change.status == "applied" and not questions:
-            continue
-        if change.status == "applied":
-            kind = "question on an applied edit"
-        elif change.id in held:
-            continue  # on the Held sheet, with its reason
-        elif change.id in in_text:
-            kind = "proposal in this version"
-        else:
-            kind = "proposal waiting for your answer" if questions else "proposal not in this version"
-        answered |= set(change.finding_ids)
-        for_you.append([kind, change.id, change.section, change.summary, change.before, change.after,
-                        " ".join([*(f"Question: {q}" for q in questions), change.why]).strip(), ", ".join(change.finding_ids)])
-
     open_rows = [[f.id, words.SEVERITY[f.severity], words.WHEN[f.stage], f.section, f.summary, f.detail, f.action,
                   ", ".join(words.skill_name(s) for s in f.skills),
                   next((cid for cid, c in changes.items() if f.id in c.finding_ids and cid not in applied_ids), "")]

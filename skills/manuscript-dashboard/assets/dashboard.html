@@ -325,6 +325,28 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .bar-row.pick:hover { background: var(--surface-2); }
 article.paper mark.said-here { color: inherit; background: none; }
 article.paper mark.said-here.lit { background: color-mix(in srgb, var(--focus) 18%, transparent); outline: 2px solid var(--focus); outline-offset: 1px; border-radius: 2px; }
+/* To-do: one card per item the run leaves for the authors, each marked approved or redundant; the next run reads the marks. */
+.td-list { display: grid; gap: 12px; }
+.td[hidden], .td-group[hidden] { display: none; }
+.td.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
+.td.approved { border-left: 4px solid var(--good); } .td.redundant { border-left: 4px solid var(--ink-2); }
+.td header { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; }
+.td .what { margin: 8px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.td .ask-q { border-left: 3px solid var(--note-bg); padding: 2px 8px; margin: 6px 0 0; }
+.td .diff { margin-top: 8px; }
+.td .earlier { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+.td-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--grid); }
+.td-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 5px 12px; cursor: pointer; font-weight: 600; }
+.td-btn:hover { background: var(--surface-2); }
+.td-btn.approve[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: #0b0b0b; }
+.td-btn.redundant[aria-pressed="true"] { background: var(--ink-2); border-color: var(--ink-2); color: var(--page); }
+.td-reason { flex: 1 1 220px; min-width: 0; background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 13px; }
+.td-reason[hidden] { display: none; }
+.td .means { flex-basis: 100%; margin: 0; }
+.save-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.save-bar .note { margin: 0; }
+.progress { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--surface-2); margin: 14px 0 0; }
+.progress span { display: block; height: 100%; }
 @media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment, aside.rail .history { position: static; margin-bottom: 8px; } .rev-list { position: static; max-height: none; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -336,7 +358,7 @@ article.paper mark.said-here.lit { background: color-mix(in srgb, var(--focus) 1
   article.paper[data-margin="history"] [data-rev]::before { left: -10px; }
 }
 @media print {
-  .side, #tooltip, .ghost { display: none !important; }
+  .side, #tooltip, .ghost, .save-bar, .td-btn { display: none !important; }
   .app { grid-template-columns: 1fr; }
   .panel[hidden] { display: block !important; }
   tr.detail[hidden] { display: table-row !important; }
@@ -585,6 +607,9 @@ __REVISION_HTML__
   const live = findings.filter(f => f.assessment !== 'dismissed');
   // Each tab has an address (manuscript-dashboard.html#manuscript), so a link can open the annotated paper directly.
   const tabs = [['overview', 'Overview'], ['findings', 'Problems', live.length]];
+  // To-do: what the run leaves for the authors (dashboard.py's todo_view), each to mark approved or redundant.
+  const TD = D.todo || {items: [], set_aside: []};
+  if (TD.items.length || TD.set_aside.length) tabs.splice(1, 0, ['todo', 'To-do', TD.items.filter(t => !t.mark).length]);
   if (D.has_paper) tabs.push(['manuscript', 'Manuscript', null]);
   if (R) tabs.push(['revised', 'Corrected version', R.proposed_in_this_version.length + R.applied.length]);
   if (inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
@@ -621,10 +646,11 @@ __REVISION_HTML__
     if (key === 'manuscript') requestAnimationFrame(layoutRail);
     if (location.hash.slice(1).split('/')[0] !== key) try { history.replaceState(null, '', `#${key}`); } catch (err) { /* a sandboxed frame */ }
   }
-  let openFigure = null, openComment = null;
+  let openFigure = null, openComment = null, openTodo = null;
   const OLD = {panel: panels.reviewers ? 'reviewers' : 'readers'};  // the tab that held both before 0.9.1
   // An address names a tab, and optionally one item in it: #manuscript/IC-1 opens the paper at that problem,
-  // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version, #coauthors/C40 that co-author comment.
+  // #findings/IC-1 its row, #revised/PE-C3 that change in the corrected version, #coauthors/C40 that co-author comment,
+  // #todo/D1 that to-do item.
   const address = () => {
     const [key, item] = location.hash.slice(1).split('/');
     return [OLD[key] || key, item ? decodeURIComponent(item) : ''];
@@ -637,6 +663,7 @@ __REVISION_HTML__
     else if (item && key === 'revised' && openRevised) openRevised(item);
     else if (item && key === 'figures' && openFigure) openFigure(item);
     else if (item && key === 'coauthors' && openComment) openComment(item);
+    else if (item && key === 'todo' && openTodo) openTodo(item);
     else if (key !== current) selectTab(key);
     return true;
   }
@@ -989,6 +1016,8 @@ __REVISION_HTML__
       kpi('Edits', counts.applied_edits, `applied · ${counts.proposed_edits} proposed`),
       kpi('Found by two or more skills', S.found_by_several_skills, 'confirmed problems, each counted once')];
     if (S.decisions) tiles.push(kpi('Decisions for the authors', S.decisions, 'choices only the authors can make'));
+    if (panels.todo) tiles.splice(1, 0, Object.assign(tileTo(kpi('To-do for you', TD.items.filter(t => !t.mark).length,
+      `open of ${TD.items.length}: approve or mark redundant`), 'todo'), {id: 'todo-tile'}));
     const b = S.benchmark;
     if (b) tiles.push(kpi('Caught of the reference review', `${b.full + b.partial} of ${b.items}`, `${b.full} matched, ${b.partial} partly, ${b.missed} not caught`));
     const CS = S.coauthors;
@@ -1583,6 +1612,276 @@ __REVISION_HTML__
       el.classList.add('flash');
       setTimeout(() => el.classList.remove('flash'), 1600);
       if (location.hash.slice(1) !== `coauthors/${encodeURIComponent(id)}`) try { history.replaceState(null, '', `#coauthors/${encodeURIComponent(id)}`); } catch (err) { /* a sandboxed frame */ }
+    };
+  })();
+
+  // ---------- to-do ----------
+  // What the run leaves for the authors, each marked approved (do it, or keep it) or redundant (drop it, and do not raise
+  // it again). A mark is kept in this browser at once and saved beside the manuscript as STEM.todo.json, the file the next
+  // run reads (collect.py, todo.py); the file holds the marks of every run, so saving keeps the earlier ones.
+  if (panels.todo) (function todoTab() {
+    const p = panels.todo, run = inv.run_id, T = inv.todo, items = TD.items;
+    const page = /([^/\\]+)\.dashboard(?:\.\d+)?\.html$/.exec(decodeURIComponent(location.pathname));
+    const fileName = T ? T.file : `${page ? page[1] : 'manuscript'}.todo.json`;
+    const KIND = {decision: 'Decision', question: 'Question on an applied edit', proposal: 'Proposal', problem: 'Open problem'};
+    const GROUP = {decision: 'Decisions only you can make', question: 'Applied edits that ask you something',
+      proposal: 'Proposals', problem: 'Open blocker and major problems'};
+    // What each mark does at the next run, for each kind of item.
+    const MEANS = {decision: ['the next run goes ahead with it', 'it stays as it is and is not raised again'],
+      question: ['the edit stays', 'the next run undoes the edit'],
+      proposal: ['the next run makes it', 'it is dropped and not proposed again'],
+      problem: ['the next run fixes it', 'it is set aside and not raised again']};
+    const keyOf = m => `${m.run_id}:${m.kind}:${m.id}`;
+    const itemKey = t => keyOf({run_id: run, kind: t.kind, id: t.id});
+    const when = iso => { const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return d ? `${Number(d[3])} ${MONTH[Number(d[2]) - 1]} ${d[1]}` : ''; };
+    const clock = () => new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+
+    // The marks: the file's as collected, then this browser's, the later mark winning; a cleared mark stays cleared
+    // unless a later one replaces it.
+    const marks = new Map(), cleared = {};
+    const later = m => { const was = marks.get(keyOf(m)); if (!was || String(m.marked_at) > String(was.marked_at)) marks.set(keyOf(m), m); };
+    for (const m of T ? T.marks : []) marks.set(keyOf(m), m);
+    for (const t of items) if (t.mark) later(t.mark);
+    const SLOT = `manuscript-todo:${fileName}`;
+    let dirty = false;
+    try {
+      const kept = JSON.parse(store.get(SLOT) || 'null');
+      if (kept) {
+        for (const m of kept.marks || []) later(m);
+        for (const [k, at] of Object.entries(kept.cleared || {})) if (marks.has(k) && String(at) > String(marks.get(k).marked_at)) { marks.delete(k); cleared[k] = at; }
+        dirty = Boolean(kept.dirty);
+      }
+    } catch (err) { /* nothing kept, or not readable: the file's marks stand */ }
+    const keep = () => store.set(SLOT, JSON.stringify({marks: [...marks.values()], cleared, dirty}));
+    const fileText = () => JSON.stringify({schema_version: 1, manuscript: (T && T.manuscript) || '',
+      marks: [...marks.values()].sort((a, b) => String(a.marked_at).localeCompare(String(b.marked_at)))}, null, 2) + '\n';
+
+    // Saving: Chrome and Edge write the file itself, chosen once and remembered; other browsers download it.
+    const status = h('span', {class: 'note', role: 'status'});
+    const say = text => { status.textContent = text; };
+    let handle = null, writing = Promise.resolve();
+    const idb = (mode, fn) => new Promise((resolve, reject) => {
+      const open = indexedDB.open('manuscript-todo', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('handles');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const tx = open.result.transaction('handles', mode), req = fn(tx.objectStore('handles'));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+    const write = () => {
+      writing = writing.then(async () => {
+        const out = await handle.createWritable();
+        await out.write(fileText());
+        await out.close();
+        dirty = false; keep();
+        say(`Saved to ${handle.name} at ${clock()}. Each mark is saved there as you make it.`);
+      }).catch(err => { handle = null; say(`Could not save to the file (${err.message || err}); the marks are kept in this browser. Save them again.`); });
+      return writing;
+    };
+    async function saveToFile() {
+      if (window.showSaveFilePicker) {
+        try {
+          if (!handle) {
+            const kept = await idb('readonly', s => s.get(fileName)).catch(() => null);
+            if (kept && await kept.requestPermission({mode: 'readwrite'}) === 'granted') handle = kept;
+          }
+          if (!handle) {
+            handle = await window.showSaveFilePicker({suggestedName: fileName, types: [{description: 'To-do marks', accept: {'application/json': ['.json']}}]});
+            idb('readwrite', s => s.put(handle, fileName)).catch(() => null);
+          }
+          await write();
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          handle = null;  // not allowed here (a sandboxed frame, a policy): download it instead
+        }
+      }
+      const a = h('a', {href: URL.createObjectURL(new Blob([fileText()], {type: 'application/json'})), download: fileName});
+      document.body.append(a); a.click(); a.remove();
+      dirty = false; keep();
+      say(`Downloaded ${fileName} at ${clock()}. Put it beside the manuscript, where the next run looks for it, replacing the older one.`);
+    }
+    const picker = h('input', {type: 'file', accept: '.json,application/json', hidden: true});
+    picker.addEventListener('change', async () => {
+      const file = picker.files[0];
+      picker.value = '';
+      if (!file) return;
+      let read;
+      try { read = JSON.parse(await file.text()); } catch (err) { say(`${file.name} is not a marks file: ${err.message}`); return; }
+      const good = m => m && typeof m.run_id === 'string' && typeof m.id === 'string' && KIND[m.kind] && ['approved', 'redundant'].includes(m.mark);
+      if (!read || read.schema_version !== 1 || !Array.isArray(read.marks) || !read.marks.every(good)) { say(`${file.name} is not a marks file the To-do tab wrote.`); return; }
+      for (const m of read.marks) later(m);
+      dirty = true; keep(); refreshAll();
+      say(`Read ${plural(read.marks.length, 'mark')} from ${file.name}; the later of two marks on one item is kept. Save to put them in the file.`);
+    });
+
+    // A mark keeps what the item said, so the next run knows it even after its IDs change.
+    const markOf = (t, mark, reason) => ({run_id: run, kind: t.kind, id: t.id, mark, reason: reason || '', marked_at: new Date().toISOString(),
+      summary: t.summary, section: t.section || '', category: t.category || '', quote: t.quote ?? null, action: t.action || '',
+      before: t.before ?? null, after: t.after ?? null, anchor: t.anchor ?? null, finding_ids: t.finding_ids});
+    const changed = () => {
+      dirty = true; keep(); counts();
+      if (handle) write();
+      else say(`Kept in this browser at ${clock()}; not yet in ${fileName}. Save the marks to the file for the next run.`);
+    };
+    const setMark = (t, mark) => {
+      const k = itemKey(t), was = marks.get(k);
+      if (was && was.mark === mark) { marks.delete(k); cleared[k] = new Date().toISOString(); }
+      else { marks.set(k, markOf(t, mark, was ? was.reason : '')); delete cleared[k]; }
+      pinned = k;  // stays in view, to add a reason or take the mark back, until the next item is marked
+      paint(t); changed(); draw();
+    };
+    let typing = null;
+    const setReason = (t, text) => {
+      const k = itemKey(t), was = marks.get(k);
+      if (!was) return;
+      marks.set(k, {...was, reason: text, marked_at: new Date().toISOString()});
+      clearTimeout(typing); typing = setTimeout(changed, 500);
+    };
+
+    // The page: what the marks are for, the count left, the save bar, then each kind of item in turn.
+    const tile = (label, sub) => { const el = kpi(label, 0, sub); return [el, el.querySelector('.value')]; };
+    const [openTile, openN] = tile('Open', 'not marked yet'), [okTile, okN] = tile('Approved', 'the next run does or keeps it');
+    const [noTile, noN] = tile('Redundant', 'dropped, and not raised again');
+    openTile.classList.add('hero');
+    const bar = h('div', {class: 'progress', role: 'img'});
+    p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'What this run leaves for you'),
+      h('p', {class: 'note', style: 'margin-top: 0'}, 'Each decision only you can make, each applied edit that asks you something, each proposal, and each open blocker or major problem nothing else answers. ',
+        'Approve one to have the next run do it (or keep it); mark it redundant to drop it, with a reason if you like, so no later run raises it again. ',
+        `The marks are kept in this browser as you make them; save them to ${fileName} beside the manuscript, where the next run reads them.`),
+      h('div', {class: 'kpis'}, openTile, okTile, noTile, TD.set_aside.length ? kpi('Set aside', TD.set_aside.length, 'marked redundant in an earlier run') : null),
+      bar,
+      h('div', {class: 'save-bar'}, h('button', {class: 'td-btn', type: 'button', onclick: saveToFile}, 'Save the marks to the file'),
+        h('button', {class: 'ghost', type: 'button', onclick: () => picker.click()}, 'Load marks from a file'), picker, status));
+    const view = {status: 'open', kind: ''};
+    let pinned = null;
+    const viewButtons = [['open', 'Open'], ['approved', 'Approved'], ['redundant', 'Redundant'], ['', 'All']].map(([v, label]) =>
+      h('button', {class: 'ghost', type: 'button', 'aria-pressed': String(view.status === v), 'data-v': v, onclick: () => { view.status = v; pinned = null; draw(); }}, label));
+    const kinds = Object.keys(KIND).filter(k => items.some(t => t.kind === k));
+    const kindPick = h('select', {'aria-label': 'Kind', style: 'width: auto'}, options(kinds.map(k => [k, GROUP[k]]), 'Every kind'));
+    kindPick.addEventListener('change', () => { view.kind = kindPick.value; pinned = null; draw(); });
+    const shown = h('span', {class: 'note', role: 'status', style: 'margin: 0'});
+    p.append(h('div', {class: 'filters', style: 'display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0 12px'},
+      h('div', {class: 'views', style: 'margin: 0'}, viewButtons), kindPick, shown));
+
+    const diffView = (before, after) => {
+      const diff = before != null && after != null ? wordDiff(before, after) : null;
+      const out = h('div', {class: 'diff'});
+      if (diff) for (const [op, t] of diff) out.append(op === '=' ? document.createTextNode(t) : h(op === '+' ? 'ins' : 'del', null, t));
+      else out.append(before == null ? h('ins', null, after) : after == null ? h('del', null, before) : `${before}\n→\n${after}`);
+      return out;
+    };
+    const openChange = id => {
+      if (inRevision(id) && openRevised) { openRevised(id); return; }
+      selectTab('edits');
+      const el = document.getElementById(`edit-${id}`);
+      if (el) el.scrollIntoView({block: 'start', behavior: motion()});
+    };
+    const cards = new Map(), groups = new Map();
+    const body = t => {
+      const out = [];
+      if (t.kind === 'question' || t.kind === 'proposal') {
+        for (const q of t.questions) out.push(h('p', {class: 'ask-q'}, h('strong', null, 'Question: '), q));
+        out.push(diffView(t.before, t.after));
+        if (t.why && t.why.trim() !== t.summary.trim()) out.push(h('p', {class: 'why'}, h('strong', null, 'Why: '), t.why));
+      } else {
+        if (t.quote) out.push(h('blockquote', null, t.quote));
+        if (t.detail) out.push(h('p', {style: 'margin: 6px 0 0'}, t.detail));
+        if (t.action) out.push(h('p', {style: 'margin: 6px 0 0'}, h('strong', null, t.kind === 'decision' ? 'Suggested: ' : 'Fix: '), t.action));
+      }
+      return out;
+    };
+    for (const kind of kinds) {
+      const list = h('div', {class: 'td-list'});
+      const head = h('h3', {style: 'margin: 20px 0 10px'});
+      groups.set(kind, [h('section', {class: 'td-group'}, head, list), head, list]);
+      p.append(groups.get(kind)[0]);
+    }
+    for (const t of items) {
+      const k = itemKey(t);
+      const approve = h('button', {class: 'td-btn approve', type: 'button', onclick: () => setMark(t, 'approved')}, '✓ Approve');
+      const redundant = h('button', {class: 'td-btn redundant', type: 'button', onclick: () => setMark(t, 'redundant')}, '✕ Redundant');
+      const reason = h('input', {class: 'td-reason', type: 'text', 'aria-label': `Reason for the mark on ${t.id}`});
+      reason.addEventListener('input', () => setReason(t, reason.value));
+      const means = h('p', {class: 'note means'});
+      const links = t.kind === 'question' || t.kind === 'proposal' ? link('see the edit', () => openChange(t.id), `Show edit ${t.id}`)
+        : t.finding_ids.filter(id => byId.has(id)).map((id, i) => [i ? ' ' : '', link(id, () => openFinding(id), `Open problem ${id}`)]);
+      const earlier = t.earlier ? h('p', {class: 'earlier'}, `You ${t.earlier.mark === 'approved' ? 'approved' : 'marked as redundant'} the same item in run ${t.earlier.run_id}`,
+        t.earlier.marked_at ? ` on ${when(t.earlier.marked_at)}` : '', t.earlier.reason ? `: “${t.earlier.reason}”` : '.') : null;
+      const box = h('article', {class: 'card td', id: `todo-${t.id}`},
+        h('header', null, h('span', {class: 'tag'}, KIND[t.kind]), h('strong', null, t.id),
+          t.severity ? sevBadge(t.severity) : null, t.kind === 'proposal' ? h('span', {class: 'tag'}, t.status) : null,
+          t.status === 'candidate' ? h('span', {class: 'tag'}, 'a candidate to verify') : null,
+          t.section ? h('span', {class: 'note', style: 'margin: 0'}, t.section) : null),
+        h('p', {class: 'what'}, t.summary, ' ', h('span', {class: 'note', style: 'font-weight: 400'}, links)),
+        body(t), earlier,
+        h('div', {class: 'td-actions'}, approve, redundant, reason, means));
+      cards.set(k, {box, approve, redundant, reason, means, t});
+      groups.get(t.kind)[2].append(box);
+    }
+    function paint(t) {
+      const c = cards.get(itemKey(t)), m = marks.get(itemKey(t)), [yes, no] = MEANS[t.kind];
+      c.box.classList.toggle('approved', Boolean(m && m.mark === 'approved'));
+      c.box.classList.toggle('redundant', Boolean(m && m.mark === 'redundant'));
+      c.approve.setAttribute('aria-pressed', String(Boolean(m && m.mark === 'approved')));
+      c.redundant.setAttribute('aria-pressed', String(Boolean(m && m.mark === 'redundant')));
+      c.reason.hidden = !m;
+      c.reason.placeholder = m && m.mark === 'redundant' ? 'Why it is redundant (optional)'
+        : t.questions.length ? 'Your answer, or a note for the next run (optional)' : 'A note for the next run (optional)';
+      if (document.activeElement !== c.reason) c.reason.value = m ? m.reason : '';
+      c.means.textContent = m ? `${m.mark === 'approved' ? 'Approved' : 'Redundant'}: ${m.mark === 'approved' ? yes : no}. Press it again to clear the mark.`
+        : `Approve: ${yes}. Redundant: ${no}.`;
+    }
+    function counts() {
+      const mine = items.map(t => marks.get(itemKey(t))), ok = mine.filter(m => m && m.mark === 'approved').length;
+      const no = mine.filter(m => m && m.mark === 'redundant').length, open = items.length - ok - no;
+      openN.textContent = `${open} of ${items.length}`; okN.textContent = ok; noN.textContent = no;
+      bar.replaceChildren(...[[ok, 'var(--good)'], [no, 'var(--ink-2)']].map(([n, color]) => h('span', {style: `width: ${n / Math.max(items.length, 1) * 100}%; background: ${color}`})));
+      bar.setAttribute('aria-label', `${ok} approved, ${no} redundant, ${open} open of ${items.length}`);
+      const n = document.querySelector('#tab-todo .n');
+      if (n) n.textContent = String(open);
+      const overview = document.querySelector('#todo-tile .value');
+      if (overview) overview.textContent = String(open);
+    }
+    function draw() {
+      let k = 0;
+      for (const {box, t} of cards.values()) {
+        const m = marks.get(itemKey(t));
+        const on = (!view.kind || t.kind === view.kind) && (view.status === '' || itemKey(t) === pinned
+          || (view.status === 'open' ? !m : Boolean(m && m.mark === view.status)));
+        box.hidden = !on; k += on;
+      }
+      for (const [kind, [section, head, list]] of groups) {
+        const visible = [...list.children].filter(el => !el.hidden).length;
+        section.hidden = !visible;
+        head.textContent = `${GROUP[kind]} (${visible})`;
+      }
+      for (const b of viewButtons) b.setAttribute('aria-pressed', String(b.dataset.v === view.status));
+      shown.textContent = k ? `${k} of ${items.length} shown` : view.status === 'open' ? 'Every item is marked. Save the marks to the file for the next run.' : 'None shown.';
+    }
+    function refreshAll() { for (const {t} of cards.values()) paint(t); counts(); draw(); }
+
+    if (TD.set_aside.length) p.append(h('details', {style: 'margin-top: 24px'},
+      h('summary', null, `Marked redundant in an earlier run, so not listed again (${TD.set_aside.length})`),
+      h('ul', null, TD.set_aside.map(t => h('li', null, h('span', {class: 'tag'}, KIND[t.kind]), ` ${t.summary} `,
+        h('span', {class: 'note'}, `(${t.id}; redundant since run ${t.earlier.run_id}${t.earlier.marked_at ? `, ${when(t.earlier.marked_at)}` : ''}${t.earlier.reason ? `: “${t.earlier.reason}”` : ''})`))))));
+    const others = [...marks.values()].filter(m => m.run_id !== run).length;
+    if (others) p.append(h('p', {class: 'note'}, `${fileName} also keeps ${plural(others, 'mark')} from earlier runs; saving keeps them.`));
+    refreshAll();
+    say(dirty ? `Some marks are kept in this browser but not yet in ${fileName}: save them for the next run.`
+      : T && T.marks.length ? `The marks in ${fileName} when this run was collected are shown.` : `No marks saved yet; the next run reads ${fileName}.`);
+
+    openTodo = id => {
+      const c = [...cards.values()].find(x => x.t.id === id);
+      selectTab('todo');
+      if (!c) return;
+      if (c.box.hidden) { view.status = ''; view.kind = ''; kindPick.value = ''; draw(); }
+      c.box.scrollIntoView({block: 'start', behavior: motion()});
+      c.box.classList.add('flash');
+      setTimeout(() => c.box.classList.remove('flash'), 1600);
+      if (location.hash.slice(1) !== `todo/${encodeURIComponent(id)}`) try { history.replaceState(null, '', `#todo/${encodeURIComponent(id)}`); } catch (err) { /* a sandboxed frame */ }
     };
   })();
 

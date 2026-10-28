@@ -16,7 +16,12 @@ It reads run.json for coverage, the manuscript snapshot for its title and sectio
 findings.json (../references/stage-findings.md; the newest attempt, findings.2.json, when a stage reran),
 the check outputs as raw signal counts, the reader reports, the reviewers' recommendations, concerns,
 suggestions and strengths, journal selection's ladders, the co-authors' comments with how this release answers
-each (manuscript-coauthors), and the recorded before/after changes.
+each (manuscript-coauthors), the authors' to-do marks (STEM.todo.json beside the manuscript, which the dashboard's
+To-do tab saves; --todo names another), and the recorded before/after changes.
+
+The marks carry over: every mark, from every run, goes into the inventory's `todo`, and the output lists, for each
+earlier mark, this run's problems and changes that say word for word what its item said (`todo.restated`), so the
+adjudication dismisses what the authors marked redundant, with their reason, and the next run does what they approved.
 
 Applied or proposed: the changes recorded with runs.py change are replayed on the reviewed text, in the order
 the skills recorded them, each on the file it changed (the manuscript, or a supplement the run also read), and
@@ -839,6 +844,48 @@ def apply_merges(inventory: dict, merges: dict, out_dir: Path, base: Path) -> No
         findings[fid]["resolution"] = "addressed"
 
 
+def marks_path(data: dict, manuscript_copy: Path | None) -> Path | None:
+    """Where the To-do tab's marks are kept: STEM.todo.json beside the manuscript, where runs.py handover puts the
+    dashboard (a connected manuscript's in the project folder, named after its reading copy); for an older run with
+    no snapshot, beside the reading copy given."""
+    if data.get("inputs"):
+        source = data["inputs"][0]
+        original = Path(source["original"])
+        root = data.get("context", {}).get("project_root")
+        folder = Path(root) if source.get("remote") and root else original.parent
+        return folder / f"{original.stem}.todo.json"
+    return manuscript_copy.resolve().with_name(f"{manuscript_copy.stem}.todo.json") if manuscript_copy else None
+
+
+def read_todo(path: Path | None, manuscript_name: str) -> dict | None:
+    """The marks file as the inventory's `todo`: its name, never its folder, and its marks; no marks while the authors
+    have saved none."""
+    if path is None:
+        return None
+    if not path.is_file():
+        return {"schema_version": 1, "manuscript": manuscript_name, "marks": [], "file": path.name}
+    found = viz.MarksFile.model_validate_json(path.read_text(encoding="utf-8"))
+    return {**found.model_dump(mode="json"), "manuscript": found.manuscript or manuscript_name, "file": path.name}
+
+
+def restated(inventory: viz.Inventory) -> list[dict]:
+    """For each mark of an earlier run, this run's items that say word for word what its item said: the problems and
+    decisions the adjudication dismisses when the mark is redundant, the proposals revise.py holds, and the items the
+    next run does when it is approved. A reworded one is for the adjudication to find."""
+    if inventory.todo is None:
+        return []
+    items = viz.todo_items(inventory)
+    out = []
+    for mark in inventory.todo.marks:
+        if mark.run_id == inventory.run_id:
+            continue
+        same = [f"{item['kind']} {item['id']}" for item in items if viz.restates(mark, item)]
+        if same:
+            out.append({"mark": viz.mark_key(mark.run_id, mark.kind, mark.id), "is": mark.mark, "reason": mark.reason,
+                        "summary": mark.summary, "this_run": same})
+    return out
+
+
 def warnings_for(output: Path, merge: Path | None) -> list[str]:
     """An inventory collected without the adjudication that lies beside it would silently drop every merge,
     dismissal and decision: say so."""
@@ -863,6 +910,9 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
          manuscript_copy: Annotated[Path | None, typer.Option(
              "--manuscript", exists=True, dir_okay=False,
              help="A local reading copy of the manuscript, for a run whose manuscript is a connected document")] = None,
+         todo: Annotated[Path | None, typer.Option(
+             exists=True, dir_okay=False,
+             help="The authors' to-do marks; default: STEM.todo.json beside the manuscript, when it is there")] = None,
          title: str = "What the manuscript review found",
          version: str = "",
          scope: str = "",
@@ -897,6 +947,13 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
                    "each stage's next attempt (findings.2.json) with them fixed; uv run --script stage_check.py RUN "
                    "--skill SKILL checks one:\n" + "\n".join(unreadable), err=True)
         raise typer.Exit(1)
+    marks = todo or marks_path(data, manuscript_copy)
+    try:
+        carried_marks = read_todo(marks, Path(original).name)
+    except ValueError as exc:
+        typer.echo(f"The authors' to-do marks in {marks.name} do not read, so nothing was written; the To-do tab writes "
+                   f"them, so save them there again (or give --todo another file).\n{exc}", err=True)
+        raise typer.Exit(1) from exc
     out_dir = output.resolve().parent
     out_dir.mkdir(parents=True, exist_ok=True)
     records = stage_records(run, out_dir, snapshot)
@@ -916,6 +973,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
         "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run, data.get("inputs")),
         "coauthors": coauthors(run),
+        "todo": carried_marks,
     }
     mentions = concern_mentions(inventory["findings"])
     if merge:
@@ -943,8 +1001,9 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
     warnings = warnings_for(output, merge)
     for warning in warnings:
         typer.echo(f"Warning: {warning}", err=True)
+    carried = {"todo": {"file": checked.todo.file, "marks": len(checked.todo.marks), "restated": restated(checked)}} if checked.todo else {}
     typer.echo(json.dumps({"output": str(output.resolve()), "counts": summary["counts"], "signals": summary["signals"],
-                           "benchmark": summary["benchmark"], **({"warnings": warnings} if warnings else {})}, indent=2))
+                           "benchmark": summary["benchmark"], **carried, **({"warnings": warnings} if warnings else {})}, indent=2))
 
 
 if __name__ == "__main__":

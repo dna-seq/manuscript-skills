@@ -590,6 +590,55 @@ class Coauthors(Record):
     items: list[CoauthorComment] = Field(default_factory=list)
 
 
+TODO_KINDS = ("decision", "question", "proposal", "problem")
+CHANGE_KINDS = {"question", "proposal"}  # a to-do item that is an edit: an applied one that asks, or a proposal
+NEEDS_AUTHORS = {"blocker", "major"}  # the open problems the Word review and the To-do tab put before the authors
+
+
+class Mark(Record):
+    """The authors' mark on one to-do item of a run, made in the dashboard's To-do tab: approved (do it, or keep it)
+    or redundant (drop it, and do not raise it again), with an optional reason. It keeps what the item said, so a
+    later run, whose IDs are its own, can still tell when it raises the same thing."""
+    run_id: Text
+    kind: Literal["decision", "question", "proposal", "problem"]
+    id: Text
+    mark: Literal["approved", "redundant"]
+    reason: str = ""
+    marked_at: str = ""  # ISO 8601; of two marks on one item, the later wins
+    summary: str = ""
+    section: str = ""
+    category: str = ""  # a problem's
+    quote: str | None = None  # a problem's or a decision's passage
+    action: str = ""  # what a problem's fix or a decision's suggestion is
+    before: str | None = None  # an edit's text before and after: None before an addition, after a deletion
+    after: str | None = None
+    anchor: str | None = None  # the passage an addition follows
+    finding_ids: list[str] = Field(default_factory=list)
+
+
+def mark_key(run_id: str, kind: str, item_id: str) -> str:
+    return f"{run_id}:{kind}:{item_id}"
+
+
+class MarksFile(Record):
+    """STEM.todo.json beside the manuscript, as the To-do tab saves it: every mark of every run, newest run last."""
+    schema_version: Literal[1]
+    manuscript: str = ""  # the manuscript's file name
+    marks: list[Mark] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def one_mark_each(self) -> MarksFile:
+        keys = [mark_key(m.run_id, m.kind, m.id) for m in self.marks]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Two marks are on the same item of the same run; keep the later one.")
+        return self
+
+
+class Todo(MarksFile):
+    """The marks file collect.py found for this run (or the name the To-do tab saves it under, with no marks yet)."""
+    file: Text  # its name, never a path
+
+
 class Inventory(Record):
     schema_version: Literal[2]
     title: Text
@@ -612,6 +661,7 @@ class Inventory(Record):
     figures: Figures | None = None
     reference_list: list[ListedReference] = Field(default_factory=list)
     coauthors: Coauthors | None = None
+    todo: Todo | None = None
 
     @model_validator(mode="after")
     def reconcile(self) -> Inventory:
@@ -821,6 +871,117 @@ def decision_list(data: Inventory) -> list[dict]:
               if f.decision and f.assessment != "dismissed" and f.id not in linked)]
 
 
+def todo_items(data: Inventory, revision: dict | None = None) -> list[dict]:
+    """What the run leaves for the authors to act on, the items the Word review comments on and the changes workbook's
+    "For you" sheet lists: each decision only they can make; each applied edit that asks them a question; each proposal
+    in this version, waiting for their answer or left out without a reason; then each open blocker or major problem
+    that none of those and no edit in the text answers. A proposal the corrected version holds back, with why, is not
+    one: the Held sheet lists it. `revision` is revise.py's revision.json; without it, the applied edits are the text."""
+    findings = {f.id: f for f in data.findings}
+    if revision is not None:
+        applied = set(revision.get("applied", [])) | {item["id"] for item in revision.get("other_files", [])
+                                                      if item["status"] == "applied"}
+        in_text = applied | set(revision.get("proposed_in_this_version", []))
+    else:
+        in_text = {c.id for c in data.changes if c.status == "applied"}
+    asked: dict[str, list[str]] = {}
+    for item in (revision or {}).get("comments", []):
+        for cid in item["ids"]:
+            asked.setdefault(cid, []).append(item["question"])
+    for change in data.changes:  # without a corrected version, a change's own question still asks
+        if change.comment and change.id not in asked:
+            asked[change.id] = [change.comment]
+    held = {item["id"] for item in (revision or {}).get("held", [])}
+    blank = {"status": "", "questions": [], "why": "", "before": None, "after": None, "anchor": None, "quote": None,
+             "category": "", "severity": "", "stage": "", "detail": "", "action": ""}
+    items: list[dict] = []
+    answered = {fid for c in data.changes if c.id in in_text for fid in c.finding_ids}
+    for decision in decision_list(data):
+        linked = [findings[fid] for fid in decision["finding_ids"] if fid in findings]
+        answered |= set(decision["finding_ids"])
+        items.append(blank | {"kind": "decision", "id": decision["id"], "summary": decision["summary"],
+                              "section": ", ".join(dict.fromkeys(f.section for f in linked)),
+                              "quote": next((f.quote for f in linked if f.quote), None),
+                              "detail": next((f.detail for f in linked if f.detail), ""),
+                              "action": next((f.action for f in linked if f.action), ""),
+                              "finding_ids": decision["finding_ids"]})
+    for change in data.changes:
+        questions = asked.get(change.id, [])
+        if change.status == "applied":
+            if not questions:
+                continue
+            kind, status = "question", "applied"
+        elif change.id in held:
+            continue
+        else:
+            kind = "proposal"
+            status = "in this version" if change.id in in_text else "waiting for your answer" if questions else "not in this version"
+        answered |= set(change.finding_ids)
+        items.append(blank | {"kind": kind, "id": change.id, "status": status, "section": change.section,
+                              "summary": change.summary, "questions": questions, "why": change.why or "",
+                              "before": change.before, "after": change.after, "anchor": change.anchor,
+                              "finding_ids": change.finding_ids})
+    for finding in data.findings:
+        if (finding.assessment == "dismissed" or finding.resolution == "addressed" or finding.severity not in NEEDS_AUTHORS
+                or finding.id in answered):
+            continue
+        items.append(blank | {"kind": "problem", "id": finding.id, "status": finding.assessment, "section": finding.section,
+                              "summary": finding.summary, "quote": finding.quote, "category": finding.category,
+                              "severity": finding.severity, "stage": finding.stage, "detail": finding.detail or "",
+                              "action": finding.action or "", "finding_ids": [finding.id]})
+    return items
+
+
+def _words(text: str | None) -> str:
+    return " ".join((text or "").split())
+
+
+def _same(a: str | None, b: str | None) -> bool:
+    """Two sentences that say the same thing word for word, whatever their spacing, case and final full stop."""
+    a, b = _words(a).casefold().rstrip("."), _words(b).casefold().rstrip(".")
+    return bool(a) and a == b
+
+
+def restates(mark: Mark, item: dict) -> bool:
+    """Whether a to-do item says, word for word, what a marked item said: an edit with the same text before and after
+    (an applied edit and a proposal alike), a decision with the same summary, a problem about the same passage with the
+    same category or summary (one about no passage, an absence: the same summary). A reworded restatement is the
+    adjudication's to recognise, never this."""
+    if mark.kind in CHANGE_KINDS and item["kind"] in CHANGE_KINDS:
+        return (bool(mark.before or mark.after) and _words(mark.before) == _words(item["before"])
+                and _words(mark.after) == _words(item["after"]))
+    if mark.kind != item["kind"]:
+        return False
+    if mark.kind == "problem" and (mark.quote or item["quote"]):
+        return _same(mark.quote, item["quote"]) and (_same(mark.category, item["category"]) or _same(mark.summary, item["summary"]))
+    return _same(mark.summary, item["summary"])
+
+
+def todo_view(data: Inventory, revision: dict | None = None) -> dict:
+    """The To-do tab: this run's items, each with the mark the authors already gave it in this run (`mark`, from an
+    earlier save of this dashboard) or the mark of an earlier run's item it restates (`earlier`). An item that restates
+    one an earlier run's authors marked redundant is set aside, with their reason, so it is not raised again; one they
+    approved stays listed, saying so."""
+    marks = data.todo.marks if data.todo else []
+    own = {mark_key(m.run_id, m.kind, m.id): m for m in marks if m.run_id == data.run_id}
+    earlier = sorted((m for m in marks if m.run_id != data.run_id), key=lambda m: m.marked_at, reverse=True)
+    items, set_aside = [], []
+    for item in todo_items(data, revision):
+        mark = own.get(mark_key(data.run_id, item["kind"], item["id"]))
+        before = next((m for m in earlier if restates(m, item)), None)
+        entry = item | {"mark": mark.model_dump() if mark else None, "earlier": before.model_dump() if before else None}
+        (set_aside if before and before.mark == "redundant" and not mark else items).append(entry)
+    return {"items": items, "set_aside": set_aside}
+
+
+def todo_counts(view: dict) -> dict:
+    items = view["items"]
+    marked = Counter(item["mark"]["mark"] for item in items if item["mark"])
+    return {"items": len(items), "open": len(items) - sum(marked.values()), "approved": marked["approved"],
+            "redundant": marked["redundant"], "set_aside": len(view["set_aside"]),
+            "by_kind": {kind: sum(item["kind"] == kind for item in items) for kind in TODO_KINDS}}
+
+
 def summarize(data: Inventory) -> dict:
     confirmed = [finding for finding in data.findings if finding.assessment == "confirmed"]
     pairs = Counter(pair for f in confirmed for pair in combinations(sorted(set(f.skills)), 2))
@@ -851,6 +1012,7 @@ def summarize(data: Inventory) -> dict:
         "competing_proposals": competing(data.changes),
         "figures": figure_counts(data.figures),
         "coauthors": coauthor_counts(data.coauthors),
+        "todo": todo_counts(todo_view(data)),
         "coverage": [item.model_dump(exclude={"evidence"}) for item in data.coverage],
     }
 
@@ -1204,7 +1366,7 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
     corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
                 "revision_marks": revisions, "revision": corrected, "writing": writing, "claims": claims, "recheck": recheck,
-                "decisions": decision_list(data),
+                "decisions": decision_list(data), "todo": todo_view(data, revision),
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")
     return (template.replace("__TITLE__", html.escape(data.title)).replace("__MANUSCRIPT_HTML__", paper)
@@ -1247,6 +1409,7 @@ def render(source: Path, output_dir: Path, revision: Path | None = None) -> dict
         summary["revision"] = {key: len(corrected.get(key) or []) for key in ("applied", "proposed_in_this_version", "held",
                                                                                  "alternatives", "not_placed", "restored")}
         summary["revision"]["proposed_sha256"] = corrected["proposed_sha256"]
+        summary["todo"] = todo_counts(todo_view(data, corrected))  # with the corrected version: the items it leaves
         summary["revision"] |= {"questions": len(corrected["comments"]), "notes_in_text": len(corrected["notes_in_text"]),
                                 "notes_in_working_copy": len(corrected.get("notes_in_working_copy") or [])}
         if versions[0][0] == "original":  # the claim ladder compares the reviewed text with the corrected one

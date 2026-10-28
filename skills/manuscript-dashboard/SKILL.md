@@ -3,13 +3,13 @@ name: manuscript-dashboard
 description: >-
   Turn a manuscript run's saved findings, evidence and revisions into an offline dashboard for the
   authors and colleagues: distinct problems by kind, severity, stage, section and skill, what each
-  skill covered, the funnel from raw signals to confirmed problems, the annotated manuscript, the
-  corrected version as track changes, machine-writing patterns by type, edits as before/after diffs, the
-  figures with their verdicts and recommendations, the simulated reviewers' concerns and suggestions and
-  the readers' paths, the co-authors' comments on the previous release and how this one answers each, and,
-  when a reference review
-  exists (a human referee's comments on the same version), which of its problems the run caught and
-  missed. manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
+  skill covered, the funnel from raw signals to problems, the annotated manuscript, the corrected
+  version as track changes, machine-writing patterns by type, edits as before/after diffs, the figures
+  with their verdicts and recommendations, the simulated reviewers' concerns and suggestions and the
+  readers' paths, the co-authors' comments on the previous release and how this one answers each, a
+  to-do list the authors mark approved or redundant for the next run, and, when a reference review
+  exists (a human referee's comments), which of its problems the run caught and missed.
+  manuscript-improve calls it as its last step; use it directly to visualize or show colleagues an
   earlier run or a focused skill's results. Formerly manuscript-visualize. New reviews and scientific
   result figures belong to their own workflows.
 ---
@@ -67,8 +67,11 @@ findings, dismissed flags and unrun checks, the check outputs as raw signal coun
 referees, what they proposed before adjudication, counted once), the readers' reports, the simulated
 reviewers' recommendations, concerns and suggestions (with the criteria each wrote before reading, from the
 finding check's `criteria`, and where each expectation is written, from `norm_source`), the reference list's
-state per entry (the reference scanner's JSON in the reference-check or integrity-check folder), and journal
-selection's ladders and record. A stage
+state per entry (the reference scanner's JSON in the reference-check or integrity-check folder), journal
+selection's ladders and record, and the authors' to-do marks: `STEM.todo.json` beside the manuscript, which the
+dashboard's To-do tab saves ([below](#the-authors-to-do-marks); `--todo FILE` names another), every mark of every
+run, as the inventory's `todo`. Its output lists, under `todo.restated`, each earlier mark that this run's
+problems, decisions or edits repeat word for word, for the adjudication. A stage
 still running shows as in progress; manuscript-improve itself, which is running while it collects, is left
 out of the coverage unless it recorded findings of its own. A manuscript that exists only as a connected
 document has no local text to quote: a run started with its reading copy (`runs.py start --reading-copy`)
@@ -115,6 +118,12 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
 - **Decisions** you write join the stages' own: the dashboard lists every decision in `merges.json`, then
   each finding marked `decision: true` (a figure to add or move, a direction, new work) that none of them
   links, so writing one decision never hides the others.
+- **What the authors marked redundant stays dismissed.** For each mark collect lists in `todo.restated`, and each
+  problem or decision you recognise in `todo.marks` reworded, dismiss this run's record when the mark is
+  `redundant`, with their reason as the why ("Marked redundant by the authors in run R1: the code changed."), and
+  hold a repeated redundant proposal in revise.py's choices (`hold`, the same why). The To-do tab already sets
+  aside the word-for-word repeats; the dismissal keeps them out of the counts and the Word review too. An
+  `approved` mark is the authors' answer: the item is done or kept, not a problem to raise again.
 
 Then collect the adjudicated inventory, `findings.json`, with `--merge` (with a reference review, read step 3
 first: the two go in one collect):
@@ -170,7 +179,8 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
 - `manuscript-dashboard.html`: one self-contained file that opens offline, on the Overview, and can be sent to
   anyone as it is: data, styles and scripts are inside it, and the manuscript's local images are embedded
   (an image it could not find keeps its path and says so). Which skill found something is shown by an
-  icon, with its name in the tooltip and a legend. Its tabs: headline
+  icon, with its name in the tooltip and a legend. Its tabs: the To-do list ([below](#the-authors-to-do-marks));
+  headline
     counts, coverage per skill, the reference list at a glance (one cell per entry, coloured by its worst state:
   retracted, points to another work, a detail to correct, no identifier, could not be checked, or fine), the funnel from
   raw signals to confirmed problems and the machine-writing patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
@@ -206,7 +216,7 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   of their own; whether each reader and reviewer ran as a fresh agent, and on which model; and what
   could not be checked. Each tab has an address, so
   `manuscript-dashboard.html#manuscript` opens the annotated paper itself, and `#manuscript/IC-1` the
-  paper at that problem (`#findings/IC-1` its row, `#revised/PE-C3` that change). Evidence keeps file names only, never
+  paper at that problem (`#findings/IC-1` its row, `#revised/PE-C3` that change, `#todo/D1` that to-do). Evidence keeps file names only, never
   local paths. It follows the system light or dark theme.
 - `summary.json`: every derived count, with the evidence files' hashes.
 
@@ -258,13 +268,47 @@ uv run --script scripts/export_changes.py RUN/manuscript-dashboard/findings.json
 ```
 
 Sheets: **Applied** (every edit in this version: stage, section, before, after, why, the problems it answers),
-**For you** (the decisions, questions and proposals the Word review comments on), **Open problems** (every
+**For you** (the decisions, questions and proposals the Word review comments on: the To-do tab's items but the
+open problems), **Open problems** (every
 problem no applied edit answers, all severities), **Held** (the proposals left out of this version, with
 why) and, when the run tracked them, **Co-authors' comments** (each comment on the previous release: its
 author, kind, section, status, the passage before and now, why, and what could still be done). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
 waits for the authors to ask, like the Word file.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments,
 tracked changes become suggestions and the paragraphs stay justified. Uploading is sending the paper somewhere, so it waits for the authors to ask.
+
+### The authors' to-do marks
+
+The **To-do** tab, after the Overview, lists what the run leaves for the authors: each decision only they can
+make, each applied edit that asks them something, each proposal in this version or waiting for their answer, and
+each open blocker or major problem none of those and no edit in the text answers (`dashboard.todo_items`, the
+same items the Word review comments on and the workbook's **For you** sheet lists). The authors mark each one
+**Approve** (the next run does it, or keeps the edit) or **Redundant** (dropped, an applied edit undone, and not
+raised again), with an optional reason or answer, and the list shrinks as they go; its count is on the tab and on
+the Overview. Each mark is kept in the browser at once, so closing the page loses nothing; **Save the marks to
+the file** writes `STEM.todo.json` beside the manuscript: Chrome and Edge write the file itself, chosen once and
+remembered, and save each later mark as it is made; other browsers download it, to be put beside the manuscript.
+**Load marks from a file** reads one back. The file holds every run's marks (`run_id`, `kind`, `id`, `mark`,
+`reason`, `marked_at`, and what the item said: summary, section, passage, before and after), so a later run
+recognises an item after its IDs have changed; an item that repeats one an earlier run's authors marked
+redundant is set aside under its own fold with their reason ([data contract](references/data-contract.md#to-do)).
+
+The next run reads the file: collect carries it ([step 1](#1-collect-the-inventory)), the adjudication dismisses
+what was marked redundant ([step 2](#2-adjudicate-one-record-per-problem)), and manuscript-improve's first stage
+does what was approved. The marked edits become the list `runs.py apply` takes:
+
+```bash
+uv run --script scripts/todo.py edits STEM.todo.json --text WORKING_COPY --output RUN/manuscript-improve/todo-edits.json
+uv run --script scripts/todo.py show STEM.todo.json   # the marks by run, approved first
+```
+
+An approved proposal is made where its text before occurs once (an addition after its anchor); an edit marked
+redundant is undone where its text after occurs once; one already as marked needs nothing, and one whose text is
+not there exactly once is listed as not placed, never guessed. `--run R1` takes one run's marks. The approved
+decisions and problems, and every approved item with the authors' note, come back as `for_the_stages`.
+
+The Decisions pane in Claude Code answers the same decisions while a session watches the run, and sends the
+answers to Claude as a message; the marks file is where an answer outlasts the session.
 
 ## 5. Check and deliver
 

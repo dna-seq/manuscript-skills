@@ -25,6 +25,12 @@ what to fix now. A co-author had reviewed the same draft separately; the run saw
 any later version of the paper. Of the co-author's 125 points, the run found 79 (27 of them only in
 part) and missed 46.
 
+Its **To-do** tab lists what the run leaves for you: each decision only you can make, each applied edit that
+asks you something, each proposal, and each open major problem nothing else answers. Mark each one **Approve**
+or **Redundant**, with a reason if you like, and the list shrinks as you go. Your marks are kept in the browser
+and saved beside the paper as `paper.todo.json`, which the next run reads: what you approved is done or kept,
+and what you marked redundant is not raised again.
+
 The dashboard is self-contained, so you can send it to a colleague as it is. The same review also comes
 as a Word document: the corrected version as tracked changes signed by each stage, with the problems,
 the questions for you and the reason for each edit as margin comments. Google Docs opens it with the
@@ -200,6 +206,9 @@ What you open goes beside the manuscript as well, named after it:
   needs you, the open problems and the held proposals, one sheet each, to filter in Excel or Google Sheets;
   kept the same way;
 - `paper.proposed.md` (or `.tex`, as your manuscript), the corrected version, kept the same way;
+- `paper.todo.json`, your marks from the dashboard's To-do tab, which the next run reads. The tab writes it:
+  Chrome and Edge save it here as you mark, once you have chosen the file; other browsers download it, and you
+  move it here;
 - from journal selection, the journal ladder, the venue requirements and the shared record.
 
 With `versions: immutable` the dashboard is kept the same way, and the edits a run applies go into a new
@@ -212,6 +221,7 @@ paper/
 ├── paper.review.docx         what needs you, in Word: proposals, questions, decisions
 ├── paper.changes.xlsx        every applied change, to filter
 ├── paper.proposed.md         the corrected version (your manuscript's own format)
+├── paper.todo.json           your To-do marks, read by the next run
 └── reviews/
     └── 20261024T101500Z-3f2a91c0/   one folder per run: index, reports, evidence
 ```
@@ -229,7 +239,8 @@ with the paper's name, which asks you the question with its options and makes th
 desktop app; in a terminal, where no session can be started, Claude asks you in the session you are in).
 **Go ahead** as it suggests, **Leave as is**, or **Write answer**, which puts the decision in the prompt box
 for your own words. **Send answers to Claude** sends the go-aheads and leaves in one message, as yours, to the
-session the pane is in; until then they stay in the pane, for this session only. The band, the panes and the
+session the pane is in; until then they stay in the pane, for this session only. To keep an answer for later
+runs, mark the decision in the dashboard's To-do tab instead. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
 ("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
 folder where the file is just `manuscript`), then the version folder, never by what kind of paper it is. The

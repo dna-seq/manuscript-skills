@@ -34,6 +34,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
 | `story` | optional, from `manuscript-story`: the direction, the story tests and the options only the authors can choose; [below](#story). |
 | `coauthors` | optional, from `manuscript-coauthors`: the co-authors' comments on the previous release and how the next one answers each; [below](#co-authors-comments). |
+| `todo` | optional, from collect: the authors' to-do marks file beside the manuscript (`STEM.todo.json`) and every mark in it; [below](#to-do). |
 | `reference_list` | optional, the manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check folder, else the integrity-check one): one record per entry with `n` (its place in the list), `line`, `text`, `state` (its worst: `fine`, `corrected`, `unverified`, `not-checked`, `wrong` or `retracted`), `link` (doi.org, PubMed or arXiv) and `notes` (what the scanner found, in its words). The Overview shows it as one cell per entry. |
 | `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
 
@@ -203,3 +204,26 @@ links to its findings and to the passage's edit history in the manuscript.
 confirmed it), `drift`, `tests` (each with `test`, `result` of `holds`, `partly`, `fails` or `not-run`, `note`,
 `finding_ids` and `change_ids`) and `options` (each with `title`, `summary`, `readers` and `cost`). The Story
 tab shows it with the story stage's findings and edits; without it the tab shows those alone.
+
+## To-do
+
+`todo` is what collect found of the marks the authors made in the dashboard's To-do tab: `file` (the file's name,
+never its folder; the name the tab saves under while there are no marks yet), `schema_version` (`1`), `manuscript`
+(the manuscript's file name) and `marks`. The file beside the manuscript holds the same fields but `file`, and the
+marks of every run of the paper, the oldest first. Each mark is on one item of one run, at most once:
+
+| Field | Meaning |
+|---|---|
+| `run_id`, `kind`, `id` | The item: its run, its kind (`decision`, `question` for an applied edit that asks the authors something, `proposal`, `problem`) and its ID in that run. |
+| `mark` | `approved`: do it, or keep the edit. `redundant`: drop it, undo the edit, and do not raise it again. |
+| `reason`, `marked_at` | The authors' reason or answer (optional) and when they marked it (ISO 8601); of two marks on one item, the later wins. |
+| `summary`, `section`, `category`, `quote`, `action`, `before`, `after`, `anchor`, `finding_ids` | What the item said, so a later run whose IDs are its own recognises it. |
+
+The tab's items are computed, never stored (`dashboard.todo_items`): the decisions, the applied edits that ask a
+question, the proposals in this version or waiting for an answer (a held proposal is not one) and the open blocker
+or major problems none of those and no edit in the text answers. An item restates a mark when it says word for word
+what the marked item said (`dashboard.restates`): an edit with the same text before and after, a decision with the
+same summary, a problem about the same passage with the same category or summary, or about no passage with the
+same summary; spacing, case and a final full stop aside. An item restating an earlier run's redundant mark, with no
+mark of its own run, is set aside; `summary.json`'s `todo` counts the items, the open, approved and redundant ones,
+the set-aside ones and the items by kind.
