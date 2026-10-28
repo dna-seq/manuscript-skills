@@ -157,10 +157,13 @@ AI_USE_WORDS = {"polish": "AI corrected the spelling, grammar or clarity of text
                 "unknown": "what AI did to the text has not been established"}
 VALIDATION_WORDS = {"none": "none of these", "independent-cohort": "an independent cohort",
                     "wet-lab": "wet-lab experiments", "multi-database": "results from more than one database",
-                    "primary-analysis": "a primary analysis"}
+                    "primary-analysis": "a primary analysis",
+                    "benchmark": "a comparison with existing methods on shared data"}
 DESIGN_WORDS = {"software": "software or resource", "public-data": "public-data reanalysis",
                 "bioinformatics": "bioinformatics-finding", "mr": "Mendelian randomisation",
-                "bibliometric": "bibliometric", "public-health-database": "public health-database", "other": "other"}
+                "bibliometric": "bibliometric", "public-health-database": "public health-database",
+                "health": "health-related", "clinical": "clinical-research", "human-data": "personal-data",
+                "other": "other"}
 # The verdict in the words the authors read; the codes (go, conditional, unknown, no-go) stay internal.
 FIT_WORDS = {"go": "Fits", "conditional": "Depends", "unknown": "Could not be checked",
              "no-go": "Does not fit the stated constraints"}
@@ -181,7 +184,8 @@ BURDEN_WORDS = {"drafting-ban": "a ban on AI drafting", "red-line": "a ban on AI
 RECORD_DESIGNS = {"software-tool": "software", "database-resource": "software", "method-benchmark": "software",
                   "public-data-reanalysis": "public-data", "omics-profiling": "bioinformatics",
                   "genetic-association": "bioinformatics", "polygenic-score": "bioinformatics",
-                  "mendelian-randomization": "mr"}
+                  "mendelian-randomization": "mr", "observational-human": "clinical", "randomized-trial": "clinical",
+                  "case-report": "clinical", "prediction-model": "clinical"}
 # When a quoted rule of the author guidelines applies (`submission_rules` in venues.yaml).
 WHEN_WORDS = {"submission": "Rules of the author guidelines for the first submission:",
               "after_review": "Not needed until after the first review:"}
@@ -221,7 +225,10 @@ def _points(n: int) -> str:
 
 def _sentence(text: str) -> str:
     text = str(text).strip()
-    return text[:1].upper() + text[1:] + ("" if text.endswith((".", "!", "?")) else ".")
+    first = text.split(" ", 1)[0]
+    # A name spelled with an inner capital (bioRxiv, medRxiv, iScience, mRNA) keeps its case at a sentence's start.
+    start = text[:1] if any(c.isupper() for c in first[1:]) else text[:1].upper()
+    return start + text[1:] + ("" if text.endswith((".", "!", "?")) else ".")
 
 
 def _and(items: list[str]) -> str:
@@ -269,7 +276,19 @@ class StudyDesign(str, Enum):
     mr = "mr"
     bibliometric = "bibliometric"
     public_health_database = "public-health-database"
+    # What the paper reports rather than contributes, which preprint servers screen on: health-related information
+    # about people (disease risk, clinical variant interpretation, risk scores for diseases), clinical research on
+    # people, and data that identify a person (the authors' own released genomes included). The record gives them
+    # as `study.health_information`, the study-design keys RECORD_DESIGNS maps to "clinical" and `study.human_data`.
+    health = "health"
+    clinical = "clinical"
+    human_data = "human-data"
     other = "other"
+
+
+# What the paper reports, which holds whichever kind of paper the editors take it for: these are added to each
+# reading of the paper rather than judged as another reading.
+TRAITS = {StudyDesign.health.value, StudyDesign.clinical.value, StudyDesign.human_data.value}
 
 
 class Validation(str, Enum):
@@ -278,6 +297,7 @@ class Validation(str, Enum):
     wet_lab = "wet-lab"
     multi_database = "multi-database"
     primary_analysis = "primary-analysis"
+    benchmark = "benchmark"  # a software or method paper compared with existing tools on shared data
 
 
 class Burden(str, Enum):
@@ -314,9 +334,6 @@ JOURNAL_TRANSFER_WORDS = "a direct transfer from your preprint server"
 # journal ladder saves a second submission, then speed, then AI-policy work (posting is usually free).
 DEFAULT_PRIORITIES = {"journals": ["speed", "reach", "ai", "cost"], "preprints": ["transfer", "speed", "ai"]}
 FIT_ORDER = {"go": 0, "conditional": 1, "unknown": 2, "no-go": 3}
-# The ladder's first step: "Depends" and "could not be checked" tie, so that a journal whose rules were researched
-# does not rise above one whose rules were not; only a fit the rules settle ("fits", "does not fit") moves a venue.
-LADDER_FIT = {"go": 0, "conditional": 1, "unknown": 1, "no-go": 2}
 
 
 class OutputFormat(str, Enum):
@@ -755,24 +772,71 @@ def _has_type(v: dict[str, Any], wanted: list[str]) -> bool:
     return bool(types & set(wanted))
 
 
-def validation_fit(v: dict[str, Any], study: Optional[str] = None,
-                   available: Optional[set[str]] = None) -> tuple[str, str]:
-    """Resource fit under recorded rules only; unknown is not permission or an author veto.
+def venue_rules(v: dict[str, Any]) -> tuple[str, Optional[list[dict[str, Any]]], str]:
+    """The rules that decide whether a venue takes the paper at all: a preprint server's `screening_rules` (what it
+    declines or sends to another server), a journal's `validation_requirements`. Returns the field, its list (None
+    when nobody has read it; [] when it was read and the venue states none) and its name in words."""
+    if v.get("kind") == "preprint":
+        return "screening_rules", v.get("screening_rules"), "screening rules"
+    return "validation_requirements", v.get("validation_requirements"), "validation requirements"
 
-    Returns a status code (go, conditional, unknown, no-go) and the reason in sentences for the authors."""
-    if study and study in (v.get("excluded_study_designs") or []):
-        return "no-go", f"Its recorded scope excludes {DESIGN_WORDS.get(study, study)} studies."
-    rules = v.get("validation_requirements")
+
+def _paper(design: str) -> str:
+    return f"a {DESIGN_WORDS.get(design, design)} paper"
+
+
+def _read_on(v: dict[str, Any], field: str) -> str:
+    """" (read on DATE, PAGE)" for a fact, from its provenance; empty when neither is known."""
+    p = (v.get("provenance") or {}).get(field) or {}
+    parts = [f"read on {p['checked']}" if p.get("checked") else "", p.get("source") or ""]
+    return f" ({', '.join(x for x in parts if x)})" if any(parts) else ""
+
+
+def _redirect_name(rule: dict[str, Any], venues: Optional[dict[str, dict[str, Any]]]) -> str:
+    key = rule.get("redirect_to")
+    return str((venues or {}).get(key, {}).get("name") or "another server") if key else "another server"
+
+
+def validation_fit(v: dict[str, Any], study: Optional[str] = None, available: Optional[set[str]] = None,
+                   venues: Optional[dict[str, dict[str, Any]]] = None,
+                   traits: Optional[list[str]] = None) -> tuple[str, str]:
+    """Whether the venue takes the paper under its recorded rules only: a journal's validation requirements, a
+    preprint server's screening rules. Unknown is not permission or an author veto.
+
+    A rule list is read as the venue's complete rules for every kind of paper: `[]` (read, none stated) and a list
+    none of whose rules covers this design both fit, with the page they were read on. A screening rule that
+    declines the paper or sends it to another server (`outcome`, `redirect_to`) is "Depends" unless it is
+    `required` and the design is stated, which makes it "Does not fit". Returns a status code (go, conditional,
+    unknown, no-go) and the reason in sentences for the authors. `traits` (TRAITS: what the paper reports) count
+    with the design: a rule for either applies."""
+    kinds = [k for k in dict.fromkeys([study, *(traits or [])]) if k]
+    excluded = [k for k in kinds if k in (v.get("excluded_study_designs") or [])]
+    if excluded:
+        return "no-go", f"Its recorded scope excludes {DESIGN_WORDS.get(excluded[0], excluded[0])} studies."
+    field, rules, words = venue_rules(v)
     if rules is None:
-        return "unknown", "Its validation requirements have not been researched."
-    applicable = [r for r in rules if study is None or study in r.get("applies_to", [])]
+        return "unknown", f"Its {words} have not been researched."
+    if not rules:
+        return "go", f"Its pages{_read_on(v, field)} state no {words[:-1]} for any kind of paper."
+    applicable = [r for r in rules if study is None or set(kinds) & set(r.get("applies_to", []))]
     if not applicable:
-        return "unknown", "No validation rule is recorded for this study design."
+        covered = _or([_paper(d) for d in dict.fromkeys(d for r in rules for d in r.get("applies_to", []))])
+        return "go", (f"None of its {words}{_read_on(v, field)} applies to {_or([_paper(k) for k in kinds])}; they "
+                      f"cover {covered}.")
     outcomes: list[tuple[str, str]] = []
     for rule in applicable:
         options = set(rule.get("accepted_any") or [])
-        description = _sentence(rule.get("description") or "check the recorded validation requirement")
-        if study is None or available is None or rule.get("strength") != "required" or not options:
+        description = _sentence(rule.get("description") or "check the recorded rule")
+        outcome = rule.get("outcome")
+        if outcome in ("declined", "redirected") and not options:
+            to = _redirect_name(rule, venues)
+            certain = rule.get("strength") == "required" and study is not None
+            hit = next((k for k in kinds if k in rule.get("applies_to", [])), None)
+            paper = _paper(hit) if hit else "such a paper"
+            action = (("It sends" if certain else "It may send") + f" {paper} to {to}" if outcome == "redirected"
+                      else ("It declines" if certain else "It may decline") + f" {paper}")
+            outcomes.append(("no-go" if certain else "conditional", f"{action}: {description}"))
+        elif study is None or available is None or rule.get("strength") != "required" or not options:
             outcomes.append(("conditional", description))
         elif options & available:
             have = _and([VALIDATION_WORDS.get(o, o) for o in sorted(options & available)])
@@ -785,6 +849,46 @@ def validation_fit(v: dict[str, Any], study: Optional[str] = None,
     return worst, " ".join(dict.fromkeys(reason for _, reason in outcomes))
 
 
+def unread_rules(v: dict[str, Any]) -> list[dict[str, Any]]:
+    """The rule a ladder cannot judge the venue without, when nobody has read it: a journal's validation
+    requirements, a server's screening rules. In the form of `stale_facts`, so `stale` lists it with the page to
+    read; a venue whose guidelines could not be read (`not_read`) is not listed again."""
+    field, rules, words = venue_rules(v)
+    if rules is not None or v.get("not_read"):
+        return []
+    return [{"field": field, "checked": None, "source": v.get("url"), "layer": None,
+             "reason": f"its {words} were never read, so the ladder says \"Could not be checked\" until they are"}]
+
+
+def redirects(v: dict[str, Any], designs: list[str]) -> set[str]:
+    """The servers an applicable screening rule of `v` may send this paper to."""
+    return {str(r["redirect_to"]) for r in v.get("screening_rules") or [] if r.get("outcome") == "redirected"
+            and r.get("redirect_to") and set(designs) & set(r.get("applies_to") or [])}
+
+
+def turns_away(v: dict[str, Any], designs: list[str]) -> bool:
+    """Whether an applicable screening rule of `v` may decline this paper or send it elsewhere."""
+    return any(r.get("outcome") in ("declined", "redirected") and set(designs) & set(r.get("applies_to") or [])
+               for r in v.get("screening_rules") or [])
+
+
+def bounces(rows: list[dict[str, Any]], venues: dict[str, dict[str, Any]], designs: list[str]) -> dict[str, str]:
+    """For each server on a preprint ladder that may send this paper to a server which may in turn send it back or
+    decline it, the sentence that says so: the paper can pass between them without being posted anywhere."""
+    out: dict[str, str] = {}
+    if not designs:
+        return out
+    for v in rows:
+        for key in sorted(redirects(v, designs)):
+            other = venues.get(key)
+            if other is None or not turns_away(other, designs):
+                continue
+            back = "send it back" if v["key"] in redirects(other, designs) else "decline it"
+            out[v["key"]] = (f"{_name(other)} may in turn {back}, so the paper can pass between "
+                             f"{_name(v)} and {_name(other)} without being posted on either.")
+    return out
+
+
 def fit_text(status: str, reason: str) -> str:
     """A fit cell: the verdict in words, then why."""
     return f"{FIT_WORDS[status]}. {reason}"
@@ -795,25 +899,31 @@ def _worse(a: str, b: str) -> str:
 
 
 def feasibility(v: dict[str, Any], designs: list[str], available: Optional[set[str]],
-                confirmed: bool = True) -> tuple[str, str]:
+                confirmed: bool = True, venues: Optional[dict[str, dict[str, Any]]] = None) -> tuple[str, str]:
     """The validation fit for the paper's study designs, which `ladder` sorts by.
 
     A mixed study is judged under each design: when one design would rule the venue out and another would not,
-    the venue depends on how its editors read the paper. A design the authors have not confirmed (a skill's
-    draft in the record) can lower a venue to "Depends", never to "Does not fit"."""
+    the venue depends on how its editors read the paper. What the paper reports (TRAITS: health information,
+    clinical research, data on a person) holds under every reading, so its rules count with each design. A design
+    the authors have not confirmed (a skill's draft in the record) can lower a venue to "Depends", never to "Does
+    not fit"."""
     if not designs:
-        return validation_fit(v, None, available)
-    outcomes = [(d, *validation_fit(v, d, available)) for d in designs]
+        return validation_fit(v, None, available, venues)
+    traits = [d for d in designs if d in TRAITS]
+    readings = [d for d in designs if d not in TRAITS] or traits[:1]
+    traits = [t for t in traits if t not in readings]
+    outcomes = [(d, *validation_fit(v, d, available, venues, traits)) for d in readings]
     statuses = {status for _, status, _ in outcomes}
     worst = max(statuses, key=FIT_ORDER.__getitem__)
     if len(outcomes) == 1 or len(statuses) == 1:
         status, reason = worst, " ".join(dict.fromkeys(r for _, _, r in outcomes))
     else:
         status = "conditional" if worst == "no-go" else worst
-        reason = ("It depends on which kind of paper the editors take this one for. "
-                  + " ".join(f"As a {DESIGN_WORDS.get(d, d)} paper: {r}" for d, _, r in outcomes))
+        who = "its screeners" if v.get("kind") == "preprint" else "the editors"
+        reason = (f"It depends on which kind of paper {who} take this one for. "
+                  + " ".join(f"As {_paper(d)}: {r}" for d, _, r in outcomes))
     if status == "no-go" and not confirmed:
-        kinds = _or([f"a {DESIGN_WORDS.get(d, d)} paper" for d in designs])
+        kinds = _or([_paper(d) for d in designs])
         status = "conditional"
         reason += (f" This holds only if the paper is {kinds}, a study design the authors have not confirmed "
                    "yet.")
@@ -963,7 +1073,9 @@ def record_context(path: Optional[Path]) -> dict[str, Any]:
     """What else the record says that the ladder needs, each None when the record does not say it:
 
     - `designs`: `study.designs` as the ladder's design keys (RECORD_DESIGNS; unknown keys count as "other"),
-      `confirmed`: whether `study.confirmed` is set (the authors confirmed the design);
+      with "health" added for `study.health_information: true` and "human-data" for a `study.human_data`
+      classification other than `none` (what preprint servers screen on); `confirmed`: whether `study.confirmed`
+      is set (the authors confirmed the design);
     - `validation`: `priorities.validation_available`, the validation routes the authors have or can afford;
     - `ai_use`: what AI did to the text, `ai_use: polish | revision | drafting` (a mapping per section gives the
       most substantial use);
@@ -975,10 +1087,15 @@ def record_context(path: Optional[Path]) -> dict[str, Any]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     study = raw.get("study") if isinstance(raw.get("study"), dict) else {}
     designs = study.get("designs")
-    if designs:
-        keys = [designs] if isinstance(designs, str) else [str(d) for d in designs]
-        own = {d.value for d in StudyDesign}
-        out["designs"] = list(dict.fromkeys(k if k in own else RECORD_DESIGNS.get(k, "other") for k in keys))
+    keys = ([designs] if isinstance(designs, str) else [str(d) for d in designs]) if designs else []
+    own = {d.value for d in StudyDesign}
+    keys = [k if k in own else RECORD_DESIGNS.get(k, "other") for k in keys]
+    if study.get("health_information") is True:
+        keys.append(StudyDesign.health.value)
+    if study.get("human_data") and str(study["human_data"]) != "none":
+        keys.append(StudyDesign.human_data.value)
+    if keys:
+        out["designs"] = list(dict.fromkeys(keys))
         out["confirmed"] = bool(study.get("confirmed"))
     priorities = raw.get("priorities") if isinstance(raw.get("priorities"), dict) else {}
     routes = priorities.get("validation_available")
@@ -1133,10 +1250,12 @@ def ladder_order(v: dict[str, Any], priorities: list[Priority], feasible: str,
                  journals_on_ladder: Optional[list[str]] = None, ai_use: Optional[AiUse] = None,
                  server: Optional[dict[str, Any]] = None) -> tuple[Any, ...]:
     """Feasibility (the validation fit, `feasibility`) first, then each priority in the authors' order. At the first
-    step "Depends" and "could not be checked" tie (LADDER_FIT). An unknown value sorts below every known one at its
+    step a venue whose rules nobody read ("Could not be checked") sorts below every venue whose rules were read and
+    only "Does not fit" below it (FIT_ORDER): not knowing whether the paper fits is a reason to try a venue later,
+    never earlier. An unknown value sorts below every known one at its
     step, and at the reach step an unverified impact factor (`jif_verified`) sorts below every verified one and
     above an unknown one; a tie passes to the next priority; the name breaks the last tie."""
-    key: list[Any] = [LADDER_FIT[feasible]]
+    key: list[Any] = [FIT_ORDER[feasible]]
     for p in priorities:
         value = priority_value(v, p, journals_on_ladder, ai_use, server)
         low = p == Priority.reach and not jif_verified(v)
@@ -1240,7 +1359,9 @@ def rank(
         help="What the paper contributes, for the validation rules: software (a tool, method or resource paper, "
              "even one with benchmarks on human data), public-data (reanalysis of public data for a finding), "
              "bioinformatics (a biological finding from computation), mr (Mendelian randomisation), bibliometric, "
-             "public-health-database, other")] = None,
+             "public-health-database, other; and what the paper reports, which preprint servers screen on: "
+             "health (health-related information about people), clinical (clinical research on people), human-data "
+             "(data that identify a person, the authors' own released genomes included)")] = None,
     validation_available: Annotated[Optional[list[Validation]], typer.Option(
         help="Validation already available or affordable; repeatable; use 'none' explicitly when unavailable")] = None,
 ) -> None:
@@ -1293,7 +1414,7 @@ def rank(
     for score, key, v, reasons in rows:
         read = policy_read(v, checked, index)
         stale += (date.today() - read).days > STALE_AFTER_DAYS
-        fit, fit_reason = validation_fit(v, study_design.value if study_design else None, available)
+        fit, fit_reason = validation_fit(v, study_design.value if study_design else None, available, venues)
         screening = SCREENING_WORDS.get(v.get("screening") or "", "not recorded")
         page = policy_page(v)
         printed.append(f"| {'not known' if score is None else _points(score)} ({tier(score)}) "
@@ -1316,12 +1437,15 @@ def rank(
 
 
 PROFILE_LABELS = {"validation_requirements": "Validation requirements",
+                  "screening_rules": "What it declines or sends to another server",
                   "excluded_study_designs": "Study designs it excludes",
                   "open_science": "Open science and open source", "editorial_profile": "Editorial profile",
                   "review_speed": "Review times", "publication_costs": "Publication costs",
                   "reviewer_form": "What the journal asks its referees", "figure_rules": "Figure rules"}
-PROFILE_ITEM = {"validation_requirements": "Rule", "review_speed": "Measure", "publication_costs": "Fee"}
+PROFILE_ITEM = {"validation_requirements": "Rule", "screening_rules": "Rule", "review_speed": "Measure",
+                "publication_costs": "Fee"}
 KEY_WORDS = {"applies_to": "applies to", "accepted_any": "accepted alternatives (any one is enough)",
+             "redirect_to": "sends it to",
              "description": "condition", "checked": "read on", "evidence_kind": "kind of evidence",
              "fee_year": "fee year", "source_code": "source code", "software_licence": "software licence",
              "data_and_artifacts": "data and artifacts", "open_peer_review": "open peer review",
@@ -1622,9 +1746,10 @@ def ladder(
     ai_use: Annotated[Optional[AiUse], typer.Option(
         help="What AI did to the text: polish, revision or drafting; default: the record's ai_use, else unknown "
              "(no conflict assumed)")] = None,
-    study_design: Annotated[Optional[StudyDesign], typer.Option(
-        help="What the paper contributes, for the validation rules (see `rank --help`); default: the record's "
-             "study.designs")] = None,
+    study_design: Annotated[Optional[list[StudyDesign]], typer.Option(
+        help="What the paper contributes, for the validation rules (see `rank --help`), and what it reports, for "
+             "the preprint servers' screening rules (health, clinical, human-data); repeatable; default: the "
+             "record's study.designs, health_information and human_data")] = None,
     validation_available: Annotated[Optional[list[Validation]], typer.Option(
         help="Validation already available or affordable; repeatable; 'none' when unavailable; default: the "
              "record's priorities.validation_available")] = None,
@@ -1669,17 +1794,27 @@ def ladder(
                  else context["validation"])
     if available and "none" in available and len(available) > 1:
         raise typer.BadParameter("'none' cannot be combined with an available validation route")
-    designs = [study_design.value] if study_design else (context["designs"] or [])
-    confirmed = study_design is not None or context["confirmed"]
+    designs = [d.value for d in study_design] if study_design else (context["designs"] or [])
+    confirmed = bool(study_design) or context["confirmed"]
     use = ai_use or context["ai_use"] or AiUse.unknown
     floor = min_jif if min_jif is not None else (None if preprints else context["jif_floor"])
     budget = budget_eur if budget_eur is not None else context["budget_eur"]
     kept, left_out = _selected(venues, preprints=preprints, only=only, field=field, article_type=article_type,
                                software=software, oa=oa, min_jif=floor, refused=set(refuse or []))
-    feasible = {key: feasibility(v, designs, available, confirmed) for key, v in kept.items()}
+    feasible = {key: feasibility(v, designs, available, confirmed, venues) for key, v in kept.items()}
+    if preprints:
+        # A server that may send the paper to one that may send it back: say so on its rung, as a condition, with
+        # the servers on the ladder that would take the paper as it is.
+        as_is = [_name(v) for v in kept.values() if feasible[v["key"]][0] == "go"]
+        for key, sentence in bounces(list(kept.values()), venues, designs).items():
+            status, reason = feasible[key]
+            if as_is:
+                sentence += f" {_and(as_is)} {'has' if len(as_is) == 1 else 'have'} no screening rule against it."
+            feasible[key] = (_worse(status, "conditional") if status != "unknown" else status, f"{reason} {sentence}")
     rows = sorted(kept.values(), key=lambda v: ladder_order(v, priorities, feasible[v["key"]][0], journal, use, posted))
+    unread = [v for v in rows if unread_rules(v)]
     verdicts = {v["key"]: overall_fit(v, feasible[v["key"]], use, budget) for v in rows}
-    notes = _ladder_notes(default_order, priorities, preprints, designs, confirmed, study_design is not None,
+    notes = _ladder_notes(default_order, priorities, preprints, designs, confirmed, bool(study_design),
                           available, use, floor, budget, posted)
     if output == OutputFormat.csv:
         _ladder_csv(rows, venues, priorities, feasible, verdicts, journal, preprints, use,
@@ -1691,6 +1826,8 @@ def ladder(
                        "never save the default to the record.", err=True)
         if left_out:
             typer.echo("Left out of the venues listed with --only: " + "; ".join(left_out) + ".", err=True)
+        if unread:
+            typer.echo(_unread_note(unread), err=True)
         return
     kind = "Preprint" if preprints else "Journal"
     typer.echo(f"# {kind} ladder\n")
@@ -1738,6 +1875,8 @@ def ladder(
                  for v in rows if set(v.get("from_facts") or []) - TASK_ONLY]
     if from_task:
         typer.echo("\nFacts read for this manuscript and taken from its record: " + "; ".join(from_task) + ".")
+    if unread:
+        typer.echo("\n" + _unread_note(unread))
     due = [v for v in rows if stale_facts(v, date.today())]
     if due:
         keys = " ".join(v["key"] for v in due)
@@ -1748,6 +1887,16 @@ def ladder(
     glossary = abbreviations("\n".join(printed + left_out))
     if glossary:
         typer.echo("\n" + glossary)
+
+
+def _unread_note(unread: list[dict[str, Any]]) -> str:
+    """The ladder's last word on venues whose deciding rules nobody has read: the lookup is not finished."""
+    keys = " ".join(v["key"] for v in unread)
+    kinds = _and(sorted({venue_rules(v)[2] for v in unread}))
+    return (f"Not finished: the {kinds} of {_and([_name(v) for v in unread])} have never been read, so they show "
+            f"\"Could not be checked\". Read them before handing the ladder over (`venues.py stale {keys}` names "
+            "each page), write them into the catalogue, `[]` when the pages state none, or `not_read` with the "
+            "reason when a page cannot be read, and run the ladder again.")
 
 
 # Fields of `venue_facts` that describe the reading, not the venue: not listed as facts taken from the record.
@@ -1770,8 +1919,10 @@ def _ladder_notes(default_order: bool, priorities: list[Priority], preprints: bo
         order = ", then ".join(said(p) for p in priorities)
         notes.append("**A default order, not yours yet.** You have not stated what matters most to you, so this "
                      f"ladder uses a default: {order}. It changes when you state your own order.")
-    notes.append(f"Ordered by whether the paper fits each venue's recorded validation rules (\"Depends\" and \"could "
-                 f"not be checked\" count the same), then by {steps}. A value "
+    rules = "screening rules (what each server declines or sends to another server)" if preprints else \
+        "validation rules"
+    notes.append(f"Ordered by whether the paper fits each venue's recorded {rules} (\"Fits\", then \"Depends\", "
+                 f"then \"Could not be checked\", then \"Does not fit\"), then by {steps}. A value "
                  "that is not known sorts below every known value at its step, and a tie passes to the next step. A "
                  "position is an order of preference under these priorities, not a chance of acceptance"
                  + ("; the speed compared is days to a first decision, which for most journals includes desk "
@@ -1780,18 +1931,18 @@ def _ladder_notes(default_order: bool, priorities: list[Priority], preprints: bo
                  "the text counts as severe; it is not the chance of rejection.")
     assumed = []
     if designs:
-        kinds = _and([f"a {DESIGN_WORDS.get(d, d)} paper" for d in designs])
+        kinds = _and([_paper(d) for d in designs])
         if design_given:
-            assumed.append(f"The validation rules are read for {kinds}.")
+            assumed.append(f"The {rules} are read for {kinds}.")
         elif confirmed:
-            assumed.append(f"The validation rules are read for {kinds}, the study design the authors confirmed in "
+            assumed.append(f"The {rules} are read for {kinds}, the study design the authors confirmed in "
                            "the manuscript record.")
         else:
-            assumed.append(f"The validation rules are read for {kinds}, the study design in the manuscript record, "
+            assumed.append(f"The {rules} are read for {kinds}, the study design in the manuscript record, "
                            "which the authors have not confirmed yet; until they do, a rule it falls under can make "
                            "a venue \"Depends\", never \"Does not fit\".")
     else:
-        assumed.append("No study design is recorded, so each validation rule is shown as a condition to check.")
+        assumed.append(f"No study design is recorded, so each of the {rules} is shown as a condition to check.")
     if available is None:
         assumed.append("Which validation you have or can afford is not recorded.")
     else:
@@ -2080,6 +2231,8 @@ def common(
     for v in vs:
         if not v.get("writing_help"):
             gap(v, "its AI policy")
+        if unread_rules(v):
+            gap(v, f"its {venue_rules(v)[2]}")
 
     names = _and([_name(v) for v in vs])
     out = [f"# What the venues on this ladder ask for: {names}", "",
@@ -2121,8 +2274,8 @@ def stale(
     output: Annotated[OutputFormat, typer.Option(
         "--format", help="md: grouped by the page to re-read; csv: one row per fact, in STALE_COLUMNS")] = OutputFormat.md,
 ) -> None:
-    """The facts recorded for a ladder's venues that are old enough to re-read, and the page each is on; only these
-    need reading."""
+    """What to read for a ladder's venues, with the page each is on: the validation requirements or screening rules
+    nobody has read, and the recorded facts old enough to re-read. Only these need reading."""
     day = _as_date(on) if on else date.today()
     if day is None:
         raise typer.BadParameter("--on takes a date, YYYY-MM-DD")
@@ -2137,7 +2290,7 @@ def stale(
     unknown = [k for k in chosen if k not in venues]
     if unknown:
         raise typer.BadParameter(f"unknown venue keys: {', '.join(unknown)}")
-    found = {k: stale_facts(venues[k], day) for k in dict.fromkeys(chosen)}
+    found = {k: unread_rules(venues[k]) + stale_facts(venues[k], day) for k in dict.fromkeys(chosen)}
     if output == OutputFormat.csv:
         writer = csv.DictWriter(sys.stdout, fieldnames=STALE_COLUMNS, lineterminator="\n")
         writer.writeheader()
@@ -2147,8 +2300,10 @@ def stale(
                                  **{c: "" if d.get(c) is None else d[c] for c in STALE_COLUMNS[2:]}})
         return
     target = fact_target()
-    out = ["# Venue facts to re-read", "",
-           f"Judged on {day}. An AI-policy fact is re-read after {STALE_AFTER_DAYS} days, an impact factor once "
+    out = ["# Venue facts to read", "",
+           f"Judged on {day}. A journal's validation requirements and a preprint server's screening rules are read "
+           "when nobody has read them yet: a ladder cannot say whether the paper fits without them. An AI-policy fact "
+           f"is re-read after {STALE_AFTER_DAYS} days, an impact factor once "
            "Journal Citation Reports has released newer figures (each June), and every other fact after "
            f"{FACT_STALE_AFTER_DAYS} days. Only these need reading: a fact found unchanged keeps its value and takes "
            "the new date; a changed one is replaced by the new value with the new date, each with the page it was "
@@ -2161,7 +2316,7 @@ def stale(
         for d in due:
             pages.setdefault((d["source"], d["checked"], d["reason"]), []).append(d["field"])
         for (page, when, reason), fields in pages.items():
-            read = f"read on {when}" if when else "no date"
+            read = f"read on {when}" if when else ("never read" if reason.startswith("its ") else "no date")
             out.append(f"- {_and([f'`{f}`' for f in fields])}: {read}, from "
                        f"{page or 'no page recorded'}; {reason}.")
         out.append("")

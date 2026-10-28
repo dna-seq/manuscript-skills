@@ -65,7 +65,10 @@ study:                               # set by whichever skill first establishes 
   designs: [software-tool, public-data-reanalysis]   # keys from the list below; mixed studies list several
   confirmed: 2026-10-19              # absent: a draft, so the ladder lowers a venue to "depends", never "does not fit"
   domains: [genomics]                # free keys; a skill's domain modules say which keys they serve
-  human_data: author-self-released   # manuscript-policy-fit's classification, when it has run
+  human_data: author-self-released   # manuscript-policy-fit's classification, when it has run; preprint servers
+                                     # screen on it (venues.py reads any value but `none` as data on a person)
+  health_information: true           # the paper reports health-related information about people (disease risk,
+                                     # clinical variants, risk scores for diseases), which preprint servers screen on
 
 claims:                              # load-bearing claims; edits must not strengthen them
   - id: C1

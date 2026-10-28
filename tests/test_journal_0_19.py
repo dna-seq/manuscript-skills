@@ -119,10 +119,10 @@ def test_stated_priorities_are_not_labelled_as_a_default(catalogue: Path, tmp_pa
     record = _record(tmp_path, {"priorities": {"journals": ["reach"]}})
     code, out, _ = _run("ladder", *ONLY, "--record", str(record))
     assert code == 0 and "default order" not in out.lower()
-    # Calm's validation rule is a condition to check and Strict's and Keeper's rules were never read: neither settles
-    # the fit, so they tie at the first step (researching a rule is no reason to rank a journal higher), and reach
-    # decides.
-    assert _order(out) == ["strict", "calm", "keeper"]
+    # Calm's validation rule is a condition to check; Strict's and Keeper's rules were never read, so they come after
+    # it whatever their reach (not knowing whether the paper fits is a reason to try a journal later), and reach
+    # orders the two.
+    assert _order(out) == ["calm", "strict", "keeper"]
     code, out, _ = _run("ladder", *ONLY, "--record", str(record), "--format", "csv")
     assert {r["priorities_source"] for r in _rows(out).values()} == {"authors"}
 
@@ -434,7 +434,12 @@ def test_the_ai_step_weighs_the_established_ai_use(catalogue: Path, use: str, or
 
 def test_the_journal_ladder_can_put_journals_the_preprint_server_transfers_to_first(catalogue: Path,
                                                                                     tmp_path: Path) -> None:
-    software = ("--study-design", "software")  # no validation rule for a software paper: the fit ties
+    # Every journal's validation rules were read and none applies to a software paper, so the fit ties.
+    read = yaml.safe_load(catalogue.read_text(encoding="utf-8"))
+    for key in ("strict", "keeper"):
+        read["venues"][key]["validation_requirements"] = []
+    catalogue.write_text(yaml.safe_dump(read), encoding="utf-8")
+    software = ("--study-design", "software")
     code, out, _ = _run("ladder", *ONLY, *software, "--priority", "transfer", "--priority", "reach", "--server", "server",
                         "--format", "csv")
     rows = _rows(out)

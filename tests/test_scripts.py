@@ -952,7 +952,7 @@ VALIDATION_RULES = [
     ("public-data", {"wet-lab"}, "go"),
     ("public-data", {"multi-database"}, "no-go"),
     ("bibliometric", {"multi-database"}, "go"),
-    ("other", {"wet-lab"}, "unknown"),
+    ("other", {"wet-lab"}, "go"),  # the recorded rules are the venue's rules: none covers this design
 ])
 def test_validation_fit_respects_scope_alternatives_and_unknowns(
     study: str | None, available: set[str] | None, status: str,
@@ -1092,7 +1092,7 @@ def test_ladder_csv_has_fixed_columns_and_leaves_unknowns_empty(task_record: Pat
     result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
                                              "--format", "csv"])
     assert result.exit_code == 0, result.output
-    reader = csv_module.DictReader(io.StringIO(result.output))
+    reader = csv_module.DictReader(io.StringIO(result.stdout))
     assert reader.fieldnames == venues.LADDER_COLUMNS
     rows = list(reader)
     # The same order as the table, numbered from 1.
@@ -1116,7 +1116,7 @@ def test_ladder_flags_each_part_of_an_ai_policy_and_names_the_red_flags(task_rec
 
     result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
                                              "--format", "csv"])
-    by_key = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.output))}
+    by_key = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.stdout))}
     strict, calm, fresh = by_key["strict"], by_key["calm"], by_key["fresh"]
     assert strict["ai_drafting"].startswith("red: banned for the whole paper")
     assert strict["ai_counted"].startswith("red:") and int(strict["ai_red_flags"]) >= 2
@@ -1139,7 +1139,7 @@ def test_ladder_csv_shows_the_recorded_order_beside_the_sorted_one(task_record: 
     task_record.write_text(yaml.safe_dump(data))
     result = CliRunner().invoke(venues.app, ["ladder", "--record", str(task_record), "--priority", "speed",
                                              "--format", "csv"])
-    rows = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.output))}
+    rows = {r["key"]: r for r in csv_module.DictReader(io.StringIO(result.stdout))}
     assert (rows["strict"]["rung"], rows["strict"]["chosen_rung"]) == ("1", "2")
     assert (rows["calm"]["rung"], rows["calm"]["chosen_rung"]) == ("2", "1")
     assert rows["fresh"]["chosen_rung"] == ""
@@ -1322,12 +1322,20 @@ def test_recorded_validation_rules_have_supported_values_and_discoverable_source
     designs = {item.value for item in venues.StudyDesign}
     alternatives = {item.value for item in venues.Validation} - {"none"}
     for key, venue in resolved.items():
-        for rule in venue.get("validation_requirements") or []:
+        field, rules, _ = venues.venue_rules(venue)
+        assert venue.get("validation_requirements" if field == "screening_rules" else "screening_rules") is None, key
+        for rule in rules or []:
             assert set(rule["applies_to"]) <= designs, key
             assert set(rule.get("accepted_any") or []) <= alternatives, key
             assert rule["strength"] in {"required", "conditional", "recommended"}, key
             assert rule["source"] in venues.policy_urls(venue), key
             assert rule.get("checked"), key
+            if field == "screening_rules":  # a server's rule says what happens to the paper; a redirect names a server
+                assert rule["outcome"] in {"declined", "redirected", "condition"}, key
+                assert rule["outcome"] != "redirected" or resolved[rule["redirect_to"]]["kind"] == "preprint", key
+    # Every common preprint server ships its screening rules.
+    assert all(resolved[k].get("screening_rules") is not None
+               for k in ("biorxiv", "medrxiv", "arxiv", "research-square", "ssrn", "preprints-org"))
 
 
 VOCAB = {"fields": {"aging", "bioinformatics", "genomics", "genetics", "systems-biology", "clinical", "general", "data",

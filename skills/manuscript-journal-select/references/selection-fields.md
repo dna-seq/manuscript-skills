@@ -84,7 +84,11 @@ read those with your own browser tool before any archived copy, and an archived 
 
 ## Expensive validation and scope restrictions
 
-`validation_requirements` is a list of scoped rules. Record:
+`validation_requirements` is a list of scoped rules, and a list that was read is the journal's complete rules:
+record every validation or evidence rule its article-type, aims and author-guideline pages state, for every kind of
+paper, and `[]` (dated in `provenance`) when they state none. Both are findings: a design none of the recorded rules
+covers fits, with the page named. A missing list means nobody read it, and the ladder can only say "Could not be
+checked"; `stale` lists it until it is read. Record:
 
 - `applies_to`: normalised study designs used by the helper: `software`, `public-data`, `bioinformatics`,
   `mr`, `bibliometric`, `public-health-database` or `other`. Describe the precise scope in prose as well;
@@ -100,8 +104,9 @@ read those with your own browser tool before any archived copy, and an archived 
   "predominantly bioinformatics findings" does not by itself cover a software paper; read its scope.
 - `strength`: `required`, `conditional` or `recommended`. Only an explicit applicable requirement with
   no available accepted alternative supports an automated "Does not fit the stated constraints".
-- `accepted_any`: alternative routes, using `independent-cohort`, `wet-lab`, `multi-database` or
-  `primary-analysis`. These are alternatives for that rule, not requirements to do all of them.
+- `accepted_any`: alternative routes, using `independent-cohort`, `wet-lab`, `multi-database`,
+  `primary-analysis` or `benchmark` (a software or method paper compared with existing methods on shared data, the
+  route methods journals name). These are alternatives for that rule, not requirements to do all of them.
   Multiple applicable rules must each be satisfied; leave ambiguous alternatives unspecified.
 - `description`: exact practical condition, submission stage, exceptions and any interpretation still
   needed. Record whether an existing public dataset could suffice, whether that is unstated, and whether
@@ -117,6 +122,19 @@ available or affordable, not a promise to run new experiments. `none` means none
 is available; it cannot be combined with other routes. An omitted option means unknown. The ladder's
 `validation_fits` covers recorded validation only; its `fits` also weighs a conflict with the established AI
 use and the fee against the budget.
+
+## What preprint servers decline and where they send papers
+
+A server's `screening_rules` play the part of a journal's validation requirements on the preprint ladder, read the
+same way (`[]` when its pages state none). Each rule has `applies_to` (designs, and what the paper reports:
+`health` for health-related information about people, `clinical` for clinical research, `human-data` for data
+that identify a person), `outcome` (`declined`, `redirected` with `redirect_to` the other server's key, or
+`condition` for something the paper must have, such as results beyond a tool announcement), `strength`
+(`required` only when the page says the server does not post such papers; "may" is `conditional`),
+`description` with the page's decisive words quoted, `source` and `checked`. Record the redirects on both sides:
+a pair that send a paper to each other (bioRxiv and medRxiv for a personal-genome tool paper) is how a paper ends
+up posted nowhere, and the ladder names it only when both servers' rules are recorded. The plain-word scope notes
+stay in `other_desk_rules` and `fit_note`.
 
 ## Open science and open source
 
@@ -188,7 +206,7 @@ Bioinformatics journal entry separately records design exclusions. The PLOS entr
 health-database editorial as conditional, including computational additional-work routes. Do not apply
 that editorial as a blanket wet-lab ban on software papers.
 
-Current primary pages were checked on 2026-10-15, and the journals of one ladder again on 2026-10-19 and
-2026-10-27; see their exact URLs, conditions and dates in the database. The new fields are intentionally
-incomplete elsewhere. Fill them from sources when comparing actual
-candidates, rather than populating every journal with guesses.
+Current primary pages were checked on 2026-10-15, and the journals of one ladder again on 2026-10-19,
+2026-10-27 and 2026-10-28; see their exact URLs, conditions and dates in the database. The plugin ships the
+screening rules of the common preprint servers and the validation requirements of the journals its ladders have
+used; elsewhere they are read when a ladder needs them, never filled with guesses.

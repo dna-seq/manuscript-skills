@@ -89,10 +89,19 @@
 #                  type, {figures, tables} at most), alt_text (true when the venue asks for alt text), other (rules
 #                  in plain words, such as how a splice is marked)
 #
-# Selection fields: validation_requirements, excluded_study_designs, open_science, editorial_profile,
-# review_speed, publication_costs. See manuscript-journal-select/references/selection-fields.md.
-# Each fact has its own source/read date. Missing fields are unknown; timing, fees and editorial
-# assessments are journal-specific and never inherited. Validation/resource fit is separate from AI friction.
+# Selection fields: validation_requirements (journals), screening_rules (preprint servers), excluded_study_designs,
+# open_science, editorial_profile, review_speed, publication_costs. See
+# manuscript-journal-select/references/selection-fields.md. Each fact has its own source/read date. Missing fields
+# are unknown; timing, fees and editorial assessments are journal-specific and never inherited. Validation/resource
+# fit is separate from AI friction. A journal's validation_requirements and a server's screening_rules are read as
+# the venue's complete rules: `[]` means its pages were read and state none, and a design none of the recorded
+# rules covers fits. Without them a ladder can only say "Could not be checked", so every venue a ladder uses gets
+# them read (`venues.py stale` lists the ones never read).
+#   screening_rules: preprint servers only: what the server declines or sends to another server, each {applies_to
+#                  (the designs and what the paper reports: software, public-data, bioinformatics, health,
+#                  clinical, human-data, ...), outcome (declined | redirected | condition), redirect_to (the
+#                  server's catalogue key, for redirected), strength (required | conditional), description (in
+#                  plain words with the page's decisive words quoted), source, checked}
 
 checked: 2026-10-15
 
@@ -842,6 +851,19 @@ venues:
                        CS review and position papers need a peer-reviewed version (journal ref and DOI),
                        a full English version is required, new submitters need an endorsement (institutional email alone no longer suffices)]
     fit_note: q-bio and cs categories fit methods and software papers; the CS review/position rule does not apply to research papers
+    # Read 2026-10-28: the moderation, content-type, format and endorsement pages and the q-bio archive. No page sends
+    # health papers to medRxiv or biology to bioRxiv, and none asks for ethics, consent or identifiability
+    # statements. Endorsement, the monthly limit and the format rules apply to every paper (other_desk_rules).
+    screening_rules:
+      - applies_to: [clinical]
+        outcome: declined
+        strength: conditional
+        description: "A paper may be declined when it does not fit the classification scheme or its intended community
+          is not served; no q-bio category covers clinical medicine (statistics applications and medical physics are
+          the nearest), so clinical research is the kind of paper this can stop. Genomics software fits q-bio.GN or
+          q-bio.QM."
+        source: https://info.arxiv.org/help/moderation/index.html
+        checked: 2026-10-28
 
   biorxiv:
     kind: preprint
@@ -850,7 +872,7 @@ venues:
     status: VERIFIED
     url: https://www.biorxiv.org/about/FAQ
     ai_policy_url: https://www.biorxiv.org/about/FAQ
-    sources: [https://openrxiv.org/trust-signals-and-accountability/]
+    sources: [https://openrxiv.org/trust-signals-and-accountability/, https://connect.biorxiv.org/news/2022/06/13/screening_procedures]
     fields: [general, bioinformatics, genomics, genetics, systems-biology, aging]
     article_types: [research, methods, data]
     oa: full
@@ -866,7 +888,8 @@ venues:
       Reviewer3, Explore Science) are opt-in feedback, not screening. No exemption for language editing is stated.
     penalties: [not posted (out of scope), formal withdrawal with a public statement in extreme cases]
     extra_burden: []
-    other_desk_rules: [no narrative reviews, no announcements of tools or services without data, no hypotheses without new data,
+    other_desk_rules: [a manuscript already posted on another preprint server is not posted (so posting on arXiv first closes bioRxiv
+        and medRxiv for it), no narrative reviews, no announcements of tools or services without data, no hypotheses without new data,
                        "no editorials, letters, opinion pieces, white papers or policy statements",
                        "no images or information that could identify an individual, because consent cannot be verified; no stated exception for a person's own self-released data"]
     software_article: false
@@ -890,6 +913,45 @@ venues:
       # the manuscript like other computational methods.
       writing_help: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
       disclosure_places: {source: "https://www.biorxiv.org/about/FAQ", checked: 2026-10-27}
+    # Read 2026-10-28: the FAQ, the submission guide, the About page and the openRxiv screening post. A paper's way
+    # back and forth between bioRxiv and medRxiv (a personal-genome tool paper of these authors went both ways)
+    # comes from these rules and medRxiv's: neither server's pages say what happens when the second sends it back.
+    screening_rules:
+      - applies_to: [clinical]
+        outcome: redirected
+        redirect_to: medrxiv
+        strength: required
+        description: "'Papers that report results of Clinical Trials must now be submitted to medRxiv', and most
+          epidemiology should be; the Clinical Trials and Epidemiology categories are closed to new papers."
+        source: https://www.biorxiv.org/about/FAQ
+        checked: 2026-10-28
+      - applies_to: [health]
+        outcome: redirected
+        redirect_to: medrxiv
+        strength: conditional
+        description: "Clinical papers go to medRxiv, and only an epidemiology paper that 'contains no health-related
+          information' may stay in a category such as Genetics; no page defines a clinical paper. A submission
+          screeners find 'better suited' to medRxiv is closed and the authors are told how to transfer it, so health
+          findings about people (disease risk, clinical variants) can send a genomics tool paper there."
+        source: https://www.biorxiv.org/about/FAQ
+        checked: 2026-10-28
+      - applies_to: [software, public-data]
+        outcome: condition
+        strength: required
+        accepted_any: [benchmark, primary-analysis]
+        description: "Bioinformatic tools 'must be written in the context of a research article and must contain data';
+          results can be use-case examples, outputs or reanalysis of published data. Announcements of tools without
+          data, and simple automated analyses of public data, are not posted."
+        source: https://connect.biorxiv.org/news/2022/06/13/screening_procedures
+        checked: 2026-10-28
+      - applies_to: [human-data]
+        outcome: declined
+        strength: conditional
+        description: "bioRxiv does not post images or information that could identify an individual, because it cannot
+          verify consent; the worked guidance is about photographs, and a named person's self-released genome is not
+          addressed on the pages read."
+        source: https://www.biorxiv.org/about/FAQ
+        checked: 2026-10-28
 
   medrxiv:
     kind: preprint
@@ -898,7 +960,8 @@ venues:
     url: https://www.medrxiv.org/about/FAQ
     ai_policy_url: https://www.medrxiv.org/about/FAQ
     fields: [clinical, genetics, aging]
-    other_desk_rules: [simple automated or formulaic analyses of public data are generally not sufficient,
+    other_desk_rules: [a manuscript already posted on another preprint server is not posted,
+      simple automated or formulaic analyses of public data are generally not sufficient,
                        "tool announcements alone are not sufficient (needs Introduction, Results, Discussion)",
                        papers with inappropriate causal language may be declined, no narrative reviews,
                        "real names, initials, sample IDs and exact dates linked to individuals are direct identifiers and are removed before posting",
@@ -906,6 +969,45 @@ venues:
     provenance:
       other_desk_rules: {source: "https://www.medrxiv.org/about/FAQ", checked: 2026-10-27}
     fit_note: a software paper must read as a research article with results, not a tool announcement; human data need a statement of ethical oversight by an independent body unless the data are already openly available, and clinical case reports are not posted
+    sources: [https://connect.medrxiv.org/news/2022/06/13/screening_procedures, https://www.medrxiv.org/content/about-medrxiv]
+    # Read 2026-10-28: the FAQ, the submission guide, the About page and the screening post.
+    screening_rules:
+      - applies_to: [software, bioinformatics]
+        outcome: redirected
+        redirect_to: biorxiv
+        strength: conditional
+        description: "medRxiv posts health research; its Affiliates ask whether a paper is 'a clinical research
+          manuscript that includes methods and data', and preclinical work and 'Announcements of tools or services'
+          are out of scope. A submission found 'better suited' to bioRxiv is closed and the authors are told how to
+          transfer it, so a tool paper without patients, a cohort or a health outcome goes back to bioRxiv."
+        source: https://www.medrxiv.org/about/FAQ
+        checked: 2026-10-28
+      - applies_to: [software, public-data]
+        outcome: condition
+        strength: required
+        accepted_any: [benchmark, primary-analysis]
+        description: "Computational papers need methods and results: 'Simple automated/computational analyses of public
+          data, or database searches or formulaic analyses are generally not sufficient', nor are tool announcements
+          without research data produced by applying the tool."
+        source: https://www.medrxiv.org/about/FAQ
+        checked: 2026-10-28
+      - applies_to: [human-data]
+        outcome: condition
+        strength: required
+        description: "A statement of ethical oversight by an independent ethics committee is needed whenever human
+          subjects, samples or data are used, 'unless the data are already openly available'; the cases named include
+          samples from the researchers themselves. How the exemption treats data the researchers released about
+          themselves is not stated."
+        source: https://www.medrxiv.org/about/FAQ
+        checked: 2026-10-28
+      - applies_to: [human-data]
+        outcome: declined
+        strength: conditional
+        description: "Participants must not be identifiable: real names, initials, sample IDs and exact dates tied to a
+          person are direct identifiers. Such a submission is returned for removal, and content that cannot be removed
+          is not posted (medRxiv points it to a journal, not to another server)."
+        source: https://www.medrxiv.org/about/FAQ
+        checked: 2026-10-28
 
   research-square:
     kind: preprint
@@ -926,6 +1028,31 @@ venues:
     screening_note: checks ethics and consent statements, competing interests, patient identifiers and pseudoscientific claims; strong conclusions without accessible data may be screened out
     penalties: [not posted]
     extra_burden: []
+    # Read 2026-10-28: the editorial policies (sections cited). No routing to another server.
+    screening_rules:
+      - applies_to: [software]
+        outcome: condition
+        strength: required
+        accepted_any: [benchmark, primary-analysis]
+        description: "A Method Article is a full description of a new method with validation steps and results that
+          support them; only research articles and systematic reviews with complete methods and results are considered
+          (section 1.2)."
+        source: https://www.researchsquare.com/legal/editorial
+        checked: 2026-10-28
+      - applies_to: [human-data, clinical]
+        outcome: condition
+        strength: required
+        description: "Screening checks ethics and consent statements and the absence of patient identifiers (section 6);
+          content that violates a third party's privacy is not posted (section 15)."
+        source: https://www.researchsquare.com/legal/editorial
+        checked: 2026-10-28
+      - applies_to: [health]
+        outcome: declined
+        strength: conditional
+        description: "For medical research it may refuse to post when the data are unavailable (section 4), and strong
+          conclusions without accessible data may be screened out (section 6)."
+        source: https://www.researchsquare.com/legal/editorial
+        checked: 2026-10-28
 
   ssrn:
     kind: preprint
@@ -947,6 +1074,26 @@ venues:
     penalties: [action under its research-integrity and content policies]
     extra_burden: []
     other_desk_rules: [no fabricated or falsified data, results, citations or references]
+    sources: [https://www.elsevier.support/ssrn/answer/get-started, https://www.elsevier.support/ssrn/answer/ssrn-medical-or-health-care-preprint-checklist,
+      https://www.elsevier.support/ssrn/answer/previously-published]
+    # Read 2026-10-28 on SSRN's help pages at elsevier.support (ssrn.com links there). No routing to another server.
+    screening_rules:
+      - applies_to: [software]
+        outcome: declined
+        strength: conditional
+        description: "Frameworks and guides or how-tos are usually not accepted; SSRN wants rigorous methods and original
+          findings, so a tool paper that reads as a user guide risks those labels."
+        source: https://www.elsevier.support/ssrn/answer/get-started
+        checked: 2026-10-28
+      - applies_to: [health, clinical, human-data]
+        outcome: condition
+        strength: required
+        description: "Medical and health papers get extra screening: unpublished patient data or retrospective studies
+          need the approving board's name and approval number, published or secondary data are stated as such in the
+          Methods, consent is stated where personal medical information appears, and trials must be prospectively
+          registered. Such preprints carry a watermark."
+        source: https://www.elsevier.support/ssrn/answer/ssrn-medical-or-health-care-preprint-checklist
+        checked: 2026-10-28
 
   preprints-org:
     kind: preprint
@@ -965,6 +1112,19 @@ venues:
 
   # ------------------------------------------------------------------ Oxford University Press and its societies
   # Read 2026-10-15; sources and verbatim quotes: journal-policies/oup.md
+    # The live instructions returned 403 to every route on 2026-10-28; read from the Internet Archive capture of
+    # 2026-10-20 (http://web.archive.org/web/20261020104844/https://www.preprints.org/instructions-for-authors),
+    # dated by its capture. No routing to another server.
+    screening_rules:
+      - applies_to: [human-data, clinical]
+        outcome: condition
+        strength: required
+        description: "Human research follows the Declaration of Helsinki and gives the ethics approval in the Methods (at
+          least the project code, approval date and committee name); consent is obtained where needed and a redacted
+          consent form can be produced; a posted preprint can be removed if it threatens personal privacy. Read from the
+          archived copy of 2026-10-20, not the live page."
+        source: https://www.preprints.org/instructions-for-authors
+        checked: 2026-10-20
 
   oup:
     kind: publisher
@@ -1083,6 +1243,26 @@ venues:
         route: "the same for Standard, Methods and Application Notes, excluding tax (OUP's charges calculator, read in a browser)"
         source: https://academic.oup.com/nargab/pages/author-guidelines
         checked: 2026-10-19
+    # Read 2026-10-28: the scope and criteria, the author guidelines and NAR's data-deposition page. Reanalysis of public
+    # data is an accepted route ('computational re-analysis of public datasets'), with no cohort or laboratory rule.
+    validation_requirements:
+      - applies_to: [software]
+        strength: conditional
+        accepted_any: [benchmark]
+        description: "A Methods Paper must 'include benchmarks against an adequate number of relevant alternative state
+          of the art technologies' showing statistically significant improvement, on third-party benchmarks where they
+          exist, and show suitability for large-scale computing (HPC or cloud). An Application Note (at most 3,000
+          words, 3 figures or tables) is meant for software, and there these benchmarks are only encouraged."
+        source: https://academic.oup.com/nargab/pages/scope_and_criteria
+        checked: 2026-10-28
+      - applies_to: [software]
+        strength: required
+        description: "Every novel bioinformatics component must be open source; code goes on GitHub and is archived in
+          Zenodo before acceptance under an OSI-recognised licence (or the paper is not reviewed), with simple commands
+          that deploy it on the reference datasets; a web service stays up for two years without registration. These
+          rules 'will be strictly enforced'."
+        source: https://academic.oup.com/nargab/pages/scope_and_criteria
+        checked: 2026-10-28
 
   gpb:
     name: Genomics, Proteomics & Bioinformatics
@@ -1433,7 +1613,11 @@ venues:
       jif: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
       jif_year: {source: "Paper 1 journal-selection record (just-dna-lite), page not named", checked: 2026-10-27}
       review_speed: {source: "https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-27}
+      # Read on 2026-10-28: no validation, evaluation, benchmark or comparison rule for any article type on the page; an
+      # Application Note must link a public code repository, which is an availability rule, not validation.
+      validation_requirements: {source: "https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-28}
       other_desk_rules: {source: "https://web.archive.org/web/20261017013545/https://academic.oup.com/jamiaopen/pages/General_Instructions", checked: 2026-10-27}
+    validation_requirements: []
 
   database:
     name: 'Database: The Journal of Biological Databases and Curation'
@@ -2511,6 +2695,7 @@ venues:
     status: VERIFIED
     url: https://www.sciencedirect.com/journal/genomics/publish/guide-for-authors
     ai_policy_url: https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals
+    sources: [https://shop.elsevier.com/journals/genomics/0888-7543]
     fields: [genomics, bioinformatics]
     article_types: [research, review]
     oa: full
@@ -2537,6 +2722,27 @@ venues:
         route: "Projekt DEAL gives corresponding authors at participating German institutions 20% off fully open-access Elsevier journals"
         source: https://www.sciencedirect.com/journal/genomics
         checked: 2026-10-27
+    not_read: "the Guide for Authors returned HTTP 403 and Elsevier's block page to every route on 2026-10-28; the aims
+      and scope were read on Elsevier's journal page instead"
+    # Read 2026-10-28 on Elsevier's journal page (its aims and scope); the Guide for Authors, where the article types are
+    # set, could not be read, so the software rule below is a check, not a finding of no rule.
+    validation_requirements:
+      - applies_to: [public-data, bioinformatics]
+        strength: conditional
+        accepted_any: [primary-analysis]
+        description: "'Manuscripts analysing existing sequence data only are no longer suitable, unless adding new sequence
+          data or [introducing] a new algorithm for analysis', and the algorithm must be public as a web page or code.
+          The sentence sits in the functional-genomics topic of the aims and scope, so whether it binds the whole
+          journal is the editors' reading."
+        source: https://shop.elsevier.com/journals/genomics/0888-7543
+        checked: 2026-10-28
+      - applies_to: [software]
+        strength: conditional
+        description: "Tools are in scope ('development of novel tools and techniques', and personal genomics under
+          medical genomics); the aims and scope state no validation rule for them, but the Guide for Authors could not
+          be read, so check its article types before submitting."
+        source: https://shop.elsevier.com/journals/genomics/0888-7543
+        checked: 2026-10-28
 
   gene:
     name: Gene
@@ -2719,6 +2925,7 @@ venues:
     status: VERIFIED
     url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
     ai_policy_url: https://www.cell.com/cell-reports-methods/information-for-authors/journal-policies
+    sources: [https://www.cell.com/cell-reports-methods/information-for-authors/article-types, https://www.cell.com/cell-reports-methods/aims]
     fields: [general, bioinformatics]
     article_types: [methods, research, review, perspective]
     oa: full
@@ -2726,6 +2933,19 @@ venues:
     software_article: false
     fit_note: '''a robust, reproducible method'' is the main criterion; Articles need method, comparison with related methods,
       validation; no software-specific type'
+    # Read 2026-10-28 on the article-types, aims, information-for-authors and revise-manuscript pages: no cohort or
+    # laboratory rule; no article type for a paper whose contribution is a biological finding (Articles and Reports
+    # are methodological advances, Resources evaluate existing methods and "do not present a new method per se").
+    validation_requirements:
+      - applies_to: [software]
+        strength: required
+        accepted_any: [benchmark]
+        description: "'The basic components of a research article will be the presentation of the method, a comparison of
+          the method with related methods when appropriate, and validation'; Reports follow the same criteria. The
+          'limitations of the study' subsection must name situations where related methods might be preferable. The
+          kind of validation is not specified."
+        source: https://www.cell.com/cell-reports-methods/information-for-authors/article-types
+        checked: 2026-10-28
     review_speed:
       - metric: submission-to-first-decision (first editorial decision, desk-inclusive)
         days: 7
@@ -2853,6 +3073,7 @@ venues:
     status: VERIFIED
     url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
     ai_policy_url: https://www.cell.com/cell-genomics/information-for-authors/journal-policies
+    sources: [https://www.cell.com/cell-genomics/information-for-authors/article-types, https://www.cell.com/cell-genomics/aims]
     fields: [genomics]
     article_types: [research, data, methods, review, perspective, letter]
     oa: full
@@ -2879,6 +3100,22 @@ venues:
       evidence_kind: stated-scope
       source: https://www.cell.com/cell-genomics/information-for-authors/article-types
       checked: 2026-10-27
+    # Read 2026-10-28 on the article-types, aims, information-for-authors and journal-policies pages and the Cell
+    # Press technology guidelines they link: no cohort, laboratory or second-database rule for any kind of paper;
+    # a public-data reanalysis or a computational finding meets only the Article bar ("conceptual advances or
+    # discoveries that will be of unusual significance"), which is editorial, not a validation rule.
+    validation_requirements:
+      - applies_to: [software]
+        strength: conditional
+        accepted_any: [benchmark]
+        description: "A tool goes in as a Technology article, which 'should demonstrate significant improvements to existing
+          methods and broad utility' and has space 'to compare the new technologies to existing ones'; editors weigh
+          'general utility, extent of advancement, ease of implementation, extent of validation, and whether or not new
+          biological insights are derived', so no one of them is required. A comparison with existing tools is the route
+          the page names; whether the improvement is significant is the editors' reading. A Design section, a
+          Limitations subsection and a step-by-step protocol in the supplement come with the format."
+        source: https://www.cell.com/cell-genomics/information-for-authors/article-types
+        checked: 2026-10-28
 
   iscience:
     name: iScience

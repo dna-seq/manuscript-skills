@@ -288,7 +288,13 @@ Journal selection reads the venues first and orders both ladders by a default yo
 reach, AI-policy burden and cost) until you state your own priorities; it asks them once, among the
 decisions at the end (what matters most, an impact-factor floor, who pays the fee and up to what amount),
 reorders on your answer and keeps it in the shared record. A venue whose fee you would pay stays "depends"
-until a budget is known, and no venue is left out for its AI rules unless you say so. You can ask for a
+until a budget is known, and no venue is left out for its AI rules unless you say so. Before handing a
+ladder over, it reads each journal's validation requirements and each preprint server's screening rules (what
+the server declines, and the papers it sends to another server) that nobody has read yet; a ladder that still
+shows "could not be checked" for an unread rule says it is not finished, and ranks that venue below every
+venue whose rules were read. The plugin ships these rules for the
+common preprint servers, and the preprint ladder warns when two servers may pass a paper back and forth, as
+bioRxiv and medRxiv can with a tool paper about personal genomes. You can ask for a
 fuller interview instead: what AI did in each section, which AI-policy burdens you refuse, and where
 named colleagues publish. Journal adaptation checks whether a target journal's AI policy has changed
 since it was last read.

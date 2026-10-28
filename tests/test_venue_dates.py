@@ -35,7 +35,8 @@ venues = _load("venues_dates", SCRIPTS / "venues.py")
 scan = _load("scan_dates", ROOT / "skills" / "manuscript-integrity-check" / "scripts" / "scan.py")
 
 # Calm: a journal of a publisher default, read on the file's date except its fee (read later) and its preprint
-# rule. Server: a preprint server whose transfer list was read on its own date.
+# rule; its pages state no validation requirement. Server: a preprint server whose transfer list was read on its own
+# date and which states no screening rule.
 SHIPPED = {
     "checked": date(2026, 1, 10),
     "venues": {
@@ -48,8 +49,10 @@ SHIPPED = {
                  "publication_costs": [{"amount": 2000, "currency": "EUR", "checked": date(2026, 3, 1),
                                         "source": "https://calm.example/fees"}],
                  "open_science": {"summary": "code in a repository", "preprints": "allowed",
-                                  "source": "https://calm.example/policies", "checked": date(2026, 1, 10)}},
+                                  "source": "https://calm.example/policies", "checked": date(2026, 1, 10)},
+                 "validation_requirements": []},
         "server": {"kind": "preprint", "name": "A Server", "writing_help": "disclose", "transfers": ["calm"],
+                   "screening_rules": [],
                    "provenance": {"transfers": {"checked": date(2026, 2, 1), "source": "https://server.example/x"}}},
     },
 }

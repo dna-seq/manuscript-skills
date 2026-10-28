@@ -34,9 +34,10 @@ The steps, in order (each has its section below):
 
 1. Read the priorities the record or the conversation already states; do not stop to ask for missing ones.
 2. Build the pool: `rank` and the authors' own candidates, narrowed by subject, article type and feasibility.
-3. Do the lookups: `venues.py stale` lists the shortlist's facts that are old enough to re-read; read those and the
-   fields the comparison needs that nobody has recorded, and write what you read into the venue catalogue
-   (`venues.py where` names the file), each fact with its page and date.
+3. Do the lookups: `venues.py stale` lists what to read for the shortlist: each journal's validation requirements
+   and each preprint server's screening rules that nobody has read yet, and the facts old enough to re-read. Read
+   those and the fields the comparison needs that nobody has recorded, and write what you read into the venue
+   catalogue (`venues.py where` names the file), each fact with its page and date.
 4. Run `ladder` for both ladders and `common` on every venue of both. Without stated priorities the ladder
    uses its default order, labelled as such.
 5. Move a position where judgement outweighs the sorted order, and record the chosen order in `ladders`.
@@ -94,6 +95,12 @@ a venue new to the ladder needs new lookups. This question is not the interview.
 section, the AI-policy burdens they refuse and whose venues to consider. Ask nothing else unless it changes
 the ladders: subject, article type, validation done or affordable, deadline, licence or funder constraints.
 Do not make the author supply a complete questionnaire.
+
+When the record has no study design, write the one the manuscript shows as a draft (`study.designs` without
+`study.confirmed`), and what it reports that preprint servers screen on: `study.health_information: true` for
+health-related information about people (disease risk, clinical variant interpretation, risk scores for
+diseases) and `study.human_data` for data that identify a person (the authors' own released genomes included).
+Without a design every rule is only a condition to check.
 
 Record what the authors state in the shared record (`../manuscript-integrity-check/references/manuscript-record.md`),
 `manuscript-record.yaml` beside the manuscript (`<stem>.record.yaml` only when several manuscripts share the
@@ -228,6 +235,14 @@ inside the scripts):
   reason ("its validation rules have not been researched"). Keep this visible rather than silently treating
   it as permissive.
 
+"Could not be checked" because nobody read a venue's rules is unfinished lookup work, not a verdict to hand
+over. `ladder` ends with "Not finished" and names those venues; `stale` lists their pages. Read each one
+(a journal: its article types, aims and scope and author guidelines; a server: what it declines and where it
+sends papers) and write the rules into the catalogue, `[]` when the pages state none: a list that was read is
+the venue's complete rules, so a design none of them covers fits. A page that cannot be read gets `not_read`
+with the reason, and only then may the verdict stay, with that reason. Never call a venue a fit, or say it
+"meets all your criteria", while its verdict says "Could not be checked".
+
 The ladder's `fits` is the whole verdict: the recorded validation rules, a conflict between a journal's AI
 rule and the established AI use, and the fee against the budget. `validation_fits` is the validation rules
 alone, which `ladder` sorts by. Do not let a favourable AI policy, JIF or claimed speed compensate for an
@@ -262,7 +277,12 @@ date read), its comparable figures and what would move it.
 `ladder --preprints --journal KEY ...`, the journals given in their ladder order. The `transfer` priority puts
 first the server that transfers directly to the highest rung. Before order, check scope: a server that would
 decline the paper (a tool announcement without results, a paper it sends to a clinical server, content it
-screens out) is not a rung, whatever its AI policy. Then check the two ladders against each other: every
+screens out) is not a rung, whatever its AI policy. Each server's `screening_rules` say what it declines or
+sends to another server, for which kind of paper; they ship with the plugin for the common servers. Servers
+screen on what the paper reports as well as on its design, so the record's health information and data on
+identifiable people count. When one server may send the paper to another that may send it back (bioRxiv
+sends health-related papers to medRxiv, and medRxiv sends tool papers without clinical data back to bioRxiv),
+the ladder says so on both rungs: name the loop and the server that takes the paper as it is as the fallback. Then check the two ladders against each other: every
 journal on the journal ladder must accept a manuscript already posted on the chosen server, with the licence
 chosen for the preprint. Name any journal whose rule conflicts, and the licence that keeps every rung open.
 
@@ -321,6 +341,13 @@ Open access does not establish support for open-source software, and a software-
 the same as an affordable APC. Do not describe a journal as generally open-minded or conservative from
 prestige, publisher identity or one anecdote. State the evidence, the particular kind of receptiveness
 and confidence; label interpretive judgements as such.
+
+## Reusing an earlier selection
+
+A selection made in an earlier session or run (its record, ladders and requirements file beside the paper) is
+reused only after `ladder` and `common` run again against today's catalogue, since facts read since then change
+verdicts, and after the rules `stale --record` lists as never read have been read. Reuse what the authors
+decided (their priorities, the chosen order), never the verdicts of the old files.
 
 ## Deliver the ladders, not more homework
 
