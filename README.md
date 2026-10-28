@@ -50,6 +50,8 @@ submitted by mistake.
 
 ## How it differs from other academic-writing skills
 
+[![Manuscript Skills 0.50.1 against the six most-starred academic-writing skill repos (humanizer, K-Dense skills, Academic Research Skills, ARIS, claude-scholar, Nature-Paper-Skills) on 20 capabilities, each included, partial, opt-in or not found, with a short note; checked 28 October 2026](docs/images/comparison.png)](docs/skill-landscape-2026-10.md#at-a-glance)
+
 Several popular skill collections also review, edit and reference-check papers. Compared with the six
 most-starred of them on 28 October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-the-plugin-stands-against-popular-skill-repos-2026-10-28),
 which also lists what they do and this plugin does not), these parts have no counterpart there:

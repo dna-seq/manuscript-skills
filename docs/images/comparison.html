@@ -1,0 +1,150 @@
+<!doctype html>
+<!--
+The README's comparison with the six most-starred academic-writing skill repos, as one picture. The verdicts are
+those of docs/skill-landscape-2026-10.md ("At a glance"); change them there first, then here. To render:
+  google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=1700,2400 \
+    --screenshot=/tmp/comparison.png docs/images/comparison.html
+  convert /tmp/comparison.png -trim +repage -bordercolor '#f3f6fb' -border 88 -resize 2400x PNG8:docs/images/comparison.png
+  optipng -o2 docs/images/comparison.png
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manuscript Skills comparison</title>
+<style>
+  :root {
+    --page: #f3f6fb; --card: #ffffff; --ink: #142033; --muted: #5b6b80; --faint: #8a97a8; --line: #dfe5ee;
+    --head: #e9eef6; --ours: #0b7d55; --ours-tint: #eaf7f1; --group: #f6f8fb;
+    --yes: #0b7d55; --yes-bg: #e2f4ea; --part: #b86e00; --part-bg: #fdefd3; --opt: #7a3fd6; --opt-bg: #efe6fc;
+    --none: #b7c1ce;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: Inter, "DejaVu Sans", sans-serif; color: var(--ink); }
+  .sheet { width: 1700px; padding: 40px 48px 34px; background: var(--page); }
+  .kicker { display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); }
+  .kicker span:last-child { font-weight: 500; }
+  h1 { font-family: "Inter Display", Inter, sans-serif; font-size: 44px; font-weight: 800; letter-spacing: -.01em;
+    margin: 14px 0 8px; }
+  .lead { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden; table-layout: fixed; }
+  col.feature { width: 372px; }
+  th, td { border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
+  th:first-child, td:first-child { border-left: none; }
+  thead th { background: var(--head); padding: 16px 10px 14px; vertical-align: middle; text-align: center; }
+  thead th:first-child { text-align: left; padding-left: 24px; font-size: 20px; font-weight: 700; }
+  .name { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  .what { font-size: 13.5px; font-weight: 500; color: var(--muted); margin-top: 6px; }
+  .stars { font-size: 13px; font-weight: 500; color: var(--faint); margin-top: 3px; }
+  thead th.ours { background: var(--ours); color: #fff; }
+  thead th.ours .what, thead th.ours .stars { color: #d6f1e4; }
+  td.ours { background: var(--ours-tint); border-left: 2px solid var(--ours); border-right: 2px solid var(--ours); }
+  thead th.ours { border-left: 2px solid var(--ours); border-right: 2px solid var(--ours); }
+  tr:last-child td.ours { border-bottom: 2px solid var(--ours); }
+  tr.group td { background: var(--group); font-size: 13px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); padding: 9px 24px 8px; }
+  tr.group td.ours { background: #dcf1e7; }
+  td.feature { padding: 11px 16px 11px 24px; font-size: 17px; line-height: 1.25; font-weight: 500; }
+  td.cell { text-align: center; padding: 9px 6px 8px; vertical-align: middle; height: 66px; }
+  .note { font-size: 12.5px; line-height: 1.2; color: var(--muted); margin-top: 4px; }
+  .icon { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; align-items: center; justify-content: center; }
+  .y { background: var(--yes-bg); } .p { background: var(--part-bg); } .o { background: var(--opt-bg); }
+  .n { width: 30px; height: 30px; }
+  .legend { display: flex; gap: 46px; align-items: center; margin: 22px 4px 14px; font-size: 18px; font-weight: 600; }
+  .legend > div { display: flex; align-items: center; gap: 10px; }
+  .foot { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin: 0 4px; }
+  .foot b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="kicker"><span>Manuscript Skills / skill-repo comparison</span><span>Checked 28 Oct 2026</span></div>
+  <h1>Improve the paper you wrote, and see every step.</h1>
+  <p class="lead">Manuscript Skills 0.50.1 against the six most-starred academic-writing skill repos, capability by capability.</p>
+  <table id="grid">
+    <colgroup><col class="feature"><col><col><col><col><col><col><col></colgroup>
+    <thead><tr id="head"><th>What comes with the workflow</th></tr></thead>
+    <tbody id="body"></tbody>
+  </table>
+  <div class="legend" id="legend"></div>
+  <p class="foot">
+    Read from each repo's own files on 28 October 2026; none of their skills was run. <b>Included</b> describes scope,
+    not proven quality. Each note's source: <b>docs/skill-landscape-2026-10.md</b>.<br>
+    <b>Where the others are ahead:</b> writing a paper from research, making figures, LaTeX venue templates, a reviewer
+    calibrated on a gold set, systematic-review screening, Zotero and Obsidian, notices away from the computer, Overleaf.
+  </p>
+</div>
+<script>
+const repos = [
+  ['Manuscript Skills', 'This plugin, 0.50.1', 'MIT'],
+  ['humanizer', 'De-AI prose', '61.8k ★ · MIT'],
+  ['K-Dense skills', '177 science skills', '55.1k ★ · MIT'],
+  ['Academic Research Skills', 'Research to paper', '54.3k ★ · CC BY-NC'],
+  ['ARIS', 'Research autopilot', '18.2k ★ · MIT'],
+  ['claude-scholar', 'Research workflow', '5.9k ★ · MIT'],
+  ['Nature-Paper-Skills', 'Nature-style papers', '0.6k ★ · MIT, Apache'],
+];
+// y included, p partial, o opt-in, n not found; [verdict, note]
+const groups = [
+  ['Watching and answering a run', [
+    ['Claude Code interface beyond skills', [['y', 'status line, panes, notices'], ['n'], ['n'], ['p', 'hooks, commands'], ['p', 'hook templates'], ['p', 'hooks, commands'], ['n']]],
+    ['A long run shown while it works', [['y', 'panes, status line'], ['n'], ['n'], ['p', 'status in chat'], ['o', 'Feishu, macOS widget'], ['n'], ['n']]],
+    ['Decisions answered outside the chat', [['y', 'buttons, or a session each'], ['n'], ['n'], ['n', 'checkpoints in chat'], ['o', 'Feishu cards'], ['n'], ['n']]],
+    ['Plugin for both Claude Code and Codex', [['y'], ['p', 'Claude Code, Cursor'], ['p', 'skills via npx'], ['p', 'Codex in a sibling repo'], ['y', 'plus Cursor, Copilot'], ['p', 'Codex on a branch'], ['p', 'skills by installer']]],
+  ]],
+  ['What a run leaves you', [
+    ['Offline dashboard of the whole run', [['y', 'one HTML file'], ['n'], ['n'], ['p', 'process record'], ['p', 'review scores'], ['n'], ['n']]],
+    ['Word file with tracked changes, changes workbook', [['y'], ['n'], ['n'], ['p', 'plain DOCX'], ['n'], ['n'], ['n']]],
+    ['Points you dismissed stay dismissed next run', [['y', 'paper.todo.json'], ['n'], ['n'], ['p', 'referee triage'], ['p', 'integrity waivers'], ['n'], ['p', 'scope decisions']]],
+    ['Report-only mode, earlier versions kept', [['y'], ['n', 'writes over the file'], ['p', 'never overwrites'], ['y', 'patches to a new file'], ['p', 'round PDFs kept'], ['n'], ['p', 'review edits nothing']]],
+  ]],
+  ['Rounds with co-authors', [
+    ["Co-authors' Google Doc comments, rounds on Drive", [['y'], ['n'], ['n'], ['n'], ['p', 'Overleaf sync'], ['n'], ['n']]],
+    ['Changelog between rounds', [['y', 'from revision marks'], ['n'], ['n'], ['p', 'apply report'], ['p', 'diff per round'], ['n'], ['n']]],
+    ['AI-written passages no person has reviewed', [['o', 'needs revision marks'], ['n'], ['p', 'per claim'], ['n'], ['n'], ['n'], ['n']]],
+  ]],
+  ['Checks', [
+    ['Revision re-checked by a fresh agent', [['y', 'per problem'], ['n'], ['n'], ['y', 'five states'], ['y', 'fresh reviewer'], ['n'], ['p', 'claim sources only']]],
+    ['Summary against the body, each detail in its section', [['y', 'by script'], ['n'], ['p', 'guidance'], ['p', 'summary only'], ['p', 'overclaim only'], ['p', 'scope question'], ['y', 'section contracts']]],
+    ['Software claims checked against the code', [['y', 'file and line'], ['n'], ['n'], ['n'], ['p', 'numbers vs results'], ['n'], ['n']]],
+    ['Simulated referees kept apart', [['y', 'a workspace per seat'], ['n'], ['n'], ['p', 'no peer reports'], ['y', 'other model family'], ['n'], ['n', 'one referee']]],
+    ['Supplement corrected and re-checked', [['y'], ['n'], ['p', 'read, not edited'], ['n'], ['p', 'appendix only'], ['n'], ['p', 'own contract']]],
+  ]],
+  ['Sources, venues and tests', [
+    ['Texts of cited works kept across runs', [['y'], ['n'], ['n'], ['p', 'within a run'], ['o', 'arXiv PDFs'], ['p', 'via Zotero'], ['n']]],
+    ['Venue facts with page and date', [['y', 'every fact dated'], ['n'], ['p', 'about 15 venues'], ['p', 'AI policies only'], ['n', 'no sources'], ['n', 'no sources'], ['p', '3 journals, undated']]],
+    ['AI-use statement drafted', [['y', "from the authors' account"], ['n'], ['p', 'lists the facts'], ['y', 'from commit log'], ['n'], ['n'], ['p', 'a template']]],
+    ['Tests with and without the skills', [['y', 'claude plugin eval'], ['n'], ['p', 'one paired case'], ['y', 'claude plugin eval'], ['p', 'contract tests'], ['p', 'fixtures'], ['p', 'hidden rubrics']]],
+  ]],
+];
+
+const svg = {
+  y: '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3 6.6-7" fill="none" stroke="var(--yes)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  p: '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="var(--part)" stroke-width="2"/><path d="M8 2a6 6 0 0 0 0 12z" fill="var(--part)"/></svg>',
+  o: '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="var(--opt)" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  n: '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 8h8" stroke="var(--none)" stroke-width="2.2" stroke-linecap="round"/></svg>',
+};
+const icon = v => `<span class="icon ${v}">${svg[v]}</span>`;
+
+const head = document.getElementById('head');
+repos.forEach(([name, what, stars], i) => {
+  head.insertAdjacentHTML('beforeend', `<th class="${i ? '' : 'ours'}"><div class="name">${name}</div>` +
+    `<div class="what">${what}</div><div class="stars">${stars}</div></th>`);
+});
+const body = document.getElementById('body');
+for (const [title, rows] of groups) {
+  body.insertAdjacentHTML('beforeend', `<tr class="group"><td colspan="1">${title}</td><td class="ours"></td>` +
+    '<td colspan="6"></td></tr>');
+  for (const [feature, cells] of rows) {
+    if (cells.length !== repos.length) throw new Error(feature);
+    const tds = cells.map(([v, note], i) => `<td class="cell${i ? '' : ' ours'}">${icon(v)}` +
+      (note ? `<div class="note">${note}</div>` : '') + '</td>').join('');
+    body.insertAdjacentHTML('beforeend', `<tr><td class="feature">${feature}</td>${tds}</tr>`);
+  }
+}
+document.getElementById('legend').innerHTML = [['y', 'Included'], ['p', 'Partial'], ['o', 'Opt-in'], ['n', 'Not found']]
+  .map(([v, label]) => `<div>${icon(v)}<span>${label}</span></div>`).join('');
+</script>
+</body>
+</html>

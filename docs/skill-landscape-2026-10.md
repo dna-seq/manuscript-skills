@@ -81,28 +81,37 @@ was found.
 
 ### At a glance
 
+![The same 20 capabilities as a picture: Manuscript Skills against the six repos, each cell included, partial, opt-in or not found, with a short note](images/comparison.png)
+
+The picture (`docs/images/comparison.png`, drawn from `docs/images/comparison.html`) and the table below hold the same verdicts; a change goes into both.
+
 | Capability | manuscript-skills | humanizer | K-Dense | ARS | ARIS | claude-scholar | Boom5426 |
 |---|---|---|---|---|---|---|---|
+| **Watching and answering a run** | | | | | | | |
 | Claude Code interface beyond skills | Status line, two panes, band, notices, a command, a tool | – | – | Two hooks (update notice, write guard), 16 commands | One command; hook templates to merge by hand | Five hooks (security guard, session start, stop and end summaries, skill prompt), 66 commands | – |
-| A long run followed while it works | Panes and status line in Claude Code | – | – | Text status in chat, on request | Feishu cards; a macOS widget of the sessions awaiting a permission | – | – |
+| A long run shown while it works | Panes and status line in Claude Code | – | – | Text status in chat, on request | Feishu cards; a macOS widget of the sessions awaiting a permission | – | – |
 | Decisions answered outside the chat | Buttons in a pane; a session per decision | – | – | – (checkpoints in chat) | Feishu cards (approve, reject, custom), off by default | – | – |
-| Plugin hosts | Claude Code, Codex | Claude Code, Cursor | Skills installed by `npx` for many agents | Claude Code, Pi; Codex in a sibling repo | Claude Code, Codex; adapters for Cursor, Copilot and others | Claude Code; Codex, OpenCode and Kimi on branches | Claude Code and Codex by an installer; ChatGPT Work |
-| A report of the whole run | Offline HTML dashboard | – | – | Process record (Markdown, PDF) | HTML of review scores by round | – | – |
+| Plugin for both Claude Code and Codex | Both | Claude Code, Cursor | Skills installed by `npx` for many agents | Claude Code, Pi; Codex in a sibling repo | Claude Code, Codex; adapters for Cursor, Copilot and others | Claude Code; Codex, OpenCode and Kimi on branches | Claude Code and Codex by an installer; ChatGPT Work |
+| **What a run leaves you** | | | | | | | |
+| Offline dashboard of the whole run | Offline HTML dashboard | – | – | Process record (Markdown, PDF) | HTML of review scores by round | – | – |
 | Word file with tracked changes and comments; a workbook of changes | Both | – | – | Plain DOCX | – | – | – |
-| The authors' dismissals read by the next run | `paper.todo.json` | – | – | Triage of referee comments (will or won't address) | Integrity waivers only | – | A log of scope decisions |
+| Points the authors dismissed stay dismissed next run | `paper.todo.json` | – | – | Triage of referee comments (will or won't address) | Integrity waivers only | – | A log of scope decisions |
 | Report-only mode; earlier versions kept | Both | – (writes over the file) | Its scaffold never overwrites | Patches written to a new file; the reviewer is read-only | Each round's PDF kept | – | A review request edits nothing |
+| **Rounds with co-authors** | | | | | | | |
 | Co-authors' comments; rounds on a shared drive | Google Docs and Drive | – | – | – | Two-way Overleaf sync, no comments | – | – |
 | Changelog between rounds | From the revision marks | – | – | An apply report per round | A diff per round | – | – |
-| Which passages an AI wrote and no person reviewed since | Per passage | – | Per claim: a hash of text a person verified | – | – | – | – |
-| The revision re-checked by a fresh agent | Per problem: fixed, in part, not, worse | – | – | Five states, made worse among them | A fresh reviewer each round | – | A fresh sceptic, for claim sources only |
+| AI-written passages no person has reviewed | Per passage, where the manuscript keeps revision marks (opt-in) | – | Per claim: a hash of text a person verified | – | – | – | – |
+| **Checks** | | | | | | | |
+| Revision re-checked by a fresh agent | Per problem: fixed, in part, not, worse | – | – | Five states, made worse among them | A fresh reviewer each round | – | A fresh sceptic, for claim sources only |
 | Summary against the body; each detail in its section | Both, by script | – | Guidance | Summary against the body | Title and abstract overclaim | A question on scope | Both, as section contracts |
-| Software claims against the code | Each, with file and line | – | – | – | Numbers against result files | – | – |
+| Software claims checked against the code | Each, with file and line | – | – | – | Numbers against result files | – | – |
 | Simulated referees kept apart | A workspace per seat; the authors' instructions and memory left out | – | – | No peer reports before each seat commits | Another model family; no earlier rounds shown | – | One referee |
-| Evaluations with and without the skills | `claude plugin eval`; seeded and clean cases | – | One paired case | `claude plugin eval`; seeded and clean cases | Tests of contracts and gates | Fixtures, no runner | Hidden rubrics, graded by hand |
+| Supplement corrected and re-checked | Yes | – | Read, not edited | – | Appendix checked for theorem drift | – | A section contract of its own |
+| **Sources, venues and tests** | | | | | | | |
 | Texts of cited works kept across runs | Yes | – | – | Within a run | arXiv PDFs, opt-in | Full text from the user's Zotero | – |
 | Venue facts with page and date | One store, every fact dated | – | About 15 venues, dated | AI policies of 15 venues, dated | ML checklists, no sources | ML checklists, no sources | Three Nature journals, undated |
-| AI-use statement | From the authors' account; the run's edits on request | – | Lists the facts, drafts none | From commit history and pipeline log | – | – | A two-sentence template |
-| Supplement corrected and re-checked | Yes | – | Read, not edited | – | Appendix checked for theorem drift | – | A section contract of its own |
+| AI-use statement drafted | From the authors' account; the run's edits on request | – | Lists the facts, drafts none | From commit history and pipeline log | – | – | A two-sentence template |
+| Tests with and without the skills | `claude plugin eval`; seeded and clean cases | – | One paired case | `claude plugin eval`; seeded and clean cases | Tests of contracts and gates | Fixtures, no runner | Hidden rubrics, graded by hand |
 
 ### No counterpart found in the six repos
 
