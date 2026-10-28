@@ -192,6 +192,11 @@ not run", not a fault in the paper.
    otherwise cut. That is what "a wording edit outside any segment is still a revision: mark it or say
    why not" allows for routine edits; no applied edit stays unmarked in a marked master. A manuscript
    without marks never gets them unless the authors ask.
+   `rev_marks.py apply FILE EDITS.json --by NAME` does all of this for a list of clean before/after edits (in a
+   run, `runs.py apply`, which also records each): it finds each before-text in the clean text wherever the
+   marks sit, changes only the words that differ, bumps each segment it touches once, opens or grows the
+   copy-edit segment for routine edits no segment holds (an edit's own `segment` id when something asked for
+   it), and refuses the whole list when an edit's changed words would swallow a mark.
 3. **Name who did it.** The `by=` entry names who made this round's text: the author's handle, or the
    agent's name when an agent wrote it (your model's name, such as `claude`). Never sign an agent's
    round with a person's name; when the authors say the person approved the passage, add the person's
@@ -264,7 +269,7 @@ segment named `C12a` answers comment C12 of its ledger), and keeps the round's b
 
 ## Files
 
-- `scripts/rev_marks.py`: lint, strip, report, bump and changes.
+- `scripts/rev_marks.py`: lint, strip, report, bump, apply and changes.
 - `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, the review
   draft, and the LaTeX reading copy.
 - `scripts/unreviewed.lua`, `scripts/unreviewed-preamble.tex`: how the draft shades a segment.

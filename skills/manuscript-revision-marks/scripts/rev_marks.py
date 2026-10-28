@@ -9,10 +9,19 @@ rounds, by whom; and the blind spots, prose no round has read.
     uv run --script rev_marks.py strip FILE [--out OUT] [--check]  write the clean twin, FILE minus its marks
     uv run --script rev_marks.py report FILE [--blind] [--unreviewed] [--html OUT]
     uv run --script rev_marks.py bump FILE ID --by NAME[:YYYY-MM-DD]
+    uv run --script rev_marks.py apply FILE EDITS.json --by NAME[:YYYY-MM-DD]
     uv run --script rev_marks.py changes OLD NEW [--seen SEEN] [--json] [--full] [--strict]
 
 lint and report also take --config PATH (default: rev-marks.toml, found from FILE up to the git
 root) and --unknown agent|human (overrides the config's `unknown`).
+
+`apply` makes a list of clean before/after edits (EDITS.json: [{"before": ..., "after": ..., "segment": ...}]) in
+FILE and marks them: an edit is found in the clean text, wherever the marks sit around it; the segment holding it
+gets one round for the pass; one no segment holds opens one around its paragraph (its `segment` id, or the
+section's copy-edit segment, N…, which grows to the later paragraphs of the section the pass edits, taking in
+whole any segment it would cut). It refuses, changing nothing, an edit whose before-text is not in the clean text
+exactly once or whose changed words would swallow a mark. In a run, `runs.py apply` does the same and records
+each edit.
 
 `changes` compares two rounds of a master (the previous round's file and this one's): every segment
 that is new, removed, rewritten or given another round, with the heading it sits under, its old and new
@@ -88,6 +97,7 @@ import dataclasses
 import fnmatch
 import html
 import json
+import os
 import re
 import sys
 import tomllib
@@ -1104,6 +1114,206 @@ def render_heatmap(found: Marks, title: str, people: People | None = None) -> st
         f'</header>\n<main>\n<div class="doc">{"".join(body)}</div>\n</main>\n</body>\n</html>\n')
 
 
+# --- applying edits ----------------------------------------------------------------------------
+
+
+class EditRefused(Exception):
+    """An edit `apply_edits` cannot place as asked; nothing was changed."""
+
+    def __init__(self, index: int, message: str) -> None:
+        super().__init__(f"edit {index + 1}: {message}")
+        self.index = index
+
+
+@dataclass(frozen=True)
+class Edit:
+    """One applied edit as a stage writes it: clean text, the passage before and after (an empty after deletes it),
+    and the id a new segment takes when no segment holds it (default: the next free copy-edit id, N…)."""
+
+    before: str
+    after: str
+    segment: str | None = None
+
+
+@dataclass(frozen=True)
+class Applied:
+    """What `apply_edits` did: the marked text, per edit the segment it fell in or opened and the heading it sits
+    under, the segments bumped (one round each) and those opened."""
+
+    text: str
+    places: tuple[str | None, ...]
+    sections: tuple[str, ...]
+    bumped: tuple[str, ...]
+    opened: tuple[str, ...]
+
+
+def _clean_positions(found: Marks) -> list[tuple[int, int]]:
+    """Each removal (a mark, or a line of marks) as (its position in the clean text, its length)."""
+    out, removed = [], 0
+    for start, end in found.removals:
+        out.append((start - removed, end - start))
+        removed += end - start
+    return out
+
+
+def _marked(positions: list[tuple[int, int]], clean_offset: int, after_marks: bool) -> int:
+    """The marked offset of a clean offset: before the marks that sit exactly there, or after them."""
+    return clean_offset + sum(length for at, length in positions if at < clean_offset or (after_marks and at == clean_offset))
+
+
+def _close_mark(segment_id: str, syntax: Syntax) -> str:
+    return f"% @/rev {segment_id}" if syntax == Syntax.TEX else f"<!-- @/rev {segment_id} -->"
+
+
+def _section_at(text: str, offset: int, syntax: Syntax) -> str:
+    for line in reversed(text[:offset].splitlines()):
+        if (title := heading_title(line, syntax)) is not None:
+            return title
+    return ""
+
+
+def _next_copy_edit_id(found: Marks, taken: set[str]) -> str:
+    used = [int(m.group(1)) for s in found.segments if (m := re.fullmatch(r"N(\d+)[a-z]?", s.id))]
+    used += [int(m.group(1)) for t in taken if (m := re.fullmatch(r"N(\d+)[a-z]?", t))]
+    return f"N{max(used, default=0) + 1}"
+
+
+def _wrap(text: str, start: int, end: int, attributes: Attributes, syntax: Syntax) -> str:
+    """Own-line marks around text[start:end], a run of whole lines (the last may end the file unterminated)."""
+    body = text[start:end]
+    return (text[:start] + attributes.render(syntax) + "\n" + body + ("" if body.endswith("\n") else "\n")
+            + _close_mark(attributes.id, syntax) + ("\n" if body.endswith("\n") else "") + text[end:])
+
+
+def _line_of(text: str, start: int, end: int) -> tuple[int, int]:
+    """The whole line holding text[start:end], with its terminator."""
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    return line_start, len(text) if line_end < 0 else line_end + 1
+
+
+def apply_edits(text: str, edits: list[Edit], by: Entry, syntax: Syntax = Syntax.MARKDOWN) -> Applied:
+    """Apply EDITS, clean before/after pairs, to TEXT, which may keep revision marks, and mark them as the marks
+    rule asks: each edit changes only the words that differ, found in the clean text (where it must occur exactly
+    once) wherever the marks sit around it; an edit inside a segment gives that segment one round for the pass,
+    however many edits it holds (`by`); one that no segment holds opens one around its paragraph, with the edit's
+    `segment` id, or, for a routine edit, the section's copy-edit segment (the next free N id), which grows to the
+    later paragraphs of the same section the pass edits. A text without marks gets none.
+
+    Refused (EditRefused, nothing changed): marks with errors, a before-text that is not in the clean text exactly
+    once, and an edit whose changed words would swallow a mark (split it at the mark). Each edit is then replayed on
+    the clean text, as the run's records will be, and the result must be the clean text of what was written."""
+    found = parse(text, syntax)
+    if found.errors:
+        raise EditRefused(-1, f"the marks have {len(found.errors)} error(s); run rev_marks.py lint first")
+    marked = bool(found.marks)
+    clean_start = found.clean_text()
+    places: list[str | None] = []
+    sections: list[str] = []
+    touched: list[str] = []
+    opened: dict[str, str] = {}  # id -> section, for the segments this pass opened
+    for index, edit in enumerate(edits):
+        found = parse(text, syntax)
+        clean = found.clean_text()
+        if not edit.before:
+            raise EditRefused(index, "no before-text; an addition is the passage it follows, before and after")
+        count = clean.count(edit.before)
+        if count != 1:
+            raise EditRefused(index, (f"its before-text occurs {count} times; lengthen it until it occurs once"
+                                      if count else "its before-text is not in the clean text")
+                              + f": {edit.before[:80]!r}")
+        start = clean.index(edit.before)
+        head = len(os.path.commonprefix([edit.before, edit.after]))
+        tail = len(os.path.commonprefix([edit.before[head:][::-1], edit.after[head:][::-1]]))
+        clean_lo, clean_hi = start + head, start + len(edit.before) - tail
+        new = edit.after[head:len(edit.after) - tail]
+        positions = _clean_positions(found)
+        lo = _marked(positions, clean_lo, after_marks=clean_lo < clean_hi)
+        hi = _marked(positions, clean_hi, after_marks=False)
+        if any(s < hi and e > lo for s, e in found.removals):
+            raise EditRefused(index, "a revision mark sits inside the words it changes; split it into one edit on "
+                                     f"each side of the mark: {edit.before[:80]!r}")
+        holder = max((s for s in found.segments if s.open.end <= lo and hi <= s.close.start),
+                     key=lambda s: s.depth, default=None)
+        sections.append(_section_at(clean, start, syntax))
+        text = text[:lo] + new + text[hi:]
+        if not marked:
+            places.append(None)
+            continue
+        if holder is not None:
+            places.append(holder.id)
+            if holder.id not in opened and holder.id not in touched:
+                touched.append(holder.id)
+            continue
+        text, place = _open_for(text, lo, lo + len(new), edit, by, syntax, opened, sections[-1], index)
+        places.append(place)
+    for segment_id in touched:
+        text = bump_segment(text, segment_id, by, syntax)
+    final = parse(text, syntax)
+    if final.errors:
+        raise EditRefused(-1, f"the marks would have {len(final.errors)} error(s): {final.errors[0].message}")
+    replayed = clean_start
+    for edit in edits:
+        replayed = replayed.replace(edit.before, edit.after, 1)
+    if replayed != final.clean_text():
+        raise EditRefused(-1, "replaying the edits on the clean text does not give the clean text of the result")
+    return Applied(text, tuple(places), tuple(sections), tuple(touched), tuple(opened))
+
+
+def _block_for(text: str, lo: int, hi: int, found: Marks) -> tuple[int, int] | None:
+    """The whole lines a new segment wraps for an edit that left text[lo:hi]: the paragraphs it touches and its own
+    lines (an inserted heading or figure is no paragraph), widened to take in whole any segment it would cut."""
+    piece = text[lo:hi]
+    lo, hi = lo + len(piece) - len(piece.lstrip()), hi - (len(piece) - len(piece.rstrip()))
+    hi = max(hi, lo)
+    touched = [p for p in paragraphs(found) if p.start <= hi and lo <= p.end]
+    first = _line_of(text, lo, lo)[0]
+    last = _line_of(text, max(lo, hi - 1), max(lo, hi - 1))[1] if hi > lo else _line_of(text, lo, lo)[1]
+    start, end = min([first, *(p.start for p in touched)]), max([last, *(p.end for p in touched)])
+    if not text[start:end].strip():
+        return None
+    while cut := [s for s in found.segments
+                  if (s.open.start < start < s.close.end) or (s.open.start < end < s.close.end)]:
+        start = min([start, *(_line_of(text, s.open.start, s.open.end)[0] for s in cut)])
+        end = max([end, *(_line_of(text, s.close.start, s.close.end)[1] for s in cut)])
+    return start, end
+
+
+def _open_for(text: str, lo: int, hi: int, edit: Edit, by: Entry, syntax: Syntax, opened: dict[str, str],
+              section: str, index: int) -> tuple[str, str]:
+    """Open (or grow) the segment that marks an edit no segment holds, around the lines of text[lo:hi], the text the
+    edit left (where a deletion was, for a deletion)."""
+    found = parse(text, syntax)
+    block = _block_for(text, lo, hi, found)
+    if block is None:
+        raise EditRefused(index, "it leaves no line to mark")
+    start, end = block
+    if edit.segment is None:  # a routine edit: the section's copy-edit segment, when this pass opened one, grows
+        for segment_id, where in opened.items():
+            current = found.segment(segment_id)
+            if where != section or not re.fullmatch(r"N\d+[a-z]?", segment_id) or current is None \
+                    or current.close.end > start:
+                continue
+            cut_from, cut_to = (_line_of(text, current.close.start, current.close.end) if current.close.own_line
+                                else (current.close.start, current.close.end))
+            grown = text[:cut_from] + text[cut_to:]
+            stop = end - (cut_to - cut_from)
+            if grown[:stop].endswith("\n"):
+                grown = grown[:stop] + _close_mark(segment_id, syntax) + "\n" + grown[stop:]
+            else:
+                grown = grown[:stop] + "\n" + _close_mark(segment_id, syntax) + grown[stop:]
+            if not parse(grown, syntax).errors:
+                return grown, segment_id
+    segment_id = edit.segment or _next_copy_edit_id(found, set(opened))
+    if not ID_RE.match(segment_id) or found.segment(segment_id) is not None or segment_id in opened:
+        raise EditRefused(index, f"the segment id {segment_id!r} is not free or not an id ({ID_EXAMPLES})")
+    wrapped = _wrap(text, start, end, Attributes(segment_id, 1, (by,)), syntax)
+    if parse(wrapped, syntax).errors:
+        raise EditRefused(index, "no segment can be opened around it without crossing another; split the edit")
+    opened[segment_id] = section
+    return wrapped, segment_id
+
+
 # --- changes between rounds ------------------------------------------------------------------
 
 
@@ -1730,6 +1940,29 @@ def cmd_bump(args) -> int:
     return 0
 
 
+def cmd_apply(args) -> int:
+    try:
+        entry = parse_entry(args.by, datetime.now().astimezone().date())
+        items = json.loads(args.edits.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as exc:
+        print(f"rev_marks.py: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(items, list) or not all(isinstance(i, dict) and isinstance(i.get("before"), str)
+                                              and isinstance(i.get("after"), str) for i in items):
+        print("rev_marks.py: EDITS holds a list of {before, after[, segment]}, clean text", file=sys.stderr)
+        return 2
+    try:
+        done = apply_edits(read_source(args.file), [Edit(i["before"], i["after"], i.get("segment")) for i in items],
+                           entry, syntax_for(args.file))
+    except EditRefused as exc:
+        print(f"Nothing was changed. {exc}", file=sys.stderr)
+        return 1
+    args.file.write_bytes(done.text.encode("utf-8"))
+    print(json.dumps({"applied": len(items), "segments": list(done.places), "sections": list(done.sections),
+                      "bumped": list(done.bumped), "opened": list(done.opened)}, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_changes(args) -> int:
     old_path, new_path = args.old, args.new
     old, new = load(old_path), load(new_path)
@@ -1777,6 +2010,11 @@ def main(argv: list[str]) -> int:
     p.add_argument("id", metavar="ID")
     p.add_argument("--by", required=True, help="NAME or NAME:YYYY-MM-DD (default date: today)")
     p.set_defaults(run=cmd_bump)
+    p = sub.add_parser("apply", help="apply clean before/after edits and mark them (one round per segment)")
+    p.add_argument("file", type=Path)
+    p.add_argument("edits", type=Path, metavar="EDITS", help="a JSON list of {before, after[, segment]}, clean text")
+    p.add_argument("--by", required=True, help="NAME or NAME:YYYY-MM-DD (default date: today)")
+    p.set_defaults(run=cmd_apply)
     p = sub.add_parser("changes", help="what changed between two rounds: the changelog's rows")
     p.add_argument("old", type=Path, metavar="OLD", help="the previous round's master")
     p.add_argument("new", type=Path, metavar="NEW", help="this round's master")

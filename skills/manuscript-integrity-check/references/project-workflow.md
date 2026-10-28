@@ -195,7 +195,11 @@ same five steps before `finish`:
    an empty `findings` list is valid when nothing was found. `finish` checks it with
    `../manuscript-dashboard/scripts/stage_check.py` and names each record the dashboard could not use; run
    the check first and fix what it lists in the next attempt (`findings.2.json`).
-4. **Every applied edit recorded** with `runs.py change`: one record per consequential edit, shown in the
+4. **Every applied edit recorded**, best applied and recorded in one step with `runs.py apply RUN --skill SKILL
+   --edits EDITS.json --by NAME [--document SUPPLEMENT]` (a list of clean before/after pairs, each with its reason;
+   it finds each in the clean text, marks it when the manuscript keeps revision marks, writes the record and
+   refuses the whole list, changing nothing, when one edit cannot be placed), or with `runs.py change` for an
+   edit made another way: one record per consequential edit, shown in the
    chat; routine edits may share one record per paragraph or section, whose before and after are the whole
    paragraph or section and whose reason names the kind of fix. Never attest `--shown-in-chat` for a change
    that was not shown. An edit nobody recorded stops the corrected version from being built. With

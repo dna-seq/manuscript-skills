@@ -929,24 +929,118 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
     if document is not None and document not in names:
         raise typer.BadParameter(f"--document names one of the run's inputs: {', '.join(names) or 'none'}.")
     if chosen(data, 'edits') == 'none':
-        typer.echo("This run is report only (edits: none): it changes no file, so there is no edit to record. Put the "
-                   "fix in the finding instead: the passage, what is wrong and the kind of change.", err=True)
+        typer.echo(REPORT_ONLY_EDIT, err=True)
         raise typer.Exit(2)
+    path = record_change(run, data, skill, section, reason, before.read_text(encoding='utf-8') if before else None,
+                         after.read_text(encoding='utf-8') if after else None, comment, document, shown_in_chat)
+    save(run, data)
+    typer.echo(str(path))
+
+
+REPORT_ONLY_EDIT = ("This run is report only (edits: none): it changes no file, so there is no edit to record. Put "
+                    "the fix in the finding instead: the passage, what is wrong and the kind of change.")
+
+
+def record_change(run: Path, data: dict[str, Any], skill: str, section: str, reason: str, before: str | None,
+                  after: str | None, comment: str = '', document: str | None = None, shown_in_chat: bool = False) -> Path:
+    """Write one change record (before and after as clean text; None for an addition's before or a deletion's after)
+    and list it in DATA; the caller saves."""
+    names = [Path(source['original']).name for source in data['inputs']]
     entry = ensure_skill(data, skill)
     relative = f"{skill}/changes/{len(entry['changes']) + 1:04d}.md"
     path = within(run, relative)
     path.parent.mkdir(parents=True, exist_ok=True)
     text = f"# {section}\n\nReason: {reason}\n\n" + (f"Comment: {' '.join(comment.split())}\n\n" if comment.strip() else "") + "## Before\n\n"
-    text += before.read_text(encoding='utf-8') if before else '(No previous block.)\n'
+    text += before if before is not None else '(No previous block.)\n'
     text += '\n\n## After\n\n'
-    text += after.read_text(encoding='utf-8') if after else '(Block removed.)\n'
+    text += after if after is not None else '(Block removed.)\n'
     with path.open('x', encoding='utf-8') as output:
         output.write(text)
     entry['changes'].append({'section': section, 'path': relative, 'sha256': digest(path), 'shown_in_chat': shown_in_chat,
                              'recorded_at': now(),
                              **({'document': document} if document and document != (names or [''])[0] else {})})
+    return path
+
+
+REV_MARKS = Path(__file__).resolve().parents[2] / 'manuscript-revision-marks' / 'scripts' / 'rev_marks.py'
+
+
+def rev_marks() -> Any:
+    """manuscript-revision-marks' rev_marks.py (stdlib only): its apply_edits places and marks each edit."""
+    if 'runs_rev_marks' not in sys.modules:
+        spec = importlib.util.spec_from_file_location('runs_rev_marks', REV_MARKS)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['runs_rev_marks'] = module  # dataclasses resolve their module through sys.modules
+        spec.loader.exec_module(module)
+    return sys.modules['runs_rev_marks']
+
+
+@app.command('apply')
+@serialized
+def apply_edits(run: Path, skill: Annotated[str, typer.Option('--skill')],
+                edits: Annotated[Path, typer.Option(exists=True, dir_okay=False, help=(
+                    "EDITS.json: a list of {before, after, reason, section?, comment?, segment?}, clean text, in the "
+                    "order to apply them"))],
+                by: Annotated[str, typer.Option(help="Who wrote this pass, as the marks sign it: the agent's name "
+                                                     "(claude), NAME or NAME:YYYY-MM-DD")],
+                document: Annotated[str | None, typer.Option(
+                    help="The input the edits change when it is not the manuscript: a supplement's file name")] = None) -> None:
+    """Apply a stage's edits to the working copy and record each with its change record, in one step, all or none.
+
+    Each edit is a clean before-text, found once in the clean text however the revision marks sit around it, and its
+    after-text (empty to delete it; an addition is the passage it follows, before and after). In a manuscript with
+    revision marks each edit is marked as manuscript-revision-marks says: the segment holding it gets one round for
+    the pass, and an edit no segment holds opens one (the edit's `segment` id, or the section's copy-edit segment,
+    N…). Every edit is then replayed on the clean text, as collect.py will replay the records, and must give the
+    clean text of the file written. A refused edit leaves the file and the run as they were and says why."""
+    data = read(run)
+    if chosen(data, 'edits') == 'none':
+        typer.echo(REPORT_ONLY_EDIT, err=True)
+        raise typer.Exit(2)
+    names = [Path(source['original']).name for source in data['inputs']]
+    source = next((s for s in data['inputs'] if Path(s['original']).name == document), None) if document \
+        else (data['inputs'][0] if data['inputs'] else None)
+    if source is None or source.get('remote'):
+        raise typer.BadParameter(f"--document names one of the run's local inputs: {', '.join(names) or 'none'}."
+                                 if document else "The run has no local manuscript to edit.")
+    target = Path(source['original'])
+    if chosen(data, 'versions') == 'immutable':
+        made = next((item['new'] for item in data.get('versions', []) if item['previous'] == target.resolve().as_posix()), None)
+        if made is None:
+            typer.echo(f"Versions are immutable: make the new version first (runs.py version {run} --file {target}).",
+                       err=True)
+            raise typer.Exit(2)
+        target = Path(made)
+    try:
+        items = json.loads(edits.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"{edits.name} is not valid JSON ({exc})") from exc
+    if not isinstance(items, list) or not items or not all(
+            isinstance(i, dict) and isinstance(i.get('before'), str) and i['before'] and isinstance(i.get('after'), str)
+            and isinstance(i.get('reason'), str) and i['reason'].strip() for i in items):
+        raise typer.BadParameter(f"{edits.name} holds a list of edits, each with a non-empty before, an after (empty "
+                                 "deletes) and a reason.")
+    marks = rev_marks()
+    try:
+        entry = marks.parse_entry(by, datetime.now().astimezone().date())
+    except ValueError as exc:
+        raise typer.BadParameter(f"--by: {exc}") from exc
+    try:
+        done = marks.apply_edits(target.read_text(encoding='utf-8'),
+                                 [marks.Edit(i['before'], i['after'], i.get('segment')) for i in items], entry,
+                                 marks.syntax_for(target))
+    except marks.EditRefused as exc:
+        typer.echo(f"Nothing was applied or recorded. {exc}", err=True)
+        raise typer.Exit(1) from exc
+    target.write_bytes(done.text.encode('utf-8'))  # in place: the authors' file keeps its permissions
+    records = [record_change(run, data, skill, item.get('section') or done.sections[n] or 'Whole manuscript',
+                             item['reason'], item['before'], item['after'] or None, item.get('comment') or '',
+                             document)
+               for n, item in enumerate(items)]
     save(run, data)
-    typer.echo(str(path))
+    typer.echo(json.dumps({'file': target.as_posix(), 'applied': len(items), 'segments_bumped': list(done.bumped),
+                           'segments_opened': list(done.opened), 'records': [r.as_posix() for r in records]}, indent=2))
 
 
 @app.command()

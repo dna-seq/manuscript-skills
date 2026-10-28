@@ -253,9 +253,23 @@ def first_difference(a: str, b: str) -> str:
     return "a different number of lines"
 
 
+# A reference entry: an author-year citation's year in parentheses near its start, or a DOI.
+REFERENCE_ENTRY = re.compile(r"^.{0,300}?\((?:19|20)\d{2}[a-z]?\)|\bdoi(?:\.org/|:)\s*10\.", re.IGNORECASE | re.DOTALL)
+REFERENCES_HEADING = re.compile(r"^#{1,6}\s.*\b(?:references|bibliography|literature cited|works cited)\b", re.IGNORECASE)
+
+
+def in_references(text: str, at: int) -> bool:
+    """Whether `at` sits under a references heading (the nearest heading above it names one)."""
+    for line in reversed(text[:at].splitlines()):
+        if line.lstrip().startswith("#"):
+            return bool(REFERENCES_HEADING.match(line.strip()))
+    return False
+
+
 def insertion_point(text: str, anchor_end: int, addition: str) -> tuple[int, str]:
     """Where an addition goes and how it is joined. In a block of lines (a reference list, a table, a list) a
-    line or lines go on new lines after the anchor's line; a sentence follows its anchor in the paragraph; a
+    line or lines go on new lines after the anchor's line; a reference entry added after another, in a list that
+    keeps one entry per paragraph, is a paragraph of its own; a sentence follows its anchor in the paragraph; a
     heading, table, list or new paragraph goes after the anchor's paragraph."""
     addition = addition.strip()
     start = text.rfind("\n\n", 0, anchor_end)
@@ -265,6 +279,9 @@ def insertion_point(text: str, anchor_end: int, addition: str) -> tuple[int, str
     in_lines = "\n" in text[start:end].strip() and (anchor_end == end or text.startswith("\n", anchor_end))
     if in_lines and "\n\n" not in addition and not addition.startswith("#"):
         return anchor_end, "\n" + addition
+    entry = REFERENCE_ENTRY.match(addition) and (in_references(text, start) or REFERENCE_ENTRY.match(text[start:end]))
+    if entry and anchor_end == end:
+        return end, "\n\n" + addition
     if not BLOCK.search(addition):
         return anchor_end, " " + addition
     return end, "\n\n" + addition

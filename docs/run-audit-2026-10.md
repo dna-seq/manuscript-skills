@@ -282,7 +282,19 @@ scripts for that.
   those whose quoted passage the fixes changed; the rest keep the first's verdict. `runs.py validate --final`
   refuses a handover whose newest re-check read another build, unless the re-check stage records why.
 
-Still open: items 6, 9, 10, 11 and 13, and the source cache.
+## Fixed in 0.46.0
+
+- Item 6: `rev_marks.py apply` and, in a run, `runs.py apply` take a stage's edits as clean before/after pairs,
+  find each in the clean text however the marks sit, change only the words that differ, bump each touched
+  segment once for the pass, open or grow the section's copy-edit segment (or an edit's own) for edits no segment
+  holds, taking in whole a segment it would cut, write the change records and replay them to prove the result.
+  On the v0.6 run's marked snapshots all 144 recorded edits apply this way, with no lint error, ending on the
+  run's clean main text and supplement exactly; the four that no segment held open N11 to N14, after the
+  master's N10. The five scripts the run's stages wrote for this are no longer needed.
+- Item 9: `revise.py` puts a reference entry added after another, in a list of one entry per paragraph, in a
+  paragraph of its own.
+
+Still open: items 10, 11 and 13, and the source cache.
 
 ## Suggested order
 

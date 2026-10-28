@@ -72,10 +72,15 @@ before the choice, the paper's stage of work}
 - Lint the marks before the first edit (`rev_marks.py lint`), and write clean copies of the working copies
   before and after the pass (`rev_marks.py strip ... --out`): `{CLEAN_PREFIX}before-{STAGE}.md` and
   `after-{STAGE}.md`, with `-supplementary` beside them.
-- Every applied edit is recorded with `runs.py change`, before and after as clean text, one record per
-  consequential edit; an edit to the supplement adds `--document {SUPPLEMENT_NAME}`. Its marks follow
-  [manuscript-revision-marks](../../manuscript-revision-marks/SKILL.md): bump the segment an edit falls in,
-  or open one whose id matches the project's ledger.
+- Apply your edits with `runs.py apply {RUN} --skill {SKILL} --edits EDITS.json --by {AGENT}` (an edit to the
+  supplement: a second list with `--document {SUPPLEMENT_NAME}`). EDITS.json is a list of
+  `{"before": ..., "after": ..., "reason": ..., "comment": ...}`, clean text copied from the clean copy, one
+  item per consequential edit (routine fixes may share an item per paragraph); an addition is the passage it
+  follows, before and after. It finds each edit wherever the revision marks sit, marks it as
+  [manuscript-revision-marks](../../manuscript-revision-marks/SKILL.md) says, records it and refuses the whole
+  list, changing nothing, when one edit cannot be placed: lengthen a before-text that occurs twice, split an
+  edit at a mark it would swallow. An edit a finding asked for may name the segment it opens (`"segment":
+  "IC3"`, an id the project's ledger accepts). Write no edit script of your own.
 - After the pass: the claim guard and the smell check on before and after, as your skill says, and fix what
   they list before you finish.
 
