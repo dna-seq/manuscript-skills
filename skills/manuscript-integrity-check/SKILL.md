@@ -341,7 +341,7 @@ each usually belongs in. A candidate is a passage to read, not a finding: a meth
 paper's mixed sections or a rule stated with its threshold can make it right where it is. Report what is
 misplaced as *Misplaced detail*, with the section it moves to and what stays behind (a rounded figure and a
 pointer), and read the Introduction's contributions for their framing: a tool built on a public data source is
-described by what it adds to the source, not as a cleaned copy of it. Moving a detail changes no number and no
+described by what it adds to the source, never by a cleaned copy of it alone. Moving a detail changes no number and no
 caveat.
 
 ### Step 6: AI-generated science (only when AI produced scientific content)

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "manuscript-skills",
   "displayName": "Manuscript Skills",
-  "version": "0.48.0",
+  "version": "0.48.1",
   "description": "Help authors publish sound manuscripts with less avoidable work: check references and whether sources support the claims, audit numbers, statistics and reporting standards, review every figure as it will be printed and say which to change, make more compact, merge, move to the supplement or add, simulate referee review before submission, answer real referees and verify the revision, choose suitable journals, reduce clinical/ethics/privacy misclassification including voluntarily self-published genomes, edit without strengthening claims, keep papers interesting to their readers without changing their science or the direction the authors chose, and keep revision marks that show which AI edits no person has reviewed yet, with a review draft PDF built from them. Includes deslop, also as a stage of the improvement workflow, which ends with the corrected version of the paper as track changes and a dashboard of what the run found, changed and left open, with the annotated manuscript and the comparison with a human review. On request, the simulated referees, readers and critics also run on another AI model through the command-line agents the authors already use (Codex CLI, Claude Code, Gemini CLI). Rounds with co-authors who comment on Google Docs are tracked too: the comments pulled from each round's Doc into a ledger, how the next round answers each one (shown in the dashboard), the changelog for co-authors who read only the previous round, and each release pushed to the shared Drive folder.",
   "author": {
     "name": "DNA Seq",

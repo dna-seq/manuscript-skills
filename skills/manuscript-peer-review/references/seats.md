@@ -66,7 +66,7 @@ abstract, introduction and conclusions against the results.
   switch to a different outcome than the one measured?
 - Does the paper answer the question it poses, or a nearby easier one?
 - Does the introduction say what each contribution does and adds, or does it describe how the inputs were
-  prepared (a tool presented as a cleaned copy of a public dataset)? Does it state a measured comparison
+  prepared (a tool presented only as a cleaned copy of a public dataset)? Does it state a measured comparison
   (a speed-up, a count that passed a filter) without the setup that makes the comparison fair? Quote it; the
   measurement and its setup belong in the results, the introduction keeps a rounded figure.
 

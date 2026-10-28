@@ -78,9 +78,40 @@ proposed nothing back into Section 3. It still reported three passages, and the 
 - **The five package names** in the "Three ways in" feature, as availability detail (marked optional). A mild
   false alarm the reference does not address.
 
-The pair (`expect: different`) therefore separates the two versions on the planted detail but not cleanly: the
-control's verdict is FAIL for reasons the rubric did not anticipate. The two reference gaps above are the next
-fix, followed by a rerun of the control.
+The pair (`expect: different`) therefore separated the two versions on the planted detail but not cleanly: the
+control's verdict was FAIL for reasons the rubric did not anticipate.
+
+## After the fix (0.48.1)
+
+section-roles.md now says that the coverage of an input the method reads stays in Methods even with a date ("ask
+what a count does in its sentence"), that a ready-to-use copy of a data source may be named beside what the tool
+adds but is never the contribution or a feature's heading, and that the names of the packages or interfaces
+through which a reader reaches a contribution are not misplaced. The same framing words changed in prose-edit's
+section guide, integrity-check's Step 5 and the claims referee seat. Both cases were run again with the fixed
+skill, one fresh agent each, and graded blind as before.
+
+| Arm | Verdict | Rubric items held |
+|---|---|---|
+| Seeded, skill after the fix | PASS | 8 of 8; no fail_if |
+| Clean control, skill after the fix | PASS | 2 of 2; no fail_if |
+
+- **The control's three reports are gone.** It kept "from a cleaned copy of the Catalog" ("named beside what
+  just-prs adds, which is the right way to describe a tool built on a public source"), the package names ("how
+  readers reach the software, so they belong there") and the 2,282 curated scores ("the size and coverage of what
+  the method reads, so they stay"), and said nothing in the Introduction needs moving.
+- **The seeded case still passes on every item**: the framing, the Methods detail to 3.2, the withheld counts and
+  the leave-one-out accuracy to two new Section 4 subsections with the rules left as rules, the dated registry
+  count, the Fast item reduced to rounded figures, every move keeping its numbers and caveats.
+- **What both graders left as open, not as failures**: neither run flagged the Abstract's "passes its
+  reference-distribution audit", and both defended it as a scope condition (no rubric item scores it). The
+  control's other suggestions (the 0.10.1 run history in Section 4.2, two paragraphs of 3.2 in a better order, a
+  call-set count the excerpt's Results do not show) were judged reasonable readings, most of them moves within a
+  section rather than between sections. Graders accepted the report and run files the skill writes beside the
+  manuscript as not being edits; a stricter reading of "makes no edits" would fail every skill arm alike.
+
+The pair now holds: the seeded and clean cases get different findings and both pass. One run per arm, by agents
+of one model family, graded by agents of the same family; the automatic run with a second-family grader still
+needs a session that can start the evaluated agents' sandbox.
 
 The answers and grades are kept with the authors' session notes, not in this repository: they quote the draft at
 length.

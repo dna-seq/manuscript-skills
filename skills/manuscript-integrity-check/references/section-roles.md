@@ -19,15 +19,21 @@ the corrected version.
 |---|---|---|
 | **Abstract** | The problem, what was done, the main result with the number the central claim needs, and availability. The setup a headline number was measured on may stand beside it. | Procedure (formats, thresholds, how data were cleaned), the bookkeeping of a filter or an audit ("860 were withheld"), a list of every metric. |
 | **Introduction**, with its feature or contribution list, overview and boxes | Why the problem matters, what is known and missing (cited), and what each contribution does and why it matters to the reader. At most a rounded figure per contribution ("about a minute", "more than a hundred times faster", "6,117 scores across 778 traits") and a pointer to the section with the measurement. | Procedure, data preparation, thresholds and parameters; measured counts, ranges, medians, decimals, accuracies; dated counts of what a resource held; any comparison whose fairness depends on its configuration. |
-| **Methods** (also System and Methods, Design and Implementation, Implementation, Architecture, Algorithm, Approach, STAR Methods) | Procedure: data and their versions and dates, preparation steps, thresholds and rules stated as rules ("a score is withheld when at least four of the seven…"), parameters, software and versions, the size of the input a method is built from ("2,575 unrelated individuals"), and a pointer to where the outcome is reported ("Section 4.3 gives the counts"). | What the procedure produced on the data it was applied to: how many items passed or were withheld, a classifier's accuracy, a benchmark's numbers. Those are results. |
+| **Methods** (also System and Methods, Design and Implementation, Implementation, Architecture, Algorithm, Approach, STAR Methods) | Procedure: data and their versions and dates, preparation steps, thresholds and rules stated as rules ("a score is withheld when at least four of the seven…"), parameters, software and versions, the size and coverage of the inputs a method is built from or reads ("2,575 unrelated individuals"; "for 2,282 scores in the curation published on 27 September 2026"), and a pointer to where the outcome is reported ("Section 4.3 gives the counts"). | What the procedure produced on the data it was applied to: how many items passed or were withheld, a classifier's accuracy, a benchmark's numbers. Those are results. |
 | **Results** (also Benchmarking, Validation, Evaluation, Performance, Use cases, Technical validation, Database content) | Measured outcomes, each beside the configuration that makes it fair (hardware, threads, versions, warm or cold, which data): audit counts, benchmark numbers, classifier accuracy, dated snapshot counts (a registry's contents on a date), real output of the tool. One clause of orientation to the procedure ("the audit of Section 3.2"). | The procedure at length (Methods), the run history and every version tried (Methods or the supplement), interpretation at length (Discussion). |
 | **Discussion** | What the results mean, compared with prior work (cited), the limits that bear on the conclusions with their consequences, what would test the interpretation. | A result first stated here (a number no Methods or Results section has), procedure. |
 | **Conclusion** | The finding and what a reader can do with it, numbers repeated from Results. | New numbers, new caveats. |
 | **Supplement** | What a referee needs and a reader does not: every rerun, per-item tables, defensive detail. | The evidence the main claim rests on. |
 
-Two facts are often mistaken for results. The size of a method's input (the training set after quality
-control, a reference panel's sample count) is Methods: it says what the method was built from. Data versions and
-their dates (the PGS Catalog release of 17 September 2026) are Methods: they are what makes the run repeatable.
+Three kinds of number are often mistaken for results. The size of a method's input (the training set after
+quality control, a reference panel's sample count) is Methods: it says what the method was built from. Data
+versions and their dates (the PGS Catalog release of 17 September 2026) are Methods: they are what makes the run
+repeatable. The coverage of an input the method reads, even with a date ("For 2,282 scores in the curation
+published on 27 September 2026, just-prs further records what a higher score means") is Methods too: it says
+what the method has to work with. Ask what a count does in its sentence. When it describes what the method
+builds on or reads, it stays in Methods; when the paper reports it as something found or measured (how many
+scores passed the audit, how accurate the classifier is, what the registry the paper presents held on a day), it
+is a result.
 Participant flow in an observational study follows its reporting guideline (STROBE puts the numbers at each stage
 in Results); manuscript-reporting-check owns that.
 
@@ -35,8 +41,11 @@ in Results); manuscript-reporting-check owns that.
 
 The Introduction says what a contribution adds to the reader's work, not how its inputs were prepared. A tool
 built on a public data source is framed by what it adds to that source (it computes the source's models,
-places each result in a reference population, labels its quality, groups related results), never as a cleaned
-copy of the data: the cleaning is how it works (Methods), and the data are someone else's contribution.
+places each result in a reference population, labels its quality, groups related results). A ready-to-use copy
+of the source may be named among the things the tool offers, beside what it adds ("computes PGS Catalog scores
+from a cleaned copy of the Catalog, places each within a reference population … and labels its quality"). It is
+never the contribution itself or a feature's heading: the cleaning is how the tool works (Methods), and the data
+are someone else's contribution.
 
 Paper 1 of Just-DNA-Lite (v0.6, 28 October 2026) shows the drift and its repair. Its first Key feature was "A
 cleaned PGS Catalog, ready to use": a Parquet mirror, normalized genome-build labels, parsed performance metrics,
@@ -114,7 +123,7 @@ says which way the detail is misplaced, in these words:
 | A result in Methods | "6,117 of 6,977 scores passed and 860 were withheld"; "99.65% were assigned their own superpopulation" | Results; Methods keeps the rule and a pointer |
 | Procedure in Results | a Results paragraph that defines a filter or a scoring rule and reports nothing | Methods; Results keeps one clause of orientation |
 | A result first stated in the Discussion or Conclusion | a number no Methods or Results section has | Results, where the Discussion can interpret it |
-| A contribution framed by its preparation | "A cleaned PGS Catalog, ready to use" | the Introduction says what the contribution adds to the data |
+| A contribution framed only by its preparation | "A cleaned PGS Catalog, ready to use" as a feature's heading, with the cleaning steps as its content | the Introduction says what the contribution adds to the data; a cleaned copy may be named beside that |
 
 - `quote`: the passage, verbatim. `action`: where the detail goes and what stays behind ("Move the counts to
   Results as Section 4.3; the feature keeps '6,117 scores across 778 traits' and a pointer").
@@ -127,6 +136,9 @@ says which way the detail is misplaced, in these words:
   ([story contract](../../manuscript-story/references/story-contract.md#direction-changes)).
 - A Methods paragraph that ends on its own result in a layout with no Results section is not misplaced; a
   sentence of orientation at the head of a Results section in a methods-last layout is not misplaced either.
+- The names of the packages, interfaces or files through which a reader reaches a contribution, in the feature
+  that describes it ("Python libraries and command-line tools published on PyPI (just-prs, prs-ui, …)"), are
+  not misplaced. Versions, URLs, licences and accession numbers belong to the availability statement.
 
 ## Moving a detail without losing anything
 

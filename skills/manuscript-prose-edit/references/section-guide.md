@@ -50,7 +50,7 @@ the story needs more than a fix of wording, `manuscript-story` owns it.
 **Feature and contribution lists:** each item says what the feature does for the reader, with at most a rounded
 figure and a pointer ("about a minute (Section 4)"). Storage formats, cleaning steps, thresholds, audit counts,
 measured ranges and dated counts belong in Methods or Results; a tool built on a data source is described by what
-it adds to the source, not as a cleaned copy of it.
+it adds to the source, and a cleaned copy of the source, if named, stands beside that, never as the feature.
 
 ## Related work (where the venue has the section)
 

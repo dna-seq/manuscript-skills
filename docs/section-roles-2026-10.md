@@ -102,8 +102,9 @@ moved word for word to Section 4.4; comparing text alone would have missed a mov
   and Key features, Section 3.2 with 3.2.2, the opening of Section 4 and the Conclusion. Its first run
   ([evals/results/2026-10-28-integrity-section-roles.md](../evals/results/2026-10-28-integrity-section-roles.md))
   passed the seeded case with the new skill (8 of 8 rubric items) where the skill before it and no skill held 3;
-  the clean control reported three passages the authors had left on purpose, two of them gaps in this
-  reference.
+  the clean control reported three passages the authors had left on purpose. 0.48.1 closed those gaps (the
+  coverage of an input stays in Methods, a cleaned copy may be named beside what a tool adds, package names in a
+  feature are not misplaced), and on a rerun both cases passed.
 
 ## Limits
 
