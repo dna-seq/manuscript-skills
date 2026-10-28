@@ -116,6 +116,46 @@ def test_dashboard_inlines_records_as_inert_data_and_keeps_only_file_names(data:
     assert payload["summary"]["counts"]["proposed_edits"] == 1
 
 
+MARKED = """# Paper
+
+<!-- @rev C1 rounds=2 by=anna:2026-09-25,claude:2026-10-10 -->
+The rewritten sentence.
+<!-- @/rev C1 -->
+An untouched line of the same paragraph.
+
+- one
+<!-- @rev N1 rounds=1 by=tomas:2026-10-01 -->
+- two
+<!-- @/rev N1 -->
+- three
+
+Untouched paragraph.
+"""
+
+
+def test_revision_marks_leave_the_text_and_their_history_goes_beside_it(data: dict, tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "rev-marks.toml").write_text('humans = ["anna"]\n')
+    (tmp_path / "paper.md").write_text(MARKED)
+    text, marks = visualize.revision_marks(MARKED, ".md", tmp_path / "paper.md")
+    assert "@rev" not in text and "The rewritten sentence.\nAn untouched line" in text
+    assert marks["people_listed"] and [s["id"] for s in marks["segments"]] == ["C1", "N1"]
+    # Who wrote each round, and what the project says they are: a person, an AI agent, or a name it does not list.
+    assert [(b["name"], b["date"], b["kind"]) for s in marks["segments"] for b in s["by"]] == [
+        ("anna", "2026-09-25", "human"), ("claude", "2026-10-10", "agent"), ("tomas", "2026-10-01", "")]
+    # Each block of a revised segment carries its id; the marks are nowhere in the text.
+    page = visualize.manuscript_html(text, ".md", [], marks)
+    assert '<p data-rev="C1">The rewritten sentence.\nAn untouched line' in page and '<li data-rev="N1">two</li>' in page
+    assert "<li>one</li>" in page and "<p>Untouched paragraph.</p>" in page and "&lt;!--" not in page
+    assert visualize.revision_marks("Plain text.\n", ".md") == ("Plain text.\n", None)
+    # The dashboard carries the history as data, for the margin.
+    data["manuscript"] = {"title": "Paper", "path": "paper.md", "sections": []}
+    inventory = visualize.Inventory.model_validate(data)
+    output = visualize.dashboard_html(inventory, visualize.summarize(inventory), tmp_path)
+    assert "@rev C1" not in output and '<p data-rev="C1">' in output
+    assert [s["id"] for s in embedded(output)["revision_marks"]["segments"]] == ["C1", "N1"]
+
+
 def test_the_dashboard_is_the_only_rendering(data: dict, tmp_path: Path) -> None:
     source = tmp_path / "input.json"
     source.write_text(json.dumps(data))

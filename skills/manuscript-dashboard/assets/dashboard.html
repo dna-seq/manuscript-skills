@@ -191,28 +191,58 @@ article.paper img { max-width: 100%; height: auto; display: block; margin: 12px 
 article.paper code { font-size: 0.88em; background: var(--surface-2); padding: 0 3px; border-radius: 3px; }
 article.paper a { color: var(--accent-ink); }
 article.paper blockquote { color: var(--ink-2); white-space: normal; }
-mark.hl { color: inherit; background: var(--hl-unknown); border-bottom: 2px solid var(--sev-unknown); cursor: pointer; border-radius: 2px; }
-mark.hl.s-blocker { background: var(--hl-blocker); border-bottom-color: var(--sev-blocker); }
-mark.hl.s-major { background: var(--hl-major); border-bottom-color: var(--sev-major); }
-mark.hl.s-minor { background: var(--hl-minor); border-bottom-color: var(--sev-minor); }
-mark.hl.s-info { background: var(--hl-info); border-bottom: 2px dotted var(--sev-minor); }
-mark.hl.candidate { border-bottom-style: dashed; }
+/* A problem's passage: a soft tint and an underline in its severity's colour, stronger on hover and when selected.
+   Nothing is added to the text: its ID, skills and kind are in the comment beside it. */
+mark.hl { --sev: var(--sev-unknown); color: inherit; background: color-mix(in srgb, var(--sev) 14%, transparent); cursor: pointer; border-radius: 2px;
+  text-decoration: underline 2px var(--sev); text-underline-offset: 3px; text-decoration-skip-ink: none; }
+mark.hl.s-blocker { --sev: var(--sev-blocker); background: color-mix(in srgb, var(--sev) 20%, transparent); }
+mark.hl.s-major { --sev: var(--sev-major); }
+mark.hl.s-minor { --sev: var(--sev-minor); background: color-mix(in srgb, var(--sev) 10%, transparent); }
+mark.hl.s-info { --sev: var(--sev-minor); background: none; text-decoration-style: dotted; }
+mark.hl.candidate { text-decoration-style: dashed; }
+mark.hl:hover, mark.hl.active { background: color-mix(in srgb, var(--sev) 32%, transparent); }
 mark.hl.active { outline: 2px solid var(--hl-active); outline-offset: 1px; }
-mark.hl.off { background: none; border-bottom: 0; cursor: auto; }
-sup.ref { font: 600 10px system-ui, sans-serif; color: var(--ink-2); margin-left: 2px; cursor: pointer; white-space: nowrap; }
-sup.ref .badge { height: 14px; min-width: 18px; font-size: 9px; margin-right: 1px; }
-sup.ref.off { display: none; }
+mark.hl.off, article.paper[data-margin="history"] mark.hl { background: none; text-decoration: none; outline: 0; cursor: auto; }
 aside.rail { position: relative; min-width: 0; }
-.comment { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--sev-unknown); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; cursor: pointer; }
+.comment { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--sev-unknown); border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; cursor: pointer; }
 aside.rail .comment { position: absolute; left: 0; right: 0; }
 aside.rail .comment.active { z-index: 3; box-shadow: 0 0 0 2px var(--hl-active), 0 8px 24px rgba(0,0,0,0.18); }
+aside.rail .comment, aside.rail .history { transition: top 140ms ease; }
+@media (prefers-reduced-motion: reduce) { aside.rail .comment, aside.rail .history { transition: none; } }
 .comment.s-blocker { border-left-color: var(--sev-blocker); } .comment.s-major { border-left-color: var(--sev-major); }
 .comment.s-minor { border-left-color: var(--sev-minor); } .comment.s-info { border-left-color: var(--sev-info); }
 .comment.active { box-shadow: 0 0 0 2px var(--hl-active); }
-.comment h4 { margin: 0 0 4px; font-size: 13px; font-weight: 650; }
-.comment .tags { color: var(--ink-2); font-size: 12px; margin: 2px 0 4px; }
+.comment h4 { margin: 0 0 3px; font-size: 13.5px; font-weight: 650; line-height: 1.35; }
+.comment .tags { color: var(--ink-2); font-size: 12px; margin: 0 0 4px; }
 .comment p { margin: 4px 0; }
+/* A comment shows its problem, severity and kind; selected, it opens to everything else. */
+.comment:not(.active) .more, .history:not(.active) .more { display: none; }
+.comment:not(.active) .tags { margin-bottom: 0; }
+.comment .foot { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
+.comment .foot a { font-size: 11.5px; }
 .comment[hidden] { display: none; }
+/* What sits beside the text: the problems, or the history of the revision marks. */
+.margin-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 12px 0 0; }
+.margin-bar .views { margin: 0; }
+.margin-bar .note { margin: 0; }
+.history { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; line-height: 1.45; cursor: pointer; }
+.history.agent { border-left-color: var(--warning); }
+aside.rail .history { position: absolute; left: 0; right: 0; }
+.history.active { z-index: 3; box-shadow: 0 0 0 2px var(--focus), 0 8px 24px rgba(0,0,0,0.18); }
+.history h4 { margin: 0 0 3px; font-size: 13px; font-weight: 650; }
+.history ul { list-style: none; margin: 0; padding: 0; }
+.history li { display: flex; justify-content: space-between; gap: 8px; }
+.history li .who { font-weight: 600; }
+.history li .who.agent::after { content: " (AI)"; font-weight: 400; color: var(--ink-2); }
+.history li .when { color: var(--ink-2); text-align: right; }
+.history .state { margin-top: 4px; color: var(--ink-2); }
+.history .foot { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+.history[hidden] { display: none; }
+article.paper[data-margin="history"] [data-rev] { position: relative; }
+article.paper[data-margin="history"] [data-rev]::before { content: ""; position: absolute; left: -18px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--accent); opacity: 0.55; }
+article.paper[data-margin="history"] [data-rev].agent::before { background: var(--warning); opacity: 0.9; }
+article.paper[data-margin="history"] [data-rev].lit { background: color-mix(in srgb, var(--focus) 9%, transparent); border-radius: 4px; }
+article.paper[data-margin="history"] [data-rev].lit::before { opacity: 1; width: 4px; }
 .general .list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 10px; }
 /* Journals */
 .venues { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
@@ -246,6 +276,7 @@ article.paper.hide-asks .asks { box-shadow: none; } article.paper.hide-asks butt
 .rev-item { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-top: 6px; color: var(--ink); font-size: 13px; }
 button.rev-item { cursor: pointer; } button.rev-item:hover, .rev-item.active { border-color: var(--focus); }
 .rev-item .why { color: var(--ink-2); display: block; margin-top: 2px; }
+.rev-item .id { color: var(--muted); display: block; margin-top: 2px; font-size: 11px; }
 .views { display: inline-flex; gap: 4px; margin: 12px 0 0; }
 .views button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
 .flag { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
@@ -269,7 +300,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .fig h4 { font-size: 13px; margin: 12px 0 4px; }
 .fig ul { margin: 0; padding-left: 18px; }
 .fig li { margin-bottom: 4px; }
-@media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment { position: static; } .rev-list { position: static; max-height: none; } }
+@media (max-width: 1100px) { .paper-layout, .rev-layout { grid-template-columns: 1fr; } aside.rail .comment, aside.rail .history { position: static; margin-bottom: 8px; } .rev-list { position: static; max-height: none; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
   .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--grid); }
@@ -277,6 +308,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .main { padding: 0 16px 40px; }
   .side .wide-only { display: none; }
   article.paper { padding: 18px 16px; }
+  article.paper[data-margin="history"] [data-rev]::before { left: -10px; }
 }
 @media print {
   .side, #tooltip, .ghost { display: none !important; }
@@ -284,7 +316,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .panel[hidden] { display: block !important; }
   tr.detail[hidden] { display: table-row !important; }
   .paper-layout { grid-template-columns: 1fr; }
-  aside.rail .comment { position: static; break-inside: avoid; }
+  aside.rail .comment, aside.rail .history { position: static; break-inside: avoid; }
   body { background: #fff; }
   .card, .kpi, .table-wrap { break-inside: avoid; }
 }
@@ -390,6 +422,7 @@ __REVISION_HTML__
 
   const tip = document.getElementById('tooltip');
   function showTip(target, lines) {
+    if (!lines.some(Boolean)) { tip.hidden = true; return; }
     tip.replaceChildren(...lines.filter(Boolean).map((line, i) => h('div', {class: i ? 'tip-label' : 'tip-value'}, line)));
     tip.hidden = false;
     const r = target.getBoundingClientRect();
@@ -640,27 +673,63 @@ __REVISION_HTML__
   }
 
   // ---------- the manuscript view: the reviewed text, each quoted problem highlighted ----------
-  let paper = null, rail = null, generalList = null;
+  // The text holds nothing but the paper: a problem's ID, skills and kind are in its comment beside it, and the
+  // revision marks (the @rev comments) are taken off by the renderer, their history shown in the same margin.
+  let paper = null, rail = null, generalList = null, generalBox = null, margin = 'problems';
   const placed = [], general = [], cards = new Map(), located = new Set();
+  const MARKS = D.revision_marks && D.revision_marks.segments.length ? D.revision_marks : null;
+  const revised = [], historyCards = new Map();
   function buildPaper() {
     if (!D.has_paper || paper) return;
     const p = panels.manuscript;
-    const intro = h('p', {class: 'note', style: 'margin-top: 0'}, 'Each highlight is a passage a skill quoted when it reported a problem; its comment is beside it. Colour shows severity only; the badges show which skills found it. A dashed underline marks a candidate the authors still need to check. This is the reviewed version, before any edit of this run.');
+    const intro = h('p', {class: 'note', style: 'margin-top: 0'}, 'Each highlight is a passage a skill quoted when it reported a problem; select it to see its comment beside the text. Colour shows severity only; a dashed underline marks a candidate the authors still need to check. This is the reviewed version, before any edit of this run.');
     generalList = h('div', {class: 'list'});
-    const generalBox = h('details', {class: 'card general'}, h('summary', null, 'Comments on the whole manuscript, on missing content, or whose passage was not found'), generalList);
-    paper = h('article', {class: 'paper', id: 'paper'});
+    generalBox = h('details', {class: 'card general'}, h('summary', null, 'Comments on the whole manuscript, on missing content, or whose passage was not found'), generalList);
+    paper = h('article', {class: 'paper', id: 'paper', 'data-margin': 'problems'});
     paper.append(document.getElementById('paper-src').content.cloneNode(true));
     rail = h('aside', {class: 'rail', 'aria-label': 'Comments'});
-    p.append(intro, generalBox, h('div', {class: 'paper-layout'}, paper, rail));
+    p.append(intro, MARKS ? marginBar() : null, generalBox, h('div', {class: 'paper-layout'}, paper, rail));
     highlightAll();
+    if (MARKS) historyAll();
     generalBox.hidden = !general.length;
     generalBox.querySelector('summary').textContent += ` (${general.length})`;
-    paper.addEventListener('click', e => { const t = e.target.closest('[data-note]'); if (t && !t.classList.contains('off')) activate(t.dataset.note, 'note'); });
+    paper.addEventListener('click', e => {
+      if (margin === 'history') { const b = e.target.closest('[data-rev]'); if (b) activateHistory(b.dataset.rev.split(' ').pop(), 'note'); return; }
+      const t = e.target.closest('[data-note]'); if (t && !t.classList.contains('off')) activate(t.dataset.note, 'note');
+    });
     paper.addEventListener('keydown', e => { const t = e.target.closest('mark[data-note]'); if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); activate(t.dataset.note, 'note'); } });
+  }
+  // What sits beside the text: the problems, or who revised each passage and when (the revision marks).
+  function marginBar() {
+    const agentLast = MARKS.segments.filter(s => lastKind(s) === 'agent').length;
+    const views = h('div', {class: 'views', role: 'group', 'aria-label': 'Beside the text'});
+    const note = h('span', {class: 'note'});
+    const say = () => { note.textContent = margin === 'history'
+      ? `${plural(MARKS.segments.length, 'revised passage')}, each with its rounds and who wrote or approved them.` +
+        (agentLast ? ` ${agentLast} last changed by an AI agent, with no person since (amber bar).` : '') +
+        (MARKS.people_listed ? '' : ' The project lists no people (rev-marks.toml), so only names known as AI agents are marked.')
+      : ''; };
+    for (const [key, label] of [['problems', `Problems (${findings.filter(f => f.assessment !== 'dismissed').length})`], ['history', `Edit history (${MARKS.segments.length})`]]) {
+      views.append(h('button', {class: 'ghost', type: 'button', 'aria-pressed': String(key === margin), onclick: e => {
+        setMargin(key);
+        for (const b of views.children) b.setAttribute('aria-pressed', String(b === e.currentTarget));
+        say();
+      }}, label));
+    }
+    return h('div', {class: 'margin-bar'}, h('span', {class: 'note'}, 'Beside the text:'), views, note);
+  }
+  function setMargin(key) {
+    margin = key;
+    paper.dataset.margin = key;
+    for (const el of document.querySelectorAll('.active')) if (el.matches('mark, .comment, .history')) el.classList.remove('active');
+    for (const el of paper.querySelectorAll('[data-rev].lit')) el.classList.remove('lit');
+    generalBox.hidden = key !== 'problems' || !general.length;
+    for (const c of historyCards.values()) c.hidden = key !== 'history';
+    applyPaperFilters();
   }
   const BLOCK = /^(P|LI|TD|TH|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE|TR)$/;
   const SPACE = new Set([' ', '\n', '\t', '\r', '\f', '\v']);
-  const fold = c => c.replace(/[‘’‛′]/g, "'").replace(/[“”„″]/g, '"').replace(/[‐-―−]/g, '-').replace(/ /g, ' ').toLowerCase();
+  const fold = c => c.replace(/[‘’‛′]/g, "'").replace(/[“”„″]/g, '"').replace(/[‐-―−]/g, '-').replace(/ /g, ' ').toLowerCase();
   let flat = '', mapNode = [], mapOff = [], nodes = [];
   function index() {
     const parts = [];
@@ -668,7 +737,6 @@ __REVISION_HTML__
     let lastBlock = null, space = true;
     const walker = document.createTreeWalker(paper, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node.parentElement.closest('sup.ref')) continue;
       let block = node.parentElement;
       while (block && block !== paper && !BLOCK.test(block.tagName)) block = block.parentElement;
       if (lastBlock && block !== lastBlock && !space) { parts.push(' '); mapNode.push(-1); mapOff.push(-1); space = true; }
@@ -714,23 +782,27 @@ __REVISION_HTML__
       let node = piece.node;
       if (piece.to < node.nodeValue.length) node.splitText(piece.to);
       if (piece.from > 0) node = node.splitText(piece.from);
-      const mark = h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0});
-      withTip(mark, () => [`${SEV_LABEL[f.severity]} (${f.id})`, f.summary, 'Found by ' + f.skills.map(skillName).join(', ')]);
+      const mark = h('mark', {class: `hl s-${f.severity}` + (f.assessment === 'candidate' ? ' candidate' : ''), 'data-note': f.id, tabindex: marks.length ? null : 0,
+        'aria-label': `${SEV_LABEL[f.severity]}: ${f.summary}`});
+      withTip(mark, () => margin === 'problems' && !mark.classList.contains('off') ? [f.summary, `${SEV_LABEL[f.severity]} · found by ${f.skills.map(skillName).join(', ')}`] : []);
       node.parentNode.insertBefore(mark, node);
       mark.append(node);
       marks.push(mark);
     }
     return marks;
   }
+  // A comment: the problem, its severity and kind; selected, it opens to the detail, what to do, the skills' own
+  // words, when to fix it, who found it and its ID. Closed comments stay short, so each sits beside its passage.
   function commentCard(f, unlocated) {
     return h('div', {class: `comment s-${f.severity}`, 'data-note': f.id, tabindex: 0, role: 'note'},
-      h('h4', null, badges(f.skills), ` ${f.id} · ${f.summary}`),
-      h('div', {class: 'tags'}, [SEV_LABEL[f.severity], STAGE_LABEL[f.stage], f.category, f.assessment === 'candidate' ? 'candidate: needs a check' : null,
+      h('h4', null, f.summary),
+      h('div', {class: 'tags'}, [SEV_LABEL[f.severity], f.category, f.assessment === 'candidate' ? 'candidate: needs a check' : null,
         f.decision ? 'authors\' decision' : null, unlocated ? 'passage not found in the text' : null].filter(Boolean).join(' · ')),
-      f.detail ? h('p', null, f.detail) : null,
-      f.action ? h('p', null, h('strong', null, 'What to do: '), f.action) : null,
-      f.evidence.length ? h('details', null, h('summary', null, 'In the skills\' own words'), said(f.evidence)) : null,
-      panels.findings ? h('p', null, link('Open in the problem table', e => { e.stopPropagation(); openFinding(f.id); })) : null);
+      f.detail ? h('p', {class: 'more'}, f.detail) : null,
+      f.action ? h('p', {class: 'more'}, h('strong', null, 'What to do: '), f.action) : null,
+      f.evidence.length ? h('details', {class: 'more'}, h('summary', null, 'In the skills\' own words'), said(f.evidence)) : null,
+      h('div', {class: 'foot more'}, `${STAGE_LABEL[f.stage]} · found by ${[...new Set(f.skills)].map(skillName).join(', ')} · ${f.id}`,
+        panels.findings ? [' · ', link('In the problem table', e => { e.stopPropagation(); openFinding(f.id); })] : null));
   }
   function highlightAll() {
     const ordered = [...findings].sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
@@ -740,47 +812,111 @@ __REVISION_HTML__
       const spans = locate(f.quote);
       const marks = spans ? spans.flatMap(span => wrap(span, f)) : [];
       if (!marks.length) { general.push({...f, _unlocated: true}); continue; }
-      marks[marks.length - 1].after(h('sup', {class: 'ref', 'data-note': f.id, 'aria-hidden': 'true'}, badges(f.skills), f.id));
       placed.push({f, marks});
       located.add(f.id);
     }
     for (const {f} of placed) { const c = commentCard(f); cards.set(f.id, c); rail.append(c); }
     for (const f of general) { const c = commentCard(f, f._unlocated); cards.set(f.id, c); generalList.append(c); }
     for (const [id, c] of cards) {
-      c.addEventListener('click', () => activate(id, 'text'));
-      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(id, 'text'); } });
+      c.addEventListener('click', e => { if (!e.target.closest('summary, a, button')) activate(id, 'text'); });
+      c.addEventListener('keydown', e => { if (e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); activate(id, 'text'); } });
     }
+  }
+  // ---------- the revision marks' history, in the margin ----------
+  const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const YEARS = new Set((MARKS ? MARKS.segments : []).flatMap(s => s.by.map(b => b.date.slice(0, 4))));
+  const day = iso => { const [y, mo, d] = iso.split('-'); return `${Number(d)} ${MONTH[Number(mo) - 1]}${YEARS.size > 1 ? ' ' + y : ''}`; };
+  const person = name => name.charAt(0).toUpperCase() + name.slice(1);
+  const lastKind = s => s.by.length ? s.by[s.by.length - 1].kind : '';
+  // A segment's rounds by who wrote or approved them, in the order each first appears; a day repeated is counted.
+  function rounds(s) {
+    const who = new Map();
+    for (const b of s.by) {
+      if (!who.has(b.name)) who.set(b.name, {kind: b.kind, days: new Map()});
+      const days = who.get(b.name).days;
+      days.set(b.date, (days.get(b.date) || 0) + 1);
+    }
+    return [...who].map(([name, x]) => h('li', null, h('span', {class: 'who' + (x.kind === 'agent' ? ' agent' : '')}, person(name)),
+      h('span', {class: 'when'}, [...x.days].map(([d, n]) => day(d) + (n > 1 ? ` ×${n}` : '')).join(', '))));
+  }
+  function historyCard(s) {
+    const last = s.by[s.by.length - 1], kind = lastKind(s);
+    const state = kind === 'agent' ? 'No person has read it since the last AI round.' : kind === 'human' ? 'The last round was a person\'s.' : null;
+    return h('div', {class: 'history' + (kind === 'agent' ? ' agent' : ''), 'data-rev-card': s.id, tabindex: 0, role: 'note', hidden: true},
+      h('h4', null, `${plural(s.rounds, 'round')} · last ${person(last.name)}, ${day(last.date)}`),
+      h('ul', null, rounds(s)),
+      state ? h('div', {class: 'state more'}, state) : null,
+      h('div', {class: 'foot more'}, `Revision mark ${s.id}`));
+  }
+  function historyAll() {
+    const bySeg = new Map(MARKS.segments.map(s => [s.id, s]));
+    for (const el of paper.querySelectorAll('[data-rev]')) {
+      if (el.dataset.rev.split(' ').some(id => bySeg.has(id) && lastKind(bySeg.get(id)) === 'agent')) el.classList.add('agent');
+    }
+    for (const s of MARKS.segments) {
+      const blocks = [...paper.querySelectorAll('[data-rev]')].filter(el => el.dataset.rev.split(' ').includes(s.id));
+      if (!blocks.length) continue;
+      const c = historyCard(s);
+      c.addEventListener('click', () => activateHistory(s.id, 'text'));
+      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateHistory(s.id, 'text'); } });
+      historyCards.set(s.id, c);
+      revised.push({s, blocks});
+      rail.append(c);
+    }
+  }
+  function activateHistory(id, scrollTo) {
+    for (const el of rail.querySelectorAll('.history.active')) el.classList.remove('active');
+    for (const el of paper.querySelectorAll('[data-rev].lit')) el.classList.remove('lit');
+    const item = revised.find(r => r.s.id === id), c = historyCards.get(id);
+    if (!item || !c) return;
+    item.blocks.forEach(b => b.classList.add('lit'));
+    c.classList.add('active');
+    layoutRail();
+    if (scrollTo === 'note') c.scrollIntoView({block: 'nearest', behavior: motion()});
+    if (scrollTo === 'text') item.blocks[0].scrollIntoView({block: 'center', behavior: motion()});
   }
   function applyPaperFilters() {
     if (!paper) return;
     for (const f of findings) {
       const on = pass(f);
       const c = cards.get(f.id);
-      if (c) c.hidden = !on;
+      if (c) c.hidden = !on || (margin !== 'problems' && rail.contains(c));
       for (const el of paper.querySelectorAll(`[data-note="${CSS.escape(f.id)}"]`)) el.classList.toggle('off', !on);
     }
     layoutRail();
   }
+  // Each comment beside its passage; a comment that would overlap the one above it moves down. The selected comment
+  // stays beside its passage, open, and the comments above it move up to make room.
   function layoutRail() {
     if (!rail || current !== 'manuscript') return;
-    if (!window.matchMedia('(min-width: 1101px)').matches) { rail.style.height = ''; for (const c of cards.values()) c.style.top = ''; return; }
+    const shown = margin === 'history' ? revised.map(r => ({c: historyCards.get(r.s.id), at: r.blocks[0]}))
+      : placed.filter(p => !cards.get(p.f.id).hidden).map(p => ({c: cards.get(p.f.id), at: p.marks[0]}));
+    if (!window.matchMedia('(min-width: 1101px)').matches) { rail.style.height = ''; for (const {c} of shown) c.style.top = ''; return; }
     const top0 = rail.getBoundingClientRect().top + window.scrollY;
-    let bottom = 0;
-    const items = placed.filter(p => !cards.get(p.f.id).hidden)
-      .map(p => ({c: cards.get(p.f.id), top: p.marks[0].getBoundingClientRect().top + window.scrollY - top0})).sort((a, b) => a.top - b.top);
-    for (const item of items) { const top = Math.max(item.top, bottom); item.c.style.top = `${top}px`; bottom = top + item.c.offsetHeight + 8; }
+    const items = shown.map(({c, at}) => ({c, top: at.getBoundingClientRect().top + window.scrollY - top0})).sort((a, b) => a.top - b.top);
+    const chosen = Math.max(0, items.findIndex(item => item.c.classList.contains('active')));
+    let bottom = 0, ceiling = Infinity;
+    items.forEach((item, i) => {
+      if (i < chosen) return;
+      const top = i === chosen && chosen ? item.top : Math.max(item.top, bottom);
+      item.c.style.top = `${top}px`;
+      bottom = top + item.c.offsetHeight + 8;
+      if (i === chosen) ceiling = top - 8;
+    });
+    for (let i = chosen - 1; i >= 0; i--) {
+      const top = Math.min(items[i].top, ceiling - items[i].c.offsetHeight);
+      items[i].c.style.top = `${top}px`;
+      ceiling = top - 8;
+    }
     rail.style.height = `${bottom}px`;
   }
   function activate(id, scrollTo) {
+    if (margin !== 'problems' && MARKS) { const b = document.querySelector('.margin-bar .views button'); if (b) b.click(); }
     for (const el of document.querySelectorAll('.active')) if (el.matches('mark, .comment')) el.classList.remove('active');
-    layoutRail();
     const c = cards.get(id), marks = paper.querySelectorAll(`mark[data-note="${CSS.escape(id)}"]`);
     marks.forEach(mk => mk.classList.add('active'));
     if (c) c.classList.add('active');
-    // Float the active comment beside its passage, above the comments the layout pushed down there.
-    if (c && marks[0] && rail.contains(c) && window.matchMedia('(min-width: 1101px)').matches) {
-      c.style.top = `${marks[0].getBoundingClientRect().top - rail.getBoundingClientRect().top}px`;
-    }
+    layoutRail();
     if (scrollTo === 'note' && c) c.scrollIntoView({block: 'nearest', behavior: motion()});
     if (scrollTo === 'text') (marks[0] || c) && (marks[0] || c).scrollIntoView({block: 'center', behavior: motion()});
   }
@@ -1006,11 +1142,11 @@ __REVISION_HTML__
       }}, label));
     }
     const items = new Map();
-    // Each change by its section and summary; its ID follows in parentheses.
+    // Each change by its section and summary; its ID at the foot, in small type.
     const entry = (id, why, clickable) => {
       const c = info[id] || {section: '', summary: ''};
       const el = h(clickable ? 'button' : 'div', {class: 'rev-item', type: clickable ? 'button' : null, onclick: clickable ? () => show(id) : null},
-        h('strong', null, c.section || 'Whole manuscript'), h('span', {class: 'why'}, `${c.summary || 'A change'} (${id})`), why ? h('span', {class: 'why'}, why) : null);
+        h('strong', null, c.section || 'Whole manuscript'), h('span', {class: 'why'}, c.summary || 'A change'), why ? h('span', {class: 'why'}, why) : null, h('span', {class: 'id'}, id));
       if (clickable) items.set(id, el);
       return el;
     };
@@ -1070,8 +1206,9 @@ __REVISION_HTML__
       fromEdits.map((x, i) => [i ? '; ' : '', `"${x.note}" (line ${x.line})`]), '.'));
     if (asks.length) list.prepend(group('Questions for the authors', asks.map(x => {
       const el = h(x.placed ? 'button' : 'div', {class: 'rev-item', type: x.placed ? 'button' : null, onclick: x.placed ? () => show(x.ids[0]) : null},
-        h('strong', null, x.section || 'Whole manuscript'), h('span', {class: 'question'}, `${x.question} (${x.ids.join(', ')})`),
-        !x.placed && x.passage ? h('span', {class: 'why'}, `About: "${x.passage.length > 160 ? x.passage.slice(0, 158) + '…' : x.passage}"`) : null);
+        h('strong', null, x.section || 'Whole manuscript'), h('span', {class: 'question'}, x.question),
+        !x.placed && x.passage ? h('span', {class: 'why'}, `About: "${x.passage.length > 160 ? x.passage.slice(0, 158) + '…' : x.passage}"`) : null,
+        h('span', {class: 'id'}, x.ids.join(', ')));
       return el;
     }), true));
     p.append(views, bar, h('div', {class: 'rev-layout'}, article, list));

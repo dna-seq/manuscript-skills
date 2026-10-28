@@ -160,6 +160,19 @@ def test_without_a_corrected_version_the_reviewed_text_carries_the_problems_only
     assert "(Major, fix now)" in comments and "(IC-1)" in comments and "Question for the authors" not in comments
 
 
+def test_the_reviewed_text_goes_to_word_without_its_revision_marks(tmp_path: Path) -> None:
+    run = make_run(tmp_path)
+    (run / "original.md").write_text(ORIGINAL.replace("The pipeline joins", "<!-- @rev C1 rounds=1 by=claude:2026-10-10 -->\nThe pipeline joins")
+                                     .replace("(https://example.org/code).\n", "(https://example.org/code).\n<!-- @/rev C1 -->\n"))
+    out = run / "reviewed.docx"
+    result = CliRunner().invoke(export.app, [str(run / "findings.json"), "--output", str(out)])
+    assert result.exit_code == 0, result.output
+    document, comments = parts(out)
+    text = re.sub(r"<[^>]+>", "", document)
+    assert "@rev" not in text and "rounds=" not in text and "The pipeline joins by rsID." in text
+    assert "(IC-1)" in comments  # the problem's quote still finds its passage
+
+
 def test_by_default_the_document_holds_only_what_needs_the_authors(tmp_path: Path) -> None:
     run = make_run(tmp_path)
     out = run / "decisions.docx"

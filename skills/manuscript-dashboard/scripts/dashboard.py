@@ -48,6 +48,7 @@ ASSETS = Path(__file__).resolve().parents[1] / "assets"
 TEMPLATE = ASSETS / "dashboard.html"
 DESLOP = Path(__file__).resolve().parents[2] / "manuscript-deslop"
 GUARD = Path(__file__).resolve().parents[2] / "manuscript-prose-edit" / "scripts" / "guard.py"
+REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
 app = typer.Typer(add_completion=False)
 
 
@@ -856,18 +857,102 @@ def markdown_parser() -> Any:
     return parser
 
 
-def manuscript_html(text: str, suffix: str, folders: list[Path] | None = None) -> str:
-    """The reviewed text as HTML. Raw HTML in Markdown is shown as text, so an author's comment stays visible.
+def _rev_marks() -> Any:
+    """manuscript-revision-marks' reader of the `@rev` marks."""
+    if "dashboard_rev_marks" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("dashboard_rev_marks", REV_MARKS)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["dashboard_rev_marks"] = module  # dataclasses resolve their module through sys.modules
+        spec.loader.exec_module(module)
+    return sys.modules["dashboard_rev_marks"]
+
+
+MARK_HINT = re.compile(r"<!--[ \t]*@/?rev\b|%[ \t]*@/?rev\b")
+
+
+def revision_marks(text: str, suffix: str, where: Path | None = None) -> tuple[str, dict | None]:
+    """The text without its revision marks (`<!-- @rev C3 rounds=2 by=anna:2026-09-25,claude:2026-10-10 -->`), and
+    what the marks said: each segment's rounds, who wrote or approved each round, and the lines of the clean text
+    it covers. The dashboard shows that history beside the text, never in it. `where` finds the project's
+    rev-marks.toml, which says who is a person; a name it does not list is shown without a kind."""
+    if not MARK_HINT.search(text):
+        return text, None
+    rm = _rev_marks()
+    found = rm.parse(text, rm.Syntax.TEX if suffix == ".tex" else rm.Syntax.MARKDOWN)
+    clean = found.clean_text()
+    try:
+        people = rm.load_people(where or Path.cwd())
+    except rm.ConfigError:
+        people = rm.People(agents=rm.agent_list())
+
+    def moved(offset: int) -> int:  # an offset of the marked text, in the clean one
+        shift = 0
+        for start, end in found.removals:
+            if start >= offset:
+                break
+            shift += min(end, offset) - start
+        return offset - shift
+
+    segments = []
+    for segment in found.segments:
+        start, end = moved(segment.open.end), moved(segment.close.start)
+        body = clean[start:end]
+        if not body.strip():
+            continue
+        start += len(body) - len(body.lstrip())
+        end = start + len(body.strip())
+        kinds = {e.name: people.known(e.name) for e in segment.attributes.by}
+        segments.append({"id": segment.id, "rounds": segment.rounds, "depth": segment.depth,
+                         "lines": [clean.count("\n", 0, start), clean.count("\n", 0, end - 1)],
+                         "by": [{"name": e.name, "date": e.on.isoformat(), "kind": kinds[e.name].value if kinds[e.name] else ""}
+                                for e in segment.attributes.by]})
+    return clean, {"segments": segments, "people_listed": people.config is not None}
+
+
+def _tag_blocks(tokens: list, segments: list[dict]) -> None:
+    """Give each paragraph, heading, list item and table the ids of the revised segments it holds (`data-rev`).
+    A tight list's paragraphs are not printed, so their list item carries the ids, for the item's own lines."""
+    def ids(lines: list[int]) -> str:
+        return " ".join(s["id"] for s in segments if s["lines"][0] < lines[1] and s["lines"][1] >= lines[0])
+
+    for i, token in enumerate(tokens):
+        if token.nesting != 1 or not token.map:
+            continue
+        lines = token.map
+        if token.type == "list_item_open":
+            inner = tokens[i + 1] if i + 1 < len(tokens) else None
+            if not (inner and inner.type == "paragraph_open" and inner.hidden and inner.map):
+                continue
+            lines = inner.map
+        elif token.type not in {"paragraph_open", "heading_open", "table_open"} or token.hidden:
+            continue
+        if found := ids(lines):
+            token.attrSet("data-rev", found)
+
+
+def manuscript_html(text: str, suffix: str, folders: list[Path] | None = None, revisions: dict | None = None) -> str:
+    """The reviewed text as HTML. Raw HTML in Markdown is shown as text, so an author's comment stays visible;
+    revision marks are taken off first (`revision_marks`), and each block of a revised segment carries its ids.
     Local images are embedded from the first of `folders` that holds them."""
+    segments = (revisions or {}).get("segments") or []
     if suffix in {".md", ".markdown", ".txt"}:
-        rendered = markdown_parser().render(text)
-        return embed_images(rendered, folders or [])
-    parts = []
+        parser = markdown_parser()
+        tokens = parser.parse(text)
+        _tag_blocks(tokens, segments)
+        return embed_images(parser.renderer.render(tokens, parser.options, {}), folders or [])
+    parts, at = [], 0
     for block in re.split(r"\n\s*\n", text):
+        at = text.find(block, at)
+        first = text.count("\n", 0, at + len(block) - len(block.lstrip()))
+        lines = [first, first + block.strip().count("\n") + 1]
+        at += len(block)
+        revised = " ".join(s["id"] for s in segments if s["lines"][0] < lines[1] and s["lines"][1] >= lines[0])
+        tag = f' data-rev="{html.escape(revised)}"' if revised else ""
         if heading := re.match(r"\\(?:sub)*section\*?\{(.+?)\}", block.strip()):
-            parts.append(f"<h2>{html.escape(heading.group(1))}</h2>")
+            parts.append(f"<h2{tag}>{html.escape(heading.group(1))}</h2>")
         elif block.strip():
-            parts.append(f"<p>{html.escape(block.strip())}</p>")
+            parts.append(f"<p{tag}>{html.escape(block.strip())}</p>")
     return "\n".join(parts)
 
 
@@ -1012,16 +1097,17 @@ def dashboard_html(data: Inventory, summary: dict, base: Path | None = None, rev
             if item[key]:
                 item[f"{key}_data"], item[f"{key}_note"] = image_data(base, item[key]) if base is not None else ("", "")
                 item[key] = Path(item[key]).name
-    paper = ""
+    paper, revisions = "", None
     if base is not None and data.manuscript and data.manuscript.path:
         path = (base / data.manuscript.path).resolve()
-        paper = manuscript_html(path.read_text(encoding="utf-8"), path.suffix.lower(), image_folders(base, path))
+        text, revisions = revision_marks(path.read_text(encoding="utf-8"), path.suffix.lower(), path)
+        paper = manuscript_html(text, path.suffix.lower(), image_folders(base, path), revisions)
     if payload["manuscript"]:
         payload["manuscript"].pop("path", None)
     hashes = [{"file": Path(path).name, "sha256": value} for path, value in summary.get("evidence_sha256", {}).items()]
     corrected = {key: value for key, value in revision.items() if key not in {"body_html", "pieces"}} if revision else None
     document = {"inventory": payload, "summary": {**summary, "evidence_sha256": hashes}, "has_paper": bool(paper),
-                "revision": corrected, "writing": writing, "claims": claims, "recheck": recheck,
+                "revision_marks": revisions, "revision": corrected, "writing": writing, "claims": claims, "recheck": recheck,
                 "decisions": decision_list(data),
                 "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     template = TEMPLATE.read_text(encoding="utf-8")

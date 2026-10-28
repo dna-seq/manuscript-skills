@@ -355,7 +355,9 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
         document.pieces = pieces
         markdown, edits = revise.marked(document)
     elif data.manuscript and data.manuscript.path:
-        markdown, edits = (base / data.manuscript.path).read_text(encoding="utf-8"), []
+        # The reviewed text without its revision marks: the Word file is for reading, not the project's history.
+        reviewed = (base / data.manuscript.path).resolve()
+        markdown, edits = viz.revision_marks(reviewed.read_text(encoding="utf-8"), reviewed.suffix.lower(), reviewed)[0], []
     else:
         raise ValueError("The inventory names no reviewed text and no corrected version was given.")
     path = base / data.manuscript.path if data.manuscript and data.manuscript.path else base

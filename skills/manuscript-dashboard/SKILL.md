@@ -174,8 +174,11 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   retracted, points to another work, a detail to correct, no identifier, could not be checked, or fine), the funnel from
   raw signals to confirmed problems and the machine-writing patterns by type in each version of the text; the problems, cross-filtered by kind, severity, stage and
   skill, and AI-related or not, with a heat grid of where they sit and a sortable, searchable table with
-  every passage and evidence excerpt; the manuscript with every quoted problem highlighted by severity and the skills'
-  comments beside it; the corrected version as track changes, with what was held back or could not be
+  every passage and evidence excerpt; the manuscript with every quoted problem highlighted by severity and its
+  comment beside it (short until selected, so each stays beside its passage; nothing is added to the text), and,
+  for a manuscript with [revision marks](../manuscript-revision-marks/SKILL.md), the marks' history in the same
+  margin instead of in the text: each revised passage's rounds, who wrote or approved them and when, and whether a
+  person has read it since the last AI round; the corrected version as track changes, with what was held back or could not be
   placed, and the questions for the authors as comments beside the passages (marked in yellow, hidden with
     one click; none is in the text), with how the claims moved: each claim the run changed placed on the causal
   and the evidential ladder, before and after, marked as moved toward the evidence, stronger as a finding
