@@ -229,8 +229,9 @@ paper/
 ## Watching a run in Claude Code
 
 In Claude Code 2.1.299 or newer, the plugin shows where a run stands while it works: a status line, a
-**Manuscript run** pane with each phase's progress, counts, the referees' recommendations, how many
-decisions are held for you, the run's settings and buttons that open its outputs, a **Decisions** pane, a band
+**Manuscript Skills · run** pane with each phase's progress, counts, the referees' recommendations, how many
+decisions are held for you, the run's settings and buttons that open its outputs, a **Manuscript Skills ·
+decisions** pane (the Decisions pane below), a band
 above the prompt when the run waits for your answer or decisions wait for you, and a short notice as each
 stage finishes. The band's **Open decisions** opens the Decisions pane: every decision with its whole
 summary, each a row you click to open it: where it is, why, what it suggests, and buttons to answer it.

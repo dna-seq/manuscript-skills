@@ -135,7 +135,7 @@ const PANE = {
   component: 'Pane',
   requestId: 'manuscript-run',
   props: {
-    title: 'Manuscript run',
+    title: 'Manuscript Skills · run',
     isFocused: false,
     bodyColumns: 60,
     placement: 'dock',
@@ -143,7 +143,7 @@ const PANE = {
     view: {},
   },
 } as const
-const DECISIONS = { ...PANE, requestId: 'manuscript-decisions', props: { ...PANE.props, title: 'Decisions' } } as const
+const DECISIONS = { ...PANE, requestId: 'manuscript-decisions', props: { ...PANE.props, title: 'Manuscript Skills · decisions' } } as const
 const BAND = {
   plugin: 'manuscript-skills',
   component: 'AbovePrompt',
@@ -255,7 +255,7 @@ test('a finished run with decisions raises the band, which opens them', async ($
     await band.press({ key: 'open-decisions' })
     await band.unmount()
     // the decisions open in a pane of their own, named for the manuscript, not in the progress pane
-    expect(opened.at(-1)).toEqual({ id: 'manuscript-decisions', title: 'Decisions: Paper 1 just-dna-lite v0.6', focus: true })
+    expect(opened.at(-1)).toEqual({ id: 'manuscript-decisions', title: 'Manuscript Skills · decisions: Paper 1 just-dna-lite v0.6', focus: true })
   }
 
   // the progress pane counts them and opens the same pane

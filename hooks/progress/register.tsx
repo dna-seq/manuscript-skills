@@ -1,4 +1,4 @@
-// A manuscript-skills run, watched read-only: a status line, a "Manuscript run" pane, a "Decisions" pane and a
+// A manuscript-skills run, watched read-only: a status line, a "Manuscript Skills · run" pane, a decisions pane and a
 // band when the authors have decisions to make, toasts as stages finish and /manuscript-status. Reads run.json
 // and the stages' own report files; writes nothing in the run folder. The authors' answers go to Claude as a
 // message of theirs, which the session acts on; go ahead and leave as is on a decision are also marked in
@@ -36,7 +36,9 @@ import {
 import type { AssemblyFiles, FindingsSummary, MarksFile, RunJson } from './model'
 
 const PANE = 'manuscript-run'
-const TITLE = 'Manuscript run'
+// Every pane and notification names the plugin, so none of them reads as a plugin of its own.
+const NAME = 'Manuscript Skills'
+const TITLE = `${NAME} · run`
 const DECISIONS = 'manuscript-decisions'
 const REFRESH_MS = 15_000
 const RUN_ID = /\d{8}T\d{6}Z-[0-9a-f]{8}/
@@ -321,7 +323,7 @@ async function setAnswer(
 }
 
 async function notify($: $, text: string): Promise<void> {
-  const sent = await $.ui.notify(text, { title: TITLE }).catch(() => null)
+  const sent = await $.ui.notify(text, { title: NAME }).catch(() => null)
   if (!sent?.isSent) $.ui.toast(text, { timeoutMs: 10_000 })
 }
 
@@ -486,7 +488,7 @@ const day = (iso: string) => {
 
 // The Decisions pane, titled with the manuscript so a session watching another paper's run says which.
 async function openDecisions($: $, v: ManuscriptRunView): Promise<void> {
-  await $.ui.open({ id: DECISIONS, title: `Decisions: ${v.label}`, focus: true })
+  await $.ui.open({ id: DECISIONS, title: `${NAME} · decisions: ${v.label}`, focus: true })
 }
 
 // One message with every answer not sent yet, as the person's own: it runs once the session is idle. Marked sent
@@ -546,14 +548,14 @@ export const register: Register = on => {
     const started = await next(e)
     await $.command.register({
       name: 'manuscript-status',
-      description: 'Show a manuscript-skills run in the Manuscript run pane (newest run, or a path you give)',
+      description: 'Show a manuscript-skills run in its progress pane (newest run, or a path you give)',
       argumentHint: '[run folder | project folder | forget]',
       immediate: true,
     })
     await $.tool.register({
       name: 'show_run',
       description:
-        "Show a manuscript-skills run's progress to the person in the Manuscript run pane and answer with its state: " +
+        "Show a manuscript-skills run's progress to the person in the plugin's progress pane and answer with its state: " +
         'stages, counts, decisions. Give the run folder, or a manuscript project folder for its newest run.',
       inputSchema: {
         type: 'object',
