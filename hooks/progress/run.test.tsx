@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { buildView, statusLine } from './model'
+import { buildView, manuscriptTitle, runLabel, statusLine } from './model'
 import type { RunJson } from './model'
 
 const PROJECT = '/work/paper/v0.6'
@@ -84,7 +84,7 @@ test('the status line reads like the run', () => {
     now: Date.parse(at(50)),
   })
 
-  expect(statusLine(view)).toBe('Paper 1 v0.6 · 3 of 13 stages · prose edit running · 4 edits applied · 1 held')
+  expect(statusLine(view)).toBe('Paper 1 just-dna-lite v0.6 · 3 of 13 stages · prose edit running · 4 edits applied · 1 held')
   expect(view.phases.map(phase => `${phase.label} ${phase.done}/${phase.total}`)).toEqual([
     'Review 2/2',
     'Editing 1/5',
@@ -142,6 +142,12 @@ const PANE = {
     view: {},
   },
 } as const
+const DECISIONS = { ...PANE, requestId: 'manuscript-decisions', props: { ...PANE.props, title: 'Decisions' } } as const
+const BAND = {
+  plugin: 'manuscript-skills',
+  component: 'AbovePrompt',
+  props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
+} as const
 
 test('the pane shows the live run on the terminal and the desktop, and a finished stage toasts', async ($, on) => {
   const version = { n: 1 }
@@ -166,7 +172,7 @@ test('the pane shows the live run on the terminal and the desktop, and a finishe
   on('session.start', (_, e) => ({ cwd: e.cwd }))
 
   await $.session.start({ cwd: PROJECT, surface: 'desktop', isInteractive: true })
-  expect(statuses.at(-1)).toBe('Paper 1 v0.6 · 3 of 13 stages · prose edit running · 4 edits applied · 1 held')
+  expect(statuses.at(-1)).toBe('Paper 1 just-dna-lite v0.6 · 3 of 13 stages · prose edit running · 4 edits applied · 1 held')
 
   const answer = await $.command.run({ ...TYPED, args: RUN })
   expect(answer.text).toContain('Editing 1/5')
@@ -215,7 +221,7 @@ test('the pane opens by itself only for the run this session works on', async ($
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
   await $.session.start({ cwd: PROJECT, surface: 'desktop', isInteractive: true })
-  expect(statuses.at(-1)).toContain('Paper 1 v0.6 ·')
+  expect(statuses.at(-1)).toContain('Paper 1 just-dna-lite v0.6 ·')
   expect(opened).toEqual([])
 
   const command = `uv run skills/manuscript-integrity-check/scripts/runs.py add ${RUN} --skill manuscript-prose-edit`
@@ -231,7 +237,7 @@ test('a finished run with decisions raises the band, which opens them', async ($
     [`${RUN}/run.json`, JSON.stringify(runJson('completed', 'completed'))],
     [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify(FINDINGS)],
   ])
-  const opened: { focus?: boolean }[] = []
+  const opened: { id: string; title?: string; focus?: boolean }[] = []
   folder(on, files, { n: 1 })
   mock.clock(on, { now: Date.parse(at(59)) })
   mock.store(on)
@@ -243,17 +249,19 @@ test('a finished run with decisions raises the band, which opens them', async ($
 
   await $.command.run({ ...TYPED, args: RUN })
   for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({
-      plugin: 'manuscript-skills',
-      surface,
-      component: 'AbovePrompt',
-      props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
-    })
-    expect((await band.find({ type: 'Text', text: /decisions wait for you/ }))?.text).toBe('Paper 1 v0.6: 1 decisions wait for you')
+    const band = await $.ui.mount({ ...BAND, surface })
+    expect((await band.find({ type: 'Text', text: /waits for you/ }))?.text).toBe('Paper 1 just-dna-lite v0.6: 1 decision waits for you')
     await band.press({ key: 'open-decisions' })
     await band.unmount()
+    // the decisions open in a pane of their own, named for the manuscript, not in the progress pane
+    expect(opened.at(-1)).toEqual({ id: 'manuscript-decisions', title: 'Decisions: Paper 1 just-dna-lite v0.6', focus: true })
   }
-  expect(opened.at(-1)?.focus).toBe(true)
+
+  // the progress pane counts them and opens the same pane
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await pane.find({ type: 'Text', text: /Decisions for you/ }))?.text).toBe('Decisions for you: 1 of 1 open')
+  await pane.press({ key: 'open-decisions' })
+  expect(opened.at(-1)?.id).toBe('manuscript-decisions')
 })
 
 test('progress records give exact times, the coordinator stages, the plan and the counts', () => {
@@ -314,7 +322,7 @@ test('progress records give exact times, the coordinator stages, the plan and th
     held: 3,
   })
   expect(stage('corrected')).toMatchObject({ state: 'running', elapsedMs: 5 * 60_000, isElapsedApprox: false })
-  expect(statusLine(view)).toBe('Paper 1 v0.6 · 4 of 11 stages · corrected version running · 4 edits applied · 3 held')
+  expect(statusLine(view)).toBe('Paper 1 just-dna-lite v0.6 · 4 of 11 stages · corrected version running · 4 edits applied · 3 held')
 })
 
 test('a run that stops for an answer says so, apart from the decisions held for the end', async ($, on) => {
@@ -343,36 +351,60 @@ test('a run that stops for an answer says so, apart from the decisions held for 
   await $.command.run({ ...TYPED, args: RUN })
 
   expect(statuses.at(-1)).toBe(
-    'Paper 1 v0.6 · 3 of 13 stages · waits for your answer (1 question) · 4 edits applied · 1 held',
+    'Paper 1 just-dna-lite v0.6 · 3 of 13 stages · waits for your answer (1 question) · 4 edits applied · 1 held',
   )
-  expect(notices).toContain('Paper 1 v0.6 waits for your answer: Which journal should the paper go to first?')
+  expect(notices).toContain('Paper 1 just-dna-lite v0.6 waits for your answer: Which journal should the paper go to first?')
   for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({
-      plugin: 'manuscript-skills',
-      surface,
-      component: 'AbovePrompt',
-      props: { hasSurvey: false, isWorking: true, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
-    })
+    const band = await $.ui.mount({ ...BAND, surface, props: { ...BAND.props, isWorking: true } })
     expect((await band.find({ type: 'Text', text: /waits for your answer/ }))?.text).toBe(
-      'Paper 1 v0.6 waits for your answer: Which journal should the paper go to first?',
+      'Paper 1 just-dna-lite v0.6 waits for your answer: Which journal should the paper go to first?',
     )
     expect((await band.find({ type: 'Button', key: 'open-decisions' }))?.text).toBe('Open questions')
     await band.unmount()
 
     const pane = await $.ui.mount({ ...PANE, surface })
     expect(await pane.find({ type: 'Text', text: /The run waits for your answer/ })).toBeDefined()
-    // the list starts open while the run waits for the authors
-    expect((await pane.find({ type: 'Text', text: /Held for the authors/ }))?.text).toBe('▾ Held for the authors (1)')
-    expect(await pane.find({ type: 'Button', key: 'decision-20261027T125139Z-488af17b:Integrity check:IC-2' })).toBeDefined()
+    expect((await pane.find({ type: 'Text', text: /Held for the authors/ }))?.text).toBe('Held for the authors: 1 of 1 open')
     await pane.unmount()
+
+    // the Decisions pane leads with the question, which the person answers in the prompt box
+    const decisions = await $.ui.mount({ ...DECISIONS, surface })
+    expect(await decisions.find({ type: 'Text', text: '· Which journal should the paper go to first?' })).toBeDefined()
+    expect(await decisions.find({ type: 'Button', key: 'answer-question-0' })).toBeDefined()
+    expect(await decisions.find({ type: 'Button', key: 'decision-20261027T125139Z-488af17b:Integrity check:IC-2' })).toBeDefined()
+    await decisions.unmount()
   }
 })
 
-test('the held decisions fold under their header and each unfolds to read whole', async ($, on) => {
+
+test('the label names the manuscript, and the title comes from its text', () => {
+  const named = (original: string, root = '') =>
+    runLabel({ run_id: 'r', started_at: at(0), skills: {}, inputs: [{ original, snapshot: 'x' }], context: { project_root: root } })
+  // two papers of one person: each named apart, never "manuscript"
+  const creator = '/home/author/just-module-creator/docs/manuscript'
+  expect(named(`${creator}/manuscript.tex`, creator)).toBe('just-module-creator')
+  const lite = '/home/author/just-dna-lite/docs/manuscript/v0.6'
+  expect(named(`${lite}/paper1-just-dna-lite.md`, lite)).toBe('Paper 1 just-dna-lite v0.6')
+  expect(named('/home/author/thesis/paper2.md')).toBe('thesis Paper 2')
+  expect(named('/home/author/drafts/sirt6-aging.md')).toBe('sirt6-aging')
+
+  const easrp = '\\easrpauthor{Anonymous}\n\\easrptitle{Creating and Sharing Genomic Annotation Modules with AI: The\nJust-DNA Ecosystem}\n\\maketitle'
+  expect(manuscriptTitle(easrp, 'inputs/01-manuscript.tex')).toBe(
+    'Creating and Sharing Genomic Annotation Modules with AI: The Just-DNA Ecosystem',
+  )
+  expect(manuscriptTitle('\\shorttitle{Short}\n\\title[Short]{A \\emph{real} title}', 'm.tex')).toBe('A real title')
+  expect(manuscriptTitle('# **Just-DNA-Lite: a Local-First Platform**\n\n> Draft v0.6', 'inputs/01-paper1.md')).toBe(
+    'Just-DNA-Lite: a Local-First Platform',
+  )
+  expect(manuscriptTitle('---\ntitle: "From the front matter"\n---\n# Introduction', 'paper.md')).toBe('From the front matter')
+  expect(manuscriptTitle('No heading at all.', 'paper.md')).toBeNull()
+})
+
+test('the Decisions pane shows each decision whole and sends the answers to Claude in one message', async ($, on) => {
   // 22 decisions, as the just-module-creator run of 2026-10-26 holds, each summary wider than the pane
   const held = Array.from({ length: 22 }, (_, n) => ({
     id: `IC-${n + 1}`,
-    summary: `Decision ${n + 1} about a claim whose wording only the authors can settle, long enough to be cut`,
+    summary: `Decision ${n + 1} about a claim whose wording only the authors can settle, longer than the pane is wide`,
     decision: true,
   }))
   const whole = {
@@ -382,50 +414,79 @@ test('the held decisions fold under their header and each unfolds to read whole'
     action: 'State what the registry records about these four modules.',
   }
   const files = new Map<string, string>([
-    [`${RUN}/run.json`, JSON.stringify(runJson())],
+    [`${RUN}/run.json`, JSON.stringify(runJson('completed', 'completed'))],
+    [`${RUN}/inputs/01-paper1-just-dna-lite.md`, '# **Just-DNA-Lite: a Local-First Platform**\n\nText.'],
     [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify({ findings: [...held.slice(0, 20), whole, held[21]] })],
   ])
+  const submitted: { text: string; origin?: { kind: string; asUser?: true } }[] = []
+  const filled: string[] = []
   folder(on, files, { n: 1 })
-  mock.clock(on, { now: Date.parse(at(50)) })
+  mock.clock(on, { now: Date.parse(at(59)) })
   mock.store(on)
   mock.env(on, { HOME: '/home/author' })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  on('prompt.submit', (_, e) => (submitted.push(e), { text: e.text }))
+  on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
+  on('prompt.fill', (_, e) => (filled.push(e.text), { isFilled: true }))
   await $.command.run({ ...TYPED, args: RUN })
 
+  const key = (id: string) => `20261027T125139Z-488af17b:Integrity check:${id}`
   const rows = async (ui: { findAll: (query: { type: string }) => Promise<{ key: string | undefined }[]> }) =>
     (await ui.findAll({ type: 'Button' })).filter(one => one.key?.startsWith('decision-'))
-  const row = `decision-20261027T125139Z-488af17b:Integrity check:IC-21`
   for (const surface of ['terminal', 'desktop'] as const) {
-    let pane = await $.ui.mount({ ...PANE, surface })
-    // folded while the run goes on: the header alone, with the count
-    expect((await pane.find({ type: 'Text', text: /Held for the authors/ }))?.text).toBe('▸ Held for the authors (22)')
-    expect(await rows(pane)).toHaveLength(0)
-
-    await pane.press({ key: 'decisions-fold' })
+    const pane = await $.ui.mount({ ...DECISIONS, surface })
+    expect(await pane.find({ type: 'Text', text: 'Paper 1 just-dna-lite v0.6' })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: 'Just-DNA-Lite: a Local-First Platform' })).toBeDefined()
+    expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('22 of 22 decisions wait for you')
+    // every decision listed, its summary whole and wrapped, never cut
     expect(await rows(pane)).toHaveLength(22)
-    const cutRow = (await pane.find({ key: row }))?.text ?? ''
-    expect(cutRow).toEndWith('…')
-    expect(cutRow.length).toBeLessThanOrEqual(PANE.props.bodyColumns)
-    expect(await pane.find({ type: 'Text', text: /^Four modules hold/ })).toBeUndefined()
-
-    await pane.press({ key: row })
-    expect((await pane.find({ type: 'Text', text: whole.summary }))?.props.wrap).toBe('wrap')
-    expect(await pane.find({ type: 'Text', text: /Integrity check · 4\.2 Production catalog/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeDefined()
-
-    // the fold is kept in $.state, so a redraw from scratch shows it as the person left it
-    await pane.unmount()
-    pane = await $.ui.mount({ ...PANE, surface })
-    expect(await rows(pane)).toHaveLength(22)
-    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
-
-    await pane.press({ key: row })
-    expect(await pane.find({ type: 'Text', text: whole.detail })).toBeUndefined()
-    await pane.press({ key: 'decisions-fold' })
-    expect(await rows(pane)).toHaveLength(0)
+    expect((await pane.find({ type: 'Text', text: /^IC-22 Decision 22 / }))?.text).toBe(`IC-22 ${held[21]!.summary}`)
+    expect((await pane.find({ type: 'Text', text: /^IC-22 / }))?.props.wrap).toBe('wrap')
+    expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-21')}` })).toBeUndefined()
     await pane.unmount()
   }
+
+  const pane = await $.ui.mount({ ...DECISIONS, surface: 'desktop' })
+  // unfolded, a decision says where, why and what it suggests, with its answers
+  await pane.press({ key: `decision-${key('IC-21')}` })
+  expect(await pane.find({ type: 'Text', text: 'Integrity check · 4.2 Production catalog (Table 4)' })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeDefined()
+  await pane.press({ key: `go-ahead-${key('IC-21')}` })
+  // one with nothing suggested can be left or answered, not gone ahead with
+  await pane.press({ key: `decision-${key('IC-1')}` })
+  expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-1')}` })).toBeUndefined()
+  await pane.press({ key: `leave-${key('IC-1')}` })
+  expect((await pane.find({ type: 'Text', text: /^IC-21 / }))?.text).toEndWith('· go ahead')
+  expect((await pane.find({ type: 'Button', key: 'send-answers' }))?.text).toBe('Send 2 answers to Claude')
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect((await band.find({ type: 'Text', text: /wait for you/ }))?.text).toBe(
+    'Paper 1 just-dna-lite v0.6: 20 decisions wait for you · 2 answers not sent yet',
+  )
+  await band.unmount()
+
+  await pane.press({ key: 'send-answers' })
+  for (let n = 0; n < 50 && submitted.length === 0; n += 1) await Promise.resolve()
+  expect(submitted).toHaveLength(1)
+  // the person pressed it: their own words, not the plugin's
+  expect(submitted[0]!.origin).toEqual({ kind: 'plugin', name: 'manuscript-skills', asUser: true })
+  expect(submitted[0]!.text).toContain(`run folder ${RUN}`)
+  expect(submitted[0]!.text).toContain(`Go ahead:\n- IC-21 (4.2 Production catalog (Table 4)): ${whole.summary} Suggested: ${whole.action}`)
+  expect(submitted[0]!.text).toContain(`Leave as it is:\n- IC-1: ${held[0]!.summary}`)
+  expect(await pane.find({ type: 'Button', key: 'send-answers' })).toBeUndefined()
+  expect((await pane.find({ type: 'Text', text: /^IC-21 / }))?.text).toEndWith('· go ahead, sent')
+
+  // an answer in the person's own words goes through the prompt box
+  await pane.press({ key: `decision-${key('IC-2')}` })
+  await pane.press({ key: `write-${key('IC-2')}` })
+  expect(filled).toEqual([
+    `On decision IC-2 of the Paper 1 just-dna-lite v0.6 manuscript run (${RUN}), "${held[1]!.summary}": `,
+  ])
+  expect((await pane.find({ type: 'Text', text: /^IC-2 / }))?.text).toEndWith('· answered in the chat')
+  expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('19 of 22 decisions wait for you')
+  await pane.unmount()
 })

@@ -1,16 +1,21 @@
-// A manuscript-skills run, watched read-only: a status line, a "Manuscript run" pane, a band when the authors
-// have decisions to make, toasts as stages finish and /manuscript-status. Reads run.json and the stages' own
-// report files; writes nothing in the run folder.
+// A manuscript-skills run, watched read-only: a status line, a "Manuscript run" pane, a "Decisions" pane and a
+// band when the authors have decisions to make, toasts as stages finish and /manuscript-status. Reads run.json
+// and the stages' own report files; writes nothing in the run folder. The authors' answers go to Claude as a
+// message of theirs, which the session acts on.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { ManuscriptDecision, ManuscriptReferees, ManuscriptRunView, ManuscriptStage } from '../../types'
+import type { ManuscriptAnswer, ManuscriptReferees, ManuscriptRunView, ManuscriptStage } from '../../types'
 import {
+  answerDraft,
+  answersMessage,
   buildView,
   counts,
+  decisionKeys,
   duration,
   FINISHED,
+  manuscriptTitle,
   refereeGrid,
   statusLine,
   summarizeFindings,
@@ -19,6 +24,7 @@ import type { AssemblyFiles, FindingsSummary, RunJson } from './model'
 
 const PANE = 'manuscript-run'
 const TITLE = 'Manuscript run'
+const DECISIONS = 'manuscript-decisions'
 const REFRESH_MS = 15_000
 const RUN_ID = /\d{8}T\d{6}Z-[0-9a-f]{8}/
 const PROJECT_FILE = '.manuscript-skills.yaml'
@@ -27,10 +33,9 @@ const NO_FINDINGS = new Set(['manuscript-improve', 'manuscript-other-models', 'm
 
 const view = atom({ plugin: 'manuscript-skills', key: 'view' } as const, null)
 const problem = atom({ plugin: 'manuscript-skills', key: 'problem' } as const, null)
-const isDecisionsFirst = atom({ plugin: 'manuscript-skills', key: 'isDecisionsFirst' } as const, false)
 const hiddenBand = atom({ plugin: 'manuscript-skills', key: 'hiddenBand' } as const, null)
-const decisionsFold = atom({ plugin: 'manuscript-skills', key: 'decisionsFold' } as const, null)
 const unfoldedDecisions = atom({ plugin: 'manuscript-skills', key: 'unfoldedDecisions' } as const, [])
+const answers = atom({ plugin: 'manuscript-skills', key: 'answers' } as const, {})
 
 type $ = EngineInterface
 
@@ -101,6 +106,8 @@ let data: RunJson | null = null
 let findings: Record<string, FindingsSummary> = {}
 let referees: ManuscriptReferees | null = null
 let refereesFrom = ''
+let title: string | null = null
+let titleFrom = ''
 let files: AssemblyFiles = { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] }
 let filesStamp = ''
 let refreshing: Promise<void> | null = null
@@ -117,7 +124,18 @@ async function choose($: $, run: string): Promise<void> {
   findings = {}
   referees = null
   refereesFrom = ''
+  title = null
+  titleFrom = ''
   await $.store.set('runPath', run)
+}
+
+// The manuscript's title, from the run's snapshot of its first input; read once per snapshot.
+async function readTitle($: $, run: string, json: RunJson): Promise<void> {
+  const snapshot = json.inputs?.[0]?.snapshot
+  if (!snapshot || snapshot === titleFrom) return
+  titleFrom = snapshot
+  const text = await $.fs.read(join(run, snapshot)).catch(() => '')
+  title = manuscriptTitle(text, snapshot)
 }
 
 // A stage's newest findings*.json: findings.json, then findings.2.json and on, as runs.py numbers attempts.
@@ -247,13 +265,14 @@ async function refresh($: $, isForced = false): Promise<void> {
       data = json
       findings = await readFindings($, run, json)
       await readReferees($, run, json)
+      await readTitle($, run, json)
     }
     await readFiles($, run)
-    const next = buildView({ runPath: run, data, findings, files, referees, now: await $.clock.now() })
+    const next = buildView({ runPath: run, data, findings, files, referees, title, now: await $.clock.now() })
     const before = await read($, view)
     await update($, view, () => next)
     await update($, problem, () => null)
-    $.ui.status(statusLine(next))
+    $.ui.status(statusLine(next, tally(next, await read($, answers)).open))
     await announce($, before, next)
   })().finally(() => {
     refreshing = null
@@ -301,7 +320,7 @@ async function show($: $, given: string): Promise<string> {
 }
 
 function summary(v: ManuscriptRunView): string {
-  const lines = [statusLine(v), `Run: ${v.runPath}`]
+  const lines = [statusLine(v), ...(v.title ? [`Manuscript: ${v.title}`] : []), `Run: ${v.runPath}`]
   for (const phase of v.phases) {
     const own = v.stages.filter(stage => stage.phase === phase.id)
     const parts = own.map(stage => `${stage.label} ${stage.state}${counts(stage) ? ` (${counts(stage)})` : ''}`)
@@ -342,15 +361,55 @@ const bar = (done: number, total: number, width: number) => {
 const clip = (text: string, width: number) => (text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`)
 const cut = (text: string, width: number) => clip(text, width).padEnd(width)
 
-// Each decision's address in the list, the same across refreshes: its stage and id, made unique where two share them.
-function decisionKeys(runId: string, list: ManuscriptDecision[]): string[] {
-  const seen = new Set<string>()
-  return list.map((one, n) => {
-    let key = `${runId}:${one.stage}:${one.id || n}`
-    if (seen.has(key)) key = `${key}#${n}`
-    seen.add(key)
-    return key
-  })
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+// The run's decisions still without an answer, and the answers given but not yet sent to Claude.
+function tally(v: ManuscriptRunView, given: Record<string, ManuscriptAnswer>) {
+  const keys = decisionKeys(v.runId, v.decisions)
+  return {
+    keys,
+    open: keys.filter(key => !given[key]).length,
+    unsent: keys.filter(key => given[key] && !given[key]!.isSent).length,
+  }
+}
+
+// The Decisions pane, titled with the manuscript so a session watching another paper's run says which.
+async function openDecisions($: $, v: ManuscriptRunView): Promise<void> {
+  await $.ui.open({ id: DECISIONS, title: `Decisions: ${v.label}`, focus: true })
+}
+
+// One message with every answer not sent yet, as the person's own: it runs once the session is idle. Marked sent
+// at once, so a second press cannot send them twice; put back if the prompt does not enter.
+async function sendAnswers($: $, v: ManuscriptRunView): Promise<void> {
+  const given = await read($, answers)
+  const text = answersMessage(v, given)
+  const keys = new Set(decisionKeys(v.runId, v.decisions).filter(key => given[key] && !given[key]!.isSent))
+  if (keys.size === 0) return
+  const mark = (isSent: boolean) =>
+    update($, answers, all => Object.fromEntries(Object.entries(all).map(([key, one]) => [key, keys.has(key) ? { ...one, isSent } : one])))
+  await mark(true)
+  void $.prompt.submit({ text, asUser: true }).then(
+    async result => {
+      if (result.drop === undefined) return
+      await mark(false)
+      $.ui.toast(`The answers were not sent: ${result.drop}`)
+    },
+    async () => {
+      await mark(false)
+      $.ui.toast('The answers could not be sent; they are kept in the Decisions pane.')
+    },
+  )
+}
+
+// "Write answer": the decision, named, in the prompt box, after whatever the person had typed.
+async function writeAnswer($: $, draft: string): Promise<boolean> {
+  const box = await $.prompt.read()
+  const filled = await $.prompt
+    .fill({ text: box.text.trim() ? `\n${draft}` : draft, mode: box.text.trim() ? 'append' : 'replace' })
+    .catch(() => null)
+  if (!filled?.isFilled) $.ui.toast('The prompt box could not take the answer; type it there yourself.')
+
+  return Boolean(filled?.isFilled)
 }
 
 export const register: Register = on => {
@@ -420,30 +479,31 @@ export const register: Register = on => {
     return ran
   }).catch(($, e, next) => next(e))
 
+  // The band names the manuscript, counts what still waits and opens the Decisions pane, where the answers are.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const v = await read($, view)
     if (e.props.hasSurvey || !v?.isWaiting) return next(e)
     const asked = v.waitingFor?.questions ?? []
-    const signature = `${v.runId}:${asked.join('|')}:${v.decisions.length}`
+    const { open, unsent } = tally(v, await read($, answers))
+    if (!v.waitingFor && open === 0 && unsent === 0) return next(e)
+    const signature = `${v.runId}:${asked.join('|')}:${open}:${unsent}`
     if ((await read($, hiddenBand)) === signature) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
+    const waits = open > 0 ? `${plural(open, 'decision')} wait${open === 1 ? 's' : ''} for you` : ''
+    const held = unsent > 0 ? `${plural(unsent, 'answer')} not sent yet` : ''
 
     return (
       <Box flexDirection="row" gap={1}>
         <Text color="warning">
           {v.waitingFor
             ? `${v.label} waits for your answer: ${asked[0] ?? ''}${asked.length > 1 ? ` (+${asked.length - 1} more)` : ''}`
-            : `${v.label}: ${v.decisions.length} decisions wait for you`}
+            : `${v.label}: ${[waits, held].filter(Boolean).join(' · ')}`}
         </Text>
         <Button
           key="open-decisions"
           label={v.waitingFor ? 'Open questions' : 'Open decisions'}
           variant="primary"
-          onPress={async () => {
-            await update($, isDecisionsFirst, () => true)
-            await update($, decisionsFold, () => ({ runId: v.runId, isOpen: true }))
-            await $.ui.open({ id: PANE, title: TITLE, focus: true })
-          }}
+          onPress={() => openDecisions($, v)}
         />
         <Button key="hide-band" label="Hide" onPress={() => update($, hiddenBand, () => signature)} />
       </Box>
@@ -464,14 +524,13 @@ export const register: Register = on => {
     }
     const width = Math.max(30, e.props.bodyColumns)
     const now = Date.now()
-    // the decisions held for the end lead once the run has finished; a question the run stopped for leads anyway
     const isEnd = v.isWaiting && !v.waitingFor
-    const isFirst = (await read($, isDecisionsFirst)) || isEnd
     const open = (path: string) => () => void openFile($, path)
 
     const header = (
       <Box flexDirection="column" marginBottom={1}>
         <Text bold>{v.label}</Text>
+        {v.title && <Text wrap="wrap">{v.title}</Text>}
         <Text dimColor wrap="truncate-end">
           {v.startedAt ? `started ${duration(now - v.startedAt)} ago` : ''}
           {v.lastRecordAt ? ` · last record ${duration(now - v.lastRecordAt)} ago` : ''} · {v.runId}
@@ -543,59 +602,15 @@ export const register: Register = on => {
       </Box>
     )
 
-    // An accordion: the header folds the list, open by default while the run waits for the authors; each row
-    // unfolds to its whole summary and what the finding says beyond it.
-    const fold = await read($, decisionsFold)
-    const isListOpen = fold?.runId === v.runId ? fold.isOpen : v.isWaiting
-    const unfolded = new Set(await read($, unfoldedDecisions))
-    const keys = decisionKeys(v.runId, v.decisions)
-    const unfold = (key: string) => () =>
-      update($, unfoldedDecisions, list =>
-        list.includes(key) ? list.filter(one => one !== key) : [...list.filter(one => one.startsWith(`${v.runId}:`)), key],
-      )
+    // The decisions themselves are read and answered in their own pane; here, how many and the way there.
+    const { open: unanswered, unsent } = tally(v, await read($, answers))
     const decisions = v.decisions.length > 0 && (
-      <Box key="decisions" flexDirection="column" marginBottom={1}>
-        <Button
-          key="decisions-fold"
-          plain
-          onPress={() => update($, decisionsFold, () => ({ runId: v.runId, isOpen: !isListOpen }))}
-        >
-          <Text bold color={isEnd ? 'warning' : 'text'}>
-            {isListOpen ? '▾' : '▸'} {isEnd ? 'Decisions for you' : 'Held for the authors'} ({v.decisions.length})
-          </Text>
-        </Button>
-        {isListOpen &&
-          v.decisions.map((one, n) => {
-            const key = keys[n]!
-            if (!unfolded.has(key)) {
-              return (
-                <Button key={`decision-${key}`} plain onPress={unfold(key)}>
-                  <Text wrap="truncate-end">
-                    ▸ <Text dimColor>{one.id}</Text> {clip(one.summary, width - one.id.length - 3)}
-                  </Text>
-                </Button>
-              )
-            }
-            const where = [one.stage, one.section].filter(Boolean).join(' · ')
-            return (
-              <Box key={`decision-open-${key}`} flexDirection="column">
-                <Button key={`decision-${key}`} plain onPress={unfold(key)}>
-                  <Text wrap="truncate-end">
-                    ▾ <Text dimColor>{one.id}</Text> <Text dimColor>{clip(where, width - one.id.length - 3)}</Text>
-                  </Text>
-                </Button>
-                <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
-                  <Text wrap="wrap">{one.summary}</Text>
-                  {one.detail && (
-                    <Text wrap="wrap" dimColor>
-                      {one.detail}
-                    </Text>
-                  )}
-                  {one.action && <Text wrap="wrap">→ {one.action}</Text>}
-                </Box>
-              </Box>
-            )
-          })}
+      <Box key="decisions" flexDirection="row" flexWrap="wrap" columnGap={1} marginBottom={1}>
+        <Text bold color={isEnd && unanswered > 0 ? 'warning' : 'text'}>
+          {isEnd ? 'Decisions for you' : 'Held for the authors'}: {unanswered} of {v.decisions.length} open
+          {unsent > 0 ? ` · ${plural(unsent, 'answer')} not sent` : ''}
+        </Text>
+        <Button key="open-decisions" label="Open decisions" onPress={() => openDecisions($, v)} />
       </Box>
     )
 
@@ -661,20 +676,149 @@ export const register: Register = on => {
       <Box flexDirection="column">
         {header}
         {questions}
-        {isFirst && decisions}
+        {decisions}
         {phases}
         {grid}
-        {!isFirst && decisions}
         {settings}
         {outputs}
       </Box>
     )
   })
 
-  // Back to the usual order once the person has looked at the decisions and closed the pane.
-  on('ui.close', { id: PANE }, async ($, e, next) => {
-    await update($, isDecisionsFirst, () => false)
+  // The decisions the run left for the authors, each with its whole summary and, unfolded, what the finding says
+  // beyond it and the answers: go ahead, leave as is, or write an answer in the prompt box. The answers chosen
+  // here go to Claude together in one message, from the button at the top.
+  on('ui.render', { component: 'Pane', requestId: DECISIONS }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const v = await read($, view)
+    if (!v) {
+      return (
+        <Box flexDirection="column">
+          <Text dimColor>{(await read($, problem)) ?? 'No manuscript run found yet.'}</Text>
+          <Text dimColor>/manuscript-status PATH shows a run folder or a project's newest run.</Text>
+        </Box>
+      )
+    }
+    const given = await read($, answers)
+    const { keys, open, unsent } = tally(v, given)
+    const unfolded = new Set(await read($, unfoldedDecisions))
+    const unfold = (key: string) => () =>
+      update($, unfoldedDecisions, list =>
+        list.includes(key) ? list.filter(one => one !== key) : [...list.filter(one => one.startsWith(`${v.runId}:`)), key],
+      )
+    const answer = (key: string, choice: ManuscriptAnswer['choice'] | null) => () =>
+      update($, answers, all => {
+        const { [key]: _, ...rest } = all
+        return choice ? { ...rest, [key]: { choice, isSent: choice === 'written' } } : rest
+      })
+    const SAID: Record<ManuscriptAnswer['choice'], [string, string]> = {
+      'go-ahead': ['go ahead', 'success'],
+      leave: ['leave as is', 'inactive'],
+      written: ['answered in the chat', 'success'],
+    }
 
-    return next(e)
-  }).catch(($, e, next) => next(e))
+    const header = (
+      <Box key="header" flexDirection="column" marginBottom={1}>
+        <Text bold>{v.label}</Text>
+        {v.title && <Text wrap="wrap">{v.title}</Text>}
+        <Text color={open > 0 ? 'warning' : 'success'}>
+          {open > 0 ? `${open} of ${plural(v.decisions.length, 'decision')} wait for you` : `All ${plural(v.decisions.length, 'decision')} answered`}
+        </Text>
+        <Text dimColor wrap="wrap">
+          Unfold a decision to answer it: go ahead as it suggests, leave the text as it is, or write your own answer
+          in the prompt box. Send the answers to Claude together when you are ready.
+        </Text>
+        {unsent > 0 && (
+          <Box marginTop={1}>
+            <Button
+              key="send-answers"
+              variant="primary"
+              label={`Send ${plural(unsent, 'answer')} to Claude`}
+              onPress={() => sendAnswers($, v)}
+            />
+          </Box>
+        )}
+      </Box>
+    )
+
+    const questions = v.waitingFor && (
+      <Box key="questions" flexDirection="column" marginBottom={1}>
+        <Text bold color="warning">
+          The run waits for your answer
+        </Text>
+        {v.waitingFor.questions.map((question, n) => (
+          <Box key={`question-${n}`} flexDirection="column">
+            <Text wrap="wrap">· {question}</Text>
+            <Box paddingLeft={2}>
+              <Button
+                key={`answer-question-${n}`}
+                label="Write answer"
+                onPress={() =>
+                  void writeAnswer($, `On the question the ${v.label} manuscript run waits for (${v.runPath}), "${question}": `)
+                }
+              />
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    )
+
+    const rows = v.decisions.map((one, n) => {
+      const key = keys[n]!
+      const isOpen = unfolded.has(key)
+      const mine = given[key]
+      const said = mine && SAID[mine.choice]
+      const where = [one.stage, one.section].filter(Boolean).join(' · ')
+      return (
+        <Box key={`row-${key}`} flexDirection="column" marginBottom={isOpen ? 1 : 0}>
+          <Box flexDirection="row" gap={1}>
+            <Button key={`decision-${key}`} plain label={isOpen ? '▾' : '▸'} onPress={unfold(key)} />
+            <Text wrap="wrap" dimColor={Boolean(mine?.isSent)}>
+              <Text dimColor>{one.id}</Text> {one.summary}
+              {said && (
+                <Text color={said[1]}>
+                  {' '}
+                  · {said[0]}
+                  {mine!.isSent && mine!.choice !== 'written' ? ', sent' : ''}
+                </Text>
+              )}
+            </Text>
+          </Box>
+          {isOpen && (
+            <Box flexDirection="column" paddingLeft={2}>
+              {where && (
+                <Text dimColor wrap="wrap">
+                  {where}
+                </Text>
+              )}
+              {one.detail && <Text wrap="wrap">{one.detail}</Text>}
+              {one.action && <Text wrap="wrap">→ {one.action}</Text>}
+              <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={1}>
+                {one.action && <Button key={`go-ahead-${key}`} label="Go ahead" onPress={answer(key, 'go-ahead')} />}
+                <Button key={`leave-${key}`} label="Leave as is" onPress={answer(key, 'leave')} />
+                <Button
+                  key={`write-${key}`}
+                  label="Write answer"
+                  onPress={async () => {
+                    if (await writeAnswer($, answerDraft(v, one))) await answer(key, 'written')()
+                  }}
+                />
+                {mine && (!mine.isSent || mine.choice === 'written') && (
+                  <Button key={`undo-${key}`} label="Undo" onPress={answer(key, null)} />
+                )}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      )
+    })
+
+    return (
+      <Box flexDirection="column">
+        {header}
+        {questions}
+        {v.decisions.length > 0 ? rows : <Text dimColor>The run holds no decisions for the authors.</Text>}
+      </Box>
+    )
+  })
 }

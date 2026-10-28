@@ -62,10 +62,20 @@ export type ManuscriptDecision = {
   action: string | null
 }
 
+// The authors' answer to one decision, given in the Decisions pane: go ahead as it suggests, leave the text as it
+// is, or their own words put in the prompt box. The first two wait to go to Claude together in one message.
+export type ManuscriptAnswer = {
+  choice: 'go-ahead' | 'leave' | 'written'
+  isSent: boolean
+}
+
 export type ManuscriptRunView = {
   runPath: string
   runId: string
+  // which manuscript: its file's name, with the project's folder where the name alone says nothing ("manuscript")
   label: string
+  // the manuscript's own title, from the run's snapshot of it
+  title: string | null
   startedAt: number | null
   // time of the newest record in the run
   lastRecordAt: number | null
@@ -94,11 +104,10 @@ declare module 'claude-code' {
       view: ManuscriptRunView | null
       // why no run is shown: none found yet, or the run.json could not be read
       problem: string | null
-      isDecisionsFirst: boolean
-      // the person's fold of the decisions list, for the run it names; another run opens it only while it waits
-      decisionsFold: { runId: string; isOpen: boolean } | null
-      // the decisions unfolded to read whole, as `runId:stage:id`
+      // the decisions unfolded to their detail and answer buttons, as `runId:stage:id`
       unfoldedDecisions: string[]
+      // the authors' answers, by the same `runId:stage:id`
+      answers: Record<string, ManuscriptAnswer>
       // the waiting signature the person hid the band for; a new decision shows it again
       hiddenBand: string | null
     }

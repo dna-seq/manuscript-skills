@@ -1,6 +1,7 @@
 // The run's view, computed from what run.json and the stages' own files say. Pure: no `$`, no I/O.
 
 import type {
+  ManuscriptAnswer,
   ManuscriptDecision,
   ManuscriptOutput,
   ManuscriptPhase,
@@ -75,6 +76,8 @@ export type Gathered = {
   findings: Record<string, FindingsSummary>
   files: AssemblyFiles
   referees: ManuscriptReferees | null
+  // the manuscript's title, read from the run's snapshot
+  title?: string | null
   now: number
 }
 
@@ -328,15 +331,47 @@ function phase(stages: ManuscriptStage[], id: ManuscriptPhaseId, label: string):
 }
 
 // "paper1-just-dna-lite" in a folder "v0.6" reads "Paper 1 v0.6".
+// Names and folders that say nothing about which manuscript it is, and the numbered heads a name may open with.
+const GENERIC = /^(manuscripts?|papers?|main|draft|article|ms|text|index|preprint|submission|docs?|reviews?|latex|tex|src|v?\d+(\.\d+)*)$/i
+const VERSION = /^v?\d+(\.\d+)*$/i
+const NUMBERED = /^(paper|chapter|manuscript|article|study|part|ms)[-_ ]?(\d+)(?:[-_ ]+(.*))?$/i
+
+// Which manuscript the run is about, short enough for the band: the file's name ("paper1-just-dna-lite" reads
+// "Paper 1 just-dna-lite"), the project's folder in place of a name that says nothing ("manuscript"), and the
+// project's version folder.
 export function runLabel(data: RunJson): string {
   const original = data.inputs?.[0]?.original ?? ''
-  const name = original.split(/[\\/]/).at(-1) ?? ''
-  const stem = name.replace(/\.[^.]+$/, '') || data.run_id
-  const head = /^([a-z]+)[-_ ]?(\d+)(?:[-_ ]|$)/i.exec(stem)
-  const short = head ? `${head[1]![0]!.toUpperCase()}${head[1]!.slice(1)} ${head[2]}` : stem
-  const folder = (data.context?.project_root ?? '').split(/[\\/]/).at(-1) ?? ''
+  const parts = original.split(/[\\/]/).filter(Boolean)
+  const stem = (parts.at(-1) ?? '').replace(/\.[^.]+$/, '')
+  const head = NUMBERED.exec(stem)
+  const numbered = head ? `${head[1]![0]!.toUpperCase()}${head[1]!.slice(1).toLowerCase()} ${head[2]}` : ''
+  const rest = head ? (head[3] ?? '') : stem
+  const folder = parts.slice(0, -1).reverse().find(part => !GENERIC.test(part) && !part.startsWith('.')) ?? ''
+  const name = !rest || GENERIC.test(rest) ? [folder, numbered].filter(Boolean).join(' ') : [numbered, rest].filter(Boolean).join(' ')
+  const version = (data.context?.project_root ?? '').split(/[\\/]/).at(-1) ?? ''
 
-  return /^v?\d+(\.\d+)*$/i.test(folder) ? `${short} ${folder}` : short
+  return `${name || stem || data.run_id}${VERSION.test(version) ? ` ${version}` : ''}`
+}
+
+// The manuscript's title from its text: LaTeX's \title{} (else a class's own \...title{}), else a Markdown
+// file's front matter `title:` or its first heading; markup and comments taken out.
+export function manuscriptTitle(text: string, name: string): string | null {
+  let found: string | undefined
+  if (/\.tex$/i.test(name)) {
+    const braced = '\\s*(?:\\[[^\\]]*\\])?\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}'
+    found = new RegExp(`\\\\title${braced}`).exec(text)?.[1] ?? new RegExp(`\\\\[A-Za-z@]+title${braced}`).exec(text)?.[1]
+  } else {
+    const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? ''
+    found = /^title:\s*["']?(.+?)["']?\s*$/m.exec(front)?.[1] ?? /^#\s+(.+)$/m.exec(text)?.[1]
+  }
+  const title = (found ?? '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\\\\|\\[A-Za-z]+\*?/g, ' ')
+    .replace(/[{}*`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return title || null
 }
 
 function settings(data: RunJson): ManuscriptSetting[] {
@@ -406,6 +441,51 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
   return list
 }
 
+// Each decision's address, the same across refreshes: its run, stage and id, made unique where two share them.
+export function decisionKeys(runId: string, list: ManuscriptDecision[]): string[] {
+  const seen = new Set<string>()
+  return list.map((one, n) => {
+    let key = `${runId}:${one.stage}:${one.id || n}`
+    if (seen.has(key)) key = `${key}#${n}`
+    seen.add(key)
+    return key
+  })
+}
+
+const where = (one: ManuscriptDecision) => `${one.id}${one.section ? ` (${one.section})` : ''}`
+
+// The one message the Decisions pane sends with the answers not sent yet, in the person's words: what to go
+// ahead with and what to leave, each named so Claude finds it in the run without the pane.
+export function answersMessage(view: ManuscriptRunView, answers: Record<string, ManuscriptAnswer>): string {
+  const keys = decisionKeys(view.runId, view.decisions)
+  const chosen = (choice: ManuscriptAnswer['choice']) =>
+    view.decisions.filter((_, n) => answers[keys[n]!]?.choice === choice && !answers[keys[n]!]!.isSent)
+  const ahead = chosen('go-ahead')
+  const leave = chosen('leave')
+  const lines = [`My answers to the decisions the ${view.label} manuscript run left for me (run folder ${view.runPath}):`]
+  if (ahead.length) {
+    lines.push('', 'Go ahead:')
+    for (const one of ahead) lines.push(`- ${where(one)}: ${one.summary}${one.action ? ` Suggested: ${one.action}` : ''}`)
+  }
+  if (leave.length) {
+    lines.push('', 'Leave as it is:')
+    for (const one of leave) lines.push(`- ${where(one)}: ${one.summary}`)
+  }
+  lines.push(
+    '',
+    ahead.length
+      ? 'Make the go-ahead changes in the manuscript, taking the option you recommend where a suggestion offers a choice, and tell me which need something only I can do. Change nothing for the ones to leave.'
+      : 'Change nothing for these.',
+  )
+
+  return lines.join('\n')
+}
+
+// What "Write answer" puts in the prompt box: the decision, named, for the person to finish in their own words.
+export function answerDraft(view: ManuscriptRunView, one: ManuscriptDecision): string {
+  return `On decision ${where(one)} of the ${view.label} manuscript run (${view.runPath}), "${one.summary}": `
+}
+
 export function buildView(g: Gathered): ManuscriptRunView {
   const { data } = g
   const edits = data.context?.effective?.edits
@@ -461,6 +541,7 @@ export function buildView(g: Gathered): ManuscriptRunView {
     runPath: g.runPath,
     runId: data.run_id,
     label: runLabel(data),
+    title: g.title ?? null,
     startedAt: time(data.started_at),
     lastRecordAt: times.length ? Math.max(...times) : null,
     stages,
@@ -563,11 +644,12 @@ export function counts(stage: ManuscriptStage): string {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export function statusLine(view: ManuscriptRunView): string {
+// `open`: the decisions the authors have not answered yet in the Decisions pane; all of them when not given.
+export function statusLine(view: ManuscriptRunView, open = view.decisions.length): string {
   const done = view.stages.filter(stage => FINISHED.includes(stage.state)).length
   const parts = [view.label, `${done} of ${view.stages.length} stages`]
   if (view.waitingFor) parts.push(`waits for your answer (${plural(view.waitingFor.questions.length, 'question')})`)
-  else if (view.isWaiting) parts.push(`${view.decisions.length} decisions wait for you`)
+  else if (view.isWaiting) parts.push(open > 0 ? `${open} decisions wait for you` : 'decisions answered')
   else if (view.isFinished) parts.push('finished')
   else if (view.current) {
     const running = view.stages.some(stage => stage.label === view.current && stage.state === 'running')
