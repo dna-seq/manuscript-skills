@@ -159,7 +159,9 @@ def test_codex_without_a_model_is_recorded_with_its_configured_default(fakes, tm
     workspace, brief = seat(tmp_path)
     assert runner.invoke(models.app, ["run", "codex", "--workspace", str(workspace), "--brief", str(brief)]).exit_code == 0
     assert json.loads((workspace / "seat-run.json").read_text())["model"] == "codex/gpt-old"
-    assert "-m" not in calls(fakes)[0]["argv"]
+    # The configured default is named on the command line, as the authors would run it themselves.
+    argv = calls(fakes)[0]["argv"]
+    assert argv[argv.index("-m") + 1] == "gpt-old"
 
 
 @pytest.mark.parametrize("cli, message", [

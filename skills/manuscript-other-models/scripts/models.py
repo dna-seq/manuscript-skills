@@ -390,7 +390,10 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
     """Start one fresh session of the CLI in COPY with PROMPT on stdin and wait for it, at most TIMEOUT seconds."""
     build, read = ADAPTERS[key]
     last = Path(tempfile.mkdtemp(prefix="manuscript-seat-last-")) / "last-message.txt"
-    argv = build(model, effort, last)
+    # Codex without a model runs the default the authors configured: name it on the command line, so the command the
+    # record keeps says which model was asked for, as `codex exec --model gpt-6.1-sol` would.
+    configured = codex_models()[0] if key == "codex" and not model else None
+    argv = build(model or configured, effort, last)
     argv[0] = shutil.which(argv[0]) or argv[0]
     started = time.monotonic()
     record: dict[str, Any] = {"command": argv, "started_at": now()}
@@ -424,7 +427,6 @@ def session(key: str, copy: Path, prompt: str, model: str | None, effort: str | 
             tail = stderr_path.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-3:]
             error += " Last error output: " + " | ".join(tail)
     reported = outcome.models[0] if outcome.models else None
-    configured = codex_models()[0] if key == "codex" and not model else None
     return record | {"status": status, "error": error, "answer": outcome.answer, "session_id": outcome.session,
                      "model_requested": model, "models_reported": outcome.models, "usage": outcome.usage,
                      "model": f"{key}/{reported or model or configured or 'default'}", "sign_in": sign_in(key)}
