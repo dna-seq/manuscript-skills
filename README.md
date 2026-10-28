@@ -50,18 +50,30 @@ submitted by mistake.
 
 ## How it differs from Claude Science and other academic-writing skills
 
-[![Manuscript Skills 0.50.1 against Claude Science and the six most-starred academic-writing skill repos (humanizer, K-Dense skills, Academic Research Skills, ARIS, claude-scholar, Nature-Paper-Skills) on 24 capabilities, each included, partial, opt-in or not found, with a short note; checked 28 October 2026](docs/images/comparison.png)](docs/skill-landscape-2026-10.md#at-a-glance)
+[![Manuscript Skills 0.50.1 against Claude Science and the six most-starred academic-writing skill repos (humanizer, K-Dense skills, Academic Research Skills, ARIS, claude-scholar, Nature-Paper-Skills) on 25 capabilities, each named with what it means and judged included, partial, opt-in or not found, with a short note; checked 28 October 2026](docs/images/comparison.png)](docs/skill-landscape-2026-10.md#at-a-glance)
 
 The main alternative is [Claude Science](https://claude.com/product/claude-science), Anthropic's research
 workbench, where many researchers already write papers and grant applications. It is strongest before the
 draft: it runs your analyses on your own computer, cluster or cloud GPUs, keeps the code and environment behind
-every result, has a reviewer check its claims against what actually ran, and searches funding opportunities.
-This plugin starts from the draft, wherever it was written: it reviews and edits the paper as a whole under a
-script that fails any edit that strengthens a claim or changes a number, simulates the target journal's
-referees, ranks journals by your priorities, works through co-authors' comments, and leaves you a dashboard, a
-Word review with tracked changes and a To-do list the next run reads. Claude Science has none of these built
-in, and this plugin runs no analyses and does not write grants. The two can be combined: Claude Science imports
-skills from a GitHub repository laid out like this one, though that has not been tried.
+every result, and searches funding opportunities. This plugin starts from the draft, wherever it was written,
+and treats the manuscript itself as the object. Two of its parts sound like things Claude Science, or any
+Claude, already has, and are not:
+
+- **Referees of real journals, not a reviewer agent.** Claude Science's reviewer checks Claude's own claims
+  against the analysis that ran. [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) simulates the
+  referees of the journal you name, or of the three at the top of your journal ladder, each briefed from that
+  journal's own reviewer form, guidelines for reviewers and desk rules; it gives a recommendation for each
+  journal and has a defender test every concern against the paper.
+- **Co-authors' comments inside the review, not a Drive connector.** Any Claude can open a Google Doc through
+  its Drive connector. [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) turns every comment and
+  suggested edit your co-authors leave on a round's Google Doc into an item of the review, says in the next
+  round how each was answered, and releases the round back to your shared Drive folder.
+
+It also edits under a script that fails any edit that strengthens a claim or changes a number, ranks journals
+by your priorities, and leaves you a dashboard, a Word review with tracked changes and a To-do list the next run
+reads. Claude Science has none of these built in, and this plugin runs no analyses and does not write grants.
+The two can be combined: Claude Science imports skills from a GitHub repository laid out like this one, though
+that has not been tried.
 
 Several popular skill collections also review, edit and reference-check papers. Compared with the six
 most-starred of them on 28 October 2026 ([the comparison](docs/skill-landscape-2026-10.md#where-the-plugin-stands-against-claude-science-and-popular-skill-repos-2026-10-28),
@@ -73,9 +85,10 @@ there:
   button, or have it asked in a session of its own. Your answers go into the same file as the dashboard's
   To-do tab, and the next run reads it, so a point you dismissed is not raised again. The others report in
   the chat; one sends approval cards to a messenger.
-- **Rounds with co-authors on Google Docs.** [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md)
-  pulls the comments and suggested edits co-authors left on a round's Google Doc, says how the next round
-  answers each, and releases the round to your shared Drive folder.
+- **Co-authors' Google Doc comments as part of the review.** [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md)
+  pulls the comments and suggested edits co-authors left on a round's Google Doc into the review, each with an id
+  that stays across rounds, says how the next round answers each, and releases the round to your shared Drive
+  folder.
 - **Which rules apply to the study.** [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md)
   works out which clinical, ethics and privacy requirements apply, including to authors' own public
   genomes and to papers referred between bioRxiv and medRxiv, and drafts the clarification.

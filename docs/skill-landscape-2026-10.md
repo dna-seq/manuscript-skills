@@ -67,14 +67,25 @@ Where it is ahead:
 - **Grants.** Its Research Resources connector searches funding opportunities (Grants.gov). Drafting a proposal
   is by asking; this plugin has no grant support.
 
-Where this plugin is ahead: everything that treats the manuscript as the object. Claude Science has no
-sentence-by-sentence edit guard, no simulated referees for a named journal, no journal ladders, policy fit,
+Where this plugin is ahead: everything that treats the manuscript as the object. Two differences are easy to
+miss, because the words sound alike:
+
+- **Its reviewer is not a referee.** Claude Science's reviewer is an agent that checks Claude's own claims
+  against the analysis that actually ran (and starts off on the Pro plan). This plugin simulates the referees of
+  real journals: the one the authors name, or the three at the top of their ladder, each briefed from that journal's own reviewer form,
+  guidelines for reviewers and desk rules, with a recommendation for each journal and a defender who tests every
+  concern against the paper.
+- **Co-authors' rounds are not a Drive connector.** Any Claude can open a Google Doc through its Drive
+  connector. `manuscript-coauthors` turns every comment and suggested edit co-authors leave on a round's Google
+  Doc into an item of the review, with an id that stays across rounds, says in the next round how each was
+  answered, writes the changelog's reasons from them, and releases the round back to the shared Drive folder.
+  Claude Science's comments are the researcher's own notes to Claude, without threads.
+
+Beyond these, Claude Science has no sentence-by-sentence edit guard, no journal ladders, policy fit,
 reporting-guideline or availability checks, no simulated readers, no review of figures as printed and no check
-of the upload files. Its reviewer looks at Claude's own claims, not at whether a revision fixed each problem; it
-starts off on the Pro plan. Its comments are the researcher's own notes to Claude, without threads, and Word
-files are previewed, not written, so there is no Word review with tracked changes, no co-authors' rounds on
-Google Docs, no dashboard of a run and no To-do list the next run reads. This plugin also works on any draft,
-in Claude Code or Codex, wherever the paper was written.
+of the upload files. Word files are previewed, not written, so there is no Word review with tracked changes, no
+dashboard of a run and no To-do list the next run reads. This plugin also works on any draft, in Claude Code or
+Codex, wherever the paper was written.
 
 The two can be combined, though this was not tried: Claude Science imports skills from a GitHub repository with
 one `skills/<name>/SKILL.md` folder per skill, which is this repository's layout. Its documentation does not say
@@ -96,8 +107,8 @@ and Decisions pane would not be there.
 prompts and is again left out.
 
 **Method.** As on 2026-10-24: a clone of each repo; its README, plugin manifests, hooks, commands and SKILL.md
-files read; its Markdown, YAML, JSON and code searched, this time for 24 capabilities, the newer parts of this
-plugin among them. Claude Science was judged on the same 24 from its documentation. None of their skills was run. A match means their files describe the capability; whether it
+files read; its Markdown, YAML, JSON and code searched, this time for 25 capabilities, the newer parts of this
+plugin among them. Claude Science was judged on the same 25 from its documentation. None of their skills was run. A match means their files describe the capability; whether it
 works was not tested, and a capability that lives only in their code may be missed. A dash below means nothing
 was found.
 
@@ -123,7 +134,7 @@ was found.
 
 ### At a glance
 
-![The same 24 capabilities as a picture: Manuscript Skills against Claude Science and the six repos, each cell included, partial, opt-in or not found, with a short note](images/comparison.png)
+![The same 25 capabilities as a picture: Manuscript Skills against Claude Science and the six repos, each cell included, partial, opt-in or not found, with a short note](images/comparison.png)
 
 The picture (`docs/images/comparison.png`, drawn from `docs/images/comparison.html`) and the table below hold the same verdicts; a change goes into both.
 
@@ -136,20 +147,21 @@ The picture (`docs/images/comparison.png`, drawn from `docs/images/comparison.ht
 | Plugin for both Claude Code and Codex | Both | – (its own app; imports skills from GitHub) | Claude Code, Cursor | Skills installed by `npx` for many agents | Claude Code, Pi; Codex in a sibling repo | Claude Code, Codex; adapters for Cursor, Copilot and others | Claude Code; Codex, OpenCode and Kimi on branches | Claude Code and Codex by an installer; ChatGPT Work |
 | **What a run leaves you** | | | | | | | | |
 | Offline dashboard of the whole run | Offline HTML dashboard | – (provenance per artifact) | – | – | Process record (Markdown, PDF) | HTML of review scores by round | – | – |
-| Word file with tracked changes and comments; a workbook of changes | Both | – (Word files previewed only) | – | – | Plain DOCX | – | – | – |
-| Points the authors dismissed stay dismissed next run | `paper.todo.json` | Memory and project instructions; no way to dismiss a reviewer flag | – | – | Triage of referee comments (will or won't address) | Integrity waivers only | – | A log of scope decisions |
+| Word review with tracked changes (and a workbook of every change) | Both | – (Word files previewed only) | – | – | Plain DOCX | – | – | – |
+| Points the authors dismissed stay dismissed (To-do marks read by the next run) | `paper.todo.json` | Memory and project instructions; no way to dismiss a reviewer flag | – | – | Triage of referee comments (will or won't address) | Integrity waivers only | – | A log of scope decisions |
 | Report-only mode; earlier versions kept | Both | Read-only folders; each save a new version (files in granted folders are edited in place) | – (writes over the file) | Its scaffold never overwrites | Patches written to a new file; the reviewer is read-only | Each round's PDF kept | – | A review request edits nothing |
 | **Rounds with co-authors** | | | | | | | | |
-| Co-authors' comments; rounds on a shared drive | Google Docs and Drive | – (comments are the user's own notes to Claude, without threads) | – | – | – | Two-way Overleaf sync, no comments | – | – |
+| Co-authors' Google Doc comments answered round by round (each comment an item of the review, not just the Drive connector) | Google Docs and Drive | – (comments are the user's own notes to Claude, without threads) | – | – | – | Two-way Overleaf sync, no comments | – | – |
 | Changelog between rounds | From the revision marks | A diff between any two versions of an artifact | – | – | An apply report per round | A diff per round | – | – |
 | AI-written passages no person has reviewed | Per passage, where the manuscript keeps revision marks (opt-in) | Provenance per version (messages, code, environment); no per-passage marks | – | Per claim: a hash of text a person verified | – | – | – | – |
 | **Checks** | | | | | | | | |
+| Referees simulated for the top three journals (each briefed from that journal's own reviewer form and guidelines) | Three seats and a defender give a recommendation for each of the top three journals on the ladder, each briefed from the journal's reviewer form, guidelines for reviewers and desk rules | – (its reviewer checks Claude's own claims against the analysis that ran; no referee panel) | – | – (`peer-review` drafts a human referee's report) | A Journal-Fit Reviewer seat for a journal tier it infers; no journal's guidelines read | An ML reviewer at the level of a venue named in the prompt | – (`paper-self-review`, a checklist) | `paper-reviewer`, for Nature Portfolio journals |
+| Referee seats kept apart | A workspace per seat; the authors' instructions and memory left out | – (specialists the user builds; review criteria of one's own) | – | – | No peer reports before each seat commits | Another model family; no earlier rounds shown | – | One referee |
 | Edits checked for stronger claims and changed numbers | `guard.py`, sentence by sentence | – | – | Claims a person verified are hashed and locked | Patches anchored to blocks; integrity fixes need the author's approval | An edit whitelist, off by default | – | Scripted edits guarded by assertions |
 | References and claim support checked | Identity, every field, retractions, support quoted from the source | The reviewer flags a citation that does not support its claim and a DOI that resolves elsewhere; no retraction check | – | Search, validation and BibTeX (`citation-management`) | Four indexes by script, retraction status | `citation-audit`, `citation-crosscheck` | `citation-verification` | `claim-source-verification`, a sceptic in a fresh context |
 | Revision re-checked by a fresh agent | Per problem: fixed, in part, not, worse | A background reviewer checks Claude's claims against what ran (starts off on Pro), not each problem's fix | – | – | Five states, made worse among them | A fresh reviewer each round | – | A fresh sceptic, for claim sources only |
 | Summary against the body; each detail in its section | Both, by script | – (flags a conclusion its method does not support) | – | Guidance | Summary against the body | Title and abstract overclaim | A question on scope | Both, as section contracts |
 | Software claims checked against the code | Each, with file and line | Results checked against its own runs and files | – | – | – | Numbers against result files | – | – |
-| Simulated referees kept apart | A workspace per seat; the authors' instructions and memory left out | – (specialists the user builds; review criteria of one's own) | – | – | No peer reports before each seat commits | Another model family; no earlier rounds shown | – | One referee |
 | Supplement corrected and re-checked | Yes | – | – | Read, not edited | – | Appendix checked for theorem drift | – | A section contract of its own |
 | **Sources, venues and tests** | | | | | | | | |
 | Texts of cited works kept across runs | Yes | Open-access and licensed full text, kept in the session unless saved | – | – | Within a run | arXiv PDFs, opt-in | Full text from the user's Zotero | – |

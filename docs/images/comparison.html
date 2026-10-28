@@ -2,7 +2,7 @@
 <!--
 The README's comparison with Claude Science and the six most-starred academic-writing skill repos, as one picture. The verdicts are
 those of docs/skill-landscape-2026-10.md ("At a glance"); change them there first, then here. To render:
-  google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=2000,2800 \
+  google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=2000,3200 \
     --screenshot=/tmp/comparison.png docs/images/comparison.html
   convert /tmp/comparison.png -trim +repage -bordercolor '#f3f6fb' -border 88 -resize 2600x PNG8:docs/images/comparison.png
   optipng -o2 docs/images/comparison.png
@@ -29,7 +29,7 @@ those of docs/skill-landscape-2026-10.md ("At a glance"); change them there firs
   .lead { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card);
     border: 1px solid var(--line); border-radius: 14px; overflow: hidden; table-layout: fixed; }
-  col.feature { width: 372px; }
+  col.feature { width: 410px; }
   th, td { border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
   th:first-child, td:first-child { border-left: none; }
   thead th { background: var(--head); padding: 16px 10px 14px; vertical-align: middle; text-align: center; }
@@ -54,6 +54,7 @@ those of docs/skill-landscape-2026-10.md ("At a glance"); change them there firs
     color: #fff; background: var(--main); border-radius: 10px; padding: 3px 9px; margin-bottom: 7px; }
   td.feature { padding: 11px 16px 11px 24px; font-size: 17px; line-height: 1.25; font-weight: 500; }
   td.cell { text-align: center; padding: 9px 6px 8px; vertical-align: middle; height: 66px; }
+  .sub { font-size: 13px; font-weight: 400; line-height: 1.3; color: var(--muted); margin-top: 3px; }
   .note { font-size: 12.5px; line-height: 1.2; color: var(--muted); margin-top: 4px; }
   .icon { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; align-items: center; justify-content: center; }
   .y { background: var(--yes-bg); } .p { background: var(--part-bg); } .o { background: var(--opt-bg); }
@@ -79,6 +80,11 @@ those of docs/skill-landscape-2026-10.md ("At a glance"); change them there firs
     Read on 28 October 2026: Claude Science from Anthropic's product page and documentation (app 0.1.71), the skill repos
     from their own files; nothing was run. <b>Included</b> describes scope, not proven quality. Each note's source:
     <b>docs/skill-landscape-2026-10.md</b>.<br>
+    <b>Two rows are easy to misread.</b> <b>Referees:</b> this plugin simulates the referees of the journal you name, or of the
+    three at the top of your journal ladder, each briefed from that journal's own reviewer form and guidelines; Claude Science's reviewer instead checks
+    Claude's own claims against the analysis it ran. <b>Co-authors:</b> any Claude can open a Google Doc through its Drive
+    connector; here every co-author comment becomes an item of the review, the next round answers it, and the round goes
+    back to the shared Drive folder.<br>
     <b>Also ahead elsewhere:</b> Claude Science's renderers, 60+ database connectors and structure models; writing a paper
     from research; making figures; LaTeX venue templates; a reviewer calibrated on a gold set; systematic-review screening;
     Zotero and Obsidian; notices away from the computer; Overleaf.
@@ -95,44 +101,45 @@ const repos = [
   ['claude-scholar', 'Research workflow', '5.9k ★ · MIT'],
   ['Nature-Paper-Skills', 'Nature-style papers', '0.6k ★ · MIT, Apache'],
 ];
-// Columns: Manuscript Skills, Claude Science, then the six repos. y included, p partial, o opt-in, n not found;
-// [verdict, note]
+// Columns: Manuscript Skills, Claude Science, then the six repos. Each row: [name, what it means, cells];
+// y included, p partial, o opt-in, n not found; [verdict, note]
 const groups = [
   ['Watching and answering a run', [
-    ['Claude Code interface beyond skills', [['y', 'status line, panes, notices'], ['n', 'its own app'], ['n'], ['n'], ['p', 'hooks, commands'], ['p', 'hook templates'], ['p', 'hooks, commands'], ['n']]],
-    ['A long run shown while it works', [['y', 'panes, status line'], ['y', 'plan steps, notifications'], ['n'], ['n'], ['p', 'status in chat'], ['o', 'Feishu, macOS widget'], ['n'], ['n']]],
-    ['Decisions answered outside the chat', [['y', 'buttons, or a session each'], ['p', 'permission, plan cards'], ['n'], ['n'], ['n', 'checkpoints in chat'], ['o', 'Feishu cards'], ['n'], ['n']]],
-    ['Plugin for both Claude Code and Codex', [['y'], ['n', 'own app, imports skills'], ['p', 'Claude Code, Cursor'], ['p', 'skills via npx'], ['p', 'Codex in a sibling repo'], ['y', 'plus Cursor, Copilot'], ['p', 'Codex on a branch'], ['p', 'skills by installer']]],
+    ['Claude Code interface beyond skills', 'status line, run pane and notices drawn in Claude Code', [['y', 'status line, panes, notices'], ['n', 'its own app'], ['n'], ['n'], ['p', 'hooks, commands'], ['p', 'hook templates'], ['p', 'hooks, commands'], ['n']]],
+    ['A long run shown while it works', "each stage's state and counts, without asking", [['y', 'panes, status line'], ['y', 'plan steps, notifications'], ['n'], ['n'], ['p', 'status in chat'], ['o', 'Feishu, macOS widget'], ['n'], ['n']]],
+    ['Decisions answered outside the chat', 'each decision held for you, answered with a button', [['y', 'buttons, or a session each'], ['p', 'permission, plan cards'], ['n'], ['n'], ['n', 'checkpoints in chat'], ['o', 'Feishu cards'], ['n'], ['n']]],
+    ['Plugin for both Claude Code and Codex', 'installs in the agent you already use', [['y'], ['n', 'own app, imports skills'], ['p', 'Claude Code, Cursor'], ['p', 'skills via npx'], ['p', 'Codex in a sibling repo'], ['y', 'plus Cursor, Copilot'], ['p', 'Codex on a branch'], ['p', 'skills by installer']]],
   ]],
   ['What a run leaves you', [
-    ['Offline dashboard of the whole run', [['y', 'one HTML file'], ['n', 'provenance per artifact'], ['n'], ['n'], ['p', 'process record'], ['p', 'review scores'], ['n'], ['n']]],
-    ['Word file with tracked changes, changes workbook', [['y'], ['n', 'Word preview only'], ['n'], ['n'], ['p', 'plain DOCX'], ['n'], ['n'], ['n']]],
-    ['Points you dismissed stay dismissed next run', [['y', 'paper.todo.json'], ['p', 'memory, instructions'], ['n'], ['n'], ['p', 'referee triage'], ['p', 'integrity waivers'], ['n'], ['p', 'scope decisions']]],
-    ['Report-only mode, earlier versions kept', [['y'], ['y', 'read-only folders, versions'], ['n', 'writes over the file'], ['p', 'never overwrites'], ['y', 'patches to a new file'], ['p', 'round PDFs kept'], ['n'], ['p', 'review edits nothing']]],
+    ['Offline dashboard of the whole run', 'what was found, changed and left open, in one file', [['y', 'one HTML file'], ['n', 'provenance per artifact'], ['n'], ['n'], ['p', 'process record'], ['p', 'review scores'], ['n'], ['n']]],
+    ['Word review with tracked changes', 'proposals as tracked changes, questions as comments, plus a workbook of every change', [['y'], ['n', 'Word preview only'], ['n'], ['n'], ['p', 'plain DOCX'], ['n'], ['n'], ['n']]],
+    ['Points you dismissed stay dismissed', 'your To-do marks, read by the next run', [['y', 'paper.todo.json'], ['p', 'memory, instructions'], ['n'], ['n'], ['p', 'referee triage'], ['p', 'integrity waivers'], ['n'], ['p', 'scope decisions']]],
+    ['Report-only mode, earlier versions kept', 'change nothing, or save each version as a new file', [['y'], ['y', 'read-only folders, versions'], ['n', 'writes over the file'], ['p', 'never overwrites'], ['y', 'patches to a new file'], ['p', 'round PDFs kept'], ['n'], ['p', 'review edits nothing']]],
   ]],
   ['Rounds with co-authors', [
-    ["Co-authors' Google Doc comments, rounds on Drive", [['y'], ['n', 'own notes, no threads'], ['n'], ['n'], ['n'], ['p', 'Overleaf sync'], ['n'], ['n']]],
-    ['Changelog between rounds', [['y', 'from revision marks'], ['p', 'diff between versions'], ['n'], ['n'], ['p', 'apply report'], ['p', 'diff per round'], ['n'], ['n']]],
-    ['AI-written passages no person has reviewed', [['o', 'needs revision marks'], ['p', 'provenance per version'], ['n'], ['p', 'per claim'], ['n'], ['n'], ['n'], ['n']]],
+    ["Co-authors' Google Doc comments answered round by round", 'each comment an item of the review, answered next round; not just the Drive connector', [['y', 'ledger, answers, release'], ['n', 'own notes, no threads'], ['n'], ['n'], ['n'], ['p', 'Overleaf sync'], ['n'], ['n']]],
+    ['Changelog between rounds', 'every changed passage with its reason, for co-authors', [['y', 'from revision marks'], ['p', 'diff between versions'], ['n'], ['n'], ['p', 'apply report'], ['p', 'diff per round'], ['n'], ['n']]],
+    ['AI-written passages no person has reviewed', 'marked per passage in the source', [['o', 'needs revision marks'], ['p', 'provenance per version'], ['n'], ['p', 'per claim'], ['n'], ['n'], ['n'], ['n']]],
   ]],
   ['Checks', [
-    ['Edits checked for stronger claims, changed numbers', [['y', 'sentence by sentence'], ['n'], ['n'], ['p', 'verified claims locked'], ['p', 'anchored patches'], ['o', 'edit whitelist'], ['n'], ['p', 'guarded scripted edits']]],
-    ['References and claim support checked', [['y', 'identity, retractions, support'], ['p', 'support, DOI'], ['n'], ['p', 'validation, BibTeX'], ['y', '4 indexes, retractions'], ['y', 'citation audit'], ['p', 'citation verification'], ['y', 'claim-source checks']]],
-    ['Revision re-checked by a fresh agent', [['y', 'per problem'], ['p', 'reviewer checks claims'], ['n'], ['n'], ['y', 'five states'], ['y', 'fresh reviewer'], ['n'], ['p', 'claim sources only']]],
-    ['Summary against the body, each detail in its section', [['y', 'by script'], ['n'], ['n'], ['p', 'guidance'], ['p', 'summary only'], ['p', 'overclaim only'], ['p', 'scope question'], ['y', 'section contracts']]],
-    ['Software claims checked against the code', [['y', 'file and line'], ['p', 'its own runs only'], ['n'], ['n'], ['n'], ['p', 'numbers vs results'], ['n'], ['n']]],
-    ['Simulated referees kept apart', [['y', 'a workspace per seat'], ['n', 'no referee panel'], ['n'], ['n'], ['p', 'no peer reports'], ['y', 'other model family'], ['n'], ['n', 'one referee']]],
-    ['Supplement corrected and re-checked', [['y'], ['n'], ['n'], ['p', 'read, not edited'], ['n'], ['p', 'appendix only'], ['n'], ['p', 'own contract']]],
+    ['Referees simulated for your top 3 journals', "each briefed from that journal's own reviewer form and guidelines; not a reviewer of the agent's own work", [['y', 'a recommendation per journal'], ['n', 'reviews its own claims'], ['n'], ['n', "drafts a human's report"], ['p', 'journal tier, not named'], ['p', 'ML venue in the prompt'], ['n', 'self-review checklist'], ['p', 'Nature Portfolio only']]],
+    ['Referee seats kept apart', "no seat sees another's report or the authors' memory", [['y', 'a workspace per seat'], ['n', 'no referee panel'], ['n'], ['n'], ['p', 'no peer reports'], ['y', 'other model family'], ['n'], ['n', 'one referee']]],
+    ['Edits checked for stronger claims, changed numbers', 'a script compares each edited sentence with the original', [['y', 'sentence by sentence'], ['n'], ['n'], ['p', 'verified claims locked'], ['p', 'anchored patches'], ['o', 'edit whitelist'], ['n'], ['p', 'guarded scripted edits']]],
+    ['References and claim support checked', 'every reference: identity, retractions, the passage that supports the claim', [['y', 'identity, retractions, support'], ['p', 'support, DOI'], ['n'], ['p', 'validation, BibTeX'], ['y', '4 indexes, retractions'], ['y', 'citation audit'], ['p', 'citation verification'], ['y', 'claim-source checks']]],
+    ['Revision re-checked by a fresh agent', 'each problem the review found: fixed, in part, not, or made worse', [['y', 'per problem'], ['p', 'reviewer checks claims'], ['n'], ['n'], ['y', 'five states'], ['y', 'fresh reviewer'], ['n'], ['p', 'claim sources only']]],
+    ['Summary against the body, each detail in its section', 'the abstract claims no more than the results; no result in Methods', [['y', 'by script'], ['n'], ['n'], ['p', 'guidance'], ['p', 'summary only'], ['p', 'overclaim only'], ['p', 'scope question'], ['y', 'section contracts']]],
+    ['Software claims checked against the code', "each claim about the paper's software, with its file and line", [['y', 'file and line'], ['p', 'its own runs only'], ['n'], ['n'], ['n'], ['p', 'numbers vs results'], ['n'], ['n']]],
+    ['Supplement corrected and re-checked', 'the same edits and checks as the main text', [['y'], ['n'], ['n'], ['p', 'read, not edited'], ['n'], ['p', 'appendix only'], ['n'], ['p', 'own contract']]],
   ]],
   ['Sources, venues and tests', [
-    ['Texts of cited works kept across runs', [['y'], ['p', 'licensed full text'], ['n'], ['n'], ['p', 'within a run'], ['o', 'arXiv PDFs'], ['p', 'via Zotero'], ['n']]],
-    ['Venue facts with page and date', [['y', 'every fact dated'], ['n'], ['n'], ['p', 'about 15 venues'], ['p', 'AI policies only'], ['n', 'no sources'], ['n', 'no sources'], ['p', '3 journals, undated']]],
-    ['AI-use statement drafted', [['y', "from the authors' account"], ['n'], ['n'], ['p', 'lists the facts'], ['y', 'from commit log'], ['n'], ['n'], ['p', 'a template']]],
-    ['Tests with and without the skills', [['y', 'claude plugin eval'], ['n', 'none published'], ['n'], ['p', 'one paired case'], ['y', 'claude plugin eval'], ['p', 'contract tests'], ['p', 'fixtures'], ['p', 'hidden rubrics']]],
+    ['Texts of cited works kept across runs', 'read once, reused by the next run', [['y'], ['p', 'licensed full text'], ['n'], ['n'], ['p', 'within a run'], ['o', 'arXiv PDFs'], ['p', 'via Zotero'], ['n']]],
+    ['Venue facts with page and date', 'lengths, sections and AI rules, each with its source', [['y', 'every fact dated'], ['n'], ['n'], ['p', 'about 15 venues'], ['p', 'AI policies only'], ['n', 'no sources'], ['n', 'no sources'], ['p', '3 journals, undated']]],
+    ['AI-use statement drafted', 'from what the authors say they used', [['y', "from the authors' account"], ['n'], ['n'], ['p', 'lists the facts'], ['y', 'from commit log'], ['n'], ['n'], ['p', 'a template']]],
+    ['Tests with and without the skills', 'behavioural cases, seeded and clean', [['y', 'claude plugin eval'], ['n', 'none published'], ['n'], ['p', 'one paired case'], ['y', 'claude plugin eval'], ['p', 'contract tests'], ['p', 'fixtures'], ['p', 'hidden rubrics']]],
   ]],
   ['Beyond the manuscript', [
-    ['Runs the analysis on your data and compute', [['n', 'checks paper against code'], ['y', 'kernels, Slurm, Modal'], ['n'], ['y', 'analysis skills'], ['n'], ['y', 'runs experiments'], ['p', 'results analysis'], ['p', 'results analysis']]],
-    ['Grant proposals', [['n'], ['p', 'funding search'], ['n'], ['y', 'NSF, NIH, DOE'], ['n'], ['y', 'ERC, DFG, NSF'], ['n'], ['n']]],
+    ['Runs the analysis on your data and compute', 'kernels, clusters, GPUs', [['n', 'checks paper against code'], ['y', 'kernels, Slurm, Modal'], ['n'], ['y', 'analysis skills'], ['n'], ['y', 'runs experiments'], ['p', 'results analysis'], ['p', 'results analysis']]],
+    ['Grant proposals', "drafted to a funder's rules", [['n'], ['p', 'funding search'], ['n'], ['y', 'NSF, NIH, DOE'], ['n'], ['y', 'ERC, DFG, NSF'], ['n'], ['n']]],
   ]],
 ];
 
@@ -155,11 +162,11 @@ const body = document.getElementById('body');
 for (const [title, rows] of groups) {
   body.insertAdjacentHTML('beforeend', `<tr class="group"><td>${title}</td><td class="ours"></td><td class="main"></td>` +
     `<td colspan="${repos.length - 2}"></td></tr>`);
-  for (const [feature, cells] of rows) {
+  for (const [feature, meaning, cells] of rows) {
     if (cells.length !== repos.length) throw new Error(feature);
     const tds = cells.map(([v, note], i) => `<td class="cell ${kind(i)}">${icon(v)}` +
       (note ? `<div class="note">${note}</div>` : '') + '</td>').join('');
-    body.insertAdjacentHTML('beforeend', `<tr><td class="feature">${feature}</td>${tds}</tr>`);
+    body.insertAdjacentHTML('beforeend', `<tr><td class="feature">${feature}<div class="sub">${meaning}</div></td>${tds}</tr>`);
   }
 }
 document.getElementById('legend').innerHTML = [['y', 'Included'], ['p', 'Partial'], ['o', 'Opt-in'], ['n', 'Not found']]
