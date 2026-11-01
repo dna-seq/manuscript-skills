@@ -1,13 +1,12 @@
 ---
 name: manuscript-coauthors
 description: >-
-  Run rounds of a manuscript with co-authors who comment on Google Docs: remember the shared Drive folder
-  and how each release (v0.5/, v0.6/) goes there, pull the comments and suggested edits on a round into a
-  ledger with stable ids (C12, S3), say how the next round answers each (addressed, partly, declined, or
-  open with what could be done), feed the dashboard's "Co-authors' comments" tab, report which of them the run
-  that produced the round had caught, missed or written itself, write the changelog
-  for co-authors who only read the previous round (Why from the comments, and what changed since the draft
-  they saw), and push the release to Drive. Use when the authors mention co-authors' comments on a Google
+  Run rounds of a manuscript with co-authors who comment on Google Docs: remember the shared Drive folder and
+  how each release (v0.5/, v0.6/) goes there, pull the comments and suggested edits on a round into a ledger
+  with stable ids (C12, S3), carry what was accepted or edited in the Docs back into the masters, say how the
+  next round answers each comment, feed the dashboard's "Co-authors' comments" tab, report which comments the
+  run that produced the round had caught, missed or written itself, write the changelog for co-authors who
+  read only the previous round, and push the release to Drive. Use when the authors mention co-authors' comments on a Google
   Doc or Drive, "check the comments", "release v0.7" or "push the round to Drive", or when the project's
   settings say its rounds live on Drive. Use manuscript-reviewer-response for journal referees,
   manuscript-revision-marks for the @rev marks, and manuscript-improve to revise the paper.
@@ -72,6 +71,39 @@ round with several Docs (the paper, the supplement, separate tables) pulls each 
 on another Doc than the main master keeps that Doc's master (`master:` on the item), and `status` reads the
 same file in the next round. Never invent a folder id or a Doc link: take them from the authors, a
 README, `rclone lsjson` or a connector's `search_files`.
+
+## Reaching the Google Docs, and saying so without stopping
+
+This skill depends on reading the co-authors' Google Docs, and hosts differ: Codex often has its workspace's
+Google Drive connector on, Claude Code has it only once someone connects it (or an organization owner allows it),
+and rclone works on any host. Before pulling, find out which way you have, then go on whatever the answer:
+
+1. Look among your own tools for a Google Drive connector (tools such as `search_files`, `read_file_content`,
+   `download_file_content`; a deferred one is found by searching your tools for "google drive").
+2. Ask the script what the machine has, passing what you found:
+
+   ```bash
+   uv run --script scripts/rounds.py routes --connector|--no-connector --host claude|codex [--project DIR]
+   ```
+
+   It reports rclone's Google Drive remotes (and whether the configured one exists), the synced folder, what can
+   pull the comments (`can_pull`) and what can upload a release (`can_push`).
+3. With a route, use it: rclone first (it pulls and pushes), else the connector. A connector that would serve
+   better than the saved route (say the project saves `connector` and rclone now works) is worth one line to the
+   authors, not a question.
+4. With none, **never stop the run or wait for an answer.** Go on with what the run has (the ledger already in the
+   round folder, any .docx exports the authors left), record the script's `setup_note` once, and say it once at
+   the end:
+
+   ```bash
+   uv run --script ../manuscript-integrity-check/scripts/runs.py issue RUN --skill manuscript-coauthors --kind setup \
+     --message "<setup_note>"
+   ```
+
+   The progress pane lists a `setup` issue under "For a better run (nothing waits for this)" and toasts it when it
+   appears; the closing message repeats it in one line. Without a run (a direct request), say it in the reply.
+   Put the round's comments down as not pulled in the stage report, so the dashboard does not read their absence
+   as none.
 
 ## A review that happens in Google Docs: `port`
 
@@ -165,7 +197,34 @@ open comment becomes a `CA` finding the later stages fix.
 
 ## 3. Answer them in the next round
 
-Edit the next round's master (open it first, step 7). Where the master carries revision marks, the segment that
+**First carry what was changed in the Docs.** After a round goes out, the authors accept suggestions and edit
+the Docs' text themselves. Those edits exist in the Docs only: an export shows no mark of an accepted suggestion,
+and the next release, built from the masters, would undo them. `sync` compares each Doc's text as it stands
+(pending suggestions left out) with its master as the co-authors got it (the round's circulated commit), with
+Markdown and what a Doc never shows set aside, and writes each paragraph that differs as an edit on the next
+round's masters:
+
+```bash
+uv run --script scripts/rounds.py sync 0.6 --into 0.7 --export RUN/manuscript-coauthors/exports \
+  --out RUN/manuscript-coauthors/sync          # one STEM.edits.json per master, and a sync recorded for the round
+uv run --script ../manuscript-integrity-check/scripts/runs.py apply RUN --skill manuscript-coauthors \
+  --edits RUN/manuscript-coauthors/sync/paper.edits.json --by co-authors   # --document for a supplement's
+uv run --script scripts/rounds.py sync 0.6 --into 0.7 --export … --check   # exit 1 while something is left
+```
+
+- `--export` is the folder a pull wrote (each Doc as `Title.docx`); without it rclone exports the Docs again. With a
+  connector, download each Doc as .docx under its title into one folder and give that.
+- Each edit is a whole paragraph as released, and the same paragraph with the Doc's words; a changed word keeps the
+  master's markup (Livia^1^ becomes Livia^4^). Its reason names the ledger's suggestions it carries, or says it is
+  an accepted suggestion or an author's own edit. Apply them as the authors' own: `--by co-authors` (name them as
+  people in `rev-marks.toml`, manuscript-mark-people), never as the agent's.
+- A **conflict** is a paragraph the next round's master changed since the release (a run's edit, say): the Doc's
+  words cannot simply replace it. Settle each by hand and say so; never drop one silently.
+- **Carried** counts paragraphs the master already reads as the Doc does. `--check` passes when nothing is left.
+- Items of the ledger the Doc no longer has stay in it: a suggestion the sync carries is answered by that edit
+  (its `now` is the carried passage), one it does not was rejected or answered in other words.
+
+Then edit the next round's master (open it first, step 7). Where the master carries revision marks, the segment that
 answers a comment takes the comment's id (`@rev C12`, `C12a`, `C12b` for several places; see
 manuscript-revision-marks), so the changelog and the dashboard link the passage to the comment.
 
@@ -244,9 +303,10 @@ uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory … --ch
 - The merge writes nothing while one record has a problem (an unknown or dismissed problem, a proposed edit, a
   missing reason) and keeps the ledger to one run (`gap_run`).
 
-`findings` (step 4) then carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the
-run that produced vX.Y catch them?" (caught, missed, written by the run; why the rest was missed; the misses by
-the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,
+The worksheet groups the comments by co-author, and `--check` counts them for each. `findings` (step 4) then
+carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the run that produced vX.Y
+catch them?" (caught, missed, written by the run; one bar and one row per co-author, with the skills their misses
+point at; why the rest was missed; the misses by the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,
 and a filter shows the misses. Re-render the dashboard of the run that produced the round (collect, then render)
 so the links resolve; in the next run's dashboard the verdicts stay, unlinked. Tell the authors the counts and the
 misses that matter most, quoted, in plain words.
@@ -297,6 +357,7 @@ co-authors, so each knows which wording nobody has put their name to yet.
 
 ```bash
 uv run --script scripts/rounds.py open 0.7                 # copy v0.6/ to v0.7/, without its runs, build and comments
+uv run --script scripts/rounds.py sync 0.6 --into 0.7      # what was changed in the v0.6 Docs: carry it first (step 3)
 uv run --script scripts/rounds.py push 0.7                 # what would be built and uploaded
 uv run --script scripts/rounds.py push 0.7 --go            # build the Docs and upload the release
 uv run --script scripts/rounds.py record 0.7               # the new Docs' links, read back (rclone), or --doc NAME=LINK
@@ -304,7 +365,11 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
 ```
 
 - `open` copies the released round, leaving behind its reviews, build, comments and dashboards, records the
-  base commit, and lists the lines that still name the old round (the draft label) for you to change.
+  base commit, and lists the lines that still name the old round (the draft label) for you to change. It also
+  reminds you that the old round's Docs may hold edits the new masters lack (step 3).
+- `push --go` first compares the previous round's Docs with that round as released and refuses while the new
+  masters lack what was changed there, listing each passage. Without rclone it asks for a recorded `sync` into
+  this round instead. `--unsynced-ok` releases anyway, for a change the authors chose to leave out.
 - Run `push --go` when the authors ask to release or send the round: the upload is the release. Read the dry
   run first: its `not_found` lists release files that do not exist yet (a PDF built by hand), which `--go`
   would leave out. It never replaces a file already in the round's Drive folder: replacing a Doc keeps its
@@ -336,8 +401,9 @@ be exported, anchors not found) once, plainly.
 
 - `scripts/comments.py`: import, import-gdoc, add, status, findings, changelog, signoffs and gaps: the ledger of a round's comments, and
   whether the run that produced the round had caught each.
-- `scripts/rounds.py`: show, open, push, record, circulated, pull and port: the rounds on Drive, and a round's
-  comments taken from Google Docs to the run's dashboard.
+- `scripts/rounds.py`: show, open, sync, push, record, circulated, pull, routes and port: the rounds on Drive,
+  the edits made in their Docs carried back into the masters, and a round's comments taken from Google Docs to
+  the run's dashboard.
 - `references/google-docs-connectors.md`: what Claude's Google Docs and Drive connectors and Codex's Google Drive
   app can read and write in a Google Doc (edits, highlights, suggestions, comments, replies), the exact
   requests, how to verify each by reading back, and how to install the connectors.

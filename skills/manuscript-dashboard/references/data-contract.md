@@ -36,7 +36,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `coauthors` | optional, from `manuscript-coauthors`: the co-authors' comments on the previous release and how the next one answers each; [below](#co-authors-comments). |
 | `todo` | optional, from collect: the authors' to-do marks file beside the manuscript (`STEM.todo.json`) and every mark in it; [below](#to-do). |
 | `reference_list` | optional, the manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check folder, else the integrity-check one): one record per entry with `n` (its place in the list), `line`, `text`, `state` (its worst: `fine`, `corrected`, `unverified`, `not-checked`, `wrong` or `retracted`), `link` (doi.org, PubMed or arXiv) and `notes` (what the scanner found, in its words). The Overview shows it as one cell per entry. |
-| `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`). |
+| `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`), and for a journal the selection measured the manuscript against, `adaptation` (from `adaptation.json`, written by manuscript-journal-select's `effort.py`): `size` (`no change`, `light`, `moderate` or `major`), `words_to_cut`, `summary`, `measured` (one sentence on what was measured) and `items` (`aspect`, `what`, `have`, `limit`, `change`, `size` `none`, `small`, `medium`, `large` or `unknown`, `source`, `checked`). The Journals tab shows it on each chosen journal's card and as a table with a row per change and a column per chosen journal. |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused`, `in_progress` (the stage was
 still running when the inventory was collected; its evidence quotes its README's title, which does not change
@@ -209,9 +209,10 @@ inventory's `run_id`, the renderer rejects a gap that links a finding it does no
 edit that was not applied; matched against another run (the next run's dashboard showing the comments on the
 release an earlier run produced), the links name that run's records and are shown without checking or linking.
 `summary.json`'s `coauthors.gap` counts the judged items by verdict, the misses by reason and by owner (leaving
-out wording preferences, later decisions and what needed the authors' knowledge), and the items not judged. The
-tab opens with "Did the run that produced vX.Y catch them?", marks each comment with its verdict and filters by
-it; the changes workbook adds a column "Did the run catch it".
+out wording preferences, later decisions and what needed the authors' knowledge), the items not judged, and the
+same for each co-author (`by_author`: `judged`, a count per verdict and `by_owner`). The tab opens with "Did the
+run that produced vX.Y catch them?", with a bar and a row per co-author, marks each comment with its verdict and
+filters by it; the changes workbook adds a column "Did the run catch it".
 
 ## Story
 

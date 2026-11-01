@@ -420,6 +420,29 @@ class AiPolicy(Record):
     source: str = ""
 
 
+class AdaptationItem(Record):
+    """One kind of change a venue would ask of the manuscript: what the manuscript has, what the venue allows, the
+    change and its size (`unknown` when nobody has read the rule)."""
+    aspect: str = ""
+    what: Text
+    have: str = ""
+    limit: str = ""
+    change: str = ""
+    size: Literal["none", "small", "medium", "large", "unknown"]
+    source: str = ""
+    checked: str = ""
+
+
+class Adaptation(Record):
+    """What choosing a venue would change in the manuscript, the major changes only (manuscript-journal-select's
+    effort.py, adaptation.json): its largest change as the estimate, the words to cut, and one row per change."""
+    size: Literal["no change", "light", "moderate", "major"]
+    words_to_cut: Annotated[int, Field(ge=0)] = 0
+    summary: str = ""
+    measured: str = ""  # what was measured, the same sentence for every venue of the run
+    items: list[AdaptationItem] = Field(default_factory=list)
+
+
 class Venue(Record):
     """One rung of a journal or preprint ladder from manuscript-journal-select."""
     ladder: Literal["journals", "preprints"]
@@ -443,6 +466,7 @@ class Venue(Record):
     preprint_rule: str = ""
     why: str = ""
     url: str = ""
+    adaptation: Adaptation | None = None  # journals the selection measured the manuscript against
 
 
 class StoryTest(Record):
@@ -902,6 +926,17 @@ def coauthor_counts(coauthors: Coauthors | None, run_id: str = "") -> dict | Non
         authors.setdefault(item.author, Counter())[item.status] += 1
     gaps = [item.gap for item in coauthors.items if item.gap]
     short = [gap for gap in gaps if gap.verdict != "caught"]
+    # The same report for each co-author: what the run had caught of theirs, and which skills their misses point at.
+    gap_authors: dict[str, dict] = {}
+    for item in coauthors.items:
+        if item.gap:
+            mine = gap_authors.setdefault(item.author, {"judged": 0, **{verdict: 0 for verdict in GAP_VERDICTS}, "by_owner": Counter()})
+            mine["judged"] += 1
+            mine[item.gap.verdict] += 1
+            if item.gap.verdict != "caught" and item.gap.miss_reason not in NO_SKILL_TO_IMPROVE:
+                mine["by_owner"][item.gap.owner or "unassigned"] += 1
+    for mine in gap_authors.values():
+        mine["by_owner"] = dict(mine["by_owner"].most_common())
     return {"round": coauthors.round, "next_round": coauthors.next_round, "total": len(coauthors.items),
             "comments": sum(item.kind == "comment" for item in coauthors.items),
             "suggestions": sum(item.kind == "suggestion" for item in coauthors.items),
@@ -915,7 +950,8 @@ def coauthor_counts(coauthors: Coauthors | None, run_id: str = "") -> dict | Non
                     "miss_reasons": ordered(Counter(gap.miss_reason or "unexplained" for gap in short), (*MISS_REASONS, "unexplained")),
                     "by_owner": dict(Counter(gap.owner or "unassigned" for gap in short
                                              if gap.miss_reason not in NO_SKILL_TO_IMPROVE)
-                                     .most_common())} if gaps else None}
+                                     .most_common()),
+                    "by_author": gap_authors} if gaps else None}
 
 
 def decision_list(data: Inventory) -> list[dict]:

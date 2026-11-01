@@ -567,6 +567,7 @@ ASPECTS = ("drafting", "prompts", "records", "detection", "declaration", "counte
 # (manuscript-record.yaml, or <stem>.record.yaml where several manuscripts share a folder).
 LADDER = re.compile(r"^.+\.(?P<kind>journal|preprint)-ladder(?:\.(?P<n>\d+))?\.csv$")
 TOP = re.compile(r"^top3(?:\.(?P<n>\d+))?\.json$")
+ADAPTATION = re.compile(r"^adaptation(?:\.(?P<n>\d+))?\.json$")
 RECORD = re.compile(r"^(?:manuscript-record|.+\.record)(?:\.(?P<n>\d+))?\.ya?ml$")
 
 
@@ -590,7 +591,8 @@ def selection_files(run: Path, data: dict | None = None) -> dict[str, Path | Non
         for name in ("manuscript-record.yaml", f"{original.stem}.record.yaml"):
             if record is None and (original.parent / name).is_file():
                 record = original.parent / name
-    return {"journals": best(LADDER, "journal"), "preprints": best(LADDER, "preprint"), "top3": best(TOP), "record": record}
+    return {"journals": best(LADDER, "journal"), "preprints": best(LADDER, "preprint"), "top3": best(TOP),
+            "adaptation": best(ADAPTATION), "record": record}
 
 
 def catalogue_policies(record: Path | None) -> tuple[Any, dict[str, dict]]:
@@ -639,10 +641,26 @@ def top_choices(path: Path | None) -> list[dict]:
     return [entry for entry in doc if isinstance(entry, dict)] if isinstance(doc, list) else []
 
 
+def adaptations(path: Path | None) -> dict[str, dict]:
+    """adaptation.json (effort.py): what choosing each venue would change in the manuscript, by venue key, with the
+    sentence saying what was measured; {} when there is none or it does not parse."""
+    if path is None:
+        return {}
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    measured = str(doc.get("measured_text") or "")
+    fields = ("size", "words_to_cut", "summary", "items")
+    return {str(v["key"]): {**{k: v[k] for k in fields if k in v}, "measured": measured}
+            for v in doc.get("venues") or [] if isinstance(v, dict) and v.get("key")}
+
+
 def venues(run: Path, data: dict | None = None) -> list[dict]:
     """The journal and preprint ladders manuscript-journal-select wrote, in the order it chose."""
     files = selection_files(run, data)
     chosen = {entry.get("key") or entry.get("name"): entry for entry in top_choices(files["top3"])}
+    effort = adaptations(files["adaptation"])
     rows, cache = [], {}
     for ladder in ("journals", "preprints"):
         if files[ladder] is None:
@@ -662,7 +680,8 @@ def venues(run: Path, data: dict | None = None) -> list[dict]:
                              "ai_tier": row.get("ai_tier") or "", "ai_for_this_use": row.get("ai_for_this_use") or "",
                              "ai_policy": ai_policy(row, row.get("key") or "", files["record"], cache), "fee": fee,
                              "preprint_rule": row.get("preprint_rule") or "", "why": (pick or {}).get("why", ""),
-                             "url": row.get("guidelines_url") or (pick or {}).get("url", "")})
+                             "url": row.get("guidelines_url") or (pick or {}).get("url", ""),
+                             "adaptation": effort.get(row.get("key") or "") if ladder == "journals" else None})
     return rows
 
 

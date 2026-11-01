@@ -769,10 +769,17 @@ def test_co_author_comments_say_whether_the_run_that_produced_the_release_caught
         "by_verdict": {"caught": 1, "partly": 1, "missed": 1, "introduced": 1},
         "miss_reasons": {"skill-did-not-look": 1, "judged-differently": 1, "wording-preference": 1},
         # a wording preference names no skill to improve
-        "by_owner": {"manuscript-integrity-check": 1, "manuscript-reference-check": 1}}
+        "by_owner": {"manuscript-integrity-check": 1, "manuscript-reference-check": 1},
+        # the same report for each co-author
+        "by_author": {
+            "Robi Tacutu": {"judged": 2, "caught": 1, "partly": 0, "missed": 1, "introduced": 0,
+                            "by_owner": {"manuscript-reference-check": 1}},
+            "Olga Ivanova": {"judged": 2, "caught": 0, "partly": 1, "missed": 0, "introduced": 1,
+                             "by_owner": {"manuscript-integrity-check": 1}}}}
     page = visualize.dashboard_html(inventory, summary, tmp_path)
     assert embedded(page)["inventory"]["coauthors"]["items"][3]["gap"]["change_ids"] == ["C1"]
     assert "Did the run that produced" in page and "Co-authors' comments the run had caught" in page
+    assert "G.by_author" in page and "Their misses point at" in page
     del data["coauthors"]["items"][2]["gap"]
     assert visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"]["gap"]["not_judged"] == 1
 

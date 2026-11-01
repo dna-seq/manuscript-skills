@@ -70,6 +70,7 @@ ledger · 3 could not run (an unreadable file)
 from __future__ import annotations
 
 import argparse
+import html
 import importlib.util
 import json
 import re
@@ -1101,41 +1102,50 @@ def worksheet(data: dict[str, Any], rows: list[dict[str, Any]], inventory: dict[
              f"says why ({', '.join(MISS_REASONS)}) and, when the miss was in a skill's remit, its `owner`.",
              "The candidates are found by shared words, so read each before using it; the run may also have raised",
              "a comment where nothing below shows it.", ""]
+    authors: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}  # each co-author's, in paper order
     for item, row in zip(data["items"], rows):
-        if item.get("gap") and not every:
-            continue
-        found = candidates(item, row, inventory)
-        lines += [f"## {item['id']} ({item.get('author', '?')}, {item.get('kind', 'comment')}, {item.get('status', 'open')})"
-                  f"{' · ' + item['where'] if item.get('where') else ''}", ""]
-        if item.get("comment"):
-            lines += [f"> {norm(item['comment'])}", ""]
-        for e in item.get("edits") or []:
-            lines.append(f"- Suggested: delete “{e.get('deleted', '')}” insert “{e.get('inserted', '')}”")
-        for r in item.get("replies") or []:
-            if isinstance(r, dict):
-                lines.append(f"- Reply ({r.get('author', '?')}): {clip(r.get('text'), 300)}")
-        if item.get("anchor"):
-            lines.append(f"- On: “{clip(item['anchor'], 160)}”")
-        if row.get("before"):
-            lines.append(f"- Passage: {clip(row['before'], 700)}")
-        if item.get("gap"):
-            lines.append(f"- Recorded: {json.dumps(item['gap'], ensure_ascii=False)}")
-        for c in found["written"]:
-            lines.append(f"- **Written by the run's edit {c['id']}** ({c.get('section', '')}): {clip(c.get('summary'), 160)}")
-        for f in found["problems"]:
-            lines.append(f"- Problem {f['id']} [{f.get('severity')}, {f.get('resolution')}, {clip(f.get('section'), 40)}]: "
-                         f"{clip(f.get('summary'), 160)} · Action: {clip(f.get('action'), 200)}")
-        for d in found["dismissed"]:
-            lines.append(f"- Dismissed by {d.get('skill')}: {clip(d.get('summary'), 140)} · Why: {clip(d.get('why'), 160)}")
-        for n in found["unchecked"]:
-            lines.append(f"- Not checked by {n.get('skill')}: {clip(n.get('check'), 120)} · Leaves open: {clip(n.get('leaves_open'), 140)}")
-        for c in found["concerns"]:
-            lines.append(f"- Referee concern {c.get('id')} [{c.get('severity')}] ({clip(c.get('location'), 60)}): "
-                         f"{clip(c.get('concern'), 200)}{' → ' + ', '.join(c['finding_ids']) if c.get('finding_ids') else ''}")
-        for t in found["tests"]:
-            lines.append(f"- Story test “{t.get('test')}” ({t.get('result')}): {clip(t.get('note'), 200)}")
-        lines.append("")
+        if every or not item.get("gap"):
+            authors.setdefault(str(item.get("author", "?")), []).append((item, row))
+    for author, pairs in authors.items():
+        lines += [f"# {author}: {len(pairs)} to judge", ""]
+        for item, row in pairs:
+            lines += comment_block(item, row, candidates(item, row, inventory))
     return "\n".join(lines).rstrip() + "\n"
+
+
+def comment_block(item: dict[str, Any], row: dict[str, Any], found: dict[str, list]) -> list[str]:
+    """One comment of the worksheet: what it asks, its passage, and the run's records nearest to it."""
+    lines = [f"## {item['id']} ({item.get('kind', 'comment')}, {item.get('status', 'open')})"
+             f"{' · ' + item['where'] if item.get('where') else ''}", ""]
+    if item.get("comment"):
+        lines += [f"> {norm(item['comment'])}", ""]
+    for e in item.get("edits") or []:
+        lines.append(f"- Suggested: delete “{e.get('deleted', '')}” insert “{e.get('inserted', '')}”")
+    for r in item.get("replies") or []:
+        if isinstance(r, dict):
+            lines.append(f"- Reply ({r.get('author', '?')}): {clip(r.get('text'), 300)}")
+    if item.get("anchor"):
+        lines.append(f"- On: “{clip(item['anchor'], 160)}”")
+    if row.get("before"):
+        lines.append(f"- Passage: {clip(row['before'], 700)}")
+    if item.get("gap"):
+        lines.append(f"- Recorded: {json.dumps(item['gap'], ensure_ascii=False)}")
+    for c in found["written"]:
+        lines.append(f"- **Written by the run's edit {c['id']}** ({c.get('section', '')}): {clip(c.get('summary'), 160)}")
+    for f in found["problems"]:
+        lines.append(f"- Problem {f['id']} [{f.get('severity')}, {f.get('resolution')}, {clip(f.get('section'), 40)}]: "
+                     f"{clip(f.get('summary'), 160)} · Action: {clip(f.get('action'), 200)}")
+    for d in found["dismissed"]:
+        lines.append(f"- Dismissed by {d.get('skill')}: {clip(d.get('summary'), 140)} · Why: {clip(d.get('why'), 160)}")
+    for n in found["unchecked"]:
+        lines.append(f"- Not checked by {n.get('skill')}: {clip(n.get('check'), 120)} · Leaves open: {clip(n.get('leaves_open'), 140)}")
+    for c in found["concerns"]:
+        lines.append(f"- Referee concern {c.get('id')} [{c.get('severity')}] ({clip(c.get('location'), 60)}): "
+                     f"{clip(c.get('concern'), 200)}{' → ' + ', '.join(c['finding_ids']) if c.get('finding_ids') else ''}")
+    for t in found["tests"]:
+        lines.append(f"- Story test “{t.get('test')}” ({t.get('result')}): {clip(t.get('note'), 200)}")
+    lines.append("")
+    return lines
 
 
 def gap_problems(gap: dict[str, Any], inventory: dict[str, Any]) -> list[str]:
@@ -1194,11 +1204,18 @@ def check_gaps(data: dict[str, Any], inventory: dict[str, Any]) -> tuple[list[st
 
 
 def gap_counts(data: dict[str, Any]) -> dict[str, Any]:
-    gaps = [item["gap"] for item in data["items"] if item.get("gap")]
-    count = lambda key: dict(sorted(((k, sum(1 for g in gaps if (g.get(key) or "") == k)) for k in
-                                     {str(g.get(key) or "") for g in gaps} if k), key=lambda kv: -kv[1]))
-    return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
-            "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
+    """The gap records counted overall and for each co-author."""
+    def counts(items: list[dict[str, Any]]) -> dict[str, Any]:
+        gaps = [item["gap"] for item in items if item.get("gap")]
+        count = lambda key: dict(sorted(((k, sum(1 for g in gaps if (g.get(key) or "") == k)) for k in
+                                         {str(g.get(key) or "") for g in gaps} if k), key=lambda kv: -kv[1]))
+        return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
+                "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
+    authors: dict[str, list[dict[str, Any]]] = {}
+    for item in data["items"]:
+        authors.setdefault(str(item.get("author", "?")), []).append(item)
+    return {**counts(data["items"]), "by_author": {author: {k: v for k, v in counts(items).items() if k != "miss_reasons"}
+                                                   for author, items in authors.items() if any(i.get("gap") for i in items)}}
 
 
 def merge_gaps(data: dict[str, Any], source: Path, inventory: dict[str, Any]) -> list[str]:
@@ -1238,6 +1255,212 @@ def merge_gaps(data: dict[str, Any], source: Path, inventory: dict[str, Any]) ->
     for cid, record in staged.items():
         known[cid]["gap"] = record
     return []
+
+
+# --- what the authors changed in a released Doc -------------------------------------------------------------
+# A round reaches the co-authors as Google Docs built from the master, and the authors then accept suggestions and
+# edit the Doc's text. Those edits exist in the Doc only: an export shows no mark of an accepted suggestion, and the
+# next release, built from the master, would undo them. So the Doc's text as it stands (pending suggestions left out,
+# the words they would delete kept) is compared word by word with the master as it was released, Markdown's markup
+# and what a Doc never shows (comments, images) set aside, and each paragraph that differs becomes an edit for
+# runs.py apply on the master the next release is built from.
+
+DASHES = (("---", "—"), ("--", "–"), ("...", "…"))  # how pandoc's smart typography renders them
+# Comments and what pandoc reads as raw HTML (<CN0>) never reach a Doc; inside a code span the same text shows.
+UNSHOWN = re.compile(r"(`[^`\n]*`)|<!--.*?-->|<[^<>\s]+>", re.S)
+LINK = re.compile(r"(!?\[)[^\[\]]*(\]\([^)]*\)(?:\{[^}]*\})?)")  # a link or an image shows its text only (an image's
+# text becomes its caption); a bracket of its own stays
+ESCAPED = {f"\\{c}": chr(0xE000 + n) for n, c in enumerate("*_[]#|>`\\$^~")}
+MARKUP_ONLY = re.compile(r"[-:|>#*_`]+")  # a table rule, a list bullet, a heading's hashes: no word, on either side
+LIST_NUMBER = re.compile(r"(?:\d+|[a-z])[.)]|[-–•·*]")  # a Doc numbers its lists itself
+
+
+def master_token(word: str) -> str:
+    """A word of the master as the Doc built from it shows it: emphasis, superscript and subscript marks and escapes
+    set aside, intraword underscores (W_display) kept. Links are masked before (LINK)."""
+    word = html.unescape(word)
+    if "`" in word:  # code shows as written: no emphasis or typography inside it
+        return word.replace("`", "")
+    for plain, typographic in DASHES:
+        word = word.replace(plain, typographic)
+    for escaped, held in ESCAPED.items():
+        word = word.replace(escaped, held)
+    word = re.sub(r"[*^~]", "", word)  # emphasis, superscript and subscript marks
+    word = re.sub(r"(?<![^\W_])_+|_+(?![^\W_])", "", word)  # underscore emphasis; W_display keeps its own
+    for escaped, held in ESCAPED.items():
+        word = word.replace(held, escaped[1:])
+    word = word.translate(QUOTES)
+    return "" if MARKUP_ONLY.fullmatch(word) else word
+
+
+def retoken(raw: str, word: str) -> str:
+    """The Doc's word written the way the master writes that token: the characters that changed are replaced and the
+    token's markup (superscripts, emphasis, escapes) stays around them, so Livia^1^ becomes Livia^4^, not Livia4. A
+    token whose markup is more than marks over its characters (an entity, a dash ligature) takes the Doc's word."""
+    chars: list[str] = []
+    spans: list[tuple[int, int]] = []
+    k = 0
+    while k < len(raw):
+        if raw[k] == "\\" and k + 1 < len(raw) and raw[k + 1] in "*_[]#|>`\\$^~":
+            chars.append(raw[k + 1])
+            spans.append((k, k + 2))
+            k += 2
+            continue
+        edge = raw[k] == "_" and not (0 < k < len(raw) - 1 and raw[k - 1].isalnum() and raw[k + 1].isalnum())
+        if raw[k] not in "*^~`" and not edge:
+            chars.append(raw[k])
+            spans.append((k, k + 1))
+        k += 1
+    shown = "".join(chars).translate(QUOTES)
+    if not spans or shown != master_token(raw):
+        return word
+    out = raw
+    for tag, a1, a2, b1, b2 in reversed(SequenceMatcher(None, shown, word, autojunk=False).get_opcodes()):
+        if tag == "equal":
+            continue
+        if a2 == a1:  # an insertion goes before the character it precedes, or after the last one
+            at = spans[a1][0] if a1 < len(spans) else spans[-1][1]
+            out = out[:at] + word[b1:b2] + out[at:]
+            continue
+        # the changed characters' own spans go, the markup between them stays; the new text takes the first one's place
+        for n, (start, end) in reversed(list(enumerate(spans[a1:a2]))):
+            out = out[:start] + (word[b1:b2] if n == 0 else "") + out[end:]
+    if re.search(r"\^[,;:.]$", raw):  # punctuation after a superscript stays after it: Georg^1^, not Georg^1,^
+        out = re.sub(r"([,;:.])\^$", r"^\1", out)
+    return out
+
+
+def doc_paragraphs(path: Path) -> list[str]:
+    """A Doc export's text as it stands, one string per paragraph: pending insertions left out, the words a pending
+    deletion would remove kept (a suggestion nobody accepted is not an edit yet)."""
+    try:
+        root = ET.fromstring(zipfile.ZipFile(path).read("word/document.xml"))
+    except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as exc:
+        raise Failure(f"{path}: not a .docx export ({exc}).", 3) from exc
+    out: list[str] = []
+    for paragraph in root.iter(W + "p"):
+        words: list[str] = []
+
+        def walk(element: ET.Element, inserted: bool) -> None:
+            for child in element:
+                if child.tag == W + "ins":
+                    walk(child, True)
+                elif child.tag == W + "t" and not inserted or child.tag == W + "delText":
+                    words.append(child.text or "")
+                elif child.tag in (W + "tab", W + "br") and not inserted:
+                    words.append(" ")
+                elif child.tag != W + "p":  # a nested paragraph (a text box) is read on its own
+                    walk(child, inserted)
+        walk(paragraph, False)
+        text = " ".join("".join(words).split())
+        if text:
+            out.append(text)
+    return out
+
+
+def clean_of(raw: str, path: Path) -> str:
+    """A master's text with its revision marks removed: the text runs.py apply finds an edit's before-text in."""
+    rm = rev_marks()
+    return rm.parse(raw, rm.syntax_for(path)).clean_text()
+
+
+@dataclass
+class DocEdit:
+    """One paragraph of the released master that the Doc now reads differently."""
+
+    lo: int  # the paragraph's span in the released clean text
+    hi: int
+    section: str
+    hunks: list[tuple[int, int, str]] = field(default_factory=list)  # (start, end, the Doc's words there)
+    doc: list[str] = field(default_factory=list)  # the changed words as the Doc has them, for the report
+    released: list[str] = field(default_factory=list)  # the words they replace, as released
+    before: str = ""  # the paragraph as released, verbatim in the master's clean text
+    after: str = ""  # the same paragraph with the Doc's words in place of the released ones
+
+
+def doc_edits(released: str, paragraphs: list[str]) -> list[DocEdit]:
+    """The paragraphs of the released master (clean text) that the Doc's paragraphs now read differently, each as
+    the released paragraph and the same paragraph with the Doc's words in place. List numbers a Doc adds by itself
+    are not differences. New words at the start of a Doc paragraph go before the paragraph's first word, and a new
+    paragraph goes after the one it follows."""
+    masked = UNSHOWN.sub(lambda m: m.group(0) if m.group(1) else re.sub(r"\S", " ", m.group(0)), released)
+    masked = LINK.sub(lambda m: " " * len(m.group(1)) + m.group(0)[len(m.group(1)):-len(m.group(2))] + " " * len(m.group(2)),
+                      masked)
+    # a list's marker at the start of a line never reaches a Doc's text: the Doc numbers the list itself
+    base = [(tok, m.start(), m.end()) for m in re.finditer(r"\S+", masked) if (tok := master_token(m.group(0)))
+            and not (LIST_NUMBER.fullmatch(tok) and not masked[masked.rfind("\n", 0, m.start()) + 1:m.start()].strip())]
+    doc = [(word.translate(QUOTES), n) for n, text in enumerate(paragraphs) for word in text.split()
+           if not MARKUP_ONLY.fullmatch(word)]
+    a, b = [t[0] for t in base], [t[0] for t in doc]
+    edits: list[DocEdit] = []
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        gone, came = a[i1:i2], b[j1:j2]
+        if tag == "equal" or (not came and all(LIST_NUMBER.fullmatch(w) for w in gone)) \
+                or (not gone and all(LIST_NUMBER.fullmatch(w) for w in came)) or "".join(gone) == "".join(came):
+            continue  # a list number the Doc adds itself, or only the spacing differs ("summary ." against "summary.")
+        opens = j1 == 0 or doc[j1][1] != doc[j1 - 1][1]  # the new words open a Doc paragraph
+        forward = i1 == i2 and i1 < len(base) and j2 < len(doc) and opens and doc[j2 - 1][1] == doc[j2][1]
+        words = ""
+        one_for_one = i2 - i1 == j2 - j1 and len({doc[j][1] for j in range(j1, j2)}) == 1
+        for j in range(j1, j2):
+            breaks = j > j1 and doc[j][1] != doc[j - 1][1]
+            word = retoken(released[base[i1 + j - j1][1]:base[i1 + j - j1][2]], doc[j][0]) if one_for_one else doc[j][0]
+            words += ("\n\n" if breaks else " " if words else "") + word
+        if i2 > i1:
+            start, end = base[i1][1], base[i2 - 1][2]
+            if not came:  # a deletion takes one space with it, so no double space is left
+                if released[end:end + 1] == " ":
+                    end += 1
+                elif start and released[start - 1] == " ":
+                    start -= 1
+        elif forward:  # new words at the start of a paragraph
+            start = end = base[i1][1]
+            words += " "
+        else:  # after the word before them: in its paragraph, or as a new paragraph of their own
+            start = end = base[i1 - 1][2] if i1 else 0
+            words = ("\n\n" if opens and i1 else " " if i1 else "") + words
+        lo = released.rfind("\n", 0, start) + 1
+        hi = released.find("\n", end)
+        hi = len(released) if hi < 0 else hi
+        if edits and lo <= edits[-1].hi:  # the same released paragraph as the change before
+            edit = edits[-1]
+            edit.hi = max(edit.hi, hi)
+        else:
+            heading = next((line.strip("#* ") for line in reversed(released[:lo].splitlines()) if line.startswith("#")), "")
+            edit = DocEdit(lo, hi, heading)
+            edits.append(edit)
+        edit.hunks.append((start, end, words))
+        edit.doc.append(" ".join(came))
+        edit.released.append(" ".join(gone))
+    for edit in edits:
+        edit.before = after = released[edit.lo:edit.hi]
+        for start, end, words in sorted(edit.hunks, key=lambda h: h[0], reverse=True):
+            after = after[:start - edit.lo] + words + after[end - edit.lo:]
+        edit.after = after
+    return [e for e in edits if " ".join(e.before.split()) != " ".join(e.after.split())]
+
+
+def shown_as(text: str) -> str:
+    """A passage of the master as its Doc reads, for comparing words: markup set aside, one space between words."""
+    return " ".join(t for w in text.split() if (t := master_token(w)))
+
+
+def suggestions_in(edit: DocEdit, items: list[dict[str, Any]], pending: set[str]) -> list[str]:
+    """The ledger's suggested edits this edit carries: no longer pending in the Doc (`pending` holds the keys of
+    those still there), attached to this paragraph, and with every insertion now in it and every deletion gone."""
+    before, after = shown_as(edit.before), shown_as(edit.after)
+    found = []
+    for item in items:
+        if item.get("kind") != "suggestion" or not item.get("edits") or item.get("key") in pending:
+            continue
+        anchor = " ".join(norm(item.get("anchor")).split()[:6])
+        if anchor and anchor not in before and anchor not in after:
+            continue
+        parts = [(norm(e.get("inserted")), norm(e.get("deleted"))) for e in item["edits"]]
+        if all((not ins or after.count(ins) > before.count(ins)) and (not gone or before.count(gone) > after.count(gone))
+               for ins, gone in parts if ins or gone):
+            found.append(item["id"])
+    return found
 
 
 def gaps(args: argparse.Namespace, ledger: Path, data: dict[str, Any], rows: list[dict[str, Any]]) -> int:

@@ -97,7 +97,7 @@ Where co-authors comment on Google Docs, the project file also remembers the Dri
 the folder Drive for desktop syncs, `--round-folder v{round}`, `--release-build` (the project's own .docx build),
 and `--release-doc PATH=Title` and `--release-file PATTERN` for what a release uploads; `--no-coauthors`
 forgets them. They are saved as the `coauthors` block, whose `rounds` (each round's base commit, release
-date, Doc links and circulation dates) `rounds.py` keeps. Asked once, when the authors first mention
+date, Doc links, circulation dates and each `sync` of its Docs' edits into a later round) `rounds.py` keeps. Asked once, when the authors first mention
 co-authors on Drive; never again for a later round.
 
 For linked papers use `--related-manuscript LOCATION` and record their relationship in the scientific
@@ -138,6 +138,11 @@ uv run --script scripts/runs.py add RUN --skill manuscript-story --file READER -
 uv run --script scripts/runs.py exec RUN --skill manuscript-story -- uv run --script METRICS SOURCE
 uv run --script scripts/runs.py issue RUN --skill manuscript-story --kind contradiction --message 'Explain the actual disagreement and its consequence.'
 ```
+
+An issue of kind `setup` is something the authors could set up for a better run, such as a connector to enable or
+a token to add: record it in one sentence that says what is missing and how to enable it in this host, and go on.
+The progress pane lists it under "For a better run (nothing waits for this)" and toasts it when it appears, and
+the closing message repeats it once. It is never a question that holds the run.
 
 Use `--seat potential-user` and `--seat informed-outsider` for the other story readers. For formal peer
 review, retain three distinct `referee` reports with their seat names, plus `defence` and `adjudication`

@@ -14,6 +14,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import pytest
 import yaml
@@ -527,6 +528,9 @@ def test_the_gap_worksheet_names_the_edit_that_wrote_a_passage_and_the_problems_
     text = sheet.read_text(encoding="utf-8")
     sections = {part.split(" ", 1)[0]: part for part in text.split("\n## ")[1:]}
     assert set(sections) == {"C1", "C2", "S1", "C3"}
+    # grouped by co-author, each in the order they first appear in the paper
+    assert [line for line in text.splitlines() if line.startswith("# ") and "to judge" in line] == [
+        f"# {ANN}: 3 to judge", f"# {BOB}: 1 to judge"]
     assert "Written by the run's edit IC-C1" in sections["C3"] and "IC-C2" not in text  # applied edits only
     assert "Problem IC-1" in sections["C2"] and "Problem IC-1" not in sections["C3"]
     assert "Dismissed by manuscript-prose-edit" in sections["C3"]
@@ -561,6 +565,7 @@ def test_gap_records_merge_only_when_they_name_the_runs_records(rounds: Path, tm
     result = json.loads(capsys.readouterr().out)
     assert result["by_verdict"] == {"caught": 1, "partly": 0, "missed": 0, "introduced": 1}
     assert result["not_judged"] == ["C1", "S1"] and result["problems"] == []
+    assert result["by_author"][ANN]["by_verdict"]["caught"] == 1 and result["by_author"][BOB]["judged"] == 1
     data = ledger_of(ledger)
     assert data["gap_run"] == "20261020T090000Z-abc" and data["gap_matched_by"] == "the coordinating agent"
     by = {i["id"]: i for i in data["items"]}
@@ -592,6 +597,210 @@ def test_a_gap_outside_the_scale_is_a_malformed_ledger(rounds: Path) -> None:
     data["items"][0]["gap"] = {"verdict": "spotted"}
     ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     assert cli("status", ledger) == 2
+
+
+# --- the routes to the Google Docs (rounds.py routes) -------------------------------------------------------------
+
+rounds_module = _load("rounds")
+
+
+def routes_of(capsys, **options) -> dict:
+    capsys.readouterr()
+    rounds_module.routes(project_dir=options.pop("project_dir", None), connector=options.pop("connector", None),
+                         host=options.pop("host", "claude"))
+    return json.loads(capsys.readouterr().out)
+
+
+def test_without_a_route_to_the_docs_the_run_gets_one_setup_note_for_its_host(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)  # no project file: the routes are still reported, for the first-use questions
+    monkeypatch.setattr(rounds_module.shutil, "which", lambda name: None)
+    claude = routes_of(capsys)
+    assert claude["can_pull"] == [] and claude["rclone"]["installed"] is False
+    assert "rclone is not installed and no connector was checked" in claude["setup_note"]
+    assert "Settings, Connectors on claude.ai" in claude["setup_note"] and "rclone config" in claude["setup_note"]
+    codex = routes_of(capsys, connector=False, host="codex")
+    assert "no Google Drive connector is connected" in codex["setup_note"] and "ChatGPT workspace" in codex["setup_note"]
+    connected = routes_of(capsys, connector=True)
+    assert connected["can_pull"] == ["connector"] and connected["setup_note"] is None
+    with pytest.raises(rounds_module.Refused):
+        routes_of(capsys, host="vim")
+
+
+def test_an_rclone_drive_remote_is_a_route_and_the_configured_one_must_exist(rounds: Path, monkeypatch, capsys) -> None:
+    configure(rounds / "v0.5", "--drive", "rclone", "--drive-remote", "work", "--drive-folder-id", "1AbCdEfGhIjKlMnOpQrStUvWxYz")
+    monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive"])
+    missing = routes_of(capsys, project_dir=rounds / "v0.5")
+    assert missing["rclone"]["configured"] == "work" and missing["can_pull"] == []
+    assert "rclone has no remote 'work'" in missing["setup_note"]
+    monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive", "work"])
+    ready = routes_of(capsys, project_dir=rounds / "v0.5")
+    assert ready["can_pull"] == ["rclone"] and ready["can_push"] == ["rclone"] and ready["setup_note"] is None
+
+
+# --- what was changed in a released Doc (rounds.py sync) ----------------------------------------------------------
+
+RELEASED = """# A Paper
+
+**Authors:** Ann Lee^1^, Bob Ray^1,\\*^
+
+## Abstract
+
+Personal genome analysis requires tools that keep the data local, so the genome does not have to be uploaded.
+
+<!-- @rev C9 rounds=1 by=ann:2026-10-20 -->
+The *Polygenic Score* Catalog publishes scores; just-prs computes them.
+<!-- @/rev C9 -->
+
+![The coverage of each score](figures/coverage.png){width=100%}
+
+| Module | Variants |
+|---|---|
+| Longevity | 528 |
+
+The code reads `<CN0>` alleles and drops <CN0> markers.
+
+1. First step of the method.
+2. Second step of the method.
+
+Modules are versioned tables of variants and their evidence.
+"""
+
+
+def paragraph(*parts) -> str:
+    """A Doc paragraph: plain text, or ("ins"|"del", text) for a suggestion still pending in the Doc."""
+    body = ""
+    for n, part in enumerate(parts):
+        if isinstance(part, str):
+            body += run_(escape(part))
+        elif part[0] == "ins":
+            body += (f'<w:ins w:id="{70 + n}" w:author="{ANN}" w:date="2026-11-01T10:00:00Z"><w:r>'
+                     f'<w:t xml:space="preserve">{escape(part[1])}</w:t></w:r></w:ins>')
+        else:
+            body += (f'<w:del w:id="{70 + n}" w:author="{ANN}" w:date="2026-11-01T10:00:00Z"><w:r>'
+                     f'<w:delText xml:space="preserve">{escape(part[1])}</w:delText></w:r></w:del>')
+    return f"<w:p>{body}</w:p>"
+
+
+def edited_doc(path: Path) -> Path:
+    """The v0.5 Doc after the authors worked in it: Bob's affiliation changed and his asterisk gone, the Abstract's
+    sentence edited, a new last paragraph, the first step reworded, and a suggestion of Ann's still pending. The
+    image's text shows as its caption, the table as cells, the list without its numbers, the raw <CN0> not at all."""
+    body = "".join([
+        paragraph("A Paper"), paragraph("Authors: Ann Lee", "1", ", Bob Ray", "2"), paragraph("Abstract"),
+        paragraph("Personal genome analysis requires tools that keep the data local, so the genome does not have "
+                  "to be uploaded to a third-party server."),
+        paragraph("The Polygenic Score Catalog ", ("del", "publishes"), ("ins", "lists"), " scores; just-prs computes them."),
+        paragraph("The coverage of each score"),
+        paragraph("Module"), paragraph("Variants"), paragraph("Longevity"), paragraph("528"),
+        paragraph("The code reads <CN0> alleles and drops markers."),
+        paragraph("First step of the method, run once."), paragraph("Second step of the method."),
+        paragraph("Modules are versioned tables of variants and their evidence."),
+        paragraph("Each module also records the studies behind every row.")])
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("word/document.xml", f'<w:document {NS}><w:body>{body}</w:body></w:document>')
+        z.writestr("word/comments.xml", f'<w:comments {NS}></w:comments>')
+    return path
+
+
+@pytest.fixture()
+def released_round(tmp_path: Path) -> Path:
+    """Round 0.5 released from a git commit, its Doc edited since, and round 0.6 opened, in which the run reworded
+    the first step on its own."""
+    folder = tmp_path / "v0.5"
+    folder.mkdir()
+    (folder / "paper.md").write_text(RELEASED, encoding="utf-8")
+    configure(folder, "--drive", "rclone", "--drive-remote", "gdrive", "--drive-folder-id", "1AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "--release-doc", "paper.md=Paper (v{round})")
+    for args in (["init", "-q"], ["config", "user.email", "a@b.c"], ["config", "user.name", "A"], ["add", "-A"],
+                 ["commit", "-q", "-m", "v0.5"]):
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+    link = "https://docs.google.com/document/d/1ZgaFbXmOXkkFMUMuSUR8_STPIjrZzjRZspfjQsmqdjU/edit"
+    assert rounds_cli("record", "0.5", "--doc", f"Paper (v0.5)={link}", "--project", folder).returncode == 0
+    assert rounds_cli("circulated", "0.5", "--project", folder).returncode == 0
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    doc = edited_doc(exports / "Paper (v0.5).docx")
+    ledger = folder / "comments.yaml"
+    cli("import", doc, "--ledger", ledger, "--master", folder / "paper.md")  # Ann's pending suggestion
+    data = ledger_of(ledger)
+    data["items"].append({"id": "S9", "kind": "suggestion", "author": BOB, "date": "2026-10-30T09:00:00Z",
+                          "key": f"{BOB}|2026-10-30T09:00:00Z| to a third-party server", "status": "open",
+                          "anchor": "Personal genome analysis requires tools that keep the data local",
+                          "edits": [{"inserted": " to a third-party server"}], "comment": "Suggested edits."})
+    ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    assert rounds_cli("open", "0.6", "--project", folder).returncode == 0
+    new = tmp_path / "v0.6" / "paper.md"
+    new.write_text(new.read_text(encoding="utf-8").replace("1. First step of the method.", "1. First step: read the VCF."),
+                   encoding="utf-8")
+    return tmp_path
+
+
+def sync_json(root: Path, *args: str) -> tuple[int, dict]:
+    done = rounds_cli("sync", "0.5", "--into", "0.6", "--export", root / "exports", "--project", root / "v0.5", *args)
+    assert done.stdout, done.stderr
+    return done.returncode, json.loads(done.stdout)
+
+
+def test_sync_turns_what_was_changed_in_the_doc_into_edits_on_the_next_masters(released_round: Path) -> None:
+    code, result = sync_json(released_round, "--out", released_round / "sync")
+    assert code == 0 and result["commit"]
+    [doc] = result["docs"]
+    by_section = {e["doc"]: e for e in doc["edits"]}
+    assert set(by_section) == {"Ray2", "uploaded to a third-party server.", "Each module also records the studies behind every row."}
+    authors = by_section["Ray2"]
+    assert "Bob Ray^2^" in authors["after"] and "Ann Lee^1^" in authors["after"]  # its superscripts kept
+    upload = by_section["uploaded to a third-party server."]
+    assert upload["after"].endswith("uploaded to a third-party server.") and "S9" in upload["reason"]
+    added = by_section["Each module also records the studies behind every row."]
+    assert added["after"] == added["before"] + "\n\nEach module also records the studies behind every row."
+    # the run reworded the first step in v0.6, so the Doc's wording cannot simply replace it
+    [conflict] = doc["conflicts"]
+    assert conflict["doc"] == "method, run once." and "no longer has the paragraph" in conflict["why"]
+    # neither the pending suggestion nor what the build shows differently counts
+    text = json.dumps(doc)
+    for absent in ("lists", "coverage", "528", "CN0", "Second step"):
+        assert absent not in text
+    written = json.loads((released_round / "sync" / "paper.edits.json").read_text(encoding="utf-8"))
+    assert [set(e) for e in written] == [{"before", "after", "reason", "section"}] * 3
+    assert projects.read(released_round / "v0.5" / ".manuscript-skills.yaml")["coauthors"]["rounds"]["0.5"]["synced"][-1] \
+        == {"date": written and __import__("datetime").date.today().isoformat(), "into": "0.6", "edits": 3, "conflicts": 1}
+
+
+def test_sync_check_passes_once_the_masters_carry_what_the_doc_holds(released_round: Path) -> None:
+    code, _ = sync_json(released_round, "--check")
+    assert code == 1
+    new = released_round / "v0.6" / "paper.md"
+    _, result = sync_json(released_round)
+    text = new.read_text(encoding="utf-8")
+    for edit in result["docs"][0]["edits"]:
+        assert text.count(edit["before"]) == 1
+        text = text.replace(edit["before"], edit["after"])
+    new.write_text(text.replace("1. First step: read the VCF.", "1. First step of the method, run once."), encoding="utf-8")
+    code, result = sync_json(released_round, "--check")
+    assert code == 0 and result["to_carry"] == 0 and result["docs"][0]["carried"] == 4
+
+
+def test_a_release_refuses_while_the_previous_docs_hold_changes_its_masters_lack(released_round: Path, monkeypatch) -> None:
+    folder = released_round / "v0.5"
+    project = rounds_module.Project(folder)
+    monkeypatch.setattr(rounds_module, "exports_of", lambda *a: {"Paper (v0.5)": released_round / "exports" / "Paper (v0.5).docx"})
+    with pytest.raises(rounds_module.Refused) as refused:
+        rounds_module.unsynced(project, "0.5", "0.6", "rclone")
+    assert refused.value.code == 1 and "4 change(s)" in str(refused.value) and "--unsynced-ok" in str(refused.value)
+    # without rclone the Docs cannot be read here: a recorded sync into this round is required instead
+    with pytest.raises(rounds_module.Refused):
+        rounds_module.unsynced(project, "0.5", "0.6", "connector")
+    project.rounds()["0.5"]["synced"] = [{"date": "2026-11-02", "into": "0.6", "edits": 3, "conflicts": 1}]
+    rounds_module.unsynced(project, "0.5", "0.6", "connector")
+    plan = json.loads(rounds_cli("push", "0.6", "--project", released_round / "v0.6").stdout)
+    assert "sync 0.5 --into 0.6" in plan["sync_check"]
+
+
+def test_opening_a_round_says_the_previous_docs_may_hold_edits(released_round: Path) -> None:
+    done = rounds_cli("open", "0.7", "--project", released_round / "v0.6")
+    assert done.returncode == 0, done.stderr
+    assert "carry_from_the_docs" not in json.loads(done.stdout)  # v0.6 has no Docs yet
+    assert (released_round / "v0.7" / "paper.md").is_file()
 
 
 # --- the Google Docs connector's read_doc, as JSON --------------------------------------------------------------

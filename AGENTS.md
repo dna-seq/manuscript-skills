@@ -25,7 +25,7 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
 | manuscript-revision-marks | `@rev` marks: who revised what, unreviewed AI edits, clean twins, PDF builds, and the changelog between rounds (`rev_marks.py changes`, with `--seen`). |
 | manuscript-mark-people | Who counts as a person for the marks (`rev-marks.toml`). |
 | manuscript-other-models | Panels' seats also run on other CLIs/models, on request. |
-| manuscript-coauthors | Rounds with co-authors on Google Drive: the `coauthors` project settings, comments pulled from Google Doc exports into `vX.Y/comments.yaml`, how the next round answers each, whether the run that produced the round had caught each (the gap report), the changelog Why from comments, releasing rounds to Drive. |
+| manuscript-coauthors | Rounds with co-authors on Google Drive: the `coauthors` project settings, comments pulled from Google Doc exports into `vX.Y/comments.yaml`, how the next round answers each, what was accepted or edited in the Docs carried back into the masters (`rounds.py sync`), whether the run that produced the round had caught each (the gap report), the changelog Why from comments, releasing rounds to Drive. |
 
 ## Features to remember
 
@@ -49,6 +49,28 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   Co-authors' comments tab opens with "Did the run that produced vX.Y catch them?" (caught, partly, missed,
   introduced; misses by reason and by owner skill, the reference review's scale). Links are checked only when
   `gap_run` is the inventory's run. First use: Paper 1 v0.7 ([docs/coauthor-gaps-2026-11.md](docs/coauthor-gaps-2026-11.md)).
+  0.52.0 groups it by co-author: the worksheet's headings, `--check`'s `by_author`, and the summary's
+  `coauthors.gap.by_author` (judged, a count per verdict, `by_owner`), drawn as a bar and a table row per co-author.
+- **Setup notes, never a stop (0.52.0).** `rounds.py routes --connector|--no-connector --host claude|codex` reports
+  the ways to the Google Docs (rclone remotes of type drive, the synced folder, the connector the agent found among
+  its own tools; the script cannot see MCP tools) and, when none can pull, a `setup_note` naming how to connect
+  Google Drive in that host or set up rclone. Any skill records such a note as `runs.py issue --kind setup`;
+  `model.ts setupNotes` lists them on the view (`setup`), the pane shows them under "For a better run (nothing waits
+  for this)", `announce` toasts each once, and `/manuscript-status` prints them. They never set `waiting`.
+- **Edits made in the Docs come back into the masters (0.53.0).** Authors accept suggestions and edit the Docs
+  after a release; an export shows no mark of that, and the next release, built from the masters, undid it.
+  `rounds.py sync PREV --into NEXT [--export DIR] [--out DIR] [--check]` compares each Doc's text (`comments.py
+  doc_paragraphs`: pending insertions out, pending deletions in) with its master at the round's last circulated
+  commit (`released_text`), word by word after `master_token` sets Markdown aside (emphasis, escapes, superscripts,
+  link and image syntax but not an image's caption, comments, raw HTML outside code, list markers at a line's start,
+  pandoc's dashes). `doc_edits` groups the differences by released paragraph into `{before, after}` for `runs.py
+  apply`; `retoken` keeps the master's markup on a changed word (Livia^1^ to Livia^4^); `suggestions_in` names the
+  ledger's suggestions an edit carries (not those still pending). A paragraph the target master changed since is a
+  conflict, one it already reads as the Doc does is carried. `--out` records `rounds.<round>.synced` (`project.py`
+  validates it). `push --go` runs the comparison for the previous round first (`unsynced`) and refuses while
+  anything is left (without rclone it needs a recorded sync into the round; `--unsynced-ok` overrides); `open`
+  prints the hint. On Paper 1 v0.7 it found exactly the nine edits made in the Doc and nothing in the three
+  supplementary Docs. Tests: `tests/test_coauthors.py` (sync, check, release refusal).
 - **The changelog between rounds** lives in manuscript-revision-marks: one changelog per round from the
   round's base, extended on every iteration, `--seen` marking rows new or changed since the draft the
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).
@@ -79,6 +101,15 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   the tab changed it since; a file that does not parse is never written over. The corrected version's questions
   show a mark but write none (leave as is means "keep the edit" there, "drop it" for a proposal). Before the
   dashboard, the pane neither reads nor writes the file.
+- **How much each recommended journal changes the manuscript (0.54.0).** `manuscript-journal-select/scripts/effort.py`
+  measures the manuscript as an editor counts it (reusing manuscript-story's `reader_metrics.parse`: body without
+  captions, tables or back matter; abstract; main-text figures, tables and boxes; main sections) and sizes each
+  change against the catalogue: `limits` (with `body_words_excludes: [methods]` for Cell Reports Methods' STAR
+  Methods, and `display_items` in `none_stated`), `figure_rules.display_items` by article type, `abstract_headings`,
+  `required_sections` and the record's unmet `conditions`; prose-only structure (Cell Press) comes from `changes` on
+  the `top3.json` entry. Rows are none/small/medium/large/unknown, the estimate no change/light/moderate/major.
+  `--format json` writes `RUN/manuscript-journal-select/adaptation.json`; `collect.py` attaches it to the journal's
+  rung as `adaptation` and the Journals tab shows it per card, in a comparison table and in the ladder table.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery
