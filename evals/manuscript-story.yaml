@@ -226,3 +226,23 @@
   fail_if:
     - "Changes or rounds the number itself."
     - "Adds a comparison or baseline the paper does not give."
+
+- id: story-coauthor-who-must-vouch-01
+  skill: manuscript-story
+  prompt: >-
+    Our senior co-author is an ecologist and is named on outsider-seeded.md. Before we send it, run your readers
+    and include one who has to be able to defend every sentence to a referee. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Section 2.1 has one sentence with two appended conditions that a reader must parse twice."
+    - "Section 2.2's constants have no stated reason; a co-author cannot defend them."
+  anchors:
+    - {item: 1, id: dense-sentence, anchor: "unless their coverage fell below 10x, in which case the default", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 2, id: constants, anchor: "background distribution, scaled by a factor of 0.9.", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Runs a seat briefed as a named co-author in the broader field who must vouch for every sentence."
+    - "That seat lists the sentences it could not restate or would not defend, each quoted, including the Section 2.1 trimming sentence and the Section 2.2 thresholds."
+    - "Each listed sentence becomes a finding with a fix or a question for the authors."
+  fail_if:
+    - "Reports the vouching reader's view without quoting the sentences it could not restate."
+    - "Supplies a reason for a threshold that the paper does not give."

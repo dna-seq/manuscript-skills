@@ -56,6 +56,15 @@ and save the answer. Each seat reads the whole paper, so more than five or six c
    use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them,
    and every paragraph whose topic they could not have predicted from the one before.
 
+A fourth seat, offered when the paper has co-authors outside its sub-field or the authors ask for it:
+
+4. **The co-author who must vouch.** A senior scientist in the paper's broader field who is named on it and
+   must be able to defend every sentence to a referee. Reads the whole paper, slowly, and lists each sentence
+   they could not restate in their own words or would not defend, quoting it, with why (an undefined term, a
+   step they could not follow, a number whose meaning they could not tell, a claim they could not check).
+   Simulated readers read past what a person would stop at; asking for a restatement makes the stop visible.
+   Its list goes into the stumbles like any seat's, each sentence a finding of category Comprehension.
+
 A seat the authors name gets a brief in the same form: who the reader is, why they opened the paper, and
 the order they read in (a skim like the skimmer's, or the whole paper).
 
@@ -94,7 +103,7 @@ wanted:                                  # what I looked for and did not find
 stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
     section: "the section"
-    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers | a number with no reading"
+    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers | a number with no reading | could not restate it"
 next: "stop here | bookmark | forward it | read the full text | try it | cite it"
 because: "one sentence; a reader who left before what it came for cannot try or cite it"
 ```
