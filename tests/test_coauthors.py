@@ -660,6 +660,7 @@ def test_import_gdoc_reads_ranges_resolution_suggestions_and_people(rounds: Path
     assert ai["ai"] == "claude" and ai["status"] == "not-on-point" and ai["where"] == "Abstract"
     assert ann["anchor"] == "billions of dollars" and ann["where"] == "1. Introduction" and ann["line"] == 9
     assert ann["resolved"] is True and ann["resolved_by"] == "annlee" and ann["gdoc_id"] == "doco.c1"
+    assert ann["resolved_on"] == "2026-10-25"
     assert [r["by"] for r in ann["replies"]] == ["bobray", "annlee"]
     assert items["S1"]["edits"] == [{"deleted": "old", "inserted": "new"}] and items["S1"]["by"] == "bobray"
     assert items["S1"]["anchor"] == "old" and items["S1"]["where"] == "1. Introduction"
@@ -815,7 +816,7 @@ def signed_round(rounds: Path) -> tuple[Path, Path]:
     ledger = rounds / "v0.5" / "comments.yaml"
     ledger.write_text(yaml.safe_dump({"round": "0.5", "items": [
         {"id": "C1", "kind": "comment", "author": ANN, "by": "annlee", "comment": "Not true.", "status": "addressed",
-         "resolved": True, "resolved_by": "annlee"},
+         "resolved": True, "resolved_by": "annlee", "resolved_on": "2026-10-30"},
         {"id": "C2", "kind": "comment", "author": BOB, "by": "bobray", "comment": "Say which modules.",
          "status": "addressed", "resolved": True, "resolved_by": "[ai:claude]",
          "now": "Modules are versioned tables of variants"},
@@ -839,7 +840,12 @@ def test_a_resolved_thread_and_a_taken_suggestion_sign_off_the_passages_that_ans
     done = json.loads(capsys.readouterr().out)
     assert done["unsigned_after"] == 1
     text = master.read_text(encoding="utf-8")
-    assert "@rev C1a rounds=2 by=claude:2026-10-25,annlee:" in text and "@rev C9 rounds=2 by=codex:2026-10-25,bobray:" in text
+    assert "@rev C1a rounds=2 by=claude:2026-10-25,annlee:2026-10-30 -->" in text  # dated when she resolved it
+    assert "@rev C9 rounds=2 by=codex:2026-10-25,bobray:" in text
+    assert ledger_of(ledger)["items"][0]["signed"] == [{"segment": "C1a", "by": "annlee", "on": "2026-10-30"}]
+    rm = comments.rev_marks()  # someone else writes after her: her sign-off is still recorded, never added twice
+    master.write_text(rm.bump_segment(master.read_text(encoding="utf-8"), "C1a", rm.Entry("claude", rm.date(2026, 11, 1))),
+                      encoding="utf-8")
     assert cli("signoffs", ledger, "--new", master) == 0
     assert json.loads(capsys.readouterr().out)["signoffs"] == []  # once only
 

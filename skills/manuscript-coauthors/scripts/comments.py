@@ -197,6 +197,7 @@ class Found:
     span: tuple[int, int] = (0, 0)  # its range in the Doc's text: a reply has exactly its comment's
     gdoc_id: str = ""  # the Doc's own id (doco.…, suggest.…), read through the Google Docs connector
     resolved_by: str = ""  # who posted the reply that resolved the thread
+    resolved_on: str = ""  # when they did
 
     @property
     def key(self) -> str:
@@ -411,14 +412,15 @@ def read_gdoc(path: Path, tab: str | None = None) -> list[Found]:
         else:  # a comment with no anchor in the Doc: find its quoted words
             start = text.find(quote) if quote else -1
             start, end = (start, start + len(quote)) if start >= 0 else (0, 0)
-        replies, resolved_by = [], ""
+        replies, resolved_by, resolved_on = [], "", ""
         for post in thread.get("replies") or []:
             said = str(post.get("content") or "")
             author = str((post.get("author") or {}).get("displayName") or "")
             if post.get("commentAction") == "RESOLVE":
                 resolved_by = author if not ai_of(said) else f"[ai:{ai_of(said)}]"
+                resolved_on = str(post.get("createTime") or "")[:10]
             elif post.get("commentAction") == "REOPEN":
-                resolved_by = ""
+                resolved_by = resolved_on = ""
             if said.strip():
                 replies.append({"author": author, "date": str(post.get("createTime") or ""), "text": said})
         before, after = around(start, end)
@@ -427,7 +429,8 @@ def read_gdoc(path: Path, tab: str | None = None) -> list[Found]:
                            quote or " ".join(text[start:end].split()), before, after, start, replies,
                            resolved=(thread.get("status") == "RESOLVED") if thread.get("status") else None,
                            span=(start, end), gdoc_id=str(thread.get("commentId") or ""),
-                           resolved_by=resolved_by if thread.get("status") == "RESOLVED" else ""))
+                           resolved_by=resolved_by if thread.get("status") == "RESOLVED" else "",
+                           resolved_on=resolved_on if thread.get("status") == "RESOLVED" else ""))
     for s in doc.get("suggestions") or []:
         sid = str(s.get("suggestionId") or "")
         mine = [r for r in runs if sid in r["ins"] or sid in r["del"] or sid in r["style"]]
@@ -729,10 +732,13 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
             item["resolved"] = f.resolved
         if f.gdoc_id:
             item["gdoc_id"] = f.gdoc_id
-        if f.resolved_by:  # who closed the thread: a co-author accepting the answer, or an agent
+        if f.resolved_by:  # who closed the thread, and when: a co-author accepting the answer, or an agent
             item["resolved_by"] = (handles or {}).get(f.resolved_by) or f.resolved_by
+            if f.resolved_on:
+                item["resolved_on"] = f.resolved_on
         elif f.resolved is False:
             item.pop("resolved_by", None)
+            item.pop("resolved_on", None)
         if master is not None:
             span = master.locate(f.anchor, f.before, f.after)
             item["where"], item["line"] = master.where(span) if span else ("", None)
@@ -1373,8 +1379,9 @@ def signoffs(args: argparse.Namespace) -> int:
     for item in data["items"]:
         if item.get("resolved") is True and item.get("resolved_by"):
             signer, because = str(item["resolved_by"]), f"resolved {item['id']}"
+            on = str(item.get("resolved_on") or "")[:10]  # the day they resolved it, not the day this ran
         elif item.get("kind") == "suggestion" and item.get("status") == "addressed" and item.get("by"):
-            signer, because = str(item["by"]), f"suggested edit {item['id']} taken"
+            signer, because, on = str(item["by"]), f"suggested edit {item['id']} taken", ""
         else:
             continue
         if signer.startswith("[ai") or people.known(signer) != rm.Kind.HUMAN:
@@ -1386,16 +1393,27 @@ def signoffs(args: argparse.Namespace) -> int:
                     or (now and now in rm.own_text(found, s))]
         if not segments:
             skipped.append({"item": item["id"], "by": handle, "why": "no marked passage answers it"})
+        done = {(x.get("segment"), x.get("by")) for x in item.get("signed") or [] if isinstance(x, dict)}
         for s in segments:
-            if people.canonical(s.last) == handle or any(p["segment"] == s.id and p["by"] == handle for p in plan):
+            # Once per person and segment, whoever wrote after them since: the ledger keeps what was signed.
+            if (s.id, handle) in done or people.canonical(s.last) == handle \
+                    or any(p["segment"] == s.id and p["by"] == handle for p in plan):
                 continue
-            plan.append({"segment": s.id, "by": handle, "because": because})
+            plan.append({"segment": s.id, "by": handle, "because": because, "item": item["id"],
+                         "on": on or date.today().isoformat()})
     before = len(rm.unreviewed(found, people))
     text = found.text
     if args.go:
         for step in plan:
-            text = rm.bump_segment(text, step["segment"], rm.Entry(step["by"], date.today()), found.syntax)
+            text = rm.bump_segment(text, step["segment"], rm.Entry(step["by"], date.fromisoformat(step["on"])),
+                                   found.syntax)
         path.write_bytes(text.encode("utf-8"))
+        by_item = {item["id"]: item for item in data["items"]}
+        for step in plan:
+            by_item[step["item"]].setdefault("signed", []).append(
+                {"segment": step["segment"], "by": step["by"], "on": step["on"]})
+        if plan:
+            write_ledger(ledger, data)
     after = len(rm.unreviewed(rm.parse(text, found.syntax), people))
     print(json.dumps({"master": path.as_posix(), "dry_run": not args.go, "signoffs": plan, "skipped": skipped,
                       "unsigned_before": before, "unsigned_after": after if args.go else None,

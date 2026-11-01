@@ -160,4 +160,5 @@ def test_an_authors_line_lists_people_and_a_shortened_name_fits_a_surname_first_
     pp = people.rm.load_people(tmp_path / "paper.md")
     m = people.resolve("M Lop", pp, s.identities)  # one person in two orders, not two candidates
     assert m.rule == "initials" and m.via in ("Lopez Maria", "Maria Lopez")
+    assert m.handle == "marialopez"  # git's order: the handle she would sign with
     assert people.resolve("P Out", pp, s.identities).via == "Outside Petra"

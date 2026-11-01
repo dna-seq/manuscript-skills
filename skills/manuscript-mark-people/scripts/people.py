@@ -619,10 +619,11 @@ def resolve(name: str, people, identities: list[Identity]) -> Match:
             return Match(name, handle, "alias")
     if people.canonical(name) in people.humans or key in people.humans:
         return Match(name, people.canonical(name) if people.canonical(name) in people.humans else key, "handle")
-    candidates: list[tuple[str, str]] = [(i.name, handle_for(i, people)) for i in identities if i.kind == "person"]
+    persons = sorted((i for i in identities if i.kind == "person"), key=lambda i: not i.committed)
+    candidates: list[tuple[str, str]] = [(i.name, handle_for(i, people)) for i in persons]
     candidates += [(alias_name, handle) for handle, names in alias_names(people).items() for alias_name in names]
-    # One person listed in two orders ("Georg Fuellen" in git, "Fuellen Georg" on the author line) is one candidate:
-    # a handle already listed wins, else the first one met.
+    # One person listed in two orders ("Maria Lopez" in git, "Lopez Maria" on an author line) is one candidate: a
+    # handle already listed wins, else git's order (given name first, the handle a person would sign with).
     taken = set(people.humans) | {handle for _, handle in people.aliases}
     same: dict[tuple[str, ...], str] = {}
     for n, h in candidates:

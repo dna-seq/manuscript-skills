@@ -286,7 +286,9 @@ uv run --script scripts/comments.py signoffs v0.5/comments.yaml --new v0.6/paper
 
 Each resolved thread signs the segments that answer it (`@rev C12a` answers C12, or the segment holding the
 item's `now`) with the handle of the person who resolved it; each taken suggestion (`status: addressed`) signs
-the segment holding its `now` with the suggester's handle. A thread an agent closed (`[ai:NAME]`), or a name
+the segment holding its `now` with the suggester's handle. The round is dated the day the thread was resolved
+(`resolved_on`, from the connector), and the ledger keeps each sign-off under its item (`signed`), so a person is
+never added twice to a segment, even after someone else has written in it since. A thread an agent closed (`[ai:NAME]`), or a name
 that is not a person in `rev-marks.toml`, signs nothing and is listed. The command prints how many passages had
 no person's sign-off before and after. The changelog's first line and `rounds.py push` say that count to the
 co-authors, so each knows which wording nobody has put their name to yet.
