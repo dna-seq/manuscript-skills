@@ -11,8 +11,8 @@ folder, push a release to the Drive folder, record its Docs, and pull the commen
     uv run --script rounds.py record 0.7 [--doc NAME=LINK ...] [--project DIR]
     uv run --script rounds.py circulated 0.7 [--commit SHA] [--project DIR]
     uv run --script rounds.py pull 0.6 --out RUN/manuscript-coauthors/exports [--go] [--project DIR]
-    uv run --script rounds.py routes [--connector | --no-connector] [--host claude|codex] [--project DIR]
-    uv run --script rounds.py sync 0.6 --into 0.7 [--export DIR] [--out DIR] [--check] [--project DIR]
+    uv run --script rounds.py routes [--docs-connector | --no-docs-connector] [--connector | --no-connector] [--host claude|codex] [--project DIR]
+    uv run --script rounds.py sync 0.6 --into 0.7 [--export DIR | --gdoc READ_DOC.json ...] [--out DIR] [--check] [--project DIR]
     uv run --script rounds.py port 0.6 --run RUN [--gdoc READ_DOC.json ...] [--no-pull] [--go] [--project DIR]
 
 `port` takes a round's comments from Google Docs all the way to the run's dashboard, for reviewers who only
@@ -321,8 +321,8 @@ def sign_offs(masters: list[Path]) -> dict[str, str]:
 
 # How to reach a round's Google Docs from each host, said once in a setup note when no route can pull the comments.
 SETUP = {
-    "claude": ("connect Google Drive in Claude (Settings, Connectors on claude.ai; on a Team or Enterprise plan an "
-               "owner may have to allow it first) and check it with /mcp in a terminal session"),
+    "claude": ("turn on Claude's Google Docs connector (Settings, Connectors on claude.ai, or + then Connectors in a "
+               "chat; on a Team or Enterprise plan an owner may have to allow it first), then start a new session"),
     "codex": ("turn on the Google Drive connector of your ChatGPT workspace for Codex (Settings, Connectors); many "
               "workspaces have it on already"),
 }
@@ -499,8 +499,9 @@ def unsynced(project: Project, previous: str, name: str, drive: str) -> None:
     """Refuse a release while the previous round's Docs hold changes the new round's masters lack."""
     if drive != "rclone":
         if not any(s.get("into") == name for s in project.rounds()[previous].get("synced", [])):
-            raise Refused(f"Check the v{previous} Docs first: download each as .docx (named by its title) and run "
-                          f"rounds.py sync {previous} --into {name} --export DIR, then apply what it finds; or release "
+            raise Refused(f"Check the v{previous} Docs first: read each with the Google Docs connector (read_doc, saved "
+                          f"as JSON) or download it as .docx (named by its title), run rounds.py sync {previous} --into "
+                          f"{name} --gdoc READ.json (or --export DIR) --out DIR, then apply what it finds; or release "
                           "without it with --unsynced-ok.", 1)
         return
     with tempfile.TemporaryDirectory() as scratch:
@@ -660,10 +661,28 @@ def exports_of(project: Project, name: str, titles: list[str], given: Path | Non
     return found
 
 
-def compare(project: Project, name: str, into: str, given: Path | None, scratch: Path) -> dict[str, Any]:
+def gdoc_reads(project: Project, name: str, titles: list[str], gdocs: list[Path]) -> dict[str, Path]:
+    """Each read_doc answer given, by the title of the round's Doc it is: the Doc's id in a recorded link, else its
+    title. One that is no Doc of the round is refused, never guessed at."""
+    links = project.rounds().get(name, {}).get("docs", {})
+    found: dict[str, Path] = {}
+    for path in gdocs:
+        doc = comments_module().gdoc_document(path)
+        by_id = [t for t in titles if doc.get("documentId") and f"/d/{doc['documentId']}" in str(links.get(t, ""))]
+        title = by_id[0] if by_id else doc.get("title") if doc.get("title") in titles else None
+        if title is None:
+            raise Refused(f"{path}: the Doc {doc.get('title')!r} is none of round {name}'s Docs built from a master "
+                          f"({', '.join(titles)}).")
+        found[title] = path
+    return found
+
+
+def compare(project: Project, name: str, into: str, given: Path | None, scratch: Path,
+            gdocs: list[Path] | None = None) -> dict[str, Any]:
     """For each Doc of round *name* built from a master: the paragraphs the Doc now reads differently from the master
     the co-authors got, as edits on the same master in round *into*. An edit whose released paragraph that master no
-    longer has is a conflict to settle by hand; one whose new text it already has is carried."""
+    longer has is a conflict to settle by hand; one whose new text it already has is carried. The Docs are read from
+    .docx exports, or from the Google Docs connector's read_doc answers (*gdocs*)."""
     cm = comments_module()
     entry = project.rounds().get(name, {})
     if not entry.get("docs"):
@@ -672,7 +691,8 @@ def compare(project: Project, name: str, into: str, given: Path | None, scratch:
         raise Refused(f"Round {name} records no commit the co-authors got: rounds.py circulated {name} --commit SHA.")
     commit = entry["circulated"][-1]["commit"]
     masters = {d.title: d.source for d in releases(project, name)[0] if not d.office and d.title in entry["docs"]}
-    exports = exports_of(project, name, list(masters), given, scratch)
+    exports = (gdoc_reads(project, name, list(masters), gdocs) if gdocs
+               else exports_of(project, name, list(masters), given, scratch))
     ledger_path = project.folder(name) / "comments.yaml"
     items = cm.read_ledger(ledger_path)["items"] if ledger_path.is_file() else []
     results, today = [], date.today().isoformat()
@@ -682,13 +702,15 @@ def compare(project: Project, name: str, into: str, given: Path | None, scratch:
         if title not in exports:
             results.append({"doc": title, "master": relative, "missing_export": True})
             continue
-        found = cm.read_docx(exports[title])
-        pending = {f.key for f in found} | {f"{relative}|{f.key}" for f in found}
+        read = exports[title].suffix.lower() == ".json"
+        found = cm.read_gdoc(exports[title]) if read else cm.read_docx(exports[title])
+        pending = {f.key for f in found} | {f"{relative}|{f.key}" for f in found} | {f.gdoc_id for f in found if f.gdoc_id}
         released = cm.clean_of(released_text(master, commit), master)
         now = cm.clean_of(cm.rev_marks().read_source(target), target) if target.is_file() else ""
         shown_now = cm.shown_as(now)
         edits, conflicts, carried = [], [], 0
-        for edit in cm.doc_edits(released, cm.doc_paragraphs(exports[title])):
+        paragraphs = cm.gdoc_paragraphs(exports[title]) if read else cm.doc_paragraphs(exports[title])
+        for edit in cm.doc_edits(released, paragraphs):
             ids = cm.suggestions_in(edit, items, pending)
             what = (f"accepted suggestion{'s' if len(ids) > 1 else ''} {', '.join(ids)}" if ids
                     else "an accepted suggestion or an author's own edit")
@@ -714,6 +736,8 @@ def sync(name: str,
          into: Annotated[str | None, typer.Option("--into", help="The round whose masters take the edits (default: this one)")] = None,
          export: Annotated[Path | None, typer.Option(
              "--export", help="A folder of the round's Docs as .docx named by title (a pull's exports); else rclone exports them")] = None,
+         gdoc: Annotated[list[Path] | None, typer.Option(
+             "--gdoc", help="A Doc read through the Google Docs connector (read_doc with commentsIncluded, saved as JSON); repeat")] = None,
          out: Annotated[Path | None, typer.Option("--out", help="Write each master's edits here as STEM.edits.json, for runs.py apply")] = None,
          check: Annotated[bool, typer.Option("--check", help="Exit 1 while a Doc has text the masters of --into lack")] = False,
          project_dir: ProjectOption = None) -> None:
@@ -725,7 +749,7 @@ def sync(name: str,
     if not project.folder(into).is_dir():
         raise Refused(f"{project.folder(into)} does not exist; open round {into} first (rounds.py open {into}).")
     with tempfile.TemporaryDirectory() as scratch:
-        result = compare(project, name, into, export, Path(scratch))
+        result = compare(project, name, into, export, Path(scratch), gdoc)
     open_items = sum(len(d.get("edits", [])) + len(d.get("conflicts", [])) for d in result["docs"])
     if out is not None:
         out.mkdir(parents=True, exist_ok=True)
@@ -749,9 +773,14 @@ def routes(project_dir: ProjectOption = None,
            connector: Annotated[bool | None, typer.Option(
                "--connector/--no-connector",
                help="Whether a Google Drive connector is among your tools (the agent checks; the script cannot see them)")] = None,
+           docs: Annotated[bool | None, typer.Option(
+               "--docs-connector/--no-docs-connector",
+               help="Whether Claude's Google Docs connector (read_doc, update_doc) is among your tools")] = None,
            host: Annotated[str, typer.Option(help="The host the run is in, for the setup note: claude or codex")] = "claude") -> None:
     """Which ways to a round's Google Docs this machine has, what each can do, and, when none can pull the comments,
-    one setup note for the authors. Record the note with runs.py issue --kind setup and go on: nothing waits for it."""
+    one setup note for the authors. Record the note with runs.py issue --kind setup and go on: nothing waits for it.
+    In Claude, the Google Docs connector is the one route that reads and writes everything in a Doc (resolved threads,
+    replies, suggested edits, shading); a run without it, the note says so too."""
     if host not in SETUP:
         raise Refused(f"--host is one of {', '.join(SETUP)}.")
     try:
@@ -763,20 +792,36 @@ def routes(project_dir: ProjectOption = None,
     rclone_ready = bool(remotes) and (wanted is None or wanted in remotes)
     folder = block.get("folder") if block.get("drive") == "folder" else None
     folder_ready = bool(folder) and Path(str(folder)).expanduser().is_dir()
-    can_pull = [*(["rclone"] if rclone_ready else []), *(["connector"] if connector else [])]
+    if docs and host != "claude":
+        docs = False  # the Google Docs connector is Claude's; Codex reaches a Doc through its Google Drive app
+    can_pull = [*(["rclone"] if rclone_ready else []), *(["docs connector"] if docs else []),
+                *(["connector"] if connector else [])]
     can_push = [*(["rclone"] if rclone_ready else []), *(["folder"] if folder_ready else []),
                 *(["connector, by hand"] if connector else [])]
+    # In the Doc itself: Claude's Google Docs connector does everything; Codex's Google Drive app all but suggested
+    # edits; Claude's Drive connector only reads (whether a thread was resolved among it); a .docx export says nothing
+    # of resolved threads.
+    writer = docs or (connector and host == "codex")
+    can_write = [*(["docs connector"] if docs else []), *(["connector"] if connector and host == "codex" else [])]
+    without = [*([] if docs or connector else ["whether a thread was resolved (a co-author's sign-off)"]),
+               *([] if writer else ["replies posted in the Doc", "shading in the Doc"]),
+               *([] if docs else ["suggested edits written in the Doc"])] if can_pull else []
     note = None
     if not can_pull:
         missing = ("rclone is not installed" if remotes is None else
                    f"rclone has no remote {wanted!r}" if wanted and remotes else "rclone has no Google Drive remote")
-        unknown = " and no connector was checked" if connector is None else " and no Google Drive connector is connected"
+        unknown = (" and no connector was checked" if connector is None and not docs
+                   else " and no Google Docs or Drive connector is connected")
         note = (f"The co-authors' Google Doc comments could not be pulled ({missing}{unknown}); the run went on without "
                 f"them. To have them next time, {SETUP[host]}, {RCLONE_SETUP}.")
+    elif docs is False and host == "claude" and without:
+        note = (f"The co-authors' comments can be pulled through {' and '.join(can_pull)}, which leaves out "
+                f"{'; '.join(without)}. {SETUP['claude'][0].upper()}{SETUP['claude'][1:]}: it reads and writes all of it.")
     say({"rclone": {"installed": remotes is not None, "drive_remotes": remotes or [], "configured": wanted,
                     "ready": rclone_ready},
          "folder": {"configured": folder, "ready": folder_ready},
-         "connector": connector, "can_pull": can_pull, "can_push": can_push, "setup_note": note})
+         "connector": connector, "docs_connector": docs, "can_pull": can_pull, "can_push": can_push,
+         "can_write": can_write, "without": without, "setup_note": note})
 
 
 # --- port: a round's comments from Google Docs to the run's dashboard ----------------------------------------------
@@ -939,6 +984,12 @@ def main() -> None:
     try:
         app()  # typer itself exits 2 on a usage error
     except Refused as exc:
+        typer.echo(str(exc), err=True)
+        raise SystemExit(exc.code) from exc
+    except Exception as exc:  # comments.py's own refusals: an export or a read_doc answer it cannot read
+        cm = sys.modules.get("coauthors_comments")
+        if cm is None or not isinstance(exc, cm.Failure):
+            raise
         typer.echo(str(exc), err=True)
         raise SystemExit(exc.code) from exc
 

@@ -88,7 +88,8 @@ def test_no_committed_home_paths() -> None:
     offenders = []
     for path in ROOT.rglob("*"):
         rel = path.relative_to(ROOT)
-        if (not path.is_file() or rel.parts[0] in {".git", ".venv", ".pytest_cache", "tests"} or archived in path.parents
+        if (not path.is_file() or rel.parts[0] in {".git", ".venv", ".pytest_cache", ".claude", "tests"}  # .claude: local worktrees
+                or archived in path.parents
                 or path.suffix.lower() in {".png", ".jpg", ".jpeg", ".pdf", ".docx", ".zip", ".gz", ".ico"}):
             continue
         try:

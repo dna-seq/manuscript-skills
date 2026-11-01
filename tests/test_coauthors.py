@@ -616,6 +616,15 @@ def test_a_gap_outside_the_scale_is_a_malformed_ledger(rounds: Path) -> None:
     assert cli("status", ledger) == 2
 
 
+def test_a_co_author_the_docs_show_under_two_names_is_counted_once() -> None:
+    items = [{"id": "C1", "author": "T Exa", "by": "tom", "gap": {"verdict": "caught"}},
+             {"id": "C2", "author": "Tom Example", "by": "tom", "gap": {"verdict": "missed"}},
+             {"id": "C3", "author": "Tom Example", "by": "tom"},
+             {"id": "C4", "author": BOB, "gap": {"verdict": "caught"}}]
+    assert comments.person_names(items) == {"C1": "Tom Example", "C2": "Tom Example", "C3": "Tom Example", "C4": BOB}
+    by_author = comments.gap_counts({"items": items})["by_author"]
+    assert set(by_author) == {"Tom Example", BOB} and by_author["Tom Example"]["judged"] == 2
+
 # --- the routes to the Google Docs (rounds.py routes) -------------------------------------------------------------
 
 rounds_module = _load("rounds")
@@ -624,7 +633,7 @@ rounds_module = _load("rounds")
 def routes_of(capsys, **options) -> dict:
     capsys.readouterr()
     rounds_module.routes(project_dir=options.pop("project_dir", None), connector=options.pop("connector", None),
-                         host=options.pop("host", "claude"))
+                         docs=options.pop("docs", None), host=options.pop("host", "claude"))
     return json.loads(capsys.readouterr().out)
 
 
@@ -634,9 +643,10 @@ def test_without_a_route_to_the_docs_the_run_gets_one_setup_note_for_its_host(tm
     claude = routes_of(capsys)
     assert claude["can_pull"] == [] and claude["rclone"]["installed"] is False
     assert "rclone is not installed and no connector was checked" in claude["setup_note"]
-    assert "Settings, Connectors on claude.ai" in claude["setup_note"] and "rclone config" in claude["setup_note"]
+    assert "Google Docs connector" in claude["setup_note"] and "Settings, Connectors on claude.ai" in claude["setup_note"]
+    assert "rclone config" in claude["setup_note"]
     codex = routes_of(capsys, connector=False, host="codex")
-    assert "no Google Drive connector is connected" in codex["setup_note"] and "ChatGPT workspace" in codex["setup_note"]
+    assert "no Google Docs or Drive connector is connected" in codex["setup_note"] and "ChatGPT workspace" in codex["setup_note"]
     connected = routes_of(capsys, connector=True)
     assert connected["can_pull"] == ["connector"] and connected["setup_note"] is None
     with pytest.raises(rounds_module.Refused):
@@ -652,6 +662,25 @@ def test_an_rclone_drive_remote_is_a_route_and_the_configured_one_must_exist(rou
     monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive", "work"])
     ready = routes_of(capsys, project_dir=rounds / "v0.5")
     assert ready["can_pull"] == ["rclone"] and ready["can_push"] == ["rclone"] and ready["setup_note"] is None
+
+
+def test_the_google_docs_connector_is_the_route_that_reads_and_writes_everything(rounds: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive"])
+    configure(rounds / "v0.5", "--drive", "rclone", "--drive-remote", "gdrive", "--drive-folder-id", "1AbCdEfGhIjKlMnOpQrStUvWxYz")
+    docs = routes_of(capsys, project_dir=rounds / "v0.5", docs=True)
+    assert docs["can_pull"] == ["rclone", "docs connector"] and docs["can_write"] == ["docs connector"]
+    assert docs["without"] == [] and docs["setup_note"] is None
+    # rclone alone pulls and pushes, but a .docx says nothing of resolved threads, and nothing writes in the Doc
+    rclone = routes_of(capsys, project_dir=rounds / "v0.5", docs=False, connector=False)
+    assert rclone["can_pull"] == ["rclone"] and rclone["can_write"] == []
+    assert any("resolved" in w for w in rclone["without"]) and any("suggest" in w for w in rclone["without"])
+    assert "Google Docs connector" in rclone["setup_note"]
+    # not checked: no note, as before
+    assert routes_of(capsys, project_dir=rounds / "v0.5")["setup_note"] is None
+    # Codex's Google Drive app reads threads and writes replies, but makes no suggested edit
+    codex = routes_of(capsys, project_dir=rounds / "v0.5", connector=True, host="codex")
+    assert codex["can_write"] == ["connector"] and codex["without"] == ["suggested edits written in the Doc"]
+    assert codex["setup_note"] is None
 
 
 # --- what was changed in a released Doc (rounds.py sync) ----------------------------------------------------------
@@ -795,6 +824,55 @@ def test_sync_check_passes_once_the_masters_carry_what_the_doc_holds(released_ro
     new.write_text(text.replace("1. First step: read the VCF.", "1. First step of the method, run once."), encoding="utf-8")
     code, result = sync_json(released_round, "--check")
     assert code == 0 and result["to_carry"] == 0 and result["docs"][0]["carried"] == 4
+
+
+def read_doc_of(path: Path, paragraphs: list[tuple], title: str, document_id: str) -> Path:
+    """A read_doc answer (commentsIncluded) holding *paragraphs* as edited_doc's: plain text, or ("ins"|"del", text)
+    for Ann's suggestion still pending in the Doc."""
+    content, index = [{"endIndex": 1, "sectionBreak": {}}], 1
+    for parts in paragraphs:
+        elements = []
+        for n, part in enumerate([*parts, "\n"]):
+            text, kind = (part, "") if isinstance(part, str) else (part[1], part[0])
+            run: dict = {"content": text, "textStyle": {}}
+            if kind:
+                run["suggestedInsertionIds" if kind == "ins" else "suggestedDeletionIds"] = ["suggest.a1"]
+            elements.append({"startIndex": index, "endIndex": index + len(text), "textRun": run})
+            index += len(text)
+        content.append({"startIndex": elements[0]["startIndex"], "endIndex": index, "paragraph": {"elements": elements}})
+    doc = {"documentId": document_id, "title": title, "commentsViewMode": "COMMENTS_VIEW_MODE_INCLUDED",
+           "comments": [], "commentAnchors": {},
+           "suggestions": [{"suggestionId": "suggest.a1", "status": "OPEN", "summaryText": "Replace: “publishes” with “lists”",
+                            "headPost": {"author": {"displayName": ANN}, "createTime": "2026-11-01T10:00:00Z"}}],
+           "tabs": [{"tabProperties": {"tabId": "t.0"}, "documentTab": {"body": {"content": content}}}]}
+    path.write_text(json.dumps({"content": doc}), encoding="utf-8")
+    return path
+
+
+EDITED = [("A Paper",), ("Authors: Ann Lee", "1", ", Bob Ray", "2"), ("Abstract",),
+          ("Personal genome analysis requires tools that keep the data local, so the genome does not have to be "
+           "uploaded to a third-party server.",),
+          ("The Polygenic Score Catalog ", ("del", "publishes"), ("ins", "lists"), " scores; just-prs computes them."),
+          ("The coverage of each score",), ("Module",), ("Variants",), ("Longevity",), ("528",),
+          ("The code reads <CN0> alleles and drops markers.",), ("First step of the method, run once.",),
+          ("Second step of the method.",), ("Modules are versioned tables of variants and their evidence.",),
+          ("Each module also records the studies behind every row.",)]
+
+
+def test_sync_reads_the_doc_through_the_google_docs_connector_as_it_reads_an_export(released_round: Path) -> None:
+    _, exported = sync_json(released_round)
+    read = read_doc_of(released_round / "read.json", EDITED, "Paper (v0.5)", "1ZgaFbXmOXkkFMUMuSUR8_STPIjrZzjRZspfjQsmqdjU")
+    done = rounds_cli("sync", "0.5", "--into", "0.6", "--gdoc", read, "--project", released_round / "v0.5")
+    assert done.returncode == 0, done.stderr
+    [doc] = json.loads(done.stdout)["docs"]
+    assert doc["edits"] == exported["docs"][0]["edits"] and doc["conflicts"] == exported["docs"][0]["conflicts"]
+    # matched by the Doc's id when its title has changed since, and refused when it is no Doc of the round
+    renamed = read_doc_of(released_round / "renamed.json", EDITED, "Paper, renamed", "1ZgaFbXmOXkkFMUMuSUR8_STPIjrZzjRZspfjQsmqdjU")
+    done = rounds_cli("sync", "0.5", "--into", "0.6", "--gdoc", renamed, "--project", released_round / "v0.5")
+    assert done.returncode == 0 and json.loads(done.stdout)["docs"][0]["edits"] == doc["edits"]
+    other = read_doc_of(released_round / "other.json", EDITED, "Another paper", "1OtherOtherOtherOtherOther")
+    done = rounds_cli("sync", "0.5", "--into", "0.6", "--gdoc", other, "--project", released_round / "v0.5")
+    assert done.returncode == 2 and "Paper (v0.5)" in done.stderr
 
 
 def test_a_release_refuses_while_the_previous_docs_hold_changes_its_masters_lack(released_round: Path, monkeypatch) -> None:

@@ -75,22 +75,29 @@ README, `rclone lsjson` or a connector's `search_files`.
 ## Reaching the Google Docs, and saying so without stopping
 
 This skill depends on reading the co-authors' Google Docs, and hosts differ: Codex often has its workspace's
-Google Drive connector on, Claude Code has it only once someone connects it (or an organization owner allows it),
-and rclone works on any host. Before pulling, find out which way you have, then go on whatever the answer:
+Google Drive app on, Claude Code has its Google Docs and Google Drive connectors only once someone connects them
+(or an organization owner allows them), and rclone works on any host. Before pulling, find out which way you have,
+then go on whatever the answer:
 
-1. Look among your own tools for a Google Drive connector (tools such as `search_files`, `read_file_content`,
-   `download_file_content`; a deferred one is found by searching your tools for "google drive").
+1. Look among your own tools for Claude's Google Docs connector (`read_doc`, `update_doc`) and a Google Drive
+   connector (`search_files`, `read_file_content`, `download_file_content`; in Codex, the Google Drive app's
+   `google_drive_*` tools). A deferred one is found by searching your tools for "google docs" or "google drive".
 2. Ask the script what the machine has, passing what you found:
 
    ```bash
-   uv run --script scripts/rounds.py routes --connector|--no-connector --host claude|codex [--project DIR]
+   uv run --script scripts/rounds.py routes --docs-connector|--no-docs-connector --connector|--no-connector \
+     --host claude|codex [--project DIR]
    ```
 
    It reports rclone's Google Drive remotes (and whether the configured one exists), the synced folder, what can
-   pull the comments (`can_pull`) and what can upload a release (`can_push`).
-3. With a route, use it: rclone first (it pulls and pushes), else the connector. A connector that would serve
-   better than the saved route (say the project saves `connector` and rclone now works) is worth one line to the
-   authors, not a question.
+   pull the comments (`can_pull`), what can upload a release (`can_push`), what can write in the Doc itself
+   (`can_write`: replies, shading, and with the Google Docs connector suggested edits) and what this run will do
+   without (`without`: a .docx export does not say whether a thread was resolved, so resolved threads sign nothing).
+3. With a route, use it: rclone to pull and push; the Google Docs connector for everything in the Doc (it reads
+   resolved threads and suggestions with their ids, and writes replies, suggested edits and shading); else the
+   Drive connector. A connector that would serve better than the saved route (say the project saves `connector`
+   and rclone now works) is worth one line to the authors, not a question. In Claude without the Google Docs
+   connector, `setup_note` says what it would add: record it as below, like a missing route.
 4. With none, **never stop the run or wait for an answer.** Go on with what the run has (the ledger already in the
    round folder, any .docx exports the authors left), record the script's `setup_note` once, and say it once at
    the end:
@@ -212,8 +219,11 @@ uv run --script ../manuscript-integrity-check/scripts/runs.py apply RUN --skill 
 uv run --script scripts/rounds.py sync 0.6 --into 0.7 --export … --check   # exit 1 while something is left
 ```
 
-- `--export` is the folder a pull wrote (each Doc as `Title.docx`); without it rclone exports the Docs again. With a
-  connector, download each Doc as .docx under its title into one folder and give that.
+- `--export` is the folder a pull wrote (each Doc as `Title.docx`); without it rclone exports the Docs again. With
+  the Google Docs connector, give each Doc's `read_doc` answer (`commentsIncluded: true`, saved as JSON; the same
+  read the pull merged) with `--gdoc READ.json`, once per Doc: it is matched to the round's Doc by its id in the
+  recorded link, else by its title, and one that is no Doc of the round is refused. With a Drive connector,
+  download each Doc as .docx under its title into one folder and give that.
 - Each edit is a whole paragraph as released, and the same paragraph with the Doc's words; a changed word keeps the
   master's markup (Livia^1^ becomes Livia^4^). Its reason names the ledger's suggestions it carries, or says it is
   an accepted suggestion or an author's own edit. Apply them as the authors' own: `--by co-authors` (name them as
@@ -303,7 +313,9 @@ uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory … --ch
 - The merge writes nothing while one record has a problem (an unknown or dismissed problem, a proposed edit, a
   missing reason) and keeps the ledger to one run (`gap_run`).
 
-The worksheet groups the comments by co-author, and `--check` counts them for each. `findings` (step 4) then
+The worksheet groups the comments by co-author, and `--check` counts them for each: one person under every name the
+Docs show them by (the items' `by:` handle, named as most of their comments are), so "T Exa" and "Tom Example" are
+one row. `findings` (step 4) then
 carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the run that produced vX.Y
 catch them?" (caught, missed, written by the run; one bar and one row per co-author, with the skills their misses
 point at; why the rest was missed; the misses by the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,

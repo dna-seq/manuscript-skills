@@ -76,6 +76,7 @@ import json
 import re
 import sys
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from difflib import SequenceMatcher
@@ -346,13 +347,18 @@ def gdoc_document(path: Path) -> dict[str, Any]:
     return doc
 
 
-def gdoc_runs(doc: dict[str, Any], tab: str | None) -> list[dict[str, Any]]:
-    """Every text run of the tab's body in document order, with its index range and suggestion ids."""
+def gdoc_body(doc: dict[str, Any], tab: str | None) -> list[Any]:
+    """The content of the tab's body (the first tab by default)."""
     tabs = doc["tabs"]
     chosen = next((x for x in tabs if (x.get("tabProperties") or {}).get("tabId") == tab), None) if tab else tabs[0]
     if chosen is None:
         raise Failure(f"no tab {tab!r}; the Doc's tabs: "
                       + ", ".join(str((x.get("tabProperties") or {}).get("tabId")) for x in tabs))
+    return ((chosen.get("documentTab") or {}).get("body") or {}).get("content", [])
+
+
+def gdoc_runs(doc: dict[str, Any], tab: str | None) -> list[dict[str, Any]]:
+    """Every text run of the tab's body in document order, with its index range and suggestion ids."""
     runs: list[dict[str, Any]] = []
 
     def walk(elements: list[Any]) -> None:
@@ -371,8 +377,32 @@ def gdoc_runs(doc: dict[str, Any], tab: str | None) -> list[dict[str, Any]]:
                     walk(cell.get("content", []))
             walk((el.get("tableOfContents") or {}).get("content", []))
 
-    walk(((chosen.get("documentTab") or {}).get("body") or {}).get("content", []))
+    walk(gdoc_body(doc, tab))
     return sorted(runs, key=lambda r: r["start"])
+
+
+def gdoc_paragraphs(path: Path, tab: str | None = None) -> list[str]:
+    """A Doc's text from the Google Docs connector's read_doc, as doc_paragraphs reads an export: one string per
+    paragraph (a table cell's each its own), pending insertions left out, the words a pending deletion would remove
+    kept."""
+    out: list[str] = []
+
+    def walk(elements: list[Any]) -> None:
+        for el in elements or []:
+            if not isinstance(el, dict):
+                continue
+            if "paragraph" in el:
+                text = " ".join("".join(run.get("content", "") for part in el["paragraph"].get("elements", [])
+                                        if (run := part.get("textRun")) and not run.get("suggestedInsertionIds")).split())
+                if text:
+                    out.append(text)
+            for row in (el.get("table") or {}).get("tableRows", []):
+                for cell in row.get("tableCells", []):
+                    walk(cell.get("content", []))
+            walk((el.get("tableOfContents") or {}).get("content", []))
+
+    walk(gdoc_body(gdoc_document(path), tab))
+    return out
 
 
 def read_gdoc(path: Path, tab: str | None = None) -> list[Found]:
@@ -909,8 +939,20 @@ def first_line(text: str) -> str:
     return line if len(line) <= 160 else line[:157].rstrip() + "…"
 
 
+def person_names(items: list[dict[str, Any]]) -> dict[str, str]:
+    """One name for each person, by item id: the items of one handle (`by:`) go by the name most of them carry (the
+    longer on a tie: "Tom Example" over "T Exa"), so a co-author the Docs show under two names is counted once."""
+    names: dict[str, Counter] = {}
+    for item in items:
+        if item.get("by"):
+            names.setdefault(str(item["by"]), Counter())[str(item.get("author", ""))] += 1
+    chosen = {by: max(counts, key=lambda name: (counts[name], len(name))) for by, counts in names.items()}
+    return {str(item.get("id")): chosen.get(str(item.get("by") or ""), str(item.get("author", "?"))) for item in items}
+
+
 def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str | None, ledger: Path) -> tuple[dict, str]:
     """The stage's findings.json and the digest (comments.md) its evidence quotes."""
+    names = person_names(data["items"])
     lines = [f"# Co-authors' comments on v{data.get('round', '?')}", ""]
     out, items, not_checked = [], [], []
     for item, row in zip(data["items"], rows):
@@ -946,7 +988,7 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
                                 "why": "the text it was attached to in the Doc was not found in the master",
                                 "leaves_open": "whether the commented passage changed"})
         items.append({
-            "id": item["id"], "kind": item.get("kind", "comment"), "author": item.get("author", ""),
+            "id": item["id"], "kind": item.get("kind", "comment"), "author": names[str(item["id"])],
             "date": str(item.get("date", "")), "where": item.get("where") or "", "anchor": item.get("anchor", ""),
             "comment": item.get("comment", ""),
             "replies": [{k: r.get(k, "") for k in ("author", "date", "text")} for r in item.get("replies") or []
@@ -1103,9 +1145,10 @@ def worksheet(data: dict[str, Any], rows: list[dict[str, Any]], inventory: dict[
              "The candidates are found by shared words, so read each before using it; the run may also have raised",
              "a comment where nothing below shows it.", ""]
     authors: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}  # each co-author's, in paper order
+    names = person_names(data["items"])
     for item, row in zip(data["items"], rows):
         if every or not item.get("gap"):
-            authors.setdefault(str(item.get("author", "?")), []).append((item, row))
+            authors.setdefault(names[str(item.get("id"))], []).append((item, row))
     for author, pairs in authors.items():
         lines += [f"# {author}: {len(pairs)} to judge", ""]
         for item, row in pairs:
@@ -1212,8 +1255,9 @@ def gap_counts(data: dict[str, Any]) -> dict[str, Any]:
         return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
                 "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
     authors: dict[str, list[dict[str, Any]]] = {}
+    names = person_names(data["items"])
     for item in data["items"]:
-        authors.setdefault(str(item.get("author", "?")), []).append(item)
+        authors.setdefault(names[str(item.get("id"))], []).append(item)
     return {**counts(data["items"]), "by_author": {author: {k: v for k, v in counts(items).items() if k != "miss_reasons"}
                                                    for author, items in authors.items() if any(i.get("gap") for i in items)}}
 
@@ -1447,11 +1491,13 @@ def shown_as(text: str) -> str:
 
 def suggestions_in(edit: DocEdit, items: list[dict[str, Any]], pending: set[str]) -> list[str]:
     """The ledger's suggested edits this edit carries: no longer pending in the Doc (`pending` holds the keys of
-    those still there), attached to this paragraph, and with every insertion now in it and every deletion gone."""
+    those still there, and their Doc ids when read through the connector), attached to this paragraph, and with
+    every insertion now in it and every deletion gone."""
     before, after = shown_as(edit.before), shown_as(edit.after)
     found = []
     for item in items:
-        if item.get("kind") != "suggestion" or not item.get("edits") or item.get("key") in pending:
+        if (item.get("kind") != "suggestion" or not item.get("edits") or item.get("key") in pending
+                or item.get("gdoc_id") and item["gdoc_id"] in pending):
             continue
         anchor = " ".join(norm(item.get("anchor")).split()[:6])
         if anchor and anchor not in before and anchor not in after:

@@ -71,6 +71,18 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   anything is left (without rclone it needs a recorded sync into the round; `--unsynced-ok` overrides); `open`
   prints the hint. On Paper 1 v0.7 it found exactly the nine edits made in the Doc and nothing in the three
   supplementary Docs. Tests: `tests/test_coauthors.py` (sync, check, release refusal).
+- **Google Docs through the connectors (0.57.0, from dna-seq/manuscript-skills#2).** What Claude's Google Docs
+  connector, Claude's Drive connector and Codex's Google Drive app can read and write in a Doc, tested from both
+  sides, is `manuscript-coauthors/references/google-docs-connectors.md`. On it: `comments.py import-gdoc READ.json`
+  (a `read_doc` answer with `commentsIncluded`: exact ranges, `resolved`/`resolved_by`/`resolved_on`, open
+  suggestions, `gdoc_id`), `rounds.py port` (a round's comments to the run's dashboard in one command, replaying the
+  run's collect and render), commenters as people (`people.py`, `aliases` in `rev-marks.toml`, `by:` on items,
+  `[ai:NAME]` for an agent's), `comments.py signoffs` (a resolved thread or a taken suggestion signs the segment),
+  and `manuscript-revision-marks/scripts/gdoc_shade.py` (amber for unreviewed, blue for changed since a revision).
+  Joined with 0.52/0.53: `routes --docs-connector|--no-docs-connector` (`can_write`, `without`; in Claude without
+  the Docs connector the `setup_note` says what it would add), `sync --gdoc READ.json` (`gdoc_reads` matches the Doc
+  by id in the recorded link, else title; `gdoc_paragraphs` reads as `doc_paragraphs` does; pending suggestions by
+  `gdoc_id` too), and `person_names` so the gap report and the dashboard count one person under every name.
 - **The changelog between rounds** lives in manuscript-revision-marks: one changelog per round from the
   round's base, extended on every iteration, `--seen` marking rows new or changed since the draft the
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).
