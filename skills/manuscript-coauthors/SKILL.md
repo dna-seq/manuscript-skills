@@ -268,6 +268,27 @@ The base is `rounds.<round>.base` and the last circulated commit the last entry 
 `why`. The rest follow manuscript-revision-marks' "Changelog between rounds": Why from the record or left for
 the authors, every row kept, and the changelog **extended** on each iteration of the round, never rewritten.
 
+## Sign-off from the review itself
+
+Revision marks count a passage as reviewed only when a person's name is the last in its `by=`, and a co-author
+who reads and comments in the Doc records nothing there. Two things they do in the Doc are signs that they have
+seen the answer, and are taken as their sign-off: **resolving a thread** (nobody resolves a comment at random;
+an open one may be a reminder they keep, so an open thread signs nothing) and **a suggested edit of theirs that
+was taken** (the passage now holds their wording). After the comments are pulled through the Docs connector
+(`import-gdoc` records `resolved` and who resolved it) and triaged:
+
+```bash
+uv run --script scripts/comments.py signoffs v0.5/comments.yaml --new v0.6/paper.md        # what would be signed
+uv run --script scripts/comments.py signoffs v0.5/comments.yaml --new v0.6/paper.md --go   # write the names
+```
+
+Each resolved thread signs the segments that answer it (`@rev C12a` answers C12, or the segment holding the
+item's `now`) with the handle of the person who resolved it; each taken suggestion (`status: addressed`) signs
+the segment holding its `now` with the suggester's handle. A thread an agent closed (`[ai:NAME]`), or a name
+that is not a person in `rev-marks.toml`, signs nothing and is listed. The command prints how many passages had
+no person's sign-off before and after. The changelog's first line and `rounds.py push` say that count to the
+co-authors, so each knows which wording nobody has put their name to yet.
+
 ## 7. Open the next round and release it
 
 ```bash
@@ -307,7 +328,7 @@ be exported, anchors not found) once, plainly.
 
 ## Files
 
-- `scripts/comments.py`: import, add, status, findings, changelog and gaps: the ledger of a round's comments, and
+- `scripts/comments.py`: import, import-gdoc, add, status, findings, changelog, signoffs and gaps: the ledger of a round's comments, and
   whether the run that produced the round had caught each.
 - `scripts/rounds.py`: show, open, push, record, circulated, pull and port: the rounds on Drive, and a round's
   comments taken from Google Docs to the run's dashboard.

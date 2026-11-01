@@ -265,6 +265,34 @@ def file_name(title: str) -> str:
     return UNSAFE_NAME.sub("-", title).strip().rstrip(".") or "document"
 
 
+REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
+
+
+def sign_offs(masters: list[Path]) -> dict[str, str]:
+    """For each marked master of the release, how many of its passages an AI or agent wrote last with no person's
+    name recorded since (revision marks' unreviewed count), in words a co-author reads."""
+    if "rounds_rev_marks" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("rounds_rev_marks", REV_MARKS)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["rounds_rev_marks"] = module
+        spec.loader.exec_module(module)
+    rm = sys.modules["rounds_rev_marks"]
+    out = {}
+    for path in masters:
+        if path.suffix.lower() not in (".md", ".markdown", ".tex") or not path.is_file():
+            continue
+        found = rm.parse(rm.read_source(path), rm.Syntax.TEX if path.suffix.lower() == ".tex" else rm.Syntax.MARKDOWN)
+        if not found.segments or found.errors:
+            continue
+        try:
+            open_ = rm.unreviewed(found, rm.load_people(path))
+        except rm.ConfigError:
+            continue
+        out[path.name] = (f"{len(open_)} of {len(found.segments)} marked passages were last written by an AI or agent "
+                          f"with no person's sign-off since")
+    return out
+
+
 def say(payload: dict[str, Any]) -> None:
     typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -361,6 +389,8 @@ def push(name: str, go: Annotated[bool, typer.Option("--go", help="Build and upl
             uploads.append(["copy", str(file.source), str(target / file.dest)])
     plan = {"round": name, "drive": drive, "destination": destination, "build": [shlex.join(c) for c in builds],
             "upload": [shlex.join(c) for c in uploads], **({"not_found": unmatched} if unmatched else {})}
+    if unsigned := sign_offs([d.source for d in docs if not d.office]):
+        plan["no_sign_off"] = unsigned  # tell the co-authors which wording nobody has put their name to yet
     if drive == "connector":
         plan["by_hand"] = ([f"{d.upload.as_posix()} as the Google {'Sheet' if d.kind == 'xlsx' else 'Doc'} “{d.title}”"
                             for d in docs] + [f"{f.source.as_posix()} as {f.dest}" for f in files])

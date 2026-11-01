@@ -776,3 +776,74 @@ def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Pat
     assert (folder / "rev-marks.toml").is_file()
     recorded = json.loads((run / "run.json").read_text())["skills"]["manuscript-coauthors"]["commands"]
     assert len(recorded) == 2 and all(c["exit_code"] == 0 for c in recorded)
+
+
+# --- sign-off from the review itself: a resolved thread or a taken suggestion is a co-author having seen it -----
+
+SIGNED = """# A Paper
+
+## 1. Introduction
+
+<!-- @rev C1a rounds=1 by=claude:2026-10-25 -->
+Whole genome sequencing costs have fallen to under a thousand dollars since 2003.
+<!-- @/rev C1a -->
+
+<!-- @rev C9 rounds=1 by=codex:2026-10-25 -->
+The platform annotates variants with new words in this sentence.
+<!-- @/rev C9 -->
+
+<!-- @rev C10 rounds=1 by=codex:2026-10-25 -->
+Modules are versioned tables of variants and their evidence.
+<!-- @/rev C10 -->
+"""
+
+
+def signed_round(rounds: Path) -> tuple[Path, Path]:
+    (rounds / "rev-marks.toml").write_text('humans = ["annlee", "bobray"]\n', encoding="utf-8")
+    (rounds / ".git").mkdir(exist_ok=True)
+    (rounds / "v0.6").mkdir()
+    master = rounds / "v0.6" / "paper.md"
+    master.write_text(SIGNED, encoding="utf-8")
+    ledger = rounds / "v0.5" / "comments.yaml"
+    ledger.write_text(yaml.safe_dump({"round": "0.5", "items": [
+        {"id": "C1", "kind": "comment", "author": ANN, "by": "annlee", "comment": "Not true.", "status": "addressed",
+         "resolved": True, "resolved_by": "annlee"},
+        {"id": "C2", "kind": "comment", "author": BOB, "by": "bobray", "comment": "Say which modules.",
+         "status": "addressed", "resolved": True, "resolved_by": "[ai:claude]",
+         "now": "Modules are versioned tables of variants"},
+        {"id": "S1", "kind": "suggestion", "author": BOB, "by": "bobray", "comment": "replace old with new",
+         "status": "addressed", "now": "annotates variants with new words"},
+        {"id": "C3", "kind": "comment", "author": ANN, "by": "annlee", "comment": "A reminder to myself.",
+         "status": "open", "resolved": False}]}), encoding="utf-8")
+    return ledger, master
+
+
+def test_a_resolved_thread_and_a_taken_suggestion_sign_off_the_passages_that_answer_them(rounds: Path, capsys) -> None:
+    ledger, master = signed_round(rounds)
+    assert cli("signoffs", ledger, "--new", master) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["dry_run"] and plan["unsigned_before"] == 3 and plan["of"] == 3
+    assert [(s["segment"], s["by"], s["because"]) for s in plan["signoffs"]] == [
+        ("C1a", "annlee", "resolved C1"), ("C9", "bobray", "suggested edit S1 taken")]
+    assert [s["item"] for s in plan["skipped"]] == ["C2"]  # an agent closed it: nobody's sign-off
+    assert master.read_text(encoding="utf-8") == SIGNED  # a dry run writes nothing
+    assert cli("signoffs", ledger, "--new", master, "--go") == 0
+    done = json.loads(capsys.readouterr().out)
+    assert done["unsigned_after"] == 1
+    text = master.read_text(encoding="utf-8")
+    assert "@rev C1a rounds=2 by=claude:2026-10-25,annlee:" in text and "@rev C9 rounds=2 by=codex:2026-10-25,bobray:" in text
+    assert cli("signoffs", ledger, "--new", master) == 0
+    assert json.loads(capsys.readouterr().out)["signoffs"] == []  # once only
+
+
+def test_the_changelog_and_the_release_say_how_many_passages_nobody_signed(rounds: Path, capsys) -> None:
+    ledger, master = signed_round(rounds)
+    base = rounds / "v0.5" / "paper.md"
+    out = rounds / "changes.md"
+    assert cli("changelog", "--base", base, "--new", master, "--ledger", ledger, "--out", out) == 0
+    assert out.read_text(encoding="utf-8").startswith(
+        "> 3 of 3 marked passages were last written by an AI or agent, with no person's sign-off recorded since")
+    configure(rounds / "v0.6", "--drive", "connector", "--release-doc", "paper.md=Paper (v{round})")
+    plan = json.loads(rounds_cli("push", "0.6", "--project", rounds / "v0.6").stdout)
+    assert plan["no_sign_off"] == {"paper.md": "3 of 3 marked passages were last written by an AI or agent with no "
+                                                "person's sign-off since"}

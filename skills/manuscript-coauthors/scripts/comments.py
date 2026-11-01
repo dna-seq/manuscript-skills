@@ -10,6 +10,7 @@ answers each one (manuscript-coauthors).
     uv run --script comments.py add ITEMS.yaml --ledger v0.5/comments.yaml [--master ...] [--doc URL]
     uv run --script comments.py status v0.5/comments.yaml [--old v0.5/PAPER.md] [--new v0.6/PAPER.md] [--json] [--strict]
     uv run --script comments.py findings v0.5/comments.yaml --new v0.6/PAPER.md --out RUN/manuscript-coauthors/findings.json
+    uv run --script comments.py signoffs v0.5/comments.yaml --new v0.6/PAPER.md [--go]
     uv run --script comments.py changelog --base OLD.md --new v0.6/PAPER.md [--seen SEEN.md] --ledger v0.5/comments.yaml [--out FILE]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory RUN/manuscript-dashboard/findings.json [--out SHEET.md]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory v0.5/PAPER.dashboard.html --merge GAPS.yaml | --check
@@ -49,6 +50,12 @@ dashboard shows) and comments.md beside it, the digest the findings cite. `chang
 `changes` table from the round's base (with `--seen`, which rows the co-authors have not seen yet), its Why
 filled for every row whose segment answers a comment of the ledgers: who asked, what, and the ledger's `why`.
 
+`signoffs` takes a co-author's resolved thread, or their suggested edit that was taken, as their sign-off: the
+person who resolved the thread (or made the suggestion) is added to the `by=` of the segments of the next round's
+master that answer it (a segment named for the comment, or the one holding its `now`), once; an agent's
+resolution or a name that is not a person signs nothing. The changelog's first line says how many marked passages
+have no person's sign-off yet.
+
 `gaps` asks of each comment whether the run that produced the round had caught it, from that run's inventory
 (its findings.json, or the dashboard it rendered): caught or partly (a finding of the run names it), missed, or
 introduced (the passage was written by one of the run's applied edits). Without --merge or --check it writes a
@@ -69,7 +76,7 @@ import re
 import sys
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
@@ -1253,6 +1260,9 @@ def changelog(args: argparse.Namespace) -> int:
     since = rm.since_seen(rows, texts["seen"]) if "seen" in texts else None
     table = rm.format_changes(texts["base"], texts["new"], args.base_name or args.base, args.new_name or args.new, rows,
                               args.full, since, args.seen_name or str(args.seen), why)
+    note = unsigned_line(Path(args.new), texts["new"])
+    if note:
+        table = f"> {note}\n\n{table}"
     if args.out:
         Path(args.out).write_text(table, encoding="utf-8")
         print(json.dumps({"changelog": args.out, "rows": len(rows), "why_from_comments": sum(1 for w in why if w),
@@ -1263,9 +1273,76 @@ def changelog(args: argparse.Namespace) -> int:
     return 0
 
 
+def unsigned_line(path: Path, found: Any) -> str:
+    """How many of the master's marked passages no person has signed off, for the co-authors."""
+    rm = rev_marks()
+    try:
+        people = rm.load_people(path)
+    except rm.ConfigError as exc:
+        raise Failure(str(exc)) from None
+    open_ = rm.unreviewed(found, people)
+    total = len(found.segments)
+    return (f"{len(open_)} of {total} marked passages were last written by an AI or agent, with no person's sign-off "
+            f"recorded since: nobody has put their name to that wording yet. A co-author's resolved comment or "
+            f"accepted suggestion records theirs (comments.py signoffs).") if total else ""
+
+
+def signoffs(args: argparse.Namespace) -> int:
+    """A co-author who resolved a thread, or whose suggested edit was taken, has seen that passage: their handle
+    goes into the `by=` of the segments that answer it, so the count of passages with no person's sign-off falls as
+    people actually read them."""
+    rm = rev_marks()
+    ledger = Path(args.ledger)
+    data = read_ledger(ledger)
+    path = Path(args.new)
+    if not path.is_file():
+        raise Failure(f"{path}: cannot read the next round's master.", 3)
+    found = Master(path).marks
+    if found.errors:
+        raise Failure(f"{path}: its revision marks do not lint (rev_marks.py lint).")
+    try:
+        people = rm.load_people(path)
+    except rm.ConfigError as exc:
+        raise Failure(str(exc)) from None
+    plan, skipped = [], []
+    for item in data["items"]:
+        if item.get("resolved") is True and item.get("resolved_by"):
+            signer, because = str(item["resolved_by"]), f"resolved {item['id']}"
+        elif item.get("kind") == "suggestion" and item.get("status") == "addressed" and item.get("by"):
+            signer, because = str(item["by"]), f"suggested edit {item['id']} taken"
+        else:
+            continue
+        if signer.startswith("[ai") or people.known(signer) != rm.Kind.HUMAN:
+            skipped.append({"item": item["id"], "by": signer, "why": "not a person in rev-marks.toml"})
+            continue
+        handle = people.canonical(signer)
+        now = " ".join(str(item.get("now") or "").split())
+        segments = [s for s in found.segments if rm.comment_of(s.id) == item["id"]
+                    or (now and now in rm.own_text(found, s))]
+        if not segments:
+            skipped.append({"item": item["id"], "by": handle, "why": "no marked passage answers it"})
+        for s in segments:
+            if people.canonical(s.last) == handle or any(p["segment"] == s.id and p["by"] == handle for p in plan):
+                continue
+            plan.append({"segment": s.id, "by": handle, "because": because})
+    before = len(rm.unreviewed(found, people))
+    text = found.text
+    if args.go:
+        for step in plan:
+            text = rm.bump_segment(text, step["segment"], rm.Entry(step["by"], date.today()), found.syntax)
+        path.write_bytes(text.encode("utf-8"))
+    after = len(rm.unreviewed(rm.parse(text, found.syntax), people))
+    print(json.dumps({"master": path.as_posix(), "dry_run": not args.go, "signoffs": plan, "skipped": skipped,
+                      "unsigned_before": before, "unsigned_after": after if args.go else None,
+                      "of": len(found.segments)}, indent=2, ensure_ascii=False))
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "changelog":
         return changelog(args)
+    if args.command == "signoffs":
+        return signoffs(args)
     ledger = Path(args.ledger)
     if args.command in ("import", "import-gdoc", "add"):
         source = Path(args.source)
@@ -1378,6 +1455,10 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--next-round", help="the next round's name (default: from --new's folder)")
             s.add_argument("--untriaged", action="store_true",
                            help="accept open comments with no `next` yet (a pull shown before triage)")
+    s = sub.add_parser("signoffs", help="record co-authors' resolved threads and taken suggestions as their sign-off")
+    s.add_argument("ledger")
+    s.add_argument("--new", required=True, help="the next round's marked master, whose segments get the names")
+    s.add_argument("--go", action="store_true", help="write the names into the master; without it, only print")
     s = sub.add_parser("changelog", help="the round's changelog skeleton, Why filled from the comments it answers")
     s.add_argument("--base", required=True, help="the previous round's master as it was when this round opened")
     s.add_argument("--new", required=True, help="this round's master")
