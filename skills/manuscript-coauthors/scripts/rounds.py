@@ -33,7 +33,6 @@ from __future__ import annotations
 import fnmatch
 import importlib.util
 import json
-import os
 import re
 import shlex
 import shutil
@@ -249,6 +248,14 @@ def execute(commands: list[list[str]], cwd: Path) -> None:
             raise Refused(f"{shlex.join(command)} failed: {(done.stderr or done.stdout).strip()}", 3)
 
 
+UNSAFE_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def file_name(title: str) -> str:
+    """A Doc title as a local file name every file system takes (NTFS and Windows refuse : and its kin)."""
+    return UNSAFE_NAME.sub("-", title).strip().rstrip(".") or "document"
+
+
 def say(payload: dict[str, Any]) -> None:
     typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -444,11 +451,11 @@ def pull(name: str, out: Annotated[Path, typer.Option("--out", help="Where the e
         found = re.search(r"/d/([\w-]{20,})", link)
         file_id = found.group(1) if found else link
         master = masters.get(title)
-        export = out / f"{title}.docx"
+        export = out / f"{file_name(title)}.docx"  # the Drive title stays as it is; only the local name changes
         ledger = folder / "comments.yaml"
         steps.append({"doc": title, "link": link, "export": export.as_posix(), "master": master and master.as_posix(),
                       "commands": [["rclone", "backend", "copyid", f"{project.block.get('remote', 'gdrive')}:", file_id,
-                                    f"{out.as_posix()}/", "--drive-export-formats", "docx"],
+                                    export.as_posix(), "--drive-export-formats", "docx"],
                                    [sys.executable, str(COMMENTS), "import", "EXPORTED.docx", "--ledger", str(ledger),
                                     "--doc", link, *(["--master", str(master)] if master else [])]]})
     if project.block["drive"] != "rclone" or not go:
@@ -461,9 +468,8 @@ def pull(name: str, out: Annotated[Path, typer.Option("--out", help="Where the e
     out.mkdir(parents=True, exist_ok=True)
     results = []
     for step in steps:
-        before = set(out.glob("*.docx"))
         execute([step["commands"][0]], folder)
-        exported = sorted(set(out.glob("*.docx")) - before) or sorted(out.glob("*.docx"), key=os.path.getmtime)[-1:]
+        exported = [Path(step["export"])] if Path(step["export"]).is_file() else []
         if not exported:
             raise Refused(f"rclone exported nothing for {step['doc']}.", 3)
         command = [c if c != "EXPORTED.docx" else str(exported[0]) for c in step["commands"][1]]

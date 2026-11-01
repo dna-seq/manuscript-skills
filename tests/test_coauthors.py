@@ -35,6 +35,7 @@ def _load(name: str):
 
 
 comments = _load("comments")
+rounds_py = _load("rounds")
 NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 ANN, BOB = "Ann Lee", "Bob Ray"
 
@@ -692,3 +693,17 @@ def test_import_gdoc_refuses_a_read_without_comments(rounds: Path, capsys) -> No
     path.write_text(json.dumps(data))
     assert cli("import-gdoc", path, "--ledger", rounds / "v0.5" / "comments.yaml") == 2
     assert "commentsIncluded" in capsys.readouterr().err
+
+
+def test_pull_names_each_export_so_every_file_system_takes_it(rounds: Path, tmp_path: Path) -> None:
+    """A Drive title with a colon could not be written on NTFS; the local file is renamed, the Drive title kept."""
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "rclone", "--drive-remote", "gdrive", "--drive-folder-id", "1AbCdEfGhIjKlMnOp",
+              "--release-doc", "paper.md=1. Supplementary Data: Tables (v{round})")
+    rounds_cli("record", "0.5", "--doc", "1. Supplementary Data: Tables (v0.5)=https://docs.google.com/document/d/"
+               "1xYz0123456789abcdefghij/edit", "--project", folder)
+    [step] = json.loads(rounds_cli("pull", "0.5", "--out", tmp_path / "exports", "--project", folder).stdout)["steps"]
+    assert step["export"].endswith("/1. Supplementary Data- Tables (v0.5).docx")
+    assert step["doc"] == "1. Supplementary Data: Tables (v0.5)"
+    assert "'" + step["export"] + "'" in step["commands"][0]
+    assert rounds_py.file_name('a<b>c:"d"/e\\f|g?h*.') == "a-b-c--d--e-f-g-h-"
