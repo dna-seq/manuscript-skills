@@ -89,7 +89,9 @@
 #   figure_rules:  widths_mm (the figure widths the venue sets), max_height_mm, min_text_pt and max_text_pt (the
 #                  smallest and largest text at the printed size), dpi (one number, or per kind of artwork:
 #                  {photo, combination, line}), formats (file formats accepted), display_items (per article
-#                  type, {figures, tables} at most), alt_text (true when the venue asks for alt text), other (rules
+#                  type, {figures, tables} at most, or one number for figures and tables together; a page read and
+#                  found to set none goes in limits.none_stated as display_items), alt_text (true when the venue
+#                  asks for alt text), other (rules
 #                  in plain words, such as how a splice is marked)
 #
 # Selection fields: validation_requirements (journals), screening_rules (preprint servers), excluded_study_designs,
@@ -641,8 +643,9 @@ venues:
     software_article: true
     oa: full
     # Read on 2026-10-28: the abstract is "no longer than a single paragraph" with no length on the guidelines or article-
-    # types page; a Technology and Code article has "a maximum word count of 12,000".
-    limits: {abstract_words: null, body_words: 12000, over_limit_return: null, none_stated: [abstract_words]}
+    # types page; a Technology and Code article has "a maximum word count of 12,000". Read again on 2026-11-02: the
+    # article-types page sets no number of figures or tables for it.
+    limits: {abstract_words: null, body_words: 12000, over_limit_return: null, none_stated: [abstract_words, display_items]}
     abstract_headings: []
     required_sections: [Introduction, Method, Results, Discussion]
     software:
@@ -653,7 +656,7 @@ venues:
     excluded_study_designs: [mr, bibliometric]
     jif_year: 2025
     provenance:
-      limits: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
+      limits: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-11-02}
       abstract_headings: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/author-guidelines", checked: 2026-10-28}
       required_sections: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
       software: {source: "https://www.frontiersin.org/journals/bioinformatics/for-authors/article-types", checked: 2026-10-28}
@@ -3099,8 +3102,13 @@ venues:
     oa: full
     # Read in the authors' Chrome on 2026-10-28 (article types, revise page); the submit, final-submission and policy
     # pages the same day by the research agent. Research articles: under 7,000 words "not including the reference
-    # list or the STAR Methods", no more than seven figures and/or tables.
-    limits: {abstract_words: 150, body_words: 7000, over_limit_return: null}
+    # list or the STAR Methods", no more than seven figures and/or tables; read again on 2026-11-02 (Reports: under
+    # 4,000 words and four figures and/or tables; Resources as articles).
+    limits: {abstract_words: 150, body_words: 7000, body_words_excludes: [methods], over_limit_return: null}
+    figure_rules:
+      display_items: {article: 7, report: 4, resource: 7}
+      source: https://www.cell.com/cell-reports-methods/information-for-authors/article-types
+      checked: 2026-11-02
     abstract_headings: []
     required_sections: []
     software_article: false
@@ -3386,8 +3394,11 @@ venues:
     oa: full
     # Read in the authors' Chrome on 2026-10-28 (article types, revise and submit pages, journal policies). The
     # 8,000 words are advice ("we would advise keeping article length below 8,000 words"), and the summary limit
-    # applies from the revision on; the first submission has no set format.
-    limits: {abstract_words: 150, body_words: 8000, body_words_kind: recommended, over_limit_return: null}
+    # applies from the revision on; the first submission has no set format. Read again on 2026-11-02: the STAR
+    # Methods "is part of the main manuscript", so it counts toward the 8,000, and the page sets no number of figures
+    # or tables for a Research Article (it does for reviews, perspectives and Backstories).
+    limits: {abstract_words: 150, body_words: 8000, body_words_kind: recommended, over_limit_return: null,
+      none_stated: [display_items]}
     abstract_headings: []
     required_sections: []
     software:
@@ -3399,7 +3410,7 @@ venues:
     sources: [https://www.cell.com/iscience/information-for-authors, https://www.cell.com/iscience/information-for-authors/article-types,
       https://www.cell.com/iscience/information-for-authors/revise-manuscript, https://www.cell.com/iscience/information-for-authors/submit-manuscript, https://www.cell.com/iscience/reviewers, https://www.cell.com/open-access]
     provenance:
-      limits: {source: "https://www.cell.com/iscience/information-for-authors/revise-manuscript", checked: 2026-10-28}
+      limits: {source: "https://www.cell.com/iscience/information-for-authors/article-types", checked: 2026-11-02}
       abstract_headings: {source: "https://www.cell.com/iscience/information-for-authors/revise-manuscript", checked: 2026-10-28}
       required_sections: {source: "https://www.cell.com/iscience/information-for-authors/submit-manuscript", checked: 2026-10-28}
       software: {source: "https://www.cell.com/iscience/information-for-authors/journal-policies", checked: 2026-10-28}

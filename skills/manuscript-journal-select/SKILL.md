@@ -4,9 +4,11 @@ description: >-
   Select where to preprint and where to publish a manuscript, as two ladders ordered by the authors' own
   priorities (speed, reach, AI-policy burden, cost), after checking subject, article type, available validation
   and budget, open-source and open-science preferences, editorial receptiveness, review speed and AI-policy
-  burden; and list the requirements every venue on the ladders shares, so that those sections can be adapted
-  before the choice. Use for journal shortlists, preprint server choice, requirements-based venue comparisons or
-  a submission sequence, especially for in-silico-only work, and when asked to interview the authors to pick a
+  burden; list the requirements every venue on the ladders shares, so that those sections can be adapted
+  before the choice; and estimate how much choosing each recommended journal would change the manuscript (length,
+  abstract, figures and tables, structure, missing validation). Use for journal shortlists, preprint server
+  choice, venue comparisons, "how much would we have to change for this journal", or a submission sequence,
+  especially for in-silico-only work, and when asked to interview the authors to pick a
   journal or preprint server by how strict or hostile its AI policy is, or to see where named colleagues
   publish. Reuse the shared venue database; use manuscript-journal-adapt after selection.
 ---
@@ -41,7 +43,9 @@ The steps, in order (each has its section below):
 4. Run `ladder` for both ladders and `common` on every venue of both. Without stated priorities the ladder
    uses its default order, labelled as such.
 5. Move a position where judgement outweighs the sorted order, and record the chosen order in `ladders`.
-6. Write the files, register them in the run, and report; the priorities question, when it is still open,
+6. Estimate, for the three recommended journals, how much choosing each would change the manuscript (`effort.py`,
+   below): the major changes only, measured.
+7. Write the files, register them in the run, and report; the priorities question, when it is still open,
    goes among the end-of-run decisions, and an answer re-ranks the ladders.
 
 Use `manuscript-policy-fit` for study-specific clinical-scope, ethics, privacy and regulatory applicability,
@@ -340,6 +344,40 @@ Run `common` on every venue of both ladders. It reports:
 When the authors want to adapt before choosing, pass the "Adapt now" part to `manuscript-journal-adapt`. It
 edits the manuscript in place; the per-venue part waits.
 
+## How much each choice changes the manuscript
+
+The authors weigh a journal by what it would cost them in rewriting, too, so each of the three recommended journals
+gets an estimate: the major changes only, measured against the manuscript, never the full adaptation (reference
+style, declarations, file formats wait for `manuscript-journal-adapt` once a journal is chosen). `scripts/effort.py`
+counts what an editor counts (the body from the Introduction to the Conclusion without captions, tables and back
+matter; the abstract; the main-text figures, tables and boxes; the main sections) and compares it with each venue's
+recorded rules: the length of the body and of the abstract (a limit that leaves the Methods out, such as Cell Reports
+Methods' STAR Methods, counts the rest only), the abstract's form, the figures and tables for the article type, the
+body's sections and the sections to add, and every validation rule the record's `conditions` say the paper does not
+show yet. Each row is none, small (a trim, a heading, a short section), medium (rewriting the abstract or a section,
+regrouping the paper, cutting up to a third of the body) or large (cutting more, new analysis); the journal's estimate
+is its largest row: no change, light, moderate or major. A rule nobody has read is "not researched", which never
+counts as fitting: read the page and record the fact in the catalogue (a display-item limit in
+`figure_rules.display_items`, by article type when the venue has several; a page that sets none in
+`limits.none_stated`), then run it again.
+
+A script cannot read a structure written as prose in the guidelines (Cell Press's STAR Methods and an Introduction
+without subheadings, a Design section, a step-by-step protocol). Read the top three's revision and article-type rules
+and add what they would change as `changes` on the journal's entry in `top3.json`, each `{what, change, size, rule,
+url}`: what changes, what to do, its size, the journal's words and their page. When the article type chosen has other
+limits than the catalogue records (JAMIA Open's Research and Applications instead of its Application Note), give them
+on the entry as `limits` or `display_items`.
+
+```bash
+E="uv run --script scripts/effort.py"
+$E PAPER --top3 RUN/manuscript-journal-select/top3.json --record $R                 # the tables, for the report
+$E PAPER --top3 RUN/manuscript-journal-select/top3.json --record $R --format json > RUN/manuscript-journal-select/adaptation.json
+```
+
+Report each journal's estimate with its changes in plain words ("cut about 960 words, 12% of the body"), beside its
+verdict; an estimate is information for the choice and never moves a rung by itself. Writing to the shortest limit
+before the choice stays the authors' decision.
+
 ## Compare viable candidates on the author's priorities
 
 | Dimension | Assess with evidence |
@@ -372,7 +410,8 @@ or a full integrity audit. Store the ladders, the chosen venue, article type and
 
 Give, in this order: the preprint ladder; the journal ladder as a table (position, venue and article type,
 verdict and the rule that decides it, comparable speed, impact factor, AI burden and its red flags, cost
-and who pays, preprint rule) with one or two sentences per venue on fit and what would move it; what every
+and who pays, preprint rule) with one or two sentences per venue on fit and what would move it; for the three
+recommended journals, how much choosing each would change the manuscript (the estimate and its changes); what every
 venue asks for (adapt now, choose per venue, at the end); then the authors' decisions together (their order
 of priorities while the default stands, a fee route or budget, a validation tradeoff, what AI did when a rule
 on the ladder turns on it, a journal policy that conflicts with their actual use, the strictest AI rule on
@@ -438,8 +477,11 @@ $RUNS add RUN --skill $S --file $R --role other --name manuscript-record.yaml   
 `RUN/manuscript-journal-select/top3.json` is a JSON list, best first, of at most three entries:
 `[{"key": "bmc-bioinformatics", "name": "BMC Bioinformatics", "article_type": "software article", "why": "one
 sentence on why it is recommended, in plain words", "url": "https://bmcbioinformatics.biomedcentral.com/submission-guidelines"}]`.
-`key` is the ladder's venue key, `url` the venue's author guidelines. Write it in that folder and register
-it like the others (`$RUNS add RUN --skill $S --file RUN/$S/top3.json --role other --name top3.json`).
+`key` is the ladder's venue key, `url` the venue's author guidelines; `changes`, `limits` and `display_items` are
+optional (see "How much each choice changes the manuscript"). Write it in that folder and register
+it like the others (`$RUNS add RUN --skill $S --file RUN/$S/top3.json --role other --name top3.json`), then write
+`adaptation.json` beside it with `effort.py --format json` and register it the same way (`--name adaptation.json`):
+the Journals tab shows each estimate on the journal's card and compares the three in one table.
 
 After a rejection, `manuscript-reviewer-response` helps decide between revising for the same journal and
 submitting elsewhere. When choosing the next venue, step down the ladder and carry over the referees'
