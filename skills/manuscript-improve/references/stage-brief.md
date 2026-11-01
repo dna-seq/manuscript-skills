@@ -41,7 +41,8 @@ before the choice, the paper's stage of work}
    addition), `after`, `why` (what was wrong and why this wording fixes it), `finding_ids`, `evidence` as a
    list, `[{"path": "stage-report.md", "quote": "the report's sentence that gives the reason"}]`, and
    `comment` for a question to the authors, never a placeholder in `after`. A proposal for the supplement
-   names it: `"document": "{SUPPLEMENT_NAME}"`.
+   names it: `"document": "{SUPPLEMENT_NAME}"`, the supplement's file name in the project (the working copy's
+   name, as `{MASTERS}` lists it), never the run's numbered copy in `inputs/`.
 2. **Quotes.** A finding's `quote` is copied word for word from the manuscript as the run took it, at least
    three words, from a stretch with no revision mark inside it.
 3. **Check, then finish.** Before `finish`, run
@@ -66,6 +67,10 @@ before the choice, the paper's stage of work}
    tools.
 10. **Writing.** For the authors: plain words, full sentences, quotes with their section, links for outside
     sources, no internal codes standing alone.
+11. **Hand-offs.** A finding you leave for another stage names that stage in `owner` (`"owner":
+    "manuscript-story"`); saying "left to the story stage" in the report is not enough. Answer every finding
+    handed to you in `answers` (done, proposed with the records, or declined with why); `stage_check` lists the
+    ones you have not answered, and `finish` refuses them.
 
 ## Editing stages also
 

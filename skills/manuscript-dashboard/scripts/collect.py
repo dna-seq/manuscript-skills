@@ -49,6 +49,7 @@ import json
 import os
 import re
 import sys
+import typing
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -270,6 +271,36 @@ def parse_reader(path: Path) -> dict | None:
     return doc if isinstance(doc, dict) and doc.get("seat") else None
 
 
+def _model_in(annotation: Any) -> Any:
+    """The dashboard model a field holds, through list[...], X | None and Annotated[...]; None for a plain value."""
+    if isinstance(annotation, type) and issubclass(annotation, viz.BaseModel):
+        return annotation
+    for arg in typing.get_args(annotation):
+        found = _model_in(arg)
+        if found is not None:
+            return found
+    return None
+
+
+def fit(model: Any, value: Any) -> Any:
+    """A stage's own object as the dashboard's model reads it: the fields the model declares, a null left out so
+    it takes its default. A field another skill's contract defines (the story's remember_draft and origin, a
+    figure's code: null, a co-author reply's by: handle) stays in that stage's file; the inventory never fails on it."""
+    if not isinstance(value, dict):
+        return value
+    out = {}
+    for name, field_ in model.model_fields.items():
+        if value.get(name) is None:
+            continue
+        inner, item = _model_in(field_.annotation), value[name]
+        if inner is not None and isinstance(item, list):
+            item = [fit(inner, x) for x in item]
+        elif inner is not None and isinstance(item, dict):
+            item = fit(inner, item)
+        out[name] = item
+    return out
+
+
 def story(run: Path) -> dict | None:
     """The story stage's direction, tests and options, when its findings.json gives them."""
     path = newest_findings(run / "manuscript-story")
@@ -277,7 +308,7 @@ def story(run: Path) -> dict | None:
         doc = json.loads(path.read_text(encoding="utf-8")).get("story") if path else None
     except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
         return None
-    return doc if isinstance(doc, dict) else None
+    return fit(viz.Story, doc) if isinstance(doc, dict) else None
 
 
 def figures(run: Path, out_dir: Path) -> dict | None:
@@ -294,7 +325,7 @@ def figures(run: Path, out_dir: Path) -> dict | None:
         for key in ("image", "proposed_image"):
             if item.get(key):
                 item[key] = relative(Path(item[key]) if Path(item[key]).is_absolute() else path.parent / item[key], out_dir)
-    return doc
+    return fit(viz.Figures, doc)
 
 
 def coauthors(run: Path) -> dict | None:
@@ -309,7 +340,7 @@ def coauthors(run: Path) -> dict | None:
         return None
     if isinstance(doc.get("source"), str):
         doc["source"] = re.split(r"[\\/]", doc["source"])[-1]
-    return doc
+    return fit(viz.Coauthors, doc)
 
 
 def relink(inventory: dict, skill: str, records: list[dict]) -> None:
@@ -728,8 +759,10 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             if not parts:
                 continue
             section, reason, comment, before, after = parts.groups()
-            before = None if before.strip() == "(No previous block.)" else before.strip()
-            after = None if after.strip() == "(Block removed.)" else after.strip()
+            # Only the record's own line breaks go: a deletion recorded with the space before it (" Sentence.")
+            # keeps that space, or the replay leaves a double space and never reaches the revised text.
+            before = None if before.strip() == "(No previous block.)" else before.strip("\n")
+            after = None if after.strip() == "(Block removed.)" else after.strip("\n")
             # The recorded reason is the edit's reasoning; its first sentence is the summary.
             first = re.match(r"(.+?[.!?])(?:\s|$)", reason.strip())
             summary = first.group(1) if first else reason.strip()

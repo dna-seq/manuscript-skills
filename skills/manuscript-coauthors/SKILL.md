@@ -105,6 +105,25 @@ and rclone works on any host. Before pulling, find out which way you have, then 
    Put the round's comments down as not pulled in the stage report, so the dashboard does not read their absence
    as none.
 
+## A review that happens in Google Docs: `port`
+
+Many reviewers never touch the plugin: they read the round in Google Docs and comment there. One command
+takes what they wrote to the run's dashboard, where the authors work:
+
+```bash
+uv run --script scripts/rounds.py port 0.7 --run RUN --gdoc READ.json        # what it would run
+uv run --script scripts/rounds.py port 0.7 --run RUN --gdoc READ.json --go   # run it
+```
+
+`--gdoc` is the Docs connector's `read_doc` answer (commentsIncluded) saved as JSON, one per Doc; without it,
+port pulls through rclone. It then records the commenters as people, writes the co-authors' findings with
+every comment not triaged yet shown as open ("Not triaged yet"), and replays the run's own last collect,
+corrected-version and dashboard commands (and the Word file and workbook, when the run made them) on the new
+inventory, each as its next attempt (`findings.3.json`, `revision.3`, `dashboard.2`). Every step goes through
+`runs.py exec`, so the run records it. A run with no dashboard yet stops after the findings. Then triage
+(step 2) and port again with `--no-pull` to show the answers. Port never answers a comment: triage stays the
+agent's and the authors'.
+
 ## 1. Pull the comments
 
 The comments of round X.Y go to `vX.Y/comments.yaml`, beside the round. That ledger is the authors' record,
@@ -112,13 +131,27 @@ kept in git with the paper; the run gets the exports and a copy as evidence.
 
 - **rclone:** `rounds.py pull 0.5 --out RUN/manuscript-coauthors/exports --go` exports each recorded Doc of
   the round as .docx and merges its comments. Without `--go` it prints the commands.
+- **The Google Docs connector** (Claude's, separate from Drive; the best connector route): `read_doc` with
+  `commentsIncluded: true` returns every thread with the exact words it is anchored on, its range, its status
+  (open or resolved) and its replies, and every suggestion with its author, status and a "Replace: X with Y"
+  summary. Save that answer as JSON (the client saves a large one to a file by itself; write a small one out)
+  and merge it: `comments.py import-gdoc READ.json --ledger v0.5/comments.yaml --master v0.5/paper.md --doc
+  LINK`. It keeps each thread's exact range, whether it was resolved and by whom (`resolved_by`), each open
+  suggestion's inserted and deleted text, and the Doc's own ids, so a later pull by this route or as .docx
+  knows each item again. When the assistant has no Docs connector, say once that the authors can turn it on
+  (claude.ai: **+ → Connectors → Google Docs**, then start a new Claude Code session; [Anthropic's
+  instructions](https://support.claude.com/en/articles/10166901-use-google-workspace-connectors)), and carry on
+  with the routes below. What each connector can do is in
+  [references/google-docs-connectors.md](references/google-docs-connectors.md).
 - **A Drive connector:** find the Doc (`search_files`, `title contains '…'`), download it as .docx
   (`download_file_content` with `exportMimeType`
   `application/vnd.openxmlformats-officedocument.wordprocessingml.document`) into the run's `exports/`, then
   `comments.py import EXPORT.docx --ledger v0.5/comments.yaml --master v0.5/paper.md --doc LINK`. When only
   the text view is available (`read_file_content` with `includeComments`), write each thread as an item (author,
   date, the commented words as `anchor`, a dozen words on each side as `context_before`/`context_after`,
-  `comment`, `replies`) and merge them with `comments.py add ITEMS.yaml --ledger … --master …`.
+  `comment`, `replies`) and merge them with `comments.py add ITEMS.yaml --ledger … --master …`. That text
+  view loses suggested edits: it prints a suggestion's new text and the text it would delete side by side,
+  unmarked, so take suggestions from the .docx export or the Docs connector.
 - **By hand:** File › Download › Microsoft Word, then `import` as above.
 
 What the import does, so you can say it plainly: each comment and reply is read with its author and date; a
@@ -130,6 +163,14 @@ whether a thread was resolved, so `resolved` stays empty unless a connector show
 thread as answered without checking the text. Report how many comments and suggestions arrived, from whom,
 and any anchor not found in the master (`not_located`): the Doc and the master have drifted there, and that
 comment is placed by hand.
+
+**Who commented.** The Doc's commenters are people: `import` maps each name to a handle in the project's
+`rev-marks.toml` (an alias already listed, an author of the paper by full name, the one author whose
+initials and surname start fit a shortened name such as "T Exa", else a new handle), adds it to `humans` and
+the Doc's name to its `aliases`, and writes `by:` on each item and reply. Report the `people` list it prints,
+with the rule behind each mapping; a wrong one is fixed by editing `aliases`. `--no-people` leaves
+`rev-marks.toml` alone; `add` never touches it. A comment or reply that starts with `[ai]` or `[ai:NAME]` is an
+agent's: it names nobody, and such a comment is kept as `not-on-point` with the agent in `ai:`.
 
 Comments are the co-authors' own words: quote them exactly, never summarise one into a different request, and
 keep them local (the ledger and the run), like the manuscript.
@@ -286,6 +327,31 @@ The base is `rounds.<round>.base` and the last circulated commit the last entry 
 (`rounds.py show`). Every row whose segment answers a comment gets its Why: who asked, what, and the ledger's
 `why`. The rest follow manuscript-revision-marks' "Changelog between rounds": Why from the record or left for
 the authors, every row kept, and the changelog **extended** on each iteration of the round, never rewritten.
+`--out FILE.md` writes the table; `--out FILE.xlsx` writes a real workbook (the table on a Changes sheet, the
+record behind each row on its own), which a release uploads as a Google Sheet.
+
+## Sign-off from the review itself
+
+Revision marks count a passage as reviewed only when a person's name is the last in its `by=`, and a co-author
+who reads and comments in the Doc records nothing there. Two things they do in the Doc are signs that they have
+seen the answer, and are taken as their sign-off: **resolving a thread** (nobody resolves a comment at random;
+an open one may be a reminder they keep, so an open thread signs nothing) and **a suggested edit of theirs that
+was taken** (the passage now holds their wording). After the comments are pulled through the Docs connector
+(`import-gdoc` records `resolved` and who resolved it) and triaged:
+
+```bash
+uv run --script scripts/comments.py signoffs v0.5/comments.yaml --new v0.6/paper.md        # what would be signed
+uv run --script scripts/comments.py signoffs v0.5/comments.yaml --new v0.6/paper.md --go   # write the names
+```
+
+Each resolved thread signs the segments that answer it (`@rev C12a` answers C12, or the segment holding the
+item's `now`) with the handle of the person who resolved it; each taken suggestion (`status: addressed`) signs
+the segment holding its `now` with the suggester's handle. The round is dated the day the thread was resolved
+(`resolved_on`, from the connector), and the ledger keeps each sign-off under its item (`signed`), so a person is
+never added twice to a segment, even after someone else has written in it since. A thread an agent closed (`[ai:NAME]`), or a name
+that is not a person in `rev-marks.toml`, signs nothing and is listed. The command prints how many passages had
+no person's sign-off before and after. The changelog's first line and `rounds.py push` say that count to the
+co-authors, so each knows which wording nobody has put their name to yet.
 
 ## 7. Open the next round and release it
 
@@ -309,10 +375,18 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
   would leave out. It never replaces a file already in the round's Drive folder: replacing a Doc keeps its
   link but can detach the co-authors' comments from their text. Before `--replace`, pull that Doc's comments
   (step 1) and ask.
+- A build that warns it could not convert or find an image (pandoc builds the Doc without it; an SVG needs
+  `rsvg-convert`) stops the push before anything is uploaded, naming the file and the tool.
 - After the upload, open the Docs (or their PDF export) and look at every figure and table page before calling
   the round released; a Drive-for-desktop upload stays a Word file until it is saved as a Google Doc.
-- Replies to co-authors inside the Doc are the authors' to post: no connector here writes Doc comments. The
-  changelog's Why and the dashboard carry the answers.
+- Replies to co-authors inside the Doc are posted only when the authors ask for them. The changelog's Why and
+  the dashboard carry the answers either way. With the Google Docs connector, a reply goes on the comment's own
+  thread (`addCommentReply`), once, naming the round that answered it. It appears under the name of the
+  Google account the connector is signed in to, so the reply starts with `[ai:NAME]` (`[ai:claude]`), the
+  marker that tells everyone, and the next pull, that an agent wrote it.
+  Never resolve a co-author's thread; that is theirs to do. Read the thread back afterwards to confirm the
+  reply landed ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the
+  connector, the authors post the replies by hand.
 
 ## What to tell the authors
 
@@ -325,8 +399,12 @@ be exported, anchors not found) once, plainly.
 
 ## Files
 
-- `scripts/comments.py`: import, add, status, findings, changelog and gaps: the ledger of a round's comments, and
+- `scripts/comments.py`: import, import-gdoc, add, status, findings, changelog, signoffs and gaps: the ledger of a round's comments, and
   whether the run that produced the round had caught each.
-- `scripts/rounds.py`: show, open, sync, push, record, circulated, pull and routes: the rounds on Drive, and the
-  edits made in their Docs carried back into the masters.
+- `scripts/rounds.py`: show, open, sync, push, record, circulated, pull, routes and port: the rounds on Drive,
+  the edits made in their Docs carried back into the masters, and a round's comments taken from Google Docs to
+  the run's dashboard.
+- `references/google-docs-connectors.md`: what Claude's Google Docs and Drive connectors and Codex's Google Drive
+  app can read and write in a Google Doc (edits, highlights, suggestions, comments, replies), the exact
+  requests, how to verify each by reading back, and how to install the connectors.
 - The settings live in the project file and are saved by `manuscript-integrity-check/scripts/project.py configure`.

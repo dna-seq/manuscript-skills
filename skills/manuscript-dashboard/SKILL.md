@@ -111,7 +111,10 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
   (`recheck.json` beside the revision folder, from manuscript-improve's `recheck.py`), the page shows that
   verdict instead: fully or partly addressed, still open, made worse, or could not check; the inventory
   file keeps its own resolution.
-- Keep original severities; use `unknown` where a skill did not assess one. The authors read the
+- Keep original severities; use `unknown` where a skill did not assess one. A comprehension finding (a term
+  before its definition, a sentence a reader could not parse, a missing link) never goes below `minor`, and a
+  section with five or more is `major` ([stage findings](references/stage-findings.md)): a co-author outside the
+  sub-field stops at the same words, and an `info` record would leave it out of the revision. The authors read the
   severities as Blocker, Major, Minor ("worth fixing, low stakes"), Optional (`info`: a style preference,
   possible improvement or additional experiment) and Could not be checked (`unknown`); collect maps a
   referee's `optional` to `info` and `uncertain` to `unknown`.

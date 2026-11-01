@@ -262,6 +262,7 @@ def test_worked_input_uses_actual_evidence_and_does_not_invent_edits() -> None:
 
 
 COLLECT = ROOT / "skills/manuscript-dashboard/scripts/collect.py"
+sys.path.insert(0, str(COLLECT.parent))  # collect imports stage_check beside it, as it does when run as a script
 spec = importlib.util.spec_from_file_location("collect", COLLECT)
 collect = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = collect
@@ -877,3 +878,23 @@ def test_collect_carries_the_co_authors_comments_and_follows_merged_problems(tmp
     draft = run / "manuscript-dashboard/findings.draft.json"
     assert CliRunner().invoke(collect.app, [str(run), "--output", str(draft)]).exit_code == 0
     assert visualize.Inventory.model_validate_json(draft.read_text()).coauthors.items[2].finding_ids == ["CA-1", "CA-2"]
+
+
+def test_collect_reads_a_stage_object_with_fields_another_skill_defines() -> None:
+    """The story contract adds remember_draft and origin, the figures skill writes code: null, and a co-author's reply
+    carries the handle it was mapped to: the inventory keeps what the dashboard shows and never fails on the rest."""
+    story = {"direction": "Privacy first", "confirmed": True, "remember": "A genome on your own computer.",
+             "remember_draft": "A draft sentence.", "origin": "Built for longevity research first.",
+             "tests": [{"test": "The stake", "result": "holds", "note": None}]}
+    with pytest.raises(ValidationError):
+        visualize.Story.model_validate(story)
+    assert visualize.Story.model_validate(collect.fit(visualize.Story, story)).tests[0].note == ""
+    figures = {"items": [{"id": "Figure 1", "verdict": "keep", "code": None, "recommendations": []}]}
+    assert visualize.Figures.model_validate(collect.fit(visualize.Figures, figures)).items[0].code == ""
+    coauthors = {"round": "0.5", "next_round": None, "items": [
+        {"id": "C1", "kind": "comment", "author": "Ann Lee", "status": "open", "resolved": None, "by": "annlee",
+         "next": "Name the budget's source.",
+         "replies": [{"author": "Bob Ray", "text": "Agreed.", "by": "bobray"}, {"author": "Ann Lee", "text": "[ai] ok",
+                                                                                "ai": "ai"}]}]}
+    checked = visualize.Coauthors.model_validate(collect.fit(visualize.Coauthors, coauthors))
+    assert [r.author for r in checked.items[0].replies] == ["Bob Ray", "Ann Lee"]

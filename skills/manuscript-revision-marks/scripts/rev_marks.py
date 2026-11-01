@@ -65,6 +65,12 @@ rev-marks.toml (all keys optional):
     agents = ["lab-bot"]           # more agent names or fnmatch patterns
     unknown = "agent"              # or "human": what a name in neither list counts as
 
+    [aliases]                      # other names one handle goes by: a by= name or a Doc's comment author
+    anna = ["Anna Berg", "A Ber", "aberg"]
+
+An alias counts as its handle everywhere (`by=anna` and `by=aberg` are one person). Aliases are compared
+lowercase, without accents, spaces or punctuation, so "A. Ber" is "A Ber". One alias belongs to one handle.
+
 A `.tex` file carries its marks as LaTeX comments, each on a line of its own, and its twin is
 `<stem>.clean.tex`; every other file is Markdown:
 
@@ -101,6 +107,7 @@ import os
 import re
 import sys
 import tomllib
+import unicodedata
 from bisect import bisect_left
 from collections import Counter
 from dataclasses import dataclass
@@ -647,10 +654,16 @@ class People:
     agents: tuple[str, ...] = ()  # exact names and fnmatch patterns, lowercased
     unknown: Kind = Kind.AGENT
     config: Path | None = None
+    aliases: tuple[tuple[str, str], ...] = ()  # (alias_key(alias), handle), from rev-marks.toml's [aliases]
+
+    def canonical(self, name: str) -> str:
+        """The handle *name* stands for: its own lowercase, or the handle it is an alias of."""
+        key = alias_key(name)
+        return next((handle for alias, handle in self.aliases if alias == key), name.strip().lower())
 
     def known(self, name: str) -> Kind | None:
-        """HUMAN or AGENT when a list names *name*; None when neither does."""
-        key = name.lower()
+        """HUMAN or AGENT when a list names *name* (or the handle it is an alias of); None when neither does."""
+        key = self.canonical(name)
         if key in self.humans:
             return Kind.HUMAN
         if any(fnmatch.fnmatchcase(key, pattern) for pattern in self.agents):
@@ -659,6 +672,31 @@ class People:
 
     def kind(self, name: str) -> Kind:
         return self.known(name) or self.unknown
+
+
+def alias_key(name: str) -> str:
+    """A name as aliases compare it: lowercase, without accents, spaces or punctuation ("G. Füe" -> "gfue")."""
+    plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^0-9a-z]", "", plain.lower())
+
+
+def _aliases(data: dict, where: Path) -> tuple[tuple[str, str], ...]:
+    """rev-marks.toml's [aliases] table: handle -> the other names it goes by."""
+    table = data.get("aliases", {})
+    if not isinstance(table, dict):
+        raise ConfigError(f"{where}: aliases must be a table of handle = [names]")
+    owner: dict[str, str] = {}
+    for handle, names in table.items():
+        if not re.fullmatch(NAME_PATTERN, handle):
+            raise ConfigError(f"{where}: aliases: {handle!r} is not a by= name ({NAME_PATTERN})")
+        if not isinstance(names, list) or not all(isinstance(n, str) and alias_key(n) for n in names):
+            raise ConfigError(f"{where}: aliases.{handle} must be a list of names")
+        for n in [handle, *names]:
+            key = alias_key(n)
+            if owner.get(key, handle.lower()) != handle.lower():
+                raise ConfigError(f"{where}: alias {n!r} belongs to both {owner[key]!r} and {handle!r}")
+            owner[key] = handle.lower()
+    return tuple(owner.items())
 
 
 def _strings(data: dict, key: str, where: Path) -> list[str]:
@@ -706,12 +744,13 @@ def load_people(start: Path, config: Path | None = None, unknown: str | None = N
     path = config if config is not None else find_config(start)
     data = _read_toml(path) if path is not None else {}
     where = path or Path(CONFIG_NAME)
-    unexpected = set(data) - {"humans", "agents", "unknown"}
+    unexpected = set(data) - {"humans", "agents", "unknown", "aliases"}
     if unexpected:
         raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(unexpected))}")
     people = People(humans=frozenset(_strings(data, "humans", where)),
                     agents=agent_list() + tuple(_strings(data, "agents", where)),
-                    unknown=_choice(data, "unknown", Kind, Kind.AGENT, where), config=path)
+                    unknown=_choice(data, "unknown", Kind, Kind.AGENT, where), config=path,
+                    aliases=_aliases(data, where))
     return dataclasses.replace(people, unknown=Kind(unknown)) if unknown is not None else people
 
 

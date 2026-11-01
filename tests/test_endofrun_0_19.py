@@ -246,6 +246,21 @@ def test_collect_counts_both_the_widening_and_its_reverse_as_applied(tmp_path: P
     assert [r["status"] for r in records] == ["applied", "applied"]
 
 
+def test_a_deletion_recorded_with_its_leading_space_replays_to_the_revised_text(tmp_path: Path) -> None:
+    """A sentence deleted with the space before it is recorded as " Sentence."; stripping that space left a double
+    space, the replay never reached the revised text, and an applied edit counted as not in the revision."""
+    text = "# 1. Introduction\n\nThe tool runs locally. It is very fast. It reads VCF files.\n"
+    revised = text.replace(" It is very fast.", "")
+    path = tmp_path / "manuscript-deslop" / "changes" / "0001.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# 1. Introduction\n\nReason: an empty intensifier.\n\n## Before\n\n It is very fast.\n\n"
+                    "## After\n\n\n")
+    data = {"skills": {"manuscript-deslop": {"changes": [{"path": "manuscript-deslop/changes/0001.md"}]}}}
+    records = collect.recorded_changes(tmp_path, data, tmp_path, revised, text)
+    assert records[0]["before"] == " It is very fast."
+    assert [r["status"] for r in records] == ["applied"]
+
+
 def _record(run: Path, skill: str, number: int, before: str, after: str) -> None:
     path = run / skill / "changes" / f"{number:04d}.md"
     path.parent.mkdir(parents=True, exist_ok=True)

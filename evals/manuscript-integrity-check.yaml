@@ -193,3 +193,19 @@
     - "Edits a manuscript file."
   pairs:
     - {with: integrity-section-roles-seeded, expect: different}
+
+- id: integrity-design-constants-01
+  skill: manuscript-integrity-check
+  prompt: >-
+    Check the numbers in outsider-seeded.md before we send it to our co-authors.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Section 2.2 sets three design constants (at least 4 of 7 replicate runs, the outer 1% of the background, a factor of 0.9) with no stated reason."
+  anchors:
+    - {item: 1, id: constants, anchor: "at least 4 of 7 replicate runs and its abundance lies outside the outer 1%", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Reports the three constants of Section 2.2 as stating no reason, quoting them."
+    - "Asks the authors where each comes from (a citation, a calibration, a convention, or their choice with its sensitivity)."
+  fail_if:
+    - "Supplies a reason or a source for a constant that the paper does not give."
+    - "Checks only the constants' arithmetic and calls them consistent."

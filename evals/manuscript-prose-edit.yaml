@@ -211,3 +211,22 @@
     - {item: 2, id: connector, anchor: "Furthermore, it is worth noting", file: fixtures/manuscript-prose-edit/original.md}
     - {item: 3, id: participle-tail, anchor: "highlighting the importance of broader validation", file: fixtures/manuscript-prose-edit/original.md}
     - {item: 4, id: empty-closer, anchor: "In conclusion, these findings have important implications", file: fixtures/manuscript-prose-edit/original.md}
+
+- id: prose-edit-links-and-first-use-01
+  skill: manuscript-prose-edit
+  prompt: >-
+    Copy-edit outsider-seeded.md in place for a reader outside bioinformatics. Keep my meaning.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Two adjacent Introduction sentences have no relation between them: degradation at room temperature, then the laptop."
+    - "Strict and lenient mode are used in the Abstract and Introduction but defined only in Section 2.3."
+  anchors:
+    - {item: 1, id: unlinked-pair, anchor: "degrade within days at room temperature. Our pipeline runs on a laptop.", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 2, id: mode-before-definition, anchor: "In strict mode, SoilTrace reports fewer taxa", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Links the two Introduction sentences with the relation the text supports (the samples degrade, so they are profiled where collected), or opens the second with what the first said, or asks the authors."
+    - "Defines strict and lenient mode at their first use from Section 2.3's own wording, or points to Section 2.3 there."
+    - "Keeps every number, citation, version and hedge."
+  fail_if:
+    - "Deletes a connector that states a real relation, or leaves the two sentences unlinked without saying so."
+    - "Invents a definition the paper does not give."

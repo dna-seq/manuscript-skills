@@ -15,6 +15,10 @@
 # with the fourth paragraph opening on the authors' starting point and the "such" gone),
 # personal-genome-first.md (v0.3, the earliest draft the authors keep, trimmed the same way, whose third
 # paragraph still ended on "ease of use, transparency, and extensibility").
+# Synthetic fixtures for a reader outside the sub-field: outsider-seeded.md (a made-up soil-profiling paper: two
+# Introduction sentences with no relation, two modes used before Section 2.3 defines them, a Methods paragraph of
+# undefined terms, unexplained thresholds, an eight-decimal correlation with no reading), outsider-clean.md (the same
+# with each repaired).
 
 - id: story-review-compare-versions
   skill: manuscript-story
@@ -167,3 +171,78 @@
     - "Edits a manuscript file."
   pairs:
     - {with: story-introduction-turn-seeded, expect: different}
+
+- id: story-every-link-every-section-01
+  skill: manuscript-story
+  prompt: >-
+    Our co-author is an ecologist, not a bioinformatician. Read outsider-seeded.md the way he will and tell us
+    where the text loses him. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Two adjacent Introduction sentences have no relation between them."
+    - "Strict and lenient mode are used in the Abstract and Introduction, two sections before Section 2.3 defines them."
+    - "Section 2.2 uses ASVs, rarefaction, Bray–Curtis and CLR with no definition: more stumbles than paragraphs."
+  anchors:
+    - {item: 1, id: unlinked-pair, anchor: "degrade within days at room temperature. Our pipeline runs on a laptop.", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 2, id: mode-before-definition, anchor: "In strict mode, SoilTrace reports fewer taxa", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 3, id: methods-terms, anchor: "Reads are denoised into ASVs, rarefied to the smallest library", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Reports the unlinked Introduction pair, quoting both sentences, as a finding of its own."
+    - "Reports strict and lenient mode as used before their definition, naming where they are first used and where Section 2.3 defines them."
+    - "Lists each undefined term of Section 2.2 (ASV, rarefaction, Bray–Curtis, CLR) as its own finding with where it stops the reader, and calls the section written for a narrower reader than the recorded audience."
+    - "Each fix is a definition from the paper's own words, a move to the supplement with a summary left, or a question for the authors."
+  fail_if:
+    - "Says the undefined terms are too many to list, or folds them into one remark without listing them."
+    - "Reads only the Introduction's paragraph breaks and misses the sentence pair or the Methods terms."
+    - "Supplies a definition or a reason the paper does not give."
+  pairs:
+    - {with: story-every-link-every-section-clean-01, expect: different}
+
+- id: story-every-link-every-section-clean-01
+  skill: manuscript-story
+  prompt: >-
+    Our co-author is an ecologist, not a bioinformatician. Read outsider-clean.md the way he will and tell us
+    where the text loses him. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-clean.md]
+  planted:
+    - "Clean control: the Introduction sentences are linked, the modes point to Section 2.3, and Section 2.2 defines each term."
+  rubric:
+    - "Does not report the Introduction pair as unlinked, the modes as undefined, or Section 2.2 as full of undefined terms."
+  fail_if:
+    - "Invents a missing link or an undefined term the text defines."
+
+- id: story-number-reading-01
+  skill: manuscript-story
+  prompt: >-
+    Do our results in outsider-seeded.md land for a field ecologist? Tell us what to change; don't edit.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "The Results give a Pearson correlation to eight decimals with no reading of what it means."
+  anchors:
+    - {item: 1, id: bare-correlation, anchor: "lenient mode correlated with Pearson r = 0.99999871", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Reports the eight-decimal correlation as a number with no reading for this reader, quoting it."
+    - "Proposes a reading in the paper's own terms (the two modes give practically the same abundances; they differ in which taxa they report), or asks the authors."
+  fail_if:
+    - "Changes or rounds the number itself."
+    - "Adds a comparison or baseline the paper does not give."
+
+- id: story-coauthor-who-must-vouch-01
+  skill: manuscript-story
+  prompt: >-
+    Our senior co-author is an ecologist and is named on outsider-seeded.md. Before we send it, run your readers
+    and include one who has to be able to defend every sentence to a referee. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Section 2.1 has one sentence with two appended conditions that a reader must parse twice."
+    - "Section 2.2's constants have no stated reason; a co-author cannot defend them."
+  anchors:
+    - {item: 1, id: dense-sentence, anchor: "unless their coverage fell below 10x, in which case the default", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 2, id: constants, anchor: "background distribution, scaled by a factor of 0.9.", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Runs a seat briefed as a named co-author in the broader field who must vouch for every sentence."
+    - "That seat lists the sentences it could not restate or would not defend, each quoted, including the Section 2.1 trimming sentence and the Section 2.2 thresholds."
+    - "Each listed sentence becomes a finding with a fix or a question for the authors."
+  fail_if:
+    - "Reports the vouching reader's view without quoting the sentences it could not restate."
+    - "Supplies a reason for a threshold that the paper does not give."

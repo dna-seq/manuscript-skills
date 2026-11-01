@@ -109,3 +109,56 @@ def test_github_bot_pattern_does_not_swallow_logins_ending_in_b_o_or_t() -> None
     p = people.rm.People(agents=people.rm.agent_list())
     assert not people.is_agent(p, "winternewt", "76408211+winternewt@users.noreply.github.com")
     assert people.is_agent(p, "dependabot[bot]", "49699333+dependabot[bot]@users.noreply.github.com")
+
+
+# --- a Doc's commenters: mapped to the paper's people, aliases kept ------------------------------------------
+
+
+def test_a_commenter_maps_to_an_author_by_full_name_or_initials_else_gets_a_new_handle(repo: Path) -> None:
+    s = people.survey(repo / "paper.md")
+    pp = people.rm.load_people(repo / "paper.md")
+    m = people.resolve("Tom Example", pp, s.identities)
+    assert (m.handle, m.rule) == ("tomexample", "author")
+    m = people.resolve("M. Lop", pp, s.identities)  # Google shows a shortened name: initial and surname start
+    assert (m.handle, m.rule, m.via) == ("marialopez", "initials", "Maria Lopez")
+    m = people.resolve("A Smith", pp, s.identities)  # Anna Smith signs by=anna: her existing handle wins
+    assert m.rule == "initials" and m.handle in ("anna", "annasmith")
+    m = people.resolve("Petra Outside", pp, s.identities)  # a reviewer who is not on the paper
+    assert (m.handle, m.rule) == ("petraoutside", "new")
+    assert people.resolve("Sol", pp, s.identities).handle == "sol2"  # never an agent's name
+
+
+def test_recorded_commenters_become_people_and_their_names_aliases(repo: Path) -> None:
+    config = repo / "rev-marks.toml"
+    config.write_text('# kept\nhumans = ["anna"]\nagents = ["lab-bot"]\n', encoding="utf-8")
+    s = people.survey(repo / "paper.md")
+    pp = people.rm.load_people(repo / "paper.md")
+    matches = [people.resolve(n, pp, s.identities) for n in ("M. Lop", "Maria Lopez", "Petra Outside")]
+    humans, aliases = people.record_people(config, matches)
+    data = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert data["humans"] == ["anna", "marialopez", "petraoutside"] and data["agents"] == ["lab-bot"]
+    assert data["aliases"] == {"marialopez": ["M. Lop", "Maria Lopez"], "petraoutside": ["Petra Outside"]}
+    assert "# kept" in config.read_text(encoding="utf-8")
+    pp = people.rm.load_people(repo / "paper.md")  # the next pull finds them by alias
+    assert people.resolve("M Lop", pp, s.identities).rule == "alias"
+    assert pp.known("marialopez") == people.rm.Kind.HUMAN
+    people.write_aliases(config, {"marialopez": ["m. lop", "Dr Maria Lopez"]})  # nothing twice, nothing lost
+    assert tomllib.loads(config.read_text())["aliases"]["marialopez"] == ["M. Lop", "Maria Lopez", "Dr Maria Lopez"]
+
+
+def test_an_authors_line_lists_people_and_a_shortened_name_fits_a_surname_first_author(tmp_path: Path) -> None:
+    """A Markdown manuscript's own author line, surname first with affiliation marks, as many drafts write it."""
+    git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "paper.md").write_text(
+        "# A paper\n\n**Authors:** Lopez Maria^1,2,†^, Example Tom^3^, Outside Petra^1,\\*^\n\n## Abstract\n\nText.\n",
+        encoding="utf-8")
+    git(tmp_path, "add", "paper.md")
+    git(tmp_path, "commit", "-q", "-m", "Draft", name="Maria Lopez", email="maria@example.org")  # git: given name first
+    s = people.survey(tmp_path / "paper.md")
+    listed = {i.name for i in s.identities if i.listed}
+    assert {"Lopez Maria", "Example Tom", "Outside Petra"} <= listed
+    pp = people.rm.load_people(tmp_path / "paper.md")
+    m = people.resolve("M Lop", pp, s.identities)  # one person in two orders, not two candidates
+    assert m.rule == "initials" and m.via in ("Lopez Maria", "Maria Lopez")
+    assert m.handle == "marialopez"  # git's order: the handle she would sign with
+    assert people.resolve("P Out", pp, s.identities).via == "Outside Petra"

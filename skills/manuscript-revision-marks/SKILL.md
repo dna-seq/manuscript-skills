@@ -72,7 +72,16 @@ one). Every key is optional:
 humans = ["anna", "tom"]   # people; outranks the agent list (a co-author named Claude or Luna)
 agents = ["lab-bot"]       # more agent names or fnmatch patterns
 unknown = "agent"          # what a name in neither list counts as; "human" to flip
+
+[aliases]                  # the other names a handle goes by
+tom = ["Tom Example", "T Exa", "texample"]
 ```
+
+**Aliases.** A person signs `by=` with one handle but appears under other names: their full name, the
+shortened name Google Docs shows on a comment ("T Exa"), another handle. Each alias counts as its handle
+everywhere, so `by=texample` is Tom's round. Aliases are compared lowercase, without accents, spaces or
+punctuation ("T. Exa" is "T Exa"); one alias belongs to one handle, and `rev-marks.toml` is refused
+otherwise. `manuscript-coauthors` adds a Doc's commenters here when it pulls their comments.
 
 The shipped [agent list](references/agent-names.toml) names AI model families (from the Artificial
 Analysis Intelligence Index) and coding harnesses, with patterns for versioned names (`claude-*`,
@@ -236,6 +245,9 @@ uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --seen SEEN.md
 When the co-authors comment on Google Docs and the project keeps its rounds on Drive, manuscript-coauthors
 builds the same table with `comments.py changelog`, Why filled from the comment each segment answers (a
 segment named `C12a` answers comment C12 of its ledger), and keeps the round's base and circulated commits.
+An agent that writes in the Doc through a connector (a reply, a suggested edit) does so under the name of the
+Google account the connector is signed in to, so in the Doc it looks like that person's work; the reply text
+starts with `[ai:NAME]`, which tells a reader and the next pull that an agent wrote it ([what each connector can do](../manuscript-coauthors/references/google-docs-connectors.md)).
 
 - **The list is the checklist.** It names every segment that is new, removed, rewritten or given another
   round, and every changed paragraph no segment covers (`(none)`), in the order of the new text. Every
@@ -267,9 +279,37 @@ segment named `C12a` answers comment C12 of its ledger), and keeps the round's b
   authors keep it and never write over the authors' words in it; when one exists, check it against the list,
   report what it misses, and extend it as above.
 
+## Shading in the Google Doc, and what changed since a revision
+
+Co-authors who read a round in Google Docs see the same shading as the draft PDF when the authors ask for it,
+through Claude's Google Docs connector (or Codex's Google Drive app). The master keeps the marks; the Doc only
+gets colours:
+
+```bash
+uv run --script scripts/gdoc_shade.py plan PAPER.md READ.json --out shade.json   # requests for update_doc
+uv run --script scripts/gdoc_shade.py verify PAPER.md READ2.json                 # after sending, read back
+uv run --script scripts/gdoc_shade.py clear READ.json [--colour shade|diff|all]  # remove the colours
+uv run --script scripts/gdoc_shade.py diff OLD.txt READ.json --out diff.json     # what changed since OLD
+```
+
+`READ.json` is the connector's `read_doc` answer, saved. `plan` finds each unreviewed segment (same rule and
+`rev-marks.toml` as `report --unreviewed`) in the Doc by its words and gives the requests that colour exactly
+those ranges amber, and clear amber where a person has reviewed since: after a review pass (`bump --by`), the
+same `plan` clears what was reviewed. Send `requests` with `update_doc` as direct edits (never in suggestion
+mode), read the Doc again and `verify`. A segment the Doc no longer holds, or holds twice, is listed under
+`not_found` and never guessed at. `diff` colours what is new or rewritten since an older version light blue:
+`OLD.txt` is a revision of the Doc as plain text (Claude's Drive connector fetches one by id with
+`download_file_content`, `revisionId` and `exportMimeType: text/plain`; Codex's app lists the revisions and
+fetches one), or the previous round's clean twin. Deleted passages cannot be coloured; `diff` lists them with
+the place they were cut from. Both colours are reserved (amber rgb 255, 236, 179; blue rgb 204, 229, 255) and
+only they are ever cleared, so a co-author's own highlights stay. The shading is never a sign-off, and a person
+who reads the Doc signs off only through the marks (`bump --by`).
+
 ## Files
 
 - `scripts/rev_marks.py`: lint, strip, report, bump, apply and changes.
+- `scripts/gdoc_shade.py`: the unreviewed passages shaded in a Google Doc, and what changed since a revision
+  coloured apart: plan, verify, clear and diff, as requests for the Docs connector.
 - `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, the review
   draft, and the LaTeX reading copy.
 - `scripts/unreviewed.lua`, `scripts/unreviewed-preamble.tex`: how the draft shades a segment.

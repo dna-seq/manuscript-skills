@@ -26,18 +26,30 @@ an option for the authors.
 ## The middle
 
 5. **A headline per result.** Does each results section open with its finding in plain words, before the
-   numbers, setup and versions? Fix: a first sentence that says what was found and the number a reader
-   keeps; the run history follows or moves to the supplement.
+   numbers, setup and versions? Does each statistic the headline rests on say what it means for the reader:
+   is it good, how good, and compared with what? A correlation given to eight decimals needs "the two are the
+   same to seven decimals"; a warning rate needs how often it changes a result. A number with no reading is a
+   stumble for a reader outside the sub-field ("is that good?") and a finding of its own. Fix: a first sentence
+   that says what was found and the number a reader keeps, each number with its reading in the paper's own
+   terms (from its comparison, its threshold or its baseline; a reading the paper cannot support is a question
+   for the authors); the run history follows or moves to the supplement.
 6. **Show the output.** Does the paper show what a user actually gets: a report row, a screenshot of a
    real result, the output for a named input? For a tool or platform paper this is the single strongest
    device; its absence is the most common reason a reader cannot say what the tool does. Fix: a worked
    example from the authors' own outputs; never a constructed one.
 7. **Connected sentences.** Does each sentence follow from the one before by cause, contrast or time?
    Connectedness was the narrative feature most associated with citation in one study of 732 abstracts
-   (Hillier et al. 2016; correlational, small effect). Fix: reorder so each sentence picks up the last
-   one's new information; a connective word is not a connection.
-8. **Connected paragraphs.** Does each paragraph of the Introduction follow from the one before? Test 7
-   reads inside a paragraph; this one reads across the break. Read each paragraph's first sentence right
+   (Hillier et al. 2016; correlational, small effect). Read every adjacent pair of sentences in the body,
+   in every section, whatever the panel reported: readers read past a missing link more often than they stop
+   at it. List each pair with no cause, contrast, time, elaboration or example between them, quoting both
+   sentences; each is a finding. Fix: reorder so each sentence picks up the last one's new information, or
+   state the relation the paper's own text gives; a connective word is not a connection. A relation the
+   paper never states is a question for the authors.
+8. **Connected paragraphs.** Does each paragraph follow from the one before? Read the Introduction and the
+   Discussion paragraph by paragraph, and the first paragraph of every other section and subsection against
+   what came before it. Read the same way any sentence that brings in a measure, mode, dataset or method the
+   reader has not met yet: it must say why now. Test 7 reads inside a paragraph; this one reads across the
+   break. Read each paragraph's first sentence right
    after the previous paragraph's last one: it should take up something that sentence said, and a reader
    should have been able to guess its topic. A paragraph that brings in a new domain, example or audience
    must say why this one. The reason is often the authors' own starting point (the domain an earlier

@@ -1,14 +1,16 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml>=6"]
+# dependencies = ["pyyaml>=6", "openpyxl>=3.1"]
 # ///
 """Co-authors' comments on a round of the manuscript: the ledger that keeps them, and how the next round
 answers each one (manuscript-coauthors).
 
     uv run --script comments.py import EXPORT.docx --ledger v0.5/comments.yaml [--master v0.5/PAPER.md] [--doc URL]
+    uv run --script comments.py import-gdoc READ_DOC.json --ledger v0.5/comments.yaml [--master ...] [--doc URL] [--tab t.0]
     uv run --script comments.py add ITEMS.yaml --ledger v0.5/comments.yaml [--master ...] [--doc URL]
     uv run --script comments.py status v0.5/comments.yaml [--old v0.5/PAPER.md] [--new v0.6/PAPER.md] [--json] [--strict]
     uv run --script comments.py findings v0.5/comments.yaml --new v0.6/PAPER.md --out RUN/manuscript-coauthors/findings.json
+    uv run --script comments.py signoffs v0.5/comments.yaml --new v0.6/PAPER.md [--go]
     uv run --script comments.py changelog --base OLD.md --new v0.6/PAPER.md [--seen SEEN.md] --ledger v0.5/comments.yaml [--out FILE]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory RUN/manuscript-dashboard/findings.json [--out SHEET.md]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory v0.5/PAPER.dashboard.html --merge GAPS.yaml | --check
@@ -21,6 +23,17 @@ resolved. So: copies are merged, a comment on exactly the range of an earlier on
 suggested edits of one person in one paragraph are one item. `add` takes items written from a connector's
 text view (a YAML list of author, date, anchor, comment, and optionally context_before, context_after,
 replies, kind, edits, resolved) and merges them the same way.
+
+`import-gdoc` reads the same from the Google Docs connector: read_doc with commentsIncluded, saved as JSON (a
+large answer is saved to a file by the client; write a small one out). It gives each thread's exact range,
+whether it was resolved and who resolved it, and each open suggestion's inserted and deleted text, and keeps
+the Doc's ids (gdoc_id), so a later pull, by either route, knows each item again.
+
+`import` and `import-gdoc` also record who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
+rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle), added
+to rev-marks.toml's humans with the name among its aliases, and written as `by:` on the item or reply
+(--no-people: none of it). A comment or reply that starts with [ai] or [ai:NAME] is an agent's: `ai:` instead of
+`by:`, and such a comment is kept as not-on-point. `add` records nobody.
 
 Ids: C<n> for comments and S<n> for suggested edits, numbered in paper order, continuing past every id
 already used in the round folders beside this one (their comments.yaml) and in the master's revision marks,
@@ -36,6 +49,12 @@ stage's findings.json (a CA finding for each comment not fully addressed, and th
 dashboard shows) and comments.md beside it, the digest the findings cite. `changelog` is revision marks'
 `changes` table from the round's base (with `--seen`, which rows the co-authors have not seen yet), its Why
 filled for every row whose segment answers a comment of the ledgers: who asked, what, and the ledger's `why`.
+
+`signoffs` takes a co-author's resolved thread, or their suggested edit that was taken, as their sign-off: the
+person who resolved the thread (or made the suggestion) is added to the `by=` of the segments of the next round's
+master that answer it (a segment named for the comment, or the one holding its `now`), once; an agent's
+resolution or a name that is not a person signs nothing. The changelog's first line says how many marked passages
+have no person's sign-off yet.
 
 `gaps` asks of each comment whether the run that produced the round had caught it, from that run's inventory
 (its findings.json, or the dashboard it rendered): caught or partly (a finding of the run names it), missed, or
@@ -58,7 +77,7 @@ import re
 import sys
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
@@ -67,6 +86,9 @@ from xml.etree import ElementTree as ET
 import yaml
 
 REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
+PEOPLE = Path(__file__).resolve().parents[2] / "manuscript-mark-people" / "scripts" / "people.py"
+# A comment or reply an agent wrote starts with [ai] or [ai:NAME] (`[ai:claude]`), whoever's Google account posted it.
+AI_MARK = re.compile(r"^\s*\[ai(?:\s*:\s*([A-Za-z0-9][A-Za-z0-9_.-]*))?\s*\]", re.IGNORECASE)
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 STATUSES = ("open", "addressed", "partly", "declined", "not-on-point")
 KINDS = ("comment", "suggestion")
@@ -110,6 +132,51 @@ def rev_marks() -> Any:
     return sys.modules["coauthors_rev_marks"]
 
 
+def people_module() -> Any:
+    """manuscript-mark-people's people.py: who a commenter is, and the rev-marks.toml it writes."""
+    if "coauthors_people" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("coauthors_people", PEOPLE)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["coauthors_people"] = module
+        spec.loader.exec_module(module)
+    return sys.modules["coauthors_people"]
+
+
+def ai_of(text: Any) -> str | None:
+    """The agent a comment says wrote it (`[ai:claude]` -> claude, `[ai]` -> ai), or None for a person's."""
+    m = AI_MARK.match(str(text or ""))
+    return (m.group(1) or "ai").lower() if m else None
+
+
+def commenters(found: list[Found], start: Path) -> dict[str, Any]:
+    """Every person who commented, replied or suggested in the Doc, mapped to a handle (manuscript-mark-people's
+    rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle) and
+    recorded in rev-marks.toml as a person, their Doc name among the handle's aliases. A comment marked [ai:NAME]
+    is an agent's and names nobody. A Doc's commenters are people by default: they read the paper as one."""
+    pm = people_module()
+    names: list[str] = []
+    for f in found:
+        if not (f.kind == "comment" and ai_of(f.comment)):
+            names.append(f.author)
+        names += [r.get("author", "") for r in f.replies if not ai_of(r.get("text"))]
+    names = [n for n in dict.fromkeys(n.strip() for n in names) if n]
+    if not names:
+        return {"handles": {}, "people": [], "config": None}
+    try:
+        survey = pm.survey(start)
+        people = pm.rm.load_people(start, survey.config)
+        matches = [pm.resolve(n, people, survey.identities) for n in names]
+        pm.record_people(survey.target, matches)
+    except (pm.rm.ConfigError, ValueError) as exc:
+        raise Failure(f"rev-marks.toml: {exc}") from None
+    except (RuntimeError, OSError) as exc:
+        raise Failure(f"the commenters could not be recorded as people: {exc}", 3) from None
+    return {"handles": {m.name: m.handle for m in matches}, "config": survey.target.as_posix(),
+            "people": [{"name": m.name, "handle": m.handle, "rule": m.rule, **({"via": m.via} if m.via else {})}
+                       for m in matches]}
+
+
 # --- the Google Doc export ------------------------------------------------------------------------
 
 
@@ -129,6 +196,9 @@ class Found:
     edits: list[dict[str, str]] = field(default_factory=list)
     resolved: bool | None = None
     span: tuple[int, int] = (0, 0)  # its range in the Doc's text: a reply has exactly its comment's
+    gdoc_id: str = ""  # the Doc's own id (doco.…, suggest.…), read through the Google Docs connector
+    resolved_by: str = ""  # who posted the reply that resolved the thread
+    resolved_on: str = ""  # when they did
 
     @property
     def key(self) -> str:
@@ -257,6 +327,132 @@ def describe(edits: list[dict[str, str]]) -> str:
     return "Suggested edits: " + "; ".join(said) + "."
 
 
+# --- the Google Docs connector's view of the Doc (read_doc with commentsIncluded) ---------------------------
+
+
+def gdoc_document(path: Path) -> dict[str, Any]:
+    """The document object of a saved read_doc result: the tool's answer ({"content": {...}}) or the document."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Failure(f"{path}: cannot read: {exc}", 3) from None
+    except json.JSONDecodeError as exc:
+        raise Failure(f"{path}: not JSON ({exc}); save read_doc's whole answer", 2) from None
+    doc = data.get("content", data) if isinstance(data, dict) else None
+    if not isinstance(doc, dict) or not isinstance(doc.get("tabs"), list):
+        raise Failure(f"{path}: not a Google Docs read_doc answer (no tabs).")
+    if doc.get("commentsViewMode") not in (None, "COMMENTS_VIEW_MODE_INCLUDED") or "comments" not in doc:
+        raise Failure(f"{path}: read without its comments; read_doc again with commentsIncluded: true.")
+    return doc
+
+
+def gdoc_runs(doc: dict[str, Any], tab: str | None) -> list[dict[str, Any]]:
+    """Every text run of the tab's body in document order, with its index range and suggestion ids."""
+    tabs = doc["tabs"]
+    chosen = next((x for x in tabs if (x.get("tabProperties") or {}).get("tabId") == tab), None) if tab else tabs[0]
+    if chosen is None:
+        raise Failure(f"no tab {tab!r}; the Doc's tabs: "
+                      + ", ".join(str((x.get("tabProperties") or {}).get("tabId")) for x in tabs))
+    runs: list[dict[str, Any]] = []
+
+    def walk(elements: list[Any]) -> None:
+        for el in elements or []:
+            if not isinstance(el, dict):
+                continue
+            for part in (el.get("paragraph") or {}).get("elements", []):
+                run = part.get("textRun")
+                if run and "startIndex" in part:
+                    runs.append({"start": part["startIndex"], "end": part.get("endIndex", part["startIndex"]),
+                                 "text": run.get("content", ""), "ins": run.get("suggestedInsertionIds") or [],
+                                 "del": run.get("suggestedDeletionIds") or [],
+                                 "style": list((run.get("suggestedTextStyleChanges") or {}))})
+            for row in (el.get("table") or {}).get("tableRows", []):
+                for cell in row.get("tableCells", []):
+                    walk(cell.get("content", []))
+            walk((el.get("tableOfContents") or {}).get("content", []))
+
+    walk(((chosen.get("documentTab") or {}).get("body") or {}).get("content", []))
+    return sorted(runs, key=lambda r: r["start"])
+
+
+def read_gdoc(path: Path, tab: str | None = None) -> list[Found]:
+    """A Doc's comments, replies and suggestions from the Google Docs connector's read_doc (commentsIncluded):
+    each thread with the exact range it is anchored on and whether it was resolved (and by whom), each
+    suggestion with its inserted and deleted text. The context around each is the Doc's text as the master
+    has it: suggested insertions left out, suggested deletions kept."""
+    doc = gdoc_document(path)
+    runs = gdoc_runs(doc, tab)
+    pieces, offsets = [], []  # the master-like text, and (doc index, text offset) where each kept run starts
+    for run in runs:
+        if run["ins"]:
+            continue
+        offsets.append((run["start"], sum(len(p) for p in pieces)))
+        pieces.append(run["text"])
+    text = "".join(pieces)
+
+    def at(index: int) -> int:
+        """The text offset of a document index (an index inside a left-out insertion goes to its start)."""
+        pos = 0
+        for start, offset in offsets:
+            if start > index:
+                break
+            pos = offset + (index - start)
+        return min(pos, len(text))
+
+    def around(start: int, end: int) -> tuple[str, str]:
+        return text[max(0, start - CONTEXT):start], text[end:end + CONTEXT]
+
+    anchors = doc.get("commentAnchors") or {}
+    found: list[Found] = []
+    for thread in doc.get("comments") or []:
+        head = thread.get("headPost") or {}
+        quote = " ".join(str(thread.get("plainTextQuote") or "").split())
+        ranges = (anchors.get(thread.get("anchorId") or "") or {}).get("ranges") or []
+        if ranges:
+            start, end = at(ranges[0]["startIndex"]), at(ranges[-1]["endIndex"])
+        else:  # a comment with no anchor in the Doc: find its quoted words
+            start = text.find(quote) if quote else -1
+            start, end = (start, start + len(quote)) if start >= 0 else (0, 0)
+        replies, resolved_by, resolved_on = [], "", ""
+        for post in thread.get("replies") or []:
+            said = str(post.get("content") or "")
+            author = str((post.get("author") or {}).get("displayName") or "")
+            if post.get("commentAction") == "RESOLVE":
+                resolved_by = author if not ai_of(said) else f"[ai:{ai_of(said)}]"
+                resolved_on = str(post.get("createTime") or "")[:10]
+            elif post.get("commentAction") == "REOPEN":
+                resolved_by = resolved_on = ""
+            if said.strip():
+                replies.append({"author": author, "date": str(post.get("createTime") or ""), "text": said})
+        before, after = around(start, end)
+        found.append(Found("comment", str((head.get("author") or {}).get("displayName") or ""),
+                           str(head.get("createTime") or ""), str(head.get("content") or ""),
+                           quote or " ".join(text[start:end].split()), before, after, start, replies,
+                           resolved=(thread.get("status") == "RESOLVED") if thread.get("status") else None,
+                           span=(start, end), gdoc_id=str(thread.get("commentId") or ""),
+                           resolved_by=resolved_by if thread.get("status") == "RESOLVED" else "",
+                           resolved_on=resolved_on if thread.get("status") == "RESOLVED" else ""))
+    for s in doc.get("suggestions") or []:
+        sid = str(s.get("suggestionId") or "")
+        mine = [r for r in runs if sid in r["ins"] or sid in r["del"] or sid in r["style"]]
+        if not mine or (s.get("status") or "OPEN") != "OPEN":
+            continue
+        inserted = "".join(r["text"] for r in mine if sid in r["ins"])
+        deleted = "".join(r["text"] for r in mine if sid in r["del"])
+        styled = "".join(r["text"] for r in mine if sid in r["style"] and sid not in r["ins"])
+        start, end = at(mine[0]["start"]), at(mine[-1]["end"])
+        edits = [{"deleted": deleted, "inserted": inserted}] if inserted or deleted else []
+        head = s.get("headPost") or {}
+        summary = str(s.get("summaryText") or "")
+        before, after = around(start, start if inserted and not deleted else end)
+        found.append(Found("suggestion", str((head.get("author") or {}).get("displayName") or ""),
+                           str(head.get("createTime") or ""),
+                           describe(edits) if edits else f"Suggested edits: {summary or 'formatting'} on “{styled.strip()}”.",
+                           " ".join((deleted or styled or inserted).split()), before, after, start, [], edits,
+                           span=(start, end), gdoc_id=sid))
+    return sorted(found, key=lambda f: (f.at, f.kind, f.date))
+
+
 def from_items(path: Path) -> list[Found]:
     """Items written from a connector's text view of the Doc."""
     data = load_yaml(path)
@@ -359,6 +555,22 @@ class Master:
         start, end = self.words[lo][5], self.words[hi - 1][5] + len(self.words[hi - 1][0])
         return " ".join(rm.clean_slice(self.marks.text, start, end, self.marks.removals).split())
 
+    def clean_runs(self, first: int, last: int) -> list[tuple[int, int]]:
+        """Words first..last split wherever a revision mark or a table-cell border sits between two of them."""
+        runs, start = [], first
+        for k in range(first, last):
+            if "|" in self.words[k][0]:  # a table row's border is a word of its own: no quote holds it
+                runs.append((start, k))
+                start = k + 1
+                continue
+            if k + 1 < last:
+                a, b = self.words[k][5] + len(self.words[k][0]), self.words[k + 1][5]
+                if "|" in self.marks.text[a:b] or any(r0 < b and r1 > a for r0, r1 in self.marks.removals):
+                    runs.append((start, k + 1))
+                    start = k + 1
+        runs.append((start, last))
+        return [r for r in runs if r[1] > r[0]]
+
     def holds(self, passage: str) -> bool:
         return " ".join(passage.split()) in " ".join(self.clean.split())
 
@@ -452,7 +664,7 @@ def next_number(ids: set[str], letter: str) -> int:
 
 
 def merge(ledger_path: Path, found: list[Found], master: Master | None, round_name: str | None,
-          doc: str | None, source_file: str | None) -> dict[str, Any]:
+          doc: str | None, source_file: str | None, handles: dict[str, str] | None = None) -> dict[str, Any]:
     data = read_ledger(ledger_path)
     if round_name:
         data["round"] = str(round_name)
@@ -467,6 +679,14 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
         data.setdefault("master", own_master)  # the round's main master; a comment on another Doc names its own
         own_master = None if own_master == data["master"] else own_master
     by_key = {item.get("key"): item for item in data["items"]}
+    by_gdoc = {item["gdoc_id"]: item for item in data["items"] if item.get("gdoc_id")}
+
+    def soft(by: Any, date: Any, comment: Any) -> tuple[str, str, str]:
+        """The same comment pulled once as .docx and once through the connector: the Doc shows the author's name
+        differently, so it is known by the person's handle, the minute it was written and its first words."""
+        return (str(by or ""), str(date or "")[:16], " ".join(str(comment or "").split())[:40])
+    by_soft = {soft(item.get("by"), item.get("date"), item.get("comment")): item for item in data["items"]
+               if item.get("by") and item.get("master") == own_master}  # within this Doc only
 
     def key_of(f: Found) -> str:  # an item of another Doc of the round is known within that Doc
         return f"{own_master}|{f.key}" if own_master else f.key
@@ -474,7 +694,9 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
     numbers = {"comment": next_number(ids, "C"), "suggestion": next_number(ids, "S")}
     added = 0
     for f in found:
-        item = by_key.get(key_of(f))
+        item = by_gdoc.get(f.gdoc_id) if f.gdoc_id else None
+        item = item or by_key.get(key_of(f)) or (by_soft.get(soft(handles.get(f.author), f.date, f.comment))
+                                                  if handles and handles.get(f.author) else None)
         if item is None:
             letter = "C" if f.kind == "comment" else "S"
             item = {"id": f"{letter}{numbers[f.kind]}", "kind": f.kind, "author": f.author, "date": f.date,
@@ -484,26 +706,60 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
             added += 1
         if own_master:
             item["master"] = own_master
+        if item.get("key") != key_of(f) and key_of(f) not in by_key:
+            item.setdefault("also_keys", [])
+            if key_of(f) not in item["also_keys"]:
+                item["also_keys"].append(key_of(f))
         item.update({"anchor": f.anchor, "context_before": " ".join(f.before.split()[-CONTEXT_WORDS:]),
                      "context_after": " ".join(f.after.split()[:CONTEXT_WORDS]), "comment": f.comment})
         if f.edits:
             item["edits"] = f.edits
+        for reply in f.replies:
+            if ai_of(reply.get("text")):
+                reply["ai"] = ai_of(reply.get("text"))
+            elif handles and handles.get(reply.get("author", "")):
+                reply["by"] = handles[reply["author"]]
         if f.replies or "replies" in item:
             item["replies"] = f.replies
+        ai = ai_of(f.comment) if f.kind == "comment" else None
+        if ai:  # an agent's comment stays on record but asks nothing of the next round
+            item["ai"] = ai
+            item.pop("by", None)
+            if "status" not in item:
+                item.update(status="not-on-point", why=f"Posted by an agent ([ai:{ai}]), not by a co-author.")
+        elif handles and handles.get(f.author):
+            item["by"] = handles[f.author]
         if f.resolved is not None:
             item["resolved"] = f.resolved
+        if f.gdoc_id:
+            item["gdoc_id"] = f.gdoc_id
+        if f.resolved_by:  # who closed the thread, and when: a co-author accepting the answer, or an agent
+            item["resolved_by"] = (handles or {}).get(f.resolved_by) or f.resolved_by
+            if f.resolved_on:
+                item["resolved_on"] = f.resolved_on
+        elif f.resolved is False:
+            item.pop("resolved_by", None)
+            item.pop("resolved_on", None)
         if master is not None:
             span = master.locate(f.anchor, f.before, f.after)
             item["where"], item["line"] = master.where(span) if span else ("", None)
         for key, default in (("status", "open"), ("now", ""), ("why", ""), ("next", "")):
             item.setdefault(key, default)
     known = {key_of(f) for f in found}
+    for item in data["items"]:  # an item matched under another key (the other pull method) is still in this pull
+        if any(k in known for k in item.get("also_keys", [])) or (item.get("gdoc_id") and item["gdoc_id"] in
+                                                                   {f.gdoc_id for f in found}):
+            known.add(item.get("key"))
     # This pull speaks only for its own Doc: the comments of the round's other Docs are neither gone nor reordered.
     gone = [item["id"] for item in data["items"] if item.get("master") == own_master and item.get("key") not in known]
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     data.setdefault("sources", []).append({k: v for k, v in {"doc": doc, "file": source_file, "pulled": stamp,
                                                              "items": len(found), "new": added}.items() if v is not None})
     order = {key_of(f): n for n, f in enumerate(found)}
+    for item in data["items"]:
+        for k in item.get("also_keys", []):
+            if k in order:
+                order.setdefault(item.get("key"), order[k])
     place = {id(i): n for n, i in enumerate(data["items"])}
     data["items"].sort(key=lambda i: (i.get("master") or "", order.get(i.get("key"), len(order) + place[id(i)])))
     ordered = {k: data[k] for k in ("round", "master", "sources", "items") if k in data}
@@ -595,8 +851,18 @@ def quote(master: Master, span: tuple[int, int]) -> str | None:
     block = master.words[min(lo, len(master.words) - 1)][4]
     first, last = master.first[block], master.first[block + 1]
     lo, hi = max(first, min(lo, last - 1)), max(min(hi, last), min(lo, last - 1) + 1)
-    while hi - lo < 6 and (lo > first or hi < last):
-        lo, hi = max(first, lo - 1), min(last, hi + 1)
+    # The quote must read the same in the marked master the run checks against: no revision mark and no table-cell
+    # border inside it. Take the clean stretch around the span, the longest one the span touches first.
+    runs = master.clean_runs(first, last)
+    touching = [r for r in runs if r[0] < hi and r[1] > lo and r[1] - r[0] >= 3]
+    near = sorted((r for r in runs if r[1] - r[0] >= 3), key=lambda r: min(abs(r[0] - lo), abs(r[1] - hi)))
+    chosen = max(touching, key=lambda r: min(r[1], hi) - max(r[0], lo)) if touching else (near[0] if near else None)
+    if chosen is None:
+        return None
+    a, b = chosen
+    lo, hi = max(a, min(lo, b - 1)), max(min(hi, b), min(lo, b - 1) + 1)
+    while hi - lo < 6 and (lo > a or hi < b):
+        lo, hi = max(a, lo - 1), min(b, hi + 1)
     hi = min(hi, lo + 30)
     return master.verbatim(lo, hi) if hi - lo >= 3 else None
 
@@ -670,7 +936,8 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
                 "detail": (f"{'Suggested edits' if suggestion else 'Comment'} on v{data.get('round')} by "
                            f"{item.get('author', 'a co-author')}, {'partly answered' if status == 'partly' else 'not answered yet'}"
                            f"{' in v' + next_round if next_round else ''}: “{' '.join(str(item.get('comment', '')).split())[:400]}”"),
-                "action": " ".join(str(item.get("next", "")).split()),
+                "action": " ".join(str(item.get("next", "")).split())
+                          or "Not triaged yet: decide what the next round does with it (manuscript-coauthors, step 2).",
                 "severity": item.get("severity") or "minor", "stage": item.get("stage") or "writing",
                 "confidence": "confirmed", "decision": bool(item.get("decision", False)),
                 "evidence": [{"path": "comments.md", "quote": head}]})
@@ -681,11 +948,16 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
         items.append({
             "id": item["id"], "kind": item.get("kind", "comment"), "author": item.get("author", ""),
             "date": str(item.get("date", "")), "where": item.get("where") or "", "anchor": item.get("anchor", ""),
-            "comment": item.get("comment", ""), "replies": item.get("replies", []),
+            "comment": item.get("comment", ""),
+            "replies": [{k: r.get(k, "") for k in ("author", "date", "text")} for r in item.get("replies") or []
+                        if isinstance(r, dict)],  # the dashboard's reply; by: and ai: stay in the ledger
             "edits": [{"deleted": e.get("deleted", ""), "inserted": e.get("inserted", "")} for e in item.get("edits", [])],
-            "resolved": item.get("resolved"), "status": status, "change": row["change"],
-            "before": row["before"], "after": row["after"], "now": item.get("now", "") or "",
-            "why": item.get("why", "") or "", "next": item.get("next", "") or "",
+            # With no later version yet, the paragraph was compared with itself: nothing changed, nothing answered it.
+            "resolved": item.get("resolved"), "status": status, "change": row["change"] if next_round else None,
+            "before": row["before"], "after": row["after"] if next_round else None, "now": item.get("now", "") or "",
+            "why": item.get("why", "") or "",
+            "next": item.get("next", "") or ("Not triaged yet: decide what the next round does with it."
+                                            if status in ("open", "partly") else ""),
             "rev_ids": row["rev_ids"] or list(item.get("rev_ids", [])), "finding_ids": finding_ids,
             "gap": gap_record(item)})
     document = {"skill": "manuscript-coauthors", "findings": out, "changes": [], "dismissed": [],
@@ -1248,7 +1520,12 @@ def changelog(args: argparse.Namespace) -> int:
     since = rm.since_seen(rows, texts["seen"]) if "seen" in texts else None
     table = rm.format_changes(texts["base"], texts["new"], args.base_name or args.base, args.new_name or args.new, rows,
                               args.full, since, args.seen_name or str(args.seen), why)
-    if args.out:
+    note = unsigned_line(Path(args.new), texts["new"])
+    if note:
+        table = f"> {note}\n\n{table}"
+    if args.out and Path(args.out).suffix.lower() == ".xlsx":  # a Sheet on Drive, never Markdown under that name
+        workbook(table, Path(args.out))
+    elif args.out:
         Path(args.out).write_text(table, encoding="utf-8")
         print(json.dumps({"changelog": args.out, "rows": len(rows), "why_from_comments": sum(1 for w in why if w),
                           **({"since_seen": {k: since.count(k) for k in ("new", "changed", "same")}} if since else {})},
@@ -1258,16 +1535,134 @@ def changelog(args: argparse.Namespace) -> int:
     return 0
 
 
+def workbook(table: str, path: Path) -> int:
+    """The changelog as a real workbook, for a release that uploads it as a Google Sheet: the lines above the table
+    as notes on top of the Changes sheet, the table's rows under its header, and the record behind each row on a
+    sheet of its own. The number of rows written."""
+    from openpyxl import Workbook
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
+    def clean(text: str) -> str:
+        return ILLEGAL_CHARACTERS_RE.sub("", text.replace("\\|", "|").strip())
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Changes"
+    record = book.create_sheet("Record")
+    lines, rows, part = table.splitlines(), 0, "notes"
+    for line in lines:
+        if line.startswith("## The record behind each row"):
+            part = "record"
+            continue
+        if part == "record":
+            if line.strip():
+                record.append([clean(line.lstrip("- "))])
+            continue
+        if line.startswith("|") and not re.fullmatch(r"\|(?:-+\|)+", line.strip()):
+            sheet.append([clean(c) for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))])
+            rows += 1
+        elif line.strip() and not line.startswith("|"):
+            sheet.append([clean(line.lstrip("#> "))])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    book.save(path)
+    return max(rows - 1, 0)
+
+
+def unsigned_line(path: Path, found: Any) -> str:
+    """How many of the master's marked passages no person has signed off, for the co-authors."""
+    rm = rev_marks()
+    try:
+        people = rm.load_people(path)
+    except rm.ConfigError as exc:
+        raise Failure(str(exc)) from None
+    open_ = rm.unreviewed(found, people)
+    total = len(found.segments)
+    return (f"{len(open_)} of {total} marked passages were last written by an AI or agent, with no person's sign-off "
+            f"recorded since: nobody has put their name to that wording yet. A co-author's resolved comment or "
+            f"accepted suggestion records theirs (comments.py signoffs).") if total else ""
+
+
+def signoffs(args: argparse.Namespace) -> int:
+    """A co-author who resolved a thread, or whose suggested edit was taken, has seen that passage: their handle
+    goes into the `by=` of the segments that answer it, so the count of passages with no person's sign-off falls as
+    people actually read them."""
+    rm = rev_marks()
+    ledger = Path(args.ledger)
+    data = read_ledger(ledger)
+    path = Path(args.new)
+    if not path.is_file():
+        raise Failure(f"{path}: cannot read the next round's master.", 3)
+    found = Master(path).marks
+    if found.errors:
+        raise Failure(f"{path}: its revision marks do not lint (rev_marks.py lint).")
+    try:
+        people = rm.load_people(path)
+    except rm.ConfigError as exc:
+        raise Failure(str(exc)) from None
+    plan, skipped = [], []
+    for item in data["items"]:
+        if item.get("resolved") is True and item.get("resolved_by"):
+            signer, because = str(item["resolved_by"]), f"resolved {item['id']}"
+            on = str(item.get("resolved_on") or "")[:10]  # the day they resolved it, not the day this ran
+        elif item.get("kind") == "suggestion" and item.get("status") == "addressed" and item.get("by"):
+            signer, because, on = str(item["by"]), f"suggested edit {item['id']} taken", ""
+        else:
+            continue
+        if signer.startswith("[ai") or people.known(signer) != rm.Kind.HUMAN:
+            skipped.append({"item": item["id"], "by": signer, "why": "not a person in rev-marks.toml"})
+            continue
+        handle = people.canonical(signer)
+        now = " ".join(str(item.get("now") or "").split())
+        segments = [s for s in found.segments if rm.comment_of(s.id) == item["id"]
+                    or (now and now in rm.own_text(found, s))]
+        if not segments:
+            skipped.append({"item": item["id"], "by": handle, "why": "no marked passage answers it"})
+        done = {(x.get("segment"), x.get("by")) for x in item.get("signed") or [] if isinstance(x, dict)}
+        for s in segments:
+            # Once per person and segment, whoever wrote after them since: the ledger keeps what was signed.
+            if (s.id, handle) in done or people.canonical(s.last) == handle \
+                    or any(p["segment"] == s.id and p["by"] == handle for p in plan):
+                continue
+            plan.append({"segment": s.id, "by": handle, "because": because, "item": item["id"],
+                         "on": on or date.today().isoformat()})
+    before = len(rm.unreviewed(found, people))
+    text = found.text
+    if args.go:
+        for step in plan:
+            text = rm.bump_segment(text, step["segment"], rm.Entry(step["by"], date.fromisoformat(step["on"])),
+                                   found.syntax)
+        path.write_bytes(text.encode("utf-8"))
+        by_item = {item["id"]: item for item in data["items"]}
+        for step in plan:
+            by_item[step["item"]].setdefault("signed", []).append(
+                {"segment": step["segment"], "by": step["by"], "on": step["on"]})
+        if plan:
+            write_ledger(ledger, data)
+    after = len(rm.unreviewed(rm.parse(text, found.syntax), people))
+    print(json.dumps({"master": path.as_posix(), "dry_run": not args.go, "signoffs": plan, "skipped": skipped,
+                      "unsigned_before": before, "unsigned_after": after if args.go else None,
+                      "of": len(found.segments)}, indent=2, ensure_ascii=False))
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "changelog":
         return changelog(args)
+    if args.command == "signoffs":
+        return signoffs(args)
     ledger = Path(args.ledger)
-    if args.command in ("import", "add"):
-        found = read_docx(Path(args.source)) if args.command == "import" else from_items(Path(args.source))
+    if args.command in ("import", "import-gdoc", "add"):
+        source = Path(args.source)
+        found = (read_docx(source) if args.command == "import" else
+                 read_gdoc(source, args.tab) if args.command == "import-gdoc" else from_items(source))
         data = read_ledger(ledger)
         master_path = Path(args.master) if args.master else (ledger.parent / data["master"] if data.get("master") else None)
         master = Master(master_path) if master_path else None
-        result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name)
+        # A Doc's commenters are people; items written by hand (add) may carry any author, a workbook among them.
+        people = commenters(found, master_path or ledger.parent) if args.command != "add" and args.people \
+            else {"handles": {}, "people": [], "config": None}
+        result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name, people["handles"])
+        if people["people"]:
+            result["people"], result["rev_marks"] = people["people"], people["config"]
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     data = read_ledger(ledger)
@@ -1296,13 +1691,21 @@ def run(args: argparse.Namespace) -> int:
                 for h in row["hints"]:
                     print(f"  check: {h}")
         return 1 if args.strict and problems else 0
+    untriaged = bool(getattr(args, "untriaged", False))
+    if untriaged:  # a pull shown before triage: an open comment has no answer yet, and says so
+        for item, row in zip(data["items"], rows):
+            if item.get("status", "open") == "open":
+                row["problems"] = [p for p in row["problems"] if not p.startswith("open needs next")]
     missing = [f"{r['id']}: {p}" for r in rows for p in r["problems"]]
     if missing:
         print("The ledger must say how each comment was handled before the dashboard can show it:", file=sys.stderr)
         for line in missing:
             print(f"  {line}", file=sys.stderr)
         return 1
-    document, digest = findings(data, rows, args.next_round or (new_round(args.new) if args.new else None), ledger)
+    next_round = args.next_round or (new_round(args.new) if args.new else None)
+    if next_round == str(data.get("round")):  # --new is this round's own master: there is no next round yet
+        next_round = None
+    document, digest = findings(data, rows, next_round, ledger)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -1320,13 +1723,20 @@ def new_round(path: str) -> str | None:
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
-    for name, source in (("import", "the Doc exported as .docx"), ("add", "a YAML list of items from a connector's text view")):
+    for name, source in (("import", "the Doc exported as .docx"),
+                         ("import-gdoc", "the Google Docs connector's read_doc answer (commentsIncluded), saved as JSON"),
+                         ("add", "a YAML list of items from a connector's text view")):
         s = sub.add_parser(name, help=f"merge {source} into the round's ledger")
         s.add_argument("source", help=source)
         s.add_argument("--ledger", required=True, help="the round's comments.yaml (created when missing)")
         s.add_argument("--master", help="the round's master, to find each anchor (default: the ledger's master)")
         s.add_argument("--round", help="the round's name, e.g. 0.5 (default: from the folder, v0.5)")
         s.add_argument("--doc", help="the Doc's link, recorded with the pull")
+        if name == "import-gdoc":
+            s.add_argument("--tab", help="the Doc tab's id (default: the first tab)")
+        if name != "add":
+            s.add_argument("--no-people", dest="people", action="store_false",
+                           help="do not record the Doc's commenters as people in rev-marks.toml")
     for name, about in (("status", "how the next round answers each comment"),
                         ("findings", "the stage's findings.json and comments.md for the dashboard"),
                         ("gaps", "whether the run that produced the round had caught each comment")):
@@ -1349,6 +1759,12 @@ def parser() -> argparse.ArgumentParser:
         else:
             s.add_argument("--out", required=True, help="RUN/manuscript-coauthors/findings.json")
             s.add_argument("--next-round", help="the next round's name (default: from --new's folder)")
+            s.add_argument("--untriaged", action="store_true",
+                           help="accept open comments with no `next` yet (a pull shown before triage)")
+    s = sub.add_parser("signoffs", help="record co-authors' resolved threads and taken suggestions as their sign-off")
+    s.add_argument("ledger")
+    s.add_argument("--new", required=True, help="the next round's marked master, whose segments get the names")
+    s.add_argument("--go", action="store_true", help="write the names into the master; without it, only print")
     s = sub.add_parser("changelog", help="the round's changelog skeleton, Why filled from the comments it answers")
     s.add_argument("--base", required=True, help="the previous round's master as it was when this round opened")
     s.add_argument("--new", required=True, help="this round's master")

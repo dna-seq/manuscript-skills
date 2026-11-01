@@ -188,3 +188,43 @@ def test_a_recheck_of_an_earlier_build_is_shown_as_such(run: Path) -> None:
     stale = json.loads((run / "recheck.json").read_text(encoding="utf-8")) | {"proposed_sha256": "0" * 64}
     (run / "recheck.json").write_text(json.dumps(stale), encoding="utf-8")
     assert viz.render(run / "findings.json", run / "dashboard", revision=run / "revision")["recheck"]["current"] is False
+
+
+DENSE_BEFORE = """# A tool
+
+## 2. Methods
+
+Reads were trimmed with fastp using default settings.
+
+Variants are called per sample.
+"""
+DENSE_AFTER = """# A tool
+
+## 2. Methods
+
+Reads were trimmed with fastp using default settings, except for samples sequenced before 2021, for which a stricter
+quality cut-off was applied, unless their coverage fell below ten, in which case the default was retained as in an
+earlier study of the same soils.
+
+Variants are called per sample.
+"""
+
+
+def test_a_correction_appended_as_clauses_counts_as_harder_to_read(tmp_path: Path) -> None:
+    """The claim guard keeps every qualifier and the length rule asks for no growth, so a correction tends to arrive
+    as a clause appended to an existing sentence; the re-check counts a sentence the revision made dense as worse."""
+    before, after = tmp_path / "before.md", tmp_path / "after.md"
+    before.write_text(DENSE_BEFORE, encoding="utf-8")
+    after.write_text(DENSE_AFTER, encoding="utf-8")
+    out = tmp_path / "numbers.json"
+    result = CliRunner().invoke(recheck.app, ["numbers", "--original", str(before), "--proposed", str(after),
+                                              "--json", str(out)])
+    assert result.exit_code == 0, result.output
+    [harder] = json.loads(out.read_text())["reading"]["introduced"]
+    assert harder["check"] == "harder-to-read" and harder["section"] == "2. Methods"
+    assert "(it had 8)" in harder["message"] and "unless their coverage fell below ten" in harder["message"]
+    split = DENSE_AFTER.replace(", except for samples", ". Samples").replace(", for which a stricter", " got a stricter") \
+        .replace(" was applied, unless their coverage", ". Where their coverage").replace(", in which case the", ", the")
+    after.write_text(split, encoding="utf-8")
+    CliRunner().invoke(recheck.app, ["numbers", "--original", str(before), "--proposed", str(after), "--json", str(out)])
+    assert json.loads(out.read_text())["reading"]["introduced"] == []

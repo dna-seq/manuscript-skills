@@ -223,6 +223,23 @@ def test_the_stage_check_places_quotes_and_proposals_in_their_files(tmp_path: Pa
         "\"document\": \"paper-supplementary.md\""]
 
 
+def test_a_proposal_naming_the_runs_copy_of_the_supplement_is_told_the_projects_name(tmp_path: Path) -> None:
+    """The stage brief's supplement name was read as the run's numbered copy (02-paper-supplementary.md); the check
+    says which name to use instead of only refusing it."""
+    folder = tmp_path / "stage"
+    folder.mkdir()
+    (folder / "stage-report.md").write_text("The reason.", encoding="utf-8")
+    found = inputs(tmp_path)
+    found[1]["copy"] = "02-paper-supplementary.md"
+    doc = {"findings": [], "changes": [
+        {"id": "IC-C1", "kind": "Proposed edit", "section": "S12", "summary": "Supplement.", "status": "proposed",
+         "before": "**S12. Restoration.**", "after": "**S12. Restored.**", "document": "02-paper-supplementary.md",
+         "evidence": [{"path": "stage-report.md", "quote": "The reason."}]}]}
+    assert stage_check.problems(doc, "manuscript-integrity-check", folder, found) == [
+        "change IC-C1: document '02-paper-supplementary.md' is the run's copy of 'paper-supplementary.md'; name the "
+        "file as the project does: \"document\": \"paper-supplementary.md\""]
+
+
 def test_the_stage_check_reads_the_shape_first() -> None:
     assert stage_check.fatal({"changes": []}) == ["no `findings` list (an empty list is valid)"]
     assert stage_check.fatal({"findings": [{"id": "IC-1"}], "changes": [
@@ -233,6 +250,53 @@ def test_the_stage_check_reads_the_shape_first() -> None:
         "change IC-C1: status is 'done'; it must be \"proposed\" (or \"applied\")",
         "change IC-C1: evidence item 1 must be {\"path\": ..., \"quote\": ...}, both non-empty",
         "change IC-C1: an anchor belongs only to an addition (before: null)"]
+
+
+def test_a_comprehension_finding_is_at_least_minor_and_a_crowded_section_is_major() -> None:
+    def finding(n: int, severity: str, section: str = "2.2 Profiles", **more) -> dict:
+        return {"id": f"ST-{n}", "category": "Comprehension", "section": section, "severity": severity,
+                "summary": f"Term {n} used before it is defined.", **more}
+    doc = {"findings": [finding(1, "info"), finding(2, "minor", decision=True), finding(3, "minor"),
+                        finding(4, "minor"), finding(5, "minor"), finding(6, "minor", section="1. Introduction"),
+                        {"id": "ST-7", "category": "Structure", "section": "1. Introduction", "severity": "info"}]}
+    assert stage_check.comprehension_problems(doc) == [
+        "finding ST-1: a comprehension finding is at least minor (a reader of the recorded audience stops there), "
+        "not 'info'",
+        "finding ST-2: a comprehension finding is fixed, not decided: give the action (define the term at first use, "
+        "add the link, split the sentence) or a question",
+        "section '2.2 Profiles': 5 comprehension findings; make the section's own finding (\"written for a narrower "
+        "reader than the recorded audience\") major"]
+    doc["findings"][0]["severity"] = "major"
+    doc["findings"][1]["action"] = "Define ASV at its first use from Section 2.2's own words."
+    assert stage_check.comprehension_problems(doc) == []
+
+
+def test_a_finding_handed_to_another_stage_is_answered_there_or_listed(tmp_path: Path, capsys) -> None:
+    """A finding a stage leaves for another names it in `owner`; the owner answers it, or cannot finish, and the
+    coordinator sees every unanswered hand-off before the dashboard is collected."""
+    run = tmp_path / "run"
+    (run / "manuscript-prose-edit").mkdir(parents=True)
+    (run / "manuscript-story").mkdir()
+    (run / "run.json").write_text("{}", encoding="utf-8")
+    handed = {"findings": [{"id": "PE-3", "summary": "Run modes used before they are defined.", "quote": None,
+                            "owner": "manuscript-story", "evidence": [{"path": "stage-report.md", "quote": "x"}]},
+                           {"id": "PE-4", "summary": "Mine.", "owner": "manuscript-prose-edit", "quote": None}]}
+    (run / "manuscript-prose-edit" / "findings.json").write_text(json.dumps(handed), encoding="utf-8")
+    story = {"findings": []}
+    found = stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story")
+    assert found == ["manuscript-prose-edit handed PE-3 to this stage ('Run modes used before they are defined.'); "
+                     "answer it in answers: done, proposed (with the records) or declined (with why)"]
+    assert stage_check.handoff_problems(handed, "manuscript-prose-edit", run / "manuscript-prose-edit") == [
+        "finding PE-4: owner 'manuscript-prose-edit' must name another stage (manuscript-story, ...)"]
+    assert stage_check.main([str(run), "--handoffs"]) == 1
+    assert "manuscript-prose-edit handed PE-3 to manuscript-story, not answered" in capsys.readouterr().out
+    story["answers"] = [{"id": "PE-3", "answer": "declined"}]
+    assert stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story") == [
+        "answers[0] (PE-3): declined needs why"]
+    story["answers"] = [{"id": "PE-3", "from": "manuscript-prose-edit", "answer": "proposed", "records": ["ST-C2"]}]
+    (run / "manuscript-story" / "findings.json").write_text(json.dumps(story), encoding="utf-8")
+    assert stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story") == []
+    assert stage_check.main([str(run), "--handoffs"]) == 0
 
 
 # --- runs.py ------------------------------------------------------------------------------------------------------

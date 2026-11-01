@@ -67,10 +67,14 @@ Claude, already has, and are not:
 - **Co-authors' comments inside the review, not a Drive connector.** Any Claude can open a Google Doc through
   its Drive connector. [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) turns every comment and
   suggested edit your co-authors leave on a round's Google Doc into an item of the review, says in the next
-  round how each was answered, and releases the round back to your shared Drive folder. It reaches the Docs
-  through rclone or the host's Google Drive connector; when it has neither, the run goes on and the progress
-  pane says once how to connect one (Codex often has it on already; in Claude it is connected under Settings,
-  Connectors, or allowed by an organization owner).
+  round how each was answered, and releases the round back to your shared Drive folder. Reviewers who only use
+  the Doc never need the plugin: one command (`rounds.py port`) takes their comments to the dashboard, they are
+  recorded as people under the names the Doc shows (with aliases, matched to the paper's authors), a resolved
+  thread or a taken suggestion counts as their sign-off, and the Doc can shade the passages no person has
+  reviewed yet, or what changed since a revision. It reaches the Docs through rclone or the host's Google Drive
+  connector; when it has neither, the run goes on and the progress pane says once how to connect one (Codex
+  often has it on already; in Claude it is connected under Settings, Connectors, or allowed by an organization
+  owner).
 
 It also edits under a script that fails any edit that strengthens a claim or changes a number, ranks journals
 by your priorities, and leaves you a dashboard, a Word review with tracked changes and a To-do list the next run
@@ -151,7 +155,10 @@ Where other skills do the same job, these parts add a check:
 2. **Share the manuscript, its supplements and its code.** Start the assistant in the manuscript's
    folder or give it the file paths. Markdown, plain text and LaTeX (with its bibliography files) are
    read directly; for Word or Google Docs, provide an export or use a document connection the assistant
-   has. With the code repository, the paper's numbers and descriptions of its software are checked
+   has. For papers kept in Google Docs, turn on Claude's **Google Docs** connector (in claude.ai,
+   **+ → Connectors**; it is separate from Google Drive, and Claude Code picks it up in its next session; see
+   [Anthropic's instructions](https://support.claude.com/en/articles/10166901-use-google-workspace-connectors)).
+   It reads co-authors' comments and suggested edits, and can post replies when you ask. With the code repository, the paper's numbers and descriptions of its software are checked
    against the code, results and run logs.
 3. **Ask in plain words**, for example:
 
@@ -517,7 +524,8 @@ Only the dependent work waits, and silence never counts as approval.
 
 The skills read Markdown, plain text and LaTeX directly; with LaTeX, include the bibliography files,
 because the reference checks read them. For Word or Google Docs, use a document connection your
-assistant has or provide an export. For a passage edit, paste the passage.
+assistant has or provide an export. For Google Docs, Claude's Google Docs connector is the one to turn on;
+[what each Google connector can do](skills/manuscript-coauthors/references/google-docs-connectors.md). For a passage edit, paste the passage.
 
 Include the supplements and, when the paper describes software or analyses, its code repository. The
 simulated referees and the reference check read the supplementary files, including their reference

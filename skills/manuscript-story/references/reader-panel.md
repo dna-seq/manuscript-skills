@@ -56,6 +56,15 @@ and save the answer. Each seat reads the whole paper, so more than five or six c
    use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them,
    and every paragraph whose topic they could not have predicted from the one before.
 
+A fourth seat, offered when the paper has co-authors outside its sub-field or the authors ask for it:
+
+4. **The co-author who must vouch.** A senior scientist in the paper's broader field who is named on it and
+   must be able to defend every sentence to a referee. Reads the whole paper, slowly, and lists each sentence
+   they could not restate in their own words or would not defend, quoting it, with why (an undefined term, a
+   step they could not follow, a number whose meaning they could not tell, a claim they could not check).
+   Simulated readers read past what a person would stop at; asking for a restatement makes the stop visible.
+   Its list goes into the stumbles like any seat's, each sentence a finding of category Comprehension.
+
 A seat the authors name gets a brief in the same form: who the reader is, why they opened the paper, and
 the order they read in (a skim like the skimmer's, or the whole paper).
 
@@ -94,7 +103,7 @@ wanted:                                  # what I looked for and did not find
 stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
     section: "the section"
-    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers"
+    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers | a number with no reading | could not restate it"
 next: "stop here | bookmark | forward it | read the full text | try it | cite it"
 because: "one sentence; a reader who left before what it came for cannot try or cite it"
 ```
@@ -130,7 +139,13 @@ there.
 - List the dips by section; they are places to read, not places readers were lost.
 - Merge what readers wanted and did not find; each item is a question for the story tests (an output not
   shown, a difference from a known tool not stated).
-- Collect stumbles into a list of terms to define at first use or keep out of the Abstract.
+- Collect every stumble into a list by term or passage. Each one is a finding of its own, with the readers
+  who stopped on it and where; its severity follows from how many readers of the recorded audience stopped and
+  in which section. Its fix is one of: define the term at its first use (from the paper's own definition), move
+  the passage to the supplement with a one-sentence summary left in its place, or a question for the authors.
+  A section with more stumbles than paragraphs is a major finding of its own, "written for a narrower reader
+  than the recorded audience", with the count. Never report a list of stumbles as too long to list: the
+  readers who stopped are the evidence, and a co-author outside the sub-field stops at the same words.
 - Hand each "why is this here" stumble to the story test *Connected paragraphs*
   ([story-tests.md](story-tests.md)), which looks in the rest of the paper for the reason the paragraph is
   there. A topic the readers did not expect is a finding even when the reason sits in a later section: they

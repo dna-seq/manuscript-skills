@@ -214,7 +214,10 @@ inventory, so the end of a run goes in this order:
 
 1. Every stage has recorded its applied edits (`runs.py change`, routine ones grouped per paragraph or
    section), with any question for the authors in `--comment`, never in the text.
-2. Collect the draft inventory (`RUN/manuscript-dashboard/findings.draft.json`).
+2. Collect the draft inventory (`RUN/manuscript-dashboard/findings.draft.json`), once every finding a stage
+   handed to another has its answer: `uv run --script ../manuscript-dashboard/scripts/stage_check.py RUN
+   --handoffs` lists those that have none. For each, run the owning stage again, or answer it in a next attempt
+   of the owner's `findings.json` (`answers`); a hand-off nobody answered is lost between two stages.
 3. Adjudicate in `merges.json`; with a reference review, freeze, match and write `reference.json` with
    `matched_by` (manuscript-dashboard, steps 1 to 3).
 4. Collect the adjudicated `findings.json` once, with `--merge` (and `--reference`).
@@ -227,8 +230,9 @@ inventory, so the end of a run goes in this order:
    rebuild after the re-check sets it `running` again.
 7. Re-check it independently, between `stage --name recheck --status running` and `completed`. The stages' own agents are the ones most inclined to see their fixes as
    done, so one fresh agent that took no part in the review or the edits reads each confirmed problem against
-   the corrected version, and the number, reference and section-roles checks run again on it (from this skill's
-   folder):
+   the corrected version, and the number, reference and section-roles checks run again on it, with a reading
+   check: a sentence the edits made dense (over 35 words, two subordinate clauses or a parenthesis mid-clause,
+   new or longer than before) counts as harder to read, so as worse (from this skill's folder):
 
    ```bash
    uv run --script scripts/recheck.py prepare --inventory RUN/manuscript-dashboard/findings.json \

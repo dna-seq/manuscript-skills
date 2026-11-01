@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tomllib
 import os
 import subprocess
 import sys
@@ -24,6 +25,7 @@ SKILL = ROOT / "skills" / "manuscript-coauthors" / "scripts"
 sys.path.insert(0, str(ROOT / "skills" / "manuscript-integrity-check" / "scripts"))
 
 import project as projects  # noqa: E402
+import runs  # noqa: E402
 
 
 def _load(name: str):
@@ -35,6 +37,7 @@ def _load(name: str):
 
 
 comments = _load("comments")
+rounds_py = _load("rounds")
 NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 ANN, BOB = "Ann Lee", "Bob Ray"
 
@@ -118,13 +121,52 @@ def test_import_reads_threads_copies_suggestions_and_where_each_sits(rounds: Pat
     items = {i["id"]: i for i in ledger_of(ledger)["items"]}
     assert list(items) == ["C1", "C2", "S1", "C3"]  # paper order; suggestions number apart
     assert items["C1"]["anchor"] == "Abstract" and items["C1"]["where"] == "Abstract"
-    assert items["C1"]["replies"] == [{"author": BOB, "date": "2026-10-20T11:00:00Z", "text": "Agreed, small fixes only."}]
+    assert items["C1"]["replies"] == [{"author": BOB, "date": "2026-10-20T11:00:00Z", "text": "Agreed, small fixes only.",
+                                       "by": "bobray"}]
     assert items["C2"]["anchor"] == "billions of dollars" and items["C2"]["where"] == "1. Introduction"
     assert items["C2"]["line"] == 9 and items["C2"]["status"] == "open"
     assert items["S1"]["kind"] == "suggestion" and items["S1"]["edits"] == [{"deleted": "old", "inserted": "new"}]
     assert "replace “old” with “new”" in items["S1"]["comment"]
     assert items["C3"]["comment"] == "Say which modules."  # one comment over two ranges, once
     assert ledger_of(ledger)["sources"][0]["doc"].endswith("/abc/edit")
+
+
+def test_a_docs_commenters_become_people_and_an_ai_marked_comment_names_nobody(rounds: Path, capsys) -> None:
+    """Reviewers who only use the Doc are people by default: each gets a handle in rev-marks.toml, their Doc name
+    an alias of it. A comment or reply that starts with [ai:NAME] is an agent's, whoever's account posted it."""
+    doc = export(rounds / "doc.docx")
+    with zipfile.ZipFile(doc) as z:
+        files = {n: z.read(n).decode() for n in z.namelist()}
+    files["word/comments.xml"] = files["word/comments.xml"].replace(
+        "Agreed, small fixes only.", "[ai:claude] Agreed, small fixes only.").replace(
+        "Say which modules.", "[AI: Codex] Say which modules.")
+    with zipfile.ZipFile(doc, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text)
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import", doc, "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert [(p["name"], p["handle"], p["rule"]) for p in result["people"]] == [(ANN, "annlee", "new")]
+    config = tomllib.loads((rounds / "v0.5" / "rev-marks.toml").read_text(encoding="utf-8"))
+    assert config["humans"] == ["annlee"] and config["aliases"] == {"annlee": [ANN]}  # Bob only wrote as an agent
+    items = {i["id"]: i for i in ledger_of(ledger)["items"]}
+    assert items["C1"]["by"] == "annlee" and items["C1"]["replies"][0]["ai"] == "claude"
+    assert "by" not in items["C1"]["replies"][0]
+    assert items["C3"]["ai"] == "codex" and items["C3"]["status"] == "not-on-point" and "by" not in items["C3"]
+    assert cli("status", ledger, "--json") == 0
+    rows = {r["id"]: r for r in json.loads(capsys.readouterr().out)["items"]}
+    assert rows["C3"]["problems"] == [] and rows["C2"]["problems"]  # the agent's comment asks nothing; Ann's does
+
+
+def test_no_people_and_hand_written_items_leave_rev_marks_alone(rounds: Path, capsys) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md",
+               "--no-people") == 0
+    items = (rounds / "v0.5" / "items.yaml")
+    items.write_text(yaml.safe_dump([{"author": "v0.4 changes workbook, open points", "comment": "Still open."}]))
+    assert cli("add", items, "--ledger", ledger) == 0
+    assert not (rounds / "v0.5" / "rev-marks.toml").exists()
+    assert '"people"' not in capsys.readouterr().out
 
 
 def test_a_second_pull_keeps_ids_and_triage_and_numbers_past_the_project(rounds: Path, capsys) -> None:
@@ -759,3 +801,323 @@ def test_opening_a_round_says_the_previous_docs_may_hold_edits(released_round: P
     assert done.returncode == 0, done.stderr
     assert "carry_from_the_docs" not in json.loads(done.stdout)  # v0.6 has no Docs yet
     assert (released_round / "v0.7" / "paper.md").is_file()
+
+
+# --- the Google Docs connector's read_doc, as JSON --------------------------------------------------------------
+
+
+def gdoc_json(path: Path, resolved_by: str = ANN) -> Path:
+    """A read_doc answer (commentsIncluded) for MASTER, made up: Ann's comment on "billions of dollars" with Bob's
+    reply and Ann's own reply resolving it, an [ai:claude] comment, Bob's suggested replacement old -> new, and his
+    suggested bold. Indices are UTF-16 offsets, as Google gives them."""
+    paragraphs = [["A Paper\n"], ["Abstract\n"], ["Personal genome analysis requires tools that keep the data local.\n"],
+                  ["1. Introduction\n"],
+                  ["Whole genome sequencing costs have fallen from ", "billions of dollars",
+                   " to under a thousand since 2003.\n"],
+                  ["The platform annotates variants with ", ("new", "ins"), ("old", "del"), " words in this sentence.\n"],
+                  ["Modules are ", ("versioned", "style"), " tables of variants and their evidence.\n"]]
+    content, index, spots = [{"endIndex": 1, "sectionBreak": {}}], 1, {}
+    for para in paragraphs:
+        elements = []
+        for part in para:
+            text, kind = (part, "") if isinstance(part, str) else part
+            run = {"content": text, "textStyle": {}}
+            if kind == "ins":
+                run["suggestedInsertionIds"] = ["suggest.r1"]
+            elif kind == "del":
+                run["suggestedDeletionIds"] = ["suggest.r1"]
+            elif kind == "style":
+                run["suggestedTextStyleChanges"] = {"suggest.b1": {"textStyle": {"bold": True}}}
+            elements.append({"startIndex": index, "endIndex": index + len(text), "textRun": run})
+            spots[text] = (index, index + len(text))
+            index += len(text)
+        content.append({"startIndex": elements[0]["startIndex"], "endIndex": index, "paragraph": {"elements": elements}})
+
+    def post(who: str, when: str, said: str, action: str = "NO_COMMENT_ACTION_CHANGE") -> dict:
+        return {"author": {"displayName": who}, "createTime": when, "content": said, "commentAction": action}
+    start, end = spots["billions of dollars"]
+    doc = {"documentId": "fake", "commentsViewMode": "COMMENTS_VIEW_MODE_INCLUDED", "title": "A Paper (v0.5)",
+           "comments": [
+               {"commentId": "doco.c1", "anchorId": "kix.a1", "status": "RESOLVED", "plainTextQuote": "billions of dollars",
+                "headPost": post(ANN, "2026-10-20T09:30:00.000Z", "This is not true: that was the whole project's budget."),
+                "replies": [post(BOB, "2026-10-20T11:00:00.000Z", "Agreed."),
+                            post(resolved_by, "2026-10-25T08:00:00.000Z", "Fixed in v0.6, thanks.", "RESOLVE")]},
+               {"commentId": "doco.c2", "anchorId": "kix.a2", "status": "OPEN", "plainTextQuote": "Abstract",
+                "headPost": post("Ann Lee", "2026-10-20T10:00:00.000Z", "[ai:claude] Consider a shorter title.")}],
+           "commentAnchors": {"kix.a1": {"ranges": [{"startIndex": start, "endIndex": end}]},
+                              "kix.a2": {"ranges": [{"startIndex": spots["Abstract\n"][0], "endIndex": spots["Abstract\n"][1] - 1}]}},
+           "suggestions": [
+               {"suggestionId": "suggest.r1", "status": "OPEN", "summaryText": "Replace: “old” with “new”",
+                "headPost": {"author": {"displayName": BOB}, "createTime": "2026-10-21T10:00:00.000Z"}},
+               {"suggestionId": "suggest.b1", "status": "OPEN", "summaryText": "Format: bold",
+                "headPost": {"author": {"displayName": BOB}, "createTime": "2026-10-21T10:05:00.000Z"}}],
+           "tabs": [{"tabProperties": {"tabId": "t.0"}, "documentTab": {"body": {"content": content}}}]}
+    path.write_text(json.dumps({"content": doc}), encoding="utf-8")
+    return path
+
+
+def test_import_gdoc_reads_ranges_resolution_suggestions_and_people(rounds: Path, capsys) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import-gdoc", gdoc_json(rounds / "read.json"), "--ledger", ledger,
+               "--master", rounds / "v0.5" / "paper.md") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["new"] == 4 and result["not_located"] == []
+    assert {(p["name"], p["handle"]) for p in result["people"]} == {(ANN, "annlee"), (BOB, "bobray")}
+    items = {i["id"]: i for i in ledger_of(ledger)["items"]}
+    assert [i["id"] for i in ledger_of(ledger)["items"]] == ["C1", "C2", "S1", "S2"]  # paper order
+    ai, ann = items["C1"], items["C2"]
+    assert ai["ai"] == "claude" and ai["status"] == "not-on-point" and ai["where"] == "Abstract"
+    assert ann["anchor"] == "billions of dollars" and ann["where"] == "1. Introduction" and ann["line"] == 9
+    assert ann["resolved"] is True and ann["resolved_by"] == "annlee" and ann["gdoc_id"] == "doco.c1"
+    assert ann["resolved_on"] == "2026-10-25"
+    assert [r["by"] for r in ann["replies"]] == ["bobray", "annlee"]
+    assert items["S1"]["edits"] == [{"deleted": "old", "inserted": "new"}] and items["S1"]["by"] == "bobray"
+    assert items["S1"]["anchor"] == "old" and items["S1"]["where"] == "1. Introduction"
+    assert "bold" in items["S2"]["comment"] and items["S2"]["anchor"] == "versioned"
+
+
+def test_a_pull_by_the_other_route_knows_each_comment_again(rounds: Path, capsys) -> None:
+    """Pulled first as .docx (Google writes a shortened author name there), then through the connector: the same
+    comment is one item, matched by the person's handle, the minute and its first words."""
+    folder = rounds / "v0.5"
+    (folder / "rev-marks.toml").write_text('humans = ["annlee"]\n\n[aliases]\nannlee = ["A Lee"]\n', encoding="utf-8")
+    ledger = folder / "comments.yaml"
+    doc = export(rounds / "doc.docx")
+    with zipfile.ZipFile(doc) as z:
+        files = {n: z.read(n).decode() for n in z.namelist()}
+    with zipfile.ZipFile(doc, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text.replace(f'w:author="{ANN}"', 'w:author="A Lee"'))
+    cli("import", doc, "--ledger", ledger, "--master", folder / "paper.md")
+    capsys.readouterr()
+    cli("import-gdoc", gdoc_json(rounds / "read.json"), "--ledger", ledger, "--master", folder / "paper.md")
+    result = json.loads(capsys.readouterr().out)
+    budget = [i for i in ledger_of(ledger)["items"] if i.get("anchor") == "billions of dollars"]
+    assert len(budget) == 1 and budget[0]["gdoc_id"] == "doco.c1" and budget[0]["by"] == "annlee"
+    assert next(p for p in result["people"] if p["name"] == ANN)["rule"] in ("author", "initials", "alias")
+
+
+def test_import_gdoc_refuses_a_read_without_comments(rounds: Path, capsys) -> None:
+    path = gdoc_json(rounds / "read.json")
+    data = json.loads(path.read_text())
+    data["content"]["commentsViewMode"] = "COMMENTS_VIEW_MODE_OMITTED"
+    path.write_text(json.dumps(data))
+    assert cli("import-gdoc", path, "--ledger", rounds / "v0.5" / "comments.yaml") == 2
+    assert "commentsIncluded" in capsys.readouterr().err
+
+
+# --- port: a round's comments from Google Docs to the run's dashboard; names a file system takes ---------------
+
+
+def test_pull_names_each_export_so_every_file_system_takes_it(rounds: Path, tmp_path: Path) -> None:
+    """A Drive title with a colon could not be written on NTFS; the local file is renamed, the Drive title kept."""
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "rclone", "--drive-remote", "gdrive", "--drive-folder-id", "1AbCdEfGhIjKlMnOp",
+              "--release-doc", "paper.md=1. Supplementary Data: Tables (v{round})")
+    rounds_cli("record", "0.5", "--doc", "1. Supplementary Data: Tables (v0.5)=https://docs.google.com/document/d/"
+               "1xYz0123456789abcdefghij/edit", "--project", folder)
+    [step] = json.loads(rounds_cli("pull", "0.5", "--out", tmp_path / "exports", "--project", folder).stdout)["steps"]
+    assert step["export"].endswith("/1. Supplementary Data- Tables (v0.5).docx")
+    assert step["doc"] == "1. Supplementary Data: Tables (v0.5)"
+    assert "'" + step["export"] + "'" in step["commands"][0]
+    assert rounds_py.file_name('a<b>c:"d"/e\\f|g?h*.') == "a-b-c--d--e-f-g-h-"
+
+
+
+def fake_run(run: Path) -> Path:
+    """A run that already has a dashboard, a corrected version and the Word file, as run.json records them."""
+    def cmd(script: str, *args: str) -> dict:
+        return {"argv": ["uv", "run", "--script", f"scripts/{script}", *args], "exit_code": 0, "state": "finished"}
+    d, i = run / "manuscript-dashboard", run / "manuscript-improve"
+    for path in (d / "findings.json", d / "findings.2.json", d / "merges.json", d / "manuscript-review.docx"):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}")
+    for folder in (d / "dashboard", i / "revision", i / "revision.2"):
+        folder.mkdir(parents=True)
+    data = {"skills": {
+        "manuscript-dashboard": {"commands": [
+            cmd("collect.py", str(run), "--output", str(d / "findings.2.json"), "--merge", str(d / "merges.json"),
+                "--version", "v0.5"),
+            cmd("export_docx.py", str(d / "findings.2.json"), "--revision", str(i / "revision.2"), "--output",
+                str(d / "manuscript-review.docx"))]},
+        "manuscript-improve": {"commands": [
+            cmd("revise.py", "orig.md", "work.md", str(d / "findings.2.json"), "--choices", "choices.json",
+                "--output-dir", str(i / "revision.2"))]}}}
+    (run / "run.json").write_text(json.dumps(data), encoding="utf-8")
+    return run
+
+
+def test_port_replays_the_runs_own_commands_on_the_next_attempts(rounds: Path, tmp_path: Path) -> None:
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector", "--release-doc", "paper.md=A Paper (v{round})")
+    run = fake_run(tmp_path / "run")
+    done = rounds_cli("port", "0.5", "--run", run, "--gdoc", gdoc_json(tmp_path / "read.json"), "--project", folder)
+    assert done.returncode == 0, done.stderr
+    steps = {s["step"]: s["command"] for s in json.loads(done.stdout)["steps"]}
+    assert list(steps) == ["pull", "findings", "collect", "corrected version", "dashboard", "export docx"]
+    assert all(f"exec {run} --skill" in c for c in steps.values())  # the run records every step
+    assert "import-gdoc" in steps["pull"] and "--master " + str(folder / "paper.md") in steps["pull"]
+    assert "--untriaged" in steps["findings"] and "--next-round" not in steps["findings"]
+    d, i = run / "manuscript-dashboard", run / "manuscript-improve"
+    assert f"--output {d / 'findings.3.json'}" in steps["collect"] and f"--merge {d / 'merges.json'}" in steps["collect"]
+    assert "manuscript-dashboard/scripts/collect.py" in steps["collect"]
+    assert f"{d / 'findings.3.json'} --choices choices.json --output-dir {i / 'revision.3'}" in steps["corrected version"]
+    assert f"--output-dir {d / 'dashboard.2'} --revision {i / 'revision.3'}" in steps["dashboard"]
+    assert f"--revision {i / 'revision.3'} --output {d / 'manuscript-review.2.docx'}" in steps["export docx"]
+
+
+def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Path, monkeypatch) -> None:
+    """A run with no dashboard yet: port pulls the Doc, records the commenters, and writes the co-authors' findings
+    with every comment still open, each step recorded by runs.py."""
+    monkeypatch.setenv("MANUSCRIPT_SKILLS_CONFIG", str(tmp_path / "global"))
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector", "--release-doc", "paper.md=A Paper (v{round})")
+    started = CliRunner().invoke(runs.app, ["start", str(folder / "paper.md"), "--skill", "manuscript-coauthors"])
+    assert started.exit_code == 0, started.output
+    run = Path(started.output.strip())
+    done = rounds_cli("port", "0.5", "--run", run, "--gdoc", gdoc_json(tmp_path / "read.json"), "--go",
+                      "--project", folder)
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout)
+    assert [s["step"] for s in result["done"]] == ["pull", "findings"] and "--no-pull" in result["next"]
+    found = json.loads((run / "manuscript-coauthors" / "findings.json").read_text())
+    assert found["coauthors"]["next_round"] is None and len(found["coauthors"]["items"]) == 4
+    assert all(i["change"] is None and i["after"] is None for i in found["coauthors"]["items"])  # never "Unchanged"
+    page = (ROOT / "skills" / "manuscript-dashboard" / "assets" / "dashboard.html").read_text(encoding="utf-8")
+    assert "pending ? 'Not answered yet' : 'Now'" in page and "c.change && to ?" in page
+    assert all("Not triaged yet" in f["action"] for f in found["findings"])
+    assert all(i["next"].startswith("Not triaged yet") for i in found["coauthors"]["items"] if i["status"] == "open")
+    sys.path.insert(0, str(ROOT / "skills" / "manuscript-dashboard" / "scripts"))
+    import dashboard as viz  # the dashboard reads these items as they are
+    viz.Coauthors.model_validate(found["coauthors"] | {"items": [
+        {k: v for k, v in i.items() if k in viz.CoauthorComment.model_fields} for i in found["coauthors"]["items"]]})
+    assert (folder / "rev-marks.toml").is_file()
+    recorded = json.loads((run / "run.json").read_text())["skills"]["manuscript-coauthors"]["commands"]
+    assert len(recorded) == 2 and all(c["exit_code"] == 0 for c in recorded)
+
+
+# --- sign-off from the review itself: a resolved thread or a taken suggestion is a co-author having seen it -----
+
+SIGNED = """# A Paper
+
+## 1. Introduction
+
+<!-- @rev C1a rounds=1 by=claude:2026-10-25 -->
+Whole genome sequencing costs have fallen to under a thousand dollars since 2003.
+<!-- @/rev C1a -->
+
+<!-- @rev C9 rounds=1 by=codex:2026-10-25 -->
+The platform annotates variants with new words in this sentence.
+<!-- @/rev C9 -->
+
+<!-- @rev C10 rounds=1 by=codex:2026-10-25 -->
+Modules are versioned tables of variants and their evidence.
+<!-- @/rev C10 -->
+"""
+
+
+def signed_round(rounds: Path) -> tuple[Path, Path]:
+    (rounds / "rev-marks.toml").write_text('humans = ["annlee", "bobray"]\n', encoding="utf-8")
+    (rounds / ".git").mkdir(exist_ok=True)
+    (rounds / "v0.6").mkdir()
+    master = rounds / "v0.6" / "paper.md"
+    master.write_text(SIGNED, encoding="utf-8")
+    ledger = rounds / "v0.5" / "comments.yaml"
+    ledger.write_text(yaml.safe_dump({"round": "0.5", "items": [
+        {"id": "C1", "kind": "comment", "author": ANN, "by": "annlee", "comment": "Not true.", "status": "addressed",
+         "resolved": True, "resolved_by": "annlee", "resolved_on": "2026-10-30"},
+        {"id": "C2", "kind": "comment", "author": BOB, "by": "bobray", "comment": "Say which modules.",
+         "status": "addressed", "resolved": True, "resolved_by": "[ai:claude]",
+         "now": "Modules are versioned tables of variants"},
+        {"id": "S1", "kind": "suggestion", "author": BOB, "by": "bobray", "comment": "replace old with new",
+         "status": "addressed", "now": "annotates variants with new words"},
+        {"id": "C3", "kind": "comment", "author": ANN, "by": "annlee", "comment": "A reminder to myself.",
+         "status": "open", "resolved": False}]}), encoding="utf-8")
+    return ledger, master
+
+
+def test_a_resolved_thread_and_a_taken_suggestion_sign_off_the_passages_that_answer_them(rounds: Path, capsys) -> None:
+    ledger, master = signed_round(rounds)
+    assert cli("signoffs", ledger, "--new", master) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["dry_run"] and plan["unsigned_before"] == 3 and plan["of"] == 3
+    assert [(s["segment"], s["by"], s["because"]) for s in plan["signoffs"]] == [
+        ("C1a", "annlee", "resolved C1"), ("C9", "bobray", "suggested edit S1 taken")]
+    assert [s["item"] for s in plan["skipped"]] == ["C2"]  # an agent closed it: nobody's sign-off
+    assert master.read_text(encoding="utf-8") == SIGNED  # a dry run writes nothing
+    assert cli("signoffs", ledger, "--new", master, "--go") == 0
+    done = json.loads(capsys.readouterr().out)
+    assert done["unsigned_after"] == 1
+    text = master.read_text(encoding="utf-8")
+    assert "@rev C1a rounds=2 by=claude:2026-10-25,annlee:2026-10-30 -->" in text  # dated when she resolved it
+    assert "@rev C9 rounds=2 by=codex:2026-10-25,bobray:" in text
+    assert ledger_of(ledger)["items"][0]["signed"] == [{"segment": "C1a", "by": "annlee", "on": "2026-10-30"}]
+    rm = comments.rev_marks()  # someone else writes after her: her sign-off is still recorded, never added twice
+    master.write_text(rm.bump_segment(master.read_text(encoding="utf-8"), "C1a", rm.Entry("claude", rm.date(2026, 11, 1))),
+                      encoding="utf-8")
+    assert cli("signoffs", ledger, "--new", master) == 0
+    assert json.loads(capsys.readouterr().out)["signoffs"] == []  # once only
+
+
+def test_the_changelog_and_the_release_say_how_many_passages_nobody_signed(rounds: Path, capsys) -> None:
+    ledger, master = signed_round(rounds)
+    base = rounds / "v0.5" / "paper.md"
+    out = rounds / "changes.md"
+    assert cli("changelog", "--base", base, "--new", master, "--ledger", ledger, "--out", out) == 0
+    assert out.read_text(encoding="utf-8").startswith(
+        "> 3 of 3 marked passages were last written by an AI or agent, with no person's sign-off recorded since")
+    configure(rounds / "v0.6", "--drive", "connector", "--release-doc", "paper.md=Paper (v{round})")
+    plan = json.loads(rounds_cli("push", "0.6", "--project", rounds / "v0.6").stdout)
+    assert plan["no_sign_off"] == {"paper.md": "3 of 3 marked passages were last written by an AI or agent with no "
+                                                "person's sign-off since"}
+
+
+def test_a_changelog_asked_for_as_xlsx_is_a_real_workbook(rounds: Path) -> None:
+    """The release uploads build/changes-from-v{previous}.xlsx as a Google Sheet; Markdown in a file with that name
+    could not be imported."""
+    from openpyxl import load_workbook
+    ledger, master = signed_round(rounds)
+    out = rounds / "build" / "changes-from-v0.5.xlsx"
+    assert cli("changelog", "--base", rounds / "v0.5" / "paper.md", "--new", master, "--ledger", ledger,
+               "--out", out) == 0
+    book = load_workbook(out)
+    assert book.sheetnames == ["Changes", "Record"]
+    rows = [[c.value for c in row] for row in book["Changes"].iter_rows()]
+    assert rows[0][0].startswith("3 of 3 marked passages") and ["Id", "Where", "Was", "Now", "Why"] in rows
+    assert book["Record"].max_row >= 1
+
+
+def test_push_stops_when_the_build_left_a_figure_out(rounds: Path, tmp_path: Path) -> None:
+    """pandoc warns "Could not convert image" (no rsvg-convert for an SVG) and still writes the Doc; the release
+    would have gone up without the figure."""
+    folder = rounds / "v0.5"
+    drive = tmp_path / "Google Drive"
+    warn = "import sys; sys.stderr.write('[WARNING] Could not convert image figures/fig1.svg: check rsvg-convert')"
+    configure(folder, "--drive", "folder", "--drive-folder", str(drive), "--release-doc", "paper.md",
+              "--release-build", f'"{sys.executable}" -c "{warn}"')
+    (folder / "build").mkdir()
+    (folder / "build" / "paper.docx").write_bytes(b"docx")
+    done = rounds_cli("push", "0.5", "--go", "--project", folder)
+    assert done.returncode == 3 and "figures/fig1.svg" in done.stderr and "rsvg-convert" in done.stderr
+    assert not (drive / "v0.5").exists()
+
+
+def test_a_findings_quote_never_crosses_a_revision_mark_or_a_table_cell(rounds: Path, capsys) -> None:
+    """stage_check refuses a quote with a revision mark inside it, and one across table cells is not in the master
+    as written; findings takes a clean stretch of the commented passage instead."""
+    folder = rounds / "v0.5"
+    marked = MASTER.replace(
+        "Whole genome sequencing costs have fallen from billions of dollars to under a thousand since 2003.",
+        "Whole genome sequencing costs have <!-- @rev C90 rounds=1 by=claude:2026-10-01 -->fallen from billions of "
+        "dollars<!-- @/rev C90 --> to under a thousand since 2003.") + "\n| Tool | Speed |\n|---|---|\n| SoilTrace | fast |\n"
+    (folder / "paper.md").write_text(marked, encoding="utf-8")
+    ledger = folder / "comments.yaml"
+    ledger.write_text(yaml.safe_dump({"round": "0.5", "master": "paper.md", "items": [
+        {"id": "C1", "kind": "comment", "author": ANN, "anchor": "costs have fallen from billions",
+         "context_before": "Whole genome sequencing", "context_after": "of dollars to under", "comment": "Source?",
+         "status": "open", "next": "Cite the cost source."},
+        {"id": "C2", "kind": "comment", "author": ANN, "anchor": "Speed SoilTrace fast", "context_before": "Tool",
+         "context_after": "", "comment": "Measured how?", "status": "open", "next": "Say how speed was measured."}]}))
+    assert cli("findings", ledger, "--new", folder / "paper.md", "--out", rounds / "f.json") == 0
+    quotes = [f["quote"] for f in json.loads((rounds / "f.json").read_text())["findings"]]
+    assert all(q and len(q.split()) >= 3 and "|" not in q and q in " ".join(marked.split()) for q in quotes if q), quotes

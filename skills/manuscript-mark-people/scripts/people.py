@@ -39,6 +39,11 @@ who is a person: a name is written only with --write and listed in --confirm, an
 rev-marks.toml without dropping anything already there. Until then, a name not in `humans` counts as an
 agent, so no passage reads as reviewed by mistake.
 
+The one exception is a Google Doc's commenters: manuscript-coauthors (comments.py import) maps each to a handle
+with `resolve` (an alias, an author by full name, an author by initials and surname start, else a new handle that
+is never an agent's name) and records them with `record_people`: the handle into humans, the Doc's name into
+rev-marks.toml's [aliases] (`write_aliases`), keeping every alias already there.
+
 Nothing leaves the machine. EXIT STATUS 0 done · 2 usage (a --confirm name the run did not find needs
 --force-name), a malformed rev-marks.toml · 3 could not run (PATH unreadable)
 """
@@ -47,12 +52,14 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import importlib.util
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tomllib
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -227,6 +234,20 @@ def by_handles(files: list[Path]) -> dict[str, list[str]]:
 
 LATEX_AUTHOR = re.compile(r"\\author\s*(?:\[[^\]]*\])?\s*\{((?:[^{}]|\{[^{}]*\})*)\}", re.DOTALL)
 FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# A Markdown manuscript's own author line: "**Authors:** Kulaga Anton^1,2^, Example Tom^3,*^".
+AUTHOR_LINE = re.compile(r"^\W{0,3}\**\s*Authors?\s*(?::\s*\**|\**\s*:)\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+
+
+def author_line_names(text: str) -> list[str]:
+    """The names on a manuscript's "Authors:" line, affiliation marks and footnote signs left out."""
+    names = []
+    for line in AUTHOR_LINE.findall(text):
+        plain = re.sub(r"\^[^^]*\^|<sup>.*?</sup>|\[\^[^\]]*\]|[*†‡§¶#\d]", " ", line)
+        for person in re.split(r",|;|\band\b|&", plain):
+            person = " ".join(person.replace("\\", " ").split()).strip(".")
+            if len(person.split()) >= 2 and re.search(r"[A-Za-z]", person):
+                names.append(person)
+    return names
 
 
 def author_lists(root: Path, files: list[Path]) -> list[Identity]:
@@ -250,6 +271,8 @@ def author_lists(root: Path, files: list[Path]) -> list[Identity]:
             if fm:
                 found += [Identity(n, evidence=[f"front matter of {rel}"], listed=True)
                           for n in front_matter_authors(fm.group(1))]
+            found += [Identity(n, evidence=[f"the Authors line of {rel}"], listed=True)
+                      for n in author_line_names(text)]
         elif name == "CITATION.cff":
             for given, family in re.findall(r"given-names:\s*\"?([^\"\n]+)\"?\s*\n\s*family-names:\s*\"?([^\"\n]+)",
                                             text):
@@ -512,6 +535,136 @@ def write_humans(config: Path, names: list[str]) -> list[str]:
     config.write_text(text, encoding="utf-8")
     tomllib.loads(text)  # the merge left a file that still parses
     return merged
+
+
+ALIASES_RE = re.compile(r"^\[aliases\][ \t]*\n(?:(?!\[).*(?:\n|\Z))*", re.MULTILINE)
+BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def write_aliases(config: Path, new: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Merge *new* (handle -> names) into the config's [aliases] table, keeping every other line and every alias
+    already there; the table as it now stands. Comments inside the table are not kept."""
+    text = config.read_text(encoding="utf-8") if config.is_file() else ""
+    try:
+        current = tomllib.loads(text).get("aliases", {}) if text else {}
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"{config}: not TOML: {exc}") from None
+    merged = {handle: list(names) for handle, names in current.items()}
+    for handle, names in new.items():
+        have = merged.setdefault(handle, [])
+        seen = {rm.alias_key(n) for n in have}  # the name as people see it is kept, even when it is the handle
+        for name in names:
+            if rm.alias_key(name) and rm.alias_key(name) not in seen:
+                have.append(name)
+                seen.add(rm.alias_key(name))
+    lines = [f"{h if BARE_KEY.fullmatch(h) else json.dumps(h)} = {json.dumps(v, ensure_ascii=False)}"
+             for h, v in merged.items() if v]
+    block = "[aliases]\n" + "".join(line + "\n" for line in lines) if lines else ""
+    if ALIASES_RE.search(text):
+        text = ALIASES_RE.sub(lambda _: block, text, count=1)
+    elif block:
+        text = (text.rstrip("\n") + "\n\n" if text.strip() else "") + block
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(text, encoding="utf-8")
+    try:
+        rm._aliases(tomllib.loads(text), config)  # the merge left a file that parses, one handle per alias
+    except rm.ConfigError as exc:
+        raise ValueError(str(exc)) from None
+    return {h: v for h, v in merged.items() if v}
+
+
+# --- a commenter's name -> a person's handle ------------------------------------------------------------------
+
+
+@dataclass
+class Match:
+    """Which handle a name was mapped to, and by which rule (alias, handle, author, initials, new)."""
+
+    name: str
+    handle: str
+    rule: str
+    via: str = ""  # the author name or alias that matched
+
+
+def name_parts(name: str) -> list[str]:
+    plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    return [part for part in re.split(r"[^a-z0-9]+", plain) if part]
+
+
+def handle_for(ident: Identity, people) -> str:
+    """The handle a known person goes by: one already in humans or [aliases], else their name run together."""
+    taken = set(people.humans) | {handle for _, handle in people.aliases}
+    for handle in ident.likely_handles() + [rm.alias_key(ident.name)]:
+        if people.canonical(handle) in taken:
+            return people.canonical(handle)
+    return rm.alias_key(ident.name)
+
+
+def initials_match(short: list[str], full: list[str]) -> bool:
+    """"G Fue" names "Georg Fuellen": the first word is the full first name or its start, the last word starts
+    the full surname (two letters at least)."""
+    if len(short) < 2 or len(full) < 2 or len(short[-1]) < 2:
+        return False
+    # An author line may put the surname first ("Example Tom"): either order of the full name fits.
+    return short != full and any(f[0].startswith(short[0]) and f[-1].startswith(short[-1]) for f in (full, full[::-1]))
+
+
+def resolve(name: str, people, identities: list[Identity]) -> Match:
+    """The handle a Doc's comment author is, by the first rule that holds: an alias or handle already listed, an
+    author of the paper or the repository with that full name, one author whose name the initials and surname
+    start fit, else a new handle from the name (never an agent's name)."""
+    key = rm.alias_key(name)
+    for alias, handle in people.aliases:
+        if alias == key:
+            return Match(name, handle, "alias")
+    if people.canonical(name) in people.humans or key in people.humans:
+        return Match(name, people.canonical(name) if people.canonical(name) in people.humans else key, "handle")
+    persons = sorted((i for i in identities if i.kind == "person"), key=lambda i: not i.committed)
+    candidates: list[tuple[str, str]] = [(i.name, handle_for(i, people)) for i in persons]
+    candidates += [(alias_name, handle) for handle, names in alias_names(people).items() for alias_name in names]
+    # One person listed in two orders ("Maria Lopez" in git, "Lopez Maria" on an author line) is one candidate: a
+    # handle already listed wins, else git's order (given name first, the handle a person would sign with).
+    taken = set(people.humans) | {handle for _, handle in people.aliases}
+    same: dict[tuple[str, ...], str] = {}
+    for n, h in candidates:
+        parts = tuple(sorted(name_parts(n)))
+        if parts not in same or (h in taken and same[parts] not in taken):
+            same[parts] = h
+    candidates = [(n, same[tuple(sorted(name_parts(n)))]) for n, h in candidates]
+    exact = {h for n, h in candidates if rm.alias_key(n) == key}
+    if len(exact) == 1:
+        handle = exact.pop()
+        return Match(name, handle, "author", next(n for n, h in candidates if h == handle and rm.alias_key(n) == key))
+    fits = {h: n for n, h in candidates if initials_match(name_parts(name), name_parts(n))}
+    if len(fits) == 1:
+        (handle, via), = fits.items()
+        return Match(name, handle, "initials", via)
+    handle, n = key if re.match(r"[a-z]", key) else f"p{key}", 1
+    base = handle
+    while people.known(handle) == rm.Kind.AGENT:  # a person called Sol is not every by=sol
+        n += 1
+        handle = f"{base}{n}"
+    return Match(name, handle, "new")
+
+
+def alias_names(people) -> dict[str, list[str]]:
+    """The names [aliases] lists, by handle, as written (rev_marks keeps only their compared form)."""
+    if people.config is None or not Path(people.config).is_file():
+        return {}
+    try:
+        table = tomllib.loads(Path(people.config).read_text(encoding="utf-8")).get("aliases", {})
+    except tomllib.TOMLDecodeError:
+        return {}
+    return {h.lower(): [n for n in names if isinstance(n, str)] for h, names in table.items() if isinstance(names, list)}
+
+
+def record_people(config: Path, matches: list[Match]) -> tuple[list[str], dict[str, list[str]]]:
+    """Every matched commenter becomes a person: their handle into humans, their name into its aliases."""
+    names: dict[str, list[str]] = {}
+    for m in matches:
+        names.setdefault(m.handle, []).append(m.name)
+    humans = write_humans(config, list(names))
+    return humans, write_aliases(config, names)
 
 
 def main(argv: list[str]) -> int:

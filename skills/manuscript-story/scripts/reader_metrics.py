@@ -223,6 +223,53 @@ def _sentences(text: str) -> list[str]:
     return out
 
 
+DENSE_WORDS = 35  # a sentence longer than this, with two subordinate clauses or a parenthesis inside a clause, is split
+SUBORDINATE = re.compile(r"\b(?:which|who|whom|whose|where|when|while|whereas|although|though|because|since|unless|"
+                         r"except|if|whether|in which case)\b", re.IGNORECASE)
+INNER_PARENTHESIS = re.compile(r"\([^()]{3,}\)\s*,?\s*(?:\w+\W+){3,}")  # a parenthesis with a clause going on after it
+
+
+def dense(sentence: str) -> bool:
+    """A sentence a reader has to parse twice: long, with two subordinate clauses or a parenthesis mid-clause."""
+    words = len(WORD.findall(sentence))
+    return words > DENSE_WORDS and (len(SUBORDINATE.findall(sentence)) >= 2 or bool(INNER_PARENTHESIS.search(sentence)))
+
+
+def body_sentences(text: str) -> list[tuple[str, str]]:
+    """(section heading, sentence) for every sentence of the body, as the measures read them."""
+    latex = bool(re.search(r"\\(?:section|documentclass)\b", text))
+    return [(re.sub(r"[*_#]", "", s.heading).strip(), sentence) for s in parse(text) if s.kind not in ("front", "back")
+            for paragraph in s.text for sentence in _sentences(_clean(paragraph, latex))]
+
+
+def harder_to_read(before: str, after: str) -> list[dict[str, object]]:
+    """The dense sentences of *after* that a revision made: new, or longer than the sentence they replaced. A
+    correction that keeps every qualifier tends to arrive as a clause appended to an existing sentence."""
+    from difflib import SequenceMatcher
+    old = body_sentences(before)
+    old_texts = {s for _, s in old}
+    out = []
+    for heading, sentence in body_sentences(after):
+        if sentence in old_texts or not dense(sentence):
+            continue
+        words = [w.lower() for w in WORD.findall(sentence)]
+        n = len(words)
+
+        def kept(o: tuple[str, str]) -> float:
+            """How much of an old sentence this one still holds, in order: a sentence that grew by appended clauses
+            holds all of the one it replaced."""
+            mine = [w.lower() for w in WORD.findall(o[1])]
+            blocks = SequenceMatcher(None, mine, words, autojunk=False).get_matching_blocks()
+            return sum(b.size for b in blocks) / max(len(mine), 1)
+        nearest = max(old, key=lambda o: (kept(o), len(o[1])), default=None)
+        similar = nearest is not None and kept(nearest) >= 0.6
+        was = len(WORD.findall(nearest[1])) if similar else 0
+        if similar and was >= n:
+            continue  # it was at least as long before: the revision did not make it harder
+        out.append({"section": heading, "words": n, "was": was or None, "sentence": sentence})
+    return out
+
+
 def measure(paragraphs: list[str], latex: bool = False) -> dict[str, float]:
     """The reading measures of a list of paragraphs."""
     text = " ".join(_clean(p, latex) for p in paragraphs)
