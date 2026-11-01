@@ -11,6 +11,7 @@ folder, push a release to the Drive folder, record its Docs, and pull the commen
     uv run --script rounds.py record 0.7 [--doc NAME=LINK ...] [--project DIR]
     uv run --script rounds.py circulated 0.7 [--commit SHA] [--project DIR]
     uv run --script rounds.py pull 0.6 --out RUN/manuscript-coauthors/exports [--go] [--project DIR]
+    uv run --script rounds.py routes [--connector | --no-connector] [--host claude|codex] [--project DIR]
 
 The settings are the project file's `coauthors` block (.manuscript-skills.yaml; saved with manuscript-integrity-
 check's `project.py configure --drive ...`): how a release reaches Drive (`drive`: rclone into the shared folder
@@ -24,6 +25,12 @@ went to the co-authors.
 round's Drive folder unless `--replace`: replacing a Doc keeps its link but can detach the co-authors' comments
 from their text, so check the Doc's comments before asking for it. A Drive-for-desktop folder holds .gdoc links,
 not the Docs' text, so `pull` needs rclone or a connector.
+
+`routes` says which ways to the Docs this machine has: an rclone remote of type drive, the synced folder, and a
+Google Drive connector among the agent's own tools, which the agent checks and passes as --connector (the script
+cannot see them). When none can pull the comments it gives one setup note for the authors, for the host the run
+is in: how to connect Google Drive there, or set up rclone. The run records it (runs.py issue --kind setup), the
+progress pane shows it, and nothing waits for it.
 
 EXIT STATUS 0 done · 1 refused (a file exists on Drive; a round folder exists) · 2 usage or settings · 3 could not
 run (rclone, git or the build failed or is missing)
@@ -249,6 +256,30 @@ def execute(commands: list[list[str]], cwd: Path) -> None:
             raise Refused(f"{shlex.join(command)} failed: {(done.stderr or done.stdout).strip()}", 3)
 
 
+# How to reach a round's Google Docs from each host, said once in a setup note when no route can pull the comments.
+SETUP = {
+    "claude": ("connect Google Drive in Claude (Settings, Connectors on claude.ai; on a Team or Enterprise plan an "
+               "owner may have to allow it first) and check it with /mcp in a terminal session"),
+    "codex": ("turn on the Google Drive connector of your ChatGPT workspace for Codex (Settings, Connectors); many "
+              "workspaces have it on already"),
+}
+RCLONE_SETUP = ("or, on any host, add a Google Drive remote with `rclone config` and save it with `project.py "
+                "configure --drive rclone --drive-remote NAME` (rclone also uploads each release)")
+
+
+def drive_remotes() -> list[str] | None:
+    """The rclone remotes of type drive; None when rclone is not installed."""
+    if shutil.which("rclone") is None:
+        return None
+    try:
+        done = subprocess.run(["rclone", "listremotes", "--long"], capture_output=True, text=True, encoding="utf-8",
+                              timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return [line.split(":", 1)[0].strip() for line in done.stdout.splitlines()
+            if ":" in line and line.split(":", 1)[1].split() == ["drive"]] if done.returncode == 0 else []
+
+
 def say(payload: dict[str, Any]) -> None:
     typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -472,6 +503,41 @@ def pull(name: str, out: Annotated[Path, typer.Option("--out", help="Where the e
             raise Refused(f"Import of {step['doc']} failed: {done.stderr.strip()}", 3)
         results.append({"doc": step["doc"], "export": exported[0].as_posix(), **json.loads(done.stdout)})
     say({"round": name, "pulled": results})
+
+
+@app.command()
+def routes(project_dir: ProjectOption = None,
+           connector: Annotated[bool | None, typer.Option(
+               "--connector/--no-connector",
+               help="Whether a Google Drive connector is among your tools (the agent checks; the script cannot see them)")] = None,
+           host: Annotated[str, typer.Option(help="The host the run is in, for the setup note: claude or codex")] = "claude") -> None:
+    """Which ways to a round's Google Docs this machine has, what each can do, and, when none can pull the comments,
+    one setup note for the authors. Record the note with runs.py issue --kind setup and go on: nothing waits for it."""
+    if host not in SETUP:
+        raise Refused(f"--host is one of {', '.join(SETUP)}.")
+    try:
+        block = Project(project_dir).block
+    except Refused:
+        block = {}  # no settings yet: say what the machine has, for the first-use questions
+    remotes = drive_remotes()
+    wanted = block.get("remote") if block.get("drive") == "rclone" else None
+    rclone_ready = bool(remotes) and (wanted is None or wanted in remotes)
+    folder = block.get("folder") if block.get("drive") == "folder" else None
+    folder_ready = bool(folder) and Path(str(folder)).expanduser().is_dir()
+    can_pull = [*(["rclone"] if rclone_ready else []), *(["connector"] if connector else [])]
+    can_push = [*(["rclone"] if rclone_ready else []), *(["folder"] if folder_ready else []),
+                *(["connector, by hand"] if connector else [])]
+    note = None
+    if not can_pull:
+        missing = ("rclone is not installed" if remotes is None else
+                   f"rclone has no remote {wanted!r}" if wanted and remotes else "rclone has no Google Drive remote")
+        unknown = " and no connector was checked" if connector is None else " and no Google Drive connector is connected"
+        note = (f"The co-authors' Google Doc comments could not be pulled ({missing}{unknown}); the run went on without "
+                f"them. To have them next time, {SETUP[host]}, {RCLONE_SETUP}.")
+    say({"rclone": {"installed": remotes is not None, "drive_remotes": remotes or [], "configured": wanted,
+                    "ready": rclone_ready},
+         "folder": {"configured": folder, "ready": folder_ready},
+         "connector": connector, "can_pull": can_pull, "can_push": can_push, "setup_note": note})
 
 
 def main() -> None:

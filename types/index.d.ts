@@ -135,6 +135,9 @@ export type ManuscriptRunView = {
   editsApplied: number
   held: number
   dashboard: string | null
+  // what the authors could set up for a better run (a connector to enable, a token), each recorded by a stage as a
+  // `setup` issue (runs.py issue --kind setup): shown and toasted, never waited for
+  setup: { skill: string; message: string }[]
 }
 
 declare module 'claude-code' {

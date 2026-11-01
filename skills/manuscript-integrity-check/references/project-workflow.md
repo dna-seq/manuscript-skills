@@ -139,6 +139,11 @@ uv run --script scripts/runs.py exec RUN --skill manuscript-story -- uv run --sc
 uv run --script scripts/runs.py issue RUN --skill manuscript-story --kind contradiction --message 'Explain the actual disagreement and its consequence.'
 ```
 
+An issue of kind `setup` is something the authors could set up for a better run, such as a connector to enable or
+a token to add: record it in one sentence that says what is missing and how to enable it in this host, and go on.
+The progress pane lists it under "For a better run (nothing waits for this)" and toasts it when it appears, and
+the closing message repeats it once. It is never a question that holds the run.
+
 Use `--seat potential-user` and `--seat informed-outsider` for the other story readers. For formal peer
 review, retain three distinct `referee` reports with their seat names, plus `defence` and `adjudication`
 artifacts. For the documented two-seat quick pass, use `seat` artifacts named `desk-editor` and

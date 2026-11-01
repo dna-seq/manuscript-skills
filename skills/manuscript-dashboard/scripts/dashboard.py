@@ -902,6 +902,17 @@ def coauthor_counts(coauthors: Coauthors | None, run_id: str = "") -> dict | Non
         authors.setdefault(item.author, Counter())[item.status] += 1
     gaps = [item.gap for item in coauthors.items if item.gap]
     short = [gap for gap in gaps if gap.verdict != "caught"]
+    # The same report for each co-author: what the run had caught of theirs, and which skills their misses point at.
+    gap_authors: dict[str, dict] = {}
+    for item in coauthors.items:
+        if item.gap:
+            mine = gap_authors.setdefault(item.author, {"judged": 0, **{verdict: 0 for verdict in GAP_VERDICTS}, "by_owner": Counter()})
+            mine["judged"] += 1
+            mine[item.gap.verdict] += 1
+            if item.gap.verdict != "caught" and item.gap.miss_reason not in NO_SKILL_TO_IMPROVE:
+                mine["by_owner"][item.gap.owner or "unassigned"] += 1
+    for mine in gap_authors.values():
+        mine["by_owner"] = dict(mine["by_owner"].most_common())
     return {"round": coauthors.round, "next_round": coauthors.next_round, "total": len(coauthors.items),
             "comments": sum(item.kind == "comment" for item in coauthors.items),
             "suggestions": sum(item.kind == "suggestion" for item in coauthors.items),
@@ -915,7 +926,8 @@ def coauthor_counts(coauthors: Coauthors | None, run_id: str = "") -> dict | Non
                     "miss_reasons": ordered(Counter(gap.miss_reason or "unexplained" for gap in short), (*MISS_REASONS, "unexplained")),
                     "by_owner": dict(Counter(gap.owner or "unassigned" for gap in short
                                              if gap.miss_reason not in NO_SKILL_TO_IMPROVE)
-                                     .most_common())} if gaps else None}
+                                     .most_common()),
+                    "by_author": gap_authors} if gaps else None}
 
 
 def decision_list(data: Inventory) -> list[dict]:

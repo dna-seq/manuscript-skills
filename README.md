@@ -67,7 +67,10 @@ Claude, already has, and are not:
 - **Co-authors' comments inside the review, not a Drive connector.** Any Claude can open a Google Doc through
   its Drive connector. [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) turns every comment and
   suggested edit your co-authors leave on a round's Google Doc into an item of the review, says in the next
-  round how each was answered, and releases the round back to your shared Drive folder.
+  round how each was answered, and releases the round back to your shared Drive folder. It reaches the Docs
+  through rclone or the host's Google Drive connector; when it has neither, the run goes on and the progress
+  pane says once how to connect one (Codex often has it on already; in Claude it is connected under Settings,
+  Connectors, or allowed by an organization owner).
 
 It also edits under a script that fails any edit that strengthens a claim or changes a number, ranks journals
 by your priorities, and leaves you a dashboard, a Word review with tracked changes and a To-do list the next run
@@ -103,8 +106,8 @@ there:
   agent rewrote that no co-author has checked since.
 - **A run measured against a human review.** Given a co-author's review of the same draft,
   [the dashboard](skills/manuscript-dashboard/SKILL.md) shows which of its points the run caught and which
-  it missed. Co-authors' Google Doc comments on a round a run produced get the same report: which the run had
-  caught, missed or written itself, and which skill each miss points at.
+  it missed. Co-authors' Google Doc comments on a round a run produced get the same report, for each co-author: which
+  the run had caught, missed or written itself, and which skill each miss points at.
 
 Where other skills do the same job, these parts add a check:
 
@@ -655,7 +658,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.51.0},
+  version = {0.52.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

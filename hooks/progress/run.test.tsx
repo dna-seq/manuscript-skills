@@ -714,3 +714,60 @@ test('before the dashboard lists the decisions, the pane neither reads nor write
   expect(files.has(TODO)).toBe(false)
   await pane.unmount()
 })
+
+test('a setup note is shown and toasted once, and the run never waits for it', async ($, on) => {
+  const version = { n: 1 }
+  const files = new Map<string, string>([
+    [`${PROJECT}/.manuscript-skills.yaml`, 'schema_version: 1\noutput_dir: reviews\n'],
+    [`${RUN}/run.json`, JSON.stringify(runJson())],
+  ])
+  const toasts: string[] = []
+  folder(on, files, version)
+  const clock = mock.clock(on, { now: Date.parse(at(50)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/user' })
+  on('command.register', () => ({ value: { command: 'manuscript-status' } }))
+  on('tool.register', () => ({ value: { tool: 'mcp__manuscript-skills__show_run' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => (toasts.push(e.text), { value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: PROJECT, surface: 'desktop', isInteractive: true })
+
+  // the co-authors stage finds no way to the Google Docs: it records how to enable one and goes on
+  const note = 'Co-authors\' comments were not pulled: no Google Drive connector or rclone remote. Connect Google Drive and run the next round with it.'
+  const later = runJson()
+  later.skills['manuscript-coauthors'] = {
+    ...empty,
+    status: 'running',
+    issues: [
+      { kind: 'setup', message: note, recorded_at: at(46) },
+      { kind: 'setup', message: note, recorded_at: at(47) },
+      { kind: 'blocked_source', message: 'not a setup note', recorded_at: at(47) },
+    ],
+  }
+  files.set(`${RUN}/run.json`, JSON.stringify(later))
+  version.n = 2
+  await clock.advance(15_000)
+  expect(toasts.filter(text => text === note)).toHaveLength(1)
+  expect(toasts).not.toContain('not a setup note')
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /For a better run \(nothing waits for this\)/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /no Google Drive connector/ })).toBeDefined()
+  await ui.unmount()
+
+  const view = buildView({
+    runPath: RUN,
+    data: later,
+    findings: {},
+    files: { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] },
+    referees: null,
+    now: Date.parse(at(50)),
+  })
+  expect(view.setup).toEqual([{ skill: 'manuscript-coauthors', message: note }])
+  expect(view.isWaiting).toBe(false)
+  const answer = await $.command.run({ ...TYPED, args: RUN })
+  expect(answer.text).toContain('For a better run (nothing waits for this):')
+})

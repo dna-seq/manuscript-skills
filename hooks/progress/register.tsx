@@ -337,6 +337,10 @@ async function announce($: $, before: ManuscriptRunView | null, after: Manuscrip
     const detail = counts(stage)
     $.ui.toast(`${stage.label} ${said}${detail ? `: ${detail}` : ''}`)
   }
+  // a setup note (a connector the authors could enable) is said once, when a stage records it; nothing waits for it
+  for (const note of after.setup) {
+    if (!before.setup?.some(was => was.message === note.message)) $.ui.toast(note.message, { timeoutMs: 15_000 })
+  }
   if (!before.waitingFor && after.waitingFor) {
     await notify($, `${after.label} waits for your answer: ${after.waitingFor.questions.join(' · ')}`)
   } else if (!before.isWaiting && after.isWaiting) {
@@ -433,6 +437,7 @@ function summary(v: ManuscriptRunView): string {
     const where = marked && v.todo ? `, ${marked} of them marked in ${v.todo.path}` : ''
     lines.push(`${v.decisions.length} decisions for the authors${where}.`)
   }
+  if (v.setup.length) lines.push('For a better run (nothing waits for this):', ...v.setup.map(note => `- ${note.message}`))
   if (v.dashboard) lines.push(`Dashboard: ${v.dashboard}`)
 
   return lines.join('\n')
@@ -745,6 +750,18 @@ export const register: Register = on => {
       </Box>
     )
 
+    // What the authors could set up for a better run, said where they look; the run goes on without it.
+    const setup = v.setup.length > 0 && (
+      <Box key="setup" flexDirection="column" marginBottom={1}>
+        <Text bold color="suggestion">
+          For a better run (nothing waits for this)
+        </Text>
+        {v.setup.map(note => (
+          <Text wrap="wrap">· {note.message}</Text>
+        ))}
+      </Box>
+    )
+
     const grid = v.referees && (
       <Box key="referees" flexDirection="column" marginBottom={1}>
         <Text bold>Referees</Text>
@@ -808,6 +825,7 @@ export const register: Register = on => {
         {header}
         {questions}
         {decisions}
+        {setup}
         {phases}
         {grid}
         {settings}

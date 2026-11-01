@@ -73,6 +73,39 @@ on another Doc than the main master keeps that Doc's master (`master:` on the it
 same file in the next round. Never invent a folder id or a Doc link: take them from the authors, a
 README, `rclone lsjson` or a connector's `search_files`.
 
+## Reaching the Google Docs, and saying so without stopping
+
+This skill depends on reading the co-authors' Google Docs, and hosts differ: Codex often has its workspace's
+Google Drive connector on, Claude Code has it only once someone connects it (or an organization owner allows it),
+and rclone works on any host. Before pulling, find out which way you have, then go on whatever the answer:
+
+1. Look among your own tools for a Google Drive connector (tools such as `search_files`, `read_file_content`,
+   `download_file_content`; a deferred one is found by searching your tools for "google drive").
+2. Ask the script what the machine has, passing what you found:
+
+   ```bash
+   uv run --script scripts/rounds.py routes --connector|--no-connector --host claude|codex [--project DIR]
+   ```
+
+   It reports rclone's Google Drive remotes (and whether the configured one exists), the synced folder, what can
+   pull the comments (`can_pull`) and what can upload a release (`can_push`).
+3. With a route, use it: rclone first (it pulls and pushes), else the connector. A connector that would serve
+   better than the saved route (say the project saves `connector` and rclone now works) is worth one line to the
+   authors, not a question.
+4. With none, **never stop the run or wait for an answer.** Go on with what the run has (the ledger already in the
+   round folder, any .docx exports the authors left), record the script's `setup_note` once, and say it once at
+   the end:
+
+   ```bash
+   uv run --script ../manuscript-integrity-check/scripts/runs.py issue RUN --skill manuscript-coauthors --kind setup \
+     --message "<setup_note>"
+   ```
+
+   The progress pane lists a `setup` issue under "For a better run (nothing waits for this)" and toasts it when it
+   appears; the closing message repeats it in one line. Without a run (a direct request), say it in the reply.
+   Put the round's comments down as not pulled in the stage report, so the dashboard does not read their absence
+   as none.
+
 ## 1. Pull the comments
 
 The comments of round X.Y go to `vX.Y/comments.yaml`, beside the round. That ledger is the authors' record,
@@ -203,9 +236,10 @@ uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory … --ch
 - The merge writes nothing while one record has a problem (an unknown or dismissed problem, a proposed edit, a
   missing reason) and keeps the ledger to one run (`gap_run`).
 
-`findings` (step 4) then carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the
-run that produced vX.Y catch them?" (caught, missed, written by the run; why the rest was missed; the misses by
-the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,
+The worksheet groups the comments by co-author, and `--check` counts them for each. `findings` (step 4) then
+carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the run that produced vX.Y
+catch them?" (caught, missed, written by the run; one bar and one row per co-author, with the skills their misses
+point at; why the rest was missed; the misses by the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,
 and a filter shows the misses. Re-render the dashboard of the run that produced the round (collect, then render)
 so the links resolve; in the next run's dashboard the verdicts stay, unlinked. Tell the authors the counts and the
 misses that matter most, quoted, in plain words.

@@ -743,7 +743,19 @@ export function buildView(g: Gathered): ManuscriptRunView {
     editsApplied: Object.values(data.skills).reduce((sum, skill) => sum + skill.changes.length, 0),
     held,
     dashboard: g.files.dashboard,
+    setup: setupNotes(data),
   }
+}
+
+// What the authors could set up for a better run: each stage's `setup` issues (runs.py issue --kind setup), a
+// message once however many stages recorded it. The run never waits for them.
+function setupNotes(data: RunJson): { skill: string; message: string }[] {
+  const seen = new Set<string>()
+  return Object.entries(data.skills).flatMap(([skill, entry]) =>
+    (entry.issues ?? [])
+      .filter(issue => issue.kind === 'setup' && !seen.has(issue.message) && Boolean(seen.add(issue.message)))
+      .map(issue => ({ skill, message: issue.message })),
+  )
 }
 
 // A venue id as the journal spells its name: iscience -> iScience, jamia-open -> JAMIA Open.

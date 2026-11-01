@@ -209,9 +209,10 @@ inventory's `run_id`, the renderer rejects a gap that links a finding it does no
 edit that was not applied; matched against another run (the next run's dashboard showing the comments on the
 release an earlier run produced), the links name that run's records and are shown without checking or linking.
 `summary.json`'s `coauthors.gap` counts the judged items by verdict, the misses by reason and by owner (leaving
-out wording preferences, later decisions and what needed the authors' knowledge), and the items not judged. The
-tab opens with "Did the run that produced vX.Y catch them?", marks each comment with its verdict and filters by
-it; the changes workbook adds a column "Did the run catch it".
+out wording preferences, later decisions and what needed the authors' knowledge), the items not judged, and the
+same for each co-author (`by_author`: `judged`, a count per verdict and `by_owner`). The tab opens with "Did the
+run that produced vX.Y catch them?", with a bar and a row per co-author, marks each comment with its verdict and
+filters by it; the changes workbook adds a column "Did the run catch it".
 
 ## Story
 

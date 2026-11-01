@@ -1537,6 +1537,34 @@ __REVISION_HTML__
         kpi('Missed', v.missed, 'no problem of the run names it'),
         kpi('Written by the run', v.introduced, "the passage came from one of the run's own edits"),
         G.not_judged ? kpi('Not judged yet', G.not_judged, 'comments not matched yet') : null));
+      // The report for each co-author: one bar split by verdict (select it to list their comments the run did not
+      // catch in full), and a row with their counts and the skills their misses point at.
+      const byAuthor = Object.entries(G.by_author || {}).sort((x, y) => y[1].judged - x[1].judged);
+      if (byAuthor.length) {
+        const most = Math.max(...byAuthor.map(([, m]) => m.judged), 1);
+        const pickAuthor = a => { const off = authorPick.value === a && gapPick.value === 'short'; authorPick.value = off ? '' : a; gapPick.value = off ? '' : 'short'; draw(); };
+        const rows = h('div', {class: 'bars'}, byAuthor.map(([a, m]) => {
+          const row = stackRow(a, GAP_ORDER.map(k => ({label: GAP[k][1], color: GAP[k][2], count: m[k]})), m.judged);
+          row.querySelector('.stack').style.flex = `0 0 calc((100% - 5em) * ${m.judged / most})`;
+          row.classList.add('pick');
+          row.setAttribute('role', 'button');
+          row.setAttribute('aria-label', `${a}: ${m.caught + m.partly} of ${m.judged} caught; select to list the rest`);
+          row.tabIndex = 0;
+          row.addEventListener('click', () => pickAuthor(a));
+          row.addEventListener('keydown', e => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickAuthor(a); } });
+          return row;
+        }));
+        const table = h('div', {class: 'table-wrap', style: 'margin-top: 12px'}, h('table', null,
+          h('thead', null, h('tr', null, ['Co-author', 'Judged', 'Caught', 'Partly', 'Missed', 'Written by the run', 'Their misses point at'].map(t => h('th', null, t)))),
+          h('tbody', null, byAuthor.map(([a, m]) => h('tr', null, h('td', null, a), h('td', null, String(m.judged)),
+            GAP_ORDER.map(k => h('td', null, String(m[k]))),
+            h('td', null, Object.entries(m.by_owner || {}).map(([s, n]) => h('span', {style: 'margin-right: 10px; white-space: nowrap'},
+              SKILL[s] ? badge(s) : h('span', {class: 'tag'}, short(s)), ` ${skillName(s)} ${n}`))))))));
+        p.append(h('div', {style: 'margin-top: 16px'}, card('By co-author', rows,
+          h('div', {class: 'ladder-key'}, GAP_ORDER.map(k => h('span', null, h('span', {class: 'sw', style: `background: ${GAP[k][2]}; height: 10px; width: 10px`}), GAP[k][1]))),
+          h('p', {class: 'note'}, 'The numbers after each bar count its verdicts in the order of the key, leaving out those with none. Select a co-author to list their comments the run did not catch in full.'),
+          table)));
+      }
       p.append(h('div', {class: 'grid', style: 'margin-top: 16px'},
         card('By verdict', barChart(GAP_ORDER.filter(k => v[k]).map(k => ({key: k, label: GAP[k][1], count: v[k], color: GAP[k][2]})), {unit: 'comment'})),
         reasons.length ? card('Why the rest was not caught in full', barChart(reasons.map(([k, n]) => ({key: k, label: MISS[k] || k, count: n,

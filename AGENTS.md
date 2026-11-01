@@ -49,6 +49,14 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   Co-authors' comments tab opens with "Did the run that produced vX.Y catch them?" (caught, partly, missed,
   introduced; misses by reason and by owner skill, the reference review's scale). Links are checked only when
   `gap_run` is the inventory's run. First use: Paper 1 v0.7 ([docs/coauthor-gaps-2026-11.md](docs/coauthor-gaps-2026-11.md)).
+  0.52.0 groups it by co-author: the worksheet's headings, `--check`'s `by_author`, and the summary's
+  `coauthors.gap.by_author` (judged, a count per verdict, `by_owner`), drawn as a bar and a table row per co-author.
+- **Setup notes, never a stop (0.52.0).** `rounds.py routes --connector|--no-connector --host claude|codex` reports
+  the ways to the Google Docs (rclone remotes of type drive, the synced folder, the connector the agent found among
+  its own tools; the script cannot see MCP tools) and, when none can pull, a `setup_note` naming how to connect
+  Google Drive in that host or set up rclone. Any skill records such a note as `runs.py issue --kind setup`;
+  `model.ts setupNotes` lists them on the view (`setup`), the pane shows them under "For a better run (nothing waits
+  for this)", `announce` toasts each once, and `/manuscript-status` prints them. They never set `waiting`.
 - **The changelog between rounds** lives in manuscript-revision-marks: one changelog per round from the
   round's base, extended on every iteration, `--seen` marking rows new or changed since the draft the
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).

@@ -829,41 +829,50 @@ def worksheet(data: dict[str, Any], rows: list[dict[str, Any]], inventory: dict[
              f"says why ({', '.join(MISS_REASONS)}) and, when the miss was in a skill's remit, its `owner`.",
              "The candidates are found by shared words, so read each before using it; the run may also have raised",
              "a comment where nothing below shows it.", ""]
+    authors: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}  # each co-author's, in paper order
     for item, row in zip(data["items"], rows):
-        if item.get("gap") and not every:
-            continue
-        found = candidates(item, row, inventory)
-        lines += [f"## {item['id']} ({item.get('author', '?')}, {item.get('kind', 'comment')}, {item.get('status', 'open')})"
-                  f"{' · ' + item['where'] if item.get('where') else ''}", ""]
-        if item.get("comment"):
-            lines += [f"> {norm(item['comment'])}", ""]
-        for e in item.get("edits") or []:
-            lines.append(f"- Suggested: delete “{e.get('deleted', '')}” insert “{e.get('inserted', '')}”")
-        for r in item.get("replies") or []:
-            if isinstance(r, dict):
-                lines.append(f"- Reply ({r.get('author', '?')}): {clip(r.get('text'), 300)}")
-        if item.get("anchor"):
-            lines.append(f"- On: “{clip(item['anchor'], 160)}”")
-        if row.get("before"):
-            lines.append(f"- Passage: {clip(row['before'], 700)}")
-        if item.get("gap"):
-            lines.append(f"- Recorded: {json.dumps(item['gap'], ensure_ascii=False)}")
-        for c in found["written"]:
-            lines.append(f"- **Written by the run's edit {c['id']}** ({c.get('section', '')}): {clip(c.get('summary'), 160)}")
-        for f in found["problems"]:
-            lines.append(f"- Problem {f['id']} [{f.get('severity')}, {f.get('resolution')}, {clip(f.get('section'), 40)}]: "
-                         f"{clip(f.get('summary'), 160)} · Action: {clip(f.get('action'), 200)}")
-        for d in found["dismissed"]:
-            lines.append(f"- Dismissed by {d.get('skill')}: {clip(d.get('summary'), 140)} · Why: {clip(d.get('why'), 160)}")
-        for n in found["unchecked"]:
-            lines.append(f"- Not checked by {n.get('skill')}: {clip(n.get('check'), 120)} · Leaves open: {clip(n.get('leaves_open'), 140)}")
-        for c in found["concerns"]:
-            lines.append(f"- Referee concern {c.get('id')} [{c.get('severity')}] ({clip(c.get('location'), 60)}): "
-                         f"{clip(c.get('concern'), 200)}{' → ' + ', '.join(c['finding_ids']) if c.get('finding_ids') else ''}")
-        for t in found["tests"]:
-            lines.append(f"- Story test “{t.get('test')}” ({t.get('result')}): {clip(t.get('note'), 200)}")
-        lines.append("")
+        if every or not item.get("gap"):
+            authors.setdefault(str(item.get("author", "?")), []).append((item, row))
+    for author, pairs in authors.items():
+        lines += [f"# {author}: {len(pairs)} to judge", ""]
+        for item, row in pairs:
+            lines += comment_block(item, row, candidates(item, row, inventory))
     return "\n".join(lines).rstrip() + "\n"
+
+
+def comment_block(item: dict[str, Any], row: dict[str, Any], found: dict[str, list]) -> list[str]:
+    """One comment of the worksheet: what it asks, its passage, and the run's records nearest to it."""
+    lines = [f"## {item['id']} ({item.get('kind', 'comment')}, {item.get('status', 'open')})"
+             f"{' · ' + item['where'] if item.get('where') else ''}", ""]
+    if item.get("comment"):
+        lines += [f"> {norm(item['comment'])}", ""]
+    for e in item.get("edits") or []:
+        lines.append(f"- Suggested: delete “{e.get('deleted', '')}” insert “{e.get('inserted', '')}”")
+    for r in item.get("replies") or []:
+        if isinstance(r, dict):
+            lines.append(f"- Reply ({r.get('author', '?')}): {clip(r.get('text'), 300)}")
+    if item.get("anchor"):
+        lines.append(f"- On: “{clip(item['anchor'], 160)}”")
+    if row.get("before"):
+        lines.append(f"- Passage: {clip(row['before'], 700)}")
+    if item.get("gap"):
+        lines.append(f"- Recorded: {json.dumps(item['gap'], ensure_ascii=False)}")
+    for c in found["written"]:
+        lines.append(f"- **Written by the run's edit {c['id']}** ({c.get('section', '')}): {clip(c.get('summary'), 160)}")
+    for f in found["problems"]:
+        lines.append(f"- Problem {f['id']} [{f.get('severity')}, {f.get('resolution')}, {clip(f.get('section'), 40)}]: "
+                     f"{clip(f.get('summary'), 160)} · Action: {clip(f.get('action'), 200)}")
+    for d in found["dismissed"]:
+        lines.append(f"- Dismissed by {d.get('skill')}: {clip(d.get('summary'), 140)} · Why: {clip(d.get('why'), 160)}")
+    for n in found["unchecked"]:
+        lines.append(f"- Not checked by {n.get('skill')}: {clip(n.get('check'), 120)} · Leaves open: {clip(n.get('leaves_open'), 140)}")
+    for c in found["concerns"]:
+        lines.append(f"- Referee concern {c.get('id')} [{c.get('severity')}] ({clip(c.get('location'), 60)}): "
+                     f"{clip(c.get('concern'), 200)}{' → ' + ', '.join(c['finding_ids']) if c.get('finding_ids') else ''}")
+    for t in found["tests"]:
+        lines.append(f"- Story test “{t.get('test')}” ({t.get('result')}): {clip(t.get('note'), 200)}")
+    lines.append("")
+    return lines
 
 
 def gap_problems(gap: dict[str, Any], inventory: dict[str, Any]) -> list[str]:
@@ -922,11 +931,18 @@ def check_gaps(data: dict[str, Any], inventory: dict[str, Any]) -> tuple[list[st
 
 
 def gap_counts(data: dict[str, Any]) -> dict[str, Any]:
-    gaps = [item["gap"] for item in data["items"] if item.get("gap")]
-    count = lambda key: dict(sorted(((k, sum(1 for g in gaps if (g.get(key) or "") == k)) for k in
-                                     {str(g.get(key) or "") for g in gaps} if k), key=lambda kv: -kv[1]))
-    return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
-            "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
+    """The gap records counted overall and for each co-author."""
+    def counts(items: list[dict[str, Any]]) -> dict[str, Any]:
+        gaps = [item["gap"] for item in items if item.get("gap")]
+        count = lambda key: dict(sorted(((k, sum(1 for g in gaps if (g.get(key) or "") == k)) for k in
+                                         {str(g.get(key) or "") for g in gaps} if k), key=lambda kv: -kv[1]))
+        return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
+                "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
+    authors: dict[str, list[dict[str, Any]]] = {}
+    for item in data["items"]:
+        authors.setdefault(str(item.get("author", "?")), []).append(item)
+    return {**counts(data["items"]), "by_author": {author: {k: v for k, v in counts(items).items() if k != "miss_reasons"}
+                                                   for author, items in authors.items() if any(i.get("gap") for i in items)}}
 
 
 def merge_gaps(data: dict[str, Any], source: Path, inventory: dict[str, Any]) -> list[str]:

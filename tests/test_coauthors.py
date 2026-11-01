@@ -485,6 +485,9 @@ def test_the_gap_worksheet_names_the_edit_that_wrote_a_passage_and_the_problems_
     text = sheet.read_text(encoding="utf-8")
     sections = {part.split(" ", 1)[0]: part for part in text.split("\n## ")[1:]}
     assert set(sections) == {"C1", "C2", "S1", "C3"}
+    # grouped by co-author, each in the order they first appear in the paper
+    assert [line for line in text.splitlines() if line.startswith("# ") and "to judge" in line] == [
+        f"# {ANN}: 3 to judge", f"# {BOB}: 1 to judge"]
     assert "Written by the run's edit IC-C1" in sections["C3"] and "IC-C2" not in text  # applied edits only
     assert "Problem IC-1" in sections["C2"] and "Problem IC-1" not in sections["C3"]
     assert "Dismissed by manuscript-prose-edit" in sections["C3"]
@@ -519,6 +522,7 @@ def test_gap_records_merge_only_when_they_name_the_runs_records(rounds: Path, tm
     result = json.loads(capsys.readouterr().out)
     assert result["by_verdict"] == {"caught": 1, "partly": 0, "missed": 0, "introduced": 1}
     assert result["not_judged"] == ["C1", "S1"] and result["problems"] == []
+    assert result["by_author"][ANN]["by_verdict"]["caught"] == 1 and result["by_author"][BOB]["judged"] == 1
     data = ledger_of(ledger)
     assert data["gap_run"] == "20261020T090000Z-abc" and data["gap_matched_by"] == "the coordinating agent"
     by = {i["id"]: i for i in data["items"]}
@@ -550,3 +554,41 @@ def test_a_gap_outside_the_scale_is_a_malformed_ledger(rounds: Path) -> None:
     data["items"][0]["gap"] = {"verdict": "spotted"}
     ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     assert cli("status", ledger) == 2
+
+
+# --- the routes to the Google Docs (rounds.py routes) -------------------------------------------------------------
+
+rounds_module = _load("rounds")
+
+
+def routes_of(capsys, **options) -> dict:
+    capsys.readouterr()
+    rounds_module.routes(project_dir=options.pop("project_dir", None), connector=options.pop("connector", None),
+                         host=options.pop("host", "claude"))
+    return json.loads(capsys.readouterr().out)
+
+
+def test_without_a_route_to_the_docs_the_run_gets_one_setup_note_for_its_host(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)  # no project file: the routes are still reported, for the first-use questions
+    monkeypatch.setattr(rounds_module.shutil, "which", lambda name: None)
+    claude = routes_of(capsys)
+    assert claude["can_pull"] == [] and claude["rclone"]["installed"] is False
+    assert "rclone is not installed and no connector was checked" in claude["setup_note"]
+    assert "Settings, Connectors on claude.ai" in claude["setup_note"] and "rclone config" in claude["setup_note"]
+    codex = routes_of(capsys, connector=False, host="codex")
+    assert "no Google Drive connector is connected" in codex["setup_note"] and "ChatGPT workspace" in codex["setup_note"]
+    connected = routes_of(capsys, connector=True)
+    assert connected["can_pull"] == ["connector"] and connected["setup_note"] is None
+    with pytest.raises(rounds_module.Refused):
+        routes_of(capsys, host="vim")
+
+
+def test_an_rclone_drive_remote_is_a_route_and_the_configured_one_must_exist(rounds: Path, monkeypatch, capsys) -> None:
+    configure(rounds / "v0.5", "--drive", "rclone", "--drive-remote", "work", "--drive-folder-id", "1AbCdEfGhIjKlMnOpQrStUvWxYz")
+    monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive"])
+    missing = routes_of(capsys, project_dir=rounds / "v0.5")
+    assert missing["rclone"]["configured"] == "work" and missing["can_pull"] == []
+    assert "rclone has no remote 'work'" in missing["setup_note"]
+    monkeypatch.setattr(rounds_module, "drive_remotes", lambda: ["gdrive", "work"])
+    ready = routes_of(capsys, project_dir=rounds / "v0.5")
+    assert ready["can_pull"] == ["rclone"] and ready["can_push"] == ["rclone"] and ready["setup_note"] is None
