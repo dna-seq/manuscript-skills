@@ -118,6 +118,8 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   the `top3.json` entry. Rows are none/small/medium/large/unknown, the estimate no change/light/moderate/major.
   `--format json` writes `RUN/manuscript-journal-select/adaptation.json`; `collect.py` attaches it to the journal's
   rung as `adaptation` and the Journals tab shows it per card, in a comparison table and in the ladder table.
+  0.56.0: lengths and counts carry `numbers` ("7,963 / 8,000 · −37": the manuscript / the limit · over or under)
+  and a short `note` ("advised"), which the cards and the table show instead of a sentence.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

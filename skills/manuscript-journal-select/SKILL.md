@@ -374,8 +374,9 @@ $E PAPER --top3 RUN/manuscript-journal-select/top3.json --record $R             
 $E PAPER --top3 RUN/manuscript-journal-select/top3.json --record $R --format json > RUN/manuscript-journal-select/adaptation.json
 ```
 
-Report each journal's estimate with its changes in plain words ("cut about 960 words, 12% of the body"), beside its
-verdict; an estimate is information for the choice and never moves a rung by itself. Writing to the shortest limit
+Report each journal's estimate with its changes beside its verdict, lengths and counts as the numbers the dashboard
+shows (each row's `numbers`: "7,963 / 8,000 · −37", the manuscript / the limit · how far over or under) and the
+other changes in plain words; an estimate is information for the choice and never moves a rung by itself. Writing to the shortest limit
 before the choice stays the authors' decision.
 
 ## Compare viable candidates on the author's priorities

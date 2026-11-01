@@ -265,6 +265,12 @@ tr.chosen td { background: var(--surface-2); }
 .venue .adapt li { margin: 2px 0; }
 table.adapt-grid td { vertical-align: top; min-width: 180px; }
 table.adapt-grid th { text-transform: none; letter-spacing: 0; vertical-align: top; }
+/* Lengths and counts as numbers: the manuscript / the limit · how far over (+) or under (−). */
+.adapt-nums { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.size.num { font-weight: 500; font-variant-numeric: tabular-nums; }
+.size.num b { font-weight: 650; }
+.nums { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qual { color: var(--ink-2); font-size: 12px; font-weight: 400; }
 .mini { display: inline-block; height: 8px; border-radius: 0 3px 3px 0; background: var(--accent); vertical-align: middle; margin-right: 6px; }
 #tooltip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); max-width: 320px; font-size: 13px; }
 #tooltip .tip-value { font-weight: 650; }
@@ -2000,6 +2006,10 @@ __REVISION_HTML__
   const SIZE_WORDS = {none: 'none', small: 'small', medium: 'medium', large: 'large', unknown: 'not researched'};
   const sizeChip = (size, text) => h('span', {class: `size ${size}`}, text || SIZE_WORDS[size] || size);
   function changesWord(size) { return size === 'no change' ? 'no change' : `${size} changes`; }
+  const NUM_LABEL = {body: 'Body', abstract: 'Abstract', display: 'Figures + tables'};
+  // A change's hover text: what to do, the two sides in words, and the page the limit was read on.
+  const adaptTip = i => [i.what, i.numbers && i.change && i.change !== 'none' ? i.change : '', i.have ? `This manuscript: ${i.have}` : '',
+    i.limit ? `The journal: ${i.limit}` : '', i.source ? `Read on ${i.source}${i.checked ? ` (${i.checked})` : ''}` : ''].filter(Boolean);
   if (panels.journals) (function journals() {
     const p = panels.journals;
     const ladder = inv.venues.filter(v => v.ladder === 'journals').sort((a, b) => a.rung - b.rung);
@@ -2020,10 +2030,13 @@ __REVISION_HTML__
     const adaptBlock = v => {
       const a = v.adaptation;
       if (!a) return null;
-      const work = a.items.filter(i => i.size !== 'none');
+      // Lengths and counts as numbers, coloured by the size of the change; the other changes as a list.
+      const nums = a.items.filter(i => i.numbers), work = a.items.filter(i => i.size !== 'none' && !i.numbers);
       return h('div', {class: 'adapt'}, h('h3', null, 'If you choose it: ', sizeChip(SIZE_OF[a.size], changesWord(a.size))),
+        nums.length ? h('div', {class: 'adapt-nums'}, nums.map(i => withTip(h('span', {class: `size ${i.size} num`, tabindex: 0},
+          h('b', null, NUM_LABEL[i.aspect] || i.what), ' ', i.numbers, i.note ? h('span', {class: 'qual'}, ` · ${i.note}`) : null), adaptTip(i)))) : null,
         work.length ? h('ul', null, work.map(i => h('li', null, sizeChip(i.size), ' ', h('strong', null, i.what), i.change ? `: ${i.change}` : '')))
-          : h('p', {class: 'note', style: 'margin: 0'}, 'Nothing measured needs changing.'));
+          : nums.some(i => i.size !== 'none') ? null : h('p', {class: 'note', style: 'margin: 0'}, 'Nothing measured needs changing.'));
     };
     p.append(h('div', {class: 'venues'}, chosen.map((v, i) => h('section', {class: 'card venue'}, h('h3', null, h('span', {class: 'rank'}, String(i + 1)), v.name), facts(v),
       adaptBlock(v), policyBlock(v), v.why ? h('p', {class: 'note'}, v.why) : null, v.url ? h('p', {class: 'note'}, v.url) : null))));
@@ -2034,13 +2047,14 @@ __REVISION_HTML__
       const cell = (v, what) => {
         const i = v.adaptation.items.find(x => x.what === what);
         if (!i) return h('td', null, '—');
-        return h('td', null, withTip(h('span', {tabindex: 0}, sizeChip(i.size), ' ', i.size === 'none' ? (i.change && i.change !== 'none' ? i.change : 'no change') : i.change),
-          [i.what, i.have ? `This manuscript: ${i.have}` : '', i.limit ? `The journal: ${i.limit}` : '', i.source ? `Read on ${i.source}${i.checked ? ` (${i.checked})` : ''}` : ''].filter(Boolean)));
+        const text = i.numbers ? [h('span', {class: 'nums'}, i.numbers), i.note ? h('span', {class: 'qual'}, ` · ${i.note}`) : null]
+          : i.size === 'none' ? (i.change && i.change !== 'none' ? i.change : 'no change') : i.change;
+        return h('td', null, withTip(h('span', {tabindex: 0}, sizeChip(i.size), ' ', text), adaptTip(i)));
       };
       p.append(h('h2', {class: 'sec'}, 'What each choice changes in the manuscript'),
         h('p', {class: 'note', style: 'margin-top: 0'}, measured[0].adaptation.measured, ' Only the major changes are counted; reference style, declarations and file formats wait for the chosen journal. ',
           sizeChip('small'), ' a trim, a heading or a short section; ', sizeChip('medium'), ' rewriting the abstract or a section, regrouping the paper or cutting up to a third of the body; ',
-          sizeChip('large'), ' cutting more than that, or new analysis; ', sizeChip('unknown'), ' nobody has read the rule yet, so it is not known to fit. Hover a cell for the numbers and the page.'),
+          sizeChip('large'), ' cutting more than that, or new analysis; ', sizeChip('unknown'), ' nobody has read the rule yet, so it is not known to fit. Lengths read as the manuscript / the limit · how far over (+) or under (−); hover a cell for the change in words and the page.'),
         h('div', {class: 'table-wrap'}, h('table', {class: 'adapt-grid'},
           h('thead', null, h('tr', null, h('th', null, 'Change'), measured.map(v => h('th', null, h('div', null, v.name), sizeChip(SIZE_OF[v.adaptation.size], changesWord(v.adaptation.size)),
             v.adaptation.words_to_cut ? h('div', {class: 'note', style: 'margin: 2px 0 0; font-weight: 400'}, `about ${v.adaptation.words_to_cut.toLocaleString('en')} words to cut`) : null)))),
