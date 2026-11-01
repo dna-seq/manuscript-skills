@@ -265,7 +265,7 @@ tr.chosen td { background: var(--surface-2); }
 .venue .adapt li { margin: 2px 0; }
 table.adapt-grid td { vertical-align: top; min-width: 180px; }
 table.adapt-grid th { text-transform: none; letter-spacing: 0; vertical-align: top; }
-/* Lengths and counts as numbers: the manuscript / the limit · how far over (+) or under (−). */
+/* Lengths and counts as numbers: the manuscript / the limit · cut N (over it) or can add N (under it). */
 .adapt-nums { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
 .size.num { font-weight: 500; font-variant-numeric: tabular-nums; }
 .size.num b { font-weight: 650; }
@@ -2054,7 +2054,7 @@ __REVISION_HTML__
       p.append(h('h2', {class: 'sec'}, 'What each choice changes in the manuscript'),
         h('p', {class: 'note', style: 'margin-top: 0'}, measured[0].adaptation.measured, ' Only the major changes are counted; reference style, declarations and file formats wait for the chosen journal. ',
           sizeChip('small'), ' a trim, a heading or a short section; ', sizeChip('medium'), ' rewriting the abstract or a section, regrouping the paper or cutting up to a third of the body; ',
-          sizeChip('large'), ' cutting more than that, or new analysis; ', sizeChip('unknown'), ' nobody has read the rule yet, so it is not known to fit. Lengths read as the manuscript / the limit · how far over (+) or under (−); hover a cell for the change in words and the page.'),
+          sizeChip('large'), ' cutting more than that, or new analysis; ', sizeChip('unknown'), ' nobody has read the rule yet, so it is not known to fit. Lengths read as the manuscript / the limit · what to do: cut N when over it, can add N when under it; hover a cell for the change in words and the page.'),
         h('div', {class: 'table-wrap'}, h('table', {class: 'adapt-grid'},
           h('thead', null, h('tr', null, h('th', null, 'Change'), measured.map(v => h('th', null, h('div', null, v.name), sizeChip(SIZE_OF[v.adaptation.size], changesWord(v.adaptation.size)),
             v.adaptation.words_to_cut ? h('div', {class: 'note', style: 'margin: 2px 0 0; font-weight: 400'}, `about ${v.adaptation.words_to_cut.toLocaleString('en')} words to cut`) : null)))),

@@ -223,9 +223,10 @@ def _about(n: int) -> str:
     return f"{max(step, round(n / step) * step):,}"
 
 
-def _signed(n: int) -> str:
-    """How far over (+) or under (−, a minus sign) the limit, in the row's unit."""
-    return f"+{n:,}" if n > 0 else f"\u2212{-n:,}" if n < 0 else "0"
+def _action(n: int) -> str:
+    """What the difference from the limit asks for, as a verb: "cut 61" over it, "can add 37" under it (room, not
+    a request; a bare "−37" read as "cut 37")."""
+    return f"cut {n:,}" if n > 0 else f"can add {-n:,}" if n < 0 else "at the limit"
 
 
 def _lighter(size: str) -> str:
@@ -285,7 +286,8 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
     def add(aspect: str, what: str, have: str, limit: str, change: str, size: str, field: str = "limits",
             numbers: str = "", note: str = "") -> None:
         """One row; a length or a count also gets `numbers`, the manuscript's figure against the limit and the
-        difference ("7,963 / 8,000 · −37"), with `note` for what qualifies the limit ("advised")."""
+        difference as what to do ("7,963 / 8,000 · can add 37", "211 / 150 · cut 61"), with `note` for what
+        qualifies the limit ("advised")."""
         items.append({"aspect": aspect, "what": what, "have": have, "limit": limit, "change": change, "size": size,
                       **(_source(v, field) if field else {"source": "", "checked": ""}),
                       "numbers": numbers, "note": note})
@@ -300,7 +302,7 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
         advised = limits.get("body_words_kind") == "recommended"
         limit = f"{n:,} words" + (", advised" if advised else "") + (f", {venues._and(excluded)} not counted" if excluded else "")
         over = counted - n
-        numbers = f"{counted:,} / {n:,} \u00b7 {_signed(over)}"
+        numbers = f"{counted:,} / {n:,} \u00b7 {_action(over)}"
         note = " \u00b7 ".join((["advised"] if advised else []) + ([f"{venues._and(excluded)} not counted"] if excluded else []))
         if over <= 0:
             add("body", "Length of the body", have, limit,
@@ -327,7 +329,7 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
     words = m["abstract_words"]
     if n := limits.get("abstract_words"):
         over = words - n
-        numbers = f"{words:,} / {n:,} \u00b7 {_signed(over)}"
+        numbers = f"{words:,} / {n:,} \u00b7 {_action(over)}"
         if not words:
             add("abstract", "Length of the abstract", "no abstract found", f"{n} words", f"write an abstract of at most {n} words", "medium",
                 numbers=f"0 / {n:,}")
@@ -376,7 +378,7 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
         add("display", "Figures and tables", count, f"{top} display items" + (f" ({kind})" if kind else ""),
             f"move or merge {over} into the supplement" if over > 0 else "fits",
             "none" if over <= 0 else "small" if over == 1 else "medium", "figure_rules",
-            numbers=f"{shown} / {top} \u00b7 {_signed(over)}")
+            numbers=f"{shown} / {top} \u00b7 {_action(over)}")
     elif isinstance(rule, dict):
         over = max(0, m["figures"] - int(rule.get("figures", m["figures"]))) + max(0, tables - int(rule.get("tables", tables)))
         add("display", "Figures and tables", count,
@@ -385,7 +387,7 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
             f"move or merge {over} into the supplement" if over else "fits",
             "none" if not over else "small" if over == 1 else "medium", "figure_rules",
             numbers=f"{m['figures']} + {tables} / {rule.get('figures', 'any')} + {rule.get('tables', 'any')}"
-            + (f" \u00b7 +{over}" if over else ""),
+            + (f" \u00b7 cut {over}" if over else ""),
             note="boxes as tables" if m["boxes"] else "")
     elif "display_items" in stated_none:
         add("display", "Figures and tables", count, "none stated", "none", "none", numbers=f"{shown} \u00b7 no limit")
