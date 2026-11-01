@@ -235,6 +235,34 @@ def test_the_stage_check_reads_the_shape_first() -> None:
         "change IC-C1: an anchor belongs only to an addition (before: null)"]
 
 
+def test_a_finding_handed_to_another_stage_is_answered_there_or_listed(tmp_path: Path, capsys) -> None:
+    """A finding a stage leaves for another names it in `owner`; the owner answers it, or cannot finish, and the
+    coordinator sees every unanswered hand-off before the dashboard is collected."""
+    run = tmp_path / "run"
+    (run / "manuscript-prose-edit").mkdir(parents=True)
+    (run / "manuscript-story").mkdir()
+    (run / "run.json").write_text("{}", encoding="utf-8")
+    handed = {"findings": [{"id": "PE-3", "summary": "Run modes used before they are defined.", "quote": None,
+                            "owner": "manuscript-story", "evidence": [{"path": "stage-report.md", "quote": "x"}]},
+                           {"id": "PE-4", "summary": "Mine.", "owner": "manuscript-prose-edit", "quote": None}]}
+    (run / "manuscript-prose-edit" / "findings.json").write_text(json.dumps(handed), encoding="utf-8")
+    story = {"findings": []}
+    found = stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story")
+    assert found == ["manuscript-prose-edit handed PE-3 to this stage ('Run modes used before they are defined.'); "
+                     "answer it in answers: done, proposed (with the records) or declined (with why)"]
+    assert stage_check.handoff_problems(handed, "manuscript-prose-edit", run / "manuscript-prose-edit") == [
+        "finding PE-4: owner 'manuscript-prose-edit' must name another stage (manuscript-story, ...)"]
+    assert stage_check.main([str(run), "--handoffs"]) == 1
+    assert "manuscript-prose-edit handed PE-3 to manuscript-story, not answered" in capsys.readouterr().out
+    story["answers"] = [{"id": "PE-3", "answer": "declined"}]
+    assert stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story") == [
+        "answers[0] (PE-3): declined needs why"]
+    story["answers"] = [{"id": "PE-3", "from": "manuscript-prose-edit", "answer": "proposed", "records": ["ST-C2"]}]
+    (run / "manuscript-story" / "findings.json").write_text(json.dumps(story), encoding="utf-8")
+    assert stage_check.handoff_problems(story, "manuscript-story", run / "manuscript-story") == []
+    assert stage_check.main([str(run), "--handoffs"]) == 0
+
+
 # --- runs.py ------------------------------------------------------------------------------------------------------
 
 @pytest.fixture()

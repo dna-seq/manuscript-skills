@@ -6,6 +6,7 @@
 stage that wrote it can still fix it.
 
     uv run --script stage_check.py RUN --skill SKILL [--file FINDINGS]
+    uv run --script stage_check.py RUN --handoffs        # every finding handed to another stage and not answered
 
 collect.py reads every stage's findings.json only when the run is assembled, hours after the stage agent that
 wrote it has gone; a record it cannot read then stops the whole inventory. runs.py finish runs the same check on
@@ -23,7 +24,11 @@ What is checked:
   found only once the revision marks are stripped has a mark inside it, and is shortened to a stretch without
   one;
 - each proposal's before-text, or an addition's anchor, exactly once in the clean text of the file it changes,
-  and a proposal for another file than the manuscript (a supplement) naming that file in `document`.
+  and a proposal for another file than the manuscript (a supplement) naming that file in `document`;
+- hand-offs: a finding left for another stage names it in `owner`; the owner's findings.json answers it in
+  `answers` (done, proposed or declined, with why for declined), and a stage that finishes while a finding is
+  handed to it in a findings.json already written, with no answer, is refused. `--handoffs` lists every unanswered one in the run,
+  for the coordinator before the dashboard is collected.
 
 Prints one line per problem; exit 0 when there is none, 1 otherwise, 2 for a usage error. Stdlib only, so
 runs.py and collect.py load it as it is.
@@ -209,9 +214,59 @@ def placement(doc: dict, skill: str, folder: Path, inputs: list[dict]) -> list[s
     return out
 
 
+ANSWERS = ("done", "proposed", "declined")
+
+
+def handoffs(run: Path) -> list[dict]:
+    """Every finding a stage handed to another (`owner`), with the owner's answer when its newest findings.json
+    has one (`answers`: {"id", "answer": done | proposed | declined, "why", "records"})."""
+    docs: dict[str, dict] = {}
+    for folder in sorted(run.glob("manuscript-*")):
+        path = newest(folder) if folder.is_dir() else None
+        try:
+            docs[folder.name] = json.loads(path.read_text(encoding="utf-8")) if path else {}
+        except (OSError, json.JSONDecodeError):
+            docs[folder.name] = {}
+    out = []
+    for skill, doc in docs.items():
+        for record in doc.get("findings") or [] if isinstance(doc, dict) else []:
+            owner = record.get("owner") if isinstance(record, dict) else None
+            if not text(owner) or owner == skill:  # a stage cannot hand a finding to itself (its own check says so)
+                continue
+            answers = docs.get(owner, {}).get("answers") or [] if isinstance(docs.get(owner), dict) else []
+            answer = next((a for a in answers if isinstance(a, dict) and a.get("id") == record.get("id")
+                           and a.get("from", skill) == skill), None)
+            out.append({"id": record.get("id"), "from": skill, "owner": owner, "summary": record.get("summary", ""),
+                        "answer": answer})
+    return out
+
+
+def handoff_problems(doc: Any, skill: str, folder: Path) -> list[str]:
+    """This stage's hand-offs and answers: an owner that names a stage, answers that say what was done, and every
+    finding handed to this stage by a stage already finished, answered."""
+    out = []
+    for record in doc.get("findings") or []:
+        owner = record.get("owner")
+        if owner is not None and (not text(owner) or owner not in PREFIX or owner == skill):
+            out.append(f"finding {record.get('id')}: owner {owner!r} must name another stage (manuscript-story, ...)")
+    for n, answer in enumerate(doc.get("answers") or []):
+        if not isinstance(answer, dict) or not text(answer.get("id")) or answer.get("answer") not in ANSWERS:
+            out.append(f"answers[{n}]: needs id and answer ({', '.join(ANSWERS)})")
+        elif answer["answer"] == "declined" and not text(answer.get("why")):
+            out.append(f"answers[{n}] ({answer['id']}): declined needs why")
+    run = folder.parent
+    if (run / "run.json").is_file():
+        for handed in handoffs(run):
+            if handed["owner"] == skill and handed["from"] != skill and not handed["answer"] \
+                    and not any(isinstance(a, dict) and a.get("id") == handed["id"] for a in doc.get("answers") or []):
+                out.append(f"{handed['from']} handed {handed['id']} to this stage ({handed['summary'][:80]!r}); answer it"
+                           f" in answers: done, proposed (with the records) or declined (with why)")
+    return out
+
+
 def problems(doc: Any, skill: str, folder: Path, inputs: list[dict]) -> list[str]:
     """Every problem in one stage's findings.json; the shape first, since nothing else can be read without it."""
-    return fatal(doc) or placement(doc, skill, folder, inputs)
+    return fatal(doc) or placement(doc, skill, folder, inputs) + handoff_problems(doc, skill, folder)
 
 
 def newest(folder: Path) -> Path | None:
@@ -222,9 +277,18 @@ def newest(folder: Path) -> Path | None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("run", type=Path)
-    parser.add_argument("--skill", required=True)
+    parser.add_argument("--skill")
     parser.add_argument("--file", type=Path, help="default: the stage's newest findings.json")
+    parser.add_argument("--handoffs", action="store_true", help="list every finding handed on and not answered")
     args = parser.parse_args(argv)
+    if args.handoffs:
+        open_ = [h for h in handoffs(args.run.resolve()) if not h["answer"]]
+        for h in open_:
+            print(f"{h['from']} handed {h['id']} to {h['owner']}, not answered: {h['summary']}")
+        print(f"{len(open_)} hand-off(s) not answered." if open_ else "Every hand-off is answered.")
+        return 1 if open_ else 0
+    if not args.skill:
+        parser.error("--skill is required (or --handoffs)")
     run, folder = args.run.resolve(), args.run.resolve() / args.skill
     path = args.file or newest(folder)
     if path is None or not path.is_file():

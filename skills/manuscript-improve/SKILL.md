@@ -214,7 +214,10 @@ inventory, so the end of a run goes in this order:
 
 1. Every stage has recorded its applied edits (`runs.py change`, routine ones grouped per paragraph or
    section), with any question for the authors in `--comment`, never in the text.
-2. Collect the draft inventory (`RUN/manuscript-dashboard/findings.draft.json`).
+2. Collect the draft inventory (`RUN/manuscript-dashboard/findings.draft.json`), once every finding a stage
+   handed to another has its answer: `uv run --script ../manuscript-dashboard/scripts/stage_check.py RUN
+   --handoffs` lists those that have none. For each, run the owning stage again, or answer it in a next attempt
+   of the owner's `findings.json` (`answers`); a hand-off nobody answered is lost between two stages.
 3. Adjudicate in `merges.json`; with a reference review, freeze, match and write `reference.json` with
    `matched_by` (manuscript-dashboard, steps 1 to 3).
 4. Collect the adjudicated `findings.json` once, with `--merge` (and `--reference`).

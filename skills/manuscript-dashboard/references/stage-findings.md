@@ -76,6 +76,13 @@ the next attempt (`findings.2.json`), never in a registered file.
   Words other scripts and seats use map onto it: `optional` → `info`, `uncertain` and `not_assessed` →
   `unknown`, `serious` → `blocker`, `important` → `major`. Collect applies the same mapping.
 - `quote`: at least three words, as many as it takes to find the passage once in the manuscript.
+- **Hand-offs.** A finding a stage leaves for another stage to fix names it: `"owner": "manuscript-story"`.
+  The owner answers each finding handed to it in a top-level `answers` list of its own findings.json:
+  `{"id": "PE-3", "from": "manuscript-prose-edit", "answer": "done | proposed | declined", "records": ["ST-4",
+  "ST-C2"], "why": "required for declined"}`. `stage_check.py` refuses to let the owner finish while a finding
+  handed to it in a findings.json already written has no answer, and `stage_check.py RUN --handoffs` lists every
+  unanswered one in the run. "Left to the story stage" in a report's prose, with no `owner`, is a hand-off nobody
+  receives.
 - `stage` follows [Order the work by when it can be done](../../manuscript-integrity-check/references/author-priorities.md#order-the-work-by-when-it-can-be-done):
   `now` (the science and the evidence), `writing`, `journal` (depends on the chosen journal), `final`
   (archives, declarations, versions: before submission only).

@@ -66,6 +66,10 @@ before the choice, the paper's stage of work}
    tools.
 10. **Writing.** For the authors: plain words, full sentences, quotes with their section, links for outside
     sources, no internal codes standing alone.
+11. **Hand-offs.** A finding you leave for another stage names that stage in `owner` (`"owner":
+    "manuscript-story"`); saying "left to the story stage" in the report is not enough. Answer every finding
+    handed to you in `answers` (done, proposed with the records, or declined with why); `stage_check` lists the
+    ones you have not answered, and `finish` refuses them.
 
 ## Editing stages also
 
