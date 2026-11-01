@@ -168,7 +168,8 @@ the whole paper).
   [seats.md](references/seats.md), with the default panel's additions (the main seat also takes
   reproducibility, the skeptic claims and novelty, unless those have seats of their own). A seat without a
   section there (software-methods, a domain seat, a custom seat) needs `--remit SEAT=TEXT`, a sentence or two
-  in the remit's words, and a custom seat `--prefix SEAT=XY`. It writes `$WORK/seats/SEAT/` and the brief
+  in the remit's words, and a custom seat `--prefix SEAT=XY`. A given remit replaces only the seat's own section:
+  the default panel's additions and `--also SEAT=SECTION` still follow it. It writes `$WORK/seats/SEAT/` and the brief
   `$WORK/briefs/SEAT.md`, and prints what each workspace holds, the supplementary files it left out (those
   neither the paper nor its supplement names; `--file` or `--all-files` adds them) and any figure without an
   image. Run it through `runs.py exec` so its output is kept, read the left-out files and the warnings,

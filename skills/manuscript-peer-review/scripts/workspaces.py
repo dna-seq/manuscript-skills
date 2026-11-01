@@ -34,7 +34,8 @@ design, the remit, the modules, the workspace's absolute path and the seat's pre
 naming the files in the workspace. A seat's remit is its own section of seats.md; in the default panel the main
 seat (the first that is neither the skeptic nor the champion) also takes the reproducibility remit and the
 skeptic claims and novelty, unless that remit has a seat of its own. --also SEAT=SECTION adds another
-section; --remit SEAT=TEXT (or SEAT=@FILE) replaces the remit, and a seat without a section of its own
+section; --remit SEAT=TEXT (or SEAT=@FILE) replaces the seat's own section (what --also and the default panel
+add still follow it), and a seat without a section of its own
 (software-methods, genomics, a custom seat) needs one. A custom seat (custom:NAME) also needs --prefix.
 
 `defender` adds `findings-to-answer.json`: every finding of the merged file except those dropped before the
@@ -366,9 +367,7 @@ def fill_brief(seat: str, prefix: str, remit: str, modules: bool, workspace: Pat
 
 def remit_for(seat: str, seats: list[str], given: dict[str, str], also: dict[str, list[str]]) -> str:
     remits = seat_remits()
-    if seat in given:
-        return given[seat]
-    if seat not in remits:
+    if seat not in remits and seat not in given:
         raise Refused(f"The seat {seat} has no remit of its own in references/seats.md; give one with "
                       f"--remit {seat}=TEXT (or {seat}=@FILE).")
     extra = list(also.get(seat, []))
@@ -377,7 +376,7 @@ def remit_for(seat: str, seats: list[str], given: dict[str, str], also: dict[str
         extra.append("reproducibility")
     if seat == "skeptic" and "claims-novelty" not in seats:
         extra.append("claims-novelty")
-    parts = [remits[seat]]
+    parts = [given.get(seat) or remits[seat]]  # a given remit replaces the seat's own section, never what --also adds
     for other in dict.fromkeys(extra):
         if other not in remits:
             raise Refused(f"--also names {other}, which has no remit in references/seats.md.")

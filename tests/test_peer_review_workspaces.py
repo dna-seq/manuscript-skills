@@ -162,16 +162,19 @@ def test_several_journals_get_one_recommendation_each(project: Path, tmp_path: P
             "Bioinformatics for this manuscript. Referee it once, and give each journal your recommendation.") in brief
 
 
-def test_a_given_remit_replaces_the_sections(project: Path, tmp_path: Path) -> None:
+def test_a_given_remit_replaces_the_seats_section_and_keeps_what_is_added_to_it(project: Path, tmp_path: Path) -> None:
+    """--remit replaces the seat's own section; the main seat still takes the reproducibility remit, and --also
+    still adds its sections (a run had to write both into the remit by hand when --remit dropped them)."""
     remit = tmp_path / "remit.md"
-    remit.write_text("you judge the software as an expert would, and you also take the reproducibility remit\n",
-                     encoding="utf-8")
+    remit.write_text("you judge the software as an expert would\n", encoding="utf-8")
     code, out = seats(project, tmp_path / "work", "--seat", "software-methods", "--remit",
-                      f"software-methods=@{remit}", "--module", "software-methods=software-and-methods")
+                      f"software-methods=@{remit}", "--also", "software-methods=claims-novelty",
+                      "--module", "software-methods=software-and-methods")
     assert code == 0, out
     brief = Path(out["seats"][0]["brief"]).read_text(encoding="utf-8")
-    assert ("Your remit: you judge the software as an expert would, and you also take the reproducibility remit. "
-            "Your domain questions are in `domain-questions.md`.") in brief
+    assert "you judge the software as an expert would" in brief
+    assert "You also take the claims-novelty remit:" in brief and "You also take the reproducibility remit:" in brief
+    assert "Your domain questions are in `domain-questions.md`." in brief
     questions = (Path(out["seats"][0]["workspace"]) / "domain-questions.md").read_text(encoding="utf-8")
     assert "## Load it when" not in questions and "## Running the authors' code" not in questions
     assert "Record in the output why the module was loaded" not in questions
