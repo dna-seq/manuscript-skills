@@ -1623,26 +1623,33 @@ def _check_one(unit: Unit, s_off: int, sent: str, m: re.Match[str], alpha: float
 
 
 # A design constant: a threshold, a cut-off, a count of agreeing runs, a tuning factor, a mapping of categories.
+COUNT = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
 CONSTANT = re.compile(
-    r"\bat least\s+\d+\s+(?:of|out of)\s+\d+\b|\b\d+\s+(?:of|out of)\s+\d+\s+(?:replicate|run|sample|genome|seed|"
-    r"read|model|annotator)s?\b|\b(?:outer|top|bottom|upper|lower)\s+\d+(?:\.\d+)?\s*%|\bfactor of\s+\d+(?:\.\d+)?|"
+    rf"\bat least\s+{COUNT}\s+(?:of|out of)\s+(?:the\s+)?{COUNT}\b|\b{COUNT}\s+(?:of|out of)\s+(?:the\s+)?{COUNT}\s+"
+    r"(?:replicate|run|sample|genome|seed|read|model|annotator)s?\b|"
+    r"\b(?:outer(?:most)?|top|bottom|upper|lower)\s+\d+(?:\.\d+)?\s*%|\bfactor of\s+\d+(?:\.\d+)?|"
     r"\b(?:threshold|cut-?off|cutoff)\s+(?:of\s+|at\s+|=\s*)?\d+(?:\.\d+)?|\bscaled by\s+(?:a factor of\s+)?\d+(?:\.\d+)?|"
     r"\bweight(?:ed)?\s+(?:of|by)\s+\d+(?:\.\d+)?|\b\w+\s+(?:labels|categories|classes|bins|tiers|levels)\s+(?:are\s+|were\s+)?"
     r"(?:mapped|grouped|collapsed|merged)\s+(?:to|into|onto)\b", re.IGNORECASE)
-# What says where a constant comes from: a citation, a calibration or table, a convention, the authors' choice.
+# Where a reader meets the design: everything but the framing sections (a paper's own "Implementation" or
+# "Algorithm" section is read as `other`) and the back matter.
+NOT_DESIGN = {"abstract", "introduction", "results", "discussion", "conclusion", "references", "back"}
+# What says where a constant's value comes from: a citation, a calibration or a table that shows one, a convention or
+# a default, the authors' choice, a sensitivity analysis. A purpose ("because a real genome's score is then not on
+# the reference scale") says why there is a threshold, not why it is this one, and a co-author still asks.
 CONSTANT_REASON = re.compile(
-    r"\[@|\\cite|\(\s*[A-Z][A-Za-z-]+(?:\s+et al\.)?,?\s+\d{4}|\b(?:Table|Fig(?:ure)?|Section|Supplementary)\s*S?\d|"
+    r"\[@|\\cite|\(\s*[A-Z][A-Za-z-]+(?:\s+et al\.)?,?\s+\d{4}|\b(?:Table|Fig(?:ure)?)\s*S?\d|"
     r"calibrat|convention|\bdefault|\bchosen|\bfollowing\b|\bas in\b|recommend|sensitiv|\btuned|optimi[sz]ed|"
-    r"selected (?:on|by|to)|cross-validat|\bbecause\b|\bso that\b|\bto (?:match|keep|limit|ensure|avoid|balance)\b",
-    re.IGNORECASE)
+    r"selected (?:on|by|to)|cross-validat", re.IGNORECASE)
 
 
 def check_constants(doc: Document, summary: CheckSummary) -> list[Finding]:
-    """Methods sentences that set a design constant with no reason in that sentence or the next one: referees read
-    an unexplained threshold as overfitting, and only the authors know where it came from."""
+    """Sentences that set a design constant (outside the Abstract, Introduction, Results and Discussion) with no reason in
+    that sentence or the next one: referees read an unexplained threshold as overfitting, and only the authors know
+    where it came from."""
     out = []
     for unit in doc.units:
-        if unit.section != "methods" or unit.kind != "prose":
+        if unit.section in NOT_DESIGN or unit.kind != "prose":
             continue
         said = sentences(unit)
         for n, (offset, sentence) in enumerate(said):
@@ -1710,7 +1717,7 @@ CHECK_TITLES = {"ledger": "The same quantity stated with different values",
                 "table-total": "Table column totals against their cells",
                 "sem-sd": "Standard errors in a table against the SD and n",
                 "statcheck": "Test statistics against their p-values",
-                "constant": "Design constants in the Methods and where each comes from"}
+                "constant": "Design constants and where each comes from"}
 def _alpha_source(source: str) -> str:
     several = re.search(r"states several: ([^;)]+)", source)
     if several:
