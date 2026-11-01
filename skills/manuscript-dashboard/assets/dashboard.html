@@ -355,6 +355,7 @@ article.paper mark.said-here.lit { background: color-mix(in srgb, var(--focus) 1
 .td-reason { flex: 1 1 220px; min-width: 0; background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 13px; }
 .td-reason[hidden] { display: none; }
 .td .means { flex-basis: 100%; margin: 0; }
+.td-steps { padding-left: 22px; } .td-steps li { margin: 4px 0 0; } .td-steps code { overflow-wrap: anywhere; }
 .save-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
 .save-bar .note { margin: 0; }
 .progress { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--surface-2); margin: 14px 0 0; }
@@ -1715,6 +1716,16 @@ __REVISION_HTML__
     const p = panels.todo, run = inv.run_id, T = inv.todo, items = TD.items;
     const page = /([^/\\]+)\.dashboard(?:\.\d+)?\.html$/.exec(decodeURIComponent(location.pathname));
     const fileName = T ? T.file : `${page ? page[1] : 'manuscript'}.todo.json`;
+    const manuscript = (T && T.manuscript) || 'the manuscript';
+    // Where the next run reads the marks: a dashboard handed over beside the manuscript (STEM.dashboard.html, opened
+    // from the disk) is in that folder, so the page names it; a run folder's copy or one sent on names the manuscript.
+    const here = (() => {
+      if (location.protocol !== 'file:' || !page || `${page[1]}.todo.json` !== fileName) return '';
+      const folder = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, '') || '/';
+      if (location.host) return `\\\\${location.host}${folder.replace(/\//g, '\\')}`;  // a Windows share
+      return /^\/[A-Za-z]:(\/|$)/.test(folder) ? `${folder.slice(1).replace(/\//g, '\\')}${folder.length === 3 ? '\\' : ''}` : folder;
+    })();
+    const where = here || `the folder that holds ${manuscript}`;
     const KIND = {decision: 'Decision', question: 'Question on an applied edit', proposal: 'Proposal', problem: 'Open problem'};
     const GROUP = {decision: 'Decisions only you can make', question: 'Applied edits that ask you something',
       proposal: 'Proposals', problem: 'Open blocker and major problems'};
@@ -1768,7 +1779,8 @@ __REVISION_HTML__
         await out.write(fileText());
         await out.close();
         dirty = false; keep();
-        say(`Saved to ${handle.name} at ${clock()}. Each mark is saved there as you make it.`);
+        say(`Saved to ${handle.name} at ${clock()}; each later mark is saved there as you make it.` +
+          (handle.name === fileName ? '' : ` The next run looks for ${fileName}, so rename the file to that.`));
       }).catch(err => { handle = null; say(`Could not save to the file (${err.message || err}); the marks are kept in this browser. Save them again.`); });
       return writing;
     };
@@ -1793,7 +1805,7 @@ __REVISION_HTML__
       const a = h('a', {href: URL.createObjectURL(new Blob([fileText()], {type: 'application/json'})), download: fileName});
       document.body.append(a); a.click(); a.remove();
       dirty = false; keep();
-      say(`Downloaded ${fileName} at ${clock()}. Put it beside the manuscript, where the next run looks for it, replacing the older one.`);
+      say(`Downloaded ${fileName} at ${clock()}. Move it into ${where}, replacing the older one: the next run reads it there.`);
     }
     const picker = h('input', {type: 'file', accept: '.json,application/json', hidden: true});
     picker.addEventListener('change', async () => {
@@ -1816,7 +1828,7 @@ __REVISION_HTML__
     const changed = () => {
       dirty = true; keep(); counts();
       if (handle) write();
-      else say(`Kept in this browser at ${clock()}; not yet in ${fileName}. Save the marks to the file for the next run.`);
+      else say(`Kept in this browser at ${clock()}; not yet in ${fileName}, so no run can read them. Save the marks to the file.`);
     };
     const setMark = (t, mark) => {
       const k = itemKey(t), was = marks.get(k);
@@ -1841,8 +1853,13 @@ __REVISION_HTML__
     const bar = h('div', {class: 'progress', role: 'img'});
     p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, 'What this run leaves for you'),
       h('p', {class: 'note', style: 'margin-top: 0'}, 'Each decision only you can make, each applied edit that asks you something, each proposal, and each open blocker or major problem nothing else answers. ',
-        'Approve one to have the next run do it (or keep it); mark it redundant to drop it, with a reason if you like, so no later run raises it again. ',
-        `The marks are kept in this browser as you make them; save them to ${fileName} beside the manuscript, where the next run reads them.`),
+        'Approve one to have the next run do it (or keep it); mark it redundant to drop it, with a reason if you like, so no later run raises it again.'),
+      h('ol', {class: 'note td-steps'},
+        h('li', null, 'Mark the items here. The marks are kept in this browser as you make them, where no run can read them.'),
+        h('li', null, h('strong', null, 'Save the marks to the file'), ` as ${fileName} in `, here ? h('code', null, here) : where,
+          '. Chrome and Edge ask for the folder once and then save each mark as you make it; other browsers download the file, to be moved there.'),
+        h('li', null, 'Then ask Claude Code or Codex to improve the paper again, or only to take in your to-do marks: the run starts with them. ',
+          'Nothing watches the file, so a session already working on the paper reads them only when it starts that run.')),
       h('div', {class: 'kpis'}, openTile, okTile, noTile, TD.set_aside.length ? kpi('Set aside', TD.set_aside.length, 'marked redundant in an earlier run') : null),
       bar,
       h('div', {class: 'save-bar'}, h('button', {class: 'td-btn', type: 'button', onclick: saveToFile}, 'Save the marks to the file'),

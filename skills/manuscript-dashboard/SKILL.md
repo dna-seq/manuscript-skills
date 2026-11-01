@@ -295,13 +295,27 @@ remembered, and save each later mark as it is made; other browsers download it, 
 recognises an item after its IDs have changed; an item that repeats one an earlier run's authors marked
 redundant is set aside under its own fold with their reason ([data contract](references/data-contract.md#to-do)).
 
+The tab tells the authors how the marks reach a run, in three steps above the counts: mark here (kept only in
+this browser), save the file, then ask Claude Code or Codex to improve the paper again or only to take in the
+marks. Where it says to save depends on how the page was opened: a dashboard handed over beside the manuscript
+(`STEM.dashboard.html` opened from the disk, under the marks file's stem) names its own folder, read from the
+page's address when it is opened, so no local path is written into the file; a run folder's copy, or one sent to
+a colleague, names the folder that holds the manuscript. A file saved under another name is flagged, since the
+next run looks only for `STEM.todo.json`.
+
 The next run reads the file: collect carries it ([step 1](#1-collect-the-inventory)), the adjudication dismisses
 what was marked redundant ([step 2](#2-adjudicate-one-record-per-problem)), and manuscript-improve's first stage
-does what was approved. The marked edits become the list `runs.py apply` takes:
+does what was approved; nothing watches the file, so a run already past that stage leaves the approved edits
+to the next one. A request for the marks alone ("apply my to-do marks") is a manuscript-improve run of that stage
+only. In a project kept in rounds, `rounds.py open` copies the file into the new round's folder, and marks saved
+in the old round's dashboard after that are merged into it at the new round's first run (`todo.py merge`, the later
+of two marks on one item winning, as **Load marks from a file** does). The marked edits become the list
+`runs.py apply` takes:
 
 ```bash
 uv run --script scripts/todo.py edits STEM.todo.json --text WORKING_COPY --output RUN/manuscript-improve/todo-edits.json
 uv run --script scripts/todo.py show STEM.todo.json   # the marks by run, approved first
+uv run --script scripts/todo.py merge STEM.todo.json --from ../v0.7/STEM.todo.json   # the previous round's later marks
 ```
 
 An approved proposal is made where its text before occurs once (an addition after its anchor); an edit marked
@@ -357,4 +371,7 @@ replaced, because the authors may have worked in it: the new one goes beside it 
 (`paper.review.20261024.docx`) and the command says so. Whether to replace the earlier file is one of the
 optional decisions at the end of the run, never a question that stops it; once the authors say so, rerun
 handover with `--replace-docx` (the Word file) or `--replace-proposed` (the corrected version). A connected manuscript started with its reading copy hands over to the project folder, named after the reading copy; `--to FOLDER --stem NAME` override that. Link the copies
-beside the manuscript in the reply.
+beside the manuscript in the reply. When the To-do tab lists anything, say how many items it holds and how the
+marks reach a run: saved with **Save the marks to the file** as `STEM.todo.json` beside the manuscript (its
+path), then a session in Claude Code or Codex asked to improve the paper again or only to take in the marks.
+The marks stay in the authors' browser until they save them, and nothing watches the file.

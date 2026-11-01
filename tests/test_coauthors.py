@@ -306,7 +306,24 @@ def test_open_copies_the_round_without_its_outputs_and_refuses_twice(rounds: Pat
     assert sorted(opened["left_behind"]) == ["comments.yaml", "paper.dashboard.html", "reviews"]
     assert opened["mentions_of_the_old_round"] == ["paper.md:1: # A Paper (draft v0.5)"]
     assert "0.6" in projects.read(rounds / "v0.6" / ".manuscript-skills.yaml")["coauthors"]["rounds"]
+    # The round had a dashboard but no marks saved yet: the new round's first run merges them from the old folder.
+    assert opened["todo_marks"] == [{"file": (rounds / "v0.6" / "paper.todo.json").as_posix(), "copied_marks": 0,
+                                     "previous": (folder / "paper.todo.json").as_posix()}]
     assert rounds_cli("open", "0.6", "--project", folder).returncode == 1
+
+
+def test_open_carries_the_authors_to_do_marks_into_the_new_round(rounds: Path) -> None:
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector")
+    saved = {"schema_version": 1, "manuscript": "paper.md", "marks": [
+        {"run_id": "R1", "kind": "decision", "id": "D1", "mark": "approved", "marked_at": "2026-10-28T10:00:00Z"}]}
+    (folder / "paper.todo.json").write_text(json.dumps(saved), encoding="utf-8")
+    done = rounds_cli("open", "0.6", "--project", folder)
+    assert done.returncode == 0, done.stderr
+    copied = rounds / "v0.6" / "paper.todo.json"
+    assert json.loads(copied.read_text(encoding="utf-8")) == saved
+    assert json.loads(done.stdout)["todo_marks"] == [{"file": copied.as_posix(), "copied_marks": 1,
+                                                      "previous": (folder / "paper.todo.json").as_posix()}]
 
 
 def test_push_into_a_synced_folder_never_replaces_without_asking(rounds: Path, tmp_path: Path) -> None:

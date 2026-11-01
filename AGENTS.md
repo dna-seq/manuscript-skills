@@ -91,6 +91,14 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   where the browser has it, else a download; localStorage meanwhile). `collect.py` carries the file into the
   inventory's `todo` and lists word-for-word repeats (`restates`); `todo.py edits` turns marked edits into the
   list `runs.py apply` takes.
+- **How the marks reach a run (0.55.0).** The tab says it in three steps above its counts (mark, save, then ask
+  Claude Code or Codex for a run), naming the folder from the page's own address when it was handed over beside
+  the manuscript (`STEM.dashboard.html` under the marks file's stem, opened from the disk; no path is written into
+  the page), else the folder that holds the manuscript. manuscript-improve's summary and the dashboard's reply say
+  the same, and "apply my to-do marks" is an improve run of its to-do stage only. `rounds.py open` reports the marks
+  file it copies (`todo_marks`); marks saved in the old round afterwards come in at the new round's first run with
+  `todo.py merge INTO --from PREVIOUS` (the later mark wins, as the tab's Load; writes only when something is newer;
+  lists `only_here`, since the file keeps no record of a mark taken back).
 - **The Decisions pane shares the marks file (0.50.0).** Once the dashboard's inventory exists, the pane lists
   the decisions as `todo_items` does (`summarizeFindings`: the adjudication's `decisions`, D1 and on, then each
   `decision: true` finding none links and not dismissed), so its IDs are the To-do tab's. It reads

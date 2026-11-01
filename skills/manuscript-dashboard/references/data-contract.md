@@ -227,8 +227,9 @@ tab shows it with the story stage's findings and edits; without it the tab shows
 never its folder; the name the tab saves under while there are no marks yet), `schema_version` (`1`), `manuscript`
 (the manuscript's file name) and `marks`. The file beside the manuscript holds the same fields but `file`, and the
 marks of every run of the paper, the oldest first. The To-do tab writes it, and so does the Decisions pane in
-Claude Code (`hooks/progress`), for decisions only, in the same shape. Each mark is on one item of one run, at
-most once:
+Claude Code (`hooks/progress`), for decisions only, in the same shape, and `todo.py merge` when it brings in
+another copy's later marks (the previous round's, in a project kept in rounds). Each mark is on one item of one
+run, at most once:
 
 | Field | Meaning |
 |---|---|

@@ -178,6 +178,16 @@ def test_the_page_writes_every_field_of_a_mark_and_only_those() -> None:
     assert "schema_version: 1" in page and "showSaveFilePicker" in page and "manuscript-todo:" in page
 
 
+def test_the_tab_says_where_to_save_the_marks_and_what_takes_them_in() -> None:
+    page = PAGE.read_text(encoding="utf-8")
+    steps = page[page.index("h('ol', {class: 'note td-steps'}"):page.index("h('div', {class: 'kpis'}, openTile")]
+    # The folder is the page's own only where it was handed over beside the manuscript, under the marks file's stem.
+    assert "`${page[1]}.todo.json` !== fileName" in page and "location.protocol !== 'file:'" in page
+    assert "the folder that holds ${manuscript}" in page
+    assert "Save the marks to the file" in steps and "Claude Code or Codex" in steps and "take in your to-do marks" in steps
+    assert "Nothing watches the file" in steps
+
+
 def test_the_dashboard_embeds_the_to_do_list_and_counts_it(tmp_path: Path) -> None:
     raw = inventory(tmp_path)
     raw["todo"] = {"schema_version": 1, "file": "paper.todo.json", "manuscript": "paper.md",
@@ -329,3 +339,50 @@ def test_todo_edits_takes_one_run_s_marks_and_undoes_an_addition_with_its_space(
     assert missing.exit_code != 0 and "R9" in missing.output
     shown = runner.invoke(todo.app, ["show", str(marks_file)])
     assert shown.exit_code == 0 and "Run R1: 0 approved, 1 redundant" in shown.output
+
+
+def test_merge_brings_in_the_marks_saved_in_the_previous_round_s_folder(tmp_path: Path) -> None:
+    # rounds.py open copied v0.7's marks into v0.8; the authors then marked more in v0.7's dashboard.
+    copied = {"schema_version": 1, "manuscript": "paper.md", "marks": [
+        mark("decision", "D1", "approved", run="R7"),
+        mark("proposal", "P2", "approved", run="R7", marked_at="2026-10-28T09:00:00Z"),
+        mark("problem", "F1", "redundant", run="R6", reason="Fixed in v0.6.")]}
+    later = {"schema_version": 1, "manuscript": "paper.md", "marks": [
+        mark("decision", "D1", "approved", run="R7"),  # the same mark: nothing to take
+        mark("proposal", "P2", "redundant", run="R7", marked_at="2026-10-29T08:00:00Z", reason="Changed my mind."),
+        mark("question", "A3", "approved", run="R7", marked_at="2026-10-29T09:00:00Z", before="Old.", after="Ünïcode.")]}
+    (tmp_path / "v0.7").mkdir()
+    (tmp_path / "v0.8").mkdir()
+    previous, current = tmp_path / "v0.7/paper.todo.json", tmp_path / "v0.8/paper.todo.json"
+    previous.write_text(json.dumps(later), encoding="utf-8")
+    current.write_text(json.dumps(copied), encoding="utf-8")
+    result = runner.invoke(todo.app, ["merge", str(current), "--from", str(previous)])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert (report["written"], report["taken"], report["only_here"]) == (True, ["R7:proposal:P2", "R7:question:A3"], ["R6:problem:F1"])
+    merged = viz.MarksFile.model_validate_json(current.read_text(encoding="utf-8"))
+    by = {viz.mark_key(m.run_id, m.kind, m.id): m for m in merged.marks}
+    assert set(by) == {"R7:decision:D1", "R7:proposal:P2", "R6:problem:F1", "R7:question:A3"} and report["marks"] == len(by)
+    assert (by["R7:proposal:P2"].mark, by["R7:proposal:P2"].reason) == ("redundant", "Changed my mind.")
+    assert by["R7:question:A3"].after == "Ünïcode." and "Ünïcode." in current.read_text(encoding="utf-8")
+    assert [m.marked_at for m in merged.marks] == sorted(m.marked_at for m in merged.marks)  # oldest first, as the tab
+    # Merged again, nothing is newer: the file is left as it is.
+    before = current.read_bytes()
+    again = runner.invoke(todo.app, ["merge", str(current), "--from", str(previous)])
+    assert again.exit_code == 0 and json.loads(again.stdout)["written"] is False and current.read_bytes() == before
+    # The other way round, the older copy takes nothing from the newer one but what it lacks.
+    back = json.loads(runner.invoke(todo.app, ["merge", str(previous), "--from", str(current)]).stdout)
+    assert back["taken"] == ["R6:problem:F1"] and back["only_here"] == []
+
+
+def test_merge_makes_the_file_when_the_round_has_none_and_refuses_a_copy_it_cannot_read(tmp_path: Path) -> None:
+    previous, current = tmp_path / "old.todo.json", tmp_path / "v0.8/paper.todo.json"
+    previous.write_text(json.dumps({"schema_version": 1, "manuscript": "paper.md", "marks": [mark("decision", "D1", "approved")]}),
+                        encoding="utf-8")
+    made = runner.invoke(todo.app, ["merge", str(current), "--from", str(previous)])
+    assert made.exit_code == 0, made.output
+    assert viz.MarksFile.model_validate_json(current.read_text(encoding="utf-8")).manuscript == "paper.md"
+    previous.write_text('{"schema_version": 1, "marks": [{"id": "D2"}]}', encoding="utf-8")
+    before = current.read_bytes()
+    refused = runner.invoke(todo.app, ["merge", str(current), "--from", str(previous)])
+    assert refused.exit_code != 0 and current.read_bytes() == before
