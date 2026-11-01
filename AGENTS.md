@@ -25,7 +25,7 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
 | manuscript-revision-marks | `@rev` marks: who revised what, unreviewed AI edits, clean twins, PDF builds, and the changelog between rounds (`rev_marks.py changes`, with `--seen`). |
 | manuscript-mark-people | Who counts as a person for the marks (`rev-marks.toml`). |
 | manuscript-other-models | Panels' seats also run on other CLIs/models, on request. |
-| manuscript-coauthors | Rounds with co-authors on Google Drive: the `coauthors` project settings, comments pulled from Google Doc exports into `vX.Y/comments.yaml`, how the next round answers each, the changelog Why from comments, releasing rounds to Drive. |
+| manuscript-coauthors | Rounds with co-authors on Google Drive: the `coauthors` project settings, comments pulled from Google Doc exports into `vX.Y/comments.yaml`, how the next round answers each, whether the run that produced the round had caught each (the gap report), the changelog Why from comments, releasing rounds to Drive. |
 
 ## Features to remember
 
@@ -39,6 +39,16 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   a Drive-for-desktop folder, or by hand), records Doc links and circulation commits, and pulls comments back;
   pushes are dry runs without `--go` and never replace a Drive file without `--replace`. Settings: the
   `coauthors` block of `.manuscript-skills.yaml`, saved by `project.py configure --drive ...`.
+- **Did the run catch the co-authors' comments (0.51.0).** Co-authors read the version a run handed over, so
+  `comments.py gaps` matches each comment against that run's adjudicated inventory (its `findings.json`, or the
+  `PAPER.dashboard.html` it rendered, which embeds the same records): a worksheet of candidates (the run's applied
+  edits whose new text holds the comment's anchor, then problems, dismissed flags, unchecked items, referees'
+  concerns and story tests by shared words and section), then `--merge GAPS.yaml` (checked first: never a dismissed
+  flag or a `CA` finding, only applied edits, a reason and an owner for a miss) and `--check [--strict]`. The ledger
+  keeps `gap_run`, `gap_matched_by` and a `gap` per item; `findings` carries them as `CoauthorGap`, and the
+  Co-authors' comments tab opens with "Did the run that produced vX.Y catch them?" (caught, partly, missed,
+  introduced; misses by reason and by owner skill, the reference review's scale). Links are checked only when
+  `gap_run` is the inventory's run. First use: Paper 1 v0.7 ([docs/coauthor-gaps-2026-11.md](docs/coauthor-gaps-2026-11.md)).
 - **The changelog between rounds** lives in manuscript-revision-marks: one changelog per round from the
   round's base, extended on every iteration, `--seen` marking rows new or changed since the draft the
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).

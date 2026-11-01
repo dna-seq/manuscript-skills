@@ -198,6 +198,21 @@ declined or set aside with the reason given. The Co-authors' comments tab (`#coa
 each comment with its thread, the before-and-after word diff, the reason and what could still be done, and
 links to its findings and to the passage's edit history in the manuscript.
 
+When the comments were matched against the run that produced the release (`comments.py gaps`), the object
+also carries `gap_run` (that run's ID) and `gap_matched_by` (who matched them), and each matched item a `gap`:
+`verdict` of `caught` (one of the run's problems names the same thing, whatever became of it), `partly` (names
+part of it), `missed` (none does) or `introduced` (the passage was written by the run's own applied edits),
+`finding_ids` (the run's problems; required for caught and partly), `change_ids` (the applied edits; required for
+introduced), `miss_reason` on the reference review's scale (none when caught), `owner` (the skill whose remit
+covers it) and `note`. An item with no `gap` was not judged; one not on point needs none. When `gap_run` is this
+inventory's `run_id`, the renderer rejects a gap that links a finding it does not have or a dismissed one, or an
+edit that was not applied; matched against another run (the next run's dashboard showing the comments on the
+release an earlier run produced), the links name that run's records and are shown without checking or linking.
+`summary.json`'s `coauthors.gap` counts the judged items by verdict, the misses by reason and by owner (leaving
+out wording preferences, later decisions and what needed the authors' knowledge), and the items not judged. The
+tab opens with "Did the run that produced vX.Y catch them?", marks each comment with its verdict and filters by
+it; the changes workbook adds a column "Did the run catch it".
+
 ## Story
 
 `story` is optional and comes from `manuscript-story`'s `findings.json`: `direction`, `confirmed` (the authors

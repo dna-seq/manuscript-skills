@@ -103,7 +103,8 @@ there:
   agent rewrote that no co-author has checked since.
 - **A run measured against a human review.** Given a co-author's review of the same draft,
   [the dashboard](skills/manuscript-dashboard/SKILL.md) shows which of its points the run caught and which
-  it missed.
+  it missed. Co-authors' Google Doc comments on a round a run produced get the same report: which the run had
+  caught, missed or written itself, and which skill each miss points at.
 
 Where other skills do the same job, these parts add a check:
 
@@ -185,7 +186,7 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Length, structure and required statements adapted to the journal and shown before and after, plus submission materials and an AI-use disclosure where needed. |
 | Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A revision plan in the referees' own numbering with the decisions you need to make, a point-by-point response letter, and a check that the revision answers each comment. |
 | Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest; with co-authors' comments on the previous round, how this round answers each one. |
-| Work in rounds with co-authors who comment on Google Docs | [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) | The shared Drive folder and how each release (`v0.5/`, `v0.6/`) goes there, remembered once for the project. The comments and suggested edits co-authors left on a round, pulled from the Google Doc into a ledger beside the round with stable ids; for each, how the next round answers it (addressed, partly, declined with the reason, or still open with what could be done), shown in the dashboard's "Co-authors' comments" section. The round's changelog for co-authors who read only the previous round, its Why taken from the comments and each change marked if it came after the draft they saw. And the release itself: the next round's folder opened, its Docs built and uploaded to Drive, never over a Doc that has comments. |
+| Work in rounds with co-authors who comment on Google Docs | [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) | The shared Drive folder and how each release (`v0.5/`, `v0.6/`) goes there, remembered once for the project. The comments and suggested edits co-authors left on a round, pulled from the Google Doc into a ledger beside the round with stable ids; for each, how the next round answers it (addressed, partly, declined with the reason, or still open with what could be done), shown in the dashboard's "Co-authors' comments" tab, with whether the run that produced the round had caught each comment, missed it or written the passage itself. The round's changelog for co-authors who read only the previous round, its Why taken from the comments and each change marked if it came after the draft they saw. And the release itself: the next round's folder opened, its Docs built and uploaded to Drive, never over a Doc that has comments. |
 | See who revised what, and which AI edits await review | [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) | For manuscripts with revision marks: notes in the Markdown or LaTeX source recording who rewrote each passage, when and why. The marks are checked and reported: which passages each review comment changed, in how many rounds and by whom, which AI edits no person has reviewed and which prose no round has read. You also get a heat map, a review PDF with those edits shaded, a PDF measured against a page limit, and the list a changelog between two rounds starts from: every passage that changed, with what it was and what it is now, for the co-authors. |
 | List the people behind the revision marks | [manuscript-mark-people](skills/manuscript-mark-people/SKILL.md) | The people in the repository, from its history and author lists, kept apart from AI models and bots. You confirm the list, so an unlisted name never counts as a person's review. |
 | Have more than one AI model read the paper | [manuscript-other-models](skills/manuscript-other-models/SKILL.md) | Only when you ask: the simulated referees and readers also read on another model, through the command-line agents you already use and pay for (from Claude Code on Codex, from Codex on Claude Code, or on Gemini), using each one's own sign-in: provider API keys in your environment are not passed on. Each seat runs in a fresh session in its own copy of the paper: Claude Code cannot read outside it, while Codex and Gemini can write only there and are told to read nothing else. Every report says which model wrote it. |
@@ -318,6 +319,8 @@ For a round with co-authors who comment on Google Docs:
 > Pull what the co-authors commented on v0.5 in the Google Doc, show how v0.6 answers each comment, update
 > the changelog from v0.5 so they can see what changed since the draft they read, and push v0.6 to the
 > shared Drive folder.
+
+> Which of the co-authors' comments on v0.7 had the run that produced v0.7 already caught, and what did it miss?
 
 The first time, the assistant asks once how the rounds reach Drive (rclone into the shared folder, a folder
 Drive for desktop syncs, or by hand) and saves it with the project. Each round's comments are kept beside
@@ -652,7 +655,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.50.1},
+  version = {0.51.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

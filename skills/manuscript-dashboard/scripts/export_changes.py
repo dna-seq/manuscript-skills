@@ -19,7 +19,8 @@ changes are listed. It opens in Excel, LibreOffice and Google Sheets, one sheet 
   severity (the Word review keeps only the blockers and major ones).
 - **Held**: the proposals left out of this version and why (another file, an alternative chosen, a decision).
 - **Co-authors' comments**, only when the run tracked them (manuscript-coauthors): each comment or suggested edit
-  on the previous release, with its author, status, the passage before and now, why, and what could still be done.
+  on the previous release, with its author, status, the passage before and now, why, and what could still be done;
+  and, when the comments were matched against the run that produced the release, whether it had caught each.
 
 Each header row stays in view and every column filters. An existing output is never overwritten: the message
 names the next attempt (manuscript-changes.2.xlsx). `runs.py handover` puts the newest one beside the
@@ -48,11 +49,17 @@ import export_docx as words  # noqa: E402
 WIDTHS = {"Id": 14, "Stage": 18, "Section": 28, "Change": 40, "Was": 60, "Now": 60, "Why": 60, "Problems": 40,
           "Status": 22, "Kind": 22, "What": 60, "Question or reason": 60, "Severity": 18, "When": 26,
           "Problem": 50, "Detail": 60, "Fix": 50, "Found by": 26, "Answered by": 18, "Author": 22, "Comment": 60,
-          "What could be done": 50}
+          "What could be done": 50, "Did the run catch it": 50}
 # A co-author comment's status and kind in the words the dashboard uses.
 COAUTHOR_STATUS = {"addressed": "Addressed", "partly": "Partly addressed", "open": "Open", "declined": "Declined",
                    "not-on-point": "Not on point"}
 COAUTHOR_KIND = {"comment": "Comment", "suggestion": "Suggested edit"}
+# Whether the run that produced the release had caught it, and why not, in the dashboard's words.
+COAUTHOR_GAP = {"caught": "Caught by the run", "partly": "Partly caught", "missed": "Missed by the run",
+                "introduced": "Written by the run"}
+MISS = {"no-skill-covers": "no skill covers it", "skill-did-not-look": "in a skill's remit, not looked at",
+        "judged-differently": "looked at, judged differently", "input-missing": "needed input the run lacked",
+        "wording-preference": "a wording preference", "later-decision": "a decision made after this version"}
 HEADER_FILL = PatternFill("solid", fgColor="DDE4EE")
 app = typer.Typer(add_completion=False)
 
@@ -84,13 +91,20 @@ def coauthor_rows(data: viz.Inventory) -> list[list[object]]:
     """One row per co-author comment: what was asked, its status, the passage before and now, why and what next. A
     suggestion's edits follow its comment, so a filtered sheet still says what it proposed."""
     rows = []
+    gaps = bool(data.coauthors and any(item.gap for item in data.coauthors.items))
     for item in data.coauthors.items if data.coauthors else []:
-        edits = [" ".join(part for part in (f"Delete: \u201c{e.deleted}\u201d" if e.deleted else "",
+        edits =[" ".join(part for part in (f"Delete: \u201c{e.deleted}\u201d" if e.deleted else "",
                                             f"Insert: \u201c{e.inserted}\u201d" if e.inserted else "") if part)
                  for e in item.edits]
         asked = "\n".join(text for text in (item.comment, *edits) if text)
-        rows.append([item.id, item.author, COAUTHOR_KIND[item.kind], item.where, asked, COAUTHOR_STATUS[item.status],
-                     item.before, item.now or item.after, item.why, item.next])
+        row = [item.id, item.author, COAUTHOR_KIND[item.kind], item.where, asked, COAUTHOR_STATUS[item.status],
+               item.before, item.now or item.after, item.why, item.next]
+        if gaps:
+            gap = item.gap
+            row.append("" if gap is None else "; ".join(part for part in (
+                COAUTHOR_GAP[gap.verdict] + (f" ({MISS[gap.miss_reason]})" if gap.miss_reason else ""),
+                gap.owner.removeprefix("manuscript-"), ", ".join([*gap.finding_ids, *gap.change_ids]), gap.note) if part))
+        rows.append(row)
     return rows
 
 
@@ -150,7 +164,7 @@ def build(data: viz.Inventory, revision: dict | None) -> tuple[Workbook, dict]:
     coauthors = coauthor_rows(data)
     if coauthors:
         sheet(book, "Co-authors' comments", ["Id", "Author", "Kind", "Section", "Comment", "Status", "Was", "Now", "Why",
-                                             "What could be done"], coauthors)
+                                             "What could be done", "Did the run catch it"][:len(coauthors[0])], coauthors)
     book.properties.title = data.title
     book.properties.creator = "manuscript-improve"
     return book, {"applied": sum(r[4] == "applied" for r in applied), "restored": sum(r[4] != "applied" for r in applied),

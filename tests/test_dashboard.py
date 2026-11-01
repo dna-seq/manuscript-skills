@@ -704,7 +704,8 @@ def test_co_author_comments_are_counted_by_status_and_by_co_author(data: dict) -
         "by_status": {"addressed": 1, "partly": 1, "open": 1, "declined": 1, "not-on-point": 1},
         "by_author": {"Robi Tacutu": {"total": 3, "addressed": 1, "open": 1, "not-on-point": 1},
                       "Olga Ivanova": {"total": 2, "partly": 1, "declined": 1}},
-        "answered": 3}  # addressed, declined and not on point; partly is not answered
+        "answered": 3,  # addressed, declined and not on point; partly is not answered
+        "gap": None}  # not matched against the run that produced v0.5
     data["coauthors"]["items"] = []
     empty = visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"]
     assert (empty["total"], empty["answered"], empty["by_author"]) == (0, 0, {})
@@ -742,6 +743,76 @@ def test_co_author_comments_must_say_why_what_next_and_link_real_problems(data: 
         c1["edits"] = [{"deleted": "published", "inserted": "the GWAS Catalog's"}]
     with pytest.raises(ValidationError):
         visualize.Inventory.model_validate(data)
+
+
+def coauthor_gaps(record: dict, run: str = "test-run") -> dict:
+    """The comments matched against the run that produced v0.5: one of each verdict; C4 is not on point."""
+    record.update(gap_run=run, gap_matched_by="the coordinating agent")
+    c1, c2, c3, s1, _ = record["items"]
+    c1["gap"] = {"verdict": "caught", "finding_ids": ["F2"]}
+    c2["gap"] = {"verdict": "partly", "finding_ids": ["F1"], "miss_reason": "skill-did-not-look",
+                 "owner": "manuscript-integrity-check", "note": "The size of each arm was never asked for."}
+    c3["gap"] = {"verdict": "missed", "miss_reason": "judged-differently", "owner": "manuscript-reference-check",
+                 "note": "The replication was read and judged cited enough."}
+    s1["gap"] = {"verdict": "introduced", "change_ids": ["C1"], "miss_reason": "wording-preference",
+                 "note": "The run wrote the word the co-author would strike."}
+    return record
+
+
+def test_co_author_comments_say_whether_the_run_that_produced_the_release_caught_them(data: dict, tmp_path: Path) -> None:
+    data["coauthors"] = coauthor_gaps(coauthors_record())
+    inventory = visualize.Inventory.model_validate(data)
+    summary = visualize.summarize(inventory)
+    assert summary["coauthors"]["gap"] == {
+        "run": "test-run", "this_run": True, "judged": 4, "not_judged": 0,
+        "by_verdict": {"caught": 1, "partly": 1, "missed": 1, "introduced": 1},
+        "miss_reasons": {"skill-did-not-look": 1, "judged-differently": 1, "wording-preference": 1},
+        # a wording preference names no skill to improve
+        "by_owner": {"manuscript-integrity-check": 1, "manuscript-reference-check": 1}}
+    page = visualize.dashboard_html(inventory, summary, tmp_path)
+    assert embedded(page)["inventory"]["coauthors"]["items"][3]["gap"]["change_ids"] == ["C1"]
+    assert "Did the run that produced" in page and "Co-authors' comments the run had caught" in page
+    del data["coauthors"]["items"][2]["gap"]
+    assert visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"]["gap"]["not_judged"] == 1
+
+
+@pytest.mark.parametrize("mutation", ["no-run", "caught-without-findings", "partly-without-findings",
+                                      "introduced-without-edits", "caught-with-reason", "unknown-finding",
+                                      "dismissed-finding", "proposed-edit", "verdict", "reason"])
+def test_a_co_author_gap_names_real_records_of_the_run(data: dict, mutation: str) -> None:
+    data["coauthors"] = coauthor_gaps(coauthors_record())
+    c1, c2, c3, s1, _ = data["coauthors"]["items"]
+    if mutation == "no-run":
+        data["coauthors"]["gap_run"] = ""
+    elif mutation == "caught-without-findings":
+        c1["gap"]["finding_ids"] = []
+    elif mutation == "partly-without-findings":
+        c2["gap"]["finding_ids"] = []
+    elif mutation == "introduced-without-edits":
+        s1["gap"]["change_ids"] = []
+    elif mutation == "caught-with-reason":
+        c1["gap"]["miss_reason"] = "skill-did-not-look"
+    elif mutation == "unknown-finding":
+        c1["gap"]["finding_ids"] = ["absent"]
+    elif mutation == "dismissed-finding":
+        c1["gap"]["finding_ids"] = ["F4"]
+    elif mutation == "proposed-edit":
+        s1["gap"]["change_ids"] = ["C3"]
+    elif mutation == "verdict":
+        c3["gap"]["verdict"] = "spotted"
+    else:
+        c3["gap"]["miss_reason"] = "overlooked"
+    with pytest.raises(ValidationError):
+        visualize.Inventory.model_validate(data)
+
+
+def test_gaps_matched_against_an_earlier_run_are_kept_without_its_links(data: dict) -> None:
+    """The next run's dashboard shows the comments on the release an earlier run produced: their verdicts stay, and
+    the problems they name belong to that run, so they are not checked against this one."""
+    data["coauthors"] = coauthor_gaps(coauthors_record(), run="the-run-before")
+    data["coauthors"]["items"][0]["gap"]["finding_ids"] = ["IC-9"]
+    gap = visualize.summarize(visualize.Inventory.model_validate(data))["coauthors"]["gap"]
+    assert gap["this_run"] is False and gap["run"] == "the-run-before" and gap["judged"] == 4
 
 
 def test_the_co_authors_tab_carries_the_comments_and_names_the_ledger_only(data: dict, tmp_path: Path) -> None:

@@ -289,3 +289,13 @@ def test_the_changes_workbook_adds_the_co_authors_comments_only_when_the_run_tra
     assert rows[2][:6] == ("S1", "Olga Ivanova", "Suggested edit", "1. Introduction", "Delete: “cheap” Insert: “inexpensive”", "Declined")
     assert rows[2][8:] == ("Cheap is the plainer word.", None)
     assert sheet.freeze_panes == "A2" and sheet.auto_filter.ref
+    # Matched against the run that produced v0.5, each row also says whether that run had caught it.
+    data["coauthors"]["gap_run"] = data["run_id"]
+    data["coauthors"]["items"][0]["gap"] = {"verdict": "partly", "finding_ids": ["IC-1"], "miss_reason": "skill-did-not-look",
+                                            "owner": "manuscript-integrity-check", "note": "The build was never asked for."}
+    book, _ = changes.build(viz.Inventory.model_validate(data), revision)
+    rows = list(book["Co-authors' comments"].iter_rows(values_only=True))
+    assert rows[0][-1] == "Did the run catch it" and len(rows[0]) == 11
+    assert rows[1][-1] == ("Partly caught (in a skill's remit, not looked at); integrity-check; IC-1; "
+                           "The build was never asked for.")
+    assert rows[2][-1] in ("", None)  # not judged

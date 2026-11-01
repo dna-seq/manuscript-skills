@@ -4,7 +4,8 @@ description: >-
   Run rounds of a manuscript with co-authors who comment on Google Docs: remember the shared Drive folder
   and how each release (v0.5/, v0.6/) goes there, pull the comments and suggested edits on a round into a
   ledger with stable ids (C12, S3), say how the next round answers each (addressed, partly, declined, or
-  open with what could be done), feed the dashboard's "Co-authors' comments" section, write the changelog
+  open with what could be done), feed the dashboard's "Co-authors' comments" tab, report which of them the run
+  that produced the round had caught, missed or written itself, write the changelog
   for co-authors who only read the previous round (Why from the comments, and what changed since the draft
   they saw), and push the release to Drive. Use when the authors mention co-authors' comments on a Google
   Doc or Drive, "check the comments", "release v0.7" or "push the round to Drive", or when the project's
@@ -123,7 +124,7 @@ open comment becomes a `CA` finding the later stages fix.
 
 ## 3. Answer them in the next round
 
-Edit the next round's master (open it first, step 6). Where the master carries revision marks, the segment that
+Edit the next round's master (open it first, step 7). Where the master carries revision marks, the segment that
 answers a comment takes the comment's id (`@rev C12`, `C12a`, `C12b` for several places; see
 manuscript-revision-marks), so the changelog and the dashboard link the passage to the comment.
 
@@ -151,7 +152,65 @@ fully answered, its action the ledger's `next`) with the `coauthors` object, and
 findings cite. The dashboard shows them as its "Co-authors' comments" section: every comment with its
 replies, the passage before and after, why, and what could still be done ([data contract](../manuscript-dashboard/references/data-contract.md)).
 
-## 5. The changelog for co-authors
+## 5. Did the run that produced the round catch them
+
+When a round was produced by a `manuscript-improve` run (its corrected version, released to the co-authors), their
+comments are a second reading of the text that run reviewed. Matching each comment against the run's own records
+shows what the run caught and what it missed, and where to improve the skills; it is the authors' answer to "did
+the review see this?". Do it whenever the comments are on a run's output, once the comments are triaged (step 2).
+
+The run's records are its adjudicated inventory: `RUN/manuscript-dashboard/findings.json`, or the dashboard it
+rendered beside the manuscript (`PAPER.dashboard.html` carries the same records, so a run whose folder stayed on
+another computer can still be read). First the worksheet, each comment with the run's records nearest to it:
+
+```bash
+uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory v0.7/PAPER.dashboard.html \
+  --out RUN/manuscript-coauthors/gaps-worksheet.md
+```
+
+It lists, by shared words and the comment's section, the run's applied edits that wrote the commented passage
+(**written by the run's edit …**: the anchor is in the edit's new text and not in its old), its problems, dismissed
+flags, unchecked items, referees' concerns and story tests. They are candidates: read each before using it, and
+look further when nothing fits. Then write one gap record per comment in a YAML file and merge it:
+
+```yaml
+run: 20261028T165906Z-154d8220      # the inventory's run
+matched_by: the coordinating agent, after the comments arrived
+items:
+  C46: {verdict: caught, findings: [ST-8], note: Raised and proposed; left for the authors.}
+  C109: {verdict: introduced, changes: [improve.C40], miss_reason: judged-differently, owner: manuscript-improve,
+         note: The run wrote this sentence for its referees; the re-check passed it as accurate.}
+  C62: {verdict: missed, miss_reason: skill-did-not-look, owner: manuscript-integrity-check,
+        note: The limitation is stated without what it costs a reader.}
+```
+
+```bash
+uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory … --merge RUN/manuscript-coauthors/gaps.yaml
+uv run --script scripts/comments.py gaps v0.7/comments.yaml --inventory … --check [--strict]
+```
+
+- `caught`: one of the run's problems names the same thing, whatever became of it (often a proposal or a decision
+  left for the authors, which is why the co-author met it again). `partly`: a problem names part of it. Both list
+  the problems in `findings`. `missed`: none does. `introduced`: the passage commented on was written by the run's
+  own applied edits, listed in `changes` (the worksheet finds them).
+- Anything not caught in full says why, on the dashboard's scale for a reference review (`no-skill-covers`,
+  `skill-did-not-look`, `judged-differently`, `input-missing`, `wording-preference`, `later-decision`), names the
+  skill whose remit covers it (`owner`, required for the two reasons that are a skill's) and says it in a sentence
+  (`note`). A comment the run looked at and dismissed is `missed` with `judged-differently`: a dismissed flag is
+  never a match, and nor is a problem the co-authors stage made from the comment itself.
+- Judge every co-author comment except those not on point. An open point a run carried into the ledger (not a
+  co-author's comment) may stay unjudged; `--check` lists what is, and `--strict` fails on it.
+- The merge writes nothing while one record has a problem (an unknown or dismissed problem, a proposed edit, a
+  missing reason) and keeps the ledger to one run (`gap_run`).
+
+`findings` (step 4) then carries each verdict to the dashboard: the Co-authors' comments tab opens with "Did the
+run that produced vX.Y catch them?" (caught, missed, written by the run; why the rest was missed; the misses by
+the skill whose remit covers them), each comment carries its verdict with links to the run's problems and edits,
+and a filter shows the misses. Re-render the dashboard of the run that produced the round (collect, then render)
+so the links resolve; in the next run's dashboard the verdicts stay, unlinked. Tell the authors the counts and the
+misses that matter most, quoted, in plain words.
+
+## 6. The changelog for co-authors
 
 A co-author who read only v0.5 gets the round's changelog. Build it from the round's base (the previous master
 as it was when this round opened) and the comments it answers:
@@ -168,7 +227,7 @@ The base is `rounds.<round>.base` and the last circulated commit the last entry 
 `why`. The rest follow manuscript-revision-marks' "Changelog between rounds": Why from the record or left for
 the authors, every row kept, and the changelog **extended** on each iteration of the round, never rewritten.
 
-## 6. Open the next round and release it
+## 7. Open the next round and release it
 
 ```bash
 uv run --script scripts/rounds.py open 0.7                 # copy v0.6/ to v0.7/, without its runs, build and comments
@@ -194,11 +253,14 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
 
 One short state line per round: comments pulled (by co-author), how many are answered, partly answered,
 declined and still open, and the open ones that need the authors (`decision: true`), each quoted with what
-could be done. Give the paths of the ledger, the changelog and the dashboard. Say what could not be done (a
-Doc that could not be exported, anchors not found) once, plainly.
+could be done. When the comments were matched against the run that produced the round (step 5), how many it
+had caught, missed or written itself, and the misses that matter most, each quoted with the skill it points at.
+Give the paths of the ledger, the changelog and the dashboard. Say what could not be done (a Doc that could not
+be exported, anchors not found) once, plainly.
 
 ## Files
 
-- `scripts/comments.py`: import, add, status, findings and changelog: the ledger of a round's comments.
+- `scripts/comments.py`: import, add, status, findings, changelog and gaps: the ledger of a round's comments, and
+  whether the run that produced the round had caught each.
 - `scripts/rounds.py`: show, open, push, record, circulated and pull: the rounds on Drive.
 - The settings live in the project file and are saved by `manuscript-integrity-check/scripts/project.py configure`.

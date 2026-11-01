@@ -1023,6 +1023,9 @@ __REVISION_HTML__
     const CS = S.coauthors;
     if (CS && CS.total && panels.coauthors) tiles.push(tileTo(kpi("Co-authors' comments answered", `${CS.answered} of ${CS.total}`,
       `on ${release(CS.round)}${CS.next_round ? ` by ${release(CS.next_round)}` : ''} · ${CS.by_status.open} open · ${CS.by_status.partly} partly addressed`), 'coauthors'));
+    const CG = CS && CS.gap;
+    if (CG && CG.judged && panels.coauthors) tiles.push(tileTo(kpi("Co-authors' comments the run had caught", `${CG.by_verdict.caught + CG.by_verdict.partly} of ${CG.judged}`,
+      `${CG.by_verdict.caught} in full, ${CG.by_verdict.partly} in part · ${CG.by_verdict.missed} missed · ${CG.by_verdict.introduced} written by the run`), 'coauthors'));
     if ((S.chosen_venues || []).length) tiles.push(kpi('Journals to target', S.chosen_venues.length, S.chosen_venues.join(' · ')));
     const picked = inv.venues.filter(v => v.chosen && v.ai_policy);
     const amber = v => Object.values(v.ai_policy.aspects).filter(a => a.level === 'warning').length;
@@ -1508,6 +1511,41 @@ __REVISION_HTML__
       h('div', {class: 'ladder-key'}, ORDER.map(s => h('span', null, h('span', {class: 'sw', style: `background: ${STATE[s][2]}; height: 10px; width: 10px`}), STATE[s][1]))),
       h('p', {class: 'note'}, 'The numbers after each bar count its statuses in the order of the key, leaving out those with none. Select a co-author to see only their comments.'))));
 
+    // Did the run that produced the release catch them: the co-authors read the version the run handed over, so each
+    // comment is matched against the run's own problems and applied edits, as a reference review is (comments.py gaps).
+    const G = S.coauthors && S.coauthors.gap;
+    const GAP_ORDER = ['caught', 'partly', 'missed', 'introduced'];
+    const GAP = {caught: ['●', 'Caught by the run', 'var(--b-full)', '#ffffff'], partly: ['◐', 'Partly caught', 'var(--b-partial)', '#0b0b0b'],
+      missed: ['○', 'Missed by the run', 'var(--b-missed)', '#0b0b0b'], introduced: ['✎', 'Written by the run', 'var(--sev-major)', '#ffffff']};
+    const gapChip = v => { const [icon, label, color, ink] = GAP[v]; return h('span', {class: 'ca-chip'}, h('span', {class: 'icon', 'aria-hidden': 'true', style: `background: ${color}; color: ${ink}`}, icon), label); };
+    const openEdit = id => {
+      if (inRevision(id) && openRevised) return openRevised(id);
+      selectTab('edits');
+      const el = document.getElementById(`edit-${id}`);
+      if (el) el.scrollIntoView({block: 'start', behavior: motion()});
+    };
+    const gapNamed = c => [
+      ...c.gap.finding_ids.map(id => G.this_run && byId.has(id) ? link(`Problem ${id}`, () => openFinding(id), `Open the run's problem ${id}`) : h('span', {class: 'tag'}, `Problem ${id}`)),
+      ...c.gap.change_ids.map(id => G.this_run && inv.changes.some(x => x.id === id) ? link(`Edit ${id}`, () => openEdit(id), `Open the run's edit ${id}`) : h('span', {class: 'tag'}, `Edit ${id}`))];
+    if (G) {
+      const v = G.by_verdict, reasons = Object.entries(G.miss_reasons || {}), owners = Object.entries(G.by_owner || {});
+      p.append(h('h2', {class: 'sec'}, `Did the run that produced ${from} catch them?`));
+      p.append(h('p', {class: 'note', style: 'margin-top: 0'}, `Your co-authors read ${from} after ${G.run ? `run ${G.run}` : 'a run'} had reviewed and corrected it, so their comments are a second reading of the same text. Each one was matched against the run's own records${C.gap_matched_by ? `, by ${C.gap_matched_by}` : ''}: caught when one of the run's problems names the same thing (often left open as a proposal or a decision for you), partly when it names part of it, missed when none does, and written by the run when the passage commented on came from one of the run's own applied edits. A miss says why and which skill's remit it falls in.`,
+        G.this_run ? '' : ' That run\'s records are not in this dashboard, so the problems and edits a comment names are listed without links.'));
+      p.append(h('div', {class: 'kpis'},
+        kpi('Caught', `${v.caught + v.partly} of ${G.judged}`, `${v.caught} in full, ${v.partly} in part`, true),
+        kpi('Missed', v.missed, 'no problem of the run names it'),
+        kpi('Written by the run', v.introduced, "the passage came from one of the run's own edits"),
+        G.not_judged ? kpi('Not judged yet', G.not_judged, 'comments not matched yet') : null));
+      p.append(h('div', {class: 'grid', style: 'margin-top: 16px'},
+        card('By verdict', barChart(GAP_ORDER.filter(k => v[k]).map(k => ({key: k, label: GAP[k][1], count: v[k], color: GAP[k][2]})), {unit: 'comment'})),
+        reasons.length ? card('Why the rest was not caught in full', barChart(reasons.map(([k, n]) => ({key: k, label: MISS[k] || k, count: n,
+          color: k === 'skill-did-not-look' || k === 'judged-differently' ? 'var(--b-missed)' : 'var(--deemph)'})), {unit: 'comment'}),
+          h('p', {class: 'note'}, 'Orange marks misses a skill could have caught: the problem was in its remit. Grey ones needed something no skill had, or are not defects.')) : null,
+        owners.length ? card('Misses by the skill whose remit covers them', barChart(owners.map(([k, n]) => ({key: k, label: skillName(k), lead: SKILL[k] ? badge(k) : null, count: n})), {unit: 'comment'}),
+          h('p', {class: 'note'}, 'Where to improve the skills first; wording preferences, later decisions and what only the authors could know are left out.')) : null));
+    }
+
     // Where the answer stands in the manuscript: the passage's revision-mark history, or the passage itself.
     const inText = new Set();
     if (D.has_paper && paper) { index(); for (const c of items) if (c.now && locate(c.now)) inText.add(c.id); }
@@ -1539,7 +1577,7 @@ __REVISION_HTML__
     for (const c of items) {
       const pending = c.status === 'open' || c.status === 'partly';
       const toggle = h('button', {class: 'ghost', type: 'button', 'aria-controls': `ca-body-${c.id}`});
-      const head = h('header', null, h('strong', null, c.id), chip(c.status),
+      const head = h('header', null, h('strong', null, c.id), chip(c.status), c.gap ? gapChip(c.gap.verdict) : null,
         h('span', {class: 'tag'}, KIND[c.kind]), h('span', {class: 'who'}, c.author), c.date ? h('span', {class: 'note', style: 'margin: 0'}, when(c.date)) : null,
         c.where ? h('span', {class: 'note', style: 'margin: 0'}, `· ${c.where}`) : null,
         c.resolved === true ? h('span', {class: 'tag'}, 'resolved in the Doc') : c.resolved === false ? h('span', {class: 'tag'}, 'unresolved in the Doc') : null,
@@ -1566,7 +1604,12 @@ __REVISION_HTML__
         c.now ? h('div', null, h('h4', null, 'The passage that answers it'), h('blockquote', null, c.now)) : null,
         c.why ? h('p', null, h('strong', null, 'Why: '), c.why) : null,
         c.next ? h('div', {class: pending ? 'next' : null}, h('strong', null, 'What could be done: '), c.next) : null,
-        links.length ? h('div', {class: 'links'}, links) : null);
+        links.length ? h('div', {class: 'links'}, links) : null,
+        c.gap ? h('div', null, h('h4', null, 'Did the run catch it?'),
+          h('p', null, gapChip(c.gap.verdict), c.gap.miss_reason ? h('strong', {style: 'margin-left: 8px'}, MISS[c.gap.miss_reason]) : null,
+            c.gap.owner ? h('span', {style: 'margin-left: 6px'}, SKILL[c.gap.owner] ? badge(c.gap.owner) : h('span', {class: 'tag'}, short(c.gap.owner))) : null),
+          c.gap.note ? h('p', null, c.gap.note) : null,
+          gapNamed(c).length ? h('div', {class: 'links'}, gapNamed(c)) : null) : null);
       const box = h('article', {class: 'card ca', id: `ca-${c.id}`}, head, asked, body);
       const setOpen = on => { body.hidden = !on; toggle.setAttribute('aria-expanded', String(on)); toggle.textContent = on ? 'Hide the answer' : 'Show the answer'; };
       toggle.addEventListener('click', () => setOpen(body.hidden));
@@ -1576,8 +1619,12 @@ __REVISION_HTML__
     }
 
     const shown = h('span', {class: 'note', role: 'status', style: 'margin: 0; align-self: center'});
+    const gapCount = k => items.filter(c => c.gap && (c.gap.verdict === k || (k === 'short' && c.gap.verdict !== 'caught'))).length;
+    const gapPick = h('select', {'aria-label': 'Did the run catch it', style: 'width: auto; flex: 1 1 200px'},
+      options([['short', `Not caught in full (${gapCount('short')})`], ...GAP_ORDER.filter(gapCount).map(k => [k, `${GAP[k][1]} (${gapCount(k)})`])], 'Caught or not'));
     const passes = c => (!statusPick.value || c.status === statusPick.value || (statusPick.value === 'pending' && (c.status === 'open' || c.status === 'partly')))
-      && (!authorPick.value || c.author === authorPick.value);
+      && (!authorPick.value || c.author === authorPick.value)
+      && (!gapPick.value || (c.gap && (c.gap.verdict === gapPick.value || (gapPick.value === 'short' && c.gap.verdict !== 'caught'))));
     function draw() {
       let k = 0;
       for (const c of items) { const on = passes(c); boxes.get(c.id).hidden = !on; k += on; }
@@ -1585,9 +1632,9 @@ __REVISION_HTML__
       for (const row of bars.children) row.classList.toggle('active', row.querySelector('.bar-label').textContent === authorPick.value);
     }
     const every = on => () => { for (const c of items) if (passes(c)) openers.get(c.id)(on); };
-    statusPick.addEventListener('change', draw); authorPick.addEventListener('change', draw);
+    statusPick.addEventListener('change', draw); authorPick.addEventListener('change', draw); gapPick.addEventListener('change', draw);
     p.append(h('h2', {class: 'sec'}, 'Every comment, in order'),
-      h('div', {class: 'filters', style: 'display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px'}, statusPick, authorPick,
+      h('div', {class: 'filters', style: 'display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px'}, statusPick, authorPick, G ? gapPick : null,
         h('button', {class: 'ghost', type: 'button', onclick: every(true)}, 'Show every answer'), h('button', {class: 'ghost', type: 'button', onclick: every(false)}, 'Hide every answer'), shown),
       h('div', {class: 'ca-list'}, [...boxes.values()]));
     draw();
@@ -1605,7 +1652,7 @@ __REVISION_HTML__
     openComment = id => {
       const c = items.find(x => x.id === id), el = boxes.get(id);
       if (!c || !el) { selectTab('coauthors'); return; }
-      if (!passes(c)) { statusPick.value = ''; authorPick.value = ''; draw(); }
+      if (!passes(c)) { statusPick.value = ''; authorPick.value = ''; gapPick.value = ''; draw(); }
       selectTab('coauthors');
       openers.get(id)(true);
       el.scrollIntoView({block: 'start', behavior: motion()});

@@ -443,3 +443,110 @@ def test_comments_on_a_second_doc_keep_their_own_master(rounds: Path, capsys) ->
     billions = next(i["id"] for i in own if i.get("anchor") == "billions of dollars")
     assert rows[billions]["change"] == "changed" and "US$80" in rows[billions]["after"]
     assert rows["C2"]["change"] == "unchanged"  # the paper's own sentence did not change
+
+
+# --- did the run that produced the round catch the comments (comments.py gaps) ---------------------------------
+
+def run_inventory() -> dict:
+    """What the run that produced v0.5 recorded: a problem about the cost sentence, a dismissed flag, a problem the
+    co-authors stage made from a comment, and the applied edit that wrote the modules sentence."""
+    evidence = [{"path": "stage-report.md", "quote": "x"}]
+    def finding(fid: str, summary: str, skills: list[str], assessment: str = "confirmed", quote: str = "") -> dict:
+        return {"id": fid, "category": "Claims and evidence", "section": "1. Introduction", "summary": summary,
+                "severity": "major", "assessment": assessment, "resolution": "open", "skills": skills,
+                "quote": quote, "action": "", "evidence": evidence}
+    return {"schema_version": 2, "run_id": "20261020T090000Z-abc", "findings": [
+        finding("IC-1", "The sequencing cost quoted is a whole project's budget, not a genome's", ["manuscript-integrity-check"],
+                quote="billions of dollars"),
+        finding("PE-2", "A list of modules is promised and never given", ["manuscript-prose-edit"], "dismissed"),
+        finding("CA-1", "C3 (Bob Ray): Say which modules.", ["manuscript-coauthors"])],
+        "changes": [{"id": "IC-C1", "status": "applied", "section": "1. Introduction", "summary": "Define modules",
+                     "before": "Modules are files.", "after": "Modules are versioned tables of variants and their evidence."},
+                    {"id": "IC-C2", "status": "proposed", "section": "1. Introduction", "summary": "Name the modules",
+                     "before": "x", "after": "y"}],
+        "dismissed": [{"skill": "manuscript-prose-edit", "summary": "The versioned tables of modules are never named",
+                       "why": "Table 1 lists the modules."}], "not_checked": [], "coverage": []}
+
+
+def gap_file(path: Path, items: dict, run: str = "20261020T090000Z-abc") -> Path:
+    path.write_text(yaml.safe_dump({"run": run, "matched_by": "the coordinating agent", "items": items}), encoding="utf-8")
+    return path
+
+
+def test_the_gap_worksheet_names_the_edit_that_wrote_a_passage_and_the_problems_near_it(rounds: Path, tmp_path: Path) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md")
+    # The run's records reach the worksheet from its dashboard as well as from its findings.json.
+    page = tmp_path / "paper.dashboard.html"
+    page.write_text('<html><script type="application/json" id="inventory">'
+                    + json.dumps({"inventory": run_inventory(), "summary": {}}) + "</script></html>", encoding="utf-8")
+    sheet = tmp_path / "sheet.md"
+    assert cli("gaps", ledger, "--inventory", page, "--out", sheet) == 0
+    text = sheet.read_text(encoding="utf-8")
+    sections = {part.split(" ", 1)[0]: part for part in text.split("\n## ")[1:]}
+    assert set(sections) == {"C1", "C2", "S1", "C3"}
+    assert "Written by the run's edit IC-C1" in sections["C3"] and "IC-C2" not in text  # applied edits only
+    assert "Problem IC-1" in sections["C2"] and "Problem IC-1" not in sections["C3"]
+    assert "Dismissed by manuscript-prose-edit" in sections["C3"]
+    assert "CA-1" not in text  # made from the comments, so never a candidate for having caught them
+    assert "Written by the run" not in sections["C2"]  # its sentence is the authors', unchanged by the run
+
+
+def test_gap_records_merge_only_when_they_name_the_runs_records(rounds: Path, tmp_path: Path, capsys) -> None:
+    ledger, new = answered(rounds)
+    inventory = tmp_path / "findings.json"
+    inventory.write_text(json.dumps(run_inventory()), encoding="utf-8")
+    before = ledger.read_text(encoding="utf-8")
+    bad = gap_file(tmp_path / "bad.yaml", {
+        "C2": {"verdict": "caught", "findings": ["PE-2"]},  # a dismissed flag is never a match
+        "C3": {"verdict": "caught", "findings": ["CA-1"]},  # nor a problem made from the comment itself
+        "S1": {"verdict": "introduced", "changes": ["IC-C2"], "miss_reason": "skill-did-not-look", "note": "n"},
+        "C1": {"verdict": "missed", "note": "No reason given."},
+        "C9": {"verdict": "missed"}})
+    assert cli("gaps", ledger, "--inventory", inventory, "--merge", bad) == 1
+    err = capsys.readouterr().err
+    for words in ("PE-2 is a dismissed flag", "CA-1 was made from the co-authors' comments", "IC-C2 was only proposed",
+                  "C1: missed: say why", "skill-did-not-look: name the skill", "C9: not a comment of this ledger"):
+        assert words in err
+    assert ledger.read_text(encoding="utf-8") == before  # nothing written
+    assert cli("gaps", ledger, "--inventory", inventory, "--merge", gap_file(tmp_path / "other.yaml", {}, run="another-run")) == 1
+    good = gap_file(tmp_path / "gaps.yaml", {
+        "C2": {"verdict": "caught", "findings": ["IC-1"]},
+        "C3": {"verdict": "introduced", "changes": ["IC-C1"], "miss_reason": "judged-differently",
+               "owner": "manuscript-improve", "note": "The run wrote the sentence  the comment asks about."}})
+    capsys.readouterr()
+    assert cli("gaps", ledger, "--inventory", inventory, "--merge", good) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["by_verdict"] == {"caught": 1, "partly": 0, "missed": 0, "introduced": 1}
+    assert result["not_judged"] == ["C1", "S1"] and result["problems"] == []
+    data = ledger_of(ledger)
+    assert data["gap_run"] == "20261020T090000Z-abc" and data["gap_matched_by"] == "the coordinating agent"
+    by = {i["id"]: i for i in data["items"]}
+    assert by["C3"]["gap"]["note"] == "The run wrote the sentence the comment asks about."  # spaces folded
+    assert cli("gaps", ledger, "--inventory", inventory, "--check") == 0  # two not judged yet: listed, not a problem
+    assert cli("gaps", ledger, "--inventory", inventory, "--check", "--strict") == 1
+    by["C1"].update(status="not-on-point", why="A general remark.")  # needs no verdict
+    by["S1"]["gap"] = {"verdict": "missed", "miss_reason": "wording-preference", "note": "A preferred word."}
+    by["C2"].update(status="addressed", now="Sequencing consumables for a human genome now cost US$80 to US$200.",
+                    why="The cost now quotes the consumables.")
+    by["S1"].update(status="open", next="Apply the replacement.")
+    by["C3"].update(status="declined", why="The modules are named in Table 1 already.")
+    ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    assert cli("gaps", ledger, "--inventory", inventory, "--check", "--strict") == 0
+    out = tmp_path / "run" / "manuscript-coauthors" / "findings.json"
+    assert cli("findings", ledger, "--new", new, "--out", out) == 0
+    block = json.loads(out.read_text(encoding="utf-8"))["coauthors"]
+    assert block["gap_run"] == "20261020T090000Z-abc"
+    items = {i["id"]: i for i in block["items"]}
+    assert items["C2"]["gap"] == {"verdict": "caught", "finding_ids": ["IC-1"], "change_ids": [], "miss_reason": None,
+                                  "owner": "", "note": ""}
+    assert items["C3"]["gap"]["change_ids"] == ["IC-C1"] and items["C1"]["gap"] is None
+
+
+def test_a_gap_outside_the_scale_is_a_malformed_ledger(rounds: Path) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md")
+    data = ledger_of(ledger)
+    data["items"][0]["gap"] = {"verdict": "spotted"}
+    ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    assert cli("status", ledger) == 2

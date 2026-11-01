@@ -202,7 +202,8 @@ second rendering goes to `dashboard.2`; give it an inventory and the revision bu
   manuscript-coauthors (each comment or suggested edit with its thread, where it sits and the text it is
   attached to, its status by co-author, the before-and-after word diff, the passage that answers it, why and
   what could still be done, with links to its problems and to the passage's edit history; `#coauthors/C40`
-  opens one); the journals, with each venue's AI policy as icons
+  opens one; and, when the comments were matched against the run that produced that release, whether the run had
+  caught each, missed it or written the passage itself, why it missed the rest and in which skill's remit); the journals, with each venue's AI policy as icons
   (a red flag ⚑ for a drafting ban, required prompts or records of AI changes, a detector, declared use
   held against the paper); word-level diffs of the edits, each with why it was made and its evidence; the
   figures (each one as rendered, with its verdict, problems and recommended changes, a redrawn draft beside
@@ -272,7 +273,8 @@ Sheets: **Applied** (every edit in this version: stage, section, before, after, 
 open problems), **Open problems** (every
 problem no applied edit answers, all severities), **Held** (the proposals left out of this version, with
 why) and, when the run tracked them, **Co-authors' comments** (each comment on the previous release: its
-author, kind, section, status, the passage before and now, why, and what could still be done). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
+author, kind, section, status, the passage before and now, why, what could still be done and, when they were
+matched against the run that produced the release, whether that run had caught it). It opens in Excel, LibreOffice and Google Sheets; a Google Sheet is made by uploading it to Drive, which
 waits for the authors to ask, like the Word file.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments,
 tracked changes become suggestions and the paragraphs stay justified. Uploading is sending the paper somewhere, so it waits for the authors to ask.

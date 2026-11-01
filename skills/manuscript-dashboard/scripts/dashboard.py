@@ -545,6 +545,34 @@ class CoauthorEdit(Record):
     inserted: str = ""
 
 
+GAP_VERDICTS = ("caught", "partly", "missed", "introduced")
+# Misses that point at no skill: a reviewer's preferred wording, a later change of plan, or what only the authors know.
+NO_SKILL_TO_IMPROVE = ("wording-preference", "later-decision", "input-missing")
+
+
+class CoauthorGap(Record):
+    """Whether the run that produced the release had caught what a co-author raised on it: a finding of the run names
+    the same problem (caught), part of it (partly), none does (missed), or the passage was written by one of the run's
+    applied edits (introduced). Judged like a reference review, after the comments arrived."""
+    verdict: Literal["caught", "partly", "missed", "introduced"]
+    finding_ids: list[Identity] = Field(default_factory=list)  # the run's problems that name it
+    change_ids: list[Identity] = Field(default_factory=list)  # the run's applied edits that wrote the passage
+    miss_reason: Literal["no-skill-covers", "skill-did-not-look", "judged-differently", "input-missing",
+                         "wording-preference", "later-decision"] | None = None
+    owner: str = ""  # the skill whose remit covers it
+    note: str = ""
+
+    @model_validator(mode="after")
+    def named(self) -> CoauthorGap:
+        if self.verdict in ("caught", "partly") and not self.finding_ids:
+            raise ValueError(f"A co-author comment the run {self.verdict} names the run's findings.")
+        if self.verdict == "introduced" and not self.change_ids:
+            raise ValueError("A passage the run introduced names the applied edits that wrote it.")
+        if self.verdict == "caught" and self.miss_reason:
+            raise ValueError("A co-author comment the run caught in full has no miss reason.")
+        return self
+
+
 class CoauthorComment(Record):
     """One comment or suggested edit a co-author left on the previous release, and how the next release answers it."""
     id: Identity  # C40 for a comment, S3 for a suggested edit
@@ -568,6 +596,7 @@ class CoauthorComment(Record):
     next: str = ""  # what could still be done
     rev_ids: list[Identity] = Field(default_factory=list)  # revision-mark segments of the new round
     finding_ids: list[Identity] = Field(default_factory=list)
+    gap: CoauthorGap | None = None  # did the run that produced the release catch it
 
     @model_validator(mode="after")
     def answered(self) -> CoauthorComment:
@@ -587,6 +616,8 @@ class Coauthors(Record):
     round: Text  # the release the comments were left on
     next_round: str | None = None  # the release that answers them; None while it is not written
     source: str = ""  # the ledger's file name, never a path
+    gap_run: str = ""  # the run the comments were matched against (the run that produced the release)
+    gap_matched_by: str = ""  # who matched them
     items: list[CoauthorComment] = Field(default_factory=list)
 
 
@@ -707,6 +738,21 @@ class Inventory(Record):
             for item in self.coauthors.items:
                 if unknown := set(item.finding_ids) - known:
                     raise ValueError(f"Co-author comment {item.id} links unknown findings: {sorted(unknown)}")
+            gaps = [item for item in self.coauthors.items if item.gap]
+            if gaps and not self.coauthors.gap_run:
+                raise ValueError("Co-author comments carry gaps but not the run they were matched against (gap_run).")
+            # Matched against this run: its links must hold. Against an earlier one (the release this run answers
+            # was produced by another), they name records this inventory does not have, and are shown unlinked.
+            if self.coauthors.gap_run == self.run_id:
+                by_id = {finding.id: finding for finding in self.findings}
+                applied_ids = {change.id for change in self.changes if change.status == "applied"}
+                for item in gaps:
+                    if unknown := set(item.gap.finding_ids) - known:
+                        raise ValueError(f"Co-author comment {item.id}'s gap links unknown findings: {sorted(unknown)}")
+                    if any(by_id[fid].assessment == "dismissed" for fid in item.gap.finding_ids):
+                        raise ValueError(f"Co-author comment {item.id}'s gap rests on a dismissed flag.")
+                    if unknown := set(item.gap.change_ids) - applied_ids:
+                        raise ValueError(f"Co-author comment {item.id}'s gap names edits the run did not apply: {sorted(unknown)}")
         rungs = [(venue.ladder, venue.rung) for venue in self.venues]
         if len(rungs) != len(set(rungs)):
             raise ValueError("Two venues share a rung of the same ladder.")
@@ -844,22 +890,32 @@ def figure_counts(figures: Figures | None) -> dict | None:
             "limit": figures.limit.count if figures.limit else None}
 
 
-def coauthor_counts(coauthors: Coauthors | None) -> dict | None:
+def coauthor_counts(coauthors: Coauthors | None, run_id: str = "") -> dict | None:
     """How the next release answered the co-authors' comments: by status, by co-author, and how many are answered
-    (addressed, or declined or set aside with the reason given)."""
+    (addressed, or declined or set aside with the reason given); and, when they were matched against the run that
+    produced the release, how many it had caught, why it missed the rest and which skills' remits those fall in."""
     if not coauthors:
         return None
     statuses = Counter(item.status for item in coauthors.items)
     authors: dict[str, Counter] = {}
     for item in coauthors.items:
         authors.setdefault(item.author, Counter())[item.status] += 1
+    gaps = [item.gap for item in coauthors.items if item.gap]
+    short = [gap for gap in gaps if gap.verdict != "caught"]
     return {"round": coauthors.round, "next_round": coauthors.next_round, "total": len(coauthors.items),
             "comments": sum(item.kind == "comment" for item in coauthors.items),
             "suggestions": sum(item.kind == "suggestion" for item in coauthors.items),
             "by_status": {status: statuses[status] for status in COAUTHOR_STATUSES},
             "by_author": {author: {"total": sum(counts.values()), **ordered(counts, COAUTHOR_STATUSES)}
                           for author, counts in authors.items()},
-            "answered": statuses["addressed"] + statuses["declined"] + statuses["not-on-point"]}
+            "answered": statuses["addressed"] + statuses["declined"] + statuses["not-on-point"],
+            "gap": {"run": coauthors.gap_run, "this_run": coauthors.gap_run == run_id, "judged": len(gaps),
+                    "not_judged": sum(1 for item in coauthors.items if not item.gap and item.status != "not-on-point"),
+                    "by_verdict": {verdict: sum(gap.verdict == verdict for gap in gaps) for verdict in GAP_VERDICTS},
+                    "miss_reasons": ordered(Counter(gap.miss_reason or "unexplained" for gap in short), (*MISS_REASONS, "unexplained")),
+                    "by_owner": dict(Counter(gap.owner or "unassigned" for gap in short
+                                             if gap.miss_reason not in NO_SKILL_TO_IMPROVE)
+                                     .most_common())} if gaps else None}
 
 
 def decision_list(data: Inventory) -> list[dict]:
@@ -1011,7 +1067,7 @@ def summarize(data: Inventory) -> dict:
         "chosen_venues": [v.name for v in sorted(data.venues, key=lambda v: v.rung) if v.chosen],
         "competing_proposals": competing(data.changes),
         "figures": figure_counts(data.figures),
-        "coauthors": coauthor_counts(data.coauthors),
+        "coauthors": coauthor_counts(data.coauthors, data.run_id),
         "todo": todo_counts(todo_view(data)),
         "coverage": [item.model_dump(exclude={"evidence"}) for item in data.coverage],
     }

@@ -10,6 +10,8 @@ answers each one (manuscript-coauthors).
     uv run --script comments.py status v0.5/comments.yaml [--old v0.5/PAPER.md] [--new v0.6/PAPER.md] [--json] [--strict]
     uv run --script comments.py findings v0.5/comments.yaml --new v0.6/PAPER.md --out RUN/manuscript-coauthors/findings.json
     uv run --script comments.py changelog --base OLD.md --new v0.6/PAPER.md [--seen SEEN.md] --ledger v0.5/comments.yaml [--out FILE]
+    uv run --script comments.py gaps v0.5/comments.yaml --inventory RUN/manuscript-dashboard/findings.json [--out SHEET.md]
+    uv run --script comments.py gaps v0.5/comments.yaml --inventory v0.5/PAPER.dashboard.html --merge GAPS.yaml | --check
 
 `import` reads a Google Doc exported as .docx (rclone `--drive-export-formats docx`, a Drive connector's
 download with exportMimeType docx, or File > Download > Microsoft Word). Google writes each comment and each
@@ -34,6 +36,14 @@ stage's findings.json (a CA finding for each comment not fully addressed, and th
 dashboard shows) and comments.md beside it, the digest the findings cite. `changelog` is revision marks'
 `changes` table from the round's base (with `--seen`, which rows the co-authors have not seen yet), its Why
 filled for every row whose segment answers a comment of the ledgers: who asked, what, and the ledger's `why`.
+
+`gaps` asks of each comment whether the run that produced the round had caught it, from that run's inventory
+(its findings.json, or the dashboard it rendered): caught or partly (a finding of the run names it), missed, or
+introduced (the passage was written by one of the run's applied edits). Without --merge or --check it writes a
+worksheet: each comment with the run's records nearest to it, found by shared words, for the agent to judge.
+--merge takes the agent's YAML of gap records into the ledger, nothing written while one has a problem;
+--check checks them and lists the comments not judged yet (--strict: exit 1 while any is). An item that is not a
+co-author's (an open point a run carried into the ledger) may stay unjudged. `findings` carries them to the dashboard.
 
 EXIT STATUS 0 done · 1 a problem the ledger must fix (status --strict, findings) · 2 usage or a malformed
 ledger · 3 could not run (an unreadable file)
@@ -66,7 +76,18 @@ SEVERITIES = ("blocker", "major", "minor", "info", "unknown")
 STAGES = ("now", "writing", "journal", "final")
 LEDGER_HEADER = ("# Co-authors' comments on this round, kept by manuscript-coauthors (comments.py).\n"
                  "# status: open | addressed | partly | declined | not-on-point. now: the next round's passage that\n"
-                 "# answers it, verbatim. why: what was done and why, or why not. next: what could still be done.\n")
+                 "# answers it, verbatim. why: what was done and why, or why not. next: what could still be done.\n"
+                 "# gap: whether the run that produced this round had caught it (caught | partly | missed | introduced),\n"
+                 "# with that run's findings or applied edits, miss_reason, owner (the skill whose remit covers it) and\n"
+                 "# note; gap_run names the run (comments.py gaps).\n")
+# Did the run that produced the round catch what a co-author raised: a finding of it names the same problem (caught),
+# part of it (partly), none does (missed), or the passage was written by one of its own applied edits (introduced).
+GAP_VERDICTS = ("caught", "partly", "missed", "introduced")
+# Why it was not caught in full: the dashboard's reasons for a reference review, so both read the same way.
+MISS_REASONS = ("no-skill-covers", "skill-did-not-look", "judged-differently", "input-missing",
+                "wording-preference", "later-decision")
+NEEDS_OWNER = ("skill-did-not-look", "judged-differently")  # the miss was in a skill's remit: name the skill
+INVENTORY = re.compile(r'<script type="application/json" id="inventory">(.*?)</script>', re.S)
 
 
 class Failure(Exception):
@@ -391,6 +412,14 @@ def read_ledger(path: Path) -> dict[str, Any]:
             raise Failure(f"{path}: {item['id']}: kind must be comment or suggestion.")
         if item.get("severity") not in (None, *SEVERITIES) or item.get("stage") not in (None, *STAGES):
             raise Failure(f"{path}: {item['id']}: severity or stage outside the dashboard's scale.")
+        gap = item.get("gap")
+        if gap is not None:
+            if not isinstance(gap, dict) or gap.get("verdict") not in GAP_VERDICTS:
+                raise Failure(f"{path}: {item['id']}: gap.verdict must be one of {', '.join(GAP_VERDICTS)}.")
+            if gap.get("miss_reason") not in (None, *MISS_REASONS):
+                raise Failure(f"{path}: {item['id']}: gap.miss_reason must be one of {', '.join(MISS_REASONS)}.")
+            if any(not isinstance(gap.get(key) or [], list) for key in ("findings", "changes")):
+                raise Failure(f"{path}: {item['id']}: gap.findings and gap.changes are lists of IDs.")
     return data
 
 
@@ -656,12 +685,313 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
             "resolved": item.get("resolved"), "status": status, "change": row["change"],
             "before": row["before"], "after": row["after"], "now": item.get("now", "") or "",
             "why": item.get("why", "") or "", "next": item.get("next", "") or "",
-            "rev_ids": row["rev_ids"] or list(item.get("rev_ids", [])), "finding_ids": finding_ids})
+            "rev_ids": row["rev_ids"] or list(item.get("rev_ids", [])), "finding_ids": finding_ids,
+            "gap": gap_record(item)})
     document = {"skill": "manuscript-coauthors", "findings": out, "changes": [], "dismissed": [],
                 "not_checked": not_checked,
                 "coauthors": {"round": str(data.get("round", "")), "next_round": next_round,
-                              "source": ledger.name, "items": items}}
+                              "source": ledger.name, "gap_run": str(data.get("gap_run") or ""),
+                              "gap_matched_by": str(data.get("gap_matched_by") or ""), "items": items}}
     return document, "\n".join(lines).rstrip() + "\n"
+
+
+# --- did the run that produced the round catch it -------------------------------------------------------
+# Co-authors read the version a run handed over. What they raise is a second reading of that version, so each
+# comment is matched against the run's own records, as a reference review is: which of its problems names the same
+# thing, or which of its applied edits wrote the passage. The run's inventory is its findings.json, or the dashboard
+# it rendered, which carries the same records (a run folder often stays on the computer that ran it).
+
+QUOTES = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-",
+                        " ": " "})
+STOP = set("about after also because been before being between both could does doing done each from have into more "
+           "most only other over such than that their them then there these they this those through under upon very "
+           "were what when where which while whose with within without would your".split())
+
+
+def gap_record(item: dict[str, Any]) -> dict[str, Any] | None:
+    """The ledger's gap, as the dashboard's co-author comment carries it."""
+    gap = item.get("gap")
+    if not gap:
+        return None
+    return {"verdict": gap["verdict"], "finding_ids": [str(x) for x in gap.get("findings") or []],
+            "change_ids": [str(x) for x in gap.get("changes") or []], "miss_reason": gap.get("miss_reason"),
+            "owner": str(gap.get("owner") or ""), "note": " ".join(str(gap.get("note") or "").split())}
+
+
+def load_inventory(path: Path) -> dict[str, Any]:
+    """The run's adjudicated inventory, from its findings.json or from the dashboard it rendered."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Failure(f"{path}: cannot read ({exc}).", 3) from exc
+    if path.suffix.lower() in (".html", ".htm"):
+        found = INVENTORY.search(text)
+        if not found:
+            raise Failure(f"{path}: not a manuscript dashboard (it carries no inventory).")
+        text = found.group(1)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise Failure(f"{path}: not valid JSON ({exc}).") from exc
+    data = data.get("inventory", data) if isinstance(data, dict) else None
+    if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
+        raise Failure(f"{path}: no findings in it; give the run's findings.json or the dashboard it rendered.")
+    return data
+
+
+def norm(text: Any) -> str:
+    return " ".join(str(text or "").translate(QUOTES).split())
+
+
+def words_of(text: Any) -> set[str]:
+    """Content words, cut to six letters so that plural and verb forms meet."""
+    return {w[:6] for w in re.findall(r"[a-z][a-z0-9-]{3,}", norm(text).lower()) if w not in STOP}
+
+
+def section_number(text: Any) -> str:
+    found = re.match(r"\s*(?:Section\s+)?(S?\d+(?:\.\d+)*)\b", str(text or ""))
+    return found.group(1) if found else ""
+
+
+def own_findings(inventory: dict[str, Any]) -> list[dict[str, Any]]:
+    """The run's problems: not dismissed, and not made from these comments by the co-authors stage itself."""
+    return [f for f in inventory.get("findings", []) if f.get("assessment") != "dismissed"
+            and set(f.get("skills") or []) - {"manuscript-coauthors"}]
+
+
+def asked_words(item: dict[str, Any]) -> set[str]:
+    edits = " ".join(f"{e.get('deleted', '')} {e.get('inserted', '')}" for e in item.get("edits") or [])
+    replies = " ".join(str(r.get("text", "")) for r in item.get("replies") or [] if isinstance(r, dict))
+    return words_of(" ".join((str(item.get("comment", "")), replies, str(item.get("anchor", "")), edits)))
+
+
+def candidates(item: dict[str, Any], row: dict[str, Any], inventory: dict[str, Any]) -> dict[str, list]:
+    """What of the run might answer a comment: the applied edits that wrote its passage, and the problems, dismissed
+    flags, unchecked items, referees' concerns and story tests nearest to it. A list to judge from, never a match."""
+    paragraph = norm(row.get("before"))
+    anchor = norm(item.get("anchor"))
+    probe = anchor if len(anchor) >= 12 else norm(row.get("quote")) or anchor
+    asked = asked_words(item)
+    near = asked | words_of(paragraph)
+    number = section_number(item.get("where"))
+
+    def score(text: str, quote: str = "", section: str = "") -> tuple[float, int]:
+        overlap = len(asked & words_of(text))
+        s = overlap + 0.25 * len(near & words_of(text))
+        if quote and norm(quote) and norm(quote) in paragraph:
+            s += 6
+        if number and section_number(section) == number:
+            s += 2
+        return s, overlap
+
+    def top(rows: list[tuple[tuple[float, int], Any]], n: int, least: float) -> list:
+        return [r for (s, _), r in sorted(rows, key=lambda x: x[0], reverse=True) if s >= least][:n]
+
+    written = [c for c in inventory.get("changes", []) if c.get("status") == "applied" and probe
+               and probe in norm(c.get("after")) and probe not in norm(c.get("before"))]
+    problems = top([(score(" ".join(str(f.get(k) or "") for k in ("summary", "detail", "action", "quote")),
+                           f.get("quote") or "", f.get("section") or ""), f) for f in own_findings(inventory)], 5, 3)
+    dismissed = top([(score(f"{d.get('summary', '')} {d.get('why', '')}"), d) for d in inventory.get("dismissed", [])], 2, 3)
+    unchecked = top([(score(f"{n.get('check', '')} {n.get('leaves_open', '')}"), n)
+                     for n in inventory.get("not_checked", [])], 2, 3)
+    concerns = top([(score(str(c.get("concern", "")), section=str(c.get("location", ""))), c)
+                    for r in (inventory.get("panel") or {}).get("reviewers", []) for c in r.get("concerns", [])], 3, 4)
+    tests = top([(score(f"{t.get('test', '')} {t.get('note', '')}"), t)
+                 for t in (inventory.get("story") or {}).get("tests", [])], 2, 3)
+    return {"written": written, "problems": problems, "dismissed": dismissed, "unchecked": unchecked,
+            "concerns": concerns, "tests": tests}
+
+
+def clip(text: Any, n: int = 220) -> str:
+    text = norm(text)
+    return text if len(text) <= n else text[:n - 1].rstrip() + "…"
+
+
+def worksheet(data: dict[str, Any], rows: list[dict[str, Any]], inventory: dict[str, Any], every: bool) -> str:
+    """For the agent who matches the comments: each comment with the run's records nearest to it."""
+    run_id = inventory.get("run_id", "?")
+    lines = [f"# Did run {run_id} catch the co-authors' comments on v{data.get('round', '?')}?", "",
+             "For each comment, read it with its passage and the run's records below, then write a gap record in a",
+             "YAML file and merge it (`comments.py gaps LEDGER --inventory … --merge GAPS.yaml`):", "",
+             "```yaml",
+             f"run: {run_id}",
+             "matched_by: the coordinating agent, after the comments arrived",
+             "items:",
+             "  C12: {verdict: missed, miss_reason: skill-did-not-look, owner: manuscript-prose-edit,",
+             "        note: The sentence it questions was never read for sense; the prose stage reads only what it edits.}",
+             "  C13: {verdict: caught, findings: [PE-3], note: Raised and proposed, left for the authors.}",
+             "  C14: {verdict: introduced, changes: [improve.C40], miss_reason: judged-differently,",
+             "        owner: manuscript-improve, note: The run wrote this sentence; the re-check passed it as accurate.}",
+             "```", "",
+             f"Verdicts: {', '.join(GAP_VERDICTS)}. `caught` and `partly` name the run's problems (`findings`);",
+             "`introduced` names the applied edits that wrote the passage (`changes`). A dismissed flag is never a",
+             "match: a comment the run dismissed is `missed` with `judged-differently`. Anything not caught in full",
+             f"says why ({', '.join(MISS_REASONS)}) and, when the miss was in a skill's remit, its `owner`.",
+             "The candidates are found by shared words, so read each before using it; the run may also have raised",
+             "a comment where nothing below shows it.", ""]
+    for item, row in zip(data["items"], rows):
+        if item.get("gap") and not every:
+            continue
+        found = candidates(item, row, inventory)
+        lines += [f"## {item['id']} ({item.get('author', '?')}, {item.get('kind', 'comment')}, {item.get('status', 'open')})"
+                  f"{' · ' + item['where'] if item.get('where') else ''}", ""]
+        if item.get("comment"):
+            lines += [f"> {norm(item['comment'])}", ""]
+        for e in item.get("edits") or []:
+            lines.append(f"- Suggested: delete “{e.get('deleted', '')}” insert “{e.get('inserted', '')}”")
+        for r in item.get("replies") or []:
+            if isinstance(r, dict):
+                lines.append(f"- Reply ({r.get('author', '?')}): {clip(r.get('text'), 300)}")
+        if item.get("anchor"):
+            lines.append(f"- On: “{clip(item['anchor'], 160)}”")
+        if row.get("before"):
+            lines.append(f"- Passage: {clip(row['before'], 700)}")
+        if item.get("gap"):
+            lines.append(f"- Recorded: {json.dumps(item['gap'], ensure_ascii=False)}")
+        for c in found["written"]:
+            lines.append(f"- **Written by the run's edit {c['id']}** ({c.get('section', '')}): {clip(c.get('summary'), 160)}")
+        for f in found["problems"]:
+            lines.append(f"- Problem {f['id']} [{f.get('severity')}, {f.get('resolution')}, {clip(f.get('section'), 40)}]: "
+                         f"{clip(f.get('summary'), 160)} · Action: {clip(f.get('action'), 200)}")
+        for d in found["dismissed"]:
+            lines.append(f"- Dismissed by {d.get('skill')}: {clip(d.get('summary'), 140)} · Why: {clip(d.get('why'), 160)}")
+        for n in found["unchecked"]:
+            lines.append(f"- Not checked by {n.get('skill')}: {clip(n.get('check'), 120)} · Leaves open: {clip(n.get('leaves_open'), 140)}")
+        for c in found["concerns"]:
+            lines.append(f"- Referee concern {c.get('id')} [{c.get('severity')}] ({clip(c.get('location'), 60)}): "
+                         f"{clip(c.get('concern'), 200)}{' → ' + ', '.join(c['finding_ids']) if c.get('finding_ids') else ''}")
+        for t in found["tests"]:
+            lines.append(f"- Story test “{t.get('test')}” ({t.get('result')}): {clip(t.get('note'), 200)}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def gap_problems(gap: dict[str, Any], inventory: dict[str, Any]) -> list[str]:
+    findings = {f.get("id"): f for f in inventory.get("findings", [])}
+    changes = {c.get("id"): c for c in inventory.get("changes", [])}
+    verdict, out = gap["verdict"], []
+    fids, cids = [str(x) for x in gap.get("findings") or []], [str(x) for x in gap.get("changes") or []]
+    if verdict in ("caught", "partly") and not fids:
+        out.append(f"{verdict}: name the run's problems that raise it (findings)")
+    if verdict == "introduced" and not cids:
+        out.append("introduced: name the run's applied edits that wrote the passage (changes)")
+    for fid in fids:
+        f = findings.get(fid)
+        if f is None:
+            out.append(f"problem {fid} is not in the run's inventory")
+        elif f.get("assessment") == "dismissed":
+            out.append(f"problem {fid} is a dismissed flag, which is never a match (say missed, judged-differently)")
+        elif not set(f.get("skills") or []) - {"manuscript-coauthors"}:
+            out.append(f"problem {fid} was made from the co-authors' comments, not found by the run")
+    for cid in cids:
+        c = changes.get(cid)
+        if c is None:
+            out.append(f"edit {cid} is not in the run's inventory")
+        elif c.get("status") != "applied":
+            out.append(f"edit {cid} was only proposed; the co-authors read what the run applied")
+    reason, owner = gap.get("miss_reason"), str(gap.get("owner") or "")
+    if verdict == "caught" and reason:
+        out.append("caught in full has no miss_reason")
+    if verdict != "caught" and not reason:
+        out.append(f"{verdict}: say why the run did not catch it in full (miss_reason)")
+    if verdict != "caught" and not norm(gap.get("note")):
+        out.append(f"{verdict}: say in a sentence what the run missed or wrote (note)")
+    if reason in NEEDS_OWNER and not owner:
+        out.append(f"{reason}: name the skill whose remit covers it (owner)")
+    if owner and not re.fullmatch(r"manuscript-[a-z-]+", owner):
+        out.append(f"owner {owner!r} is not a skill's name (manuscript-…)")
+    return out
+
+
+def check_gaps(data: dict[str, Any], inventory: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """The ledger's gap records against the run's inventory: their problems, and the comments not judged yet (a
+    comment that is not on point needs none)."""
+    problems, unjudged = [], []
+    judged = [item for item in data["items"] if item.get("gap")]
+    run_id = str(inventory.get("run_id") or "")
+    if judged and not data.get("gap_run"):
+        problems.append("gap_run: name the run whose records the comments were matched against")
+    elif judged and run_id and str(data["gap_run"]) != run_id:
+        problems.append(f"gap_run is {data['gap_run']}, but this inventory is run {run_id}")
+    for item in data["items"]:
+        if item.get("gap"):
+            problems += [f"{item['id']}: {p}" for p in gap_problems(item["gap"], inventory)]
+        elif item.get("status", "open") != "not-on-point":
+            unjudged.append(item["id"])
+    return problems, unjudged
+
+
+def gap_counts(data: dict[str, Any]) -> dict[str, Any]:
+    gaps = [item["gap"] for item in data["items"] if item.get("gap")]
+    count = lambda key: dict(sorted(((k, sum(1 for g in gaps if (g.get(key) or "") == k)) for k in
+                                     {str(g.get(key) or "") for g in gaps} if k), key=lambda kv: -kv[1]))
+    return {"judged": len(gaps), "by_verdict": {v: sum(g["verdict"] == v for g in gaps) for v in GAP_VERDICTS},
+            "miss_reasons": count("miss_reason"), "by_owner": count("owner")}
+
+
+def merge_gaps(data: dict[str, Any], source: Path, inventory: dict[str, Any]) -> list[str]:
+    """A YAML file of gap records (run, matched_by, items: {ID: {verdict, findings, changes, miss_reason, owner,
+    note}}) into the ledger; nothing is written while one of them has a problem."""
+    raw = load_yaml(source) or {}
+    if not isinstance(raw, dict) or not isinstance(raw.get("items"), dict):
+        raise Failure(f"{source}: a mapping with run, matched_by and items (ID: gap record).")
+    known = {item["id"]: item for item in data["items"]}
+    problems = [f"{cid}: not a comment of this ledger" for cid in raw["items"] if cid not in known]
+    staged = {}
+    for cid, gap in raw["items"].items():
+        if cid not in known:
+            continue
+        if not isinstance(gap, dict) or gap.get("verdict") not in GAP_VERDICTS:
+            problems.append(f"{cid}: verdict must be one of {', '.join(GAP_VERDICTS)}")
+            continue
+        if gap.get("miss_reason") not in (None, *MISS_REASONS):
+            problems.append(f"{cid}: miss_reason must be one of {', '.join(MISS_REASONS)}")
+            continue
+        record = {key: gap[key] for key in ("verdict", "findings", "changes", "miss_reason", "owner", "note")
+                  if gap.get(key) not in (None, "", [])}
+        if "note" in record:
+            record["note"] = norm(record["note"])
+        problems += [f"{cid}: {p}" for p in gap_problems(record, inventory)]
+        staged[cid] = record
+    run = str(raw.get("run") or inventory.get("run_id") or "")
+    if inventory.get("run_id") and run != str(inventory["run_id"]):
+        problems.append(f"run is {run}, but this inventory is run {inventory['run_id']}")
+    if data.get("gap_run") and str(data["gap_run"]) != run:
+        problems.append(f"the ledger was matched against run {data['gap_run']}; matching it against {run} too would mix two runs")
+    if problems:
+        return problems
+    data["gap_run"] = run
+    if raw.get("matched_by"):
+        data["gap_matched_by"] = norm(raw["matched_by"])
+    for cid, record in staged.items():
+        known[cid]["gap"] = record
+    return []
+
+
+def gaps(args: argparse.Namespace, ledger: Path, data: dict[str, Any], rows: list[dict[str, Any]]) -> int:
+    inventory = load_inventory(Path(args.inventory))
+    if args.merge:
+        problems = merge_gaps(data, Path(args.merge), inventory)
+        if problems:
+            print("Nothing merged; fix these in the gap file first:", file=sys.stderr)
+            for line in problems:
+                print(f"  {line}", file=sys.stderr)
+            return 1
+        write_ledger(ledger, data)
+    if args.merge or args.check:
+        problems, unjudged = check_gaps(data, inventory)
+        print(json.dumps({"ledger": ledger.as_posix(), "run": data.get("gap_run") or inventory.get("run_id"),
+                          **gap_counts(data), "not_judged": unjudged, "problems": problems}, indent=2, ensure_ascii=False))
+        return 1 if problems or (args.strict and unjudged) else 0
+    sheet = worksheet(data, rows, inventory, args.all)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(sheet, encoding="utf-8")
+        print(json.dumps({"worksheet": args.out, "to_judge": sum(1 for i in data["items"] if args.all or not i.get("gap"))},
+                         ensure_ascii=False))
+    else:
+        sys.stdout.write(sheet)
+    return 0
 
 
 # --- commands -----------------------------------------------------------------------------------------
@@ -723,6 +1053,8 @@ def run(args: argparse.Namespace) -> int:
     if args.new and not Path(args.new).is_file():
         raise Failure(f"{args.new}: cannot read the new round's master.", 3)
     rows = assess(data, Masters(data, ledger, Path(args.old) if args.old else None, Path(args.new) if args.new else None))
+    if args.command == "gaps":
+        return gaps(args, ledger, data, rows)
     if args.command == "status":
         problems = sum(len(r["problems"]) for r in rows)
         if args.json:
@@ -773,7 +1105,8 @@ def parser() -> argparse.ArgumentParser:
         s.add_argument("--round", help="the round's name, e.g. 0.5 (default: from the folder, v0.5)")
         s.add_argument("--doc", help="the Doc's link, recorded with the pull")
     for name, about in (("status", "how the next round answers each comment"),
-                        ("findings", "the stage's findings.json and comments.md for the dashboard")):
+                        ("findings", "the stage's findings.json and comments.md for the dashboard"),
+                        ("gaps", "whether the run that produced the round had caught each comment")):
         s = sub.add_parser(name, help=about)
         s.add_argument("ledger")
         s.add_argument("--old", help="the round the comments were left on (default: the ledger's master)")
@@ -781,6 +1114,15 @@ def parser() -> argparse.ArgumentParser:
         if name == "status":
             s.add_argument("--json", action="store_true")
             s.add_argument("--strict", action="store_true", help="exit 1 on any problem in the ledger")
+        elif name == "gaps":
+            s.add_argument("--inventory", required=True,
+                           help="the run's findings.json, or the dashboard it rendered (its .html carries the same records)")
+            s.add_argument("--merge", help="a YAML file of gap records to merge into the ledger, checked first")
+            s.add_argument("--check", action="store_true", help="check the ledger's gap records; exit 1 on a problem")
+            s.add_argument("--strict", action="store_true",
+                           help="with --check, exit 1 while a comment is not judged (one not on point needs no verdict)")
+            s.add_argument("--all", action="store_true", help="the worksheet lists judged comments too")
+            s.add_argument("--out", help="write the worksheet here instead of printing it")
         else:
             s.add_argument("--out", required=True, help="RUN/manuscript-coauthors/findings.json")
             s.add_argument("--next-round", help="the next round's name (default: from --new's folder)")
