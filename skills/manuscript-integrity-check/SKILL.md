@@ -203,6 +203,16 @@ reports) goes to the authors, in the one batch of questions at the end. Never ca
 misconduct, and describe each check by what it tests, its name in parentheses ("a mean of 3.50 is impossible for
 whole-number answers from 19 people, since 66/19 = 3.47 and 67/19 = 3.53 (GRIM test)").
 
+**Design constants need a reason.** Every threshold, cut-off, count of agreeing runs, count of categories or
+tuning factor in the Methods ("at least 4 of 7", "the outer 1%", "a factor of 0.9", "nine labels mapped to
+three") says where it comes from: a citation, a calibration in the paper or the supplement, a convention, or
+that the authors chose it, with how much the results move when it changes. The script lists the Methods
+sentences that set one with no such reason beside it (`constant`); read the rest of the Methods for the ones it
+misses. A constant without a reason is a finding whose fix is a fact only the authors have, so it is a question
+for them in the one batch at the end, never a reason you supply: referees read an unexplained constant as
+overfitting, and a co-author who cannot say where it came from cannot defend it. Checking a constant's
+arithmetic is not the same check.
+
 A software or benchmark paper often has nothing the script can test (no means of whole-number data, no test
 statistics, no SD column), and an empty result is then "nothing to test", not a clean result. Recompute by hand
 from the printed values, as [benchmark arithmetic](references/number-checks.md#benchmark-arithmetic-by-hand)

@@ -1464,3 +1464,25 @@ def test_a_keyword_placeholder_and_a_bracketed_one_on_one_line_are_both_named(tm
     # in the order they stand; "to be added" inside the bracket and "TODO" inside "AUTHOR TODO" are named once
     assert finding.message == ("The placeholders '[and in the archived release, DOI to be added]', '[URL]', 'TODO' "
                                "and 'AUTHOR TODO' are still in the text.")
+
+
+def test_a_design_constant_in_the_methods_needs_a_stated_reason(tmp_path: Path) -> None:
+    """A threshold, a count of agreeing runs or a tuning factor with no citation, calibration, convention or
+    authors' choice beside it is a question for the authors; one with a reason is consistent."""
+    paper = tmp_path / "paper.md"
+    paper.write_text(
+        "# A paper\n\n## Methods\n\n"
+        "A variant is kept when it appears in at least 3 of 5 replicate runs and its score lies in the top 2%, "
+        "scaled by a factor of 0.75.\n\n"
+        "Reads below a quality threshold of 20 were removed, following the tool's default.\n\n"
+        "Nine labels are mapped to three tiers.\n\n"
+        "## Results\n\nAt least 3 of 5 replicate runs agreed on 90% of variants.\n", encoding="utf-8")
+    report = nc.run(paper)
+    found = [f for f in report.findings if f.check == "constant"]
+    assert [f.message for f in found] == [
+        "A design constant with no stated reason: “at least 3 of 5”, “top 2%”, “scaled by a factor of 0.75”",
+        "A design constant with no stated reason: “Nine labels are mapped to”"]
+    assert all(f.severity == nc.Severity.minor and f.section == "Methods" and "never supply" in f.suggestion
+               for f in found)
+    summary = report.checks["constant"]
+    assert (summary.assessed, summary.consistent, summary.candidates) == (3, 1, 2)

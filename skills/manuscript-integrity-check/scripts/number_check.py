@@ -63,7 +63,7 @@ class Severity(str, Enum):  # the same tiers as scan.py; this script never emits
 
 
 class Finding(BaseModel):
-    check: str  # ledger | grim | grimmer | percent-of-n | table-percent | table-total | sem-sd | statcheck
+    check: str  # ledger | grim | grimmer | percent-of-n | table-percent | table-total | sem-sd | statcheck | constant
     severity: Severity
     line: Optional[int] = None
     excerpt: str = ""
@@ -1622,6 +1622,51 @@ def _check_one(unit: Unit, s_off: int, sent: str, m: re.Match[str], alpha: float
 # --------------------------------------------------------------------------------------------------
 
 
+# A design constant: a threshold, a cut-off, a count of agreeing runs, a tuning factor, a mapping of categories.
+CONSTANT = re.compile(
+    r"\bat least\s+\d+\s+(?:of|out of)\s+\d+\b|\b\d+\s+(?:of|out of)\s+\d+\s+(?:replicate|run|sample|genome|seed|"
+    r"read|model|annotator)s?\b|\b(?:outer|top|bottom|upper|lower)\s+\d+(?:\.\d+)?\s*%|\bfactor of\s+\d+(?:\.\d+)?|"
+    r"\b(?:threshold|cut-?off|cutoff)\s+(?:of\s+|at\s+|=\s*)?\d+(?:\.\d+)?|\bscaled by\s+(?:a factor of\s+)?\d+(?:\.\d+)?|"
+    r"\bweight(?:ed)?\s+(?:of|by)\s+\d+(?:\.\d+)?|\b\w+\s+(?:labels|categories|classes|bins|tiers|levels)\s+(?:are\s+|were\s+)?"
+    r"(?:mapped|grouped|collapsed|merged)\s+(?:to|into|onto)\b", re.IGNORECASE)
+# What says where a constant comes from: a citation, a calibration or table, a convention, the authors' choice.
+CONSTANT_REASON = re.compile(
+    r"\[@|\\cite|\(\s*[A-Z][A-Za-z-]+(?:\s+et al\.)?,?\s+\d{4}|\b(?:Table|Fig(?:ure)?|Section|Supplementary)\s*S?\d|"
+    r"calibrat|convention|\bdefault|\bchosen|\bfollowing\b|\bas in\b|recommend|sensitiv|\btuned|optimi[sz]ed|"
+    r"selected (?:on|by|to)|cross-validat|\bbecause\b|\bso that\b|\bto (?:match|keep|limit|ensure|avoid|balance)\b",
+    re.IGNORECASE)
+
+
+def check_constants(doc: Document, summary: CheckSummary) -> list[Finding]:
+    """Methods sentences that set a design constant with no reason in that sentence or the next one: referees read
+    an unexplained threshold as overfitting, and only the authors know where it came from."""
+    out = []
+    for unit in doc.units:
+        if unit.section != "methods" or unit.kind != "prose":
+            continue
+        said = sentences(unit)
+        for n, (offset, sentence) in enumerate(said):
+            found = list(CONSTANT.finditer(sentence))
+            if not found:
+                continue
+            summary.assessed += 1
+            following = said[n + 1][1] if n + 1 < len(said) else ""
+            if CONSTANT_REASON.search(sentence) or CONSTANT_REASON.search(following):
+                summary.consistent += 1
+                continue
+            summary.candidates += 1
+            named = ", ".join(f"“{m.group().strip()}”" for m in found)
+            finding = Finding(
+                check="constant", severity=Severity.minor, line=unit.line_at(offset + found[0].start()),
+                excerpt=_excerpt(unit.text, offset + found[0].start(), offset + found[-1].end()), stage="writing",
+                message=f"a design constant with no stated reason: {named}",
+                suggestion="Say where each one comes from: a citation, a calibration in the paper or the supplement, a "
+                           "convention, or that the authors chose it, with how much the results move when it changes. "
+                           "Only the authors know which; ask them, and never supply a reason.")
+            out.append(_placed(finding, unit, offset + found[0].start(), offset + found[-1].end()))
+    return out
+
+
 def run(path: Path, alpha: Optional[float] = None, assume_integer: bool = False) -> NumbersReport:
     doc = parse(path)
     found_alpha, alpha_source = find_alpha(doc.text)
@@ -1630,13 +1675,14 @@ def run(path: Path, alpha: Optional[float] = None, assume_integer: bool = False)
     else:
         alpha_source = "--alpha"
     checks = {name: CheckSummary() for name in ("ledger", "grim", "grimmer", "percent-of-n", "table-total", "sem-sd",
-                                                "statcheck")}
+                                                "statcheck", "constant")}
     statistics: list[StatResult] = []
     findings, ledger = check_ledger(doc, checks["ledger"])
     findings += check_grim(doc, assume_integer, checks["grim"], checks["grimmer"], checks["percent-of-n"])
     findings += check_tables(doc, checks["table-total"], checks["sem-sd"])
     stat_findings, lone_p, other_tests = check_statistics(doc, alpha, checks["statcheck"], statistics)
     findings += stat_findings
+    findings += check_constants(doc, checks["constant"])
     if lone_p:
         one = lone_p == 1
         checks["statcheck"].not_assessed.append(Skipped(
@@ -1663,7 +1709,8 @@ CHECK_TITLES = {"ledger": "The same quantity stated with different values",
                 "percent-of-n": "Percentages of a stated n",
                 "table-total": "Table column totals against their cells",
                 "sem-sd": "Standard errors in a table against the SD and n",
-                "statcheck": "Test statistics against their p-values"}
+                "statcheck": "Test statistics against their p-values",
+                "constant": "Design constants in the Methods and where each comes from"}
 def _alpha_source(source: str) -> str:
     several = re.search(r"states several: ([^;)]+)", source)
     if several:
