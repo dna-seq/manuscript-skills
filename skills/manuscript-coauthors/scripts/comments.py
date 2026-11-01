@@ -945,8 +945,9 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
             "replies": [{k: r.get(k, "") for k in ("author", "date", "text")} for r in item.get("replies") or []
                         if isinstance(r, dict)],  # the dashboard's reply; by: and ai: stay in the ledger
             "edits": [{"deleted": e.get("deleted", ""), "inserted": e.get("inserted", "")} for e in item.get("edits", [])],
-            "resolved": item.get("resolved"), "status": status, "change": row["change"],
-            "before": row["before"], "after": row["after"], "now": item.get("now", "") or "",
+            # With no later version yet, the paragraph was compared with itself: nothing changed, nothing answered it.
+            "resolved": item.get("resolved"), "status": status, "change": row["change"] if next_round else None,
+            "before": row["before"], "after": row["after"] if next_round else None, "now": item.get("now", "") or "",
             "why": item.get("why", "") or "",
             "next": item.get("next", "") or ("Not triaged yet: decide what the next round does with it."
                                             if status in ("open", "partly") else ""),

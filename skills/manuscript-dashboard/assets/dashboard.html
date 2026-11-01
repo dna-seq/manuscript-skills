@@ -1595,7 +1595,8 @@ __REVISION_HTML__
       const body = h('div', {class: 'body', id: `ca-body-${c.id}`},
         c.replies.length ? [h('h4', null, 'Replies'), h('div', {class: 'thread'}, c.replies.map(r => h('div', {class: 'reply'},
           h('div', {class: 'who'}, [r.author || 'Unnamed', r.date ? when(r.date) : null].filter(Boolean).join(' · ')), h('p', null, r.text))))] : null,
-        h('h4', null, to ? `In ${to}` : 'Now', c.change ? withTip(h('span', {class: 'tag', tabindex: 0, style: 'margin-left: 8px; font-weight: 400'}, CHANGE[c.change][0]), [CHANGE[c.change][1]]) : null),
+        // Before the next version exists there is nothing to compare: an open comment is not answered yet, never "Unchanged".
+        h('h4', null, to ? `In ${to}` : (pending ? 'Not answered yet' : 'Now'), c.change && to ? withTip(h('span', {class: 'tag', tabindex: 0, style: 'margin-left: 8px; font-weight: 400'}, CHANGE[c.change][0]), [CHANGE[c.change][1]]) : null),
         c.before != null || c.after != null ? [diffView(c.before, c.after),
           h('details', {style: 'margin-top: 6px'}, h('summary', null, 'Before and after in full'),
             h('div', {class: 'grid', style: 'margin-top: 8px'}, h('div', null, h('h3', null, from), h('blockquote', null, c.before == null ? '(not in this version)' : c.before)),

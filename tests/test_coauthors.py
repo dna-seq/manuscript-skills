@@ -772,6 +772,9 @@ def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Pat
     assert [s["step"] for s in result["done"]] == ["pull", "findings"] and "--no-pull" in result["next"]
     found = json.loads((run / "manuscript-coauthors" / "findings.json").read_text())
     assert found["coauthors"]["next_round"] is None and len(found["coauthors"]["items"]) == 4
+    assert all(i["change"] is None and i["after"] is None for i in found["coauthors"]["items"])  # never "Unchanged"
+    page = (ROOT / "skills" / "manuscript-dashboard" / "assets" / "dashboard.html").read_text(encoding="utf-8")
+    assert "pending ? 'Not answered yet' : 'Now'" in page and "c.change && to ?" in page
     assert all("Not triaged yet" in f["action"] for f in found["findings"])
     assert all(i["next"].startswith("Not triaged yet") for i in found["coauthors"]["items"] if i["status"] == "open")
     sys.path.insert(0, str(ROOT / "skills" / "manuscript-dashboard" / "scripts"))
