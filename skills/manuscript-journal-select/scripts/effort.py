@@ -223,6 +223,11 @@ def _about(n: int) -> str:
     return f"{max(step, round(n / step) * step):,}"
 
 
+def _signed(n: int) -> str:
+    """How far over (+) or under (−, a minus sign) the limit, in the row's unit."""
+    return f"+{n:,}" if n > 0 else f"\u2212{-n:,}" if n < 0 else "0"
+
+
 def _lighter(size: str) -> str:
     return SIZES[max(1, SIZES.index(size) - 1)]
 
@@ -277,9 +282,13 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
     limits = {**(v.get("limits") or {}), **(entry.get("limits") or {})}
     stated_none = set(limits.get("none_stated") or [])
 
-    def add(aspect: str, what: str, have: str, limit: str, change: str, size: str, field: str = "limits") -> None:
+    def add(aspect: str, what: str, have: str, limit: str, change: str, size: str, field: str = "limits",
+            numbers: str = "", note: str = "") -> None:
+        """One row; a length or a count also gets `numbers`, the manuscript's figure against the limit and the
+        difference ("7,963 / 8,000 · −37"), with `note` for what qualifies the limit ("advised")."""
         items.append({"aspect": aspect, "what": what, "have": have, "limit": limit, "change": change, "size": size,
-                      **(_source(v, field) if field else {"source": "", "checked": ""})})
+                      **(_source(v, field) if field else {"source": "", "checked": ""}),
+                      "numbers": numbers, "note": note})
 
     # A limit that leaves some sections out (`limits.body_words_excludes: [methods]`) counts the rest only.
     excluded = [str(k) for k in limits.get("body_words_excludes") or []]
@@ -291,10 +300,13 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
         advised = limits.get("body_words_kind") == "recommended"
         limit = f"{n:,} words" + (", advised" if advised else "") + (f", {venues._and(excluded)} not counted" if excluded else "")
         over = counted - n
+        numbers = f"{counted:,} / {n:,} \u00b7 {_signed(over)}"
+        note = " \u00b7 ".join((["advised"] if advised else []) + ([f"{venues._and(excluded)} not counted"] if excluded else []))
         if over <= 0:
             add("body", "Length of the body", have, limit,
                 f"fits, {-over:,} words to spare" + (" once the "
-                f"{venues._and(excluded)} sections are the part the journal leaves out" if body > n else ""), "none")
+                f"{venues._and(excluded)} sections are the part the journal leaves out" if body > n else ""), "none",
+                numbers=numbers, note=note)
         else:
             share = over / counted
             size = next((s for top, s in BODY_CUT if share <= top), "large")
@@ -302,31 +314,39 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
             change = f"cut about {_about(over)} words, {round(100 * share)}% of the body"
             if (ratio := limits.get("over_limit_return")) and counted > n * ratio:
                 size, change = "large", change + f"; papers more than {round(100 * (ratio - 1))}% over are returned unread"
-            add("body", "Length of the body", have, limit, change, size)
+                note = " \u00b7 ".join(x for x in (note, f"over {round(100 * (ratio - 1))}% returned unread") if x)
+            add("body", "Length of the body", have, limit, change, size, numbers=numbers, note=note)
             cut_words += over
     elif "body_words" in stated_none:
-        add("body", "Length of the body", f"{body:,} words", "none stated", "none", "none")
+        add("body", "Length of the body", f"{body:,} words", "none stated", "none", "none",
+            numbers=f"{body:,} \u00b7 no limit")
     else:
-        add("body", "Length of the body", f"{body:,} words", "not researched", "read the article-type page", "unknown")
+        add("body", "Length of the body", f"{body:,} words", "not researched", "read the article-type page", "unknown",
+            numbers=f"{body:,} / ?")
 
     words = m["abstract_words"]
     if n := limits.get("abstract_words"):
         over = words - n
+        numbers = f"{words:,} / {n:,} \u00b7 {_signed(over)}"
         if not words:
-            add("abstract", "Length of the abstract", "no abstract found", f"{n} words", f"write an abstract of at most {n} words", "medium")
+            add("abstract", "Length of the abstract", "no abstract found", f"{n} words", f"write an abstract of at most {n} words", "medium",
+                numbers=f"0 / {n:,}")
         elif over <= 0:
-            add("abstract", "Length of the abstract", f"{words} words", f"{n} words", "fits", "none")
+            add("abstract", "Length of the abstract", f"{words} words", f"{n} words", "fits", "none", numbers=numbers)
         else:
             add("abstract", "Length of the abstract", f"{words} words", f"{n} words",
                 f"cut {over} words, {round(100 * over / words)}% of the abstract",
-                "small" if over / words <= ABSTRACT_CUT else "medium")
+                "small" if over / words <= ABSTRACT_CUT else "medium", numbers=numbers)
             cut_words += over
     elif "abstract_words" in stated_none or limits.get("abstract_characters"):
         add("abstract", "Length of the abstract", f"{words} words",
             f"{limits['abstract_characters']} characters" if limits.get("abstract_characters") else "none stated",
-            "check the characters when the abstract is final" if limits.get("abstract_characters") else "none", "none")
+            "check the characters when the abstract is final" if limits.get("abstract_characters") else "none", "none",
+            numbers=f"{words:,} \u00b7 no word limit",
+            note=f"at most {limits['abstract_characters']:,} characters" if limits.get("abstract_characters") else "")
     else:
-        add("abstract", "Length of the abstract", f"{words} words", "not researched", "read the author guidelines", "unknown")
+        add("abstract", "Length of the abstract", f"{words} words", "not researched", "read the author guidelines", "unknown",
+            numbers=f"{words:,} / ?")
 
     wanted, labels = v.get("abstract_headings"), m["abstract_headings"]
     shape = f"{_count(m['abstract_paragraphs'], 'paragraph')}, " + (f"headed {', '.join(labels)}" if labels else "no headings")
@@ -346,27 +366,32 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
     rule, kind = _display_rule(v, entry)
     tables = m["tables"] + m["boxes"]
     count = display_text(m)
+    shown = m["figures"] + tables
     if rule == "other types":
         add("display", "Figures and tables", count, f"recorded for {kind} only", "read the limit for this article type",
-            "unknown", "figure_rules")
+            "unknown", "figure_rules", numbers=f"{shown} / ?", note=f"limit recorded for {kind}")
     elif isinstance(rule, (int, float)) or (isinstance(rule, dict) and "total" in rule):
         top = int(rule["total"] if isinstance(rule, dict) else rule)
-        over = m["figures"] + tables - top
+        over = shown - top
         add("display", "Figures and tables", count, f"{top} display items" + (f" ({kind})" if kind else ""),
             f"move or merge {over} into the supplement" if over > 0 else "fits",
-            "none" if over <= 0 else "small" if over == 1 else "medium", "figure_rules")
+            "none" if over <= 0 else "small" if over == 1 else "medium", "figure_rules",
+            numbers=f"{shown} / {top} \u00b7 {_signed(over)}")
     elif isinstance(rule, dict):
         over = max(0, m["figures"] - int(rule.get("figures", m["figures"]))) + max(0, tables - int(rule.get("tables", tables)))
         add("display", "Figures and tables", count,
             f"{rule.get('figures', 'any')} figures, {rule.get('tables', 'any')} tables" + (f" ({kind})" if kind else "")
             + (" (boxes count as tables)" if m["boxes"] else ""),
             f"move or merge {over} into the supplement" if over else "fits",
-            "none" if not over else "small" if over == 1 else "medium", "figure_rules")
+            "none" if not over else "small" if over == 1 else "medium", "figure_rules",
+            numbers=f"{m['figures']} + {tables} / {rule.get('figures', 'any')} + {rule.get('tables', 'any')}"
+            + (f" \u00b7 +{over}" if over else ""),
+            note="boxes as tables" if m["boxes"] else "")
     elif "display_items" in stated_none:
-        add("display", "Figures and tables", count, "none stated", "none", "none")
+        add("display", "Figures and tables", count, "none stated", "none", "none", numbers=f"{shown} \u00b7 no limit")
     else:
         add("display", "Figures and tables", count, "not researched", "read the figure guidelines", "unknown",
-            "figure_rules")
+            "figure_rules", numbers=f"{shown} / ?")
 
     required = v.get("required_sections")
     main = m["sections"]
@@ -427,11 +452,12 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
         items.append({"aspect": "validation", "what": "Validation the journal asks for", "have": "partly shown"
                       if verdict.get("met") == "partly" else "not shown", "limit": str(description),
                       "change": str(verdict.get("evidence") or "show what the rule asks for"), "size": "large",
-                      "source": str(verdict.get("source") or v.get("url") or ""), "checked": str(verdict.get("checked") or "")})
+                      "source": str(verdict.get("source") or v.get("url") or ""), "checked": str(verdict.get("checked") or ""),
+                      "numbers": "", "note": ""})
     for r in venues.open_conditions(v, designs):
         items.append({"aspect": "validation", "what": "Validation the journal asks for", "have": "not checked",
                       "limit": str(r.get("description") or ""), "change": "check the manuscript against this rule",
-                      "size": "unknown", "source": str(v.get("url") or ""), "checked": ""})
+                      "size": "unknown", "source": str(v.get("url") or ""), "checked": "", "numbers": "", "note": ""})
 
     for change in entry.get("changes") or []:
         size = str(change.get("size") or "unknown")
@@ -441,7 +467,8 @@ def estimate(m: dict[str, Any], v: dict[str, Any], entry: dict[str, Any], design
         items.append({"aspect": "judged", "what": str(change.get("what") or "Other change"),
                       "have": str(change.get("have") or ""), "limit": str(change.get("rule") or ""),
                       "change": str(change.get("change") or change.get("why") or ""), "size": size,
-                      "source": str(change.get("url") or ""), "checked": str(change.get("checked") or "")})
+                      "source": str(change.get("url") or ""), "checked": str(change.get("checked") or ""),
+                      "numbers": "", "note": ""})
 
     known = [i["size"] for i in items if i["size"] in SIZES]
     top = max(known, key=SIZES.index) if known else "none"

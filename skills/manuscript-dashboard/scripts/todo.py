@@ -5,6 +5,7 @@
 """The authors' to-do marks, read by the next run.
 
     uv run --script todo.py show paper.todo.json
+    uv run --script todo.py merge paper.todo.json --from ../v0.7/paper.todo.json
     uv run --script todo.py edits paper.todo.json --text paper.md --output RUN/manuscript-improve/todo-edits.json
 
 The dashboard's To-do tab lists what a run leaves for the authors (each decision only they can make, each applied edit
@@ -13,6 +14,12 @@ one approved (do it, or keep it) or redundant (drop it, and do not raise it agai
 saves the marks beside the manuscript as STEM.todo.json, one file for every run of the paper.
 
 `show` lists the marks by run, approved first.
+
+`merge` brings another copy's marks into the file the next run reads, as the tab's **Load marks from a file** does:
+every mark of both, the later of two on one item. A project in rounds needs it: `rounds.py open` copies the marks
+file into the new round's folder, and marks the authors save in the previous round's dashboard after that stay in
+the previous round's folder. It writes only when the other copy adds or replaces a mark, and never drops one: the
+file keeps no record of a mark taken back, so a mark only this copy holds is kept and listed (`only_here`).
 
 `edits` turns the marked edits into the list `runs.py apply RUN --skill S --edits EDITS.json --by NAME` takes, checked
 against the manuscript as it is now (its clean text, without revision marks):
@@ -48,8 +55,19 @@ app = typer.Typer(add_completion=False)
 SAID = {"approved": "approved it", "redundant": "marked it redundant"}
 
 
+def read_file(path: Path) -> viz.MarksFile:
+    return viz.MarksFile.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def file_text(found: viz.MarksFile) -> str:
+    """The file as the To-do tab writes it: its marks oldest first, two-space indents, a final newline."""
+    marks = sorted(found.marks, key=lambda m: m.marked_at)
+    return json.dumps({"schema_version": 1, "manuscript": found.manuscript,
+                       "marks": [m.model_dump(mode="json") for m in marks]}, ensure_ascii=False, indent=2) + "\n"
+
+
 def read_marks(path: Path, runs: list[str] | None = None) -> list[viz.Mark]:
-    found = viz.MarksFile.model_validate_json(path.read_text(encoding="utf-8"))
+    found = read_file(path)
     if runs and (unknown := sorted(set(runs) - {m.run_id for m in found.marks})):
         raise ValueError(f"{path.name} has no marks from run {', '.join(unknown)}.")
     return [m for m in found.marks if not runs or m.run_id in runs]
@@ -119,6 +137,32 @@ def show(marks: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]) ->
         typer.echo(f"Run {run}: {sum(m.mark == 'approved' for m in mine)} approved, {sum(m.mark == 'redundant' for m in mine)} redundant")
         for m in sorted(mine, key=lambda m: m.mark):
             typer.echo(f"  {m.mark:<9} {m.kind:<8} {m.id}: {m.summary}" + (f" ({m.reason.strip()})" if m.reason.strip() else ""))
+
+
+@app.command()
+def merge(into: Annotated[Path, typer.Argument(dir_okay=False, help="The marks file the next run reads; made when missing")],
+          source: Annotated[Path, typer.Option("--from", exists=True, dir_okay=False,
+                                               help="Another copy of the marks, such as the previous round's")]) -> None:
+    """Every mark of both copies in INTO, the later of two on one item, as the tab's Load marks from a file."""
+    try:
+        theirs = read_file(source)
+        here = read_file(into) if into.is_file() else viz.MarksFile(schema_version=1, manuscript=theirs.manuscript)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    marks = {viz.mark_key(m.run_id, m.kind, m.id): m for m in here.marks}
+    only_here = sorted(set(marks) - {viz.mark_key(m.run_id, m.kind, m.id) for m in theirs.marks})
+    taken = []
+    for m in theirs.marks:
+        key = viz.mark_key(m.run_id, m.kind, m.id)
+        if key not in marks or m.marked_at > marks[key].marked_at:
+            marks[key] = m
+            taken.append(key)
+    if taken:
+        merged = viz.MarksFile(schema_version=1, manuscript=here.manuscript or theirs.manuscript, marks=list(marks.values()))
+        into.parent.mkdir(parents=True, exist_ok=True)
+        into.write_text(file_text(merged), encoding="utf-8")
+    typer.echo(json.dumps({"file": str(into.resolve()), "from": str(source.resolve()), "written": bool(taken),
+                           "taken": taken, "marks": len(marks), "only_here": only_here}, ensure_ascii=False, indent=2))
 
 
 @app.command()

@@ -266,6 +266,31 @@ def test_changes_judged_from_the_guidelines_join_the_estimate() -> None:
         effort.estimate(measured(), venue(), {"changes": [{"what": "x", "size": "huge"}]}, [])
 
 
+MINUS = "\u2212"
+
+
+@pytest.mark.parametrize("fields, aspect, numbers, note", [
+    ({"limits": {"body_words": 8000, "body_words_kind": "recommended"}}, "body", f"1,000 / 8,000 · {MINUS}7,000", "advised"),
+    ({"limits": {"body_words": 950}}, "body", "1,000 / 950 · +50", ""),
+    ({"limits": {"body_words": 1000}}, "body", "1,000 / 1,000 · 0", ""),
+    ({"limits": {"body_words": 700, "body_words_excludes": ["methods"]}}, "body", f"500 / 700 · {MINUS}200",
+     "methods not counted"),
+    ({"limits": {"none_stated": ["body_words"]}}, "body", "1,000 · no limit", ""),
+    ({}, "body", "1,000 / ?", ""),
+    ({"limits": {"abstract_words": 150}}, "abstract", "200 / 150 · +50", ""),
+    ({"limits": {"abstract_words": 250}}, "abstract", f"200 / 250 · {MINUS}50", ""),
+    ({"limits": {"abstract_characters": 1920}}, "abstract", "200 · no word limit", "at most 1,920 characters"),
+    ({"figure_rules": {"display_items": 7}}, "display", "8 / 7 · +1", ""),
+    ({"figure_rules": {"display_items": {"figures": 3, "tables": 2}}}, "display", "3 + 5 / 3 + 2 · +3", "boxes as tables"),
+    ({"limits": {"none_stated": ["display_items"]}}, "display", "8 · no limit", ""),
+])
+def test_lengths_and_counts_read_as_numbers_against_the_limit(fields: dict, aspect: str, numbers: str, note: str) -> None:
+    """The dashboard shows "the manuscript / the limit · how far over or under", never a sentence."""
+    got = row(effort.estimate(measured(), venue(**fields), {}, []), aspect)
+    assert (got["numbers"], got["note"]) == (numbers, note)
+    assert dashboard.AdaptationItem.model_validate(got).numbers == numbers
+
+
 def test_words_to_cut_add_the_body_and_the_abstract() -> None:
     est = effort.estimate(measured(), venue(limits={"body_words": 900, "abstract_words": 150}), {}, [])
     assert est["words_to_cut"] == 100 + 50 and est["size"] == "light"

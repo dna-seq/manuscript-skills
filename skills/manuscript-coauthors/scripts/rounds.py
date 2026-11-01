@@ -397,8 +397,17 @@ def open_round(name: str, source: Annotated[str | None, typer.Option("--from", h
     carry = ({"carry_from_the_docs": f"What was changed in the v{source} Docs after they went out is not in these masters "
                                      f"yet: rounds.py sync {source} --into {name} --out DIR, then runs.py apply."}
              if project.rounds().get(source, {}).get("docs") else {})
+    # The To-do marks travel with the round; marks saved in the old round's dashboard after this stay there, and
+    # the new round's first run merges them (todo.py merge).
+    marks = []
+    for master in project.data.get("manuscripts", []):
+        stem = Path(master).stem
+        copied = new / f"{stem}.todo.json"
+        if copied.is_file() or (old / f"{stem}.dashboard.html").is_file():
+            count = len(json.loads(copied.read_text(encoding="utf-8")).get("marks", [])) if copied.is_file() else 0
+            marks.append({"file": copied.as_posix(), "copied_marks": count, "previous": (old / copied.name).as_posix()})
     say({"opened": new.as_posix(), "from": old.as_posix(), "base": base, "left_behind": left,
-         "project_file": target.as_posix(), "mentions_of_the_old_round": labels[:20],
+         "project_file": target.as_posix(), "mentions_of_the_old_round": labels[:20], "todo_marks": marks,
          "changelog": (new / f"changes-from-{project.pattern.format(round=source)}.md").as_posix(), **carry})
 
 

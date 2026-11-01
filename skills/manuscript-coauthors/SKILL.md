@@ -366,7 +366,10 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
 
 - `open` copies the released round, leaving behind its reviews, build, comments and dashboards, records the
   base commit, and lists the lines that still name the old round (the draft label) for you to change. It also
-  reminds you that the old round's Docs may hold edits the new masters lack (step 3).
+  reminds you that the old round's Docs may hold edits the new masters lack (step 3). The authors' To-do marks
+  (`STEM.todo.json`) go with it, listed under `todo_marks` with how many were copied; marks the authors save
+  in the old round's dashboard afterwards stay in the old folder, and the new round's first run merges them
+  (manuscript-improve's to-do stage, `todo.py merge`).
 - `push --go` first compares the previous round's Docs with that round as released and refuses while the new
   masters lack what was changed there, listing each passage. Without rclone it asks for a recorded `sync` into
   this round instead. `--unsynced-ok` releases anyway, for a change the authors chose to leave out.

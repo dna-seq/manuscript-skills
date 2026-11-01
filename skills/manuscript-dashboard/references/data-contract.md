@@ -36,7 +36,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `coauthors` | optional, from `manuscript-coauthors`: the co-authors' comments on the previous release and how the next one answers each; [below](#co-authors-comments). |
 | `todo` | optional, from collect: the authors' to-do marks file beside the manuscript (`STEM.todo.json`) and every mark in it; [below](#to-do). |
 | `reference_list` | optional, the manuscript's reference list as the reference check left it (scan.py's JSON in the reference-check folder, else the integrity-check one): one record per entry with `n` (its place in the list), `line`, `text`, `state` (its worst: `fine`, `corrected`, `unverified`, `not-checked`, `wrong` or `retracted`), `link` (doi.org, PubMed or arXiv) and `notes` (what the scanner found, in its words). The Overview shows it as one cell per entry. |
-| `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`), and for a journal the selection measured the manuscript against, `adaptation` (from `adaptation.json`, written by manuscript-journal-select's `effort.py`): `size` (`no change`, `light`, `moderate` or `major`), `words_to_cut`, `summary`, `measured` (one sentence on what was measured) and `items` (`aspect`, `what`, `have`, `limit`, `change`, `size` `none`, `small`, `medium`, `large` or `unknown`, `source`, `checked`). The Journals tab shows it on each chosen journal's card and as a table with a row per change and a column per chosen journal. |
+| `venues` | the journal and preprint ladders from manuscript-journal-select, one record per rung: `ladder`, `rung`, `name`, `key`, `chosen`, fit, impact factor, first-decision days, fee, preprint rule, AI-policy points and `ai_policy` (`aspects`: `drafting`, `prompts`, `records`, `detection`, `declaration`, `counted` and `extra`, each with `level` `good`, `warning`, `red` or `unknown` and `text`; `reasons`, `url`, `source`), and for a journal the selection measured the manuscript against, `adaptation` (from `adaptation.json`, written by manuscript-journal-select's `effort.py`): `size` (`no change`, `light`, `moderate` or `major`), `words_to_cut`, `summary`, `measured` (one sentence on what was measured) and `items` (`aspect`, `what`, `have`, `limit`, `change`, `size` `none`, `small`, `medium`, `large` or `unknown`, `source`, `checked`, and for a length or a count `numbers`, the manuscript's figure against the limit and the difference, "7,963 / 8,000 · −37", with `note` for what qualifies the limit, "advised"). The Journals tab shows the numbers as coloured pills on each chosen journal's card, the other changes as a list, and a table with a row per change and a column per chosen journal. |
 
 Coverage statuses are `completed`, `partial`, `blocked`, `not_run`, `reused`, `in_progress` (the stage was
 still running when the inventory was collected; its evidence quotes its README's title, which does not change
@@ -227,8 +227,9 @@ tab shows it with the story stage's findings and edits; without it the tab shows
 never its folder; the name the tab saves under while there are no marks yet), `schema_version` (`1`), `manuscript`
 (the manuscript's file name) and `marks`. The file beside the manuscript holds the same fields but `file`, and the
 marks of every run of the paper, the oldest first. The To-do tab writes it, and so does the Decisions pane in
-Claude Code (`hooks/progress`), for decisions only, in the same shape. Each mark is on one item of one run, at
-most once:
+Claude Code (`hooks/progress`), for decisions only, in the same shape, and `todo.py merge` when it brings in
+another copy's later marks (the previous round's, in a project kept in rounds). Each mark is on one item of one
+run, at most once:
 
 | Field | Meaning |
 |---|---|

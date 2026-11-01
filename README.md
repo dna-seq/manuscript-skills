@@ -28,8 +28,9 @@ part) and missed 46.
 Its **To-do** tab lists what the run leaves for you: each decision only you can make, each applied edit that
 asks you something, each proposal, and each open major problem nothing else answers. Mark each one **Approve**
 or **Redundant**, with a reason if you like, and the list shrinks as you go. Your marks are kept in the browser
-and saved beside the paper as `paper.todo.json`, which the next run reads: what you approved is done or kept,
-and what you marked redundant is not raised again.
+until you save them beside the paper as `paper.todo.json` (the tab says which folder), which the next run reads:
+what you approved is done or kept, and what you marked redundant is not raised again. Nothing watches the file,
+so once it is saved, ask Claude Code or Codex to improve the paper again, or only to take in your to-do marks.
 
 The dashboard is self-contained, so you can send it to a colleague as it is. The same review also comes
 as a Word document: the corrected version as tracked changes signed by each stage, with the problems,
@@ -670,7 +671,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.54.0},
+  version = {0.56.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }
