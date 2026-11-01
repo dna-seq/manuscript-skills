@@ -210,3 +210,19 @@
     - "Does not report the Introduction pair as unlinked, the modes as undefined, or Section 2.2 as full of undefined terms."
   fail_if:
     - "Invents a missing link or an undefined term the text defines."
+
+- id: story-number-reading-01
+  skill: manuscript-story
+  prompt: >-
+    Do our results in outsider-seeded.md land for a field ecologist? Tell us what to change; don't edit.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "The Results give a Pearson correlation to eight decimals with no reading of what it means."
+  anchors:
+    - {item: 1, id: bare-correlation, anchor: "lenient mode correlated with Pearson r = 0.99999871", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Reports the eight-decimal correlation as a number with no reading for this reader, quoting it."
+    - "Proposes a reading in the paper's own terms (the two modes give practically the same abundances; they differ in which taxa they report), or asks the authors."
+  fail_if:
+    - "Changes or rounds the number itself."
+    - "Adds a comparison or baseline the paper does not give."

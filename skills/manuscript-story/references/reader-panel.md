@@ -94,7 +94,7 @@ wanted:                                  # what I looked for and did not find
 stumbles:                                # terms or passages that stopped me
   - quote: "verbatim"
     section: "the section"
-    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers"
+    problem: "undefined term | assumed knowledge | lost the thread | why is this here | repetition | too many numbers | a number with no reading"
 next: "stop here | bookmark | forward it | read the full text | try it | cite it"
 because: "one sentence; a reader who left before what it came for cannot try or cite it"
 ```

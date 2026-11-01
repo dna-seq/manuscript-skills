@@ -26,8 +26,13 @@ an option for the authors.
 ## The middle
 
 5. **A headline per result.** Does each results section open with its finding in plain words, before the
-   numbers, setup and versions? Fix: a first sentence that says what was found and the number a reader
-   keeps; the run history follows or moves to the supplement.
+   numbers, setup and versions? Does each statistic the headline rests on say what it means for the reader:
+   is it good, how good, and compared with what? A correlation given to eight decimals needs "the two are the
+   same to seven decimals"; a warning rate needs how often it changes a result. A number with no reading is a
+   stumble for a reader outside the sub-field ("is that good?") and a finding of its own. Fix: a first sentence
+   that says what was found and the number a reader keeps, each number with its reading in the paper's own
+   terms (from its comparison, its threshold or its baseline; a reading the paper cannot support is a question
+   for the authors); the run history follows or moves to the supplement.
 6. **Show the output.** Does the paper show what a user actually gets: a report row, a screenshot of a
    real result, the output for a named input? For a tool or platform paper this is the single strongest
    device; its absence is the most common reason a reader cannot say what the tool does. Fix: a worked
