@@ -15,6 +15,10 @@
 # with the fourth paragraph opening on the authors' starting point and the "such" gone),
 # personal-genome-first.md (v0.3, the earliest draft the authors keep, trimmed the same way, whose third
 # paragraph still ended on "ease of use, transparency, and extensibility").
+# Synthetic fixtures for a reader outside the sub-field: outsider-seeded.md (a made-up soil-profiling paper: two
+# Introduction sentences with no relation, two modes used before Section 2.3 defines them, a Methods paragraph of
+# undefined terms, unexplained thresholds, an eight-decimal correlation with no reading), outsider-clean.md (the same
+# with each repaired).
 
 - id: story-review-compare-versions
   skill: manuscript-story
@@ -167,3 +171,42 @@
     - "Edits a manuscript file."
   pairs:
     - {with: story-introduction-turn-seeded, expect: different}
+
+- id: story-every-link-every-section-01
+  skill: manuscript-story
+  prompt: >-
+    Our co-author is an ecologist, not a bioinformatician. Read outsider-seeded.md the way he will and tell us
+    where the text loses him. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-seeded.md]
+  planted:
+    - "Two adjacent Introduction sentences have no relation between them."
+    - "Strict and lenient mode are used in the Abstract and Introduction, two sections before Section 2.3 defines them."
+    - "Section 2.2 uses ASVs, rarefaction, Bray–Curtis and CLR with no definition: more stumbles than paragraphs."
+  anchors:
+    - {item: 1, id: unlinked-pair, anchor: "degrade within days at room temperature. Our pipeline runs on a laptop.", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 2, id: mode-before-definition, anchor: "In strict mode, SoilTrace reports fewer taxa", file: fixtures/manuscript-story/outsider-seeded.md}
+    - {item: 3, id: methods-terms, anchor: "Reads are denoised into ASVs, rarefied to the smallest library", file: fixtures/manuscript-story/outsider-seeded.md}
+  rubric:
+    - "Reports the unlinked Introduction pair, quoting both sentences, as a finding of its own."
+    - "Reports strict and lenient mode as used before their definition, naming where they are first used and where Section 2.3 defines them."
+    - "Lists each undefined term of Section 2.2 (ASV, rarefaction, Bray–Curtis, CLR) as its own finding with where it stops the reader, and calls the section written for a narrower reader than the recorded audience."
+    - "Each fix is a definition from the paper's own words, a move to the supplement with a summary left, or a question for the authors."
+  fail_if:
+    - "Says the undefined terms are too many to list, or folds them into one remark without listing them."
+    - "Reads only the Introduction's paragraph breaks and misses the sentence pair or the Methods terms."
+    - "Supplies a definition or a reason the paper does not give."
+  pairs:
+    - {with: story-every-link-every-section-clean-01, expect: different}
+
+- id: story-every-link-every-section-clean-01
+  skill: manuscript-story
+  prompt: >-
+    Our co-author is an ecologist, not a bioinformatician. Read outsider-clean.md the way he will and tell us
+    where the text loses him. Don't edit anything.
+  files: [fixtures/manuscript-story/outsider-clean.md]
+  planted:
+    - "Clean control: the Introduction sentences are linked, the modes point to Section 2.3, and Section 2.2 defines each term."
+  rubric:
+    - "Does not report the Introduction pair as unlinked, the modes as undefined, or Section 2.2 as full of undefined terms."
+  fail_if:
+    - "Invents a missing link or an undefined term the text defines."

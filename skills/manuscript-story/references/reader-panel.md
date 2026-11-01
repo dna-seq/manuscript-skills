@@ -130,7 +130,13 @@ there.
 - List the dips by section; they are places to read, not places readers were lost.
 - Merge what readers wanted and did not find; each item is a question for the story tests (an output not
   shown, a difference from a known tool not stated).
-- Collect stumbles into a list of terms to define at first use or keep out of the Abstract.
+- Collect every stumble into a list by term or passage. Each one is a finding of its own, with the readers
+  who stopped on it and where; its severity follows from how many readers of the recorded audience stopped and
+  in which section. Its fix is one of: define the term at its first use (from the paper's own definition), move
+  the passage to the supplement with a one-sentence summary left in its place, or a question for the authors.
+  A section with more stumbles than paragraphs is a major finding of its own, "written for a narrower reader
+  than the recorded audience", with the count. Never report a list of stumbles as too long to list: the
+  readers who stopped are the evidence, and a co-author outside the sub-field stops at the same words.
 - Hand each "why is this here" stumble to the story test *Connected paragraphs*
   ([story-tests.md](story-tests.md)), which looks in the rest of the paper for the reason the paragraph is
   there. A topic the readers did not expect is a finding even when the reason sits in a later section: they
