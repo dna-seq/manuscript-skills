@@ -144,3 +144,20 @@ def test_recorded_commenters_become_people_and_their_names_aliases(repo: Path) -
     assert pp.known("marialopez") == people.rm.Kind.HUMAN
     people.write_aliases(config, {"marialopez": ["m. lop", "Dr Maria Lopez"]})  # nothing twice, nothing lost
     assert tomllib.loads(config.read_text())["aliases"]["marialopez"] == ["M. Lop", "Maria Lopez", "Dr Maria Lopez"]
+
+
+def test_an_authors_line_lists_people_and_a_shortened_name_fits_a_surname_first_author(tmp_path: Path) -> None:
+    """A Markdown manuscript's own author line, surname first with affiliation marks, as many drafts write it."""
+    git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "paper.md").write_text(
+        "# A paper\n\n**Authors:** Lopez Maria^1,2,†^, Example Tom^3^, Outside Petra^1,\\*^\n\n## Abstract\n\nText.\n",
+        encoding="utf-8")
+    git(tmp_path, "add", "paper.md")
+    git(tmp_path, "commit", "-q", "-m", "Draft", name="Maria Lopez", email="maria@example.org")  # git: given name first
+    s = people.survey(tmp_path / "paper.md")
+    listed = {i.name for i in s.identities if i.listed}
+    assert {"Lopez Maria", "Example Tom", "Outside Petra"} <= listed
+    pp = people.rm.load_people(tmp_path / "paper.md")
+    m = people.resolve("M Lop", pp, s.identities)  # one person in two orders, not two candidates
+    assert m.rule == "initials" and m.via in ("Lopez Maria", "Maria Lopez")
+    assert people.resolve("P Out", pp, s.identities).via == "Outside Petra"

@@ -234,6 +234,20 @@ def by_handles(files: list[Path]) -> dict[str, list[str]]:
 
 LATEX_AUTHOR = re.compile(r"\\author\s*(?:\[[^\]]*\])?\s*\{((?:[^{}]|\{[^{}]*\})*)\}", re.DOTALL)
 FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# A Markdown manuscript's own author line: "**Authors:** Kulaga Anton^1,2^, Example Tom^3,*^".
+AUTHOR_LINE = re.compile(r"^\W{0,3}\**\s*Authors?\s*(?::\s*\**|\**\s*:)\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+
+
+def author_line_names(text: str) -> list[str]:
+    """The names on a manuscript's "Authors:" line, affiliation marks and footnote signs left out."""
+    names = []
+    for line in AUTHOR_LINE.findall(text):
+        plain = re.sub(r"\^[^^]*\^|<sup>.*?</sup>|\[\^[^\]]*\]|[*†‡§¶#\d]", " ", line)
+        for person in re.split(r",|;|\band\b|&", plain):
+            person = " ".join(person.replace("\\", " ").split()).strip(".")
+            if len(person.split()) >= 2 and re.search(r"[A-Za-z]", person):
+                names.append(person)
+    return names
 
 
 def author_lists(root: Path, files: list[Path]) -> list[Identity]:
@@ -257,6 +271,8 @@ def author_lists(root: Path, files: list[Path]) -> list[Identity]:
             if fm:
                 found += [Identity(n, evidence=[f"front matter of {rel}"], listed=True)
                           for n in front_matter_authors(fm.group(1))]
+            found += [Identity(n, evidence=[f"the Authors line of {rel}"], listed=True)
+                      for n in author_line_names(text)]
         elif name == "CITATION.cff":
             for given, family in re.findall(r"given-names:\s*\"?([^\"\n]+)\"?\s*\n\s*family-names:\s*\"?([^\"\n]+)",
                                             text):
@@ -589,7 +605,8 @@ def initials_match(short: list[str], full: list[str]) -> bool:
     the full surname (two letters at least)."""
     if len(short) < 2 or len(full) < 2 or len(short[-1]) < 2:
         return False
-    return full[0].startswith(short[0]) and full[-1].startswith(short[-1]) and short != full
+    # An author line may put the surname first ("Example Tom"): either order of the full name fits.
+    return short != full and any(f[0].startswith(short[0]) and f[-1].startswith(short[-1]) for f in (full, full[::-1]))
 
 
 def resolve(name: str, people, identities: list[Identity]) -> Match:
@@ -604,6 +621,15 @@ def resolve(name: str, people, identities: list[Identity]) -> Match:
         return Match(name, people.canonical(name) if people.canonical(name) in people.humans else key, "handle")
     candidates: list[tuple[str, str]] = [(i.name, handle_for(i, people)) for i in identities if i.kind == "person"]
     candidates += [(alias_name, handle) for handle, names in alias_names(people).items() for alias_name in names]
+    # One person listed in two orders ("Georg Fuellen" in git, "Fuellen Georg" on the author line) is one candidate:
+    # a handle already listed wins, else the first one met.
+    taken = set(people.humans) | {handle for _, handle in people.aliases}
+    same: dict[tuple[str, ...], str] = {}
+    for n, h in candidates:
+        parts = tuple(sorted(name_parts(n)))
+        if parts not in same or (h in taken and same[parts] not in taken):
+            same[parts] = h
+    candidates = [(n, same[tuple(sorted(name_parts(n)))]) for n, h in candidates]
     exact = {h for n, h in candidates if rm.alias_key(n) == key}
     if len(exact) == 1:
         handle = exact.pop()
