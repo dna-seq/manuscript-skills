@@ -262,6 +262,7 @@ def test_worked_input_uses_actual_evidence_and_does_not_invent_edits() -> None:
 
 
 COLLECT = ROOT / "skills/manuscript-dashboard/scripts/collect.py"
+sys.path.insert(0, str(COLLECT.parent))  # collect imports stage_check beside it, as it does when run as a script
 spec = importlib.util.spec_from_file_location("collect", COLLECT)
 collect = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = collect
