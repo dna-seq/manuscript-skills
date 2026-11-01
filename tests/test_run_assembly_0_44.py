@@ -223,6 +223,23 @@ def test_the_stage_check_places_quotes_and_proposals_in_their_files(tmp_path: Pa
         "\"document\": \"paper-supplementary.md\""]
 
 
+def test_a_proposal_naming_the_runs_copy_of_the_supplement_is_told_the_projects_name(tmp_path: Path) -> None:
+    """The stage brief's supplement name was read as the run's numbered copy (02-paper-supplementary.md); the check
+    says which name to use instead of only refusing it."""
+    folder = tmp_path / "stage"
+    folder.mkdir()
+    (folder / "stage-report.md").write_text("The reason.", encoding="utf-8")
+    found = inputs(tmp_path)
+    found[1]["copy"] = "02-paper-supplementary.md"
+    doc = {"findings": [], "changes": [
+        {"id": "IC-C1", "kind": "Proposed edit", "section": "S12", "summary": "Supplement.", "status": "proposed",
+         "before": "**S12. Restoration.**", "after": "**S12. Restored.**", "document": "02-paper-supplementary.md",
+         "evidence": [{"path": "stage-report.md", "quote": "The reason."}]}]}
+    assert stage_check.problems(doc, "manuscript-integrity-check", folder, found) == [
+        "change IC-C1: document '02-paper-supplementary.md' is the run's copy of 'paper-supplementary.md'; name the "
+        "file as the project does: \"document\": \"paper-supplementary.md\""]
+
+
 def test_the_stage_check_reads_the_shape_first() -> None:
     assert stage_check.fatal({"changes": []}) == ["no `findings` list (an empty list is valid)"]
     assert stage_check.fatal({"findings": [{"id": "IC-1"}], "changes": [

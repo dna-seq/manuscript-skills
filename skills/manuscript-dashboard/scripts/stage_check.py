@@ -145,7 +145,8 @@ def input_texts(run: Path, data: dict) -> list[dict]:
             now = original.read_text(encoding="utf-8") if original.is_file() else taken
         except UnicodeDecodeError:  # a Word or PDF input has no text to quote here
             continue
-        out.append({"name": original.name, "marked": [taken, now], "clean": [clean(taken, copy), clean(now, original)]})
+        out.append({"name": original.name, "copy": copy.name, "marked": [taken, now],
+                    "clean": [clean(taken, copy), clean(now, original)]})
     return out
 
 
@@ -196,7 +197,10 @@ def placement(doc: dict, skill: str, folder: Path, inputs: list[dict]) -> list[s
         field = "before-text" if change.get("before") is not None else "anchor"
         named = change.get("document")
         if named and named not in names:
-            out.append(f"change {change.get('id')}: document {named!r} is not one of the run's inputs "
+            copy_of = next((i["name"] for i in inputs if i.get("copy") == named), None)
+            out.append(f"change {change.get('id')}: document {named!r} is the run's copy of {copy_of!r}; name the file "
+                       f"as the project does: \"document\": \"{copy_of}\"" if copy_of else
+                       f"change {change.get('id')}: document {named!r} is not one of the run's inputs "
                        f"({', '.join(sorted(names))})")
             continue
         counts = {i["name"]: max(t.count(target) for t in i["clean"]) for i in inputs}
