@@ -97,7 +97,7 @@ Where co-authors comment on Google Docs, the project file also remembers the Dri
 the folder Drive for desktop syncs, `--round-folder v{round}`, `--release-build` (the project's own .docx build),
 and `--release-doc PATH=Title` and `--release-file PATTERN` for what a release uploads; `--no-coauthors`
 forgets them. They are saved as the `coauthors` block, whose `rounds` (each round's base commit, release
-date, Doc links and circulation dates) `rounds.py` keeps. Asked once, when the authors first mention
+date, Doc links, circulation dates and each `sync` of its Docs' edits into a later round) `rounds.py` keeps. Asked once, when the authors first mention
 co-authors on Drive; never again for a later round.
 
 For linked papers use `--related-manuscript LOCATION` and record their relationship in the scientific

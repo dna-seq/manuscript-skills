@@ -134,8 +134,12 @@ def check_coauthors(block: Any, where: Path | str) -> None:
     if not isinstance(rounds, dict):
         raise ProjectError(f"{where}: coauthors.rounds must map each round to what was released.")
     for name, entry in rounds.items():
-        if not isinstance(entry, dict) or set(entry) - {"base", "released", "docs", "circulated"}:
-            raise ProjectError(f"{where}: coauthors.rounds.{name} takes base, released, docs and circulated.")
+        if not isinstance(entry, dict) or set(entry) - {"base", "released", "docs", "circulated", "synced"}:
+            raise ProjectError(f"{where}: coauthors.rounds.{name} takes base, released, docs, circulated and synced.")
+        synced = entry.get("synced", [])
+        if not isinstance(synced, list) or not all(isinstance(s, dict) and isinstance(s.get("into"), str) for s in synced):
+            raise ProjectError(f"{where}: coauthors.rounds.{name}.synced lists each sync of its Docs into a round "
+                               "(date, into, edits, conflicts).")
         if not isinstance(entry.get("docs", {}), dict) or any(
                 not isinstance(v, str) or not v.strip() for v in entry.get("docs", {}).values()):
             raise ProjectError(f"{where}: coauthors.rounds.{name}.docs must map each document to its link.")
