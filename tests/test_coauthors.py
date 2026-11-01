@@ -773,6 +773,11 @@ def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Pat
     found = json.loads((run / "manuscript-coauthors" / "findings.json").read_text())
     assert found["coauthors"]["next_round"] is None and len(found["coauthors"]["items"]) == 4
     assert all("Not triaged yet" in f["action"] for f in found["findings"])
+    assert all(i["next"].startswith("Not triaged yet") for i in found["coauthors"]["items"] if i["status"] == "open")
+    sys.path.insert(0, str(ROOT / "skills" / "manuscript-dashboard" / "scripts"))
+    import dashboard as viz  # the dashboard reads these items as they are
+    viz.Coauthors.model_validate(found["coauthors"] | {"items": [
+        {k: v for k, v in i.items() if k in viz.CoauthorComment.model_fields} for i in found["coauthors"]["items"]]})
     assert (folder / "rev-marks.toml").is_file()
     recorded = json.loads((run / "run.json").read_text())["skills"]["manuscript-coauthors"]["commands"]
     assert len(recorded) == 2 and all(c["exit_code"] == 0 for c in recorded)

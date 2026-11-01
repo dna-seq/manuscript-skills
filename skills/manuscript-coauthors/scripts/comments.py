@@ -915,11 +915,15 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
         items.append({
             "id": item["id"], "kind": item.get("kind", "comment"), "author": item.get("author", ""),
             "date": str(item.get("date", "")), "where": item.get("where") or "", "anchor": item.get("anchor", ""),
-            "comment": item.get("comment", ""), "replies": item.get("replies", []),
+            "comment": item.get("comment", ""),
+            "replies": [{k: r.get(k, "") for k in ("author", "date", "text")} for r in item.get("replies") or []
+                        if isinstance(r, dict)],  # the dashboard's reply; by: and ai: stay in the ledger
             "edits": [{"deleted": e.get("deleted", ""), "inserted": e.get("inserted", "")} for e in item.get("edits", [])],
             "resolved": item.get("resolved"), "status": status, "change": row["change"],
             "before": row["before"], "after": row["after"], "now": item.get("now", "") or "",
-            "why": item.get("why", "") or "", "next": item.get("next", "") or "",
+            "why": item.get("why", "") or "",
+            "next": item.get("next", "") or ("Not triaged yet: decide what the next round does with it."
+                                            if status in ("open", "partly") else ""),
             "rev_ids": row["rev_ids"] or list(item.get("rev_ids", [])), "finding_ids": finding_ids,
             "gap": gap_record(item)})
     document = {"skill": "manuscript-coauthors", "findings": out, "changes": [], "dismissed": [],
