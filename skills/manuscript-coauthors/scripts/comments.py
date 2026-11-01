@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml>=6"]
+# dependencies = ["pyyaml>=6", "openpyxl>=3.1"]
 # ///
 """Co-authors' comments on a round of the manuscript: the ledger that keeps them, and how the next round
 answers each one (manuscript-coauthors).
@@ -1267,7 +1267,9 @@ def changelog(args: argparse.Namespace) -> int:
     note = unsigned_line(Path(args.new), texts["new"])
     if note:
         table = f"> {note}\n\n{table}"
-    if args.out:
+    if args.out and Path(args.out).suffix.lower() == ".xlsx":  # a Sheet on Drive, never Markdown under that name
+        workbook(table, Path(args.out))
+    elif args.out:
         Path(args.out).write_text(table, encoding="utf-8")
         print(json.dumps({"changelog": args.out, "rows": len(rows), "why_from_comments": sum(1 for w in why if w),
                           **({"since_seen": {k: since.count(k) for k in ("new", "changed", "same")}} if since else {})},
@@ -1275,6 +1277,38 @@ def changelog(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(table)
     return 0
+
+
+def workbook(table: str, path: Path) -> int:
+    """The changelog as a real workbook, for a release that uploads it as a Google Sheet: the lines above the table
+    as notes on top of the Changes sheet, the table's rows under its header, and the record behind each row on a
+    sheet of its own. The number of rows written."""
+    from openpyxl import Workbook
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
+    def clean(text: str) -> str:
+        return ILLEGAL_CHARACTERS_RE.sub("", text.replace("\\|", "|").strip())
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Changes"
+    record = book.create_sheet("Record")
+    lines, rows, part = table.splitlines(), 0, "notes"
+    for line in lines:
+        if line.startswith("## The record behind each row"):
+            part = "record"
+            continue
+        if part == "record":
+            if line.strip():
+                record.append([clean(line.lstrip("- "))])
+            continue
+        if line.startswith("|") and not re.fullmatch(r"\|(?:-+\|)+", line.strip()):
+            sheet.append([clean(c) for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))])
+            rows += 1
+        elif line.strip() and not line.startswith("|"):
+            sheet.append([clean(line.lstrip("#> "))])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    book.save(path)
+    return max(rows - 1, 0)
 
 
 def unsigned_line(path: Path, found: Any) -> str:

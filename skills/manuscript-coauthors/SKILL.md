@@ -267,6 +267,8 @@ The base is `rounds.<round>.base` and the last circulated commit the last entry 
 (`rounds.py show`). Every row whose segment answers a comment gets its Why: who asked, what, and the ledger's
 `why`. The rest follow manuscript-revision-marks' "Changelog between rounds": Why from the record or left for
 the authors, every row kept, and the changelog **extended** on each iteration of the round, never rewritten.
+`--out FILE.md` writes the table; `--out FILE.xlsx` writes a real workbook (the table on a Changes sheet, the
+record behind each row on its own), which a release uploads as a Google Sheet.
 
 ## Sign-off from the review itself
 

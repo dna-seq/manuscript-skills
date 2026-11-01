@@ -852,3 +852,18 @@ def test_the_changelog_and_the_release_say_how_many_passages_nobody_signed(round
     plan = json.loads(rounds_cli("push", "0.6", "--project", rounds / "v0.6").stdout)
     assert plan["no_sign_off"] == {"paper.md": "3 of 3 marked passages were last written by an AI or agent with no "
                                                 "person's sign-off since"}
+
+
+def test_a_changelog_asked_for_as_xlsx_is_a_real_workbook(rounds: Path) -> None:
+    """The release uploads build/changes-from-v{previous}.xlsx as a Google Sheet; Markdown in a file with that name
+    could not be imported."""
+    from openpyxl import load_workbook
+    ledger, master = signed_round(rounds)
+    out = rounds / "build" / "changes-from-v0.5.xlsx"
+    assert cli("changelog", "--base", rounds / "v0.5" / "paper.md", "--new", master, "--ledger", ledger,
+               "--out", out) == 0
+    book = load_workbook(out)
+    assert book.sheetnames == ["Changes", "Record"]
+    rows = [[c.value for c in row] for row in book["Changes"].iter_rows()]
+    assert rows[0][0].startswith("3 of 3 marked passages") and ["Id", "Where", "Was", "Now", "Why"] in rows
+    assert book["Record"].max_row >= 1
