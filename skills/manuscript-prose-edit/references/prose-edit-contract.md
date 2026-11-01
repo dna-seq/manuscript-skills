@@ -200,7 +200,11 @@ is a prerequisite for a copy edit.
 5. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
    Do not pad a paragraph that became short after cuts: a shorter, specific paragraph is the goal.
 6. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.
-   Remove only stacked duplicates ("may potentially" → "may").
+   Remove only stacked duplicates ("may potentially" → "may"). When a correction adds a qualifier or a
+   condition, write it as its own sentence after the claim, not as a clause appended to it. A sentence over
+   about 35 words with two or more subordinate clauses, or a parenthesis inside a clause, is split: the claim
+   guard keeps every qualifier, so a correction made by appending clauses keeps the meaning and loses the
+   reader. manuscript-improve's re-check counts a sentence a revision made that dense as worse.
 7. **Keep the terms.** One name per object, the paper's own.
 8. **Minimal edits, deletion over insertion.** Professional editors mostly replace and delete; they rarely
    insert. Copy untouched sentences exactly. Two tests on every change: the **deletion test** (delete what

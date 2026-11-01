@@ -230,8 +230,9 @@ inventory, so the end of a run goes in this order:
    rebuild after the re-check sets it `running` again.
 7. Re-check it independently, between `stage --name recheck --status running` and `completed`. The stages' own agents are the ones most inclined to see their fixes as
    done, so one fresh agent that took no part in the review or the edits reads each confirmed problem against
-   the corrected version, and the number, reference and section-roles checks run again on it (from this skill's
-   folder):
+   the corrected version, and the number, reference and section-roles checks run again on it, with a reading
+   check: a sentence the edits made dense (over 35 words, two subordinate clauses or a parenthesis mid-clause,
+   new or longer than before) counts as harder to read, so as worse (from this skill's folder):
 
    ```bash
    uv run --script scripts/recheck.py prepare --inventory RUN/manuscript-dashboard/findings.json \

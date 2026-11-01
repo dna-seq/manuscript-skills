@@ -27,7 +27,10 @@ in the corrected version) or missed (the same text was in the reviewed one).
 
 `numbers` runs the number checks (number_check.py), the offline reference checks (scan.py --references-only) and the
 section-roles check (section_roles.py: procedure or a measurement in the Abstract or Introduction, a result in
-Methods) on both versions and keeps the candidates the edits introduced and those they resolved.
+Methods) on both versions and keeps the candidates the edits introduced and those they resolved. It also reads the
+two texts with manuscript-story's reader_metrics.py: a sentence of over 35 words with two subordinate clauses or a
+parenthesis mid-clause that the edits made (new, or longer than the sentence it replaced) is a reading candidate,
+"harder to read than before", and counts as worse like the others.
 
 `check` holds the answer to the contract: every problem answered once with a known verdict, every quote verbatim in
 the corrected version, an introduced problem's text absent from the reviewed version and a missed one's present in
@@ -47,7 +50,7 @@ then keeps the first re-check's verdicts for the rest (`carried_over`, `round: 2
 Exit codes: prepare and numbers 0; check 0 when the answer meets the contract and no edit made anything worse, 1 when
 the answer breaks the contract (nothing is written; correct the quote from the text, or mark the problem unchecked,
 never ask the agent to judge again), 3 when it meets the contract but an edit made a problem worse, introduced one,
-or introduced a number, reference or section-roles candidate (hold or reverse those edits and rebuild, then the
+or introduced a number, reference, section-roles or reading candidate (hold or reverse those edits and rebuild, then the
 second re-check; after the second, record what stays unchecked); 2 usage error.
 """
 
@@ -353,7 +356,7 @@ def _key(f: dict) -> tuple[str, str]:
     return str(f["check"]), " ".join(LINE_WORDS.sub("", str(f["message"])).split())
 
 
-CHECKS = ("numbers", "references", "placement")
+CHECKS = ("numbers", "references", "placement", "reading")
 
 
 def _candidates(path: Path, online: bool) -> dict[str, list[dict]]:
@@ -374,7 +377,7 @@ def _candidates(path: Path, online: bool) -> dict[str, list[dict]]:
 
 def compare_candidates(before: dict[str, list[dict]], after: dict[str, list[dict]]) -> dict[str, dict]:
     out = {}
-    for kind in CHECKS:
+    for kind in (k for k in CHECKS if k in before and k in after):  # reading compares the two texts itself
         b, a = {_key(f): f for f in before[kind]}, {_key(f): f for f in after[kind]}
         out[kind] = {"introduced": [a[k] for k in a if k not in b], "resolved": [b[k] for k in b if k not in a],
                      "unchanged": sum(1 for k in a if k in b)}
@@ -389,8 +392,16 @@ def numbers(
     online: Annotated[bool, typer.Option(help="Also resolve the references online")] = False,
 ) -> None:
     """Run the number, reference and section-roles checks on both versions: what the edits introduced and what they
-    resolved."""
+    resolved; and the reading check: a dense sentence the edits made (new, or longer than before) counts as worse."""
     result = compare_candidates(_candidates(original, online), _candidates(proposed, online))
+    metrics = _load("recheck_reader_metrics", SKILLS / "manuscript-story" / "scripts" / "reader_metrics.py")
+    harder = metrics.harder_to_read(original.read_text(encoding="utf-8"), proposed.read_text(encoding="utf-8"))
+    result["reading"] = {"introduced": [
+        {"check": "harder-to-read", "severity": "minor", "section": h["section"],
+         "message": (f"{h['section']}: a sentence of {h['words']} words"
+                     + (f" (it had {h['was']})" if h["was"] else " (new)")
+                     + f" that a reader must parse twice; split it, a kept qualifier in its own sentence: "
+                       f"\"{h['sentence'][:200]}\"")} for h in harder], "resolved": [], "unchanged": 0}
     result["original_sha256"] = digest(original.read_text(encoding="utf-8"))
     result["proposed_sha256"] = digest(proposed.read_text(encoding="utf-8"))
     json_out.parent.mkdir(parents=True, exist_ok=True)
@@ -489,13 +500,13 @@ def check(
         "checks_introduced": len(flagged)}, indent=2))
     if counts["worse"] or introduced or flagged:
         if result.get("round") == 2:
-            typer.echo("A fix made a problem worse, introduced one, or introduced a number, reference or section-roles "
+            typer.echo("A fix made a problem worse, introduced one, or introduced a number, reference, section-roles or reading "
                        "candidate. This was the second re-check, and there is no third: hold or reverse those fixes, "
                        "rebuild, and finish the re-check stage as partial with what stays unchecked "
                        "(runs.py stage --name recheck --status partial --reason ...).", err=True)
         else:
-            typer.echo("An edit made a problem worse, introduced one, or introduced a number, reference or "
-                       "section-roles candidate: hold or reverse those edits and rebuild the corrected version, then "
+            typer.echo("An edit made a problem worse, introduced one, or introduced a number, reference, "
+                       "section-roles or reading candidate: hold or reverse those edits and rebuild the corrected version, then "
                        "run the second re-check on the rebuilt version (prepare --since this result --previous this "
                        "revision folder); it reads only what the fixes changed.", err=True)
         raise typer.Exit(3)
