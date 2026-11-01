@@ -18,7 +18,12 @@ pattern-check procedure and [catalogue](../../manuscript-deslop/references/llm-s
 citation, hedge, negation and limitation.
 
 **You may:**
-- delete stock phrases, filler, connectors used as glue, significance inflation and mini-conclusions;
+- delete stock phrases, filler, significance inflation and mini-conclusions, and a connector that states no
+  relation ("Moreover", "Additionally", "Notably"); keep or add one that states a real relation ("because",
+  "so", "but", "for example"), and where two sentences have none, open the second with what the first one
+  said (given before new);
+- define a term where it is first used, from the paper's own later definition or a sentence that already
+  exists: move the definition up, or point to it ("two modes (Section 2.3)"); never invent one;
 - replace an inflated word with the plain one, or better, with what it stood for;
 - shorten, split, merge or reorder sentences inside a paragraph;
 - move a number from later in the paragraph into the sentence that makes the claim;
@@ -201,8 +206,14 @@ is a prerequisite for a copy edit.
    insert. Copy untouched sentences exactly. Two tests on every change: the **deletion test** (delete what
    you added; if nothing is lost, it should not be there) and the **reversion test** (put the original back;
    if it reads as well, keep the original).
-9. **Restore links you cut.** Removing a connector or a participle tail must not leave the next sentence
-   unanchored (K3); a paragraph of unlinked declaratives is its own smell (C16).
+9. **Restore links you cut, and add the ones the draft lacks.** Removing a connector or a participle tail must
+   not leave the next sentence unanchored (K3); a paragraph of unlinked declaratives is its own smell (C16).
+   Read every adjacent pair of sentences you edit: where the second does not follow from the first by cause,
+   contrast, time, elaboration or example, add the relation the authors' own text states, or open the second
+   with what the first said. A link whose relation the text does not give is a question for the authors.
+10. **A term before its definition.** A term, mode, measure or abbreviation used before the paper defines it
+   is a stumble for every reader outside the sub-field. Move the paper's own definition to the first use, or
+   point to where it is, and keep the later passage consistent.
 
 ---
 
