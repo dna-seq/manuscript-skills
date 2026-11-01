@@ -667,8 +667,9 @@ def port(name: str, run: Annotated[Path, typer.Option("--run", help="The run who
     if not (run / "run.json").is_file():
         raise Refused(f"{run}: no run.json; give the run the round's dashboard belongs to.", 2)
     steps = port_plan(project, name, run, list(gdoc or []), not no_pull)
-    commands = [{"step": s["step"], "command": shlex.join([sys.executable, str(RUNS), "exec", str(run), "--skill",
-                                                           s["skill"], "--", *s["argv"]])} for s in steps]
+    # runs.py through uv, with its own dependencies: this script's environment does not have them.
+    commands = [{"step": s["step"], "command": shlex.join(["uv", "run", "--script", str(RUNS), "exec", str(run),
+                                                           "--skill", s["skill"], "--", *s["argv"]])} for s in steps]
     if not go:
         say({"round": name, "dry_run": True, "steps": commands})
         return
