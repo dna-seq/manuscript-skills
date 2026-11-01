@@ -867,3 +867,18 @@ def test_a_changelog_asked_for_as_xlsx_is_a_real_workbook(rounds: Path) -> None:
     rows = [[c.value for c in row] for row in book["Changes"].iter_rows()]
     assert rows[0][0].startswith("3 of 3 marked passages") and ["Id", "Where", "Was", "Now", "Why"] in rows
     assert book["Record"].max_row >= 1
+
+
+def test_push_stops_when_the_build_left_a_figure_out(rounds: Path, tmp_path: Path) -> None:
+    """pandoc warns "Could not convert image" (no rsvg-convert for an SVG) and still writes the Doc; the release
+    would have gone up without the figure."""
+    folder = rounds / "v0.5"
+    drive = tmp_path / "Google Drive"
+    warn = "import sys; sys.stderr.write('[WARNING] Could not convert image figures/fig1.svg: check rsvg-convert')"
+    configure(folder, "--drive", "folder", "--drive-folder", str(drive), "--release-doc", "paper.md",
+              "--release-build", f'"{sys.executable}" -c "{warn}"')
+    (folder / "build").mkdir()
+    (folder / "build" / "paper.docx").write_bytes(b"docx")
+    done = rounds_cli("push", "0.5", "--go", "--project", folder)
+    assert done.returncode == 3 and "figures/fig1.svg" in done.stderr and "rsvg-convert" in done.stderr
+    assert not (drive / "v0.5").exists()

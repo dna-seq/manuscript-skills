@@ -308,6 +308,8 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
   would leave out. It never replaces a file already in the round's Drive folder: replacing a Doc keeps its
   link but can detach the co-authors' comments from their text. Before `--replace`, pull that Doc's comments
   (step 1) and ask.
+- A build that warns it could not convert or find an image (pandoc builds the Doc without it; an SVG needs
+  `rsvg-convert`) stops the push before anything is uploaded, naming the file and the tool.
 - After the upload, open the Docs (or their PDF export) and look at every figure and table page before calling
   the round released; a Drive-for-desktop upload stays a Word file until it is saved as a Google Doc.
 - Replies to co-authors inside the Doc are posted only when the authors ask for them. The changelog's Why and

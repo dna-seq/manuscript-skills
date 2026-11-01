@@ -244,6 +244,9 @@ def gdocs(entries: list[dict[str, Any]]) -> dict[str, str]:
     return {Path(e["Name"]).stem: doc_link(e) for e in entries if e["gdoc"] and "/" not in e.get("Path", e["Name"])}
 
 
+LOST_IMAGE = re.compile(r"Could not (?:convert|fetch|find) (?:image|resource)\s+['\"]?([^\s:'\"]+)", re.IGNORECASE)
+
+
 def execute(commands: list[list[str]], cwd: Path) -> None:
     for command in commands:
         if command[0] == "copy":  # into the folder Drive for desktop syncs, the same on every platform
@@ -255,6 +258,12 @@ def execute(commands: list[list[str]], cwd: Path) -> None:
         done = subprocess.run(command, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
         if done.returncode != 0:
             raise Refused(f"{shlex.join(command)} failed: {(done.stderr or done.stdout).strip()}", 3)
+        if lost := LOST_IMAGE.findall(f"{done.stderr}\n{done.stdout}"):  # pandoc warns and builds the Doc without it
+            svg = any(name.lower().endswith(".svg") for name in lost)
+            raise Refused(f"{shlex.join(command)} left out {', '.join(sorted(set(lost)))}: it could not convert "
+                          + ("the SVG; install rsvg-convert (librsvg) and push again." if svg else
+                             "the image; check the file and the tool pandoc names, and push again.")
+                          + " Nothing was uploaded.", 3)
 
 
 UNSAFE_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
