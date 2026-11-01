@@ -61,6 +61,8 @@ Read with comments and suggestions (Claude):
 read_doc {"documentId": "DOC_ID", "commentsIncluded": true}
 ```
 
+Saved as JSON, that answer is what `comments.py import-gdoc` merges into the round's ledger.
+
 The answer carries `comments[]` (each with `commentId`, `anchorId`, `plainTextQuote`, `status`, `headPost`,
 `replies[]`), `suggestions[]` (each with `suggestionId`, `status`, `summaryText`) and `commentAnchors` (each
 anchor's index range). In the body, a suggested insertion is text with `suggestedInsertionIds`, a suggested

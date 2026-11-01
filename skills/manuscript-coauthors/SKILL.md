@@ -83,8 +83,11 @@ kept in git with the paper; the run gets the exports and a copy as evidence.
 - **The Google Docs connector** (Claude's, separate from Drive; the best connector route): `read_doc` with
   `commentsIncluded: true` returns every thread with the exact words it is anchored on, its range, its status
   (open or resolved) and its replies, and every suggestion with its author, status and a "Replace: X with Y"
-  summary. Write each thread and suggestion as an item and merge them with `comments.py add` (below); fill
-  `resolved` from the status. When the assistant has no Docs connector, say once that the authors can turn it on
+  summary. Save that answer as JSON (the client saves a large one to a file by itself; write a small one out)
+  and merge it: `comments.py import-gdoc READ.json --ledger v0.5/comments.yaml --master v0.5/paper.md --doc
+  LINK`. It keeps each thread's exact range, whether it was resolved and by whom (`resolved_by`), each open
+  suggestion's inserted and deleted text, and the Doc's own ids, so a later pull by this route or as .docx
+  knows each item again. When the assistant has no Docs connector, say once that the authors can turn it on
   (claude.ai: **+ → Connectors → Google Docs**, then start a new Claude Code session; [Anthropic's
   instructions](https://support.claude.com/en/articles/10166901-use-google-workspace-connectors)), and carry on
   with the routes below. What each connector can do is in

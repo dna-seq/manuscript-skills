@@ -590,3 +590,105 @@ def test_a_gap_outside_the_scale_is_a_malformed_ledger(rounds: Path) -> None:
     data["items"][0]["gap"] = {"verdict": "spotted"}
     ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     assert cli("status", ledger) == 2
+
+
+# --- the Google Docs connector's read_doc, as JSON --------------------------------------------------------------
+
+
+def gdoc_json(path: Path, resolved_by: str = ANN) -> Path:
+    """A read_doc answer (commentsIncluded) for MASTER, made up: Ann's comment on "billions of dollars" with Bob's
+    reply and Ann's own reply resolving it, an [ai:claude] comment, Bob's suggested replacement old -> new, and his
+    suggested bold. Indices are UTF-16 offsets, as Google gives them."""
+    paragraphs = [["A Paper\n"], ["Abstract\n"], ["Personal genome analysis requires tools that keep the data local.\n"],
+                  ["1. Introduction\n"],
+                  ["Whole genome sequencing costs have fallen from ", "billions of dollars",
+                   " to under a thousand since 2003.\n"],
+                  ["The platform annotates variants with ", ("new", "ins"), ("old", "del"), " words in this sentence.\n"],
+                  ["Modules are ", ("versioned", "style"), " tables of variants and their evidence.\n"]]
+    content, index, spots = [{"endIndex": 1, "sectionBreak": {}}], 1, {}
+    for para in paragraphs:
+        elements = []
+        for part in para:
+            text, kind = (part, "") if isinstance(part, str) else part
+            run = {"content": text, "textStyle": {}}
+            if kind == "ins":
+                run["suggestedInsertionIds"] = ["suggest.r1"]
+            elif kind == "del":
+                run["suggestedDeletionIds"] = ["suggest.r1"]
+            elif kind == "style":
+                run["suggestedTextStyleChanges"] = {"suggest.b1": {"textStyle": {"bold": True}}}
+            elements.append({"startIndex": index, "endIndex": index + len(text), "textRun": run})
+            spots[text] = (index, index + len(text))
+            index += len(text)
+        content.append({"startIndex": elements[0]["startIndex"], "endIndex": index, "paragraph": {"elements": elements}})
+
+    def post(who: str, when: str, said: str, action: str = "NO_COMMENT_ACTION_CHANGE") -> dict:
+        return {"author": {"displayName": who}, "createTime": when, "content": said, "commentAction": action}
+    start, end = spots["billions of dollars"]
+    doc = {"documentId": "fake", "commentsViewMode": "COMMENTS_VIEW_MODE_INCLUDED", "title": "A Paper (v0.5)",
+           "comments": [
+               {"commentId": "doco.c1", "anchorId": "kix.a1", "status": "RESOLVED", "plainTextQuote": "billions of dollars",
+                "headPost": post(ANN, "2026-10-20T09:30:00.000Z", "This is not true: that was the whole project's budget."),
+                "replies": [post(BOB, "2026-10-20T11:00:00.000Z", "Agreed."),
+                            post(resolved_by, "2026-10-25T08:00:00.000Z", "Fixed in v0.6, thanks.", "RESOLVE")]},
+               {"commentId": "doco.c2", "anchorId": "kix.a2", "status": "OPEN", "plainTextQuote": "Abstract",
+                "headPost": post("Ann Lee", "2026-10-20T10:00:00.000Z", "[ai:claude] Consider a shorter title.")}],
+           "commentAnchors": {"kix.a1": {"ranges": [{"startIndex": start, "endIndex": end}]},
+                              "kix.a2": {"ranges": [{"startIndex": spots["Abstract\n"][0], "endIndex": spots["Abstract\n"][1] - 1}]}},
+           "suggestions": [
+               {"suggestionId": "suggest.r1", "status": "OPEN", "summaryText": "Replace: “old” with “new”",
+                "headPost": {"author": {"displayName": BOB}, "createTime": "2026-10-21T10:00:00.000Z"}},
+               {"suggestionId": "suggest.b1", "status": "OPEN", "summaryText": "Format: bold",
+                "headPost": {"author": {"displayName": BOB}, "createTime": "2026-10-21T10:05:00.000Z"}}],
+           "tabs": [{"tabProperties": {"tabId": "t.0"}, "documentTab": {"body": {"content": content}}}]}
+    path.write_text(json.dumps({"content": doc}), encoding="utf-8")
+    return path
+
+
+def test_import_gdoc_reads_ranges_resolution_suggestions_and_people(rounds: Path, capsys) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import-gdoc", gdoc_json(rounds / "read.json"), "--ledger", ledger,
+               "--master", rounds / "v0.5" / "paper.md") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["new"] == 4 and result["not_located"] == []
+    assert {(p["name"], p["handle"]) for p in result["people"]} == {(ANN, "annlee"), (BOB, "bobray")}
+    items = {i["id"]: i for i in ledger_of(ledger)["items"]}
+    assert [i["id"] for i in ledger_of(ledger)["items"]] == ["C1", "C2", "S1", "S2"]  # paper order
+    ai, ann = items["C1"], items["C2"]
+    assert ai["ai"] == "claude" and ai["status"] == "not-on-point" and ai["where"] == "Abstract"
+    assert ann["anchor"] == "billions of dollars" and ann["where"] == "1. Introduction" and ann["line"] == 9
+    assert ann["resolved"] is True and ann["resolved_by"] == "annlee" and ann["gdoc_id"] == "doco.c1"
+    assert [r["by"] for r in ann["replies"]] == ["bobray", "annlee"]
+    assert items["S1"]["edits"] == [{"deleted": "old", "inserted": "new"}] and items["S1"]["by"] == "bobray"
+    assert items["S1"]["anchor"] == "old" and items["S1"]["where"] == "1. Introduction"
+    assert "bold" in items["S2"]["comment"] and items["S2"]["anchor"] == "versioned"
+
+
+def test_a_pull_by_the_other_route_knows_each_comment_again(rounds: Path, capsys) -> None:
+    """Pulled first as .docx (Google writes a shortened author name there), then through the connector: the same
+    comment is one item, matched by the person's handle, the minute and its first words."""
+    folder = rounds / "v0.5"
+    (folder / "rev-marks.toml").write_text('humans = ["annlee"]\n\n[aliases]\nannlee = ["A Lee"]\n', encoding="utf-8")
+    ledger = folder / "comments.yaml"
+    doc = export(rounds / "doc.docx")
+    with zipfile.ZipFile(doc) as z:
+        files = {n: z.read(n).decode() for n in z.namelist()}
+    with zipfile.ZipFile(doc, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text.replace(f'w:author="{ANN}"', 'w:author="A Lee"'))
+    cli("import", doc, "--ledger", ledger, "--master", folder / "paper.md")
+    capsys.readouterr()
+    cli("import-gdoc", gdoc_json(rounds / "read.json"), "--ledger", ledger, "--master", folder / "paper.md")
+    result = json.loads(capsys.readouterr().out)
+    budget = [i for i in ledger_of(ledger)["items"] if i.get("anchor") == "billions of dollars"]
+    assert len(budget) == 1 and budget[0]["gdoc_id"] == "doco.c1" and budget[0]["by"] == "annlee"
+    assert next(p for p in result["people"] if p["name"] == ANN)["rule"] in ("author", "initials", "alias")
+
+
+def test_import_gdoc_refuses_a_read_without_comments(rounds: Path, capsys) -> None:
+    path = gdoc_json(rounds / "read.json")
+    data = json.loads(path.read_text())
+    data["content"]["commentsViewMode"] = "COMMENTS_VIEW_MODE_OMITTED"
+    path.write_text(json.dumps(data))
+    assert cli("import-gdoc", path, "--ledger", rounds / "v0.5" / "comments.yaml") == 2
+    assert "commentsIncluded" in capsys.readouterr().err

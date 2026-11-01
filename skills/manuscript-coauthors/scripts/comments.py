@@ -6,6 +6,7 @@
 answers each one (manuscript-coauthors).
 
     uv run --script comments.py import EXPORT.docx --ledger v0.5/comments.yaml [--master v0.5/PAPER.md] [--doc URL]
+    uv run --script comments.py import-gdoc READ_DOC.json --ledger v0.5/comments.yaml [--master ...] [--doc URL] [--tab t.0]
     uv run --script comments.py add ITEMS.yaml --ledger v0.5/comments.yaml [--master ...] [--doc URL]
     uv run --script comments.py status v0.5/comments.yaml [--old v0.5/PAPER.md] [--new v0.6/PAPER.md] [--json] [--strict]
     uv run --script comments.py findings v0.5/comments.yaml --new v0.6/PAPER.md --out RUN/manuscript-coauthors/findings.json
@@ -22,7 +23,12 @@ suggested edits of one person in one paragraph are one item. `add` takes items w
 text view (a YAML list of author, date, anchor, comment, and optionally context_before, context_after,
 replies, kind, edits, resolved) and merges them the same way.
 
-`import` also records who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
+`import-gdoc` reads the same from the Google Docs connector: read_doc with commentsIncluded, saved as JSON (a
+large answer is saved to a file by the client; write a small one out). It gives each thread's exact range,
+whether it was resolved and who resolved it, and each open suggestion's inserted and deleted text, and keeps
+the Doc's ids (gdoc_id), so a later pull, by either route, knows each item again.
+
+`import` and `import-gdoc` also record who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
 rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle), added
 to rev-marks.toml's humans with the name among its aliases, and written as `by:` on the item or reply
 (--no-people: none of it). A comment or reply that starts with [ai] or [ai:NAME] is an agent's: `ai:` instead of
@@ -182,6 +188,8 @@ class Found:
     edits: list[dict[str, str]] = field(default_factory=list)
     resolved: bool | None = None
     span: tuple[int, int] = (0, 0)  # its range in the Doc's text: a reply has exactly its comment's
+    gdoc_id: str = ""  # the Doc's own id (doco.…, suggest.…), read through the Google Docs connector
+    resolved_by: str = ""  # who posted the reply that resolved the thread
 
     @property
     def key(self) -> str:
@@ -308,6 +316,130 @@ def describe(edits: list[dict[str, str]]) -> str:
         else:
             said.append(f"delete “{e.get('deleted', '').strip()}”")
     return "Suggested edits: " + "; ".join(said) + "."
+
+
+# --- the Google Docs connector's view of the Doc (read_doc with commentsIncluded) ---------------------------
+
+
+def gdoc_document(path: Path) -> dict[str, Any]:
+    """The document object of a saved read_doc result: the tool's answer ({"content": {...}}) or the document."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Failure(f"{path}: cannot read: {exc}", 3) from None
+    except json.JSONDecodeError as exc:
+        raise Failure(f"{path}: not JSON ({exc}); save read_doc's whole answer", 2) from None
+    doc = data.get("content", data) if isinstance(data, dict) else None
+    if not isinstance(doc, dict) or not isinstance(doc.get("tabs"), list):
+        raise Failure(f"{path}: not a Google Docs read_doc answer (no tabs).")
+    if doc.get("commentsViewMode") not in (None, "COMMENTS_VIEW_MODE_INCLUDED") or "comments" not in doc:
+        raise Failure(f"{path}: read without its comments; read_doc again with commentsIncluded: true.")
+    return doc
+
+
+def gdoc_runs(doc: dict[str, Any], tab: str | None) -> list[dict[str, Any]]:
+    """Every text run of the tab's body in document order, with its index range and suggestion ids."""
+    tabs = doc["tabs"]
+    chosen = next((x for x in tabs if (x.get("tabProperties") or {}).get("tabId") == tab), None) if tab else tabs[0]
+    if chosen is None:
+        raise Failure(f"no tab {tab!r}; the Doc's tabs: "
+                      + ", ".join(str((x.get("tabProperties") or {}).get("tabId")) for x in tabs))
+    runs: list[dict[str, Any]] = []
+
+    def walk(elements: list[Any]) -> None:
+        for el in elements or []:
+            if not isinstance(el, dict):
+                continue
+            for part in (el.get("paragraph") or {}).get("elements", []):
+                run = part.get("textRun")
+                if run and "startIndex" in part:
+                    runs.append({"start": part["startIndex"], "end": part.get("endIndex", part["startIndex"]),
+                                 "text": run.get("content", ""), "ins": run.get("suggestedInsertionIds") or [],
+                                 "del": run.get("suggestedDeletionIds") or [],
+                                 "style": list((run.get("suggestedTextStyleChanges") or {}))})
+            for row in (el.get("table") or {}).get("tableRows", []):
+                for cell in row.get("tableCells", []):
+                    walk(cell.get("content", []))
+            walk((el.get("tableOfContents") or {}).get("content", []))
+
+    walk(((chosen.get("documentTab") or {}).get("body") or {}).get("content", []))
+    return sorted(runs, key=lambda r: r["start"])
+
+
+def read_gdoc(path: Path, tab: str | None = None) -> list[Found]:
+    """A Doc's comments, replies and suggestions from the Google Docs connector's read_doc (commentsIncluded):
+    each thread with the exact range it is anchored on and whether it was resolved (and by whom), each
+    suggestion with its inserted and deleted text. The context around each is the Doc's text as the master
+    has it: suggested insertions left out, suggested deletions kept."""
+    doc = gdoc_document(path)
+    runs = gdoc_runs(doc, tab)
+    pieces, offsets = [], []  # the master-like text, and (doc index, text offset) where each kept run starts
+    for run in runs:
+        if run["ins"]:
+            continue
+        offsets.append((run["start"], sum(len(p) for p in pieces)))
+        pieces.append(run["text"])
+    text = "".join(pieces)
+
+    def at(index: int) -> int:
+        """The text offset of a document index (an index inside a left-out insertion goes to its start)."""
+        pos = 0
+        for start, offset in offsets:
+            if start > index:
+                break
+            pos = offset + (index - start)
+        return min(pos, len(text))
+
+    def around(start: int, end: int) -> tuple[str, str]:
+        return text[max(0, start - CONTEXT):start], text[end:end + CONTEXT]
+
+    anchors = doc.get("commentAnchors") or {}
+    found: list[Found] = []
+    for thread in doc.get("comments") or []:
+        head = thread.get("headPost") or {}
+        quote = " ".join(str(thread.get("plainTextQuote") or "").split())
+        ranges = (anchors.get(thread.get("anchorId") or "") or {}).get("ranges") or []
+        if ranges:
+            start, end = at(ranges[0]["startIndex"]), at(ranges[-1]["endIndex"])
+        else:  # a comment with no anchor in the Doc: find its quoted words
+            start = text.find(quote) if quote else -1
+            start, end = (start, start + len(quote)) if start >= 0 else (0, 0)
+        replies, resolved_by = [], ""
+        for post in thread.get("replies") or []:
+            said = str(post.get("content") or "")
+            author = str((post.get("author") or {}).get("displayName") or "")
+            if post.get("commentAction") == "RESOLVE":
+                resolved_by = author if not ai_of(said) else f"[ai:{ai_of(said)}]"
+            elif post.get("commentAction") == "REOPEN":
+                resolved_by = ""
+            if said.strip():
+                replies.append({"author": author, "date": str(post.get("createTime") or ""), "text": said})
+        before, after = around(start, end)
+        found.append(Found("comment", str((head.get("author") or {}).get("displayName") or ""),
+                           str(head.get("createTime") or ""), str(head.get("content") or ""),
+                           quote or " ".join(text[start:end].split()), before, after, start, replies,
+                           resolved=(thread.get("status") == "RESOLVED") if thread.get("status") else None,
+                           span=(start, end), gdoc_id=str(thread.get("commentId") or ""),
+                           resolved_by=resolved_by if thread.get("status") == "RESOLVED" else ""))
+    for s in doc.get("suggestions") or []:
+        sid = str(s.get("suggestionId") or "")
+        mine = [r for r in runs if sid in r["ins"] or sid in r["del"] or sid in r["style"]]
+        if not mine or (s.get("status") or "OPEN") != "OPEN":
+            continue
+        inserted = "".join(r["text"] for r in mine if sid in r["ins"])
+        deleted = "".join(r["text"] for r in mine if sid in r["del"])
+        styled = "".join(r["text"] for r in mine if sid in r["style"] and sid not in r["ins"])
+        start, end = at(mine[0]["start"]), at(mine[-1]["end"])
+        edits = [{"deleted": deleted, "inserted": inserted}] if inserted or deleted else []
+        head = s.get("headPost") or {}
+        summary = str(s.get("summaryText") or "")
+        before, after = around(start, start if inserted and not deleted else end)
+        found.append(Found("suggestion", str((head.get("author") or {}).get("displayName") or ""),
+                           str(head.get("createTime") or ""),
+                           describe(edits) if edits else f"Suggested edits: {summary or 'formatting'} on “{styled.strip()}”.",
+                           " ".join((deleted or styled or inserted).split()), before, after, start, [], edits,
+                           span=(start, end), gdoc_id=sid))
+    return sorted(found, key=lambda f: (f.at, f.kind, f.date))
 
 
 def from_items(path: Path) -> list[Found]:
@@ -520,6 +652,14 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
         data.setdefault("master", own_master)  # the round's main master; a comment on another Doc names its own
         own_master = None if own_master == data["master"] else own_master
     by_key = {item.get("key"): item for item in data["items"]}
+    by_gdoc = {item["gdoc_id"]: item for item in data["items"] if item.get("gdoc_id")}
+
+    def soft(by: Any, date: Any, comment: Any) -> tuple[str, str, str]:
+        """The same comment pulled once as .docx and once through the connector: the Doc shows the author's name
+        differently, so it is known by the person's handle, the minute it was written and its first words."""
+        return (str(by or ""), str(date or "")[:16], " ".join(str(comment or "").split())[:40])
+    by_soft = {soft(item.get("by"), item.get("date"), item.get("comment")): item for item in data["items"]
+               if item.get("by") and item.get("master") == own_master}  # within this Doc only
 
     def key_of(f: Found) -> str:  # an item of another Doc of the round is known within that Doc
         return f"{own_master}|{f.key}" if own_master else f.key
@@ -527,7 +667,9 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
     numbers = {"comment": next_number(ids, "C"), "suggestion": next_number(ids, "S")}
     added = 0
     for f in found:
-        item = by_key.get(key_of(f))
+        item = by_gdoc.get(f.gdoc_id) if f.gdoc_id else None
+        item = item or by_key.get(key_of(f)) or (by_soft.get(soft(handles.get(f.author), f.date, f.comment))
+                                                  if handles and handles.get(f.author) else None)
         if item is None:
             letter = "C" if f.kind == "comment" else "S"
             item = {"id": f"{letter}{numbers[f.kind]}", "kind": f.kind, "author": f.author, "date": f.date,
@@ -537,6 +679,10 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
             added += 1
         if own_master:
             item["master"] = own_master
+        if item.get("key") != key_of(f) and key_of(f) not in by_key:
+            item.setdefault("also_keys", [])
+            if key_of(f) not in item["also_keys"]:
+                item["also_keys"].append(key_of(f))
         item.update({"anchor": f.anchor, "context_before": " ".join(f.before.split()[-CONTEXT_WORDS:]),
                      "context_after": " ".join(f.after.split()[:CONTEXT_WORDS]), "comment": f.comment})
         if f.edits:
@@ -558,18 +704,32 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
             item["by"] = handles[f.author]
         if f.resolved is not None:
             item["resolved"] = f.resolved
+        if f.gdoc_id:
+            item["gdoc_id"] = f.gdoc_id
+        if f.resolved_by:  # who closed the thread: a co-author accepting the answer, or an agent
+            item["resolved_by"] = (handles or {}).get(f.resolved_by) or f.resolved_by
+        elif f.resolved is False:
+            item.pop("resolved_by", None)
         if master is not None:
             span = master.locate(f.anchor, f.before, f.after)
             item["where"], item["line"] = master.where(span) if span else ("", None)
         for key, default in (("status", "open"), ("now", ""), ("why", ""), ("next", "")):
             item.setdefault(key, default)
     known = {key_of(f) for f in found}
+    for item in data["items"]:  # an item matched under another key (the other pull method) is still in this pull
+        if any(k in known for k in item.get("also_keys", [])) or (item.get("gdoc_id") and item["gdoc_id"] in
+                                                                   {f.gdoc_id for f in found}):
+            known.add(item.get("key"))
     # This pull speaks only for its own Doc: the comments of the round's other Docs are neither gone nor reordered.
     gone = [item["id"] for item in data["items"] if item.get("master") == own_master and item.get("key") not in known]
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     data.setdefault("sources", []).append({k: v for k, v in {"doc": doc, "file": source_file, "pulled": stamp,
                                                              "items": len(found), "new": added}.items() if v is not None})
     order = {key_of(f): n for n, f in enumerate(found)}
+    for item in data["items"]:
+        for k in item.get("also_keys", []):
+            if k in order:
+                order.setdefault(item.get("key"), order[k])
     place = {id(i): n for n, i in enumerate(data["items"])}
     data["items"].sort(key=lambda i: (i.get("master") or "", order.get(i.get("key"), len(order) + place[id(i)])))
     ordered = {k: data[k] for k in ("round", "master", "sources", "items") if k in data}
@@ -1106,13 +1266,15 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "changelog":
         return changelog(args)
     ledger = Path(args.ledger)
-    if args.command in ("import", "add"):
-        found = read_docx(Path(args.source)) if args.command == "import" else from_items(Path(args.source))
+    if args.command in ("import", "import-gdoc", "add"):
+        source = Path(args.source)
+        found = (read_docx(source) if args.command == "import" else
+                 read_gdoc(source, args.tab) if args.command == "import-gdoc" else from_items(source))
         data = read_ledger(ledger)
         master_path = Path(args.master) if args.master else (ledger.parent / data["master"] if data.get("master") else None)
         master = Master(master_path) if master_path else None
         # A Doc's commenters are people; items written by hand (add) may carry any author, a workbook among them.
-        people = commenters(found, master_path or ledger.parent) if args.command == "import" and args.people \
+        people = commenters(found, master_path or ledger.parent) if args.command != "add" and args.people \
             else {"handles": {}, "people": [], "config": None}
         result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name, people["handles"])
         if people["people"]:
@@ -1169,14 +1331,18 @@ def new_round(path: str) -> str | None:
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
-    for name, source in (("import", "the Doc exported as .docx"), ("add", "a YAML list of items from a connector's text view")):
+    for name, source in (("import", "the Doc exported as .docx"),
+                         ("import-gdoc", "the Google Docs connector's read_doc answer (commentsIncluded), saved as JSON"),
+                         ("add", "a YAML list of items from a connector's text view")):
         s = sub.add_parser(name, help=f"merge {source} into the round's ledger")
         s.add_argument("source", help=source)
         s.add_argument("--ledger", required=True, help="the round's comments.yaml (created when missing)")
         s.add_argument("--master", help="the round's master, to find each anchor (default: the ledger's master)")
         s.add_argument("--round", help="the round's name, e.g. 0.5 (default: from the folder, v0.5)")
         s.add_argument("--doc", help="the Doc's link, recorded with the pull")
-        if name == "import":
+        if name == "import-gdoc":
+            s.add_argument("--tab", help="the Doc tab's id (default: the first tab)")
+        if name != "add":
             s.add_argument("--no-people", dest="people", action="store_false",
                            help="do not record the Doc's commenters as people in rev-marks.toml")
     for name, about in (("status", "how the next round answers each comment"),
