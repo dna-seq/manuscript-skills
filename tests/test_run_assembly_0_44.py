@@ -235,6 +235,25 @@ def test_the_stage_check_reads_the_shape_first() -> None:
         "change IC-C1: an anchor belongs only to an addition (before: null)"]
 
 
+def test_a_comprehension_finding_is_at_least_minor_and_a_crowded_section_is_major() -> None:
+    def finding(n: int, severity: str, section: str = "2.2 Profiles", **more) -> dict:
+        return {"id": f"ST-{n}", "category": "Comprehension", "section": section, "severity": severity,
+                "summary": f"Term {n} used before it is defined.", **more}
+    doc = {"findings": [finding(1, "info"), finding(2, "minor", decision=True), finding(3, "minor"),
+                        finding(4, "minor"), finding(5, "minor"), finding(6, "minor", section="1. Introduction"),
+                        {"id": "ST-7", "category": "Structure", "section": "1. Introduction", "severity": "info"}]}
+    assert stage_check.comprehension_problems(doc) == [
+        "finding ST-1: a comprehension finding is at least minor (a reader of the recorded audience stops there), "
+        "not 'info'",
+        "finding ST-2: a comprehension finding is fixed, not decided: give the action (define the term at first use, "
+        "add the link, split the sentence) or a question",
+        "section '2.2 Profiles': 5 comprehension findings; make the section's own finding (\"written for a narrower "
+        "reader than the recorded audience\") major"]
+    doc["findings"][0]["severity"] = "major"
+    doc["findings"][1]["action"] = "Define ASV at its first use from Section 2.2's own words."
+    assert stage_check.comprehension_problems(doc) == []
+
+
 def test_a_finding_handed_to_another_stage_is_answered_there_or_listed(tmp_path: Path, capsys) -> None:
     """A finding a stage leaves for another names it in `owner`; the owner answers it, or cannot finish, and the
     coordinator sees every unanswered hand-off before the dashboard is collected."""

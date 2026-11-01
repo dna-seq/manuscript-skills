@@ -76,6 +76,13 @@ the next attempt (`findings.2.json`), never in a registered file.
   Words other scripts and seats use map onto it: `optional` → `info`, `uncertain` and `not_assessed` →
   `unknown`, `serious` → `blocker`, `important` → `major`. Collect applies the same mapping.
 - `quote`: at least three words, as many as it takes to find the passage once in the manuscript.
+- **Comprehension.** A term used before the paper defines it, a sentence a reader could not parse, or two
+  sentences with no relation between them, in a section the recorded audience reads, is a finding of category
+  `Comprehension`: at least `minor`, never `info`, since a reader stops there; it needs no decision of the
+  authors (`decision: false`, with the fix as `action`: the definition moved to the first use, the link, the
+  split), so under `edits: apply` the stage that owns it applies the fix. Five or more in one section, or one that
+  made a reader of the recorded audience leave, make the section's own finding `major` ("written for a narrower
+  reader than the recorded audience", with the count). `stage_check.py` holds the stage to it.
 - **Hand-offs.** A finding a stage leaves for another stage to fix names it: `"owner": "manuscript-story"`.
   The owner answers each finding handed to it in a top-level `answers` list of its own findings.json:
   `{"id": "PE-3", "from": "manuscript-prose-edit", "answer": "done | proposed | declined", "records": ["ST-4",

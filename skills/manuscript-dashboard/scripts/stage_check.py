@@ -25,6 +25,9 @@ What is checked:
   one;
 - each proposal's before-text, or an addition's anchor, exactly once in the clean text of the file it changes,
   and a proposal for another file than the manuscript (a supplement) naming that file in `document`;
+- comprehension: a finding of category "Comprehension" (a term used before it is defined, a sentence a reader
+  could not parse, two sentences with no link) is at least minor and needs no decision of the authors, and five
+  or more in one section make one of them, or a finding on the whole section, major;
 - hand-offs: a finding left for another stage names it in `owner`; the owner's findings.json answers it in
   `answers` (done, proposed or declined, with why for declined), and a stage that finishes while a finding is
   handed to it in a findings.json already written, with no answer, is refused. `--handoffs` lists every unanswered one in the run,
@@ -215,6 +218,29 @@ def placement(doc: dict, skill: str, folder: Path, inputs: list[dict]) -> list[s
 
 
 ANSWERS = ("done", "proposed", "declined")
+COMPREHENSION = re.compile(r"\bcomprehension\b", re.IGNORECASE)
+CROWDED = 5  # comprehension findings in one section that make the section's problem major
+
+
+def comprehension_problems(doc: Any) -> list[str]:
+    """A reader who cannot follow a passage is not a style preference: at least minor, fixed without the authors'
+    decision, and a section full of them is written for a narrower reader than the recorded audience."""
+    out, by_section = [], {}
+    for record in doc.get("findings") or []:
+        if not COMPREHENSION.search(str(record.get("category") or "")):
+            continue
+        by_section.setdefault(str(record.get("section") or "Whole manuscript"), []).append(record)
+        if record.get("severity") not in ("blocker", "major", "minor"):
+            out.append(f"finding {record.get('id')}: a comprehension finding is at least minor (a reader of the "
+                       f"recorded audience stops there), not {record.get('severity')!r}")
+        if record.get("decision") is True and not text(record.get("action")):
+            out.append(f"finding {record.get('id')}: a comprehension finding is fixed, not decided: give the action "
+                       f"(define the term at first use, add the link, split the sentence) or a question")
+    for section, records in by_section.items():
+        if len(records) >= CROWDED and not any(r.get("severity") in ("blocker", "major") for r in records):
+            out.append(f"section {section!r}: {len(records)} comprehension findings; make the section's own finding "
+                       f"(\"written for a narrower reader than the recorded audience\") major")
+    return out
 
 
 def handoffs(run: Path) -> list[dict]:
@@ -266,7 +292,8 @@ def handoff_problems(doc: Any, skill: str, folder: Path) -> list[str]:
 
 def problems(doc: Any, skill: str, folder: Path, inputs: list[dict]) -> list[str]:
     """Every problem in one stage's findings.json; the shape first, since nothing else can be read without it."""
-    return fatal(doc) or placement(doc, skill, folder, inputs) + handoff_problems(doc, skill, folder)
+    return fatal(doc) or (placement(doc, skill, folder, inputs) + comprehension_problems(doc)
+                          + handoff_problems(doc, skill, folder))
 
 
 def newest(folder: Path) -> Path | None:
