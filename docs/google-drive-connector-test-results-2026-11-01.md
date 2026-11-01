@@ -1,15 +1,15 @@
 # Google Drive connector test results — 2026-11-01
 
-Manual tests of the Google Drive connector available in this Codex session demonstrated direct text insertion, replacement, deletion, highlighting, comment creation, replies, resolution, and revision reads. Two attempts to create tracked suggestions instead produced direct edits. The user independently confirmed that no suggestions were created.
+Manual tests of the Google Drive connector available in this Codex session demonstrated direct text insertion, replacement, deletion, highlighting, native anchored comment creation, replies, resolution, and revision reads. The user confirmed that the native anchored comment and reply worked in the editor. Earlier unanchored comments were readable through the API but the user could not see them in the editor. Two attempts to create tracked suggestions instead produced direct edits; the user independently confirmed that no suggestions were created.
 
 ## Test target and method
 
 - Document: [Claude Code edit test (safe to delete)](https://docs.google.com/document/d/1bFAKtWjcLadp_4A_fZLGsuBgiE57LAYvtYgxbTvlSvA/edit?tab=t.0).
 - Target tab: `t.0`.
 - Connector tools: `mcp__codex_apps__google_drive_*`.
-- Markers: `CODEX-TEST-20261101-A`, `CODEX-SUGGEST-TEST-20261101-B`, and `CODEX-REPLACE-SUGGEST-20261101-C`.
-- Mutations were confined to added, marked test text. Existing text, comments, and the pre-existing Claude Code suggestion were preserved.
-- Verification used native document and comment readback. The user also checked the suggestion outcomes in the editor. No automated browser or rendered-layout verification was performed.
+- Markers: `CODEX-TEST-20261101-A`, `CODEX-SUGGEST-TEST-20261101-B`, `CODEX-REPLACE-SUGGEST-20261101-C`, `CODEX-COMMENT-RETEST-20261101-D` (including the `-NATIVE` variant), and `CODEX-COMMENT-RESOLVE-20261101-E`.
+- Text mutations were confined to added, marked test text. Existing text and the pre-existing Claude Code suggestion were preserved. A marked reply was added to the user's existing comment without resolving it.
+- Verification used native document and comment readback. The user also checked suggestion outcomes and confirmed the native comment/reply test in the editor. The later creation-and-resolution test E was verified through API readback only. No automated browser or rendered-layout verification was performed.
 - Results apply to this connector, account, document, and session on the test date; they do not establish capabilities of other MCP servers or Claude integrations.
 
 Initial access failed: document and comment reads returned 403, and revision listing returned 404. After the user changed access, the same document became accessible and testing proceeded. The initial errors therefore were not treated as feature failures.
@@ -24,24 +24,90 @@ Initial access failed: document and comment reads returned 403, and revision lis
 | Delete text | `deleteContentRange` removed only the added `TEMPORARY_TEXT`; the marked `DELETE:` line remained. | Pass |
 | Highlight text | `updateTextStyle` applied yellow to `yellow sample`; readback returned a background RGB color with red and green equal to 1 and blue implicitly 0. | Pass |
 | Read comments and replies | `get_document_comments` returned existing and newly created threads, replies, and resolution state. | Pass |
-| Create comments | `bulk_update_file_comments` created two marked threads with exact quoted target text. Both appeared in subsequent comment readback. | Pass |
-| Reply to a comment | Added a marked reply to the first test thread; readback included the reply. | Pass |
-| Resolve a comment | Resolved the first test thread with a closing reply; readback showed `resolved: true` and a reply action of `resolve`. | Pass |
+| Create unanchored file comments | `bulk_update_file_comments` created marked threads with exact quoted target text and `anchor: null`. API readback succeeded, but the user reported the earlier comments were not visible in the editor. | API pass; editor visibility not demonstrated |
+| Create native anchored comments | Raw `insertComment` through `batch_update_document`, with a text range and tab ID, returned a native `kix.*` anchor. Comment readback confirmed it; the user confirmed test D worked in the editor. | Pass |
+| Reply to a comment | Added replies to a test thread and, in test D, to the user's existing anchored “Blabla BLA” thread. Readback confirmed the replies; the user confirmed test D worked. | Pass |
+| Resolve a comment | The bulk tool resolved the first unanchored thread. In test E, native `addCommentReply` with `commentAction: "RESOLVE"` resolved a newly created anchored thread; readback showed `resolved: true`. | Pass |
 | Read existing tracked suggestions | Native readback exposed `suggestedInsertionIds`, `suggestedDeletionIds`, and suggested style changes for the existing suggestion `suggest.15run3iq4vl4`. | Pass |
 | List revisions | `list_file_revisions` returned revision IDs `1` and `9`, modification times, last-modifying-user metadata, and `previousRevisionId: "1"`. | Pass |
 | Read historical revision | `fetch_file_revision` retrieved revision `1` as plain text, including the original first and second lines. | Pass |
-| Use revision guards | Mutations supplied `write_control.requiredRevisionId` and succeeded against the observed revisions. Rejection of a deliberately stale revision was not tested. | Accepted; conflict handling untested |
+| Use revision guards | Current revision guards succeeded. The first native-comment attempt in test D was rejected because its required revision no longer matched; rereading and retrying succeeded. This was an observed stale-revision conflict, not a deliberately induced one. | Pass |
 
 ### Comment evidence and anchoring
 
-The two created threads were:
+The initial two created threads were:
 
 | Thread ID | Final state |
 | --- | --- |
 | `doco.E34r2gWqREJ0tCo4ct98BA` | Resolved, with a test reply and closing reply |
-| `doco.kzEWVyD-h3m6yWeZsHkIVA` | Left open as visible test evidence |
+| `doco.kzEWVyD-h3m6yWeZsHkIVA` | Left open; API-readable, editor visibility not demonstrated |
 
-Both returned `anchor: null`. Each retained exact target text in `quotedFileContent` and in the comment body. These tests demonstrate file comments with quoted context, not native comments anchored to a selected text range. Existing anchored comments were readable, but creating a native selection anchor was not tested.
+Both returned `anchor: null`. Each retained exact target text in `quotedFileContent` and in the comment body. The user subsequently reported that these comments were not visible. The initial “Pass” therefore established API persistence only, not useful editor visibility.
+
+### D: Comment visibility retest and reply to the user
+
+The bulk tool created another unanchored comment, `doco.s67j_bo_MI1cDonE-PSWZw`, and added reply `doco.ENCJLFG1cjYjysc46ePC3g` to the user's existing “Blabla BLA” thread, `doco.xZ9cjPkAUrF6c11Ere21cA`. That existing thread retained its native anchor, `kix.hd42w841oend`, and was left open. Both writes were confirmed by comment readback.
+
+To test a native anchor, a raw Docs `insertComment` request was then sent through `batch_update_document`:
+
+```json
+{
+  "requests": [
+    {
+      "insertComment": {
+        "content": "[CODEX-COMMENT-RETEST-20261101-D-NATIVE] Native anchored comment test on the quoted target.",
+        "range": {
+          "startIndex": "<observed integer start index>",
+          "endIndex": "<observed integer end index>",
+          "tabId": "t.0"
+        }
+      }
+    }
+  ]
+}
+```
+
+The index placeholders above stand for integer UTF-16 offsets obtained from current document readback. The actual target was the marked `COMMENT: open thread target.` sentence. After a stale-revision rejection and a fresh read, the request succeeded:
+
+- Comment ID: `doco.fcQH89e_RXl92LUWrNMS1Q`.
+- Native anchor: `kix.2685nhmdeoxl`.
+- Returned status: `OPEN`.
+- Subsequent Drive comment readback retained the same anchor and quoted target.
+- The user responded “worked” after being asked to check the native anchored comment and reply.
+
+**Result: native anchored comment creation and replying to an existing user thread passed.** The bulk comment wrapper's unanchored output should not be treated as equivalent to a visible native review comment. The raw batch request route exposes useful capabilities beyond the dedicated comment wrapper.
+
+### E: Create and resolve an owned native anchored comment
+
+Created a separate comment on the marked `COMMENT: reply and resolution target.` sentence using `insertComment`:
+
+- Marker: `CODEX-COMMENT-RESOLVE-20261101-E`.
+- Comment ID: `doco.F3hTQVBiHBWDqEdf1RxA2Q`.
+- Native anchor: `kix.g74y8jm3cmpr`.
+- Author: the connected account, with `me: true`.
+- Initial returned status: `OPEN`.
+
+Resolved it in a subsequent native batch request:
+
+```json
+{
+  "requests": [
+    {
+      "addCommentReply": {
+        "commentId": "doco.F3hTQVBiHBWDqEdf1RxA2Q",
+        "post": {
+          "content": "[CODEX-COMMENT-RESOLVE-20261101-E] Resolving my own native anchored comment after creation.",
+          "commentAction": "RESOLVE"
+        }
+      }
+    }
+  ]
+}
+```
+
+The response returned a closing post with `commentAction: "RESOLVE"`. Independent comment readback showed the same thread and anchor, `resolved: true`, and a closing reply with `action: "resolve"`.
+
+**Result: creation and resolution of an owned native anchored comment passed through API readback.** Separate editor confirmation for test E was not recorded.
 
 ## Tracked suggestion creation tests
 
@@ -113,8 +179,8 @@ The initial test record described suggestion creation as not exposed and unteste
 
 - Accepting, rejecting, or deleting suggestions, including through raw batch request objects. No dedicated tools were exposed for these operations; the raw request surface was not exhaustively tested.
 - Creating suggested deletions or suggested formatting changes as separate probes.
-- Editing or deleting existing comments, deleting replies, reopening resolved threads, or creating native selection-anchored comments through raw Docs requests.
-- Restoring revisions, complete revision-history coverage, or stale-revision conflict rejection.
+- Editing or deleting existing comments, deleting replies, or reopening resolved threads.
+- Restoring revisions or complete revision-history coverage.
 - Sharing changes, file deletion, image/table insertion, or unrelated Drive operations.
 
 These are limits of the test coverage, not proof that the underlying Google APIs cannot perform the operations.
