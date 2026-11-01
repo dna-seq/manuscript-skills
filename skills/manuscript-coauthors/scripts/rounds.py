@@ -11,6 +11,14 @@ folder, push a release to the Drive folder, record its Docs, and pull the commen
     uv run --script rounds.py record 0.7 [--doc NAME=LINK ...] [--project DIR]
     uv run --script rounds.py circulated 0.7 [--commit SHA] [--project DIR]
     uv run --script rounds.py pull 0.6 --out RUN/manuscript-coauthors/exports [--go] [--project DIR]
+    uv run --script rounds.py port 0.6 --run RUN [--gdoc READ_DOC.json ...] [--no-pull] [--go] [--project DIR]
+
+`port` takes a round's comments from Google Docs all the way to the run's dashboard, for reviewers who only
+use the Doc: pull (the connector's read_doc answers given with --gdoc, else `pull` through rclone), the
+commenters recorded as people, the co-authors' findings (comments not triaged yet included), then the run's own
+last collect, corrected version and dashboard commands replayed on the new inventory as their next attempts.
+Every step goes through runs.py exec, so the run records it. Triage stays the agent's (the skill's step 2);
+port again with --no-pull afterwards.
 
 The settings are the project file's `coauthors` block (.manuscript-skills.yaml; saved with manuscript-integrity-
 check's `project.py configure --drive ...`): how a release reaches Drive (`drive`: rclone into the shared folder
@@ -44,6 +52,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+import yaml
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "manuscript-integrity-check" / "scripts"
 COMMENTS = Path(__file__).resolve().parent / "comments.py"
@@ -478,6 +487,162 @@ def pull(name: str, out: Annotated[Path, typer.Option("--out", help="Where the e
             raise Refused(f"Import of {step['doc']} failed: {done.stderr.strip()}", 3)
         results.append({"doc": step["doc"], "export": exported[0].as_posix(), **json.loads(done.stdout)})
     say({"round": name, "pulled": results})
+
+
+# --- port: a round's comments from Google Docs to the run's dashboard ----------------------------------------------
+
+SKILLS = Path(__file__).resolve().parents[2]
+RUNS = SCRIPTS / "runs.py"
+ATTEMPT = re.compile(r"^(?P<stem>.+?)(?:\.(?P<n>\d+))?(?P<ext>\.[A-Za-z]+)?$")
+
+
+def next_attempt(path: Path) -> Path:
+    """The run's next free attempt of a file or folder: findings.json, findings.2.json, ...; dashboard, dashboard.2."""
+    stem, ext = (path.stem, path.suffix) if path.suffix else (path.name, "")
+    taken = [1 if child.name == path.name else int(m.group(1)) for child in path.parent.glob(f"{stem}*")
+             if child.name == path.name or (m := re.fullmatch(re.escape(stem) + r"\.(\d+)" + re.escape(ext), child.name))]
+    return path if not taken else path.with_name(f"{stem}.{max(taken) + 1}{ext}")
+
+
+def recorded(run: Path, skill: str, script: str) -> list[str] | None:
+    """The argv of the run's last finished command of *skill* that ran a script named like *script*."""
+    try:
+        data = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise Refused(f"{run}: not a run ({exc}).", 2) from exc
+    for command in reversed((data.get("skills", {}).get(skill) or {}).get("commands") or []):
+        argv = command.get("argv") or []
+        if command.get("exit_code", 0) == 0 and any(fnmatch.fnmatch(Path(a).name, script) for a in argv):
+            return [str(a) for a in argv]
+    return None
+
+
+def replace_option(argv: list[str], flag: str, value: str | None) -> list[str]:
+    """argv with *flag*'s value set (added when missing), or the flag removed when *value* is None."""
+    out, skip = [], False
+    for n, a in enumerate(argv):
+        if skip:
+            skip = False
+            continue
+        if a == flag:
+            skip = True
+            continue
+        out.append(a)
+    return out + ([flag, value] if value is not None else [])
+
+
+def script_args(argv: list[str], script: str) -> list[str]:
+    """What follows the script in a recorded `uv run --script SCRIPT ...`."""
+    at = next(n for n, a in enumerate(argv) if fnmatch.fnmatch(Path(a).name, script))
+    return argv[at + 1:]
+
+
+def under(run: Path, path: str) -> Path:
+    found = Path(path)
+    return found if found.is_absolute() else run / found
+
+
+def port_plan(project: Project, name: str, run: Path, gdocs_: list[Path], pull_: bool) -> list[dict[str, Any]]:
+    """The steps of `port`, each a runs.py exec of one command under the skill that owns it."""
+    run = run.resolve()
+    folder = project.folder(name)
+    ledger = folder / "comments.yaml"
+    masters = {d.title: d.source for d in releases(project, name)[0] if not d.office}
+    data = yaml.safe_load(ledger.read_text(encoding="utf-8")) if ledger.is_file() else {}
+    master = (folder / data["master"]) if (data or {}).get("master") else next(iter(masters.values()), None)
+    steps: list[dict[str, Any]] = []
+    uv = ["uv", "run", "--script"]
+    if pull_ and gdocs_:
+        for source in gdocs_:
+            try:
+                title = json.loads(source.read_text(encoding="utf-8")).get("content", {}).get("title", "")
+            except (OSError, json.JSONDecodeError, AttributeError) as exc:
+                raise Refused(f"{source}: not a saved read_doc answer ({exc}).", 2) from exc
+            own = masters.get(title) or master
+            steps.append({"step": "pull", "skill": "manuscript-coauthors", "argv": [
+                *uv, str(COMMENTS), "import-gdoc", str(source), "--ledger", str(ledger),
+                *(["--master", str(own)] if own else []),
+                *(["--doc", project.rounds().get(name, {}).get("docs", {}).get(title, "")]
+                  if project.rounds().get(name, {}).get("docs", {}).get(title) else [])]})
+    elif pull_:
+        steps.append({"step": "pull", "skill": "manuscript-coauthors", "argv": [
+            *uv, str(Path(__file__).resolve()), "pull", name, "--out",
+            str(next_attempt(run / "manuscript-coauthors" / "exports")), "--go", "--project", str(project.path)]})
+    def order(r: str) -> list[Any]:
+        return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in r.split(".")]
+    later = sorted((r for r in project.rounds() if order(r) > order(name) and project.folder(r).is_dir()), key=order)
+    new_master = None
+    if later:
+        nxt = project.folder(later[0])
+        candidate = nxt / master.name if master else None
+        new_master = candidate if candidate and candidate.is_file() else None
+    findings = next_attempt(run / "manuscript-coauthors" / "findings.json")
+    steps.append({"step": "findings", "skill": "manuscript-coauthors", "argv": [
+        *uv, str(COMMENTS), "findings", str(ledger), "--new", str(new_master or master), "--out", str(findings),
+        "--untriaged", *(["--next-round", later[0]] if new_master else [])]})
+    collect = recorded(run, "manuscript-dashboard", "collect*.py")
+    if collect is None:
+        return steps  # a run without a dashboard yet: the coauthors stage's findings wait for one
+    inventory = next_attempt(run / "manuscript-dashboard" / "findings.json")
+    args = replace_option(script_args(collect, "collect*.py"), "--output", str(inventory))
+    steps.append({"step": "collect", "skill": "manuscript-dashboard",
+                  "argv": [*uv, str(SKILLS / "manuscript-dashboard" / "scripts" / "collect.py"), *args]})
+    revision = None
+    revise = recorded(run, "manuscript-improve", "revise.py")
+    if revise:
+        args = script_args(revise, "revise.py")
+        positional = [n for n, a in enumerate(args) if not a.startswith("-") and (n == 0 or not args[n - 1].startswith("--"))]
+        if len(positional) >= 3:
+            args[positional[2]] = str(inventory)
+        revision = next_attempt(run / "manuscript-improve" / "revision")
+        args = replace_option(args, "--output-dir", str(revision))
+        steps.append({"step": "corrected version", "skill": "manuscript-improve",
+                      "argv": [*uv, str(SKILLS / "manuscript-improve" / "scripts" / "revise.py"), *args]})
+    dashboard = next_attempt(run / "manuscript-dashboard" / "dashboard")
+    steps.append({"step": "dashboard", "skill": "manuscript-dashboard", "argv": [
+        *uv, str(SKILLS / "manuscript-dashboard" / "scripts" / "dashboard.py"), str(inventory), "--output-dir",
+        str(dashboard), *(["--revision", str(revision)] if revision else [])]})
+    for script, default in (("export_docx.py", "manuscript-review.docx"), ("export_changes.py", "manuscript-changes.xlsx")):
+        before = recorded(run, "manuscript-dashboard", script)
+        if not before:
+            continue
+        args = script_args(before, script)
+        args = [str(inventory) if n == 0 else a for n, a in enumerate(args)]
+        args = replace_option(args, "--revision", str(revision) if revision else None)
+        out = next_attempt(run / "manuscript-dashboard" / default)
+        args = replace_option(args, "--output", str(out))
+        steps.append({"step": script.removesuffix(".py").replace("_", " "), "skill": "manuscript-dashboard",
+                      "argv": [*uv, str(SKILLS / "manuscript-dashboard" / "scripts" / script), *args]})
+    return steps
+
+
+@app.command()
+def port(name: str, run: Annotated[Path, typer.Option("--run", help="The run whose dashboard shows the round's comments")],
+         gdoc: Annotated[list[Path] | None, typer.Option("--gdoc", help="A Doc's read_doc answer (commentsIncluded), saved as JSON; repeat per Doc")] = None,
+         no_pull: Annotated[bool, typer.Option("--no-pull", help="Rebuild from the ledger as it is (after triage)")] = False,
+         go: Annotated[bool, typer.Option("--go", help="Run the steps; without it, only print them")] = False,
+         project_dir: ProjectOption = None) -> None:
+    """Take the round's comments from Google Docs to the run's dashboard: pull, people, findings, collect, corrected
+    version, dashboard (and the Word and workbook files when the run made them), each a runs.py exec."""
+    project = Project(project_dir)
+    if not (run / "run.json").is_file():
+        raise Refused(f"{run}: no run.json; give the run the round's dashboard belongs to.", 2)
+    steps = port_plan(project, name, run, list(gdoc or []), not no_pull)
+    commands = [{"step": s["step"], "command": shlex.join([sys.executable, str(RUNS), "exec", str(run), "--skill",
+                                                           s["skill"], "--", *s["argv"]])} for s in steps]
+    if not go:
+        say({"round": name, "dry_run": True, "steps": commands})
+        return
+    done: list[dict[str, Any]] = []
+    for step, command in zip(steps, commands):
+        result = subprocess.run(shlex.split(command["command"]), capture_output=True, text=True, encoding="utf-8")
+        if result.returncode != 0:
+            say({"round": name, "done": done, "failed": step["step"], "exit_code": result.returncode,
+                 "error": (result.stderr or result.stdout).strip()[-2000:]})
+            raise SystemExit(result.returncode if result.returncode in (1, 2) else 3)
+        done.append({"step": step["step"], "output": result.stdout.strip()[-1500:]})
+    say({"round": name, "done": done,
+         "next": "Triage the comments (manuscript-coauthors step 2), then port again with --no-pull."})
 
 
 def main() -> None:

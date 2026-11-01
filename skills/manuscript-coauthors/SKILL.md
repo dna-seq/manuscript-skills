@@ -73,6 +73,25 @@ on another Doc than the main master keeps that Doc's master (`master:` on the it
 same file in the next round. Never invent a folder id or a Doc link: take them from the authors, a
 README, `rclone lsjson` or a connector's `search_files`.
 
+## A review that happens in Google Docs: `port`
+
+Many reviewers never touch the plugin: they read the round in Google Docs and comment there. One command
+takes what they wrote to the run's dashboard, where the authors work:
+
+```bash
+uv run --script scripts/rounds.py port 0.7 --run RUN --gdoc READ.json        # what it would run
+uv run --script scripts/rounds.py port 0.7 --run RUN --gdoc READ.json --go   # run it
+```
+
+`--gdoc` is the Docs connector's `read_doc` answer (commentsIncluded) saved as JSON, one per Doc; without it,
+port pulls through rclone. It then records the commenters as people, writes the co-authors' findings with
+every comment not triaged yet shown as open ("Not triaged yet"), and replays the run's own last collect,
+corrected-version and dashboard commands (and the Word file and workbook, when the run made them) on the new
+inventory, each as its next attempt (`findings.3.json`, `revision.3`, `dashboard.2`). Every step goes through
+`runs.py exec`, so the run records it. A run with no dashboard yet stops after the findings. Then triage
+(step 2) and port again with `--no-pull` to show the answers. Port never answers a comment: triage stays the
+agent's and the authors'.
+
 ## 1. Pull the comments
 
 The comments of round X.Y go to `vX.Y/comments.yaml`, beside the round. That ledger is the authors' record,
@@ -290,7 +309,8 @@ be exported, anchors not found) once, plainly.
 
 - `scripts/comments.py`: import, add, status, findings, changelog and gaps: the ledger of a round's comments, and
   whether the run that produced the round had caught each.
-- `scripts/rounds.py`: show, open, push, record, circulated and pull: the rounds on Drive.
+- `scripts/rounds.py`: show, open, push, record, circulated, pull and port: the rounds on Drive, and a round's
+  comments taken from Google Docs to the run's dashboard.
 - `references/google-docs-connectors.md`: what Claude's Google Docs and Drive connectors and Codex's Google Drive
   app can read and write in a Google Doc (edits, highlights, suggestions, comments, replies), the exact
   requests, how to verify each by reading back, and how to install the connectors.

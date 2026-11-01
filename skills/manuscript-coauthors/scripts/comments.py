@@ -896,7 +896,8 @@ def findings(data: dict[str, Any], rows: list[dict[str, Any]], next_round: str |
                 "detail": (f"{'Suggested edits' if suggestion else 'Comment'} on v{data.get('round')} by "
                            f"{item.get('author', 'a co-author')}, {'partly answered' if status == 'partly' else 'not answered yet'}"
                            f"{' in v' + next_round if next_round else ''}: “{' '.join(str(item.get('comment', '')).split())[:400]}”"),
-                "action": " ".join(str(item.get("next", "")).split()),
+                "action": " ".join(str(item.get("next", "")).split())
+                          or "Not triaged yet: decide what the next round does with it (manuscript-coauthors, step 2).",
                 "severity": item.get("severity") or "minor", "stage": item.get("stage") or "writing",
                 "confidence": "confirmed", "decision": bool(item.get("decision", False)),
                 "evidence": [{"path": "comments.md", "quote": head}]})
@@ -1307,13 +1308,21 @@ def run(args: argparse.Namespace) -> int:
                 for h in row["hints"]:
                     print(f"  check: {h}")
         return 1 if args.strict and problems else 0
+    untriaged = bool(getattr(args, "untriaged", False))
+    if untriaged:  # a pull shown before triage: an open comment has no answer yet, and says so
+        for item, row in zip(data["items"], rows):
+            if item.get("status", "open") == "open":
+                row["problems"] = [p for p in row["problems"] if not p.startswith("open needs next")]
     missing = [f"{r['id']}: {p}" for r in rows for p in r["problems"]]
     if missing:
         print("The ledger must say how each comment was handled before the dashboard can show it:", file=sys.stderr)
         for line in missing:
             print(f"  {line}", file=sys.stderr)
         return 1
-    document, digest = findings(data, rows, args.next_round or (new_round(args.new) if args.new else None), ledger)
+    next_round = args.next_round or (new_round(args.new) if args.new else None)
+    if next_round == str(data.get("round")):  # --new is this round's own master: there is no next round yet
+        next_round = None
+    document, digest = findings(data, rows, next_round, ledger)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -1367,6 +1376,8 @@ def parser() -> argparse.ArgumentParser:
         else:
             s.add_argument("--out", required=True, help="RUN/manuscript-coauthors/findings.json")
             s.add_argument("--next-round", help="the next round's name (default: from --new's folder)")
+            s.add_argument("--untriaged", action="store_true",
+                           help="accept open comments with no `next` yet (a pull shown before triage)")
     s = sub.add_parser("changelog", help="the round's changelog skeleton, Why filled from the comments it answers")
     s.add_argument("--base", required=True, help="the previous round's master as it was when this round opened")
     s.add_argument("--new", required=True, help="this round's master")

@@ -24,6 +24,7 @@ SKILL = ROOT / "skills" / "manuscript-coauthors" / "scripts"
 sys.path.insert(0, str(ROOT / "skills" / "manuscript-integrity-check" / "scripts"))
 
 import project as projects  # noqa: E402
+import runs  # noqa: E402
 
 
 def _load(name: str):
@@ -695,6 +696,9 @@ def test_import_gdoc_refuses_a_read_without_comments(rounds: Path, capsys) -> No
     assert "commentsIncluded" in capsys.readouterr().err
 
 
+# --- port: a round's comments from Google Docs to the run's dashboard; names a file system takes ---------------
+
+
 def test_pull_names_each_export_so_every_file_system_takes_it(rounds: Path, tmp_path: Path) -> None:
     """A Drive title with a colon could not be written on NTFS; the local file is renamed, the Drive title kept."""
     folder = rounds / "v0.5"
@@ -707,3 +711,68 @@ def test_pull_names_each_export_so_every_file_system_takes_it(rounds: Path, tmp_
     assert step["doc"] == "1. Supplementary Data: Tables (v0.5)"
     assert "'" + step["export"] + "'" in step["commands"][0]
     assert rounds_py.file_name('a<b>c:"d"/e\\f|g?h*.') == "a-b-c--d--e-f-g-h-"
+
+
+
+def fake_run(run: Path) -> Path:
+    """A run that already has a dashboard, a corrected version and the Word file, as run.json records them."""
+    def cmd(script: str, *args: str) -> dict:
+        return {"argv": ["uv", "run", "--script", f"scripts/{script}", *args], "exit_code": 0, "state": "finished"}
+    d, i = run / "manuscript-dashboard", run / "manuscript-improve"
+    for path in (d / "findings.json", d / "findings.2.json", d / "merges.json", d / "manuscript-review.docx"):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}")
+    for folder in (d / "dashboard", i / "revision", i / "revision.2"):
+        folder.mkdir(parents=True)
+    data = {"skills": {
+        "manuscript-dashboard": {"commands": [
+            cmd("collect.py", str(run), "--output", str(d / "findings.2.json"), "--merge", str(d / "merges.json"),
+                "--version", "v0.5"),
+            cmd("export_docx.py", str(d / "findings.2.json"), "--revision", str(i / "revision.2"), "--output",
+                str(d / "manuscript-review.docx"))]},
+        "manuscript-improve": {"commands": [
+            cmd("revise.py", "orig.md", "work.md", str(d / "findings.2.json"), "--choices", "choices.json",
+                "--output-dir", str(i / "revision.2"))]}}}
+    (run / "run.json").write_text(json.dumps(data), encoding="utf-8")
+    return run
+
+
+def test_port_replays_the_runs_own_commands_on_the_next_attempts(rounds: Path, tmp_path: Path) -> None:
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector", "--release-doc", "paper.md=A Paper (v{round})")
+    run = fake_run(tmp_path / "run")
+    done = rounds_cli("port", "0.5", "--run", run, "--gdoc", gdoc_json(tmp_path / "read.json"), "--project", folder)
+    assert done.returncode == 0, done.stderr
+    steps = {s["step"]: s["command"] for s in json.loads(done.stdout)["steps"]}
+    assert list(steps) == ["pull", "findings", "collect", "corrected version", "dashboard", "export docx"]
+    assert all(f"exec {run} --skill" in c for c in steps.values())  # the run records every step
+    assert "import-gdoc" in steps["pull"] and "--master " + str(folder / "paper.md") in steps["pull"]
+    assert "--untriaged" in steps["findings"] and "--next-round" not in steps["findings"]
+    d, i = run / "manuscript-dashboard", run / "manuscript-improve"
+    assert f"--output {d / 'findings.3.json'}" in steps["collect"] and f"--merge {d / 'merges.json'}" in steps["collect"]
+    assert "manuscript-dashboard/scripts/collect.py" in steps["collect"]
+    assert f"{d / 'findings.3.json'} --choices choices.json --output-dir {i / 'revision.3'}" in steps["corrected version"]
+    assert f"--output-dir {d / 'dashboard.2'} --revision {i / 'revision.3'}" in steps["dashboard"]
+    assert f"--revision {i / 'revision.3'} --output {d / 'manuscript-review.2.docx'}" in steps["export docx"]
+
+
+def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Path, monkeypatch) -> None:
+    """A run with no dashboard yet: port pulls the Doc, records the commenters, and writes the co-authors' findings
+    with every comment still open, each step recorded by runs.py."""
+    monkeypatch.setenv("MANUSCRIPT_SKILLS_CONFIG", str(tmp_path / "global"))
+    folder = rounds / "v0.5"
+    configure(folder, "--drive", "connector", "--release-doc", "paper.md=A Paper (v{round})")
+    started = CliRunner().invoke(runs.app, ["start", str(folder / "paper.md"), "--skill", "manuscript-coauthors"])
+    assert started.exit_code == 0, started.output
+    run = Path(started.output.strip())
+    done = rounds_cli("port", "0.5", "--run", run, "--gdoc", gdoc_json(tmp_path / "read.json"), "--go",
+                      "--project", folder)
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout)
+    assert [s["step"] for s in result["done"]] == ["pull", "findings"] and "--no-pull" in result["next"]
+    found = json.loads((run / "manuscript-coauthors" / "findings.json").read_text())
+    assert found["coauthors"]["next_round"] is None and len(found["coauthors"]["items"]) == 4
+    assert all("Not triaged yet" in f["action"] for f in found["findings"])
+    assert (folder / "rev-marks.toml").is_file()
+    recorded = json.loads((run / "run.json").read_text())["skills"]["manuscript-coauthors"]["commands"]
+    assert len(recorded) == 2 and all(c["exit_code"] == 0 for c in recorded)
