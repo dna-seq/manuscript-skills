@@ -279,9 +279,37 @@ starts with `[ai:NAME]`, which tells a reader and the next pull that an agent wr
   authors keep it and never write over the authors' words in it; when one exists, check it against the list,
   report what it misses, and extend it as above.
 
+## Shading in the Google Doc, and what changed since a revision
+
+Co-authors who read a round in Google Docs see the same shading as the draft PDF when the authors ask for it,
+through Claude's Google Docs connector (or Codex's Google Drive app). The master keeps the marks; the Doc only
+gets colours:
+
+```bash
+uv run --script scripts/gdoc_shade.py plan PAPER.md READ.json --out shade.json   # requests for update_doc
+uv run --script scripts/gdoc_shade.py verify PAPER.md READ2.json                 # after sending, read back
+uv run --script scripts/gdoc_shade.py clear READ.json [--colour shade|diff|all]  # remove the colours
+uv run --script scripts/gdoc_shade.py diff OLD.txt READ.json --out diff.json     # what changed since OLD
+```
+
+`READ.json` is the connector's `read_doc` answer, saved. `plan` finds each unreviewed segment (same rule and
+`rev-marks.toml` as `report --unreviewed`) in the Doc by its words and gives the requests that colour exactly
+those ranges amber, and clear amber where a person has reviewed since: after a review pass (`bump --by`), the
+same `plan` clears what was reviewed. Send `requests` with `update_doc` as direct edits (never in suggestion
+mode), read the Doc again and `verify`. A segment the Doc no longer holds, or holds twice, is listed under
+`not_found` and never guessed at. `diff` colours what is new or rewritten since an older version light blue:
+`OLD.txt` is a revision of the Doc as plain text (Claude's Drive connector fetches one by id with
+`download_file_content`, `revisionId` and `exportMimeType: text/plain`; Codex's app lists the revisions and
+fetches one), or the previous round's clean twin. Deleted passages cannot be coloured; `diff` lists them with
+the place they were cut from. Both colours are reserved (amber rgb 255, 236, 179; blue rgb 204, 229, 255) and
+only they are ever cleared, so a co-author's own highlights stay. The shading is never a sign-off, and a person
+who reads the Doc signs off only through the marks (`bump --by`).
+
 ## Files
 
 - `scripts/rev_marks.py`: lint, strip, report, bump, apply and changes.
+- `scripts/gdoc_shade.py`: the unreviewed passages shaded in a Google Doc, and what changed since a revision
+  coloured apart: plan, verify, clear and diff, as requests for the Docs connector.
 - `scripts/typeset.py`: the PDF build from the clean twin, measured against a page cap, the review
   draft, and the LaTeX reading copy.
 - `scripts/unreviewed.lua`, `scripts/unreviewed-preamble.tex`: how the draft shades a segment.

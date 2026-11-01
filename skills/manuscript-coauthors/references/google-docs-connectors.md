@@ -95,6 +95,10 @@ An anchored comment, a reply, and a reply that resolves:
 {"addCommentReply": {"commentId": "doco.…", "post": {"content": "…", "commentAction": "RESOLVE"}}}
 ```
 
+Shading the unreviewed passages, and colouring what changed since a revision, are planned by
+`manuscript-revision-marks/scripts/gdoc_shade.py`: it prints the `updateTextStyle` requests to send, in two
+reserved colours, and checks the readback.
+
 ### Rules that keep it safe
 
 - **Read back every change.** Pass or fail is decided by `read_doc`, never by the call's success: a suggestion

@@ -16,34 +16,6 @@ same note orders the smaller misses by skill (limits stated without their cost, 
 scope, reasons for a method's constants, authorship criteria). `comments.py gaps` measures each round against the
 next co-authors' reading.
 
-## Shade unreviewed AI edits inside a Google Doc (not built)
-
-`manuscript-revision-marks` shows which passages an AI or agent wrote that no person has reviewed since,
-in its HTML heat map and its review draft PDF (`typeset.py pdf --draft`). Many co-authors read and
-comment in a Google Doc instead, so the same shading belongs there.
-
-**Both assistants can now.** Claude's Google Docs connector (separate from its Drive connector, which reads
-and replaces only whole files) and Codex's Google Drive app both send `documents.batchUpdate` requests, so
-either can set a background colour on a range of an existing document; tested on 2026-11-01
-([skills/manuscript-coauthors/references/google-docs-connectors.md](../skills/manuscript-coauthors/references/google-docs-connectors.md)).
-The hook can ship in both plugins.
-
-**Shape.**
-
-- The master stays in the repository; the Google Doc is a reading and commenting copy built from the
-  clean twin, never a second master (marks are never written into it).
-- For each unreviewed segment (`rev_marks.py report --unreviewed`, same `rev-marks.toml`), find its
-  text in the document by the clean twin's text and set a background colour on that range; clear the
-  colour on segments a person has since signed.
-- A segment whose text no longer matches the document (someone edited the copy) is reported, never
-  guessed at. Comments in the document already come back to the master as review items:
-  `manuscript-coauthors` (0.42.0) pulls them into the round's `comments.yaml` from a .docx export.
-- Same rules as the draft: the policy decides who is a person, an unlisted name is shaded, and the
-  shading is never a sign-off.
-
-**Before building it:** add an eval case with a fixture document. Which operations each connector offers
-(range lookup, background colour, comments) is settled in the connectors reference above.
-
 ## Reply to co-authors inside the Google Doc (not built)
 
 `manuscript-coauthors` records how each co-author comment was answered (the ledger's `why`, the changelog,
