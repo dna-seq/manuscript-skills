@@ -882,3 +882,24 @@ def test_push_stops_when_the_build_left_a_figure_out(rounds: Path, tmp_path: Pat
     done = rounds_cli("push", "0.5", "--go", "--project", folder)
     assert done.returncode == 3 and "figures/fig1.svg" in done.stderr and "rsvg-convert" in done.stderr
     assert not (drive / "v0.5").exists()
+
+
+def test_a_findings_quote_never_crosses_a_revision_mark_or_a_table_cell(rounds: Path, capsys) -> None:
+    """stage_check refuses a quote with a revision mark inside it, and one across table cells is not in the master
+    as written; findings takes a clean stretch of the commented passage instead."""
+    folder = rounds / "v0.5"
+    marked = MASTER.replace(
+        "Whole genome sequencing costs have fallen from billions of dollars to under a thousand since 2003.",
+        "Whole genome sequencing costs have <!-- @rev C90 rounds=1 by=claude:2026-10-01 -->fallen from billions of "
+        "dollars<!-- @/rev C90 --> to under a thousand since 2003.") + "\n| Tool | Speed |\n|---|---|\n| SoilTrace | fast |\n"
+    (folder / "paper.md").write_text(marked, encoding="utf-8")
+    ledger = folder / "comments.yaml"
+    ledger.write_text(yaml.safe_dump({"round": "0.5", "master": "paper.md", "items": [
+        {"id": "C1", "kind": "comment", "author": ANN, "anchor": "costs have fallen from billions",
+         "context_before": "Whole genome sequencing", "context_after": "of dollars to under", "comment": "Source?",
+         "status": "open", "next": "Cite the cost source."},
+        {"id": "C2", "kind": "comment", "author": ANN, "anchor": "Speed SoilTrace fast", "context_before": "Tool",
+         "context_after": "", "comment": "Measured how?", "status": "open", "next": "Say how speed was measured."}]}))
+    assert cli("findings", ledger, "--new", folder / "paper.md", "--out", rounds / "f.json") == 0
+    quotes = [f["quote"] for f in json.loads((rounds / "f.json").read_text())["findings"]]
+    assert all(q and len(q.split()) >= 3 and "|" not in q and q in " ".join(marked.split()) for q in quotes if q), quotes

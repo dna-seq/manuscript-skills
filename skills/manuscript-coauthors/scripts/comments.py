@@ -551,6 +551,22 @@ class Master:
         start, end = self.words[lo][5], self.words[hi - 1][5] + len(self.words[hi - 1][0])
         return " ".join(rm.clean_slice(self.marks.text, start, end, self.marks.removals).split())
 
+    def clean_runs(self, first: int, last: int) -> list[tuple[int, int]]:
+        """Words first..last split wherever a revision mark or a table-cell border sits between two of them."""
+        runs, start = [], first
+        for k in range(first, last):
+            if "|" in self.words[k][0]:  # a table row's border is a word of its own: no quote holds it
+                runs.append((start, k))
+                start = k + 1
+                continue
+            if k + 1 < last:
+                a, b = self.words[k][5] + len(self.words[k][0]), self.words[k + 1][5]
+                if "|" in self.marks.text[a:b] or any(r0 < b and r1 > a for r0, r1 in self.marks.removals):
+                    runs.append((start, k + 1))
+                    start = k + 1
+        runs.append((start, last))
+        return [r for r in runs if r[1] > r[0]]
+
     def holds(self, passage: str) -> bool:
         return " ".join(passage.split()) in " ".join(self.clean.split())
 
@@ -828,8 +844,18 @@ def quote(master: Master, span: tuple[int, int]) -> str | None:
     block = master.words[min(lo, len(master.words) - 1)][4]
     first, last = master.first[block], master.first[block + 1]
     lo, hi = max(first, min(lo, last - 1)), max(min(hi, last), min(lo, last - 1) + 1)
-    while hi - lo < 6 and (lo > first or hi < last):
-        lo, hi = max(first, lo - 1), min(last, hi + 1)
+    # The quote must read the same in the marked master the run checks against: no revision mark and no table-cell
+    # border inside it. Take the clean stretch around the span, the longest one the span touches first.
+    runs = master.clean_runs(first, last)
+    touching = [r for r in runs if r[0] < hi and r[1] > lo and r[1] - r[0] >= 3]
+    near = sorted((r for r in runs if r[1] - r[0] >= 3), key=lambda r: min(abs(r[0] - lo), abs(r[1] - hi)))
+    chosen = max(touching, key=lambda r: min(r[1], hi) - max(r[0], lo)) if touching else (near[0] if near else None)
+    if chosen is None:
+        return None
+    a, b = chosen
+    lo, hi = max(a, min(lo, b - 1)), max(min(hi, b), min(lo, b - 1) + 1)
+    while hi - lo < 6 and (lo > a or hi < b):
+        lo, hi = max(a, lo - 1), min(b, hi + 1)
     hi = min(hi, lo + 30)
     return master.verbatim(lo, hi) if hi - lo >= 3 else None
 
