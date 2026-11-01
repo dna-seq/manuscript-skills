@@ -431,7 +431,7 @@ class AdaptationItem(Record):
     size: Literal["none", "small", "medium", "large", "unknown"]
     source: str = ""
     checked: str = ""
-    numbers: str = ""  # a length or count against the limit: "7,963 / 8,000 · −37"
+    numbers: str = ""  # a length or count against the limit: "7,963 / 8,000 · can add 37", "211 / 150 · cut 61"
     note: str = ""  # what qualifies that limit, in a few words: "advised", "methods not counted"
 
 

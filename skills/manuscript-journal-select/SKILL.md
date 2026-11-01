@@ -375,7 +375,8 @@ $E PAPER --top3 RUN/manuscript-journal-select/top3.json --record $R --format jso
 ```
 
 Report each journal's estimate with its changes beside its verdict, lengths and counts as the numbers the dashboard
-shows (each row's `numbers`: "7,963 / 8,000 · −37", the manuscript / the limit · how far over or under) and the
+shows (each row's `numbers`: "211 / 150 · cut 61", "7,963 / 8,000 · can add 37", the manuscript / the limit · what to
+do) and the
 other changes in plain words; an estimate is information for the choice and never moves a rung by itself. Writing to the shortest limit
 before the choice stays the authors' decision.
 
