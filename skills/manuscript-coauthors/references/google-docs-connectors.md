@@ -18,7 +18,8 @@ one shared Doc on 2026-11-01 (section "The joint test"). Re-test before relying 
 
 **Each connector writes as its own Google account.** On the test Doc, Claude's writes appeared as one account
 and Codex's as another person's account, because each connector was signed in separately. A comment or reply an
-agent posts carries a person's name, so its text should say it was posted for the authors. When the
+agent posts carries a person's name, so its text starts with `[ai:NAME]` (`[ai:claude]`, `[ai:codex]`): the
+pull then reads it as an agent's, not the account owner's. When the
 revision-marks policy (`rev-marks.toml`) decides who is a person, an agent's comment under a person's name
 counts as that person. A connector also reaches only the Docs its account can open: Codex got 403 on the test
 Doc until it was shared with Codex's account.

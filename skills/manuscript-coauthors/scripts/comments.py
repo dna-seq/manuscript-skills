@@ -22,6 +22,12 @@ suggested edits of one person in one paragraph are one item. `add` takes items w
 text view (a YAML list of author, date, anchor, comment, and optionally context_before, context_after,
 replies, kind, edits, resolved) and merges them the same way.
 
+`import` also records who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
+rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle), added
+to rev-marks.toml's humans with the name among its aliases, and written as `by:` on the item or reply
+(--no-people: none of it). A comment or reply that starts with [ai] or [ai:NAME] is an agent's: `ai:` instead of
+`by:`, and such a comment is kept as not-on-point. `add` records nobody.
+
 Ids: C<n> for comments and S<n> for suggested edits, numbered in paper order, continuing past every id
 already used in the round folders beside this one (their comments.yaml) and in the master's revision marks,
 so a revision mark `@rev C41` names one comment for good. A pull again keeps every id (an item is known by
@@ -66,6 +72,9 @@ from xml.etree import ElementTree as ET
 import yaml
 
 REV_MARKS = Path(__file__).resolve().parents[2] / "manuscript-revision-marks" / "scripts" / "rev_marks.py"
+PEOPLE = Path(__file__).resolve().parents[2] / "manuscript-mark-people" / "scripts" / "people.py"
+# A comment or reply an agent wrote starts with [ai] or [ai:NAME] (`[ai:claude]`), whoever's Google account posted it.
+AI_MARK = re.compile(r"^\s*\[ai(?:\s*:\s*([A-Za-z0-9][A-Za-z0-9_.-]*))?\s*\]", re.IGNORECASE)
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 STATUSES = ("open", "addressed", "partly", "declined", "not-on-point")
 KINDS = ("comment", "suggestion")
@@ -107,6 +116,51 @@ def rev_marks() -> Any:
         sys.modules["coauthors_rev_marks"] = module  # dataclasses resolve their module through sys.modules
         spec.loader.exec_module(module)
     return sys.modules["coauthors_rev_marks"]
+
+
+def people_module() -> Any:
+    """manuscript-mark-people's people.py: who a commenter is, and the rev-marks.toml it writes."""
+    if "coauthors_people" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("coauthors_people", PEOPLE)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["coauthors_people"] = module
+        spec.loader.exec_module(module)
+    return sys.modules["coauthors_people"]
+
+
+def ai_of(text: Any) -> str | None:
+    """The agent a comment says wrote it (`[ai:claude]` -> claude, `[ai]` -> ai), or None for a person's."""
+    m = AI_MARK.match(str(text or ""))
+    return (m.group(1) or "ai").lower() if m else None
+
+
+def commenters(found: list[Found], start: Path) -> dict[str, Any]:
+    """Every person who commented, replied or suggested in the Doc, mapped to a handle (manuscript-mark-people's
+    rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle) and
+    recorded in rev-marks.toml as a person, their Doc name among the handle's aliases. A comment marked [ai:NAME]
+    is an agent's and names nobody. A Doc's commenters are people by default: they read the paper as one."""
+    pm = people_module()
+    names: list[str] = []
+    for f in found:
+        if not (f.kind == "comment" and ai_of(f.comment)):
+            names.append(f.author)
+        names += [r.get("author", "") for r in f.replies if not ai_of(r.get("text"))]
+    names = [n for n in dict.fromkeys(n.strip() for n in names) if n]
+    if not names:
+        return {"handles": {}, "people": [], "config": None}
+    try:
+        survey = pm.survey(start)
+        people = pm.rm.load_people(start, survey.config)
+        matches = [pm.resolve(n, people, survey.identities) for n in names]
+        pm.record_people(survey.target, matches)
+    except (pm.rm.ConfigError, ValueError) as exc:
+        raise Failure(f"rev-marks.toml: {exc}") from None
+    except (RuntimeError, OSError) as exc:
+        raise Failure(f"the commenters could not be recorded as people: {exc}", 3) from None
+    return {"handles": {m.name: m.handle for m in matches}, "config": survey.target.as_posix(),
+            "people": [{"name": m.name, "handle": m.handle, "rule": m.rule, **({"via": m.via} if m.via else {})}
+                       for m in matches]}
 
 
 # --- the Google Doc export ------------------------------------------------------------------------
@@ -451,7 +505,7 @@ def next_number(ids: set[str], letter: str) -> int:
 
 
 def merge(ledger_path: Path, found: list[Found], master: Master | None, round_name: str | None,
-          doc: str | None, source_file: str | None) -> dict[str, Any]:
+          doc: str | None, source_file: str | None, handles: dict[str, str] | None = None) -> dict[str, Any]:
     data = read_ledger(ledger_path)
     if round_name:
         data["round"] = str(round_name)
@@ -487,8 +541,21 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
                      "context_after": " ".join(f.after.split()[:CONTEXT_WORDS]), "comment": f.comment})
         if f.edits:
             item["edits"] = f.edits
+        for reply in f.replies:
+            if ai_of(reply.get("text")):
+                reply["ai"] = ai_of(reply.get("text"))
+            elif handles and handles.get(reply.get("author", "")):
+                reply["by"] = handles[reply["author"]]
         if f.replies or "replies" in item:
             item["replies"] = f.replies
+        ai = ai_of(f.comment) if f.kind == "comment" else None
+        if ai:  # an agent's comment stays on record but asks nothing of the next round
+            item["ai"] = ai
+            item.pop("by", None)
+            if "status" not in item:
+                item.update(status="not-on-point", why=f"Posted by an agent ([ai:{ai}]), not by a co-author.")
+        elif handles and handles.get(f.author):
+            item["by"] = handles[f.author]
         if f.resolved is not None:
             item["resolved"] = f.resolved
         if master is not None:
@@ -1044,7 +1111,12 @@ def run(args: argparse.Namespace) -> int:
         data = read_ledger(ledger)
         master_path = Path(args.master) if args.master else (ledger.parent / data["master"] if data.get("master") else None)
         master = Master(master_path) if master_path else None
-        result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name)
+        # A Doc's commenters are people; items written by hand (add) may carry any author, a workbook among them.
+        people = commenters(found, master_path or ledger.parent) if args.command == "import" and args.people \
+            else {"handles": {}, "people": [], "config": None}
+        result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name, people["handles"])
+        if people["people"]:
+            result["people"], result["rev_marks"] = people["people"], people["config"]
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     data = read_ledger(ledger)
@@ -1104,6 +1176,9 @@ def parser() -> argparse.ArgumentParser:
         s.add_argument("--master", help="the round's master, to find each anchor (default: the ledger's master)")
         s.add_argument("--round", help="the round's name, e.g. 0.5 (default: from the folder, v0.5)")
         s.add_argument("--doc", help="the Doc's link, recorded with the pull")
+        if name == "import":
+            s.add_argument("--no-people", dest="people", action="store_false",
+                           help="do not record the Doc's commenters as people in rev-marks.toml")
     for name, about in (("status", "how the next round answers each comment"),
                         ("findings", "the stage's findings.json and comments.md for the dashboard"),
                         ("gaps", "whether the run that produced the round had caught each comment")):

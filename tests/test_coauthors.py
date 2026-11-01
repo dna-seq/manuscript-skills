@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tomllib
 import os
 import subprocess
 import sys
@@ -117,13 +118,52 @@ def test_import_reads_threads_copies_suggestions_and_where_each_sits(rounds: Pat
     items = {i["id"]: i for i in ledger_of(ledger)["items"]}
     assert list(items) == ["C1", "C2", "S1", "C3"]  # paper order; suggestions number apart
     assert items["C1"]["anchor"] == "Abstract" and items["C1"]["where"] == "Abstract"
-    assert items["C1"]["replies"] == [{"author": BOB, "date": "2026-10-20T11:00:00Z", "text": "Agreed, small fixes only."}]
+    assert items["C1"]["replies"] == [{"author": BOB, "date": "2026-10-20T11:00:00Z", "text": "Agreed, small fixes only.",
+                                       "by": "bobray"}]
     assert items["C2"]["anchor"] == "billions of dollars" and items["C2"]["where"] == "1. Introduction"
     assert items["C2"]["line"] == 9 and items["C2"]["status"] == "open"
     assert items["S1"]["kind"] == "suggestion" and items["S1"]["edits"] == [{"deleted": "old", "inserted": "new"}]
     assert "replace “old” with “new”" in items["S1"]["comment"]
     assert items["C3"]["comment"] == "Say which modules."  # one comment over two ranges, once
     assert ledger_of(ledger)["sources"][0]["doc"].endswith("/abc/edit")
+
+
+def test_a_docs_commenters_become_people_and_an_ai_marked_comment_names_nobody(rounds: Path, capsys) -> None:
+    """Reviewers who only use the Doc are people by default: each gets a handle in rev-marks.toml, their Doc name
+    an alias of it. A comment or reply that starts with [ai:NAME] is an agent's, whoever's account posted it."""
+    doc = export(rounds / "doc.docx")
+    with zipfile.ZipFile(doc) as z:
+        files = {n: z.read(n).decode() for n in z.namelist()}
+    files["word/comments.xml"] = files["word/comments.xml"].replace(
+        "Agreed, small fixes only.", "[ai:claude] Agreed, small fixes only.").replace(
+        "Say which modules.", "[AI: Codex] Say which modules.")
+    with zipfile.ZipFile(doc, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text)
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import", doc, "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert [(p["name"], p["handle"], p["rule"]) for p in result["people"]] == [(ANN, "annlee", "new")]
+    config = tomllib.loads((rounds / "v0.5" / "rev-marks.toml").read_text(encoding="utf-8"))
+    assert config["humans"] == ["annlee"] and config["aliases"] == {"annlee": [ANN]}  # Bob only wrote as an agent
+    items = {i["id"]: i for i in ledger_of(ledger)["items"]}
+    assert items["C1"]["by"] == "annlee" and items["C1"]["replies"][0]["ai"] == "claude"
+    assert "by" not in items["C1"]["replies"][0]
+    assert items["C3"]["ai"] == "codex" and items["C3"]["status"] == "not-on-point" and "by" not in items["C3"]
+    assert cli("status", ledger, "--json") == 0
+    rows = {r["id"]: r for r in json.loads(capsys.readouterr().out)["items"]}
+    assert rows["C3"]["problems"] == [] and rows["C2"]["problems"]  # the agent's comment asks nothing; Ann's does
+
+
+def test_no_people_and_hand_written_items_leave_rev_marks_alone(rounds: Path, capsys) -> None:
+    ledger = rounds / "v0.5" / "comments.yaml"
+    assert cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md",
+               "--no-people") == 0
+    items = (rounds / "v0.5" / "items.yaml")
+    items.write_text(yaml.safe_dump([{"author": "v0.4 changes workbook, open points", "comment": "Still open."}]))
+    assert cli("add", items, "--ledger", ledger) == 0
+    assert not (rounds / "v0.5" / "rev-marks.toml").exists()
+    assert '"people"' not in capsys.readouterr().out
 
 
 def test_a_second_pull_keeps_ids_and_triage_and_numbers_past_the_project(rounds: Path, capsys) -> None:

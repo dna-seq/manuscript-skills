@@ -110,6 +110,14 @@ thread as answered without checking the text. Report how many comments and sugge
 and any anchor not found in the master (`not_located`): the Doc and the master have drifted there, and that
 comment is placed by hand.
 
+**Who commented.** The Doc's commenters are people: `import` maps each name to a handle in the project's
+`rev-marks.toml` (an alias already listed, an author of the paper by full name, the one author whose
+initials and surname start fit a shortened name such as "T Exa", else a new handle), adds it to `humans` and
+the Doc's name to its `aliases`, and writes `by:` on each item and reply. Report the `people` list it prints,
+with the rule behind each mapping; a wrong one is fixed by editing `aliases`. `--no-people` leaves
+`rev-marks.toml` alone; `add` never touches it. A comment or reply that starts with `[ai]` or `[ai:NAME]` is an
+agent's: it names nobody, and such a comment is kept as `not-on-point` with the agent in `ai:`.
+
 Comments are the co-authors' own words: quote them exactly, never summarise one into a different request, and
 keep them local (the ledger and the run), like the manuscript.
 
@@ -260,7 +268,8 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
 - Replies to co-authors inside the Doc are posted only when the authors ask for them. The changelog's Why and
   the dashboard carry the answers either way. With the Google Docs connector, a reply goes on the comment's own
   thread (`addCommentReply`), once, naming the round that answered it. It appears under the name of the
-  Google account the connector is signed in to, so the reply text says that it was posted for the authors.
+  Google account the connector is signed in to, so the reply starts with `[ai:NAME]` (`[ai:claude]`), the
+  marker that tells everyone, and the next pull, that an agent wrote it.
   Never resolve a co-author's thread; that is theirs to do. Read the thread back afterwards to confirm the
   reply landed ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the
   connector, the authors post the replies by hand.

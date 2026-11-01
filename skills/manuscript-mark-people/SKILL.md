@@ -22,6 +22,15 @@ as an agent, so a passage can only read as unreviewed by mistake, never as revie
 name would hide an AI's unreviewed edits; a missing one costs a passage shown as unreviewed a little
 longer.
 
+**One exception: a Google Doc's commenters.** Reviewers who read a round in Google Docs and comment there
+read it as people, so `manuscript-coauthors` records each of them when it pulls their comments: their
+handle into `humans`, the name the Doc shows into the handle's `aliases`. A name is mapped to a person the
+project already knows when it can be: an alias already listed, an author of the paper or a git author with
+the same full name, or the one author whose first name and surname start the Doc's shortened name fits
+("T Exa" is Tom Example), and otherwise gets a new handle (the name, lowercase, letters and digits only;
+never an agent's name). Every mapping is reported with the rule that made it; a wrong one is fixed by
+editing `aliases`. A comment that starts with `[ai]` or `[ai:NAME]` is an agent's and records nobody.
+
 Before work, follow the shared [project setup and run-output contract](../manuscript-integrity-check/references/project-workflow.md): resolve saved manuscript-project choices, ask only missing first-use questions, and retain this skill’s report, evidence and failures in its subfolder of the linked run. This applies to direct invocations too.
 
 ## Steps

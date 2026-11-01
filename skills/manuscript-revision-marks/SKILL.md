@@ -247,7 +247,7 @@ builds the same table with `comments.py changelog`, Why filled from the comment 
 segment named `C12a` answers comment C12 of its ledger), and keeps the round's base and circulated commits.
 An agent that writes in the Doc through a connector (a reply, a suggested edit) does so under the name of the
 Google account the connector is signed in to, so in the Doc it looks like that person's work; the reply text
-says it was posted for the authors ([what each connector can do](../manuscript-coauthors/references/google-docs-connectors.md)).
+starts with `[ai:NAME]`, which tells a reader and the next pull that an agent wrote it ([what each connector can do](../manuscript-coauthors/references/google-docs-connectors.md)).
 
 - **The list is the checklist.** It names every segment that is new, removed, rewritten or given another
   round, and every changed paragraph no segment covers (`(none)`), in the order of the new text. Every

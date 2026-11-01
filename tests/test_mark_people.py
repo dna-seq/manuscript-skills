@@ -109,3 +109,38 @@ def test_github_bot_pattern_does_not_swallow_logins_ending_in_b_o_or_t() -> None
     p = people.rm.People(agents=people.rm.agent_list())
     assert not people.is_agent(p, "winternewt", "76408211+winternewt@users.noreply.github.com")
     assert people.is_agent(p, "dependabot[bot]", "49699333+dependabot[bot]@users.noreply.github.com")
+
+
+# --- a Doc's commenters: mapped to the paper's people, aliases kept ------------------------------------------
+
+
+def test_a_commenter_maps_to_an_author_by_full_name_or_initials_else_gets_a_new_handle(repo: Path) -> None:
+    s = people.survey(repo / "paper.md")
+    pp = people.rm.load_people(repo / "paper.md")
+    m = people.resolve("Tom Example", pp, s.identities)
+    assert (m.handle, m.rule) == ("tomexample", "author")
+    m = people.resolve("M. Lop", pp, s.identities)  # Google shows a shortened name: initial and surname start
+    assert (m.handle, m.rule, m.via) == ("marialopez", "initials", "Maria Lopez")
+    m = people.resolve("A Smith", pp, s.identities)  # Anna Smith signs by=anna: her existing handle wins
+    assert m.rule == "initials" and m.handle in ("anna", "annasmith")
+    m = people.resolve("Petra Outside", pp, s.identities)  # a reviewer who is not on the paper
+    assert (m.handle, m.rule) == ("petraoutside", "new")
+    assert people.resolve("Sol", pp, s.identities).handle == "sol2"  # never an agent's name
+
+
+def test_recorded_commenters_become_people_and_their_names_aliases(repo: Path) -> None:
+    config = repo / "rev-marks.toml"
+    config.write_text('# kept\nhumans = ["anna"]\nagents = ["lab-bot"]\n', encoding="utf-8")
+    s = people.survey(repo / "paper.md")
+    pp = people.rm.load_people(repo / "paper.md")
+    matches = [people.resolve(n, pp, s.identities) for n in ("M. Lop", "Maria Lopez", "Petra Outside")]
+    humans, aliases = people.record_people(config, matches)
+    data = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert data["humans"] == ["anna", "marialopez", "petraoutside"] and data["agents"] == ["lab-bot"]
+    assert data["aliases"] == {"marialopez": ["M. Lop", "Maria Lopez"], "petraoutside": ["Petra Outside"]}
+    assert "# kept" in config.read_text(encoding="utf-8")
+    pp = people.rm.load_people(repo / "paper.md")  # the next pull finds them by alias
+    assert people.resolve("M Lop", pp, s.identities).rule == "alias"
+    assert pp.known("marialopez") == people.rm.Kind.HUMAN
+    people.write_aliases(config, {"marialopez": ["m. lop", "Dr Maria Lopez"]})  # nothing twice, nothing lost
+    assert tomllib.loads(config.read_text())["aliases"]["marialopez"] == ["M. Lop", "Maria Lopez", "Dr Maria Lopez"]
