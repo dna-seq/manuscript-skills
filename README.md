@@ -67,7 +67,11 @@ Claude, already has, and are not:
 - **Co-authors' comments inside the review, not a Drive connector.** Any Claude can open a Google Doc through
   its Drive connector. [manuscript-coauthors](skills/manuscript-coauthors/SKILL.md) turns every comment and
   suggested edit your co-authors leave on a round's Google Doc into an item of the review, says in the next
-  round how each was answered, and releases the round back to your shared Drive folder.
+  round how each was answered, and releases the round back to your shared Drive folder. Reviewers who only use
+  the Doc never need the plugin: one command (`rounds.py port`) takes their comments to the dashboard, they are
+  recorded as people under the names the Doc shows (with aliases, matched to the paper's authors), a resolved
+  thread or a taken suggestion counts as their sign-off, and the Doc can shade the passages no person has
+  reviewed yet, or what changed since a revision.
 
 It also edits under a script that fails any edit that strengthens a claim or changes a number, ranks journals
 by your priorities, and leaves you a dashboard, a Word review with tracked changes and a To-do list the next run
