@@ -180,5 +180,11 @@ what Claude read back:
 | Suggestion with top-level `writeControl` or `write_control.write_mode` | refused: `InvalidActionArgumentsError` | nothing landed |
 | Writes from plain `codex exec` | refused: approval policy is never | nothing landed |
 
+`gdoc_shade.py` on the same Doc, live (2026-11-02): `plan` on a marked master with one unreviewed and one
+person-signed segment gave one request (the unreviewed line, found exactly; the signed one left alone); the
+connector applied it; `verify` on the readback passed, Google having stored the colour as
+`{"red":1,"green":0.9254902,"blue":0.7019608}`, within the 1/255 tolerance; `clear` gave one request, and after it
+the range was plain while every other highlight in the Doc (yellow, green, orange, light blue) stayed.
+
 Not tested: accepting or rejecting a suggestion (no request exists), editing or deleting a comment, reopening a
 resolved thread, restoring a revision, and the Google Sheets and Slides connectors.
