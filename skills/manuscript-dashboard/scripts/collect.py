@@ -728,8 +728,10 @@ def recorded_changes(run: Path, data: dict, out_dir: Path, current: str, start: 
             if not parts:
                 continue
             section, reason, comment, before, after = parts.groups()
-            before = None if before.strip() == "(No previous block.)" else before.strip()
-            after = None if after.strip() == "(Block removed.)" else after.strip()
+            # Only the record's own line breaks go: a deletion recorded with the space before it (" Sentence.")
+            # keeps that space, or the replay leaves a double space and never reaches the revised text.
+            before = None if before.strip() == "(No previous block.)" else before.strip("\n")
+            after = None if after.strip() == "(Block removed.)" else after.strip("\n")
             # The recorded reason is the edit's reasoning; its first sentence is the summary.
             first = re.match(r"(.+?[.!?])(?:\s|$)", reason.strip())
             summary = first.group(1) if first else reason.strip()
