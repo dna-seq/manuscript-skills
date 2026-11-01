@@ -1051,6 +1051,8 @@ def test_port_replays_the_runs_own_commands_on_the_next_attempts(rounds: Path, t
     steps = {s["step"]: s["command"] for s in json.loads(done.stdout)["steps"]}
     assert list(steps) == ["pull", "findings", "collect", "corrected version", "dashboard", "export docx"]
     assert all(f"exec {run} --skill" in c for c in steps.values())  # the run records every step
+    # runs.py runs through uv with its own dependencies (filelock), which rounds.py's environment lacks
+    assert all(c.startswith("uv run --script ") and "/runs.py exec " in c for c in steps.values())
     assert "import-gdoc" in steps["pull"] and "--master " + str(folder / "paper.md") in steps["pull"]
     assert "--untriaged" in steps["findings"] and "--next-round" not in steps["findings"]
     d, i = run / "manuscript-dashboard", run / "manuscript-improve"

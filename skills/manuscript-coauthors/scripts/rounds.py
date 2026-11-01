@@ -640,7 +640,10 @@ def exports_of(project: Project, name: str, titles: list[str], given: Path | Non
     """Each Doc of the round as .docx: from a folder of exports named by the Doc's title (a pull's, or downloads
     through a Drive connector), else exported now with rclone."""
     if given is not None:
-        return {title: given / f"{title}.docx" for title in titles if (given / f"{title}.docx").is_file()}
+        # a pull names each export so every file system takes it (file_name); one downloaded by hand keeps the title
+        named = {title: next((given / f"{n}.docx" for n in (file_name(title), title) if (given / f"{n}.docx").is_file()),
+                             None) for title in titles}
+        return {title: path for title, path in named.items() if path is not None}
     if project.block.get("drive") != "rclone":
         raise Refused("Give the round's Docs exported as .docx with --export DIR (a pull's exports, or each Doc "
                       "downloaded through the Drive connector as .docx and named by its title); only rclone exports "
@@ -650,14 +653,13 @@ def exports_of(project: Project, name: str, titles: list[str], given: Path | Non
     found = {}
     for title in titles:
         file_id = re.search(r"/d/([\w-]{20,})", links[title])
-        before = set(into.glob("*.docx"))
+        export = into / f"{file_name(title)}.docx"  # NTFS and Windows refuse a colon in the Doc's title
         execute([["rclone", "backend", "copyid", f"{project.block.get('remote', 'gdrive')}:",
-                  file_id.group(1) if file_id else links[title], f"{into.as_posix()}/", "--drive-export-formats", "docx"]],
+                  file_id.group(1) if file_id else links[title], export.as_posix(), "--drive-export-formats", "docx"]],
                 project.folder(name))
-        new = sorted(set(into.glob("*.docx")) - before) or [into / f"{title}.docx"]
-        if not new[0].is_file():
+        if not export.is_file():
             raise Refused(f"rclone exported nothing for {title}.", 3)
-        found[title] = new[0]
+        found[title] = export
     return found
 
 
@@ -963,8 +965,9 @@ def port(name: str, run: Annotated[Path, typer.Option("--run", help="The run who
     if not (run / "run.json").is_file():
         raise Refused(f"{run}: no run.json; give the run the round's dashboard belongs to.", 2)
     steps = port_plan(project, name, run, list(gdoc or []), not no_pull)
-    commands = [{"step": s["step"], "command": shlex.join([sys.executable, str(RUNS), "exec", str(run), "--skill",
-                                                           s["skill"], "--", *s["argv"]])} for s in steps]
+    # runs.py through uv, with its own dependencies: this script's environment does not have them.
+    commands = [{"step": s["step"], "command": shlex.join(["uv", "run", "--script", str(RUNS), "exec", str(run),
+                                                           "--skill", s["skill"], "--", *s["argv"]])} for s in steps]
     if not go:
         say({"round": name, "dry_run": True, "steps": commands})
         return
