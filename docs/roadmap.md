@@ -16,16 +16,17 @@ same note orders the smaller misses by skill (limits stated without their cost, 
 scope, reasons for a method's constants, authorship criteria). `comments.py gaps` measures each round against the
 next co-authors' reading.
 
-## Shade unreviewed AI edits inside a Google Doc (Codex only; not built)
+## Shade unreviewed AI edits inside a Google Doc (not built)
 
 `manuscript-revision-marks` shows which passages an AI or agent wrote that no person has reviewed since,
 in its HTML heat map and its review draft PDF (`typeset.py pdf --draft`). Many co-authors read and
 comment in a Google Doc instead, so the same shading belongs there.
 
-**Why Codex only.** Claude's Google Drive connector reads, creates and replaces whole files; it cannot
-style a range of text in an existing document, so it cannot shade a passage in place. Codex's Google
-Docs integration is richer and can edit an existing document, so the hook would ship in the Codex
-plugin only (`.codex-plugin/`), and the Claude skill would keep pointing to the PDF draft.
+**Both assistants can now.** Claude's Google Docs connector (separate from its Drive connector, which reads
+and replaces only whole files) and Codex's Google Drive app both send `documents.batchUpdate` requests, so
+either can set a background colour on a range of an existing document; tested on 2026-11-01
+([skills/manuscript-coauthors/references/google-docs-connectors.md](../skills/manuscript-coauthors/references/google-docs-connectors.md)).
+The hook can ship in both plugins.
 
 **Shape.**
 
@@ -40,15 +41,15 @@ plugin only (`.codex-plugin/`), and the Claude skill would keep pointing to the 
 - Same rules as the draft: the policy decides who is a person, an unlisted name is shaded, and the
   shading is never a sign-off.
 
-**Before building it:** confirm on a live Codex session which document operations its Google Docs
-integration offers (range lookup, background colour, comments), and add an eval case with a fixture
-document.
+**Before building it:** add an eval case with a fixture document. Which operations each connector offers
+(range lookup, background colour, comments) is settled in the connectors reference above.
 
 ## Reply to co-authors inside the Google Doc (not built)
 
 `manuscript-coauthors` records how each co-author comment was answered (the ledger's `why`, the changelog,
-the dashboard), but the reply in the Doc's own thread is posted by hand: Claude's Drive connector reads a
-Doc's comments and cannot write one. With a connector or the Drive API's `comments.replies.create` behind an
-explicit authors' request, the ledger's `why` for each answered comment could be posted as a reply on its
-thread, once, with the round it was answered in. A Google .docx export also says nothing of resolved
-threads; the API's `resolved` field would fill the ledger's `resolved`.
+the dashboard). An agent posts the reply in the Doc's own thread only when the authors ask, through the
+Google Docs connector's `addCommentReply` (Claude) or the same request through Codex's Google Drive app; the
+skill says how, by hand. Not built: a `comments.py` command that posts the ledger's `why` for each answered
+comment as a reply on its thread, once, with the round it was answered in, and records the reply's id in the
+ledger. A Google .docx export says nothing of resolved threads; the Docs connector's `status` fills the
+ledger's `resolved` when the comments are read through it.

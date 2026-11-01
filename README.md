@@ -147,7 +147,10 @@ Where other skills do the same job, these parts add a check:
 2. **Share the manuscript, its supplements and its code.** Start the assistant in the manuscript's
    folder or give it the file paths. Markdown, plain text and LaTeX (with its bibliography files) are
    read directly; for Word or Google Docs, provide an export or use a document connection the assistant
-   has. With the code repository, the paper's numbers and descriptions of its software are checked
+   has. For papers kept in Google Docs, turn on Claude's **Google Docs** connector (in claude.ai,
+   **+ → Connectors**; it is separate from Google Drive, and Claude Code picks it up in its next session; see
+   [Anthropic's instructions](https://support.claude.com/en/articles/10166901-use-google-workspace-connectors)).
+   It reads co-authors' comments and suggested edits, and can post replies when you ask. With the code repository, the paper's numbers and descriptions of its software are checked
    against the code, results and run logs.
 3. **Ask in plain words**, for example:
 
@@ -511,7 +514,8 @@ Only the dependent work waits, and silence never counts as approval.
 
 The skills read Markdown, plain text and LaTeX directly; with LaTeX, include the bibliography files,
 because the reference checks read them. For Word or Google Docs, use a document connection your
-assistant has or provide an export. For a passage edit, paste the passage.
+assistant has or provide an export. For Google Docs, Claude's Google Docs connector is the one to turn on;
+[what each Google connector can do](skills/manuscript-coauthors/references/google-docs-connectors.md). For a passage edit, paste the passage.
 
 Include the supplements and, when the paper describes software or analyses, its code repository. The
 simulated referees and the reference check read the supplementary files, including their reference

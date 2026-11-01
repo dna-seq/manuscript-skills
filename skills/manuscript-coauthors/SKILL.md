@@ -80,13 +80,24 @@ kept in git with the paper; the run gets the exports and a copy as evidence.
 
 - **rclone:** `rounds.py pull 0.5 --out RUN/manuscript-coauthors/exports --go` exports each recorded Doc of
   the round as .docx and merges its comments. Without `--go` it prints the commands.
+- **The Google Docs connector** (Claude's, separate from Drive; the best connector route): `read_doc` with
+  `commentsIncluded: true` returns every thread with the exact words it is anchored on, its range, its status
+  (open or resolved) and its replies, and every suggestion with its author, status and a "Replace: X with Y"
+  summary. Write each thread and suggestion as an item and merge them with `comments.py add` (below); fill
+  `resolved` from the status. When the assistant has no Docs connector, say once that the authors can turn it on
+  (claude.ai: **+ → Connectors → Google Docs**, then start a new Claude Code session; [Anthropic's
+  instructions](https://support.claude.com/en/articles/10166901-use-google-workspace-connectors)), and carry on
+  with the routes below. What each connector can do is in
+  [references/google-docs-connectors.md](references/google-docs-connectors.md).
 - **A Drive connector:** find the Doc (`search_files`, `title contains '…'`), download it as .docx
   (`download_file_content` with `exportMimeType`
   `application/vnd.openxmlformats-officedocument.wordprocessingml.document`) into the run's `exports/`, then
   `comments.py import EXPORT.docx --ledger v0.5/comments.yaml --master v0.5/paper.md --doc LINK`. When only
   the text view is available (`read_file_content` with `includeComments`), write each thread as an item (author,
   date, the commented words as `anchor`, a dozen words on each side as `context_before`/`context_after`,
-  `comment`, `replies`) and merge them with `comments.py add ITEMS.yaml --ledger … --master …`.
+  `comment`, `replies`) and merge them with `comments.py add ITEMS.yaml --ledger … --master …`. That text
+  view loses suggested edits: it prints a suggestion's new text and the text it would delete side by side,
+  unmarked, so take suggestions from the .docx export or the Docs connector.
 - **By hand:** File › Download › Microsoft Word, then `import` as above.
 
 What the import does, so you can say it plainly: each comment and reply is read with its author and date; a
@@ -246,8 +257,13 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
   (step 1) and ask.
 - After the upload, open the Docs (or their PDF export) and look at every figure and table page before calling
   the round released; a Drive-for-desktop upload stays a Word file until it is saved as a Google Doc.
-- Replies to co-authors inside the Doc are the authors' to post: no connector here writes Doc comments. The
-  changelog's Why and the dashboard carry the answers.
+- Replies to co-authors inside the Doc are posted only when the authors ask for them. The changelog's Why and
+  the dashboard carry the answers either way. With the Google Docs connector, a reply goes on the comment's own
+  thread (`addCommentReply`), once, naming the round that answered it. It appears under the name of the
+  Google account the connector is signed in to, so the reply text says that it was posted for the authors.
+  Never resolve a co-author's thread; that is theirs to do. Read the thread back afterwards to confirm the
+  reply landed ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the
+  connector, the authors post the replies by hand.
 
 ## What to tell the authors
 
@@ -263,4 +279,7 @@ be exported, anchors not found) once, plainly.
 - `scripts/comments.py`: import, add, status, findings, changelog and gaps: the ledger of a round's comments, and
   whether the run that produced the round had caught each.
 - `scripts/rounds.py`: show, open, push, record, circulated and pull: the rounds on Drive.
+- `references/google-docs-connectors.md`: what Claude's Google Docs and Drive connectors and Codex's Google Drive
+  app can read and write in a Google Doc (edits, highlights, suggestions, comments, replies), the exact
+  requests, how to verify each by reading back, and how to install the connectors.
 - The settings live in the project file and are saved by `manuscript-integrity-check/scripts/project.py configure`.
