@@ -420,6 +420,29 @@ class AiPolicy(Record):
     source: str = ""
 
 
+class AdaptationItem(Record):
+    """One kind of change a venue would ask of the manuscript: what the manuscript has, what the venue allows, the
+    change and its size (`unknown` when nobody has read the rule)."""
+    aspect: str = ""
+    what: Text
+    have: str = ""
+    limit: str = ""
+    change: str = ""
+    size: Literal["none", "small", "medium", "large", "unknown"]
+    source: str = ""
+    checked: str = ""
+
+
+class Adaptation(Record):
+    """What choosing a venue would change in the manuscript, the major changes only (manuscript-journal-select's
+    effort.py, adaptation.json): its largest change as the estimate, the words to cut, and one row per change."""
+    size: Literal["no change", "light", "moderate", "major"]
+    words_to_cut: Annotated[int, Field(ge=0)] = 0
+    summary: str = ""
+    measured: str = ""  # what was measured, the same sentence for every venue of the run
+    items: list[AdaptationItem] = Field(default_factory=list)
+
+
 class Venue(Record):
     """One rung of a journal or preprint ladder from manuscript-journal-select."""
     ladder: Literal["journals", "preprints"]
@@ -443,6 +466,7 @@ class Venue(Record):
     preprint_rule: str = ""
     why: str = ""
     url: str = ""
+    adaptation: Adaptation | None = None  # journals the selection measured the manuscript against
 
 
 class StoryTest(Record):

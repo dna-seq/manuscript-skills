@@ -34,6 +34,11 @@ The same field names serve every layer:
   `disclosure_fields`, `disclosure_neutral`, `extra_burden`, `image_rules`, `reviewer_ai`, `ai_policy_url`;
 - what the journal asks its referees (`reviewer_form`) and its rules for figures (`figure_rules`), described in
   the header of `venues.yaml`;
+- what `effort.py` compares the manuscript with: `limits` (`abstract_words`, `body_words`, `body_words_kind:
+  recommended` for advice, `body_words_excludes: [methods]` for a count that leaves the Methods out, `none_stated`
+  listing `abstract_words`, `body_words` or `display_items` when the page was read and sets none),
+  `figure_rules.display_items` (a number for all figures and tables, `{figures, tables}`, or either by article type,
+  `{article: 7, report: 4}`), `abstract_headings` (`[]` for one paragraph without headings) and `required_sections`;
 - preprint servers: `transfers` and `transfers_checked`;
 - `not_read`: one sentence saying why the venue's author guidelines could not be read, with the date and every
   route tried (`common` gives the reason instead of a bare gap). The authors' own browser comes before it: a page

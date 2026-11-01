@@ -1313,7 +1313,7 @@ def _norm(text: Any) -> str:
 # The headings of a paper's main parts. A required section named only by these fills a part every version has, so
 # venues that name or order them differently disagree; any other section (keywords, declarations, abbreviations) is
 # an addition the other versions can carry.
-BODY_SECTIONS = {"introduction", "background", "methods", "materials and methods", "implementation",
+BODY_SECTIONS = {"introduction", "background", "method", "methods", "materials and methods", "implementation",
                  "design and implementation", "results", "discussion", "results and discussion", "conclusion",
                  "conclusions", "availability and future directions", "future directions"}
 

@@ -99,7 +99,8 @@ there:
 - **Journals ordered by the authors' priorities, AI rules included.**
   [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) ranks preprint servers and
   journals by speed, reach, cost and how strict their AI policies are, with the deciding rule quoted and
-  linked.
+  linked, and measures how much choosing each of the three recommended journals would change the manuscript:
+  the words to cut, the abstract, the figures and tables, the structure, the validation still missing.
 - **Readers as well as referees.** [manuscript-story](skills/manuscript-story/SKILL.md) has simulated
   readers say where they would stop reading, then repairs the text without dropping a caveat.
 - **AI edits no person has reviewed.** For manuscripts that keep revision marks,
@@ -186,7 +187,7 @@ answers are saved in `.manuscript-skills.yaml` beside your manuscript, and every
 | Review the figures and tables | [manuscript-figures](skills/manuscript-figures/SKILL.md) | Every figure seen as it will be printed (at the journal's column width, in greyscale and as colour-blind readers see it) and every table as it is set (width, units, precision, empty cells), in the paper and its supplement. Each is checked against its caption, the text, the order it is cited in and the code that draws it; main-text items get the full review, supplementary ones a lighter one. You get a verdict per item (keep, change, merge, or move to or from the supplement), how to make the figures more compact (empty space measured, a page-wide figure tried in one column, figures of the same runs merged as panels), and the figures worth adding, including results the text gives only as numbers; your files are never overwritten. |
 | Anticipate referees' objections | [manuscript-peer-review](skills/manuscript-peer-review/SKILL.md) | Reports from three simulated referees at your target journal, each quoting the paper, then what to fix first, including the work only you can do. No scores or acceptance odds. It can also draft your report when you are the referee. |
 | Clarify study scope or policy requirements | [manuscript-policy-fit](skills/manuscript-policy-fit/SKILL.md) | Which clinical, ethics or privacy requirements apply, with the policy quoted and linked, and drafts of scope clarifications or replies to policy questions. |
-| Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. |
+| Choose where to preprint and submit | [manuscript-journal-select](skills/manuscript-journal-select/SKILL.md) | Two ranked lists ("ladders"), of preprint servers and of journals, ordered by your priorities: speed, reach, AI-policy burden, cost. Each venue is first checked for scientific fit, the validation you can afford, fees, review times and AI policies, with the deciding rule quoted and linked. For the three recommended journals, how much choosing each would change the manuscript (light, moderate or major, with the words to cut and each change), shown in the dashboard's Journals tab. |
 | Prepare for a chosen journal | [manuscript-journal-adapt](skills/manuscript-journal-adapt/SKILL.md) | Length, structure and required statements adapted to the journal and shown before and after, plus submission materials and an AI-use disclosure where needed. |
 | Answer referees and check the revision | [manuscript-reviewer-response](skills/manuscript-reviewer-response/SKILL.md) | A revision plan in the referees' own numbering with the decisions you need to make, a point-by-point response letter, and a check that the revision answers each comment. |
 | Show colleagues what the review caught | [manuscript-dashboard](skills/manuscript-dashboard/SKILL.md) | The offline dashboard every improvement run ends with. Given a co-author's review of the same version, it shows what the run caught and why it missed the rest; with co-authors' comments on the previous round, how this round answers each one. |
@@ -661,7 +662,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.53.0},
+  version = {0.54.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

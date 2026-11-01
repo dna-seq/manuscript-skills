@@ -101,6 +101,15 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   the tab changed it since; a file that does not parse is never written over. The corrected version's questions
   show a mark but write none (leave as is means "keep the edit" there, "drop it" for a proposal). Before the
   dashboard, the pane neither reads nor writes the file.
+- **How much each recommended journal changes the manuscript (0.54.0).** `manuscript-journal-select/scripts/effort.py`
+  measures the manuscript as an editor counts it (reusing manuscript-story's `reader_metrics.parse`: body without
+  captions, tables or back matter; abstract; main-text figures, tables and boxes; main sections) and sizes each
+  change against the catalogue: `limits` (with `body_words_excludes: [methods]` for Cell Reports Methods' STAR
+  Methods, and `display_items` in `none_stated`), `figure_rules.display_items` by article type, `abstract_headings`,
+  `required_sections` and the record's unmet `conditions`; prose-only structure (Cell Press) comes from `changes` on
+  the `top3.json` entry. Rows are none/small/medium/large/unknown, the estimate no change/light/moderate/major.
+  `--format json` writes `RUN/manuscript-journal-select/adaptation.json`; `collect.py` attaches it to the journal's
+  rung as `adaptation` and the Journals tab shows it per card, in a comparison table and in the ladder table.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery
