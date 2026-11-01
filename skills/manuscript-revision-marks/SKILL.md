@@ -236,6 +236,9 @@ uv run --script scripts/rev_marks.py changes OLD.md v0.6/PAPER.md --seen SEEN.md
 When the co-authors comment on Google Docs and the project keeps its rounds on Drive, manuscript-coauthors
 builds the same table with `comments.py changelog`, Why filled from the comment each segment answers (a
 segment named `C12a` answers comment C12 of its ledger), and keeps the round's base and circulated commits.
+An agent that writes in the Doc through a connector (a reply, a suggested edit) does so under the name of the
+Google account the connector is signed in to, so in the Doc it looks like that person's work; the reply text
+says it was posted for the authors ([what each connector can do](../manuscript-coauthors/references/google-docs-connectors.md)).
 
 - **The list is the checklist.** It names every segment that is new, removed, rewritten or given another
   round, and every changed paragraph no segment covers (`(none)`), in the order of the new text. Every

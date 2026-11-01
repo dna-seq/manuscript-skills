@@ -28,7 +28,7 @@ Doc until it was shared with Codex's account.
 | In an existing Google Doc | Claude: Google Docs | Claude: Google Drive | Codex: Google Drive app |
 | --- | --- | --- | --- |
 | Read the text | yes (`read_doc`, structured) | yes (`read_file_content`, plain text) | yes (`get_document`) |
-| Read highlights and other styles | yes | no | yes |
+| Read highlights and other styles | yes | bold and italic as Markdown; no highlights or colours | yes |
 | Read comments: text, author, replies | yes | yes | yes |
 | Read the words a comment is anchored on | yes (`plainTextQuote`, range) | inline markers in the text | yes (`quotedFileContent`, anchor) |
 | Read whether a thread is resolved | yes (`status`) | yes (`status`) | yes (`resolved`) |
@@ -40,7 +40,7 @@ Doc until it was shared with Codex's account.
 | Reply to a comment | yes (`addCommentReply`) | no | yes |
 | Resolve a comment | yes (`addCommentReply` with `RESOLVE`) | no | yes |
 | Accept or reject a suggestion | no: Google's API has no request for it | no | no |
-| List and read past revisions | not exposed | not exposed | yes |
+| List and read past revisions | not exposed | fetch one by id (`download_file_content` `revisionId`), no listing | yes |
 
 Claude's Google Docs connector covers everything the authors need for a round. Codex's app adds revision
 history. Claude's Drive connector reads comments, but it loses suggested edits.
@@ -129,6 +129,9 @@ codex exec --approve-for-me -m gpt-6.1-sol -c 'model_reasoning_effort="medium"' 
   -c 'apps.google_drive.default_tools_approval_mode="approve"' --skip-git-repo-check \
   -C SCRATCH -o SCRATCH/answer.md "$(cat SCRATCH/brief.md)"
 ```
+
+The `default_tools_approval_mode` setting is kept from the earlier attempt: alone it did nothing, and whether
+`--approve-for-me` needs it was not tested.
 
 This lets an unattended agent write to a Google account, so run it only on the authors' explicit request for
 that Doc. Claude Code's auto mode blocks starting such a run until the person allows it. The other way is to
