@@ -72,7 +72,16 @@ one). Every key is optional:
 humans = ["anna", "tom"]   # people; outranks the agent list (a co-author named Claude or Luna)
 agents = ["lab-bot"]       # more agent names or fnmatch patterns
 unknown = "agent"          # what a name in neither list counts as; "human" to flip
+
+[aliases]                  # the other names a handle goes by
+tom = ["Tom Example", "T Exa", "texample"]
 ```
+
+**Aliases.** A person signs `by=` with one handle but appears under other names: their full name, the
+shortened name Google Docs shows on a comment ("T Exa"), another handle. Each alias counts as its handle
+everywhere, so `by=texample` is Tom's round. Aliases are compared lowercase, without accents, spaces or
+punctuation ("T. Exa" is "T Exa"); one alias belongs to one handle, and `rev-marks.toml` is refused
+otherwise. `manuscript-coauthors` adds a Doc's commenters here when it pulls their comments.
 
 The shipped [agent list](references/agent-names.toml) names AI model families (from the Artificial
 Analysis Intelligence Index) and coding harnesses, with patterns for versioned names (`claude-*`,

@@ -701,6 +701,31 @@ def test_a_persons_round_is_recorded_as_the_authors_report_it(project):
     assert py(RM, "bump", doc, "C3", "--by", "claude").rc == 0 and "C3" in unrev_ids(doc)
 
 
+def test_an_alias_counts_as_its_handle(project):
+    """A person signs or comments under other names (a Doc shows "Z. Ork"); [aliases] maps each to one handle."""
+    root, doc = project
+    (root / "rev-marks.toml").write_text('humans = ["anna", "zoe"]\n\n[aliases]\nzoe = ["Zoe Ork", "Z. Ork", "zork"]\n',
+                                          encoding="utf-8")
+    assert unrev_ids(doc) == ["C2", "C3", "C4", "C6"]  # by=zork is zoe now, so C5 is reviewed
+    people = rm.load_people(doc)
+    for name in ("zork", "Z Ork", "z.ork", "ZOE ORK", "Zoë Ork", "zoe"):
+        assert people.canonical(name) == "zoe" and people.known(name) == rm.Kind.HUMAN, name
+    assert people.canonical("Anna") == "anna" and people.canonical("tom") == "tom"
+    assert "unclassified-name" not in py(RM, "lint", "--strict", doc).out
+
+
+def test_an_alias_of_two_handles_or_a_bad_alias_table_is_refused(project):
+    root, doc = project
+    (root / "rev-marks.toml").write_text('humans = ["anna", "zoe"]\n\n[aliases]\nanna = ["A. Ork"]\nzoe = ["a ork"]\n',
+                                          encoding="utf-8")
+    r = py(RM, "report", doc)
+    assert r.rc == 2 and "belongs to both" in r.out, r.out
+    (root / "rev-marks.toml").write_text('aliases = ["zoe"]\n', encoding="utf-8")
+    assert py(RM, "report", doc).rc == 2
+    (root / "rev-marks.toml").write_text('[aliases]\n"two words" = ["x"]\n', encoding="utf-8")
+    assert "is not a by= name" in py(RM, "report", doc).out
+
+
 def test_a_bad_config_is_refused(project):
     root, doc = project
     config(root, humans=["anna"], unknown="whenever")
