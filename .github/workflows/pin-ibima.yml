@@ -1,0 +1,30 @@
+# Ships each release to the IBIMA organization catalog at once: a push to main that changes the
+# plugin's version starts the catalog's pin workflow, which otherwise runs once a day and on a busy
+# day starts hours after its 04:23 UTC slot.
+# Needs the IBIMA_PIN_TOKEN secret: a fine-grained token for longevity-genie/ibima-marketplace with
+# Actions read and write. Without it the run warns, and the daily pin still ships the release.
+name: Pin the release in the IBIMA catalog
+
+on:
+  push:
+    branches: [main]
+    paths: ['.claude-plugin/plugin.json']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pin-ibima
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IBIMA_PIN_TOKEN }}
+    steps:
+      - if: env.GH_TOKEN == ''
+        run: echo "::warning::IBIMA_PIN_TOKEN is not set, so the IBIMA catalog gets this release at its next daily pin run"
+
+      # the pin workflow finds the newest release itself and leaves the catalog alone when it is already pinned
+      - if: env.GH_TOKEN != ''
+        run: gh workflow run pin-manuscript-skills.yml -R longevity-genie/ibima-marketplace

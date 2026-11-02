@@ -185,4 +185,8 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   `date-released` in `CITATION.cff` with the version in the README's BibTeX (`tests/test_citation.py` checks
   they agree); `pyproject.toml` stays at 0.1.0. There is no CHANGELOG file: the release notes are the commit message,
   `Release X.Y.Z: <what changed, in plain words>`, then prose paragraphs.
+- Pushing the release to `main` ships it to the IBIMA organization catalog: `.github/workflows/pin-ibima.yml`
+  starts the pin workflow of `longevity-genie/ibima-marketplace`, which moves the catalog's pin to the new
+  release commit. It needs the `IBIMA_PIN_TOKEN` secret (a fine-grained token for that repository with Actions
+  read and write); without it the run warns and the catalog's daily pin run ships the release instead.
 - Mention a new feature here and in the README, so the next session knows it exists.
