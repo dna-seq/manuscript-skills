@@ -1422,17 +1422,23 @@ class DocEdit:
     after: str = ""  # the same paragraph with the Doc's words in place of the released ones
 
 
+def shown_tokens(text: str) -> list[tuple[str, int, int]]:
+    """The master's words as a Doc built from it shows them (master_token), each with its span in *text*: comments, raw
+    HTML and link targets left out, and a list's marker at the start of a line too, since the Doc numbers the list
+    itself."""
+    masked = UNSHOWN.sub(lambda m: m.group(0) if m.group(1) else re.sub(r"\S", " ", m.group(0)), text)
+    masked = LINK.sub(lambda m: " " * len(m.group(1)) + m.group(0)[len(m.group(1)):-len(m.group(2))] + " " * len(m.group(2)),
+                      masked)
+    return [(tok, m.start(), m.end()) for m in re.finditer(r"\S+", masked) if (tok := master_token(m.group(0)))
+            and not (LIST_NUMBER.fullmatch(tok) and not masked[masked.rfind("\n", 0, m.start()) + 1:m.start()].strip())]
+
+
 def doc_edits(released: str, paragraphs: list[str]) -> list[DocEdit]:
     """The paragraphs of the released master (clean text) that the Doc's paragraphs now read differently, each as
     the released paragraph and the same paragraph with the Doc's words in place. List numbers a Doc adds by itself
     are not differences. New words at the start of a Doc paragraph go before the paragraph's first word, and a new
     paragraph goes after the one it follows."""
-    masked = UNSHOWN.sub(lambda m: m.group(0) if m.group(1) else re.sub(r"\S", " ", m.group(0)), released)
-    masked = LINK.sub(lambda m: " " * len(m.group(1)) + m.group(0)[len(m.group(1)):-len(m.group(2))] + " " * len(m.group(2)),
-                      masked)
-    # a list's marker at the start of a line never reaches a Doc's text: the Doc numbers the list itself
-    base = [(tok, m.start(), m.end()) for m in re.finditer(r"\S+", masked) if (tok := master_token(m.group(0)))
-            and not (LIST_NUMBER.fullmatch(tok) and not masked[masked.rfind("\n", 0, m.start()) + 1:m.start()].strip())]
+    base = shown_tokens(released)
     doc = [(word.translate(QUOTES), n) for n, text in enumerate(paragraphs) for word in text.split()
            if not MARKUP_ONLY.fullmatch(word)]
     a, b = [t[0] for t in base], [t[0] for t in doc]

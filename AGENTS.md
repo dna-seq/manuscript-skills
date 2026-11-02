@@ -83,6 +83,19 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   the Docs connector the `setup_note` says what it would add), `sync --gdoc READ.json` (`gdoc_reads` matches the Doc
   by id in the recorded link, else title; `gdoc_paragraphs` reads as `doc_paragraphs` does; pending suggestions by
   `gdoc_id` too), and `person_names` so the gap report and the dashboard count one person under every name.
+- **The review in the authors' own Google Doc (0.58.0).** `manuscript-dashboard/scripts/export_gdoc.py plan INVENTORY
+  READ.json --revision DIR` writes a run's review into a Doc that holds the reviewed text, through Claude's Google Docs
+  connector: every revise.py piece as a suggested edit (`insertText` at the end of the old words, then
+  `deleteContentRange`, in one `SUGGEST` batch, last place first) and `todo_items` as `[ai:NAME]` comments ending
+  `(ID)` (a direct batch, sent first). One batch per plan, guarded by `requiredRevisionId`; plan again after each, and
+  it adds only what the Doc lacks (`thread_for` finds a posted comment by its ID, `Reading.ours` a posted suggestion
+  by its words at its place; a co-author's pending suggestion there is left alone). Places come from aligning
+  `comments.shown_tokens` of the reviewed and corrected texts with the Doc's words (`doc_tokens`), so a recurring
+  sentence is placed by its neighbours. `status` reads back pending/accepted/rejected/edited per suggestion and
+  each thread's replies; `--marks STEM.todo.json` adds approved/redundant for proposals and edits that asked (never
+  over a mark from the tab), `--mark ID=...` for decisions and problems the agent read, `--undo` the rejected plain
+  applied edits for `runs.py apply`. `RUN/manuscript-dashboard/gdoc-review.json` records what was posted, which
+  tells rejected from never posted. Tests: `tests/test_export_gdoc.py` (a model Doc that applies the batches).
 - **The changelog between rounds** lives in manuscript-revision-marks: one changelog per round from the
   round's base, extended on every iteration, `--seen` marking rows new or changed since the draft the
   co-authors last saw. Why comes only from the record (commits, findings, ledgers, the co-authors' ledger).

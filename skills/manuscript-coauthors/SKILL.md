@@ -402,6 +402,11 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
   Never resolve a co-author's thread; that is theirs to do. Read the thread back afterwards to confirm the
   reply landed ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the
   connector, the authors post the replies by hand.
+- A run's whole review can go into the round's Doc the same way when the authors ask: every edit of the corrected
+  version as a suggested edit and the questions for the authors as `[ai:claude]` comments (manuscript-dashboard's
+  `export_gdoc.py`, [the review in the Doc](../manuscript-dashboard/SKILL.md#the-review-in-the-authors-own-google-doc)).
+  What the authors and co-authors accept there reaches the next round's master through `sync` (step 3); what they
+  reject comes back through `export_gdoc.py status`, as To-do marks and an undo list, which a sync cannot see.
 
 ## What to tell the authors
 

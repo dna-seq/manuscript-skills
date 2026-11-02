@@ -35,7 +35,10 @@ so once it is saved, ask Claude Code or Codex to improve the paper again, or onl
 The dashboard is self-contained, so you can send it to a colleague as it is. The same review also comes
 as a Word document: the corrected version as tracked changes signed by each stage, with the problems,
 the questions for you and the reason for each edit as margin comments. Google Docs opens it with the
-changes as suggestions. No question for you is ever written into the paper's text, where it could be
+changes as suggestions. If you and your co-authors already work in a Google Doc, ask for the review in that
+Doc instead: with Claude's Google Docs connector every edit goes in as a suggestion you accept or reject there,
+your questions and decisions as comments, and before the next run what you decided in the Doc comes back as
+your to-do marks. No question for you is ever written into the paper's text, where it could be
 submitted by mistake.
 
 <table>
@@ -357,6 +360,9 @@ For the review dashboard (manuscript-improve builds it at the end of every run):
 > Give me the corrected version as a Word document with the review as comments, so my co-authors can
 > accept or reject each change.
 
+> Put the review into our Google Doc as suggestions and comments, so the co-authors can decide each change
+> there.
+
 For the figures:
 
 > Check our figures as they will look in Bioinformatics: can every label be read in print, do the
@@ -673,7 +679,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.57.0},
+  version = {0.58.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

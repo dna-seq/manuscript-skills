@@ -99,6 +99,13 @@ Shading the unreviewed passages, and colouring what changed since a revision, ar
 `manuscript-revision-marks/scripts/gdoc_shade.py`: it prints the `updateTextStyle` requests to send, in two
 reserved colours, and checks the readback.
 
+A run's review is planned the same way by `manuscript-dashboard/scripts/export_gdoc.py`: the corrected version's
+edits as `insertText` and `deleteContentRange` in one `SUGGEST` batch (last place first; a replacement is an
+insertion at the end of the old words, then their deletion, so it may show as two suggestions), the questions for
+the authors as `insertComment` in a direct batch before it, each batch guarded by `requiredRevisionId`; `plan`
+is repeated after each batch and adds only what the Doc lacks, and `status` reads back what was accepted or
+rejected.
+
 ### Rules that keep it safe
 
 - **Read back every change.** Pass or fail is decided by `read_doc`, never by the call's success: a suggestion

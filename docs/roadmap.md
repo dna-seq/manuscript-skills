@@ -25,3 +25,4 @@ skill says how, by hand. Not built: a `comments.py` command that posts the ledge
 comment as a reply on its thread, once, with the round it was answered in, and records the reply's id in the
 ledger. A Google .docx export says nothing of resolved threads; the Docs connector's `status` fills the
 ledger's `resolved` when the comments are read through it.
+Such a command would follow `manuscript-dashboard/scripts/export_gdoc.py`: one batch per plan, guarded by the revision it was read at, each posted item found again by its ID so a repeat posts nothing twice, then a readback.

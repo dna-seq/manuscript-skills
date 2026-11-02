@@ -282,6 +282,55 @@ waits for the authors to ask, like the Word file.
 For a Google Doc, upload the file to Google Drive and open it with Google Docs: comments stay comments,
 tracked changes become suggestions and the paragraphs stay justified. Uploading is sending the paper somewhere, so it waits for the authors to ask.
 
+### The review in the authors' own Google Doc
+
+When the authors (or their co-authors) work in a Google Doc that holds the reviewed text, the round's Doc or the
+Doc they write in, the review can go into that Doc itself instead of a new file: every edit of the corrected
+version as a **suggested edit** they accept or reject there, and the To-do tab's items (each question on an edit,
+each proposal's reasoning, each decision, each open blocker or major problem) as **comments** on their passages.
+It needs Claude's Google Docs connector ([what each connector can do](../manuscript-coauthors/references/google-docs-connectors.md)).
+It writes into a shared document under the authors' Google account, so, like an upload, it waits for them to ask
+("put the review in the Doc"), and only into the Doc they name.
+
+```bash
+uv run --script scripts/export_gdoc.py plan RUN/manuscript-dashboard/findings.json READ.json \
+  --revision RUN/manuscript-improve/revision [--reasons]
+```
+
+`READ.json` is the connector's `read_doc` answer with `commentsIncluded: true`, saved as JSON. `plan` gives the next
+batch: send `batch.requests` with `update_doc` and `batch.writeControl` as given (the comments as direct edits, then
+the suggested edits with `writeMode: SUGGEST`, each guarded by the revision it was planned on), read the Doc again
+and plan again, until it says `done`. It plans only what the Doc does not hold yet, so a repeat never posts twice;
+`--check` exits 1 while something is left. Each comment opens with `[ai:claude]`, since it shows the account's
+name, and ends with its ID in parentheses; `--reasons` adds each applied edit's reasoning, as `--detail everything`
+does in Word. Nothing changes the Doc's text directly: the authors decide every suggestion, and a replacement may
+show as two suggestions (the new words, and the old ones struck), to be decided together.
+
+A passage is found by its words as the Doc shows them, aligned with the whole reviewed text, so a sentence that
+recurs is placed by its neighbours. An edit whose words the Doc no longer holds is listed under `not_found`, one
+where a suggestion is already pending (a co-author's) under `left_alone`, and neither is guessed at; a comment
+whose passage is missing goes on its section's heading. A suggestion carries words, not formatting. Tell the
+authors how many suggestions and comments went in, and quote what was left out and why.
+
+What the Doc decided comes back before the next run, with the same read:
+
+```bash
+uv run --script scripts/export_gdoc.py status RUN/manuscript-dashboard/findings.json READ.json \
+  --revision RUN/manuscript-improve/revision --marks STEM.todo.json [--mark D1=redundant] \
+  [--undo RUN/manuscript-dashboard/gdoc-undo.json]
+```
+
+Each suggestion is pending, accepted, rejected or edited by hand; each comment has its replies and whether it was
+resolved. `--marks` adds the Doc's decisions to the To-do marks file the next run reads: a proposal or an edit that
+asked a question, accepted, is approved, and rejected, redundant, with the replies on its comment as the reason.
+Decisions and problems are answered in words: read the replies and record each with `--mark ID=approved` or
+`ID=redundant` (the reason is the replies). A mark the authors already made in the To-do tab stands; when the
+Doc says otherwise it is listed. `--undo` writes each plain applied edit the Doc rejected as the edit that puts the
+old words back, for `runs.py apply`. In a project kept in rounds, what was accepted in the Doc also reaches the
+next round's master through manuscript-coauthors' `rounds.py sync`; the marks and the undo list carry what was
+rejected, which a sync cannot see. The record of what was posted (`RUN/manuscript-dashboard/gdoc-review.json`) is
+what tells a rejected suggestion from one never posted, so keep it with the run.
+
 ### The authors' to-do marks
 
 The **To-do** tab, after the Overview, lists what the run leaves for the authors: each decision only they can
