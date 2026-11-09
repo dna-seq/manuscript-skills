@@ -440,6 +440,26 @@ def test_a_reframe_pivot_a_human_reviewer_caught_is_counted(text: str, counted: 
     assert ("H10" in doc["smell_totals"]) is counted
 
 
+@pytest.mark.parametrize("text, counted", [
+    # A referee's report on LLM-assisted ICLR and AISTATS submissions (2026): one paper had 17 in its main text.
+    ("This experiment shows that gating helps, but it does not show that it transfers, scales or generalises.", 1),
+    ("The theorem establishes convergence but does not establish the rate.", 1),
+    ("This result does not by itself establish causality.", 1),
+    ("These findings do not imply that the method generalizes.", 1),
+    ("Our analysis does not show whether the effect is causal.", 1),
+    ("We do not claim that the model understands syntax.", 1),
+    ("This should not be read as evidence that the gate matters.", 1),
+    # null results and descriptions are findings, not disclaimers
+    ("Mice treated with X did not show weight loss.", 0),
+    ("The analysis did not show a significant association (p = 0.3).", 0),
+    ("Figure 2 does not show the outliers.", 0),
+    ("This does not change the ranking.", 0),
+])
+def test_what_the_result_does_not_show_is_counted_once(text: str, counted: int) -> None:
+    doc = profile.profile_text(f"# Results\n\n{text}\n", False, profile.load_smells(), profile.load_kobak())
+    assert doc["smell_totals"].get("I11", 0) == counted
+
+
 def test_profile_ranks_the_sloppy_paragraph_and_skips_references() -> None:
     doc = profile.profile_text(SLOPPY, False, profile.load_smells(), profile.load_kobak())
     paras = doc["paragraphs"]

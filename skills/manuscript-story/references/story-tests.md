@@ -12,7 +12,12 @@ an option for the authors.
    has become, how fast a field is growing or how important a topic is gives the reader nothing the next
    sentence needs (the field-landscape opener, A2 in the
    [smell catalogue](../../manuscript-deslop/references/llm-smells.md)). Fix: open with the problem a
-   reader has, or the consequence of not solving it, and move the background after it.
+   reader has, or the consequence of not solving it, and move the background after it. A draft can also
+   have no stake to move: it goes from the field straight to what was built, as if a model had been asked
+   to solve a problem and write up the solution (D10 in the catalogue). An experienced referee named it
+   among the recurring failures of LLM-assisted submissions in the autumn 2026 ICLR and AISTATS cycle. Then
+   the test fails whatever the opening sentence says: ask the authors who has the problem, what fails today
+   and what the result makes possible, and never supply a motivation yourself.
 2. **One sentence.** Can the Abstract's first three sentences be read as "And, But, Therefore": what is
    known and wanted, what blocks it, what this paper does about it (Olson 2015)? A list of facts joined by
    "and" has no story. Fix: find the "but" the paper already has and put it second.
@@ -65,39 +70,53 @@ an option for the authors.
    extensible annotation tools" leaves the reader asking why longevity, and which tools are "such". The
    paper said why only in Section 3 ("That system was built around longevity"); a first sentence saying
    that the project began in longevity research answers it where the turn happens. "Such" had pointed to
-   "extensibility" at the end of the previous paragraph until a revision replaced that sentence (test 11).
-9. **Autobiography.** Does the text tell how the authors did the project (the order runs were made, the
-   versions tried) where it should tell why a reader should believe the result? Fix: lead with the
-   result and the reason to believe it; keep the history in Methods or the supplement.
+   "extensibility" at the end of the previous paragraph until a revision replaced that sentence (test
+   *Accretion*).
+9. **One idea per paragraph.** Can each paragraph's point be said in one sentence? Write that sentence for
+   every paragraph of the Introduction, the Results and the Discussion. A paragraph whose sentence needs two
+   "and"s, or has to leave out half of what the paragraph says, carries several ideas, and the reader keeps
+   one of them. Models fire-hose: one referee found a single paragraph with enough claims for perhaps ten
+   papers, and called such a paper excruciatingly hard to understand, let alone review (D11 in the
+   catalogue). Fix: split the paragraph so each part has one idea, its evidence and its link to the
+   paragraph before (test *Connected paragraphs*), and move what a reader scans rather than reads (a number
+   per condition, every setting) to a table or the supplement. Dropping a claim changes what the paper says:
+   offer it to the authors as an option.
+10. **Autobiography.** Does the text tell how the authors did the project (the order runs were made, the
+    versions tried) where it should tell why a reader should believe the result? Fix: lead with the
+    result and the reason to believe it; keep the history in Methods or the supplement.
 
 ## Caveats and accretion
 
-10. **Caveats in their place.** Sort every caveat as the contract does. Flag key sentences that end on a
+11. **Caveats in their place.** Sort every caveat as the contract does. Flag key sentences that end on a
     caveat (the stress position, Gopen & Swan 1990), inline caveat clauses in the Abstract and
-    Introduction, and results paragraphs that end on what the result does not show.
+    Introduction, and results paragraphs that end on what the result does not show. Flag the habit as one
+    finding: result after result followed by a list of what it does not show ("this shows A, but it does
+    not show B, C or D"; I11 in the catalogue, which `style_profile.py` counts). The referee who reported
+    it found 17 in one paper's main text. A paper conveys what works: say what each result shows and its
+    scope, and give the limits once, in Limitations.
     `reader_metrics.py` gives caveats per kind of section and the share of sentences ending on one.
-11. **Accretion.** Against the earlier versions: what was added since, and for whom? For each addition ask
+12. **Accretion.** Against the earlier versions: what was added since, and for whom? For each addition ask
     whether it tells the reader what was found or tells a referee why an objection does not overturn it;
     the second kind belongs in the supplement or the response letter. Also list what was lost: a hook, an
     example, a voice, an argument, a link between paragraphs. The reading measures' "What moved" list is
     the starting point. Where a revision changed a paragraph's last sentence, read the next paragraph's
     opening against the new ending: a reference back to it ("such", "this", "these", a term repeated from
-    the old ending) must still point at something there, or test 8 fails. Compare with the earliest version
+    the old ending) must still point at something there, or the test *Connected paragraphs* fails. Compare with the earliest version
     the project holds as well as the previous one: a link that broke two versions ago reads the same in
     the last two and shows only against the earliest.
-12. **Said once.** The same disclaimer, pointer or limitation repeated in the Abstract, Introduction,
+13. **Said once.** The same disclaimer, pointer or limitation repeated in the Abstract, Introduction,
     Discussion and Conclusion. Fix: once per section, in the place a reader looks for it. A repeat that
     carries a scope or limit stays in each section that states it, and always in the Abstract and
     Introduction: the claim check counts a caveat only within its own section.
 
 ## The ending and the whole
 
-13. **What the paper argues against.** If the recorded direction has one, is it named fairly, with a
+14. **What the paper argues against.** If the recorded direction has one, is it named fairly, with a
     citation, early enough to give the reader a reason to read on? Never invent one.
-14. **The ending.** Does the last paragraph end on what the reader can do (use it, try the demo, extend
+15. **The ending.** Does the last paragraph end on what the reader can do (use it, try the demo, extend
     it), or on the open question the work raises, rather than on a limitation or a restatement?
-15. **Memory.** After the reader panel, do the three things readers remember match `story.remember`?
-16. **The boring checklist.** A satirical guide to writing boringly lists "avoid focus", "avoid
+16. **Memory.** After the reader panel, do the three things readers remember match `story.remember`?
+17. **The boring checklist.** A satirical guide to writing boringly lists "avoid focus", "avoid
     originality and personality", "remove implications and speculations" and "use many abbreviations"
     (Sand-Jensen 2007). Read a revision against it: each point a revision moved towards is a cost to the
     reader. Acronyms in the title and Abstract also go with fewer citations (Martínez & Mammola 2021).

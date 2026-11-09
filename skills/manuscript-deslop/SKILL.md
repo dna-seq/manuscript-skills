@@ -48,7 +48,9 @@ use this catalogue and checker rather than loading another `humanizer` with diff
 
 Use [llm-smells.md](references/llm-smells.md) for the patterns, examples, fixes and "Leave it when"
 exceptions. The catalogue covers empty significance claims, stock vocabulary, repeated sentence shapes,
-paragraph scaffolding, unsupported rhetorical additions and damage a cleanup pass can cause. Open the
+packed syntax, paragraph scaffolding, paragraphs that carry many ideas, papers that never say why their problem
+matters, results followed by a list of what they do not show, unsupported rhetorical additions and damage a
+cleanup pass can cause. Open the
 relevant entry before changing a flagged sentence. A single connector, a technical term, passive voice
 in Methods or an evidence-tied hedge may be exactly right.
 

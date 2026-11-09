@@ -146,6 +146,16 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   0.56.0: lengths and counts carry `numbers` ("211 / 150 · cut 61": the manuscript / the limit · what to do; under
   the limit "can add 37", never a bare minus, which read as "cut 37" (0.56.1))
   and a short `note` ("advised"), which the cards and the table show instead of a sentence.
+- **A referee's notes on LLM-assisted papers (0.59.0).** From an experienced referee's notes on the autumn 2026 ICLR
+  and AISTATS review cycle, and from Clark, Martin & Mahowald (arXiv:2610.29162). The deslop catalogue
+  (`llm-smells.md`) gains I11, a result followed by a list of what it does not show. `smell-patterns.yaml`
+  counts I11 without counting null results such as "did not show weight loss". It also gains D10, a solution
+  with no problem; D11, one paragraph with many ideas; and C17, packed syntax: noun stacks, objects that act,
+  dropped small words. E8 and E9 now ask for the simplest baseline and flag ablations that repeat one
+  comparison. K2 warns that shortening packs syntax. Other skills carry the same points: the story tests
+  (*The stake* when there is no stake, *One idea per paragraph*, the I11 habit under *Caveats in their place*),
+  the claims-novelty and evidence-statistics seats, the software-and-methods module, and prose-edit's contract
+  and section guide. `style_profile.py` now counts two patterns of one smell over the same words once.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

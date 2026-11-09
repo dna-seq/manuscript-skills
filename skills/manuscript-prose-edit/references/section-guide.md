@@ -43,7 +43,8 @@ direction), then what is known (cited to specific work), what is missing, what t
 closest existing work and what it does not do. Usually 3 to 6 paragraphs.
 **Reads as AI:** textbook padding [A10]; vague authorities and citation bundles [A6]; "has garnered
 significant attention" [A2]; a closing list of contributions in bullets [D2] (acceptable once in ML venues);
-the contributions repeated later word for word [D5].
+the contributions repeated later word for word [D5]; no reason why the problem matters at all, from the field
+straight to "we propose" [D10] (ask the authors for it; never write one).
 **Fix:** start from the stake or the gap, not the field's history; cite the closest prior work, including
 what it already does; state the aim as the authors' choice ("We wanted …", "We asked whether …"). Where
 the story needs more than a fix of wording, `manuscript-story` owns it.
@@ -77,7 +78,10 @@ figure or table; past tense; ordered by the argument, not by the order of the an
 what a user gets (a real output). The run history, every version tried and the defence of design choices
 go in Methods, the supplement or the response letter.
 **Reads as AI:** describing the figure instead of the result [E5]; boosters and "significantly" without a
-test [B3, E3]; participle tails interpreting each result [A9]; mini-conclusions after each paragraph [A8].
+test [B3, E3]; participle tails interpreting each result [A9]; mini-conclusions after each paragraph [A8];
+after each result, a list of what it does not show [I11]; a paragraph holding several results with no thread
+between them [D11]; stacked nouns and verbs given to objects [C17]; many conditions of one comparison where
+the simplest baseline is missing [E8, E9] (flag it; never describe a run that was not made).
 **Check:** percentages recompute from their counts (the scan does this for "x of y (z%)"); tests named; the
 same precision for the same measure throughout [E2].
 

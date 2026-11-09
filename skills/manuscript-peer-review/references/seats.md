@@ -58,6 +58,13 @@ Judges what the paper claims and whether that is new and stated within its evide
 abstract, introduction and conclusions against the results.
 
 - Is the question and the contribution clear by the end of the introduction?
+- Does the paper say why the problem matters: who has it, what fails without a solution, what the result
+  makes possible? A paper that solves a problem it never motivates (it reads as a model asked to solve a
+  problem and write up the solution) leaves the referee unable to judge significance. Quote where the
+  motivation should be; never supply one.
+- Does the paper make more claims than its evidence can carry? A paragraph that holds many separate claims,
+  each with no experiment of its own, is hard to understand and harder to review. Name the claims the
+  evidence supports and the ones only asserted, and ask for one idea per paragraph.
 - Does a headline claim rest on a priority word ("first", "only", "novel", "unlike existing tools")?
   Quote it; adjudication judges it as manuscript-reference-check's
   [claim-support.md](../../manuscript-reference-check/references/claim-support.md#priority-and-absence-claims)
@@ -79,6 +86,11 @@ pass.
 
 - Do the design, controls, comparators and baselines answer the question asked? Is the obvious
   comparison present, and is it fair (same data, same tuning effort, same versions)?
+- Is the simplest method that could do the job run (a linear model, nearest neighbours, a majority class, a
+  hand-written rule, a single prompt to the model alone)? Do the ablations ask the different questions a
+  reader has (which component matters, where the method fails), or repeat one comparison with one
+  competitor under many conditions? Papers written with LLM agents tend to the second: thorough on the
+  comparison the prompt named, with no simple baseline.
 - What else could produce the headline result: confounding, selection, leakage between training and
   test data, batch effects, regression to the mean, multiple comparisons, a circular label?
 - Is the unit of analysis right; are uncertainty, effect sizes and the number of tests reported; are

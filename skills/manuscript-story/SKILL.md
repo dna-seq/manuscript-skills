@@ -95,10 +95,12 @@ and after text and offer to restore it or to record the new direction.
    stopped them and the paragraphs whose topic they could not have predicted from the one before ("why is
    this here"); a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
    ([independence is required](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
-3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake, the gap, the one idea,
-   a headline per result, a worked example of real output, sentences and paragraphs that follow from the
-   ones before, where the caveats sit, what the paper argues against, how it ends, and whether it tells how
-   the authors did the project or why a reader should believe the result.
+3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake (and whether the paper
+   says why the problem matters at all), the gap, the one idea, a headline per result, a worked example of
+   real output, sentences and paragraphs that follow from the ones before, one idea per paragraph, where the
+   caveats sit (and whether results come with a list of what they do not show), what the paper argues
+   against, how it ends, and whether it tells how the authors did the project or why a reader should
+   believe the result.
 
 ## 3. Compare with other papers
 

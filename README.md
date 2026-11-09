@@ -332,6 +332,14 @@ language editing; either can list the patterns without editing. A prose edit run
 a deslop pass for the patterns the draft already had and the edit left in place. If another installed plugin also offers
 a "humanizer", name `manuscript-deslop` to get this plugin's version, written for manuscripts.
 
+The catalogue also holds the problems an experienced referee kept meeting in LLM-assisted submissions to ICLR and
+AISTATS in 2026. The first is a result followed by a list of what it does not show: one paper did it 17 times in
+its main text, and the check now counts it. The others are a paper that never says why its problem matters,
+paragraphs that carry many ideas, and many ablations of one comparison while the simplest baseline is never run.
+It adds the packed syntax that Clark, Martin and Mahowald (2026) found in frontier models' output, with stacked
+nouns and objects that act. The story tests and the simulated referees check the same problems at the scale of
+the whole paper.
+
 For a round with co-authors who comment on Google Docs:
 
 > Pull what the co-authors commented on v0.5 in the Google Doc, show how v0.6 answers each comment, update
@@ -679,7 +687,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.58.0},
+  version = {0.59.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

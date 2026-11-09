@@ -10,8 +10,10 @@ Sources: Wikipedia's "Signs of AI writing" (WikiProject AI Cleanup); blader/huma
 Chen) and harshaneel/humanize (MIT, © 2026 Harshaneel Gokhale), adapted; further open-source writing
 skills, paraphrased (all listed in NOTICE); corpus studies of post-2023 abstracts (Kobak et al. 2025; Juzek &
 Ward 2025; Liang et al. 2025) for the vocabulary; Reinhart et al. (PNAS 2025) for the grammatical profile;
-and, for the scientific patterns (numbers, statistics, citations, section structure), what editors and
-reviewers name when they reject "AI slop".
+Clark, Martin & Mahowald (arXiv:2610.29162, 2026) for packed syntax (C17); and, for the scientific patterns
+(numbers, statistics, citations, section structure), what editors and reviewers name when they reject "AI
+slop", among them an experienced referee's notes on the autumn 2026 ICLR and AISTATS review cycle, in which
+every submission in the referee's batch relied heavily on LLMs (D10, D11, E8, E9, I11).
 
 How to read it:
 
@@ -757,6 +759,40 @@ the next. Merge only where the relation is close; do not swing to C14.
 **Leave it when:** a short sentence states a result on its own ("The largest difference was cost."), one
 short sentence carries emphasis, or a list of criteria or steps is meant to be read as a list.
 
+### C17. Packed syntax: noun stacks, objects that act, dropped small words
+
+**Watch for:** three or more nouns stacked as modifiers ("the variant-call quality-filter threshold", "the
+model selection bias problem"); a noun made into a verb ("we footnote the exception", "releases are
+benchmark-gated"); an inanimate subject with a verb only a living thing does ("where this asymmetry bites",
+"the parser swallows the error", "the filter refuses"); optional words dropped to save space, sentence after
+sentence ("the reads the aligner the pipeline wraps discards"); word pairs nobody in the field uses.
+
+**Why:** Clark, Martin & Mahowald (2026) compared the chat, coding and essay output of 14 models with human
+text of the same kinds. All nine frontier and near-frontier models used more inanimate subjects with animate
+verbs and more rare word combinations than people did, and most also used more stacked nouns, longer
+dependencies between words (C14) and more relative clauses with the optional "that" left out: features that
+make a sentence harder to process. A training reward for shorter output alone taught a small model to drop
+optional words, so the pressure that makes model text concise is also what packs it. Each packed phrase saves
+the writer a few words and costs the reader a second parse; a paragraph of them is the fire hose of D11 at the
+scale of the sentence. Their texts were chats, code sessions and essays, not papers: read the finding as where
+to look, not as a measured rate for manuscripts.
+
+**Fix:** unpack the phrase into the relation it hides: "the variant-call quality-filter threshold" → "the
+quality score below which variant calls were filtered"; give the verb back to the person or the process that
+acts ("the parser drops the error without reporting it"); put back the "that" or the clause a reader needs to
+find the verb.
+
+**Before:**
+> The pipeline's per-sample coverage-dropout flag swallows low-depth calls the caller emits, so the
+> allele-balance filter never sees them.
+
+**After:**
+> Calls from regions with low coverage in a sample are flagged as dropouts and removed before the
+> allele-balance filter runs, so that filter never sees them.
+
+**Leave it when:** the stack is the field's term or a defined name ("genome-wide association study",
+"single-cell RNA sequencing"), or a short relative clause reads fine without "that".
+
 ---
 
 ## D. Paragraph and section structure
@@ -857,6 +893,49 @@ fact or gap.
 
 **Fix:** reach the gap by the second paragraph; move background the reader needs to where it is used.
 
+### D10. A solution with no problem
+
+**Watch for:** an Introduction that goes from the field ("X is widely used") to "we propose" without a
+sentence on who has the problem, what goes wrong today without a solution, or what a solution would let
+someone do; motivation that is only importance (A1) or attention (A2); a contribution list of what was built
+and measured, with nothing on what it is for; a Discussion that never comes back to a use.
+
+**Why:** The referee's notes on the 2026 cycle describe papers that read as if someone had prompted a model to
+solve a problem and write a paper about the solution, without making clear why the problem is interesting or
+useful. The prompt held the motivation and the paper does not. A referee who cannot say why the problem
+matters will not rate the solution highly, however good its results.
+
+**Fix:** the authors' own reason, early: who has the problem, a concrete case where what exists now fails
+(cited or measured), and what the result makes possible. The motivation is a fact about the authors' work:
+ask them for it and never write one for them. The story tests *The stake* and *The gap* in
+[manuscript-story](../../manuscript-story/references/story-tests.md) check it on the whole paper.
+
+**Leave it when:** the problem is a standing question every reader of the venue knows (a named conjecture, the
+benchmark the field competes on) and the first paragraph names it.
+
+### D11. One paragraph, many ideas
+
+**Watch for:** a paragraph that carries several separate claims, each with its own numbers, conditions and
+citations; a paragraph whose first sentence names one topic and whose later sentences open three more; a
+Results or Discussion paragraph nobody could sum up in one sentence; a single paragraph with enough claims for
+several papers.
+
+**Why:** People write one idea per paragraph and spend their words on the idea that matters. Models fire-hose:
+every fact they have, at the same density. The referee's notes on the 2026 cycle describe a paragraph that held
+enough claims for perhaps ten papers: understanding such a paper, let alone reviewing it, is excruciatingly hard.
+A reader keeps one point from a paragraph and loses the rest, and a referee reads every claim as one to check.
+
+**Test:** write each paragraph's point in one sentence. If the sentence needs two "and"s, or has to leave out
+half the paragraph, the paragraph carries several ideas.
+
+**Fix:** one idea per paragraph. Split the paragraph, give each part its evidence and its link to the previous
+paragraph, and move what a reader scans rather than reads (a number per condition, every setting) to a table or
+the supplement. Which claims the paper makes is the authors' decision: propose cuts and moves, never apply them.
+(Packing inside one sentence is C14 and C17; the same content repeated across sections is D5.)
+
+**Leave it when:** a Methods paragraph lists the settings of one procedure, or a paragraph sums up results the
+reader has already met, once.
+
 ---
 
 ## E. Numbers, statistics and evidence
@@ -925,17 +1004,33 @@ widely cited.
 **Fix:** make the finding the content and engage with it ("Lambert et al. found X in 1.2 million genomes,
 but only in European-ancestry samples [3]"). The venue or fame of a paper is not evidence of its claim.
 
-### E8. The strongest baseline
+### E8. The strongest baseline, and the simplest
 
-Lead with the comparison to the strongest competitor, not the weakest. Attribute each number to its
-method, metric and baseline. "Better than random" or "better than the 2015 version" is not a result a
-reviewer accepts.
+**Watch for:** a comparison led by the weakest competitor; "better than random" or "better than the 2015
+version" as the result; no run of the simplest method that could do the job (a linear model, nearest
+neighbours, the majority class, a hand-written rule, the competitor with its default settings, a single
+prompt to the model alone).
+
+Lead with the comparison to the strongest competitor, not the weakest, and attribute each number to its
+method, metric and baseline. A referee asks for the simplest baseline first: if it comes close, the method's
+complexity needs a reason, and a paper that never ran it cannot say. The referee's notes on the 2026 cycle
+describe drafts written with an agent that compare one method with one named competitor under many
+conditions and never run the much simpler baseline (E9). In a copy edit, flag the missing baseline for the
+authors; never describe a run that was not made.
 
 ### E9. Experiments without a claim
 
+**Watch for:** experiments that answer no question the paper asks; ablation after ablation of one
+comparison (the same competitor across seeds, sizes, datasets and hyperparameters) while the questions a
+reader has (does a simpler method do as well, which component matters, where does it fail) get no
+experiment at all.
+
 Every experiment answers one of: does it work, why, which alternative explanation is excluded, where does
 it apply. When an experiment implies a claim it cannot support ("without an ablation of the filter, the gain
-cannot be attributed to it"), the paper should say so; in a copy edit, flag it for the authors.
+cannot be attributed to it"), the paper should say so; in a copy edit, flag it for the authors. The narrow
+rabbit hole is the agent-written version: thoroughness on the comparison the prompt named, blindness to the
+one a referee asks for. Fold the repetitions into one table or the supplement, and flag the missing question
+and its baseline (E8) for the authors.
 
 ### E10. Complete reporting
 
@@ -1248,7 +1343,7 @@ sentence, the contribution statement, the conclusion); paragraphs that open with
 "Unfortunately, our method only…".
 
 **Fix:** state scope positively ("The analysis covers cases from 2015 to 2023"), and give the limitations once,
-in the Limitations or Discussion.
+in the Limitations or Discussion. (The result-by-result list of what each finding does not show is I11.)
 
 ### I8. Stance where a judgement is owed
 
@@ -1270,6 +1365,40 @@ a cited study or a reviewer) and answers.
 
 A qualifier ("arguably", "to some extent", "in some ways") left beside an otherwise confident sentence after
 an edit. Either the claim is hedged, with a reason, or it is not.
+
+### I11. What the result does not show
+
+**Watch for:** "this experiment shows A, but it does not show B, C or D"; "this does not by itself establish
+…"; "these results do not imply that …"; "this is not evidence that …"; "we do not claim …"; "should not be
+read as …": a sentence, often one per result, that lists what a result, a theorem or the method is not, after
+saying what it is or in place of it.
+
+**Why:** The referee's notes on the 2026 cycle name this as the hedge that turned up in every paper of the
+batch: one paper had a version of the sentence 17 times in the main text and 37 times in all. A paper is
+written to convey what works. The reader wants to know what the method is and how it works, not what it is
+not; a disclaimer after every result buries the result, reads as defensive and sends a referee looking for the
+doubt the authors keep raising. Models write these when asked to be accurate or review-proof (I5), and an
+agent that ran the experiments writes one after each.
+
+**Before:**
+> The ablation shows that the gating layer improves accuracy on long sequences, but it does not show that
+> the gain transfers to other architectures, that it holds at larger scale, or that it explains the
+> improvement on short sequences.
+
+**After:**
+> Removing the gating layer cost 4.1 points of accuracy on sequences longer than 2,000 tokens and 0.3 points
+> on shorter ones (Table 3), in both architectures we tested.
+
+**Fix:** say what the result shows, and give its scope as what was measured ("on sequences longer than 2,000
+tokens", "in the two architectures tested") rather than as a list of what was not. Keep the one limit a reader
+of this field would otherwise get wrong, where they would get it wrong. Give the rest once, in Limitations, each
+with what it changes (I4, I7). Restating a limit as positive scope keeps its meaning and is an edit. Dropping
+a limit, or moving it to Limitations, is a claim change: propose it to the authors.
+
+**Leave it when:** the reader would otherwise draw exactly that conclusion (an AUROC read as clinical utility,
+an association read as a cause), the venue or a referee asked for the statement, or the sentence reports a
+null result ("the treated mice did not lose weight" is a finding, not a disclaimer). `style_profile.py`
+counts the common forms; three under one heading are the habit.
 
 ---
 
@@ -1335,8 +1464,12 @@ diffusion coefficient was lower" are different claims.
 
 **Never cut** a unit, a denominator, an n, a condition, a result, or the qualifier that makes a claim true.
 **Do not chop** sentences into fragments for rhythm, or turn reasoning into a run of blunt declaratives
-(C16) where "because", "although" or "so" carried the logic. Keep the authors' own short sentences. A
-de-slopped paragraph is plainer, not terser.
+(C16) where "because", "although" or "so" carried the logic. **Do not pack** to save words: a sentence made
+shorter by stacking nouns, dropping "that" or turning a clause into a compound is harder to read, not plainer
+(C17). Asking a model to shorten or tighten a text pushes it that way: a reward for shorter output alone
+taught one to drop optional words (Clark et al. 2026). Shorten by cutting what says nothing, never by packing
+what says something into fewer words. Keep the authors' own short sentences. A de-slopped paragraph is
+plainer, not terser.
 
 ### K3. Cuts that drop the link
 
@@ -1367,6 +1500,8 @@ for a manuscript, and the entry that argues it:
 | Taken together, In conclusion | Cut as a paragraph closer; keep one that joins separate results | A8 |
 | novel, demonstrate, first | Allowed with the evidence: "novel" once with a comparison, "demonstrate" for controlled own data, "first" after a search | A5, I1 |
 | Hedging | One accurate hedge per uncertain claim; never stacked, never removed | B4, I2, I6 |
+| Disclaimers | Say what a result shows and its scope; limits once, in Limitations; not a list after every result | I7, I11 |
+| Concision | Cut what says nothing; never pack nouns or drop small words to save length | K2, C17 |
 | Lists of three | Fine when there are three things; the smell is triads by default | C2 |
 | Synonyms for variety | Never: one term per concept | B7 |
 | Bullets | Not in argued prose; real enumerations and venue-required contribution lists are fine | D2, D8 |

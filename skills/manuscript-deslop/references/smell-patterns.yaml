@@ -217,6 +217,20 @@ smells:
       - 'is where the real'
       - 'what (?:truly|really) matters'
       - '\bthe (?:larger|bigger|broader|deeper|real|true) (?:experiment|question|story|point|picture|lesson|shift|test) (?:is|here is)\b'
+  I11:
+    name: what the result does not show
+    patterns:
+      # "this experiment shows A, but it does not show B, C, D": the referee's most frequent complaint in
+      # LLM-assisted submissions (17 in one paper's main text). After a verb of evidence and "but".
+      - '\b(?:shows?|showed|shown|establish(?:es|ed)?|demonstrat(?:es?|ed)|proves?|proved|indicat(?:es?|ed)|suggest(?:s|ed)?|confirm(?:s|ed)?|supports?|supported)\b[^.;:]{1,150}?\bbut (?:it |this |they |these |that |we )?(?:does not|do not|did not|doesn''t|don''t|didn''t|cannot|can not|could not)(?: by itself| alone| on its own| necessarily| directly| yet)? (?:show|establish|prove|demonstrate|imply|indicate|tell us|mean|explain|guarantee)\b'
+      # "this result does not by itself establish ...". Not "the treated mice did not show weight loss" (a null
+      # result): "show" counts only as "show that/whether/how", and the subject is the evidence itself.
+      - '\b(?:(?:this|these|our|the) (?:\w+ )?(?:result|results|experiment|experiments|analysis|analyses|finding|findings|evidence|theorem|bound|ablation|ablations|observation|observations|correlation|association)|this|it)(?: alone| by itself| on its own)? (?:does|do|did) not (?:by itself |alone |on its own |necessarily |directly )?(?:establish|prove|imply|mean|tell us|(?:show|demonstrate) (?:that|whether|how|why))\b'
+      - '\bwe do not (?:claim|suggest|argue|imply)\b'
+      - '\bwe make no claim\b'
+      - '\b(?:should|must) not be (?:read|taken|interpreted|understood|construed|mistaken) as\b'
+      - '\bis not (?:evidence|proof) (?:of|that|for)\b'
+      - '\bthis is not to say\b'
   F1:
     name: em dash
     patterns:

@@ -37,7 +37,11 @@ and release list, is fine in either mode.
 - **Comparison with existing tools.** Which tools were compared and why those? Is the obvious comparator
   present? Same inputs, versions stated, defaults or tuning applied equally (the authors' own tool tuned
   while others run on defaults is an unfair comparison), runtime and memory measured on the same
-  hardware with the hardware stated?
+  hardware with the hardware stated? Is the simplest approach that could do the job among them? When it
+  comes close, the method's added complexity needs a reason.
+- **Ablations.** Does each ablation answer its own question (which component matters, where the method
+  breaks), or do many conditions repeat one comparison against one competitor? A long table of the second
+  kind does not replace a missing simple baseline.
 - **Test data.** Are the benchmark data public, versioned and of a realistic size and type? Synthetic
   data alone cannot support claims about real data.
 - **Claims about use.** "Scalable", "fast", "user-friendly", "easy to install": each needs a

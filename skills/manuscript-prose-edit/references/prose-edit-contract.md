@@ -173,7 +173,8 @@ is a prerequisite for a copy edit.
 ## 4. Rewriting
 
 1. **Deepest layer first, one dimension at a time.** Assess structure first (paragraph order, repetition
-   across sections, lists wearing prose) and list what needs restructuring for the authors (section 1);
+   across sections, lists wearing prose, a paragraph carrying several ideas (D11), an Introduction that never
+   says why the problem matters (D10)) and list what needs restructuring for the authors (section 1);
    then edit sentences and words as needed. Additional passes are useful only for a remaining concrete
    problem; do not require a separate pass for every stylistic dimension.
 2. **Re-derive, do not word-swap.** Read a sentence, state to yourself what it claims and on what
@@ -189,6 +190,8 @@ is a prerequisite for a copy edit.
    sentence that fails the test carries content; edit it, never delete it, unless the authors ask. A
    sentence that only opens with a stock phrase ("For the purpose of reproducibility, all code is archived")
    keeps the rest: cut the phrase, not the sentence. The guard lists such a deletion as "cut as a stock phrase".
+   Shorten by cutting what says nothing, never by packing what says something: a sentence made shorter by
+   stacking nouns, dropping "that" or turning a clause into a compound is harder to read (C17, K2).
 4. **Put the anchor in the claim, in Results.** If a Results paragraph says "substantially faster" and
    Table 2 says 4.2×, the number belongs in the sentence (E1). If no anchor exists, flag it; never supply
    one. In the Abstract, Introduction and Discussion, retain the numbers needed to understand the claim.
@@ -200,7 +203,9 @@ is a prerequisite for a copy edit.
 5. **Size paragraphs to content.** Long where the argument needs it, short where a result is one line.
    Do not pad a paragraph that became short after cuts: a shorter, specific paragraph is the goal.
 6. **Keep each hedge at its strength.** "may", "suggests", "in this cohort", "we cannot exclude" stay.
-   Remove only stacked duplicates ("may potentially" → "may"). When a correction adds a qualifier or a
+   Remove only stacked duplicates ("may potentially" → "may"). A result followed by a list of what it does
+   not show (I11) may be recast as the scope it was measured in, which keeps the meaning; dropping a limit,
+   or moving it to Limitations, is a claim change to propose. When a correction adds a qualifier or a
    condition, write it as its own sentence after the claim, not as a clause appended to it. A sentence over
    about 35 words with two or more subordinate clauses, or a parenthesis inside a clause, is split: the claim
    guard keeps every qualifier, so a correction made by appending clauses keeps the meaning and loses the

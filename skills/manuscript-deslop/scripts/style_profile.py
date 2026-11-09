@@ -271,11 +271,15 @@ def profile_text(text: str, latex: bool, smells: dict[str, dict[str, Any]], koba
             for sid, smell in smells.items():
                 if smell["scope"] == "end" and not last:
                     continue
+                target = sent.lstrip("\"“(") if smell["scope"] in ("start", "end") else sent
+                spans: list[tuple[int, int]] = []  # two patterns of one smell over the same words are one use
                 for rx in smell["patterns"]:
-                    target = sent.lstrip("\"“(") if smell["scope"] in ("start", "end") else sent
                     for m in rx.finditer(target):
                         if smell["scope"] == "start" and m.start() != 0:
                             continue
+                        if any(m.start() < end and start < m.end() for start, end in spans):
+                            continue
+                        spans.append((m.start(), m.end()))
                         hits.setdefault(sid, []).append(m.group(0).strip())
         chain = declarative_chain(sents)
         if chain:
