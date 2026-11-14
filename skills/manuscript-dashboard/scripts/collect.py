@@ -56,8 +56,9 @@ from typing import Annotated, Any
 import typer
 import yaml
 
-import dashboard as viz
-import stage_check
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # siblings import even under PYTHONSAFEPATH=1 (python -P)
+import dashboard as viz  # noqa: E402
+import stage_check  # noqa: E402
 
 # Every skill's and script's severity words, onto the one scale (stage-findings.md): `optional` is a
 # possible improvement (info, shown as "Optional"), `uncertain` and `not_assessed` could not be checked.

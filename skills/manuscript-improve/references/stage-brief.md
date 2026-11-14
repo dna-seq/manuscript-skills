@@ -71,6 +71,9 @@ before the choice, the paper's stage of work}
     "manuscript-story"`); saying "left to the story stage" in the report is not enough. Answer every finding
     handed to you in `answers` (done, proposed with the records, or declined with why); `stage_check` lists the
     ones you have not answered, and `finish` refuses them.
+12. **Read narrowly.** Use the paths above and in "This paper"; never search the filesystem for a file
+    (`find /`, a recursive search of the home folder). Read a long reference or report by section, its
+    headings first. Each file you read whole stays in your context for the rest of the stage.
 
 ## Editing stages also
 

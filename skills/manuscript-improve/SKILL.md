@@ -131,6 +131,20 @@ starts each seat on each chosen model, and the critics on the chosen model, with
 
 **Brief each stage from the template.** A stage another agent carries out gets [the stage brief](references/stage-brief.md) with its fields filled in: the paths, the resolved settings, the stage's prefix and the paper's facts. Never write a stage's rules in your own words; a paraphrase of the contracts is how a run's records stop meeting them.
 
+**Keep the coordinator's context small.** The coordinator is the session that can start agents: the main
+session in Claude Code or Codex, never an agent another session delegated the run to. Every turn re-sends the
+coordinator's whole context, so what it reads it pays for again on every later turn. In one run whose
+coordinator was itself a delegated agent that could start none, all stages ran in one context: by the middle
+of the peer review it had reached about 466,000 tokens and re-sent 34 million input tokens over 132 turns,
+mostly cached copies of skill files, references and the manuscript read whole. So the coordinator briefs
+each review and editing stage to a fresh agent and reads back only that stage's `findings.json` and stage
+report; it loads a stage's `SKILL.md` only when it runs that stage itself, and not at all for a stage the run
+records as `not_run` or reuses unchanged (co-authors without Google Docs, a venue already chosen); it reads
+long references by section (their headings first, then the section it needs); and each brief names the exact
+paths of the data and code a stage may check, so that no agent searches the filesystem for them (one such
+search stalled a run for ten minutes). When the coordinator finds it cannot start agents, the first progress
+update says so and that the run will cost several times more, and the run goes on.
+
 **Keep the length in view.** The run records the manuscript's length when it starts and after each stage
 that edits (`runs.py finish`, and `stage --name revise`): the words of the running text up to the references,
 with the change since the run began, in the run index. Under `edits: apply` the stages add conditions, leads,

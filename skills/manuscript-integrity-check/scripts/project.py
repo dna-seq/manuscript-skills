@@ -40,7 +40,8 @@ from urllib.parse import urlparse
 import typer
 import yaml
 
-import settings
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # siblings import even under PYTHONSAFEPATH=1 (python -P)
+import settings  # noqa: E402
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 CONFIG = ".manuscript-skills.yaml"

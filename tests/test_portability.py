@@ -3,12 +3,16 @@
 Static checks over every skill script: text files are read and written as UTF-8 whatever the platform's
 locale, subprocess output is decoded as UTF-8, console output is UTF-8 (a Windows console or pipe defaults to
 the locale's code page, and the reports quote curly quotes, dashes and ≥), POSIX-only calls have a Windows
-branch, and no committed file carries a developer's home folder.
+branch, and no committed file carries a developer's home folder. One check runs the scripts: a script that imports a
+module beside it still finds it when Python leaves the script's folder off sys.path (PYTHONSAFEPATH=1).
 """
 from __future__ import annotations
 
 import ast
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -98,3 +102,31 @@ def test_no_committed_home_paths() -> None:
             continue
         offenders += [f"{rel.as_posix()}:{n}" for n, line in enumerate(text.splitlines(), 1) if pattern.search(line)]
     assert offenders == []
+
+
+def sibling_imports(path: Path) -> list[str]:
+    """Modules beside `path` that it imports at module level."""
+    siblings = {p.stem for p in path.parent.glob("*.py")} - {path.stem}
+    names: set[str] = set()
+    for node in ast.parse(path.read_text(encoding="utf-8"), filename=str(path)).body:
+        if isinstance(node, ast.Import):
+            names |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            names.add(node.module.split(".")[0])
+    return sorted(names & siblings)
+
+
+IMPORTING = [p for p in SCRIPTS if p.parent.name == "scripts" and sibling_imports(p)
+             and "__main__" in p.read_text(encoding="utf-8")]
+
+
+@pytest.mark.parametrize("path", IMPORTING, ids=lambda p: f"{p.parents[1].name}/{p.name}")
+def test_sibling_imports_work_under_pythonsafepath(path: Path, tmp_path: Path) -> None:
+    """Some sandboxes set PYTHONSAFEPATH=1 (python -P), and then `uv run --script` does not put the script's
+    folder on sys.path: project.py stopped at `import settings` in such a run. Each script that imports a
+    module beside it puts its own folder on sys.path first."""
+    run = subprocess.run([sys.executable, "-P", str(path), "--help"], cwd=tmp_path, capture_output=True,
+                         text=True, encoding="utf-8", errors="replace", timeout=300,
+                         env={**os.environ, "PYTHONSAFEPATH": "1"})
+    missing = re.findall(r"No module named '([\w.]+)'", run.stderr)
+    assert not [m for m in missing if m.split(".")[0] in sibling_imports(path)], run.stderr[-800:]

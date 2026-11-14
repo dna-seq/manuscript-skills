@@ -270,9 +270,12 @@ coordinator instead of reading the paper. These rules hold in every skill that r
    v0.6 run the sceptical referee left out an objection "following the user's memory rule". The separate
    session leaves both out, and the authors' plugins with them (Claude Code reads no user settings, Codex no
    user config); its `seat-run.json` says what reached it (`standing_instructions`). Only when that cannot run
-   here (the CLI missing or refused, a sandbox without network) does a seat run as the host's subagent (in
-   Claude Code, the Agent tool with a general-purpose agent), and the report says in "What this review did not
-   have" that those seats carried the authors' standing instructions and memory. Never a `fork` (a fork
+   here (the CLI missing or refused, its usage limit reached, a sandbox without network) does a seat run
+   otherwise: first as a direct model call that carries only the brief, where the host offers one (an API call
+   with no system prompt or memory of the authors), which leaves out their setup as the CLI session does;
+   else as the host's subagent (in Claude Code, the Agent tool with a general-purpose agent), and the report
+   says in "What this review did not have" which route each seat took and, for subagents, that those seats
+   carried the authors' standing instructions and memory. Never a `fork` (a fork
    inherits this conversation) and never a message to an agent that has already worked on this paper, except resuming a seat's own
    agent to finish what its own brief asked (a missing report, a coverage line, a field) with a message
    that adds nothing else; a seat that cannot be resumed runs again fresh in a new workspace or is recorded

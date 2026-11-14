@@ -85,7 +85,8 @@ from uuid import uuid4
 import typer
 from filelock import FileLock, Timeout
 
-import project as projects
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # siblings import even under PYTHONSAFEPATH=1 (python -P)
+import project as projects  # noqa: E402
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 TERMINAL = {"completed", "partial", "blocked", "not_run", "reused"}
