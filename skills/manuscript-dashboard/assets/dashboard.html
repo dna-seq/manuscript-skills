@@ -112,6 +112,8 @@ h3 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
 .crit-mark.raised { background: var(--sev-major); }
 .crit-mark.checked { background: var(--good); }
 .crit-mark.open { background: transparent; border: 2px solid var(--sev-unknown); }
+.crit-verdict { font-size: 12px; }
+.crit tr.crit-checked .crit-if { color: var(--ink-2); }
 /* The reference list, one cell per entry in list order. */
 .ref-strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 4px; }
 .ref-cell { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 0; padding: 0; cursor: default; }
@@ -2496,19 +2498,35 @@ __REVISION_HTML__
           h('summary', null, h('strong', null, `${label} (${here.length})`)),
           h('ul', {style: 'margin: 10px 0 0; padding-left: 18px'}, here.map(c => [h('li', {style: 'list-style: none; margin-left: -18px'}, badge('manuscript-peer-review'), ' ', h('em', null, seatName(c.seat))), concernItem(c)]))));
       }
-      // What each reviewer wrote down before reading, and what became of it: raised, checked with nothing found, or neither.
+      // What each reviewer set out to check before reading: an audit of the review, not feedback to the authors. A
+      // criterion is phrased as a problem the reviewer would reject the paper for ("The update does not show
+      // significant improvement ..."), written blind; shown in full in the report, a criterion the reviewer checked
+      // and found nothing under read as its judgement of the paper. The card gives one line (how many were raised,
+      // passed, not covered); the criteria themselves, verdict first, sit in a closed audit block. Raised ones are
+      // the reviewer's concerns, which the card lists anyway.
       const criteriaGrid = r => {
         if (!(r.criteria || []).length) return null;
         const offs = r.concerns.filter(c => !c.criterion.length && c.off_criterion);
-        return [h('h3', {style: 'font-size: 14px; margin: 10px 0 4px'}, 'What this reviewer set out to check, before reading'),
-          h('table', {class: 'crit'}, h('tbody', null, r.criteria.map(cr => {
-            const raised = r.concerns.filter(c => cr.concerns.includes(c.id) || c.criterion.includes(cr.id));
-            const state = raised.length ? 'raised' : cr.checked ? 'checked' : 'open';
-            return h('tr', null, h('td', {style: 'width: 18px'}, h('span', {class: `crit-mark ${state}`, 'aria-hidden': 'true'})),
-              h('td', null, cr.text, h('div', {class: 'note', style: 'margin: 2px 0 0'},
-                state === 'raised' ? `Raised: ${raised.map(c => c.id).join(', ')}` : state === 'checked' ? cr.checked.replace(/^./, c => c.toUpperCase()) : 'Not covered: no concern and no line saying what was checked.')));
-          }))),
-          offs.length ? h('p', {class: 'note'}, 'Found while reading, outside these criteria: ', offs.map((c, i) => [i ? '; ' : '', `${c.id} (${c.off_criterion})`])) : null];
+        const order = {raised: 0, open: 1, checked: 2};
+        const rows = r.criteria.map(cr => {
+          const raised = r.concerns.filter(c => cr.concerns.includes(c.id) || c.criterion.includes(cr.id));
+          return {cr, raised, state: raised.length ? 'raised' : cr.checked ? 'checked' : 'open'};
+        }).sort((a, b) => order[a.state] - order[b.state]);
+        const count = st => rows.filter(x => x.state === st).length;
+        const verdict = (state, raised) => state === 'raised' ? `Raised: ${raised.map(c => c.id).join(', ')}`
+          : state === 'checked' ? 'Passed: nothing found' : 'Not covered';
+        const asCondition = t => /^[A-Z](?:[a-z]|\s)/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;  // not an acronym
+        const line = `Before reading, this reviewer set out to check ${rows.length} possible ${rows.length === 1 ? 'problem' : 'problems'}: `
+          + `${count('raised')} raised, ${count('checked')} passed, ${count('open')} not covered.`;
+        return [h('p', {class: 'note', style: 'margin: 8px 0 2px'}, line),
+          h('details', {class: 'more crit-audit'}, h('summary', null, 'Audit details: each criterion and the verdict on it'),
+            h('table', {class: 'crit'}, h('tbody', null, rows.map(({cr, raised, state}) =>
+              h('tr', {class: `crit-${state}`}, h('td', {style: 'width: 18px'}, h('span', {class: `crit-mark ${state}`, 'aria-hidden': 'true'})),
+                h('td', null, h('strong', {class: 'crit-verdict'}, verdict(state, raised)),
+                  h('div', {class: 'crit-if'}, 'Would reject if ', asCondition(cr.text)),
+                  state === 'raised' ? null : h('div', {class: 'note', style: 'margin: 2px 0 0'},
+                    state === 'checked' ? cr.checked.replace(/^./, c => c.toUpperCase()) : 'No concern and no line saying what was checked.')))))),
+            offs.length ? h('p', {class: 'note'}, 'Found while reading, outside these criteria: ', offs.map((c, i) => [i ? '; ' : '', `${c.id} (${c.off_criterion})`])) : null)];
       };
       p.append(h('h2', {class: 'sec'}, 'Each reviewer\'s report'));
       p.append(h('div', {class: 'grid'}, reviewers.map(r => card(seatName(r.seat),

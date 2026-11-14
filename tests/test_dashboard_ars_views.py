@@ -131,3 +131,19 @@ def test_the_dashboard_embeds_the_three_views(tmp_path: Path) -> None:
     assert doc["inventory"]["panel"]["reviewers"][0]["criteria"][0]["id"] == "C1"
     for view in ("function claimLadder", "function referenceStrip", "const criteriaGrid", "Where the reviewers"):
         assert view in page
+
+
+def test_a_reviewer_criteria_are_an_audit_not_feedback() -> None:
+    """A criterion is a problem the reviewer would reject the paper for, written before reading ("The update does not
+    show significant improvement ..."). Printed in full in the reviewer's report, a criterion the reviewer checked
+    and found nothing under read as its judgement of the paper. The card gives one line of counts; the criteria sit
+    in a closed audit block, each row verdict first and the criterion as a condition, raised ones first."""
+    page = (ROOT / "skills/manuscript-dashboard/assets/dashboard.html").read_text(encoding="utf-8")
+    grid = page[page.index("const criteriaGrid"):]
+    grid = grid[:grid.index("\n      };\n")]
+    assert "set out to check" in grid and "passed, ${count('open')} not covered" in grid
+    assert "h('details', {class: 'more crit-audit'}, h('summary'" in grid  # closed: no `open` attribute
+    assert grid.index("h('p', {class: 'note', style: 'margin: 8px 0 2px'}, line)") < grid.index("h('details'")
+    assert "'Passed: nothing found'" in grid and "'Would reject if '" in grid
+    assert grid.index("class: 'crit-verdict'") < grid.index("class: 'crit-if'")
+    assert "{raised: 0, open: 1, checked: 2}" in grid and ".sort(" in grid
