@@ -362,6 +362,27 @@ LADDER_COLUMNS = [
     "ai_use", "study_designs",
 ]
 FIRST_DECISION = re.compile(r"first[- ]decision", re.I)
+# The first decision after peer review (the first referee reports) is another measure than the editor's first
+# decision, which counts desk rejections: `ladder` compares only the editor's.
+AFTER_REVIEW = re.compile(r"after[- ](?:peer[- ])?review|externally[- ]reviewed|reviewed[- ]decision", re.I)
+
+
+def speed_kind(metric: Any) -> Optional[str]:
+    """Which measure a `review_speed` record is: `editor` (submission to the editor's first decision, desk
+    decisions included), `after-review` (to the first decision after peer review), `acceptance` (submission to
+    acceptance), `publication` (acceptance to publication), `reviewed-preprint`; None when the words say none."""
+    text = str(metric or "")
+    if AFTER_REVIEW.search(text):
+        return "after-review"
+    if FIRST_DECISION.search(text):
+        return "editor"
+    if re.search(r"reviewed[- ]preprint", text, re.I):
+        return "reviewed-preprint"
+    if re.search(r"acceptance[- ]to|to[- ](?:publication|online)", text, re.I):
+        return "publication"
+    if re.search(r"to[- ]acceptance", text, re.I):
+        return "acceptance"
+    return None
 
 
 # ------------------------------------------------------------------------------------------------ data
@@ -1207,23 +1228,28 @@ def with_facts(venues: dict[str, dict[str, Any]], facts: dict[str, dict[str, Any
 
 def _first_decision(v: dict[str, Any]) -> Optional[dict[str, Any]]:
     return next((m for m in v.get("review_speed") or [] if m.get("days") is not None
-                 and FIRST_DECISION.search(str(m.get("metric") or ""))), None)
+                 and speed_kind(m.get("metric")) == "editor"), None)
 
 
 def speed_days(v: dict[str, Any]) -> tuple[Optional[float], str]:
-    """Days to a first decision, the one speed measure `ladder` compares, and the venue's figures in words.
+    """Days to the editor's first decision, the one speed measure `ladder` compares, and the venue's figures in
+    words.
 
-    Only first-decision figures are compared: a time to acceptance or to publication measures something else,
-    and is shown but never ranked against a first decision."""
-    figures = [m for m in v.get("review_speed") or [] if m.get("days") is not None]
+    Only the editor's first-decision figures are compared: the first decision after peer review, a time to
+    acceptance or to publication measures something else, and is shown but never ranked against it."""
+    records = v.get("review_speed") or []
+    figures = [m for m in records if m.get("days") is not None]
     for m in figures:
-        if FIRST_DECISION.search(str(m.get("metric") or "")):
+        if speed_kind(m.get("metric")) == "editor":
             detail = ", ".join(str(m[k]) for k in ("statistic", "population", "period") if m.get(k))
             return float(m["days"]), f"{m['days']} days to first decision" + (f" ({detail})" if detail else "")
+    unpublished = any(speed_kind(m.get("metric")) == "editor" and m.get("days") is None for m in records)
+    lead = "first decision not published by the journal" if unpublished else ""
     if figures:
-        return None, "; ".join(f"{m['days']} days, {m.get('metric') or 'measure not named'}" for m in figures) + \
+        return None, (f"{lead}; " if lead else "") + "; ".join(
+            f"{m['days']} days, {m.get('metric') or 'measure not named'}" for m in figures) + \
             " (no first-decision figure, so not compared)"
-    return None, "not known"
+    return None, lead or "not known"
 
 
 def fee_routes(v: dict[str, Any]) -> tuple[Any, list[str]]:

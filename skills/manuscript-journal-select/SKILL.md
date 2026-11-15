@@ -314,6 +314,40 @@ outside): a journal the paper does not yet meet goes below the journals that wou
 the reason and what would move it back up. Simulated referees (manuscript-peer-review) take the top rungs, so
 an unjudged top three becomes a review against journals the authors would not choose. Journal-level timing and editorial assessments must not be copied from a publisher or sibling.
 
+## How fast each journal answers
+
+Speed is four measures, each its own `review_speed` record and its own column, never one number:
+`scripts/speed.py` records or measures them and prints the stage report's speed table.
+
+- **The editor's first decision** (a desk rejection or sending the paper to review): only the journal's own
+  published statistic, with the population the journal states (all submissions, or desk decisions only) and
+  its sentence quoted: `speed.py editor KEY --days N --statistic median --population "..." --period YEAR
+  --source URL --quote "..."`. Where the journal's pages give none, `speed.py editor KEY --not-published
+  --source URL ...` with every page read; never a guess, and never a publisher's or sibling's figure (put that in
+  `--note`).
+- **The first decision after peer review** (the first referee reports): harvested from transparent review
+  records that carry dates, as a median and interquartile range with n and the period. `speed.py reviewed KEY
+  --records embo-rpf` reads the Review Timeline of Life Science Alliance's Review Process Files (other EMBO
+  Press journals' files with `--file` or `--pdf-url`) and counts only papers submitted and reviewed there: Review
+  Commons papers, transfers with another journal's reports, files the authors kept private and broken timelines
+  are counted apart in the note. `--records plos` reads the peer review histories PLOS authors may publish (the
+  population says how many of the papers read had one); `--records elife` reads eLife's docmaps, from the day the
+  preprint was sent for review to its public reviews (eLife gives no submission date). A journal that publishes
+  no such dates gets `--records none --reason "..." --source URL`: "not measurable from public records".
+- **Submission to acceptance** and **acceptance to publication**: `speed.py histories KEY --journal
+  '"Abbrev"[ta]'` reads the PubMed histories of the journal's most recent papers (accepted papers only).
+  `--exclude-issue` and `--placed-only` keep a journal's special issues out (NAR's regular articles:
+  `--exclude-issue D1 --exclude-issue W1 --placed-only`, since its Database and Web Server issue papers go online
+  months before their issue).
+
+Each command takes `--facts FILE` (the catalogue's form): a new record replaces the venue's record of the same
+measure, and the first write of a venue copies the records the catalogue already holds, so the file holds the
+venue's whole list. Write the facts into the catalogue as the other venue facts are. `speed.py table KEY ...
+--facts FILE` prints the four columns, what each counts, and per journal its samples, notes and reasons; put it
+in the stage report beside the ladder, and keep the tables and texts it read (`--out`) in the stage's `speed/`
+folder. `ladder` ranks speed by the editor's first decision alone: the first decision after review is shown,
+never ranked against it.
+
 ## What the ladders have in common
 
 Run `common` on every venue of both ladders. It reports:
@@ -395,7 +429,7 @@ before the choice stays the authors' decision.
 | Scientific fit and realistic prospects | Contribution, scope, article type, relevant recent papers and acceptance criteria |
 | Open source and open science | Submitted-software source/licence requirements; data and code availability; reproducibility artifacts; preprints; open review; acceptance of justified privacy/access restrictions |
 | Editorial conservatism or receptiveness | Stated novelty/soundness threshold; support for methods, replication, negative results, interdisciplinary or unconventional work; actual relevant published examples |
-| Review speed | Desk-inclusive first decision, first decision after external review, acceptance and online-publication times separately, with statistic, population, period and source |
+| Review speed | The editor's first decision, the first decision after peer review, acceptance and online-publication times separately, with statistic, population, period and source (`speed.py`; see How fast each journal answers) |
 | Total author cost and effort | APC currency/year and waivers, the agreements and funds that cover the corresponding authors, validation expenses, deposits, format work, deadlines and maintenance commitments |
 | AI-policy burden and verifiability | Actual kind of assistance, exemptions, disclosure/record requests and evidence of enforcement; use the shared `requirement-checkability.md` |
 
@@ -420,7 +454,8 @@ or a full integrity audit. Store the ladders, the chosen venue, article type and
 
 Give, in this order: the preprint ladder; the journal ladder as a table (position, venue and article type,
 verdict and the rule that decides it, comparable speed, impact factor, AI burden and its red flags, cost
-and who pays, preprint rule) with one or two sentences per venue on fit and what would move it; for the three
+and who pays, preprint rule) with one or two sentences per venue on fit and what would move it; the speed table
+(`speed.py table`) with what each column counts; for the three
 recommended journals, how much choosing each would change the manuscript (the estimate and its changes); what every
 venue asks for (adapt now, choose per venue, at the end); then the authors' decisions together (their order
 of priorities while the default stands, a fee route or budget, a validation tradeoff, what AI did when a rule

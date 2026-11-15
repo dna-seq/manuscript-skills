@@ -1,0 +1,45 @@
+{
+ "total": 4906,
+ "items": [
+  {
+   "id": "113294",
+   "doi": "10.64898/2026.06.13.732078",
+   "version": 1,
+   "status": "reviewed",
+   "title": "Genome-wide structural variant landscape following HDR-enhanced CRISPR editing in human hematopoietic stem and progenitor cells",
+   "published": "2026-11-13T14:00:00Z",
+   "reviewedDate": "2026-11-13T14:00:00Z",
+   "versionDate": "2026-11-13T14:00:00Z",
+   "statusDate": "2026-11-13T14:00:00Z",
+   "stage": "published",
+   "subjects": [
+    {
+     "id": "biochemistry-chemical-biology",
+     "name": "Biochemistry and Chemical Biology"
+    },
+    {
+     "id": "genetics-genomics",
+     "name": "Genetics and Genomics"
+    }
+   ]
+  },
+  {
+   "id": "112469",
+   "doi": "10.64898/2025.12.29.696957",
+   "version": 1,
+   "status": "reviewed",
+   "title": "Single-molecule behavior and cell-growth regulation in human RTKs",
+   "published": "2026-11-13T14:00:00Z",
+   "reviewedDate": "2026-11-13T14:00:00Z",
+   "versionDate": "2026-11-13T14:00:00Z",
+   "statusDate": "2026-11-13T14:00:00Z",
+   "stage": "published",
+   "subjects": [
+    {
+     "id": "computational-systems-biology",
+     "name": "Computational and Systems Biology"
+    }
+   ]
+  }
+ ]
+}

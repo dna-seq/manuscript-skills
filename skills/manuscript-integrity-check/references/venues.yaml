@@ -289,10 +289,50 @@ venues:
       - metric: submission-to-first-decision
         days: 18
         statistic: median
-        period: 2025
+        population: not stated
+        period: '2025'
+        quote: 2025 Median days from submission to first decision
         source: https://academic.oup.com/nar/pages/About
-        checked: 2026-10-27
+        checked: 2026-11-15
         evidence_kind: official statistic
+        note: The same page gives 23 days, median, from submission to final decision (2025).
+      - metric: first-decision-after-review
+        days: null
+        status: not measurable from public records
+        note: NAR treats referee reports as confidential (they should not be made publicly available without the Editors'
+          permission); its papers carry only received, revised and accepted dates.
+        source: https://academic.oup.com/nar/pages/referee_info
+        checked: 2026-11-15
+        evidence_kind: pages read
+      - metric: submission-to-acceptance
+        days: 186
+        statistic: median (interquartile range 125-282, n=80)
+        n: 80
+        iqr: [125, 282]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; D1, W1 issues left out; only papers already placed in an issue;
+          reviews, editorials and errata excluded'
+        period: published 2026-10-13 to 2026-11-15
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Nucleic
+          Acids Res"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+        note: 'received to first online: median 225 days (interquartile range 160-326, n=80)'
+      - metric: acceptance-to-publication
+        days: 38
+        statistic: median (interquartile range 34-46, n=80)
+        n: 80
+        iqr: [34, 46]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; D1, W1 issues left out; only papers already placed in an issue;
+          reviews, editorials and errata excluded'
+        period: published 2026-10-13 to 2026-11-15
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Nucleic
+          Acids Res"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
     open_science:
       preprints: "a bioRxiv preprint can be submitted to the journal directly from bioRxiv"
       source: https://academic.oup.com/nar/pages/author-guidelines
@@ -847,6 +887,40 @@ venues:
       required_sections: {source: "https://reviewer.elifesciences.org/author-guide/editorial-process", checked: 2026-11-15}
       section_order: {source: "https://reviewer.elifesciences.org/author-guide/editorial-process", checked: 2026-11-15}
     software_article: true
+    review_speed:
+      - metric: submission-to-first-decision (desk-inclusive)
+        days: 8
+        statistic: median
+        population: articles not selected for peer review only
+        period: '2025'
+        source: https://elifesciences.org/inside-elife/7da92a51/the-elife-model-three-year-update
+        checked: 2026-11-15
+        evidence_kind: official statistic
+      - metric: first-decision-after-review
+        days: 69.5
+        statistic: median (interquartile range 57-101, n=40)
+        n: 40
+        iqr: [57, 101]
+        counts: days from the day eLife sent the preprint for review to the first decision that carried the referee reports,
+          in eLife's docmaps; eLife publishes no submission date, so the days before it decided to review (about a week)
+          are not counted, and the reviews are dated when posted, a few days after the authors had them
+        population: Reviewed Preprints (version 1) in genetics-genomics, computational-systems-biology, evolutionary-biology
+        period: first decisions 2026-08-17 to 2026-11-13
+        source: https://data-hub-api.elifesciences.org/enhanced-preprints/docmaps/v2/by-publisher/elife/get-by-manuscript-id?manuscript_id={id}
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+      - metric: reviewed-preprint posting
+        days: 96
+        statistic: median
+        population: submissions sent for review and published as Reviewed Preprints (with eLife Assessment and Public
+          Reviews)
+        period: '2025'
+        source: https://elifesciences.org/inside-elife/7da92a51/the-elife-model-three-year-update
+        checked: 2026-11-15
+        evidence_kind: official statistic
+        note: In a sample of 40 Reviewed Preprints (Genetics and Genomics, Evolutionary Biology, Computational and Systems
+          Biology; v1 published 2026-08-18 to 2026-11-13), sent for review to Reviewed Preprint v1 took a median of 70
+          days (interquartile range 57-103); 38 of 40 within 150 days (eLife API and docmaps; speed/elife-rp.tsv).
 
   acm:
     name: ACM journals and conferences (baseline policy)
@@ -1563,6 +1637,55 @@ venues:
     software_article: true
     fit_note: only the OUP authorship/AI clause; Resources articles describe software tools and databases, which must be
       available at publication
+    review_speed:
+      - metric: submission-to-first-decision
+        days: 26
+        statistic: mean
+        population: all original submissions in 2021; 53% were sent for external review and 47% rejected before it, and
+          the report gives one figure for both
+        period: '2021'
+        quote: The average time from submission to the decision was 26 days.
+        source: https://doi.org/10.1093/molbev/msac260
+        checked: 2026-11-15
+        evidence_kind: official statistic
+        note: From the Editor-in-Chief's report for volume 38 (published December 2022), the newest found; the journal's
+          About, Why publish and author guidelines pages give no figure.
+      - metric: first-decision-after-review
+        days: null
+        status: not measurable from public records
+        note: 'Oxford University Press publishes nothing of the review of an MBE paper: the author guidelines say that
+          after acceptance no information about the review process or editorial decision process is published; PubMed
+          has only received and accepted dates.'
+        source: https://academic.oup.com/mbe/pages/author-guidelines
+        checked: 2026-11-15
+        evidence_kind: pages read
+      - metric: submission-to-acceptance
+        days: 154
+        statistic: median (interquartile range 118-202, n=68)
+        n: 68
+        iqr: [118, 202]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-08-07 to 2026-11-13
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Mol Biol
+          Evol"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+        note: 'received to first online: median 176 days (interquartile range 132-254, n=79)'
+      - metric: acceptance-to-publication
+        days: 15
+        statistic: median (interquartile range 9-27, n=68)
+        n: 68
+        iqr: [9, 27]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-08-07 to 2026-11-13
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Mol Biol
+          Evol"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
 
   gbe:
     name: Genome Biology and Evolution
@@ -4320,6 +4443,51 @@ venues:
     software_article: true
     fit_note: 'journal scope page: computational studies of public data (NHANES, MR) must include validation, "Manuscripts
       not adhering to these standards will not be considered." IF shown without a year'
+    review_speed:
+      - metric: submission-to-first-decision
+        days: null
+        status: not published
+        source: https://www.frontiersin.org/journals/aging/about; https://www.frontiersin.org/journals/aging
+        checked: 2026-11-15
+        evidence_kind: pages read
+        note: Frontiers reports one publisher-wide figure, a median of 48 days from submission to decision for the manuscripts
+          it peer reviewed in 2022 (https://progressreport.frontiersin.org/speed); it is not this journal's and not the
+          editor's first decision.
+      - metric: first-decision-after-review
+        days: null
+        status: not measurable from public records
+        note: Frontiers names the editor and reviewers on each article but publishes no review reports or decision dates;
+          PubMed has only received and accepted dates.
+        source: https://www.frontiersin.org/journals/aging/about; https://www.frontiersin.org/journals/aging/articles/10.3389/fragi.2026.1933176/full
+        checked: 2026-11-15
+        evidence_kind: pages read
+      - metric: submission-to-acceptance
+        days: 72.5
+        statistic: median (interquartile range 43-118, n=80)
+        n: 80
+        iqr: [43, 118]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-06-15 to 2026-10-29
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Front Aging"[ta]
+          AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt] NOT comment[pt]
+          NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+        note: 'received to first online: median 101.5 days (interquartile range 70-147, n=80)'
+      - metric: acceptance-to-publication
+        days: 22.5
+        statistic: median (interquartile range 18-34, n=80)
+        n: 80
+        iqr: [18, 34]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-06-15 to 2026-10-29
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Front Aging"[ta]
+          AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt] NOT comment[pt]
+          NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
 
   frontiers-genetics:
     name: Frontiers in Genetics
@@ -4687,6 +4855,60 @@ venues:
       preprints: "preprints are encouraged; bioRxiv transfers to the journal directly, and the journal is a Review Commons affiliate"
       source: https://www.biorxiv.org/submit-a-manuscript
       checked: 2026-10-27
+    review_speed:
+      - metric: submission-to-first-decision
+        days: null
+        status: not published
+        source: https://www.life-science-alliance.org/about; https://www.life-science-alliance.org/editorial-process;
+          https://www.life-science-alliance.org/
+        checked: 2026-11-15
+        evidence_kind: pages read
+        note: The editorial process page says only that LSA is committed to a rapid, efficient and fair editorial process;
+          the About page gives publication about 10 days after acceptance.
+      - metric: first-decision-after-review
+        days: 47.5
+        statistic: median (interquartile range 40-68, n=32)
+        n: 32
+        iqr: [40, 68]
+        counts: days from submission (the Submission Date) to the first decision that carried the referee reports, in
+          the Review Timeline of each paper's Review Process File
+        population: accepted papers published with a Review Process File, submitted to the journal directly and reviewed
+          there; papers that were rejected are not in the sample
+        period: first decisions 2025-12-22 to 2026-09-09
+        source: 'https://www.life-science-alliance.org/lookup/doi/{doi}.reviewer-comments.pdf; papers from PubMed, query
+          "Life Sci Alliance"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT
+          editorial[pt] NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+        note: 'Left out: bad-timeline: 2 papers, median 99.5 days; opted-out: 5 papers, median 19 days; review-commons:
+          8 papers, median 18 days; transfer: 13 papers, median 5 days.'
+      - metric: submission-to-acceptance
+        days: 143
+        statistic: median (interquartile range 56-182, n=80)
+        n: 80
+        iqr: [56, 182]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-05-04 to 2026-11-12
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Life Sci
+          Alliance"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
+        note: 'received to first online: median 159 days (interquartile range 74-197, n=80)'
+      - metric: acceptance-to-publication
+        days: 14
+        statistic: median (interquartile range 12-18, n=80)
+        n: 80
+        iqr: [12, 18]
+        population: 'accepted research papers only (rejected papers and papers still in review are not in the sample):
+          the 80 most recent journal articles in PubMed; reviews, editorials and errata excluded'
+        period: published 2026-05-04 to 2026-11-12
+        source: 'PubMed article histories (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi), query "Life Sci
+          Alliance"[ta] AND ("2025/05/16"[dp] : "2026/11/15"[dp]) AND journal article[pt] NOT review[pt] NOT editorial[pt]
+          NOT comment[pt] NOT erratum[pt] NOT published erratum[pt]'
+        checked: 2026-11-15
+        evidence_kind: inference from a stated sample
 
   rsos:
     name: Royal Society Open Science

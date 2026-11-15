@@ -205,6 +205,19 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   needs `verified` (and, with `--verify-related`, Crossref's journal and a year within three). The letter smells
   (G5, now in `smell-patterns.yaml`, G1, A1, A3–A5) fail at their first use, short paragraphs included, quotes aside.
   Procedure and fields: `references/letters.md`. Tests: `tests/test_letters.py` on `tests/fixtures/letters/paper.md`.
+- **How fast a journal answers, in four measures (0.64.0).** From the MitoAge 2 selection, where the maintainer
+  asked how fast each journal gives a first editor response and a first reviewer response and the skill had only
+  submission-to-acceptance from PubMed. `manuscript-journal-select/scripts/speed.py`: `editor` records the editor's
+  first decision from the journal's own statistic with the population it states, or `status: not published`;
+  `reviewed` measures the first decision after peer review from dated review records (`--records embo-rpf`: the
+  Review Timeline of Life Science Alliance's Review Process Files, direct submissions only, Review Commons,
+  transfers, withheld letters and broken timelines counted apart; `plos`: published peer review histories; `elife`:
+  docmaps, from sent-for-review to the public reviews), or `status: not measurable from public records` with
+  `--records none`; `histories` gives submission to acceptance and acceptance to publication from PubMed
+  (`--exclude-issue`, `--placed-only` for NAR's regular articles); `table` prints the four columns for the stage
+  report. Records carry `n`, `iqr`, `counts`, `sample`; `--facts` replaces only the same measure and seeds a venue
+  from the catalogue. `venues.speed_kind` tells the measures apart and `ladder` ranks the editor's first decision
+  alone. Tests: `tests/test_journal_speed.py` (saved RPFs, a PLOS history, eLife docmaps, PubMed XML).
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

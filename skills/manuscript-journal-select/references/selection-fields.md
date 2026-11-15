@@ -174,25 +174,38 @@ statement about a design means unknown. Journal-specific editorial profiles are 
 
 ## Review time and cost
 
-`review_speed` is a list of metric records, each with:
+`review_speed` is a list of metric records, one per measure (`venues.py speed_kind` tells them apart by
+`metric`; `scripts/speed.py` writes them), each with:
 
-- `metric`: submission-to-first-decision (desk-inclusive or definition unknown), first externally
-  reviewed decision, submission-to-acceptance, acceptance-to-publication, or reviewed-preprint posting.
-- `days`, `statistic`: the published value and median/mean/range. Retain any stated uncertainty.
-- `population`, `period`: all submissions, externally reviewed papers or accepted papers; measurement
-  interval/year. Mark either unknown when omitted by the source.
-- `source`, `checked`, `evidence_kind`: official statistic, target/service promise, or an inference
-  from a stated sample. Label a sample's selection bias; accepted-paper dates omit rejected papers.
+- `metric`: `submission-to-first-decision` (the editor's first decision: a desk rejection or sending the paper to
+  review), `first-decision-after-review` (the first decision that carries the referee reports),
+  `submission-to-acceptance`, `acceptance-to-publication`, or `reviewed-preprint posting`.
+- `days`, `statistic`: the value and median/mean/range. Retain any stated uncertainty. A measured sample adds
+  `n` and `iqr` (`[q1, q3]`, the inclusive quartiles), with both in `statistic` as words.
+- `days: null` with `status`: `not published` (the editor's first decision: the journal's pages give no figure)
+  or `not measurable from public records` (the first decision after review: the journal publishes no dated review
+  records), with the pages read in `source` and the reason in `note`. Never a guess.
+- `population`, `period`: for the editor's first decision, whom the journal counts, in its words (all
+  submissions, desk decisions only, or `not stated`); for a sample, which papers were read; the interval or year.
+- `counts`: where a sampled measure starts and ends when that is not the usual (eLife's start is the day it sent
+  the preprint for review, not submission). `quote`: the journal's own sentence for its figure.
+- `sample`: a label for a subset (database papers), kept apart from the journal's whole sample.
+- `source`, `checked`, `evidence_kind`: official statistic, target/service promise, pages read, or an
+  inference from a stated sample. Label a sample's selection bias; accepted-paper dates omit rejected papers.
 
-Never combine desk-inclusive and external-review timing or a target and an observed statistic into one
-rank. Missing timing stays unknown. A venue that publishes no figure gets `review_speed: []`, dated in its
+Never combine the editor's and the after-review first decision, or a target and an observed statistic, into one
+rank: `ladder` compares the editor's first decision alone. Missing timing stays unknown. A venue that publishes no figure gets `review_speed: []`, dated in its
 `provenance`, so a later run does not look again within the year. These metrics are not inherited from other
 venues.
 
 Look before recording unknown: many publishers post timing on the journal's own pages. BMC and Springer
 Nature journal home pages show median days from submission to first decision and to acceptance; PLOS
 publishes turnaround metrics per journal; some OUP and Frontiers journals state averages in their "about"
-or author pages. Record what the source states, with its population and period.
+or author pages, and an editor's annual report may give one (MBE's for 2021). Record what the source states,
+with its population and period. Dated review records: Life Science Alliance's Review Process File (its Review
+Timeline, kept even when the authors withhold the letters), a PLOS peer review history (when the authors chose
+to publish it), eLife's docmaps. NAR treats referee reports as confidential, and MBE (OUP) and the Frontiers journals
+publish no review dates.
 
 `publication_costs` records researched APC/other fees with `amount`, `currency`, `fee_year`, applicable
 article type, tax caveats where material, waiver/agreement routes (`route`, in words), `source` and
