@@ -1,7 +1,7 @@
 // A manuscript-skills run, watched read-only: a status line, a "Manuscript Skills · run" pane, a decisions pane and a
 // band when the authors have decisions to make, toasts as stages finish and /manuscript-status. Reads run.json
 // and the stages' own report files; writes nothing in the run folder. The authors' answers go to Claude as a
-// message of theirs, which the session acts on; go ahead and leave as is on a decision are also marked in
+// message of theirs, which the session acts on; an option and leave as is on a decision are also marked in
 // STEM.todo.json beside the manuscript, the file the dashboard's To-do tab shares and the next run reads.
 
 import { atom, read, update } from 'claude-code'
@@ -25,6 +25,8 @@ import {
   FINISHED,
   manuscriptTitle,
   marksFile,
+  optionReason,
+  ownReason,
   parseMarks,
   refereeGrid,
   sessionRequest,
@@ -286,11 +288,16 @@ async function editMarks($: $, path: string, edit: (file: MarksFile | null) => M
   return true
 }
 
-const MARK: Partial<Record<ManuscriptAnswer['choice'], ManuscriptTodoMark['mark']>> = { 'go-ahead': 'approved', leave: 'redundant' }
+const MARK: Partial<Record<ManuscriptAnswer['choice'], ManuscriptTodoMark['mark']>> = {
+  option: 'approved',
+  'go-ahead': 'approved',
+  leave: 'redundant',
+}
 
-// The person's answer to one decision, in the session's answers and, for go ahead and leave as is on a decision, in
-// the marks file as approved or redundant, its reason kept. An answer that replaces or undoes one the pane marked
-// takes that mark back, putting back what it replaced, unless the To-do tab has changed the mark since.
+// The person's answer to one decision, in the session's answers and, for an option or leave as is on a decision, in
+// the marks file as approved or redundant: an option's words go in the mark's reason, before the reason the To-do
+// tab gave. An answer that replaces or undoes one the pane marked takes that mark back, putting back what it
+// replaced, unless the To-do tab has changed the mark since.
 async function setAnswer(
   $: $,
   v: ManuscriptRunView,
@@ -298,9 +305,12 @@ async function setAnswer(
   key: string,
   choice: ManuscriptAnswer['choice'] | null,
   isSent = choice === 'written',
+  option?: number,
 ): Promise<void> {
   const before = (await read($, answers))[key]
   const mark = choice ? MARK[choice] : undefined
+  const chosen = choice === 'option' && option ? { option, optionText: one.options[option - 1] ?? '' } : {}
+  const reasonOf = (was: string) => (choice === 'option' && option ? optionReason(one, option, was) : ownReason(was))
   let filed: Pick<ManuscriptAnswer, 'markedAt' | 'replaced'> = {}
   if (v.todo && one.kind === 'decision' && (mark || before?.markedAt)) {
     const todo = v.todo
@@ -310,14 +320,14 @@ async function setAnswer(
     const isFiled = await editMarks($, todo.path, file => {
       const was = file?.marks.find(m => m.run_id === item.run_id && m.kind === item.kind && m.id === item.id) ?? null
       if (!before?.markedAt) replaced = was
-      if (mark) return withMark(file, todo.manuscript, item, todoMark(v.runId, one, mark, was?.reason ?? '', at))
+      if (mark) return withMark(file, todo.manuscript, item, todoMark(v.runId, one, mark, reasonOf(was?.reason ?? ''), at))
       return was?.marked_at === before?.markedAt ? withMark(file, todo.manuscript, item, replaced) : null
     })
     if (mark && isFiled) filed = { markedAt: at, replaced }
   }
   await update($, answers, all => {
     const { [key]: _, ...rest } = all
-    return choice ? { ...rest, [key]: { choice, isSent, ...filed } } : rest
+    return choice ? { ...rest, [key]: { choice, isSent, ...chosen, ...filed } } : rest
   })
   if (v.todo) await refresh($)
 }
@@ -835,10 +845,10 @@ export const register: Register = on => {
   })
 
   // The decisions the run left for the authors, each a row pressed to unfold it: its whole summary and, unfolded,
-  // what the finding says beyond it and the answers: a new session that asks the authors about it, go ahead,
-  // leave as is, or write an answer in the prompt box. Go ahead and leave go to Claude together in one message,
-  // from the button at the top, and are marked in STEM.todo.json at once, where a row shows the mark the To-do
-  // tab made too.
+  // what the finding says beyond it and the answers: one button per option the decision names (its words on the
+  // button, so a press says what it chooses), leave the text as it is, write your own answer in the prompt box, or
+  // a new session that asks the authors about it. Options and leaves go to Claude together in one message, from the
+  // button at the top, and are marked in STEM.todo.json at once, where a row shows the mark the To-do tab made too.
   on('ui.render', { component: 'Pane', requestId: DECISIONS }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const v = await read($, view)
@@ -857,14 +867,22 @@ export const register: Register = on => {
       update($, unfoldedDecisions, list =>
         list.includes(key) ? list.filter(one => one !== key) : [...list.filter(one => one.startsWith(`${v.runId}:`)), key],
       )
-    const answer = (key: string, one: ManuscriptDecision, choice: ManuscriptAnswer['choice'] | null) => () =>
-      setAnswer($, v, one, key, choice)
-    const SAID: Record<ManuscriptAnswer['choice'], [string, string]> = {
-      'go-ahead': ['go ahead', 'success'],
-      leave: ['leave as is', 'inactive'],
-      written: ['answered in the chat', 'success'],
-      session: ['asked in a new session', 'success'],
+    const answer = (key: string, one: ManuscriptDecision, choice: ManuscriptAnswer['choice'] | null, option?: number) => () =>
+      setAnswer($, v, one, key, choice, choice === 'written', option)
+    const saidOf = (one: ManuscriptDecision, mine: ManuscriptAnswer): [string, string] => {
+      if (mine.choice === 'option') {
+        const text = mine.optionText || one.options[(mine.option ?? 1) - 1] || ''
+        return [one.options.length > 1 ? `chose ${mine.option}: ${clip(text, 60)}` : 'as suggested', 'success']
+      }
+      const SAID: Record<Exclude<ManuscriptAnswer['choice'], 'option'>, [string, string]> = {
+        'go-ahead': ['go ahead', 'success'],
+        leave: ['leave as is', 'inactive'],
+        written: ['answered in the chat', 'success'],
+        session: ['asked in a new session', 'success'],
+      }
+      return SAID[mine.choice]
     }
+    const isMarking = (mine: ManuscriptAnswer) => mine.choice === 'option' || mine.choice === 'go-ahead' || mine.choice === 'leave'
     const MARKED: Record<ManuscriptTodoMark['mark'], string> = { approved: 'success', redundant: 'inactive' }
 
     const header = (
@@ -875,12 +893,12 @@ export const register: Register = on => {
           {open > 0 ? `${open} of ${plural(v.decisions.length, 'decision')} wait for you` : `All ${plural(v.decisions.length, 'decision')} answered`}
         </Text>
         <Text dimColor wrap="wrap">
-          Press a decision to open it: have a new session ask you about it, go ahead as it suggests, leave the text
-          as it is, or write your own answer in the prompt box. Send the go-aheads and leaves to Claude together.
+          Press a decision to open it, then pick one of its options, leave the text as it is, write your own answer in
+          the prompt box, or have a new session ask you about it. Send the options and leaves to Claude together.
         </Text>
         {v.todo && (
           <Text dimColor wrap="wrap">
-            {`Go ahead and leave as is also mark a decision approved or redundant in ${fileName(v.todo.path)} beside the manuscript, the file the dashboard's To-do tab saves and the next run reads; its marks count as answers here.`}
+            {`An option or leave as is also marks a decision approved or redundant in ${fileName(v.todo.path)} beside the manuscript (an option's words in the mark's reason), the file the dashboard's To-do tab saves and the next run reads; its marks count as answers here.`}
           </Text>
         )}
         {unsent > 0 && (
@@ -922,10 +940,14 @@ export const register: Register = on => {
       const key = keys[n]!
       const isOpen = unfolded.has(key)
       const mine = given[key]
-      const said = mine && SAID[mine.choice]
+      const said = mine && saidOf(one, mine)
       // the file's mark, unless it is the one this answer made
       const filed = one.mark && one.mark.markedAt !== mine?.markedAt ? one.mark : null
       const reason = one.mark?.reason ? `: “${one.mark.reason}”` : ''
+      // beside this answer's own words, the mark's reason without the option it repeats
+      const own = one.mark?.reason ? ownReason(one.mark.reason) : ''
+      const chosen = (n: number) =>
+        (mine?.choice === 'option' && mine.option === n) || (mine?.choice === 'go-ahead' && n === 1 && one.options.length === 1)
       const where = [one.stage, one.section].filter(Boolean).join(' · ')
       return (
         <Box key={`row-${key}`} flexDirection="column" marginBottom={isOpen ? 1 : 0}>
@@ -933,8 +955,8 @@ export const register: Register = on => {
             <Text dimColor>{`${isOpen ? '▾' : '▸'} ${one.id}`}</Text> {one.summary}
             {said && (
               <Text color={said[1]}>
-                {` · ${said[0]}${mine!.isSent && (mine!.choice === 'go-ahead' || mine!.choice === 'leave') ? ', sent' : ''}`}
-                {filed ? '' : reason}
+                {` · ${said[0]}${mine!.isSent && isMarking(mine!) ? ', sent' : ''}`}
+                {filed || !own ? '' : `: “${own}”`}
               </Text>
             )}
             {filed && <Text color={MARKED[filed.mark]}>{` · marked ${filed.mark}${reason}`}</Text>}
@@ -947,28 +969,40 @@ export const register: Register = on => {
                 </Text>
               )}
               {one.detail && <Text wrap="wrap">{one.detail}</Text>}
-              {one.action && <Text wrap="wrap">→ {one.action}</Text>}
+              {/* a lone option is the action itself; several are listed below, the action kept for what they share */}
+              {one.action && one.options.length !== 1 && (
+                <Text dimColor={one.options.length > 1} wrap="wrap">
+                  → {one.action}
+                </Text>
+              )}
               {one.mark && v.todo && (
                 <Text dimColor wrap="wrap">
                   {`Marked ${one.mark.mark}${one.mark.markedAt ? ` on ${day(one.mark.markedAt)}` : ''} in ${fileName(v.todo.path)}${reason}`}
                 </Text>
               )}
+              {one.options.length > 0 && (
+                <Box flexDirection="column" marginTop={1}>
+                  <Text bold>{one.options.length > 1 ? 'Pick one:' : 'Suggested:'}</Text>
+                  {one.options.map((text, i) => (
+                    <Button key={`option-${i + 1}-${key}`} plain onPress={answer(key, one, 'option', i + 1)}>
+                      <Text color={chosen(i + 1) ? 'success' : 'suggestion'}>
+                        {`${chosen(i + 1) ? '●' : '○'} ${one.options.length > 1 ? `${i + 1}. ` : ''}`}
+                      </Text>
+                      {text}
+                    </Button>
+                  ))}
+                </Box>
+              )}
               <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={1}>
-                <Button
-                  key={`session-${key}`}
-                  variant="primary"
-                  label="Ask me in a new session"
-                  onPress={() => askInSession($, v, one, key)}
-                />
-                {one.action && <Button key={`go-ahead-${key}`} label="Go ahead" onPress={answer(key, one, 'go-ahead')} />}
-                <Button key={`leave-${key}`} label="Leave as is" onPress={answer(key, one, 'leave')} />
+                <Button key={`leave-${key}`} label="Leave the text as it is" onPress={answer(key, one, 'leave')} />
                 <Button
                   key={`write-${key}`}
-                  label="Write answer"
+                  label="Write my own answer"
                   onPress={async () => {
                     if (await writeAnswer($, answerDraft(v, one))) await answer(key, one, 'written')()
                   }}
                 />
+                <Button key={`session-${key}`} label="Ask me in a new session" onPress={() => askInSession($, v, one, key)} />
                 {mine && (!mine.isSent || mine.choice === 'written' || mine.choice === 'session') && (
                   <Button key={`undo-${key}`} label="Undo" onPress={answer(key, one, null)} />
                 )}

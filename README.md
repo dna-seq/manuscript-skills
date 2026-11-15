@@ -296,11 +296,15 @@ summary, each a row you click to open it: where it is, why, what it suggests, an
 **Ask me in a new session** has Claude start a Claude Code session of its own for that one decision, titled
 with the paper's name, which asks you the question with its options and makes the change you choose (in the
 desktop app; in a terminal, where no session can be started, Claude asks you in the session you are in).
-**Go ahead** as it suggests, **Leave as is**, or **Write answer**, which puts the decision in the prompt box
-for your own words. **Send answers to Claude** sends the go-aheads and leaves in one message, as yours, to the
+Each option the decision names is a button of its own, worded as the decision words it ("1. Keep the paragraph
+with the bridge", "2. Cut it to one sentence ...", read from "Choose: a, b, or c", "Either a, or b" or "a; or,
+narrower, b"), and a lone suggestion is one button worded as the suggestion; then **Leave the text as it is**,
+and **Write my own answer**, which puts the decision in the prompt box for your own words. **Send answers to
+Claude** sends the chosen options and leaves in one message, as yours, naming each option word for word, to the
 session the pane is in. Once the run has made its dashboard, the pane and the dashboard's To-do tab list the
-same decisions and share one file, `STEM.todo.json` beside the manuscript: **Go ahead** marks a decision
-approved there and **Leave as is** marks it redundant, at once, keeping every other mark in the file, and a
+same decisions and share one file, `STEM.todo.json` beside the manuscript: an option marks a decision approved
+there, with its words in the mark's reason (`Chose: ...`), and **Leave the text as it is** marks it redundant,
+at once, keeping every other mark in the file, and a
 decision you marked in the To-do tab counts as answered in the pane, with your mark and reason on its row. The
 next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
@@ -687,7 +691,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.59.2},
+  version = {0.60.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

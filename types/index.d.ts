@@ -63,6 +63,10 @@ export type ManuscriptDecision = {
   section: string | null
   detail: string | null
   action: string | null
+  // the answers the authors can pick, each as the decision words it: the alternatives its action (or else its
+  // summary) lists ("Choose: a, b, or c", "Either a, or b", "a; or, narrower, b"), else the action alone; empty when
+  // nothing is suggested. The pane gives each its own button.
+  options: string[]
   // the passage it is about and the findings behind it, which a mark copies
   quote: string | null
   findingIds: string[]
@@ -91,11 +95,16 @@ export type ManuscriptTodoMark = {
   finding_ids: string[]
 }
 
-// The authors' answer to one decision, given in the Decisions pane: go ahead as it suggests, leave the text as it
-// is, their own words put in the prompt box, or a new session of its own that asks them about it. The first two
-// wait to go to Claude together in one message, and on a decision are marked in STEM.todo.json at once.
+// The authors' answer to one decision, given in the Decisions pane: one of its options, leave the text as it is,
+// their own words put in the prompt box, or a new session of its own that asks them about it. An option and leave
+// wait to go to Claude together in one message, and on a decision are marked in STEM.todo.json at once (an option
+// as approved, its words in the mark's reason). 'go-ahead' is the answer of panes before 0.60.0, which had one
+// "Go ahead" button whatever the decision offered; it is still read, never given.
 export type ManuscriptAnswer = {
-  choice: 'go-ahead' | 'leave' | 'written' | 'session'
+  choice: 'option' | 'go-ahead' | 'leave' | 'written' | 'session'
+  // the option chosen, 1-based, and its words as the pane showed them
+  option?: number
+  optionText?: string
   isSent: boolean
   // when the pane marked it in STEM.todo.json, and the mark it replaced there, which Undo puts back
   markedAt?: string

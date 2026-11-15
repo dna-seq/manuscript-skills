@@ -533,6 +533,102 @@ export function withMark(
   return { schema_version: 1, manuscript: file?.manuscript || manuscript, marks }
 }
 
+// `text` cut wherever `sep` (a sticky regex) matches outside brackets and quotes, so "(a, b)" stays one piece.
+function splitTop(text: string, sep: RegExp): string[] {
+  const parts: string[] = []
+  // curly apostrophes are left out: "the authors’ note" is no quotation
+  const open = '([{“'
+  const close = ')]}”'
+  let depth = 0
+  let isQuoted = false
+  let from = 0
+  for (let at = 0; at < text.length; at += 1) {
+    const ch = text[at]!
+    if (open.includes(ch)) depth += 1
+    else if (close.includes(ch)) depth = Math.max(0, depth - 1)
+    else if (ch === '"') isQuoted = !isQuoted
+    if (depth > 0 || isQuoted) continue
+    sep.lastIndex = at
+    const found = sep.exec(text)
+    if (!found || found[0].length === 0) continue
+    parts.push(text.slice(from, at))
+    from = at + found[0].length
+    at = from - 1
+  }
+  parts.push(text.slice(from))
+
+  return parts
+}
+
+// "Choose:" or "Choose between" opens a list; "Choose a licence" and "Decide whether" do not
+const LISTED = /^(?:choose|pick|decide)(?:\s+(?:between|among|one of)\s+|\s*:\s*)/i
+
+// The alternatives one sentence lists, or none. "Choose: a, b, or c" and "x: a, b, or c" list three; "Either a, or
+// b", "a, or b" and "a; or, narrower, b" list two. A plain "a or b" without a comma is read as one suggestion: the
+// "or" may join two words of it.
+function alternatives(sentence: string): string[] {
+  let text = sentence.trim().replace(/[.;,\s]+$/, '')
+  const colon = splitTop(text, /:\s+/y)
+  const isListed = LISTED.test(text) || colon.length === 2
+  if (LISTED.test(text)) text = text.replace(LISTED, '')
+  else if (colon.length === 2) text = colon[1]!
+  const isEither = /^either\s+/i.test(text)
+  text = text.replace(/^either\s+/i, '')
+  let parts = splitTop(text, /\s*;\s*(?:or|otherwise)\b,?\s*/iy)
+  if (parts.length < 2) {
+    parts = splitTop(text, /,\s*or\s+/iy)
+    if (parts.length >= 2 && isListed) parts = [...splitTop(parts[0]!, /,\s*/y), ...parts.slice(1)]
+  }
+  if (parts.length < 2 && isListed) {
+    const listed = splitTop(text, /,\s*/y)
+    parts = [...listed.slice(0, -1), ...splitTop(listed.at(-1)!, /\s+or\s+/iy)]
+  }
+  if (parts.length < 2 && isEither) {
+    const two = splitTop(text, /\s+or\s+/iy)
+    if (two.length === 2) parts = two
+  }
+  const options = parts
+    .map(one => one.trim().replace(/^(?:or|either|else|otherwise)\b,?\s*/i, '').replace(/[.;,\s]+$/, ''))
+    .map(one => one.charAt(0).toUpperCase() + one.slice(1))
+  if (options.length < 2 || options.length > 6 || options.some(one => !one)) return []
+
+  return options
+}
+
+// The answers the authors can pick for a decision: the alternatives the first sentence of its action that lists
+// some names, else those of its summary, else the action alone. A sentence ends at a full stop before a capital,
+// outside brackets.
+export function decisionOptions(action: string | null | undefined, summary?: string | null): string[] {
+  for (const text of [action, summary]) {
+    if (!text?.trim()) continue
+    for (const sentence of splitTop(text.trim(), /\.\s+(?=[A-Z“"(])/y)) {
+      const found = alternatives(sentence)
+      if (found.length) return found
+    }
+  }
+  const alone = action?.trim()
+
+  return alone ? [alone] : []
+}
+
+// A mark's reason without the option an earlier press of the pane put in front of it.
+export function ownReason(was: string): string {
+  if (!was.startsWith('Chose: ')) return was
+  const at = was.indexOf(' — ')
+
+  return at < 0 ? '' : was.slice(at + 3)
+}
+
+// The reason a mark carries for an option the pane chose: its words, and the reason the To-do tab gave before, if
+// any, after them. A single suggestion needs no words: approved says it.
+export function optionReason(one: ManuscriptDecision, option: number, was: string): string {
+  const earlier = ownReason(was)
+  if (one.options.length < 2) return earlier
+  const chosen = `Chose: ${one.options[option - 1] ?? ''}`
+
+  return earlier ? `${chosen} — ${earlier}` : chosen
+}
+
 function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[] {
   const label = new Map(stages.map(stage => [stage.id, stage.label]))
   // this run's marks by kind and ID; of two marks on one item, the later wins
@@ -560,6 +656,7 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
         section: one.section || null,
         detail: one.detail || null,
         action: one.action || null,
+        options: decisionOptions(one.action, one.summary),
         quote: one.quote || null,
         findingIds: one.findingIds,
         mark: markOf(['decision'], one.id),
@@ -576,6 +673,7 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
       section: null,
       detail: null,
       action: null,
+      options: [],
       quote: null,
       findingIds: [],
       mark: markOf(['question', 'proposal'], one.id),
@@ -604,9 +702,20 @@ export function answersMessage(view: ManuscriptRunView, answers: Record<string, 
   const keys = decisionKeys(view.runId, view.decisions)
   const chosen = (choice: ManuscriptAnswer['choice']) =>
     view.decisions.filter((_, n) => answers[keys[n]!]?.choice === choice && !answers[keys[n]!]!.isSent)
+  const picked = view.decisions
+    .map((one, n) => ({ one, answer: answers[keys[n]!] }))
+    .filter(({ answer }) => answer?.choice === 'option' && !answer.isSent)
   const ahead = chosen('go-ahead')
   const leave = chosen('leave')
   const lines = [`My answers to the decisions the ${view.label} manuscript run left for me (run folder ${view.runPath}):`]
+  if (picked.length) {
+    lines.push('', 'Do this:')
+    for (const { one, answer } of picked) {
+      const text = answer!.optionText || one.options[(answer!.option ?? 1) - 1] || one.action || ''
+      const which = one.options.length > 1 ? `option ${answer!.option} of ${one.options.length}` : 'as suggested'
+      lines.push(`- ${where(one)}: ${one.summary} Chosen (${which}): ${text}`)
+    }
+  }
   if (ahead.length) {
     lines.push('', 'Go ahead:')
     for (const one of ahead) lines.push(`- ${where(one)}: ${one.summary}${one.action ? ` Suggested: ${one.action}` : ''}`)
@@ -618,13 +727,16 @@ export function answersMessage(view: ManuscriptRunView, answers: Record<string, 
   if (view.todo && keys.some(key => answers[key]?.markedAt && !answers[key]!.isSent)) {
     lines.push(
       '',
-      `They are marked in ${view.todo.path} too (go ahead as approved, leave as redundant), where the dashboard's To-do tab and the next run read them.`,
+      `They are marked in ${view.todo.path} too (a chosen option or go ahead as approved, leave as redundant), where the dashboard's To-do tab and the next run read them.`,
     )
   }
+  const asks: string[] = []
+  if (picked.length) asks.push('Make the chosen changes in the manuscript, each as the option I chose says')
+  if (ahead.length) asks.push(`${picked.length ? 'make' : 'Make'} the go-ahead changes, taking the option you recommend where a suggestion offers a choice`)
   lines.push(
     '',
-    ahead.length
-      ? 'Make the go-ahead changes in the manuscript, taking the option you recommend where a suggestion offers a choice, and tell me which need something only I can do. Change nothing for the ones to leave.'
+    asks.length
+      ? `${asks.join(', and ')}, and tell me which need something only I can do.${leave.length ? ' Change nothing for the ones to leave.' : ''}`
       : 'Change nothing for these.',
   )
 

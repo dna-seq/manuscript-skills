@@ -128,12 +128,23 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   the decisions as `todo_items` does (`summarizeFindings`: the adjudication's `decisions`, D1 and on, then each
   `decision: true` finding none links and not dismissed), so its IDs are the To-do tab's. It reads
   `STEM.todo.json` (`marksPath()`, the same place as `collect.py marks_path`) on every refresh: a decision marked
-  there for this run counts as answered and shows its mark and reason. **Go ahead** and **Leave as is** on a
+  there for this run counts as answered and shows its mark and reason. **Go ahead** and **Leave as is** (from 0.60.0
+  an option's own button and **Leave the text as it is**) on a
   decision also write `approved`/`redundant` there with `$.fs.write` (`setAnswer`, `todoMark()` = the tab's
   `markOf`), reading the file afresh and keeping every other mark; Undo puts back the mark it replaced, unless
   the tab changed it since; a file that does not parse is never written over. The corrected version's questions
   show a mark but write none (leave as is means "keep the edit" there, "drop it" for a proposal). Before the
   dashboard, the pane neither reads nor writes the file.
+- **A decision's options are its buttons (0.60.0).** One **Go ahead** did not say which option it took when the
+  action offered three. `decisionOptions()` (`model.ts`) reads the alternatives from the first sentence of the
+  action that lists some ("Choose: a, b, or c", "Choose between", "Either a, or b", "a, or b", "a; or, narrower,
+  b", "x: a, or b"; commas inside brackets and quotes kept; "Choose a licence", "Decide whether" and a plain "a or
+  b" are one suggestion), else of the summary, else the action alone, into `ManuscriptDecision.options`. Each is a
+  button (`option-N-<key>`, its words on it); then **Leave the text as it is**, **Write my own answer**, **Ask me
+  in a new session**. The answer is `choice: 'option'` with `option` and `optionText`; the mark is approved with
+  `Chose: <words>` in front of the tab's reason (`optionReason`, `ownReason`), which `todo.py` hands the stages as
+  the authors' note; the message to Claude says "Chosen (option 2 of 3): ...". `go-ahead` answers of older panes
+  still read. Stages still write options as prose: a structured `options` field on findings would spare the parse.
 - **How much each recommended journal changes the manuscript (0.54.0).** `manuscript-journal-select/scripts/effort.py`
   measures the manuscript as an editor counts it (reusing manuscript-story's `reader_metrics.parse`: body without
   captions, tables or back matter; abstract; main-text figures, tables and boxes; main sections) and sizes each

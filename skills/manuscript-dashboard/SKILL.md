@@ -376,8 +376,9 @@ not there exactly once is listed as not placed, never guessed. `--run R1` takes 
 decisions and problems, and every approved item with the authors' note, come back as `for_the_stages`.
 
 The Decisions pane in Claude Code answers the same decisions while a session watches the run, under the same IDs,
-and sends the answers to Claude as a message. It shares the marks file: its **Go ahead** and **Leave as is** on a
-decision mark it approved or redundant in `STEM.todo.json` at once, as the tab would, and a decision marked there
+and sends the answers to Claude as a message. It shares the marks file: an option chosen there (one button per
+alternative the decision's action lists) and **Leave the text as it is** mark a decision approved or redundant in
+`STEM.todo.json` at once, as the tab would, an option's words in front of the mark's reason (`Chose: ... — `), and a decision marked there
 counts as answered in the pane. The corrected version's questions show their mark in the pane but are marked in
 the tab.
 

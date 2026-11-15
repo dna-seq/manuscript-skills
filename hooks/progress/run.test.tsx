@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { buildView, manuscriptTitle, marksPath, runLabel, statusLine, summarizeFindings } from './model'
+import { buildView, decisionOptions, manuscriptTitle, marksPath, optionReason, ownReason, runLabel, statusLine, summarizeFindings } from './model'
 import type { MarksFile, RunJson } from './model'
 
 const PROJECT = '/work/paper/v0.6'
@@ -451,7 +451,7 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
     expect(await rows(pane)).toHaveLength(22)
     // each row is one press, its summary whole
     expect((await pane.find({ type: 'Button', key: `decision-${key('IC-22')}` }))?.text).toContain(held[21]!.summary)
-    expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-21')}` })).toBeUndefined()
+    expect(await pane.find({ type: 'Button', key: `option-1-${key('IC-21')}` })).toBeUndefined()
     await pane.unmount()
   }
 
@@ -460,14 +460,20 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   await pane.press({ key: `decision-${key('IC-21')}` })
   expect(await pane.find({ type: 'Text', text: 'Integrity check · 4.2 Production catalog (Table 4)' })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: whole.detail })).toBeDefined()
-  expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeDefined()
+  // a lone suggestion is its own button, worded as the action, not a bare "Go ahead"
+  expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeUndefined()
+  expect(await pane.find({ type: 'Text', text: 'Suggested:' })).toBeDefined()
+  expect((await pane.find({ type: 'Button', key: `option-1-${key('IC-21')}` }))?.text).toContain(whole.action)
+  expect(await pane.find({ type: 'Button', key: `option-2-${key('IC-21')}` })).toBeUndefined()
   expect(await pane.find({ type: 'Button', key: `session-${key('IC-21')}` })).toBeDefined()
-  await pane.press({ key: `go-ahead-${key('IC-21')}` })
+  expect((await pane.find({ type: 'Button', key: `write-${key('IC-21')}` }))?.text).toBe('Write my own answer')
+  expect((await pane.find({ type: 'Button', key: `leave-${key('IC-21')}` }))?.text).toBe('Leave the text as it is')
+  await pane.press({ key: `option-1-${key('IC-21')}` })
   // one with nothing suggested can be left or answered, not gone ahead with
   await pane.press({ key: `decision-${key('IC-1')}` })
-  expect(await pane.find({ type: 'Button', key: `go-ahead-${key('IC-1')}` })).toBeUndefined()
+  expect(await pane.find({ type: 'Button', key: `option-1-${key('IC-1')}` })).toBeUndefined()
   await pane.press({ key: `leave-${key('IC-1')}` })
-  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· go ahead')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· as suggested')
   expect((await pane.find({ type: 'Button', key: 'send-answers' }))?.text).toBe('Send 2 answers to Claude')
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -482,10 +488,10 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   // the person pressed it: their own words, not the plugin's
   expect(submitted[0]!.origin).toEqual({ kind: 'plugin', name: 'manuscript-skills', asUser: true })
   expect(submitted[0]!.text).toContain(`run folder ${RUN}`)
-  expect(submitted[0]!.text).toContain(`Go ahead:\n- IC-21 (4.2 Production catalog (Table 4)): ${whole.summary} Suggested: ${whole.action}`)
+  expect(submitted[0]!.text).toContain(`Do this:\n- IC-21 (4.2 Production catalog (Table 4)): ${whole.summary} Chosen (as suggested): ${whole.action}`)
   expect(submitted[0]!.text).toContain(`Leave as it is:\n- IC-1: ${held[0]!.summary}`)
   expect(await pane.find({ type: 'Button', key: 'send-answers' })).toBeUndefined()
-  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· go ahead, sent')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-21')}` }))?.text).toEndWith('· as suggested, sent')
 
   // an answer in the person's own words goes through the prompt box
   await pane.press({ key: `decision-${key('IC-2')}` })
@@ -614,10 +620,20 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
     await band.unmount()
   }
 
-  // Go ahead marks D1 approved in the file, with what the decision said, as the To-do tab's markOf does; every other
-  // mark stays, the oldest first
+  // D1's summary names two options, each its own button worded as the decision words it
   await pane.press({ key: `decision-${key('D1')}` })
-  await pane.press({ key: `go-ahead-${key('D1')}` })
+  expect(await pane.find({ type: 'Text', text: 'Pick one:' })).toBeDefined()
+  expect((await pane.find({ type: 'Button', key: `option-1-${key('D1')}` }))?.text).toEndWith('1. Confirm it')
+  expect((await pane.find({ type: 'Button', key: `option-2-${key('D1')}` }))?.text).toEndWith('2. Narrow the consent sentence')
+  // its action, a lone suggestion beside them, is kept as text for what the options share
+  expect(await pane.find({ type: 'Text', text: '→ Confirm with her.' })).toBeDefined()
+  // option 2, then option 1: the mark is made once, and says which option
+  await pane.press({ key: `option-2-${key('D1')}` })
+  expect(marks().at(-1)).toMatchObject({ id: 'D1', mark: 'approved', reason: 'Chose: Narrow the consent sentence' })
+  expect(await row(pane, 'D1')).toEndWith('· chose 2: Narrow the consent sentence')
+  // choosing option 1 marks D1 approved in the file, with what the decision said, as the To-do tab's markOf does;
+  // every other mark stays, the oldest first
+  await pane.press({ key: `option-1-${key('D1')}` })
   expect(marks().map(one => `${one.run_id.slice(0, 8)}:${one.kind}:${one.id}:${one.mark}`)).toEqual([
     '20261020:decision:D1:approved',
     '20261027:decision:D2:redundant',
@@ -629,7 +645,7 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
     kind: 'decision',
     id: 'D1',
     mark: 'approved',
-    reason: '',
+    reason: 'Chose: Confirm it',
     marked_at: '2026-10-27T13:59:00.000Z',
     summary: "Livia Zaharia's consent: confirm it, or narrow the consent sentence.",
     section: 'Ethics Statement',
@@ -642,7 +658,7 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
     finding_ids: ['IC-11'],
   })
   expect(JSON.parse(files.get(TODO)!).manuscript).toBe('paper1-just-dna-lite.md')
-  expect(await row(pane, 'D1')).toEndWith('· go ahead')
+  expect(await row(pane, 'D1')).toEndWith('· chose 1: Confirm it')
   expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('2 of 4 decisions wait for you')
 
   // Leave as is marks PF-3, a stage's own decision, redundant; Undo takes the mark back out of the file
@@ -667,16 +683,19 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
   // the answers still go to Claude in one message, which says where they are marked
   await pane.press({ key: 'send-answers' })
   for (let n = 0; n < 50 && submitted.length === 0; n += 1) await Promise.resolve()
-  expect(submitted[0]!.text).toContain(`Go ahead:\n- D1 (Ethics Statement): Livia Zaharia's consent`)
-  expect(submitted[0]!.text).toContain(`They are marked in ${TODO} too (go ahead as approved, leave as redundant)`)
-  expect(await row(pane, 'D1')).toEndWith('· go ahead, sent')
+  expect(submitted[0]!.text).toContain(
+    `Do this:\n- D1 (Ethics Statement): Livia Zaharia's consent: confirm it, or narrow the consent sentence. Chosen (option 1 of 2): Confirm it`,
+  )
+  expect(submitted[0]!.text).toContain(`They are marked in ${TODO} too (a chosen option or go ahead as approved, leave as redundant)`)
+  expect(submitted[0]!.text).toContain('Make the chosen changes in the manuscript, each as the option I chose says')
+  expect(await row(pane, 'D1')).toEndWith('· chose 1: Confirm it, sent')
 
   // the To-do tab marks D1 again later: the row shows its mark beside the answer sent
   const later = mark('D1', 'decision', 'redundant', '2026-10-27T14:10:00.000Z', 'On reflection, no.')
   files.set(TODO, JSON.stringify({ ...saved, marks: marks().map(one => (one.id === 'D1' && one.run_id === RUN_ID ? later : one)) }))
   version.n = 2
   await $.command.run({ ...TYPED, args: RUN })
-  expect(await row(pane, 'D1')).toEndWith('· go ahead, sent · marked redundant: “On reflection, no.”')
+  expect(await row(pane, 'D1')).toEndWith('· chose 1: Confirm it, sent · marked redundant: “On reflection, no.”')
 
   // a file that does not read as marks is never written over
   files.set(TODO, '{"schema_version": 1, "marks": [')
@@ -770,4 +789,60 @@ test('a setup note is shown and toasted once, and the run never waits for it', a
   expect(view.isWaiting).toBe(false)
   const answer = await $.command.run({ ...TYPED, args: RUN })
   expect(answer.text).toContain('For a better run (nothing waits for this):')
+})
+
+// The decisions of the MitoAge 2 run of 2026-11-15 and its predecessors, as the stages wrote their actions: each
+// alternative its own option, worded as the decision words it; a plain suggestion stays one option.
+test('a decision\'s options are the alternatives its action lists, each in its own words', () => {
+  expect(
+    decisionOptions(
+      'Choose: keep the paragraph with the bridge (ST-C1), cut it to one sentence beside the downloads with the rest in the supplement, or leave the server out until it has users.',
+    ),
+  ).toEqual([
+    'Keep the paragraph with the bridge (ST-C1)',
+    'Cut it to one sentence beside the downloads with the rest in the supplement',
+    'Leave the server out until it has users',
+  ])
+  expect(decisionOptions('Either move Table 4 to the supplement or renumber it as Table 1, including the captions.')).toEqual([
+    'Move Table 4 to the supplement',
+    'Renumber it as Table 1, including the captions',
+  ])
+  // a comma inside brackets is not a separator; a sentence after the alternatives is shared, not an option
+  expect(
+    decisionOptions(
+      'Calibrate the test (contrasts, a permutation null) and add PGLS; or, narrower, say beside Table 3 that the column is not read. In either case say so in Methods.',
+    ),
+  ).toEqual(['Calibrate the test (contrasts, a permutation null) and add PGLS', 'Narrower, say beside Table 3 that the column is not read'])
+  expect(
+    decisionOptions('Confirm the venue order (eLife, then MBE, then Database (Oxford)), or choose a research-article route.'),
+  ).toEqual(['Confirm the venue order (eLife, then MBE, then Database (Oxford))', 'Choose a research-article route'])
+  expect(decisionOptions('Run the null and report it, or state the miscalibration, or narrow the claim.')).toHaveLength(3)
+  // after a colon, the alternatives the summary lists when the action names one
+  expect(decisionOptions('Confirm with her.', "Livia Zaharia's consent: confirm it, or narrow the consent sentence.")).toEqual([
+    'Confirm it',
+    'Narrow the consent sentence',
+  ])
+  // "Choose a …" and "Decide whether …" open no list, and an "or" without a comma may join two words of one change
+  for (const one of [
+    'Choose the licence of the tables MitoAge computes itself, with the third-party values carved out, and state it.',
+    'Decide whether the three analyses stay, which also decides between NAR and Database (Oxford).',
+    'Report the expected chance count or correct the contrast p values.',
+  ]) {
+    expect(decisionOptions(one)).toEqual([one])
+  }
+  expect(decisionOptions(null, 'Keep the names on the figures?')).toEqual([])
+  expect(decisionOptions('', '')).toEqual([])
+})
+
+test('an option\'s words go in front of the reason the To-do tab gave, and come out again', () => {
+  const one = { options: ['Confirm it', 'Narrow the consent sentence'] } as Parameters<typeof optionReason>[0]
+  expect(optionReason(one, 2, '')).toBe('Chose: Narrow the consent sentence')
+  expect(optionReason(one, 1, 'She agreed by email.')).toBe('Chose: Confirm it — She agreed by email.')
+  // a second press replaces the option, the tab's reason kept
+  expect(optionReason(one, 2, 'Chose: Confirm it — She agreed by email.')).toBe('Chose: Narrow the consent sentence — She agreed by email.')
+  expect(ownReason('Chose: Confirm it — She agreed by email.')).toBe('She agreed by email.')
+  expect(ownReason('Chose: Confirm it')).toBe('')
+  expect(ownReason('The names stay.')).toBe('The names stay.')
+  // a lone suggestion: approved says it, so only the tab's reason
+  expect(optionReason({ options: ['Choose a licence.'] } as Parameters<typeof optionReason>[0], 1, 'Chose: x — kept')).toBe('kept')
 })
