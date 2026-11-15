@@ -496,8 +496,15 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   // an answer in the person's own words goes through the prompt box
   await pane.press({ key: `decision-${key('IC-2')}` })
   await pane.press({ key: `write-${key('IC-2')}` })
+  // the draft starts with the line that has Claude mark the answer, since the pane and the To-do tab read only the
+  // marks file: an answer left in the chat would keep the decision open everywhere else
+  const marking = (id: string) =>
+    `Once I have answered, record my answer so the Decisions pane and the dashboard's To-do tab stop listing ${id}: ` +
+    `run the manuscript-skills plugin's skills/manuscript-dashboard/scripts/todo.py as ` +
+    `\`uv run --script todo.py mark "${RUN}" ${id} --mark approved --reason "Chose: <the option, or my words>"\`` +
+    `, or with --mark redundant if I leave the text as it is.`
   expect(filled).toEqual([
-    `On decision IC-2 of the Just-DNA-Lite v0.6 manuscript run (${RUN}), "${held[1]!.summary}": `,
+    `${marking('IC-2')}\nOn decision IC-2 of the Just-DNA-Lite v0.6 manuscript run (${RUN}), "${held[1]!.summary}": `,
   ])
   expect((await pane.find({ type: 'Button', key: `decision-${key('IC-2')}` }))?.text).toEndWith('· answered in the chat')
   expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('19 of 22 decisions wait for you')
@@ -509,6 +516,7 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   expect(submitted[1]!.origin).toEqual({ kind: 'plugin', name: 'manuscript-skills', asUser: true })
   expect(submitted[1]!.text).toStartWith('Start a new Claude Code session that asks me about decision IC-3 of the Just-DNA-Lite v0.6')
   expect(submitted[1]!.text).toContain(`"Just-DNA-Lite: a Local-First Platform", called Just-DNA-Lite v0.6 here`)
+  expect(submitted[1]!.text).toEndWith(`\n${marking('IC-3')}`)
   expect((await pane.find({ type: 'Button', key: `decision-${key('IC-3')}` }))?.text).toEndWith('· asked in a new session')
   expect((await pane.find({ type: 'Text', text: /wait for you$/ }))?.text).toBe('18 of 22 decisions wait for you')
   await pane.unmount()

@@ -773,9 +773,22 @@ export function answersMessage(view: ManuscriptRunView, answers: Record<string, 
   return lines.join('\n')
 }
 
-// What "Write answer" puts in the prompt box: the decision, named, for the person to finish in their own words.
+// How Claude records an answer the person gave in conversation: the Decisions pane and the To-do tab read only the
+// marks file, so a decision answered in a chat stays open everywhere until it is marked there.
+export function markInstruction(view: ManuscriptRunView, one: Pick<ManuscriptDecision, 'id' | 'kind'>): string {
+  const kind = one.kind === 'decision' ? '' : ` --kind ${one.kind}`
+  return (
+    `Once I have answered, record my answer so the Decisions pane and the dashboard's To-do tab stop listing ${one.id}: ` +
+    `run the manuscript-skills plugin's skills/manuscript-dashboard/scripts/todo.py as ` +
+    `\`uv run --script todo.py mark "${view.runPath}" ${one.id}${kind} --mark approved --reason "Chose: <the option, or my words>"\`` +
+    `, or with --mark redundant if I leave the text as it is.`
+  )
+}
+
+// What "Write answer" puts in the prompt box: the decision, named, for the person to finish in their own words, after
+// the line that has Claude mark it answered.
 export function answerDraft(view: ManuscriptRunView, one: ManuscriptDecision): string {
-  return `On decision ${where(one)} of the ${view.label} manuscript run (${view.runPath}), "${one.summary}": `
+  return `${markInstruction(view, one)}\nOn decision ${where(one)} of the ${view.label} manuscript run (${view.runPath}), "${one.summary}": `
 }
 
 // What "Ask me in a new session" sends Claude, in the person's words: start a session of its own for this one
@@ -795,6 +808,7 @@ export function sessionRequest(view: ManuscriptRunView, one: ManuscriptDecision)
     'Read that section of the manuscript first. Then ask me the decision as one question, with the options and the ' +
       'one you recommend, each in a sentence that quotes the text it would change. Make the change I choose in the ' +
       'manuscript file and tell me what changed. Call the paper by its name, never by what kind of paper it is.',
+    markInstruction(view, one),
   ]
 
   return [

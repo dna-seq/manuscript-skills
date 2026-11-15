@@ -386,3 +386,66 @@ def test_merge_makes_the_file_when_the_round_has_none_and_refuses_a_copy_it_cann
     before = current.read_bytes()
     refused = runner.invoke(todo.app, ["merge", str(current), "--from", str(previous)])
     assert refused.exit_code != 0 and current.read_bytes() == before
+
+
+def answered_run(tmp_path: Path) -> tuple[Path, Path]:
+    """A run whose dashboard stage wrote the adjudicated inventory, and the manuscript the marks file lies beside."""
+    paper = tmp_path / "paper.md"
+    paper.write_text("# Tool paper\n", encoding="utf-8")
+    run = tmp_path / "run"
+    board = run / "manuscript-dashboard"
+    board.mkdir(parents=True)
+    (board / "findings.json").write_text(json.dumps(inventory(board)), encoding="utf-8")
+    (run / "run.json").write_text(json.dumps({"run_id": RUN, "skills": {}, "inputs": [
+        {"original": str(paper), "snapshot": "inputs/01-paper.md", "sha256": "0" * 64}]}), encoding="utf-8")
+    return run, tmp_path / "paper.todo.json"
+
+
+def test_mark_records_an_answer_given_in_conversation_where_the_pane_and_the_tab_read_it(tmp_path: Path) -> None:
+    run, marks_file = answered_run(tmp_path)
+    data = viz.Inventory.model_validate_json((run / "manuscript-dashboard/findings.json").read_text(encoding="utf-8"))
+    items = {i["id"]: i for i in viz.todo_items(data)}
+    # An earlier run's mark is in the file already and must stay.
+    marks_file.write_text(json.dumps({"schema_version": 1, "manuscript": "paper.md",
+                                      "marks": [mark("problem", "IC-4", "redundant", reason="Code changes.")]}), encoding="utf-8")
+    done = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "approved", "--reason", "Chose: narrow the claim"])
+    assert done.exit_code == 0, done.output
+    report = json.loads(done.stdout)
+    assert (report["marked"], report["mark"], report["replaced"], report["marks"]) == (f"{RUN}:decision:D1", "approved", None, 2)
+    saved = viz.MarksFile.model_validate_json(marks_file.read_text(encoding="utf-8"))
+    by = {viz.mark_key(m.run_id, m.kind, m.id): m for m in saved.marks}
+    assert set(by) == {"R1:problem:IC-4", f"{RUN}:decision:D1"} and saved.manuscript == "paper.md"
+    d1 = by[f"{RUN}:decision:D1"]
+    # The mark says what the item said, as the tab's markOf does, so a later run with its own IDs still knows it.
+    assert (d1.summary, d1.finding_ids, d1.section, d1.quote) == (
+        items["D1"]["summary"], ["F1"], items["D1"]["section"], items["D1"]["quote"])
+    assert d1.reason == "Chose: narrow the claim"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", d1.marked_at)  # the pane's toISOString()
+    # The next run's collect carries it, and the To-do view no longer lists D1 as open.
+    carried = collect.read_todo(marks_file, "paper.md")
+    assert {(m["run_id"], m["id"]) for m in carried["marks"]} == {("R1", "IC-4"), (RUN, "D1")}
+    # A stage's own decision (no adjudicated D-number) is marked the same way; a second answer replaces the first.
+    assert runner.invoke(todo.app, ["mark", str(run), "F5", "--mark", "redundant"]).exit_code == 0
+    again = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "redundant", "--reason", "Leave it."])
+    assert again.exit_code == 0 and json.loads(again.stdout)["replaced"] == "approved"
+    saved = viz.MarksFile.model_validate_json(marks_file.read_text(encoding="utf-8"))
+    assert sorted((m.id, m.mark) for m in saved.marks if m.run_id == RUN) == [("D1", "redundant"), ("F5", "redundant")]
+    assert [m.marked_at for m in saved.marks] == sorted(m.marked_at for m in saved.marks)  # oldest first, as the tab
+
+
+def test_mark_refuses_what_it_cannot_place_and_never_writes_over_a_file_it_cannot_read(tmp_path: Path) -> None:
+    run, marks_file = answered_run(tmp_path)
+    unknown = runner.invoke(todo.app, ["mark", str(run), "D9", "--mark", "approved"])
+    assert unknown.exit_code != 0 and "D9" in unknown.output and not marks_file.exists()
+    wrong = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "yes"])
+    assert wrong.exit_code != 0 and not marks_file.exists()
+    wrong_kind = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "approved", "--kind", "problem"])
+    assert wrong_kind.exit_code != 0 and not marks_file.exists()
+    marks_file.write_text('{"schema_version": 1, "marks": [{"id": "D2"}]}', encoding="utf-8")
+    before = marks_file.read_bytes()
+    refused = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "approved"])
+    assert refused.exit_code != 0 and marks_file.read_bytes() == before
+    # Before the dashboard stage there are no decision IDs to mark.
+    (run / "manuscript-dashboard/findings.json").unlink()
+    early = runner.invoke(todo.app, ["mark", str(run), "D1", "--mark", "approved"])
+    assert early.exit_code != 0 and "dashboard" in early.output

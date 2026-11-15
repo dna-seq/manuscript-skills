@@ -306,7 +306,9 @@ same decisions and share one file, `STEM.todo.json` beside the manuscript: an op
 there, with its words in the mark's reason (`Chose: ...`), and **Leave the text as it is** marks it redundant,
 at once (the stages list a decision's options in `findings.json`, and the To-do tab, the Word review and the
 Google Doc comments number them the same way), keeping every other mark in the file, and a
-decision you marked in the To-do tab counts as answered in the pane, with your mark and reason on its row. The
+decision you marked in the To-do tab counts as answered in the pane, with your mark and reason on its row. A
+decision you answer in the chat (in your own words, or asked in a session of its own) is marked there by Claude once
+the change is made (`todo.py mark`), so it leaves the pane and the tab too. The
 next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
 ("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
@@ -705,7 +707,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.65.0},
+  version = {0.66.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

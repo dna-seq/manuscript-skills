@@ -371,12 +371,21 @@ of two marks on one item winning, as **Load marks from a file** does). The marke
 uv run --script scripts/todo.py edits STEM.todo.json --text WORKING_COPY --output RUN/manuscript-improve/todo-edits.json
 uv run --script scripts/todo.py show STEM.todo.json   # the marks by run, approved first
 uv run --script scripts/todo.py merge STEM.todo.json --from ../v0.7/STEM.todo.json   # the previous round's later marks
+uv run --script scripts/todo.py mark RUN D1 --mark approved --reason "Chose: ..."   # an answer given in conversation
 ```
 
 An approved proposal is made where its text before occurs once (an addition after its anchor); an edit marked
 redundant is undone where its text after occurs once; one already as marked needs nothing, and one whose text is
 not there exactly once is listed as not placed, never guessed. `--run R1` takes one run's marks. The approved
 decisions and problems, and every approved item with the authors' note, come back as `for_the_stages`.
+
+**An answer given in conversation is marked, or it stays open.** The Decisions pane and the To-do tab read only the
+marks file. When the authors answer a decision in a chat (one asked in a session of its own, one written in their own
+words, or any decision of the run they settle while talking), record it once the change is made: `todo.py mark RUN ID
+--mark approved --reason "Chose: <the option, or their words>"`, or `--mark redundant` when they leave the text as it
+is. It finds the item by the ID the pane and the tab show (D1, JA-8) in the run's adjudicated inventory, writes the
+mark beside the manuscript with what the item said, keeps every other mark, and refuses an ID the run does not list
+or a marks file that does not read. A decision recorded only in the project's own notes still shows as waiting.
 
 The Decisions pane in Claude Code answers the same decisions while a session watches the run, under the same IDs,
 and sends the answers to Claude as a message. It shares the marks file: an option chosen there (one button per

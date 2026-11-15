@@ -7,6 +7,7 @@
     uv run --script todo.py show paper.todo.json
     uv run --script todo.py merge paper.todo.json --from ../v0.7/paper.todo.json
     uv run --script todo.py edits paper.todo.json --text paper.md --output RUN/manuscript-improve/todo-edits.json
+    uv run --script todo.py mark RUN D1 --mark approved --reason "Chose: ask TimeTree for permission"
 
 The dashboard's To-do tab lists what a run leaves for the authors (each decision only they can make, each applied edit
 that asks them something, each proposal, each open blocker or major problem nothing else answers), and they mark each
@@ -35,11 +36,17 @@ approved decisions and problems are listed for the stages (`for_the_stages`), si
 than a replacement, and so is every approved item that carries the authors' note (an answer to an edit's question,
 say); what was marked redundant is for the adjudication to dismiss, with the authors' reason, when
 the new run raises it again (collect.py lists the word-for-word restatements). An existing output is refused.
+
+`mark` records an answer the authors gave in conversation rather than in the tab or the Decisions pane: a decision
+asked in a session of its own, or answered in their own words. The pane and the tab read only the marks file, so an
+answer left in a chat keeps the decision open everywhere. It finds the item by its ID in the run's adjudicated
+inventory, writes the mark beside the manuscript with what the item said, and keeps every other mark.
 """
 from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -48,6 +55,7 @@ import typer
 HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(1, str(HERE.parents[2] / "manuscript-improve" / "scripts"))
+import collect  # noqa: E402
 import dashboard as viz  # noqa: E402
 import revise  # noqa: E402
 
@@ -197,6 +205,69 @@ def edits(marks: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     output.write_text(json.dumps(made, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     typer.echo(json.dumps({"output": str(output.resolve()), "edits": len(made), "changes": outcomes,
                            "for_the_stages": stages}, ensure_ascii=False, indent=2))
+
+
+def run_items(run: Path) -> tuple[viz.Inventory, list[dict]]:
+    """The run's adjudicated inventory and its to-do items, with the corrected version's questions where it has one."""
+    found = run / "manuscript-dashboard" / "findings.json"
+    if not found.is_file():
+        raise ValueError(f"{run} has no adjudicated inventory (manuscript-dashboard/findings.json) yet: the decisions "
+                         "get their IDs there, so nothing can be marked before the dashboard stage.")
+    data = viz.Inventory.model_validate_json(found.read_text(encoding="utf-8"))
+    folder = viz.newest_attempt(run / "manuscript-improve" / "revision", folder=True)
+    revision = None
+    if folder and (folder / "revision.json").is_file():
+        revision = json.loads((folder / "revision.json").read_text(encoding="utf-8"))
+    return data, viz.todo_items(data, revision)
+
+
+@app.command()
+def mark(run: Annotated[Path, typer.Argument(exists=True, file_okay=False, help="The run folder")],
+         item: Annotated[str, typer.Argument(help="The item's ID as the Decisions pane and the To-do tab show it: D1, JA-8")],
+         verdict: Annotated[str, typer.Option("--mark", help="approved: the authors chose a change (an option, or the "
+                                              "suggestion); redundant: they leave the text as it is")],
+         said: Annotated[str, typer.Option("--reason", help="The authors' answer in their words, or the option they "
+                                           "chose; the next run's stages take it as their note")] = "",
+         kind: Annotated[str | None, typer.Option("--kind", help="decision, question, proposal or problem, where one "
+                                                  "ID names two items")] = None) -> None:
+    """Record an answer the authors gave in conversation, as the To-do tab and the Decisions pane would.
+
+    A decision answered in a chat (asked in a session of its own, or written in the authors' words) is answered only
+    once it is marked: the pane and the tab read the marks file and nothing else. Writes STEM.todo.json beside the
+    manuscript, keeping every other mark; a later mark on the same item replaces this run's earlier one."""
+    if verdict not in ("approved", "redundant"):
+        raise typer.BadParameter("--mark is approved or redundant.")
+    try:
+        data = json.loads((run / "run.json").read_text(encoding="utf-8"))
+        inventory, items = run_items(run)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    hits = [i for i in items if i["id"] == item and (kind is None or i["kind"] == kind)]
+    if not hits:
+        known = ", ".join(i["id"] for i in items if i["kind"] == "decision")
+        raise typer.BadParameter(f"Run {inventory.run_id} leaves the authors no {kind or 'item'} {item}; its decisions "
+                                 f"are {known or 'none'}.")
+    if len(hits) > 1:
+        raise typer.BadParameter(f"{item} names a {' and a '.join(i['kind'] for i in hits)}; say which with --kind.")
+    one = hits[0]
+    path = collect.marks_path(data, None)
+    if path is None:
+        raise typer.BadParameter(f"{run}/run.json names no manuscript, so there is no marks file beside it.")
+    try:
+        found = read_file(path) if path.is_file() else viz.MarksFile(schema_version=1, manuscript=Path(data["inputs"][0]["original"]).name)
+    except (ValueError, OSError) as exc:  # a file the tab or the pane could not read either: never written over
+        raise typer.BadParameter(f"{path}: the marks file does not read ({exc}); it is never written over.") from exc
+    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")  # as the pane writes it
+    new = viz.Mark(run_id=inventory.run_id, kind=one["kind"], id=one["id"], mark=verdict, reason=said.strip(),
+                   marked_at=now, summary=one["summary"], section=one["section"], category=one["category"],
+                   quote=one["quote"], action=one["action"], before=one["before"], after=one["after"],
+                   anchor=one["anchor"], finding_ids=one["finding_ids"])
+    key = viz.mark_key(new.run_id, new.kind, new.id)
+    was = next((m for m in found.marks if viz.mark_key(m.run_id, m.kind, m.id) == key), None)
+    marks = [m for m in found.marks if viz.mark_key(m.run_id, m.kind, m.id) != key] + [new]
+    path.write_text(file_text(viz.MarksFile(schema_version=1, manuscript=found.manuscript, marks=marks)), encoding="utf-8")
+    typer.echo(json.dumps({"file": str(path.resolve()), "marked": key, "mark": verdict, "summary": new.summary,
+                           "replaced": was.mark if was else None, "marks": len(marks)}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

@@ -159,6 +159,15 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   adjudicated one that links it (ST-7 in D3), on each refresh. The status line is said again after every answer
   (`showStatus`), not at the next 15-second refresh, and `/manuscript-status` and the "waits" notification count the
   open decisions, not all of them.
+- **An answer given in conversation is marked (0.66.0).** A decision answered in a chat stayed open in the Decisions
+  pane and the To-do tab, which read only `STEM.todo.json`: MitoAge 2 v0.3's D1 was asked through **Ask me in a new
+  session**, answered and recorded in the project's own decisions file, and still waited. `todo.py mark RUN ID --mark
+  approved|redundant [--reason ...] [--kind ...]` writes the mark (the item looked up in the adjudicated inventory with
+  `todo_items`, the newest revision's questions included; every other mark kept; an unreadable file never written
+  over; `marked_at` as the pane's `toISOString()`). `markInstruction()` (`model.ts`) puts the command, with the run
+  folder and ID, at the end of `sessionRequest()`'s brief and at the start of `answerDraft()`, and manuscript-dashboard's
+  SKILL.md says to mark any decision settled in conversation. Tests: `tests/test_dashboard_todo.py` (`mark`),
+  `hooks/progress/run.test.tsx` (the brief and the draft).
 - **How much each recommended journal changes the manuscript (0.54.0).** `manuscript-journal-select/scripts/effort.py`
   measures the manuscript as an editor counts it (reusing manuscript-story's `reader_metrics.parse`: body without
   captions, tables or back matter; abstract; main-text figures, tables and boxes; main sections) and sizes each
