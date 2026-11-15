@@ -577,7 +577,7 @@ def _resolve(key: str, venues: dict[str, dict[str, Any]], seen: set[str]) -> dic
     base = dict(_resolve(parent, venues, seen | {key})) if parent else {}
     # Timelines, fees, editorial assessments, direct-transfer lists and the quoted rules of one journal's page
     # describe that journal (or server), not its parent or sibling.
-    for journal_specific in ("review_speed", "publication_costs", "editorial_profile", "submission_rules",
+    for journal_specific in ("review_speed", "publication_costs", "editorial_profile", "submission_rules", "scope",
                              "limit_quotes", "quoted_from", "transfers", "transfers_checked"):
         base.pop(journal_specific, None)
     if base.get("kind") == "publisher":

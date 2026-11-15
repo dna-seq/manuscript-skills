@@ -88,7 +88,13 @@
 #   quoted_from:   the copy of the page that limit_quotes and submission_rules quote, when it is not the live
 #                  page read on `checked`: {source (an Internet Archive URL), copy_date (the capture), checked
 #                  (when it was read), note (why that copy)}
-#   limit_quotes, submission_rules and quoted_from describe one journal's page and are never inherited.
+#   scope:         the journal's own words on what it publishes, for a cover letter's "why this journal" and a
+#                  presubmission inquiry (manuscript-journal-adapt/scripts/letter.py): {quote (its scope, verbatim),
+#                  article_types ({the journal's name for a type: what its page says of it, verbatim}), presubmission
+#                  (answered | not_answered: whether the editors answer presubmission inquiries; absent is unknown),
+#                  presubmission_quote, source, checked}. A rule that names the cover letter goes in submission_rules,
+#                  where letter.py finds the declarations and points the letter must carry.
+#   limit_quotes, submission_rules, scope and quoted_from describe one journal's page and are never inherited.
 #
 # What the journal asks its referees and its figure rules (optional; venues.py show prints both; manuscript-peer-
 # review quotes reviewer_form in its venue brief, manuscript-figures measures figures against figure_rules). Both

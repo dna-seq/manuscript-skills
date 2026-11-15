@@ -16,6 +16,17 @@ same note orders the smaller misses by skill (limits stated without their cost, 
 scope, reasons for a method's constants, authorship criteria). `comments.py gaps` measures each round against the
 next co-authors' reading.
 
+## Letters to the editor in the run and on the dashboard (not built)
+
+`manuscript-journal-adapt/scripts/letter.py` drafts a cover letter or a presubmission inquiry and traces its claims
+(0.63.0), but only when asked: manuscript-improve does not draft the cover letter at its journal stage, the dashboard
+does not show the letter or its claims file, and its gaps are not To-do items. No venue in the shipped catalogue
+records `scope` yet (the journal's words on its scope, its article types and presubmission inquiries), so each first
+letter to a venue reads its author guide. The shape: improve's journal stage drafts the cover letter for the chosen
+venue once its declarations are final, `collect.py` reads `RUN/manuscript-journal-adapt/*.json` letters into a
+`letters` section shown on the Journals tab, and each gap becomes a To-do item for the authors; `scope` is filled for
+the venues on the ladders as their pages are read.
+
 ## Reply to co-authors inside the Google Doc (not built)
 
 `manuscript-coauthors` records how each co-author comment was answered (the ledger's `why`, the changelog,

@@ -2,8 +2,9 @@
 name: manuscript-journal-adapt
 description: >-
   Adapt manuscripts to a chosen journal and draft concise AI-use statements while preserving scientific
-  meaning. Use for venue formatting, required sections, submission materials, disclosure drafting and
-  target-policy updates.
+  meaning. Use for venue formatting, required sections, submission materials, disclosure drafting,
+  target-policy updates, a cover letter to the editor, and a presubmission inquiry asking whether a paper
+  fits an article type or section.
   Use manuscript-prose-edit for language editing and manuscript-reference-check for citation verification.
   Use manuscript-journal-select for journal shortlists and requirements-based venue comparisons,
   manuscript-policy-fit for clinical-scope, ethics and privacy ambiguity or author
@@ -18,8 +19,9 @@ description: >-
 `../manuscript-integrity-check/references/author-priorities.md` for shared priorities, scope and disclosure
 rules. Editorial paperwork is a constraint to handle pragmatically, not a goal of its own.
 
-Choose the requested mode: **adapt** to a chosen venue or **draft a disclosure**.
-They are independent services, not a mandatory sequence. For prose editing, use `manuscript-prose-edit`.
+Choose the requested mode: **adapt** to a chosen venue, **draft a disclosure**, or **write to the editor** (a cover
+letter or a presubmission inquiry). They are independent services, not a mandatory sequence. For prose editing,
+use `manuscript-prose-edit`.
 Use `manuscript-integrity-check` for an audit when requested or a concrete concern warrants it.
 
 For edits intended to reduce clinical, ethics, privacy or regulatory misclassification, use
@@ -234,6 +236,30 @@ as which parts of the work each tool was used for. A statement that cannot read 
 missing fact is held, with its questions as comments; it never goes into the manuscript as a frame of notes
 ([Questions for the authors are comments, never text](../manuscript-integrity-check/references/author-priorities.md#questions-for-the-authors-are-comments-never-text)).
 
+## Cover letter and presubmission inquiry
+
+Read [letters.md](references/letters.md) and follow it. `scripts/letter.py needs VENUE` lists what the venue's
+facts put in its cover letter (each declaration, the points its pages ask for, its own words on its scope and
+article types, whether it answers presubmission inquiries); read and record what the catalogue lacks before
+drafting. Then write the letter's content to `LETTER.yaml` and run `scripts/letter.py write LETTER.yaml --paper
+PAPER --run RUN`: it writes the letter, and a claims file that traces each claim to its sentences in the
+manuscript, beside this stage's report.
+
+- **A cover letter** says what the paper shows in two or three sentences from the Abstract and Results, claiming
+  no more than they do; why it fits this journal, in the journal's own words on the article type or its scope; a
+  recent related paper the journal published only once its identity is verified; every declaration the venue asks
+  for in the cover letter (the AI-use statement from the short template of
+  `../manuscript-integrity-check/references/disclosure-templates.md`, competing interests, the preprint, data
+  availability, suggested or excluded reviewers when asked); and one closing line.
+- **A presubmission inquiry** asks the editor one question before submission (does this paper fit this article
+  type or section?), with what the paper shows, the journal's rule the question turns on, what the authors will
+  accept as an answer, and the abstract.
+
+The script fails on a claim the manuscript does not make or makes more weakly, on background for the editor (G6),
+on the templated openings and closings of G5 and on a declaration with no source; never invent a fact, a related
+paper, a reviewer or a funder to pass it. What nobody supplied stays as a `[TO FILL: ...]` gap, listed among the
+questions for the authors. The authors send the letter.
+
 ## Report the adaptation
 
 Write the report as [Writing for the authors](../manuscript-integrity-check/references/author-priorities.md#writing-for-the-authors)
@@ -262,6 +288,8 @@ to the manuscript and the report in the same turn and drop the questions they se
   `peers` queries OpenAlex (set `OPENALEX_MAILTO` for its polite pool). Keep the companion skills together.
 - `scripts/ai_use.py`: on request, drafts the AI-use statement from what this run's stages changed (see
   Disclosure).
+- `scripts/letter.py`: `needs` and `write`, the cover letter and the presubmission inquiry
+  ([letters.md](references/letters.md)).
 - [policy-maintenance.md](references/policy-maintenance.md): read when updating the shared catalogue or
   policy snapshots. `scripts/policy_watch.py` checks cited policy pages for changes in AI passages; its
   `--update` (on `check` and `record`) is maintenance, separate from adapting an individual manuscript.

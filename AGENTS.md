@@ -191,6 +191,20 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   body_words_counts` / `abstract_words_counts` (the page's words, or `not_stated`, quoted in `limit_quotes`) are
   printed beside each number by `common` and `show` (`limit_scope`). eLife and MBE carry both in the catalogue.
   Tests: `tests/test_venue_structure.py`.
+- **Cover letters and presubmission inquiries (0.63.0).** `manuscript-journal-adapt/scripts/letter.py needs VENUE`
+  lists what the venue's facts put in its cover letter: a declaration per kind (`ai_use` when `disclosure_places`
+  names the cover letter; competing interests, preprint, data availability, funding, reviewers from a
+  `submission_rules`, `other_desk_rules`, `fit_note` or `editorial_profile` text that names it), the other points,
+  the journal's own words (`scope`: `quote`, `article_types`, `presubmission`, journal-specific in `_resolve`) and
+  whether it answers inquiries. `write LETTER.yaml --paper PAPER --run RUN` writes `cover-letter.VENUE.md` or
+  `presubmission-inquiry.VENUE.md` with `.claims.md` and `.json` beside the stage report. Each sentence about the paper
+  names its passages (`from`, located word for word) or is matched to its closest Abstract or Results sentence; the
+  claim guard's protected claim kinds, a raised quantifier (`QUANTIFIERS`: most → all), a number the sources lack, an
+  Introduction source (G6) or an author note fail it. Declarations rest on passages (no added name or number) or on
+  `given_by`; one that fails is left as a `[TO FILL: ...]` gap, as is each asked-for one nobody gave. A related paper
+  needs `verified` (and, with `--verify-related`, Crossref's journal and a year within three). The letter smells
+  (G5, now in `smell-patterns.yaml`, G1, A1, A3–A5) fail at their first use, short paragraphs included, quotes aside.
+  Procedure and fields: `references/letters.md`. Tests: `tests/test_letters.py` on `tests/fixtures/letters/paper.md`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery
