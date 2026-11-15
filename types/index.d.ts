@@ -63,9 +63,9 @@ export type ManuscriptDecision = {
   section: string | null
   detail: string | null
   action: string | null
-  // the answers the authors can pick, each as the decision words it: the alternatives its action (or else its
-  // summary) lists ("Choose: a, b, or c", "Either a, or b", "a; or, narrower, b"), else the action alone; empty when
-  // nothing is suggested. The pane gives each its own button.
+  // the answers the authors can pick, each as the decision words it: the `options` its findings.json lists (0.61.0),
+  // else the alternatives its action (or else its summary) lists ("Choose: a, b, or c", "Either a, or b", "a; or,
+  // narrower, b"), else the action alone; empty when nothing is suggested. The pane gives each its own button.
   options: string[]
   // the passage it is about and the findings behind it, which a mark copies
   quote: string | null

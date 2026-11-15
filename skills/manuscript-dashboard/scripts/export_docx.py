@@ -441,8 +441,10 @@ def build(data: viz.Inventory, base: Path, revision: dict | None, problems: bool
                 anchor = [heading]
             if anchor is None:
                 continue
+            options = decision.get("options") or next((f.options for f in covered if f.options), [])
             builder.comment(anchor, f"A decision only you can make: {decision['summary'].rstrip('.')}. "
-                            f"({', '.join(dict.fromkeys([decision['id'], *decision['finding_ids']]))})", "Decisions for the authors")
+                            + (f"{viz.options_text(options)} " if options else "")
+                            + f"({', '.join(dict.fromkeys([decision['id'], *decision['finding_ids']]))})", "Decisions for the authors")
             counts["decisions"] += 1
 
     if problems:

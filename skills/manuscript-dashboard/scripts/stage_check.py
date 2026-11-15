@@ -294,9 +294,28 @@ def handoff_problems(doc: Any, skill: str, folder: Path) -> list[str]:
     return out
 
 
+def option_problems(doc: Any) -> list[str]:
+    """A decision's `options`: two to six different alternatives, each a sentence that stands alone, on a decision only;
+    the Decisions pane and the To-do tab show each as its own choice."""
+    out = []
+    for record in doc.get("findings") or []:
+        if "options" not in record:
+            continue
+        options, where = record["options"], f"finding {record.get('id')}"
+        if not isinstance(options, list) or not all(text(o) for o in options):
+            out.append(f"{where}: options is a list of sentences, one per alternative")
+        elif record.get("decision") is not True:
+            out.append(f"{where}: options belong to a decision (decision: true); a fix the evidence settles is the action")
+        elif len(options) == 1 or len(options) > 6:
+            out.append(f"{where}: options lists {len(options)}; give 2 to 6 alternatives, or put a single change in action")
+        elif len({" ".join(o.split()).casefold() for o in options}) < len(options):
+            out.append(f"{where}: options lists the same alternative twice")
+    return out
+
+
 def problems(doc: Any, skill: str, folder: Path, inputs: list[dict]) -> list[str]:
     """Every problem in one stage's findings.json; the shape first, since nothing else can be read without it."""
-    return fatal(doc) or (placement(doc, skill, folder, inputs) + comprehension_problems(doc)
+    return fatal(doc) or (placement(doc, skill, folder, inputs) + comprehension_problems(doc) + option_problems(doc)
                           + handoff_problems(doc, skill, folder))
 
 

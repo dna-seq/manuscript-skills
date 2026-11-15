@@ -19,6 +19,7 @@ import {
   answerDraft,
   answersMessage,
   buildView,
+  carryAnswers,
   counts,
   decisionKeys,
   duration,
@@ -330,6 +331,13 @@ async function setAnswer(
     return choice ? { ...rest, [key]: { choice, isSent, ...chosen, ...filed } } : rest
   })
   if (v.todo) await refresh($)
+  else await showStatus($)
+}
+
+// The status line, with the decisions still open: said again after every answer, not only at the next refresh.
+async function showStatus($: $): Promise<void> {
+  const v = await read($, view)
+  if (v) $.ui.status(statusLine(v, tally(v, await read($, answers)).open))
 }
 
 async function notify($: $, text: string): Promise<void> {
@@ -354,7 +362,9 @@ async function announce($: $, before: ManuscriptRunView | null, after: Manuscrip
   if (!before.waitingFor && after.waitingFor) {
     await notify($, `${after.label} waits for your answer: ${after.waitingFor.questions.join(' · ')}`)
   } else if (!before.isWaiting && after.isWaiting) {
-    await notify($, `${after.label}: ${after.decisions.length} decisions wait for you`)
+    // the decisions still open, not all of them: some may be answered while the run went on
+    const { open } = tally(after, await read($, answers))
+    await notify($, open > 0 ? `${after.label}: ${plural(open, 'decision')} wait${open === 1 ? 's' : ''} for you` : `${after.label}: every decision is answered`)
   } else if (!before.isFinished && after.isFinished) {
     await notify($, `${after.label}: the run finished`)
   }
@@ -385,9 +395,10 @@ async function refresh($: $, isForced = false): Promise<void> {
     await readMarks($, marksFile(data, findings))
     const next = buildView({ runPath: run, data, findings, files, referees, title, marks, now: await $.clock.now() })
     const before = await read($, view)
+    await update($, answers, all => carryAnswers(next, all) ?? all)
     await update($, view, () => next)
     await update($, problem, () => null)
-    $.ui.status(statusLine(next, tally(next, await read($, answers)).open))
+    await showStatus($)
     await announce($, before, next)
   })().finally(() => {
     refreshing = null
@@ -431,11 +442,12 @@ async function show($: $, given: string): Promise<string> {
   await $.ui.open({ id: PANE, title: TITLE })
   const v = await read($, view)
 
-  return v ? summary(v) : ((await read($, problem)) ?? `Could not read ${found}/run.json.`)
+  return v ? summary(v, tally(v, await read($, answers)).open) : ((await read($, problem)) ?? `Could not read ${found}/run.json.`)
 }
 
-function summary(v: ManuscriptRunView): string {
-  const lines = [statusLine(v), ...(v.title ? [`Manuscript: ${v.title}`] : []), `Run: ${v.runPath}`]
+// `open`: the decisions with neither an answer in the pane nor a mark in STEM.todo.json.
+function summary(v: ManuscriptRunView, open: number): string {
+  const lines = [statusLine(v, open), ...(v.title ? [`Manuscript: ${v.title}`] : []), `Run: ${v.runPath}`]
   for (const phase of v.phases) {
     const own = v.stages.filter(stage => stage.phase === phase.id)
     const parts = own.map(stage => `${stage.label} ${stage.state}${counts(stage) ? ` (${counts(stage)})` : ''}`)
@@ -445,7 +457,7 @@ function summary(v: ManuscriptRunView): string {
   const marked = v.decisions.filter(one => one.mark).length
   if (v.decisions.length) {
     const where = marked && v.todo ? `, ${marked} of them marked in ${v.todo.path}` : ''
-    lines.push(`${v.decisions.length} decisions for the authors${where}.`)
+    lines.push(`${v.decisions.length} decisions for the authors${where}; ${open} still open.`)
   }
   if (v.setup.length) lines.push('For a better run (nothing waits for this):', ...v.setup.map(note => `- ${note.message}`))
   if (v.dashboard) lines.push(`Dashboard: ${v.dashboard}`)

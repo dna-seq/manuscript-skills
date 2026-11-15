@@ -372,7 +372,7 @@ test('a run that stops for an answer says so, apart from the decisions held for 
     const decisions = await $.ui.mount({ ...DECISIONS, surface })
     expect(await decisions.find({ type: 'Text', text: '· Which journal should the paper go to first?' })).toBeDefined()
     expect(await decisions.find({ type: 'Button', key: 'answer-question-0' })).toBeDefined()
-    expect(await decisions.find({ type: 'Button', key: 'decision-20261027T125139Z-488af17b:Integrity check:IC-2' })).toBeDefined()
+    expect(await decisions.find({ type: 'Button', key: 'decision-20261027T125139Z-488af17b:decision:IC-2' })).toBeDefined()
     await decisions.unmount()
   }
 })
@@ -438,7 +438,7 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   on('prompt.fill', (_, e) => (filled.push(e.text), { isFilled: true }))
   await $.command.run({ ...TYPED, args: RUN })
 
-  const key = (id: string) => `20261027T125139Z-488af17b:Integrity check:${id}`
+  const key = (id: string) => `20261027T125139Z-488af17b:decision:${id}`
   const rows = async (ui: { findAll: (query: { type: string }) => Promise<{ key: string | undefined }[]> }) =>
     (await ui.findAll({ type: 'Button' })).filter(one => one.key?.startsWith('decision-'))
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -599,9 +599,9 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
   on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
   on('prompt.submit', (_, e) => (submitted.push(e), { text: e.text }))
   const answer = await $.command.run({ ...TYPED, args: RUN })
-  expect(answer.text).toContain(`4 decisions for the authors, 1 of them marked in ${TODO}.`)
+  expect(answer.text).toContain(`4 decisions for the authors, 1 of them marked in ${TODO}; 3 still open.`)
 
-  const key = (id: string) => `${RUN_ID}:Dashboard:${id}`
+  const key = (id: string) => `${RUN_ID}:decision:${id}`
   const row = async (ui: { find: (q: { type: string; key: string }) => Promise<{ text?: string } | undefined> }, id: string) =>
     (await ui.find({ type: 'Button', key: `decision-${key(id)}` }))?.text
   const marks = () => (JSON.parse(files.get(TODO)!) as MarksFile).marks
@@ -724,7 +724,7 @@ test('before the dashboard lists the decisions, the pane neither reads nor write
   on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
   await $.command.run({ ...TYPED, args: RUN })
 
-  const key = '20261027T125139Z-488af17b:Integrity check:IC-2'
+  const key = '20261027T125139Z-488af17b:decision:IC-2'
   const pane = await $.ui.mount({ ...DECISIONS, surface: 'terminal' })
   expect(await pane.find({ type: 'Text', text: /To-do tab saves/ })).toBeUndefined()
   await pane.press({ key: `decision-${key}` })
@@ -832,6 +832,21 @@ test('a decision\'s options are the alternatives its action lists, each in its o
   }
   expect(decisionOptions(null, 'Keep the names on the figures?')).toEqual([])
   expect(decisionOptions('', '')).toEqual([])
+  // options a findings.json lists win over the action's prose, the adjudication's own over a linked finding's;
+  // a list that is no choice (one option) is not read as options
+  const found = summarizeFindings({
+    findings: [
+      { id: 'ST-2', summary: 'MCP paragraph', decision: true, action: 'Choose: a, b, or c.', options: ['Keep it, with the bridge', 'Cut it'] },
+      { id: 'ST-7', summary: 'Figure 4', decision: true, action: 'Either keep it, or drop it.', options: ['Only one'] },
+      { id: 'ST-9', summary: 'Linked', decision: true, options: ['Narrow it', 'Rerun it'] },
+    ],
+    decisions: [{ id: 'D1', summary: 'Benchmark', finding_ids: ['ST-9'], options: ['Narrow the claim', 'Rerun on three machines'] }],
+  })!
+  expect(Object.fromEntries(found.decisions.map(one => [one.id, one.options]))).toEqual({
+    D1: ['Narrow the claim', 'Rerun on three machines'],
+    'ST-2': ['Keep it, with the bridge', 'Cut it'],
+    'ST-7': undefined,
+  })
 })
 
 test('an option\'s words go in front of the reason the To-do tab gave, and come out again', () => {
@@ -845,4 +860,72 @@ test('an option\'s words go in front of the reason the To-do tab gave, and come 
   expect(ownReason('The names stay.')).toBe('The names stay.')
   // a lone suggestion: approved says it, so only the tab's reason
   expect(optionReason({ options: ['Choose a licence.'] } as Parameters<typeof optionReason>[0], 1, 'Chose: x — kept')).toBe('kept')
+})
+
+// The count of decisions waiting drops with each answer, in the pane, the band and the status line at once, and stays
+// down when the dashboard's inventory takes over the list: an answer given to a stage's decision is carried to the
+// adjudicated decision that links it. Before 0.61.0 answers were addressed by stage, and every stage reads
+// "Dashboard" once the inventory lists the decisions, so the answers given before were lost and the count went back up.
+test('the waiting count drops with each answer and stays down when the dashboard lists the decisions', async ($, on) => {
+  const RUN_ID = '20261027T125139Z-488af17b'
+  const stageFindings = {
+    findings: [
+      { id: 'IC-1', summary: 'Which journal comes first', section: 'Cover letter', decision: true },
+      { id: 'IC-2', summary: 'Consent of a named author', section: 'Ethics Statement', decision: true },
+      { id: 'IC-3', summary: 'Keep Figure 4?', section: 'Results', decision: true, action: 'Either keep it, or drop it.' },
+    ],
+  }
+  const data = runJson('completed', 'completed')
+  const version = { n: 1 }
+  const files = new Map<string, string>([
+    [`${RUN}/run.json`, JSON.stringify(data)],
+    [`${RUN}/manuscript-integrity-check/findings.json`, JSON.stringify(stageFindings)],
+  ])
+  const statuses: (string | undefined)[] = []
+  folder(on, files, version)
+  mock.clock(on, { now: Date.parse(at(59)) })
+  mock.store(on)
+  mock.env(on, { HOME: '/home/user' })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', (_, e) => (statuses.push(e.text), { value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.command.run({ ...TYPED, args: RUN })
+  expect(statuses.at(-1)).toContain('3 decisions wait for you')
+
+  const key = (id: string) => `${RUN_ID}:decision:${id}`
+  const waiting = async (ui: { find: (q: { type: string; text: RegExp }) => Promise<{ text?: string } | undefined> }) =>
+    (await ui.find({ type: 'Text', text: /wait for you$|answered$/ }))?.text
+  const pane = await $.ui.mount({ ...DECISIONS, surface: 'desktop' })
+  await pane.press({ key: `decision-${key('IC-2')}` })
+  await pane.press({ key: `leave-${key('IC-2')}` })
+  // at once, with no refresh between: the pane and the status line
+  expect(await waiting(pane)).toBe('2 of 3 decisions wait for you')
+  expect(statuses.at(-1)).toContain('2 decisions wait for you')
+  await pane.press({ key: `decision-${key('IC-3')}` })
+  await pane.press({ key: `option-2-${key('IC-3')}` })
+  expect(await waiting(pane)).toBe('1 of 3 decisions wait for you')
+  expect(statuses.at(-1)).toContain('1 decision waits for you')
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect((await band.find({ type: 'Text', text: /wait/ }))?.text).toContain('1 decision waits for you')
+  await band.unmount()
+
+  // the dashboard's inventory arrives: D1 links IC-2, IC-3 stays a decision of its own; the answers follow them
+  data.skills['manuscript-dashboard'] = { ...empty, status: 'completed' }
+  files.set(`${RUN}/run.json`, JSON.stringify(data))
+  files.set(
+    `${RUN}/manuscript-dashboard/findings.json`,
+    JSON.stringify({ ...stageFindings, decisions: [{ id: 'D1', summary: 'Consent: confirm it, or narrow the sentence.', finding_ids: ['IC-2'] }] }),
+  )
+  version.n = 2
+  const answer = await $.command.run({ ...TYPED, args: RUN })
+  expect(await waiting(pane)).toBe('1 of 3 decisions wait for you')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('D1')}` }))?.text).toEndWith('· leave as is')
+  expect((await pane.find({ type: 'Button', key: `decision-${key('IC-3')}` }))?.text).toEndWith('· chose 2: Drop it')
+  expect(statuses.at(-1)).toContain('1 decision waits for you')
+  // /manuscript-status counts the open ones too, not all of them
+  expect(answer.text).toContain('3 decisions for the authors; 1 still open.')
+  expect(answer.text).toContain('1 decision waits for you')
+  await pane.unmount()
 })

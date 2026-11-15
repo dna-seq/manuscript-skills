@@ -94,7 +94,8 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
   "merge": [{"keep": "IC-3", "ids": ["RF-2", "ST-5"], "summary": "optional better wording"}],
   "update": [{"id": "RP-4", "assessment": "confirmed", "evidence": [{"path": "../manuscript-integrity-check/stage-report.md", "quote": "..."}]}],
   "dismiss": [{"id": "DS-7", "why": "A module name, not hype."}],
-  "decisions": [{"id": "D1", "summary": "Narrow the speed claim or rerun the benchmark", "finding_ids": ["IC-3"]}],
+  "decisions": [{"id": "D1", "summary": "Narrow the speed claim or rerun the benchmark", "finding_ids": ["IC-3"],
+                 "options": ["Narrow the speed claim to the tested machine", "Rerun the benchmark on the three machines"]}],
   "change_links": [{"change": "prose-edit.C1", "finding_ids": ["IC-2"]}],
   "addressed": ["IC-2"]
 }
@@ -120,7 +121,9 @@ write those decisions in `RUN/manuscript-dashboard/merges.json`:
   referee's `optional` to `info` and `uncertain` to `unknown`.
 - **Decisions** you write join the stages' own: the dashboard lists every decision in `merges.json`, then
   each finding marked `decision: true` (a figure to add or move, a direction, new work) that none of them
-  links, so writing one decision never hides the others.
+  links, so writing one decision never hides the others. A decision that offers a choice lists it in `options`,
+  two to six alternatives each saying the whole change ([stage findings](references/stage-findings.md#rules));
+  give the decision its own when it joins findings whose options differ, since the authors answer by naming one.
 - **What the authors marked redundant stays dismissed.** For each mark collect lists in `todo.restated`, and each
   problem or decision you recognise in `todo.marks` reworded, dismiss this run's record when the mark is
   `redundant`, with their reason as the why ("Marked redundant by the authors in run R1: the code changed."), and

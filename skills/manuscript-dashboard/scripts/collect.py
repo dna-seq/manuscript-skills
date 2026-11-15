@@ -190,7 +190,9 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
                 "resolution": "open", "skills": [skill], "evidence": evidence,
                 "stage": record.get("stage") if record.get("stage") in viz.STAGES else "unknown",
                 "quote": record.get("quote"), "detail": record.get("detail", "") + web, "action": record.get("action", ""),
-                "decision": bool(record.get("decision")), "sources": [{"skill": skill, "id": record["id"]}]})
+                "decision": bool(record.get("decision")),
+                "options": [str(o) for o in record["options"]] if isinstance(record.get("options"), list) else [],
+                "sources": [{"skill": skill, "id": record["id"]}]})
         for record in doc.get("dismissed", []):
             found["dismissed"].append({"skill": skill, "summary": record["summary"], "why": record.get("why") or "No reason recorded."})
         for record in doc.get("not_checked", []):
@@ -862,7 +864,10 @@ def apply_merges(inventory: dict, merges: dict, out_dir: Path, base: Path) -> No
             if other["stage"] != "unknown" and (keep["stage"] == "unknown" or viz.STAGES.index(other["stage"]) < viz.STAGES.index(keep["stage"])):
                 keep["stage"] = other["stage"]
             keep["decision"] = keep["decision"] or other["decision"]
-        for key in ("summary", "category", "section", "severity", "stage", "detail", "action", "assessment", "quote"):
+            if not keep.get("options") and other.get("options"):
+                keep["options"] = other["options"]
+        for key in ("summary", "category", "section", "severity", "stage", "detail", "action", "assessment", "quote",
+                    "options"):
             if key in merge:
                 keep[key] = merge[key]
     for update in merges.get("update", []):

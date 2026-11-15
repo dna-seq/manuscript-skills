@@ -881,6 +881,10 @@ __REVISION_HTML__
   }
   // A comment: the problem, its severity and kind; selected, it opens to the detail, what to do, the skills' own
   // words, when to fix it, who found it and its ID. Closed comments stay short, so each sits beside its passage.
+  // A decision's alternatives, numbered as the Decisions pane in Claude Code numbers its buttons.
+  function optionList(options) {
+    return h('ol', {class: 'options', style: 'margin: 4px 0 0; padding-left: 1.4em'}, options.map(o => h('li', null, o)));
+  }
   function commentCard(f, unlocated) {
     return h('div', {class: `comment s-${f.severity}`, 'data-note': f.id, tabindex: 0, role: 'note'},
       h('h4', null, f.summary),
@@ -888,6 +892,7 @@ __REVISION_HTML__
         f.decision ? 'authors\' decision' : null, unlocated ? 'passage not found in the text' : null].filter(Boolean).join(' · ')),
       f.detail ? h('p', {class: 'more'}, f.detail) : null,
       f.action ? h('p', {class: 'more'}, h('strong', null, 'What to do: '), f.action) : null,
+      (f.options || []).length ? h('div', {class: 'more'}, h('strong', null, 'Options: '), optionList(f.options)) : null,
       f.evidence.length ? h('details', {class: 'more'}, h('summary', null, 'In the skills\' own words'), said(f.evidence)) : null,
       h('div', {class: 'foot more'}, `${STAGE_LABEL[f.stage]} · found by ${[...new Set(f.skills)].map(skillName).join(', ')} · ${f.id}`,
         panels.findings ? [' · ', link('In the problem table', e => { e.stopPropagation(); openFinding(f.id); })] : null));
@@ -1409,6 +1414,7 @@ __REVISION_HTML__
     add('The passage', f.quote ? h('blockquote', null, f.quote) : null, located.has(f.id) ? link('Show it in the manuscript', () => openInPaper(f.id)) : null);
     add('What is wrong', f.detail);
     add('What to do', f.action);
+    add('Options', (f.options || []).length ? optionList(f.options) : null);
     add('In the skills\' own words', said(f.evidence));
     add('Kind, section and stage', `${f.category} · ${f.section} · ${STAGE_LABEL[f.stage]} · ${SEV_LABEL[f.severity]}`);
     add('Merged from', f.sources.map(s => h('span', {class: 'tag'}, `${skillName(s.skill)}: ${s.id}`)));
@@ -1908,6 +1914,7 @@ __REVISION_HTML__
         if (t.quote) out.push(h('blockquote', null, t.quote));
         if (t.detail) out.push(h('p', {style: 'margin: 6px 0 0'}, t.detail));
         if (t.action) out.push(h('p', {style: 'margin: 6px 0 0'}, h('strong', null, t.kind === 'decision' ? 'Suggested: ' : 'Fix: '), t.action));
+        if ((t.options || []).length) out.push(h('div', {style: 'margin: 6px 0 0'}, h('strong', null, 'Options: '), optionList(t.options)));
       }
       return out;
     };

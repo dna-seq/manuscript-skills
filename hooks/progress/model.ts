@@ -65,6 +65,8 @@ export type FindingsSummary = {
     detail?: string
     action?: string
     quote?: string
+    // the alternatives the decision or a finding behind it lists (`options` in findings.json), when it lists them
+    options?: string[]
     findingIds: string[]
   }[]
 }
@@ -595,8 +597,9 @@ function alternatives(sentence: string): string[] {
   return options
 }
 
-// The answers the authors can pick for a decision: the alternatives the first sentence of its action that lists
-// some names, else those of its summary, else the action alone. A sentence ends at a full stop before a capital,
+// The answers the authors can pick for a decision when its findings.json lists no `options` (every run before
+// 0.61.0, and a stage that wrote none): the alternatives the first sentence of its action that lists some names,
+// else those of its summary, else the action alone. A sentence ends at a full stop before a capital,
 // outside brackets.
 export function decisionOptions(action: string | null | undefined, summary?: string | null): string[] {
   for (const text of [action, summary]) {
@@ -656,7 +659,7 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
         section: one.section || null,
         detail: one.detail || null,
         action: one.action || null,
-        options: decisionOptions(one.action, one.summary),
+        options: one.options ?? decisionOptions(one.action, one.summary),
         quote: one.quote || null,
         findingIds: one.findingIds,
         mark: markOf(['decision'], one.id),
@@ -683,15 +686,42 @@ function decisions(g: Gathered, stages: ManuscriptStage[]): ManuscriptDecision[]
   return list
 }
 
-// Each decision's address, the same across refreshes: its run, stage and id, made unique where two share them.
+// Each decision's address, the same across refreshes: its run, kind and id, made unique where two share them. Not
+// its stage: once the dashboard's inventory lists the decisions every stage reads "Dashboard", and an address with
+// the stage in it lost every answer given before (0.61.0).
 export function decisionKeys(runId: string, list: ManuscriptDecision[]): string[] {
   const seen = new Set<string>()
   return list.map((one, n) => {
-    let key = `${runId}:${one.stage}:${one.id || n}`
+    let key = `${runId}:${one.kind}:${one.id || n}`
     if (seen.has(key)) key = `${key}#${n}`
     seen.add(key)
     return key
   })
+}
+
+// The answers with each one this run's list no longer addresses moved to the decision that now holds it: the same
+// id, or the adjudicated decision that links the stage's finding it answered (ST-7 in D3), when that decision has no
+// answer of its own. Answers kept under the addresses of panes before 0.61.0 (run, stage, id) move the same way.
+// Null when nothing moves.
+export function carryAnswers(
+  view: ManuscriptRunView,
+  given: Record<string, ManuscriptAnswer>,
+): Record<string, ManuscriptAnswer> | null {
+  const keys = decisionKeys(view.runId, view.decisions)
+  const current = new Set(keys)
+  const next = { ...given }
+  let isMoved = false
+  for (const [key, answer] of Object.entries(given)) {
+    if (current.has(key) || !key.startsWith(`${view.runId}:`)) continue
+    const id = key.split(':').at(-1)!.replace(/#\d+$/, '')
+    const n = view.decisions.findIndex((one, i) => !next[keys[i]!] && (one.id === id || one.findingIds.includes(id)))
+    if (n < 0) continue
+    next[keys[n]!] = answer
+    delete next[key]
+    isMoved = true
+  }
+
+  return isMoved ? next : null
 }
 
 const where = (one: ManuscriptDecision) => `${one.id}${one.section ? ` (${one.section})` : ''}`
@@ -920,29 +950,42 @@ export function summarizeFindings(parsed: unknown): FindingsSummary | null {
     quote?: string | null
     decision?: boolean
     assessment?: string
+    options?: unknown
   }
-  type Decision = { id?: string; summary?: string; finding_ids?: unknown }
+  type Decision = { id?: string; summary?: string; finding_ids?: unknown; options?: unknown }
   const findings = body.findings as Finding[]
   const adjudicated = Array.isArray(body.decisions) ? (body.decisions as Decision[]) : []
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined)
   const idsOf = (one: Decision) => (Array.isArray(one.finding_ids) ? one.finding_ids.map(String) : [])
+  // two to six sentences, as stage_check requires; anything else is not read as options
+  const listOf = (value: unknown) =>
+    Array.isArray(value) && value.length >= 2 && value.length <= 6 && value.every(o => typeof o === 'string' && o.trim())
+      ? (value as string[]).map(o => o.trim())
+      : undefined
   const linked = new Set(adjudicated.flatMap(idsOf))
   const byId = new Map(findings.map(one => [String(one.id ?? ''), one]))
   const listed = [
-    ...adjudicated.map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? ''), findingIds: idsOf(one) })),
+    ...adjudicated.map(one => ({
+      id: String(one.id ?? ''),
+      summary: String(one.summary ?? ''),
+      findingIds: idsOf(one),
+      own: listOf(one.options),
+    })),
     ...findings
       .filter(one => one.decision === true && one.assessment !== 'dismissed' && !linked.has(String(one.id ?? '')))
-      .map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? ''), findingIds: [String(one.id ?? '')] })),
+      .map(one => ({ id: String(one.id ?? ''), summary: String(one.summary ?? ''), findingIds: [String(one.id ?? '')], own: undefined })),
   ]
 
   return {
     findings: findings.length,
     proposals: Array.isArray(body.changes) ? body.changes.length : 0,
-    decisions: listed.map(one => {
+    decisions: listed.map(({ own, ...one }) => {
       const behind = one.findingIds.map(id => byId.get(id)).filter((f): f is Finding => f !== undefined)
       const first = (field: 'quote' | 'detail' | 'action') => behind.map(f => text(f[field])).find(Boolean)
+      const options = own ?? behind.map(f => listOf(f.options)).find(Boolean)
       return {
         ...one,
+        ...(options ? { options } : {}),
         section: text([...new Set(behind.map(f => text(f.section)).filter(Boolean))].join(', ')),
         detail: first('detail'),
         action: first('action'),
@@ -977,7 +1020,7 @@ export function statusLine(view: ManuscriptRunView, open = view.decisions.length
   const done = view.stages.filter(stage => FINISHED.includes(stage.state)).length
   const parts = [view.label, `${done} of ${view.stages.length} stages`]
   if (view.waitingFor) parts.push(`waits for your answer (${plural(view.waitingFor.questions.length, 'question')})`)
-  else if (view.isWaiting) parts.push(open > 0 ? `${open} decisions wait for you` : 'decisions answered')
+  else if (view.isWaiting) parts.push(open > 0 ? `${plural(open, 'decision')} wait${open === 1 ? 's' : ''} for you` : 'decisions answered')
   else if (view.isFinished) parts.push('finished')
   else if (view.current) {
     const running = view.stages.some(stage => stage.label === view.current && stage.state === 'running')

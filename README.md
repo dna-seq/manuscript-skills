@@ -304,7 +304,8 @@ Claude** sends the chosen options and leaves in one message, as yours, naming ea
 session the pane is in. Once the run has made its dashboard, the pane and the dashboard's To-do tab list the
 same decisions and share one file, `STEM.todo.json` beside the manuscript: an option marks a decision approved
 there, with its words in the mark's reason (`Chose: ...`), and **Leave the text as it is** marks it redundant,
-at once, keeping every other mark in the file, and a
+at once (the stages list a decision's options in `findings.json`, and the To-do tab, the Word review and the
+Google Doc comments number them the same way), keeping every other mark in the file, and a
 decision you marked in the To-do tab counts as answered in the pane, with your mark and reason on its row. The
 next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
@@ -691,7 +692,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.60.0},
+  version = {0.61.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

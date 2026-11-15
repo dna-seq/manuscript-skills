@@ -27,6 +27,7 @@ a seat that failed) and manuscript-mark-people (it writes a people list).
       "stage": "now | writing | journal | final",
       "confidence": "confirmed | candidate",
       "decision": false,
+      "options": ["only on a decision: each alternative the authors choose between, as an instruction that stands alone"],
       "evidence": [{"path": "stage-report.md", "quote": "a verbatim sentence from that file that states this finding"}]
     }
   ],
@@ -98,6 +99,15 @@ the next attempt (`findings.2.json`), never in a registered file.
   (a change of direction, which figures the paper has, a venue's rules before the choice, new analyses or
   data, a fact only they have, a policy conflict) and the choice between more evidence and a narrower
   claim. A correction the evidence settles is not a decision, and neither is a failed check.
+- `options` (0.61.0), on a `decision: true` finding that offers a choice: two to six alternatives, each one sentence
+  that says the whole change on its own, as an instruction ("Keep the paragraph with the bridge (ST-C1)", "Cut it to
+  one sentence beside the downloads, the rest to the supplement", "Leave the MCP server out until it has users").
+  Each becomes its own button in the Decisions pane and a numbered line in the To-do tab and the reviews, so the
+  authors' answer names one; never "the first" or "as above". `action` still says what to do in prose and may name
+  the option you recommend. A decision with one way forward has no `options`; its `action` is that way. Without
+  `options` the pane reads the alternatives from the `action`'s "Choose: a, b, or c" or "Either a, or b", which
+  fails on alternatives that hold commas of their own. `stage_check.py` refuses `options` on a finding that is no
+  decision, a single option, more than six, or the same one twice.
 - `evidence[].path` is relative to the skill's run folder, or absolute; each `quote` must occur verbatim
   in that file. Cite the report's sentence for the finding, and add the code file, command output or
   source page when that is what settles it. Collect refuses an inventory whose quotes are not in their

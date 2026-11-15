@@ -157,6 +157,23 @@ class Record(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+MAX_OPTIONS = 6
+
+
+def checked_options(options: list[str], owner: str) -> list[str]:
+    """A decision's alternatives: none, or two to six different ones (one is an action, not a choice)."""
+    if len(options) == 1 or len(options) > MAX_OPTIONS:
+        raise ValueError(f"{owner} lists {len(options)} options; give 2 to {MAX_OPTIONS} alternatives, or none")
+    if len({" ".join(o.split()).casefold() for o in options}) < len(options):
+        raise ValueError(f"{owner} lists the same option twice")
+    return options
+
+
+def options_text(options: list[str]) -> str:
+    """The alternatives as one sentence for a comment: "Options: (1) keep it; (2) cut it."""
+    return "Options: " + "; ".join(f"({n}) {o.rstrip('.;')}" for n, o in enumerate(options, 1)) + "." if options else ""
+
+
 class Evidence(Record):
     path: Text
     quote: Annotated[str, Field(min_length=1)]
@@ -191,7 +208,16 @@ class Finding(Record):
     detail: str = ""
     action: str = ""
     decision: bool = False
+    # on a decision: the alternatives the authors choose between, each an instruction that stands alone
+    options: list[Text] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def options_fit(self) -> Finding:
+        checked_options(self.options, f"Finding {self.id}")
+        if self.options and not self.decision:
+            raise ValueError(f"Finding {self.id} lists options but is no decision; options are the authors' choice")
+        return self
 
 
 class Change(Record):
@@ -243,6 +269,13 @@ class Decision(Record):
     id: Identity
     summary: Text
     finding_ids: list[Identity] = Field(default_factory=list)
+    # the alternatives, when the adjudication words them for the whole decision; else those of a linked finding
+    options: list[Text] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def options_fit(self) -> Decision:
+        checked_options(self.options, f"Decision {self.id}")
+        return self
 
 
 class Recommendation(Record):
@@ -961,7 +994,7 @@ def decision_list(data: Inventory) -> list[dict]:
     none of them links, so writing one decision never hides the stages' own."""
     linked = {fid for decision in data.decisions for fid in decision.finding_ids}
     return [*(d.model_dump() for d in data.decisions),
-            *({"id": f.id, "summary": f.summary, "finding_ids": [f.id]} for f in data.findings
+            *({"id": f.id, "summary": f.summary, "finding_ids": [f.id], "options": f.options} for f in data.findings
               if f.decision and f.assessment != "dismissed" and f.id not in linked)]
 
 
@@ -987,7 +1020,7 @@ def todo_items(data: Inventory, revision: dict | None = None) -> list[dict]:
             asked[change.id] = [change.comment]
     held = {item["id"] for item in (revision or {}).get("held", [])}
     blank = {"status": "", "questions": [], "why": "", "before": None, "after": None, "anchor": None, "quote": None,
-             "category": "", "severity": "", "stage": "", "detail": "", "action": ""}
+             "category": "", "severity": "", "stage": "", "detail": "", "action": "", "options": []}
     items: list[dict] = []
     answered = {fid for c in data.changes if c.id in in_text for fid in c.finding_ids}
     for decision in decision_list(data):
@@ -998,6 +1031,7 @@ def todo_items(data: Inventory, revision: dict | None = None) -> list[dict]:
                               "quote": next((f.quote for f in linked if f.quote), None),
                               "detail": next((f.detail for f in linked if f.detail), ""),
                               "action": next((f.action for f in linked if f.action), ""),
+                              "options": decision.get("options") or next((f.options for f in linked if f.options), []),
                               "finding_ids": decision["finding_ids"]})
     for change in data.changes:
         questions = asked.get(change.id, [])

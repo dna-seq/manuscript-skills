@@ -329,6 +329,7 @@ def comment_text(item: dict, data: viz.Inventory) -> str:
             body = f"The proposal “{summary}” is not in this version." + (f" Why: {item['why']}" if item["why"] else "")
     elif item["kind"] == "decision":
         body = f"A decision only you can make: {item['summary'].rstrip('.')}." + (f" {item['detail']}" if item["detail"] else "") \
+               + (f" {viz.options_text(item['options'])}" if item.get("options") else "") \
                + (f" Problems: {ids_text(item['finding_ids'])}." if item["finding_ids"] else "")
     else:
         body = (f"{item['summary'].rstrip('.')} ({SEVERITY.get(item['severity'], item['severity'])}, "

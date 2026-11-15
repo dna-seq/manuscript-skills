@@ -28,7 +28,7 @@ adjudicator's responsibility ([SKILL.md](../SKILL.md#2-adjudicate-one-record-per
 | `signals` | raw output screened before adjudication: `skill`, `check`, `count`, `note` (scanner hits by check, referee proposals, reader concerns). |
 | `dismissed` | flags examined and rejected: `skill`, `summary`, `why`. Counted with dismissed findings, never as problems. |
 | `not_checked` | checks that could not run: `skill`, `check`, `why`, `leaves_open`. |
-| `decisions` | choices only the authors can make, as the adjudication wrote them: `id`, `summary`, `finding_ids`. The dashboard lists these and then every finding with `decision: true` that none of them links; one written decision never hides the stages' own. |
+| `decisions` | choices only the authors can make, as the adjudication wrote them: `id`, `summary`, `finding_ids`, and optionally `options` (two to six alternatives worded for the whole decision; without them, a linked finding's). The dashboard lists these and then every finding with `decision: true` that none of them links; one written decision never hides the stages' own. |
 | `panel` | `readers` (`seat`, `takeaway`, `stopped_at`, `next`, `left`, `dips`, `path`, `round`, `isolation`, `model`), the simulated reviewers' `recommendations` (`seat`, `venue`, `recommendation`, `reason`) and `reviewers` (`seat`, `summary`, `strengths`, `isolation`, `model`, and `concerns`: `id`, `severity`, `location`, `concern`, `suggestion`, `route`, `placement`, `cost`, `defence`, `verdict`, `verdict_evidence`, `finding_ids`). |
 | `reference` | a review to compare with; [below](#reference-review). |
 | `figures` | optional, from `manuscript-figures`; [below](#figures). |
@@ -48,8 +48,9 @@ findings of its own.
 ## Findings
 
 Each finding has `id`, `category`, `section`, `summary`, `severity`, `assessment`, `resolution`,
-`skills` and `evidence`, and in version 2 optionally `stage`, `quote`, `detail`, `action`, `decision` and
-`sources`. Use the category names of [stage findings](stage-findings.md#rules).
+`skills` and `evidence`, and in version 2 optionally `stage`, `quote`, `detail`, `action`, `decision`,
+`options` (0.61.0: on a decision only, two to six alternatives, as [stage findings](stage-findings.md#rules) says) and
+`sources`. A merge keeps the first merged finding's `options` that has some. Use the category names of [stage findings](stage-findings.md#rules).
 
 - `severity`: `blocker`, `major`, `minor`, `info` or `unknown`, shown as Blocker, Major, Minor, Optional and
   Could not be checked ([stage findings](stage-findings.md#rules) has the mapping: a referee's `optional` is
@@ -238,6 +239,9 @@ run, at most once:
 | `reason`, `marked_at` | The authors' reason or answer (optional) and when they marked it (ISO 8601); of two marks on one item, the later wins. |
 | `summary`, `section`, `category`, `quote`, `action`, `before`, `after`, `anchor`, `finding_ids` | What the item said, so a later run whose IDs are its own recognises it. |
 
+A decision's item carries `options`, the decision's own or else those of the first linked finding that has some,
+which the tab lists numbered as the Decisions pane numbers its buttons, and the Word review and the Google Doc
+comments say as "Options: (1) ...; (2) ...".
 The tab's items are computed, never stored (`dashboard.todo_items`): the decisions, the applied edits that ask a
 question, the proposals in this version or waiting for an answer (a held proposal is not one) and the open blocker
 or major problems none of those and no edit in the text answers. An item restates a mark when it says word for word

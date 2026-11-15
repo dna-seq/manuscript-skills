@@ -144,7 +144,21 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   in a new session**. The answer is `choice: 'option'` with `option` and `optionText`; the mark is approved with
   `Chose: <words>` in front of the tab's reason (`optionReason`, `ownReason`), which `todo.py` hands the stages as
   the authors' note; the message to Claude says "Chosen (option 2 of 3): ...". `go-ahead` answers of older panes
-  still read. Stages still write options as prose: a structured `options` field on findings would spare the parse.
+  still read.
+- **Options in findings.json, and a count that drops (0.61.0).** A `decision: true` finding, and an adjudicated
+  decision in `merges.json`, may list `options`: two to six alternatives, each a sentence that says the whole change
+  (`stage-findings.md`, Rules). `stage_check.option_problems` refuses one option, more than six, a repeat, or options
+  on a finding that is no decision; `dashboard.Finding`/`Decision` validate the same (`checked_options`); collect
+  carries them and keeps the first a merge has; `todo_items` gives a decision's item its own options or a linked
+  finding's; the To-do tab, the problem's detail and its comment list them numbered (`optionList`), and the Word
+  review and the Google Doc comments say "Options: (1) ...; (2) ..." (`options_text`). The pane takes them before
+  parsing the action (`summarizeFindings` `options`). Tests: `tests/test_decision_options.py`. The pane's answers
+  were addressed by run, stage and ID; once the dashboard's inventory lists the decisions every stage reads
+  "Dashboard", so every earlier answer was lost and "decisions wait for you" went back up. `decisionKeys` is now
+  run, kind and ID; `carryAnswers` moves an answer the list no longer addresses to the decision with its ID or the
+  adjudicated one that links it (ST-7 in D3), on each refresh. The status line is said again after every answer
+  (`showStatus`), not at the next 15-second refresh, and `/manuscript-status` and the "waits" notification count the
+  open decisions, not all of them.
 - **How much each recommended journal changes the manuscript (0.54.0).** `manuscript-journal-select/scripts/effort.py`
   measures the manuscript as an editor counts it (reusing manuscript-story's `reader_metrics.parse`: body without
   captions, tables or back matter; abstract; main-text figures, tables and boxes; main sections) and sizes each
