@@ -234,7 +234,10 @@ proposed drafts with `runs.py add`, each with `--name` set to that path (`--name
 
 Simulated referees and readers judge figures too, so their workspaces hold them:
 `scripts/figures.py workspace PAPER --into WORKSPACE/figures` writes each figure as a PNG with an index of
-numbers, captions and file names, and nothing this review found. `manuscript-peer-review` and
+numbers, captions and file names, and nothing this review found. A figure's number is matched whole: an
+eLife-style "Figure 3—figure supplement 1" is an item of its own (`figure-3-supplement-1.png`, with its own
+citations), never Figure 3, and "Supplementary Figure S1" is Figure S1; two items the manuscript numbers alike
+never share one image file. `manuscript-peer-review` and
 `manuscript-story` put it in every seat's workspace, and a figure-led paper can have a figures referee
 ([seats](../manuscript-peer-review/references/seats.md#optional-seats)).
 

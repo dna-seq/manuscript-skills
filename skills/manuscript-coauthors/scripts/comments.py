@@ -1317,6 +1317,10 @@ LINK = re.compile(r"(!?\[)[^\[\]]*(\]\([^)]*\)(?:\{[^}]*\})?)")  # a link or an 
 ESCAPED = {f"\\{c}": chr(0xE000 + n) for n, c in enumerate("*_[]#|>`\\$^~")}
 MARKUP_ONLY = re.compile(r"[-:|>#*_`]+")  # a table rule, a list bullet, a heading's hashes: no word, on either side
 LIST_NUMBER = re.compile(r"(?:\d+|[a-z])[.)]|[-–•·*]")  # a Doc numbers its lists itself
+# An underscore that opens or closes no emphasis prints as itself ("an NC_ accession"); shown_tokens holds it as this
+# character, which master_token gives back as "_" instead of setting it aside as emphasis.
+LITERAL_UNDERSCORE = "\ue0fe"
+UNDERSCORES = re.compile(r"_+")
 
 
 def master_token(word: str) -> str:
@@ -1324,7 +1328,10 @@ def master_token(word: str) -> str:
     set aside, intraword underscores (W_display) kept. Links are masked before (LINK)."""
     word = html.unescape(word)
     if "`" in word:  # code shows as written: no emphasis or typography inside it
-        return word.replace("`", "")
+        word = word.replace("`", "")
+        # but a piece of code that is markup only (the ">" of `> AUTHOR:`, a `--`) is set aside as the Doc's own
+        # words are (doc_edits), or the two sides differ by a word nobody changed and the backtick goes with it
+        return "" if MARKUP_ONLY.fullmatch(word) else word
     for plain, typographic in DASHES:
         word = word.replace(plain, typographic)
     for escaped, held in ESCAPED.items():
@@ -1333,8 +1340,37 @@ def master_token(word: str) -> str:
     word = re.sub(r"(?<![^\W_])_+|_+(?![^\W_])", "", word)  # underscore emphasis; W_display keeps its own
     for escaped, held in ESCAPED.items():
         word = word.replace(held, escaped[1:])
-    word = word.translate(QUOTES)
+    word = word.translate(QUOTES).replace(LITERAL_UNDERSCORE, "_")
     return "" if MARKUP_ONLY.fullmatch(word) else word
+
+
+def literal_underscores(text: str, code: list[tuple[int, int]]) -> str:
+    """*text* with each underscore run that is no emphasis held as LITERAL_UNDERSCORE, as pandoc reads it: a run opens
+    when no letter or digit is before it and no space after it, closes when no space is before it and no letter or
+    digit after it, and pairs with the next run of its length that closes in the same paragraph; one between two letters
+    (W_display) is a word's own, as master_token keeps it. Runs inside code spans (*code*) are left as written."""
+    runs = [m for m in UNDERSCORES.finditer(text) if not any(a <= m.start() < b for a, b in code)]
+    paired: set[int] = set()
+    opened: list[re.Match[str]] = []
+    for m in runs:
+        before, after = text[m.start() - 1:m.start()], text[m.end():m.end() + 1]
+        if before.isalnum() and after.isalnum():
+            continue
+        if opened and before.strip() and not after.isalnum():
+            match = next((o for o in reversed(opened) if len(o.group(0)) == len(m.group(0))
+                          and "\n\n" not in text[o.end():m.start()]), None)
+            if match is not None:
+                paired |= {match.start(), m.start()}
+                opened = opened[:opened.index(match)]
+                continue
+        if not before.isalnum() and after.strip():
+            opened.append(m)
+    out = list(text)
+    for m in runs:
+        before, after = text[m.start() - 1:m.start()], text[m.end():m.end() + 1]
+        if m.start() not in paired and not (before.isalnum() and after.isalnum()):
+            out[m.start():m.end()] = LITERAL_UNDERSCORE * len(m.group(0))
+    return "".join(out)
 
 
 def retoken(raw: str, word: str) -> str:
@@ -1427,6 +1463,7 @@ def shown_tokens(text: str) -> list[tuple[str, int, int]]:
     HTML and link targets left out, and a list's marker at the start of a line too, since the Doc numbers the list
     itself."""
     masked = UNSHOWN.sub(lambda m: m.group(0) if m.group(1) else re.sub(r"\S", " ", m.group(0)), text)
+    masked = literal_underscores(masked, [m.span() for m in UNSHOWN.finditer(text) if m.group(1)])
     masked = LINK.sub(lambda m: " " * len(m.group(1)) + m.group(0)[len(m.group(1)):-len(m.group(2))] + " " * len(m.group(2)),
                       masked)
     return [(tok, m.start(), m.end()) for m in re.finditer(r"\S+", masked) if (tok := master_token(m.group(0)))

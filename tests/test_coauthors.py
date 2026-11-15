@@ -1218,3 +1218,26 @@ def test_a_findings_quote_never_crosses_a_revision_mark_or_a_table_cell(rounds: 
     assert cli("findings", ledger, "--new", folder / "paper.md", "--out", rounds / "f.json") == 0
     quotes = [f["quote"] for f in json.loads((rounds / "f.json").read_text())["findings"]]
     assert all(q and len(q.split()) >= 3 and "|" not in q and q in " ".join(marked.split()) for q in quotes if q), quotes
+
+
+def test_a_code_span_the_doc_shows_without_its_markup_is_no_edit() -> None:
+    """MitoAge 2 v0.2: the master's code span `> AUTHOR:` shows in the Doc as "> AUTHOR:", whose ">" the Doc side
+    set aside as markup while the master side kept it, so sync proposed "Lines starting AUTHOR:` are" as a
+    co-author's edit, one in each Doc."""
+    released = ("# Methods\n\nHidden comments are for the authors. Lines starting `> AUTHOR:` are questions for the authors,\n"
+                "and options take `--` or `-v` as written.\n")
+    doc = ["Methods", "Hidden comments are for the authors. Lines starting > AUTHOR: are questions for the authors, "
+           "and options take -- or -v as written."]
+    assert comments.doc_edits(released, doc) == []
+    # the same Doc read "an NC_ accession" as "NC__": an underscore that closes no emphasis prints as itself
+    released_ = "# Methods\n\nA record counts if it is an NC_ accession, _really_ complete, as W_display says.\n"
+    assert comments.doc_edits(released_, ["Methods", "A record counts if it is an NC_ accession, really complete, "
+                                          "as W_display says."]) == []
+    [edit] = comments.doc_edits(released_, ["Methods", "A record counts if it is an NC_ accession, really complete, "
+                                            "as W_display said."])
+    assert edit.after == "A record counts if it is an NC_ accession, _really_ complete, as W_display said."
+    # a real edit beside the code span is still carried, and the code span keeps its backticks
+    doc[1] = doc[1].replace("questions for the authors", "questions for all authors")
+    [edit] = comments.doc_edits(released, doc)
+    assert "Lines starting `> AUTHOR:` are questions for all authors," in edit.after
+    assert edit.after.count("`") == edit.before.count("`")

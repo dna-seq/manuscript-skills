@@ -224,6 +224,9 @@ uv run --script scripts/rounds.py sync 0.6 --into 0.7 --export … --check   # e
   read the pull merged) with `--gdoc READ.json`, once per Doc: it is matched to the round's Doc by its id in the
   recorded link, else by its title, and one that is no Doc of the round is refused. With a Drive connector,
   download each Doc as .docx under its title into one folder and give that.
+- What the conversion to a Doc changes is no edit: code shows without its backticks and a piece of code that is
+  markup only (the ">" of `` `> AUTHOR:` ``, a `` `--` ``) is set aside on both sides, and an underscore that opens
+  or closes no emphasis ("an NC_ accession") is read as itself, as pandoc prints it.
 - Each edit is a whole paragraph as released, and the same paragraph with the Doc's words; a changed word keeps the
   master's markup (Livia^1^ becomes Livia^4^). Its reason names the ledger's suggestions it carries, or says it is
   an accepted suggestion or an author's own edit. Apply them as the authors' own: `--by co-authors` (name them as

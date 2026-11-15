@@ -118,8 +118,9 @@ the next attempt (`findings.2.json`), never in a registered file.
   null` and `anchor`, the verbatim passage it goes after, so the corrected version can place it. A move is
   two records with the same summary: the deletion where the text was (`after: null`) and the addition, with
   its anchor, where it goes. A record whose before and after are the same text changes nothing. A proposal
-  for another file than the manuscript (a supplement) names it in `document`, the file's name as the run
-  took it in; its before-text or anchor occurs exactly once in that file's clean text. Change
+  for another file than the manuscript (a supplement) names it in `document`: the file's name as the run
+  took it in, or its path as the project lists it (`supplementary/paper.supplementary.md`), which names the same
+  file; collect keeps the file name. Its before-text or anchor occurs exactly once in that file's clean text. Change
   IDs take the skill's prefix and a C (`PE-C1`, `ST-C4`), so the Word export can sign each tracked change
   with its stage.
 - Every change gives `why`: one to three sentences on what was wrong with the passage and why this wording

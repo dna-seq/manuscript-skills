@@ -114,7 +114,10 @@ class Figure:
 
     @property
     def slug(self) -> str:
-        return f"{self.kind}-{self.number.lower()}" if self.number else f"{self.kind}-u{self.order}"
+        """figure-2, figure-s1, figure-3-supplement-1 (for "Figure 3—figure supplement 1"), table-u2."""
+        if not self.number:
+            return f"{self.kind}-u{self.order}"
+        return f"{self.kind}-" + re.sub(r"[^a-z0-9]+", "-", self.number.lower().replace("figure supplement", "supplement")).strip("-")
 
 
 def blank(text: str, pattern: re.Pattern[str]) -> str:
@@ -182,15 +185,32 @@ LABEL = {"figure": r"(?:Figure|Fig\.?)", "table": r"Table"}
 TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
 
 
+# What eLife-style papers attach to a figure or table: "Figure 3—figure supplement 1", "Table 1—source data 2".
+# A figure supplement is a figure of its own; the others are not display items.
+ATTACHED = r"[-–—]\s*(?P<what>figure\s+supplements?|source\s+(?:data|code)|videos?|animations?)\s*"
+
+
+def supplement_number(figure: str, supplement: str) -> str:
+    """The number of a figure supplement as the paper writes it: "3—figure supplement 1"."""
+    return f"{figure.upper()}—figure supplement {supplement}"
+
+
 def caption_number(block: str, kind: str = "figure") -> str | None:
-    """The number a caption gives itself ("**Figure 2.**", "Table S1:", "Supplementary Table 3."). A sentence
-    that starts "Figure 2 shows" is not a caption: a caption's label is set off by markup or punctuation."""
-    m = re.match(rf"^\s*(?P<open>[*_]{{1,2}})?\s*(?P<supp>Supplementary\s+)?{LABEL[kind]}\s*(?P<num>S?\d+)\s*(?P<punct>[.:|])?",
-                 block, re.I)
+    """The number a caption gives itself ("**Figure 2.**", "Table S1:", "Supplementary Table 3.", "**Figure
+    3—figure supplement 1.**", which is its own item, never Figure 3). A sentence that starts "Figure 2 shows"
+    is not a caption: a caption's label is set off by markup or punctuation. The number is matched whole: "Figure
+    3—source data 1" captions no display item, and "Figure 31" is not Figure 3."""
+    m = re.match(rf"^\s*(?P<open>[*_]{{1,2}})?\s*(?P<supp>Supplementary\s+)?{LABEL[kind]}\s*(?P<num>S?\d+)(?![\d])"
+                 rf"(?:\s*{ATTACHED}(?P<sub>\d+))?\s*(?P<punct>[.:|])?", block, re.I)
     if not m or not (m.group("open") or m.group("punct")):
         return None
     number = m.group("num").upper()
-    return f"S{number}" if m.group("supp") and not number.startswith("S") else number
+    number = f"S{number}" if m.group("supp") and not number.startswith("S") else number
+    if m.group("what"):
+        if kind != "figure" or not m.group("what").lower().startswith("figure"):
+            return None
+        return supplement_number(number, m.group("sub"))
+    return number
 
 
 def pipe_table(block: str) -> tuple[int, list[list[str]]] | None:
@@ -268,6 +288,9 @@ def number_items(items: list[Figure], part: str) -> list[Figure]:
     for kind in ("figure", "table"):
         for n, item in enumerate((f for f in items if f.kind == kind), 1):
             item.order = n
+            if "figure supplement" in item.number:  # Figure 3—figure supplement 1 belongs to Figure 3, wherever it is
+                item.part = "supplement"
+                continue
             if part == "supplement" and item.number and not item.number.startswith("S"):
                 item.number = f"S{item.number}"
             if item.number.startswith("S"):
@@ -325,6 +348,8 @@ def resolve(name: str, source: Source) -> Path | None:
 NUMBER_LIST = r"(?P<list>S?\d+[a-zA-Z]?(?:\s*(?:[-–—]|,|and|&)\s*S?\d+[a-zA-Z]?)*)"
 TEXT_CITE = {"figure": re.compile(r"(?P<supp>Supplementary\s+)?(?:Figures?|Figs?\.?)\s*" + NUMBER_LIST, re.I),
              "table": re.compile(r"(?P<supp>Supplementary\s+)?Tables?\s*" + NUMBER_LIST, re.I)}
+# "Figure 3—figure supplement 1B", "Figure 3—figure supplements 1 and 2": the supplement, not Figure 3.
+SUPPLEMENT_CITE = re.compile(r"(?P<supp>Supplementary\s+)?(?:Figures?|Figs?\.?)\s*(?P<num>S?\d+)\s*" + ATTACHED + NUMBER_LIST, re.I)
 REF_CITE = re.compile(r"\\(?:c|C|auto|sub|name)?ref\*?\{([^}]+)\}|@((?:fig|tab|tbl)[:\-][\w:.\-]+)")
 HEADING = {"markdown": re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M),
            "latex": re.compile(r"\\(?:sub)*section\*?\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}")}
@@ -363,8 +388,21 @@ def citations(source: Source, items: list[Figure], part: str = "main") -> list[d
                       "offset": at, "part": part, "label": label, "in_caption_of": caption, "where": source.where(at),
                       "section": next((t for s, t in reversed(heads) if s <= at), "Before the first heading")})
 
+    attached = []  # the spans of "Figure 3—figure supplement 1" and "Table 1—source data 1", which do not cite Figure 3 or Table 1
+    for m in SUPPLEMENT_CITE.finditer(source.text):
+        attached.append((m.start(), m.end()))
+        if m.group("what").lower().startswith("figure"):
+            figure = m.group("num").upper()
+            figure = f"S{figure}" if m.group("supp") and not figure.startswith("S") else figure
+            for sub in cited_numbers(False, m.group("list")):
+                number = supplement_number(figure, sub)
+                add("figure", number, by_number.get(("figure", number)), m.start())
+    for m in re.finditer(r"Tables?\s*S?\d+\s*" + ATTACHED + r"\d+", source.text, re.I):
+        attached.append((m.start(), m.end()))
     for kind, pattern in TEXT_CITE.items():
         for m in pattern.finditer(source.text):
+            if any(start <= m.start() < end for start, end in attached):
+                continue
             # Within the supplement, "Figure 1" is its own Figure S1.
             for number in cited_numbers(bool(m.group("supp")) or part == "supplement", m.group("list")):
                 add(kind, number, by_number.get((kind, number)), m.start())
@@ -819,7 +857,11 @@ def workspace(
         for n, name in enumerate(figure.files, 1):
             path = resolve(name, source)
             for page in (pages_of(path, into)[0] if path else []):
-                target = into / (figure.slug + (f"-{n}" if len(figure.files) > 1 else "") + (f"-p{page.page}" if page.page > 1 else "") + ".png")
+                stem = figure.slug + (f"-{n}" if len(figure.files) > 1 else "") + (f"-p{page.page}" if page.page > 1 else "")
+                target, again = into / f"{stem}.png", 1
+                while target.exists():  # two items the manuscript numbers alike never share one image
+                    again += 1
+                    target = into / f"{stem}-{again}.png"
                 render(page, width if page.vector else min(width, page.pixels[0])).save(target)
                 names.append(target.name)
         lines.append(f"- **{figure.id}**: " + (", ".join(f"`{n}`" for n in names) or "(no image)") + (f". {' '.join(figure.caption.split())}" if figure.caption else ""))

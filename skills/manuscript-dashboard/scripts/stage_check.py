@@ -24,7 +24,8 @@ What is checked:
   found only once the revision marks are stripped has a mark inside it, and is shortened to a stretch without
   one;
 - each proposal's before-text, or an addition's anchor, exactly once in the clean text of the file it changes,
-  and a proposal for another file than the manuscript (a supplement) naming that file in `document`;
+  and a proposal for another file than the manuscript (a supplement) naming that file in `document`, by its file
+  name or by its path as the project lists it (`input_named`);
 - comprehension: a finding of category "Comprehension" (a term used before it is defined, a sentence a reader
   could not parse, two sentences with no link) is at least minor and needs no decision of the authors, and five
   or more in one section make one of them, or a finding on the whole section, major;
@@ -111,6 +112,22 @@ def fatal(doc: Any) -> list[str]:
     return out
 
 
+def input_named(named: str, originals: list[str]) -> str | None:
+    """The file name of the run's input that *named* names, or None: its file name (mitoage2.supplementary.md), its
+    path as the project lists it (supplementary/mitoage2.supplementary.md, any tail of the input's path), or its
+    full path. The file name is how the run keeps it: runs.py stores it in change records and collect in the
+    inventory, so the project's path and the bare name are one document everywhere."""
+    want = named.strip().replace("\\", "/").removeprefix("./")
+    if not want:
+        return None
+    for original in originals:
+        path = original.replace("\\", "/")
+        name = path.rsplit("/", 1)[-1]
+        if want in (path, name) or path.endswith("/" + want):
+            return name
+    return None
+
+
 def rev_marks() -> Any:
     if "stage_check_rev_marks" not in sys.modules:
         spec = importlib.util.spec_from_file_location("stage_check_rev_marks", REV_MARKS)
@@ -145,7 +162,7 @@ def input_texts(run: Path, data: dict) -> list[dict]:
             now = original.read_text(encoding="utf-8") if original.is_file() else taken
         except UnicodeDecodeError:  # a Word or PDF input has no text to quote here
             continue
-        out.append({"name": original.name, "copy": copy.name, "marked": [taken, now],
+        out.append({"name": original.name, "original": original.as_posix(), "copy": copy.name, "marked": [taken, now],
                     "clean": [clean(taken, copy), clean(now, original)]})
     return out
 
@@ -196,6 +213,8 @@ def placement(doc: dict, skill: str, folder: Path, inputs: list[dict]) -> list[s
             continue
         field = "before-text" if change.get("before") is not None else "anchor"
         named = change.get("document")
+        if named and named not in names:  # the project's path for it (supplementary/x.md) names it as well
+            named = input_named(named, [i.get("original") or i["name"] for i in inputs]) or named
         if named and named not in names:
             copy_of = next((i["name"] for i in inputs if i.get("copy") == named), None)
             out.append(f"change {change.get('id')}: document {named!r} is the run's copy of {copy_of!r}; name the file "

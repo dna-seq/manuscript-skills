@@ -41,8 +41,9 @@ before the choice, the paper's stage of work}
    addition), `after`, `why` (what was wrong and why this wording fixes it), `finding_ids`, `evidence` as a
    list, `[{"path": "stage-report.md", "quote": "the report's sentence that gives the reason"}]`, and
    `comment` for a question to the authors, never a placeholder in `after`. A proposal for the supplement
-   names it: `"document": "{SUPPLEMENT_NAME}"`, the supplement's file name in the project (the working copy's
-   name, as `{MASTERS}` lists it), never the run's numbered copy in `inputs/`.
+   names it: `"document": "{SUPPLEMENT_NAME}"`, the supplement as `{MASTERS}` lists it (its path in the project,
+   `supplementary/paper.supplementary.md`, or its bare file name: stage_check, runs.py and revise.py take either
+   and the run keeps the file name), never the run's numbered copy in `inputs/`.
 2. **Quotes.** A finding's `quote` is copied word for word from the manuscript as the run took it, at least
    three words, from a stretch with no revision mark inside it.
 3. **Check, then finish.** Before `finish`, run

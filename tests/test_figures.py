@@ -349,3 +349,25 @@ def test_the_supplement_is_read_numbered_s_and_held_to_looser_minimums(tmp_path:
     assert not any("caption of Figure S1" in n for n in notes)  # within the supplement, "Figure 1." is its own Figure S1
     assert not any("Table S1" in n and "does not exist" in n for n in notes)
     assert "## Supplement" in (tmp_path / "out" / "figures.md").read_text()
+
+
+def test_a_figure_supplement_is_an_item_of_its_own_and_its_citations_are_its_own(tmp_path: Path) -> None:
+    """"Figure 3—figure supplement 1" is never Figure 3: not its caption, not its image, not a citation of it."""
+    assert figures.caption_number("**Figure 3—figure supplement 1.** Two views.") == "3—figure supplement 1"
+    assert figures.caption_number("Figure 3 – figure supplement 2: More.") == "3—figure supplement 2"
+    assert figures.caption_number("**Figure 3—source data 1.** The numbers.") is None
+    assert figures.caption_number("**Figure 31.** Late.") == "31"
+    assert figures.caption_number("**Supplementary Figure S2.** Its own.") == "S2"
+    for name in ("f3.png", "f3s1.png"):
+        png(tmp_path / name)
+    paper = tmp_path / "paper.md"
+    paper.write_text("## Results\n\nThe view is in Figure 3—figure supplement 1B, and the list in Figure 3A.\n\n"
+                     "![](f3.png)\n\n**Figure 3.** The list.\n\n![](f3s1.png)\n\n**Figure 3—figure supplement 1.** The view.\n",
+                     encoding="utf-8")
+    source, items = figures.find_figures(paper)
+    assert [(f.id, f.slug, f.files, f.part) for f in items] == [
+        ("Figure 3", "figure-3", ["f3.png"], "main"),
+        ("Figure 3—figure supplement 1", "figure-3-supplement-1", ["f3s1.png"], "supplement")]
+    cites = figures.citations(source, items)
+    assert [c["id"] for c in cites] == ["Figure 3—figure supplement 1", "Figure 3"]
+    assert all(c["exists"] for c in cites)

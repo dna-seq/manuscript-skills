@@ -218,6 +218,18 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   report. Records carry `n`, `iqr`, `counts`, `sample`; `--facts` replaces only the same measure and seeds a venue
   from the catalogue. `venues.speed_kind` tells the measures apart and `ladder` ranks the editor's first decision
   alone. Tests: `tests/test_journal_speed.py` (saved RPFs, a PLOS history, eLife docmaps, PubMed XML).
+- **Three faults from the MitoAge 2 run (0.65.0).** `figures.py` matches a figure's number whole: an eLife-style
+  "Figure 3—figure supplement 1" (caption, alt text or citation) is an item of its own (`caption_number` gives
+  "3—figure supplement 1", slug `figure-3-supplement-1`, part supplement, `SUPPLEMENT_CITE`), never Figure 3, and
+  "Figure 3—source data 1" captions no display item; `workspace` never writes two items into one PNG. Before, the
+  supplement's image took `figure-3.png` under Figure 3's legend and every seat judged the wrong image. `rounds.py
+  sync` no longer reads a Doc conversion as an edit: `master_token` sets aside a piece of code that is markup only
+  (the ">" of `` `> AUTHOR:` ``), as the Doc side already did, and `shown_tokens` holds an underscore that opens or
+  closes no emphasis ("NC_ accession") as itself (`literal_underscores`). A supplement is named by its file name or by
+  its path as the project lists it (`supplementary/x.md`) in `stage_check`, `runs.py change/apply --document`, collect
+  and `revise.py --supplement-document` (`stage_check.input_named`); the run keeps the file name. Tests:
+  `tests/test_figures.py`, `tests/test_peer_review_workspaces.py`, `tests/test_coauthors.py`,
+  `tests/test_supplement_path_0_65.py`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

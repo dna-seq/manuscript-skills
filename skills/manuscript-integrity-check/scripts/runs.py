@@ -507,17 +507,28 @@ def newest_findings(run: Path, data: dict[str, Any], name: str) -> dict[str, Any
 STAGE_CHECK = Path(__file__).resolve().parents[2] / 'manuscript-dashboard' / 'scripts' / 'stage_check.py'
 
 
-def contract_problems(run: Path, data: dict[str, Any], name: str) -> list[str]:
-    """What in a finishing stage's newest findings.json the dashboard could not use, from manuscript-dashboard's
-    stage_check.py, so that the stage fixes its own records while it can: collect reads them only when the run is
-    assembled. Each line names the file, the record and the field."""
+def stage_check_module() -> Any:
+    """manuscript-dashboard's stage_check.py (stdlib only), loaded once."""
     if 'runs_stage_check' not in sys.modules:
         spec = importlib.util.spec_from_file_location('runs_stage_check', STAGE_CHECK)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         sys.modules['runs_stage_check'] = module
         spec.loader.exec_module(module)
-    check = sys.modules['runs_stage_check']
+    return sys.modules['runs_stage_check']
+
+
+def input_document(data: dict[str, Any], document: str) -> str | None:
+    """The file name of the run's input that --document names, by its file name or by its path as the project lists
+    it (supplementary/x.md): the name change records keep. None when it names no input."""
+    return stage_check_module().input_named(document, [str(source['original']) for source in data['inputs']])
+
+
+def contract_problems(run: Path, data: dict[str, Any], name: str) -> list[str]:
+    """What in a finishing stage's newest findings.json the dashboard could not use, from manuscript-dashboard's
+    stage_check.py, so that the stage fixes its own records while it can: collect reads them only when the run is
+    assembled. Each line names the file, the record and the field."""
+    check = stage_check_module()
     attempts = findings_files(run, data, name)
     doc = newest_findings(run, data, name)
     label = PurePosixPath(attempts[-1]).name if attempts else 'findings.json'
@@ -923,8 +934,8 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
            after: Path | None = None, shown_in_chat: bool = False,
            comment: Annotated[str, typer.Option(help="A question for the authors about this edit; never put it in the text")] = "",
            document: Annotated[str | None, typer.Option(
-               help="The file the edit changes when it is not the manuscript: a supplement's file name, as the run "
-                    "took it in")] = None) -> None:
+               help="The file the edit changes when it is not the manuscript: a supplement's file name, or its "
+                    "path as the project lists it")] = None) -> None:
     """Save exact consequential before/after text. Omit before for an addition, after for a deletion. An edit to
     another input than the manuscript (a supplement) names it with --document, so the dashboard replays it on that
     file and the corrected version, built from the manuscript, leaves it alone."""
@@ -932,8 +943,9 @@ def change(run: Path, skill: Annotated[str, typer.Option('--skill')],
         raise typer.BadParameter('Supply before, after, or both.')
     data = read(run)
     names = [Path(source['original']).name for source in data['inputs']]
-    if document is not None and document not in names:
-        raise typer.BadParameter(f"--document names one of the run's inputs: {', '.join(names) or 'none'}.")
+    if document is not None and (document := input_document(data, document)) is None:
+        raise typer.BadParameter(f"--document names one of the run's inputs, by its file name or its path in the "
+                                 f"project: {', '.join(names) or 'none'}.")
     if chosen(data, 'edits') == 'none':
         typer.echo(REPORT_ONLY_EDIT, err=True)
         raise typer.Exit(2)
@@ -1043,7 +1055,8 @@ def apply_edits(run: Path, skill: Annotated[str, typer.Option('--skill')],
                 by: Annotated[str, typer.Option(help="Who wrote this pass, as the marks sign it: the agent's name "
                                                      "(claude), NAME or NAME:YYYY-MM-DD")],
                 document: Annotated[str | None, typer.Option(
-                    help="The input the edits change when it is not the manuscript: a supplement's file name")] = None) -> None:
+                    help="The input the edits change when it is not the manuscript: a supplement's file name, or its "
+                         "path as the project lists it")] = None) -> None:
     """Apply a stage's edits to the working copy and record each with its change record, in one step, all or none.
 
     Each edit is a clean before-text, found once in the clean text however the revision marks sit around it, and its
@@ -1057,10 +1070,12 @@ def apply_edits(run: Path, skill: Annotated[str, typer.Option('--skill')],
         typer.echo(REPORT_ONLY_EDIT, err=True)
         raise typer.Exit(2)
     names = [Path(source['original']).name for source in data['inputs']]
+    document = input_document(data, document) or document if document else None
     source = next((s for s in data['inputs'] if Path(s['original']).name == document), None) if document \
         else (data['inputs'][0] if data['inputs'] else None)
     if source is None or source.get('remote'):
-        raise typer.BadParameter(f"--document names one of the run's local inputs: {', '.join(names) or 'none'}."
+        raise typer.BadParameter(f"--document names one of the run's local inputs, by its file name or its path in "
+                                 f"the project: {', '.join(names) or 'none'}."
                                  if document else "The run has no local manuscript to edit.")
     target = Path(source['original'])
     if chosen(data, 'versions') == 'immutable':

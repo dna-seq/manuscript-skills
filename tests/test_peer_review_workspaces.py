@@ -354,3 +354,30 @@ def test_a_seat_on_another_model_gets_its_own_folder_and_brief(project: Path, tm
     brief = Path(out["seats"][0]["brief"])
     assert brief.name == "skeptic@codex.md"
     assert brief.read_text(encoding="utf-8").startswith("You are the **skeptic** on")
+
+
+def test_a_figure_supplement_is_its_own_figure_and_never_figure_3s_image(tmp_path: Path) -> None:
+    """MitoAge 2 v0.3: "Figure 3—figure supplement 1" was read as Figure 3, its image took figure-3.png, and every
+    seat judged the supplement's image under Figure 3's legend."""
+    for name, colour in (("f3.png", "red"), ("f3s1.png", "blue"), ("s1.png", "green")):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (400, 200), colour).save(tmp_path / name)
+    (tmp_path / "paper.md").write_text(
+        "The interface is in Figure 3A, its comparison view in Figure 3—figure supplement 1B, and the controls in "
+        "Supplementary Figure S1.\n\n"
+        "![Figure 3. The interface](f3.png)\n\n**Figure 3.** The interface.\n\n"
+        "![Figure 3—figure supplement 1. Two further views](f3s1.png)\n\n"
+        "**Figure 3—figure supplement 1.** Two further views.\n\n"
+        "![](s1.png)\n\n**Supplementary Figure S1.** The controls.\n", encoding="utf-8")
+    warnings: list[str] = []
+    workspaces.render_figures([tmp_path / "paper.md"], tmp_path / "out", 400, warnings)
+    out = tmp_path / "out"
+    index = (out / "index.md").read_text(encoding="utf-8")
+    assert "**Figure 3**: `figure-3.png`. **Figure 3.** The interface." in index
+    assert "**Figure 3—figure supplement 1**: `figure-3-supplement-1.png`. **Figure 3—figure supplement 1.**" in index
+    assert "**Figure S1**: `figure-s1.png`" in index
+    colour = lambda name: Image.open(out / name).convert("RGB").getpixel((10, 10))
+    assert colour("figure-3.png") == (255, 0, 0)
+    assert colour("figure-3-supplement-1.png") == (0, 0, 255)
+    assert colour("figure-s1.png") == (0, 128, 0)
+    assert warnings == []

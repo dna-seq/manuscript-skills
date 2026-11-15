@@ -153,6 +153,9 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
     """Every skill's findings.json, with evidence paths rebased onto the inventory's folder."""
     found: dict[str, list] = {"findings": [], "dismissed": [], "not_checked": [], "changes": []}
     seen: set[str] = set()
+    manifest = run / "run.json"
+    originals = [str(i["original"]) for i in (json.loads(manifest.read_text(encoding="utf-8")).get("inputs") or [])
+                 if i.get("original")] if manifest.is_file() else []
     for path in [p for folder in sorted(run.glob("manuscript-*")) if folder.is_dir() and (p := newest_findings(folder))]:
         skill, folder = path.parent.name, path.parent
         if skill in OWN:
@@ -202,6 +205,8 @@ def stage_records(run: Path, out_dir: Path, snapshot: Path) -> dict[str, list]:
             # Keep the change contract's fields; anything else a skill added (the journal it is for) joins the summary.
             # A field written as null is left out, so it takes its default: a null comment means no question.
             known = {k: record[k] for k in CHANGE_FIELDS if record.get(k) is not None}
+            if known.get("document"):  # the project's path for a supplement (supplementary/x.md) is its file name here
+                known["document"] = stage_check.input_named(known["document"], originals) or known["document"]
             extra = [f"{k.replace('_', ' ')}: {v}" for k, v in record.items() if k not in CHANGE_FIELDS and v not in (None, "", False, [])]
             if extra:
                 known["summary"] = f"{known.get('summary', '')} ({'; '.join(map(str, extra))})".strip()
@@ -712,6 +717,8 @@ def document_of(entry: dict, section: str, before: str | None, after: str | None
     section, and replaying it on the manuscript would change the wrong copy."""
     names = {name for name, _, _ in documents}
     if (named := entry.get("document")) is not None:
+        if named not in names and named != main_name:  # a path as the project lists it names the file it ends in
+            named = named.replace("\\", "/").rsplit("/", 1)[-1]
         named = "" if named == main_name else named
         if named not in names:
             raise ValueError(f"A change record names the file {named!r}, which is not one of the run's inputs "

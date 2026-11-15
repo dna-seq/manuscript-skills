@@ -615,8 +615,8 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, h
          supplement_working: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, help=(
              "The supplement now, with its applied edits, clean"))] = None,
          supplement_document: Annotated[str | None, typer.Option(help=(
-             "The supplement's file name as the inventory's changes name it (`document`); default: the only other file "
-             "they name"))] = None) -> None:
+             "The supplement's file name as the inventory's changes name it (`document`), or its path as the project "
+             "lists it (supplementary/x.md); default: the only other file they name"))] = None) -> None:
     suffix = original.suffix or ".md"
     names = (f"revised{suffix}", f"proposed{suffix}", "changes.md", "revision.json")
     if (supplement_original is None) != (supplement_working is None):
@@ -644,7 +644,9 @@ def main(original: Annotated[Path, typer.Argument(exists=True, dir_okay=False, h
             if supplement_document is None and len(named) > 1:
                 raise ValueError(f"The inventory's changes name several other files ({', '.join(named)}); say which is "
                                  "the supplement with --supplement-document.")
-            sup_name = supplement_document or (named[0] if named else supplement_original.name)
+            # the inventory keeps a file's name (collect.py), so the project's path for it names the same file
+            given = supplement_document and Path(supplement_document.replace("\\", "/")).name
+            sup_name = given or (named[0] if named else supplement_original.name)
             sup_source = supplement_original.read_text(encoding="utf-8")
             sup_revised = supplement_working.read_text(encoding="utf-8")
             supplement = (sup_name, sup_source, sup_revised, *build(sup_source, sup_revised, data, decided, sup_name))
