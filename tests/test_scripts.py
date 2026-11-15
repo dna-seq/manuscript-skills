@@ -1540,8 +1540,9 @@ def test_show_bioinformatics_gives_the_rules_of_the_first_submission_with_their_
     assert result.exit_code == 0, result.output
     out = result.output
     assert "- **Access:** full open access" in out and "- **Article types:** not recorded" not in out
-    assert ("Length: the abstract at most 150 words (recommended, not required), the body about 5000 words and papers "
-            "more than 20% over the limit are returned without review.") in out
+    assert ("Length: the abstract at most 150 words (recommended, not required), the body about 5000 words (not "
+            "including figures) and papers more than 20% over the limit are returned without review.") in out
+    assert "On what the body's limit counts, the page says: “Original papers: up to 7 pages" in out
     assert "“A maximum of 150 words is recommended.”" in out and "20% or more are usually returned" in out
     first, end = out.index("## Now that the journal is chosen"), out.index("## At the end, once the code")
     now = out[first:end]

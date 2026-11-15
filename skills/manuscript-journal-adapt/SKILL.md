@@ -112,7 +112,8 @@ skill owns drafting and placing AI-use statements; `manuscript-integrity-check` 
 present.
 
 **Set the layout the venue expects, with each detail in its section.** The venue's body sections and their
-order come from `venues.py show` (`required_sections`, the article type) or, where the catalogue has none, from
+order come from `venues.py show` (`required_sections`, the article type, and `section_order`: whether the page
+lets that order change, with its words) or, where the catalogue has none, from
 its author guide, read and recorded with its date; never from memory. Map the paper's headings to their roles
 first ([section roles](../manuscript-integrity-check/references/section-roles.md#layouts): "System and Methods"
 and "Implementation" are Methods, "Benchmarking and Validation" and "Use cases" are Results), then restructure:

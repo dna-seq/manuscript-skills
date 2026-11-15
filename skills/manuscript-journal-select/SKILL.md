@@ -323,14 +323,22 @@ Run `common` on every venue of both ladders. It reports:
   every version can carry, such as alt text or a dataset citation), with the venues that ask for each. A
   length limit, a set of abstract headings or the body's structure is here only when every venue's is known
   and the same. The body's headings (Background or Introduction, Methods or Implementation, Results,
-  Discussion, Conclusions) and their order are one structure per venue, compared whole: each heading names a
-  part every version has, so two venues that name or order them differently disagree, and a part of the
-  abstract one venue asks for changes the abstract's form. These shared demands are the ones to adapt before
-  the choice.
+  Discussion, Conclusions) name parts every version has, so two venues that name one part differently
+  disagree. Otherwise `common` computes the structure the venues share: the sections every venue needs, in an
+  order each of them accepts. A venue accepts its own order, and another only when its page says the order may
+  change (`section_order: flexible`, quoted in `section_order_quote`, as eLife's "usually" and Molecular
+  Biology and Evolution's "the order of the sections can be modified"); a venue whose order is fixed or not
+  recorded accepts only its own, and one with no recorded structure stays unknown. A section only some venues
+  need (Database's Conclusion) goes under "Choose per venue" with its place. A part of the abstract one venue
+  asks for changes the abstract's form. These shared demands are the ones to adapt before the choice.
 - **Choose per venue**: where the venues disagree, or where only some venues' rule is known (abstract
   headings, length limits, the body's sections and their order, reference style). They are the authors'
   decisions for later, listed once: they wait for the choice, or follow the first rung, and are never applied
-  before it. Writing to the shortest limit is an option to offer, with its cost, never a default.
+  before it. Writing to the shortest limit is an option to offer, with its cost, never a default. Each length
+  limit is printed with what it counts (`limits.body_words_counts`, the page's words, such as eLife's "excluding
+  the Materials and methods, References, and Figure legends"), "the page does not say what it counts"
+  (`not_stated`) or "what it counts is not recorded"; record it, with its quote in `limit_quotes`, whenever the
+  page says, since a limit without it reads as a cap on the whole text.
 - **At the end**: software archiving and the AI-use statement, written once with every field any venue asks
   for and placed wherever each venue asks.
 - **The AI writing rules on the list**, and the strictest of them (every one of equal strictness, when they

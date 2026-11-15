@@ -181,6 +181,16 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   (*The stake* when there is no stake, *One idea per paragraph*, the I11 habit under *Caveats in their place*),
   the claims-novelty and evidence-statistics seats, the software-and-methods module, and prose-edit's contract
   and section guide. `style_profile.py` now counts two patterns of one smell over the same words once.
+- **The structure the venues share, and what a word limit counts (0.62.0).** From the MitoAge 2 restructure, where
+  `common` said only "Body sections differ" and gave eLife's length as "5000 (recommended)" without "excluding the
+  Materials and methods, References, and Figure legends", so two passes disagreed. Venue facts take `section_order:
+  fixed | flexible` with `section_order_quote`; `venues.py shared_structure` (spellings of one heading merged by
+  `SECTION_SPELLINGS`, one part named two ways by `SECTION_PARTS` a conflict) gives the sections every venue with a
+  recorded structure needs and an order each accepts (a flexible venue any order, a fixed or unrecorded one only its
+  own; no recorded structure stays unknown), and lists a section only some need with its place. `limits.
+  body_words_counts` / `abstract_words_counts` (the page's words, or `not_stated`, quoted in `limit_quotes`) are
+  printed beside each number by `common` and `show` (`limit_scope`). eLife and MBE carry both in the catalogue.
+  Tests: `tests/test_venue_structure.py`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

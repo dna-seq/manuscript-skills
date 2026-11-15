@@ -66,8 +66,19 @@
 #                  page recommends or advises the length; scan.py says "recommends", not "asks for", and an advised
 #                  body length is a minor finding); none_stated: the limits the page was read for and does not set
 #                  ([body_words] for a journal without a length limit), so `common` lists them as known, not as gaps;
-#                  abstract_characters: an abstract limited in characters, not words (arXiv's 1,920)
-#   limit_quotes:  per limit, the sentences of the page it rests on, verbatim
+#                  abstract_characters: an abstract limited in characters, not words (arXiv's 1,920);
+#                  body_words_counts and abstract_words_counts: what the limit counts or leaves out, in the page's
+#                  words ("the main text, excluding the Materials and methods, References, and Figure legends"), or
+#                  not_stated when the page was read and does not say; `common` and `show` print it beside the number
+#                  (a body limit without it prints "what it counts is not recorded"); body_words_excludes: [methods]
+#                  is the same for effort.py, which measures the manuscript
+#   limit_quotes:  per limit, the sentences of the page it rests on, verbatim (body_words_counts too)
+#   section_order: whether the body's sections (required_sections) may come in another order: fixed | flexible
+#                  (the page lets the order change, as eLife's "usually" and MBE's "the order of the sections can be
+#                  modified"); absent is unknown. `common` computes the structure the venues share: the sections every
+#                  venue needs, in an order each accepts, a flexible venue accepting another order and a fixed or
+#                  unrecorded one only its own
+#   section_order_quote: the page's sentences on the order, verbatim
 #   submission_rules: rules of the author guidelines that venues.py show lists with the current-draft items,
 #                  each {when, rule, quote}: when is `submission` (needed for the first submission) or
 #                  `after_review` (needed only after the first review, such as a reference style); rule is in
@@ -135,10 +146,11 @@ venues:
     # Original Papers "describe new research developments in computational molecular biology, for example: models,
     # algorithms, software involving new methods, biological databases and network information services"
     article_types: [research, methods, software, database]
-    limits: {abstract_words: 150, abstract_words_kind: recommended, body_words: 5000, over_limit_return: 1.2}
+    limits: {abstract_words: 150, abstract_words_kind: recommended, body_words: 5000, body_words_counts: not including figures, over_limit_return: 1.2}
     limit_quotes:
       abstract_words: ["A maximum of 150 words is recommended.", "In cases where authors feel the headings inappropriate, some flexibility is allowed."]
       body_words: ["Original papers: up to 7 pages, this is approx. 5000 words, not including figures,"]
+      body_words_counts: ["Original papers: up to 7 pages, this is approx. 5000 words, not including figures,"]
       over_limit_return: ["The journal strongly discourages authors from exceeding stated page limits. Manuscripts exceeding the recommended limits may be rejected without review - for example manuscripts that exceed the limit by 20% or more are usually returned by the Editorial Office immediately."]
     quoted_from:
       source: https://web.archive.org/web/20260817204053/https://academic.oup.com/bioinformatics/pages/author-guidelines
@@ -813,7 +825,21 @@ venues:
     penalties: []
     extra_burden: [no AI-generated striking images]
     reviewer_ai: allowed
-    limits: null
+    # Research Articles (Tools and Resources follow their format), read 2026-11-15 on the editorial-process page.
+    limits: {abstract_words: 200, abstract_words_kind: recommended, body_words: 5000, body_words_kind: recommended,
+             body_words_excludes: [methods], body_words_counts: "the main text, excluding the Materials and methods, References, and Figure legends",
+             none_stated: [display_items]}
+    limit_quotes:
+      abstract_words: ["The abstract would normally be 150–200 words."]
+      body_words: ["There is no maximum length for Research Articles, but we suggest that authors try not to exceed 5,000 words in the main text, excluding the Materials and methods, References, and Figure legends."]
+      body_words_counts: ["There is no maximum length for Research Articles, but we suggest that authors try not to exceed 5,000 words in the main text, excluding the Materials and methods, References, and Figure legends."]
+    required_sections: [Introduction, Results, Discussion, Materials and Methods]
+    section_order: flexible
+    section_order_quote: ["The main text of the article should usually be structured and ordered as follows: Introduction; Results; Discussion; Materials and Methods"]
+    provenance:
+      limits: {source: "https://reviewer.elifesciences.org/author-guide/editorial-process", checked: 2026-11-15}
+      required_sections: {source: "https://reviewer.elifesciences.org/author-guide/editorial-process", checked: 2026-11-15}
+      section_order: {source: "https://reviewer.elifesciences.org/author-guide/editorial-process", checked: 2026-11-15}
     software_article: true
 
   acm:
@@ -1516,7 +1542,18 @@ venues:
     fields: [genomics, genetics, software]
     article_types: [research, methods, software, database, review, perspective]
     oa: full
-    limits: null
+    limits: {abstract_words: 250}
+    limit_quotes:
+      abstract_words: ["Full manuscripts Discoveries, Methods, Resources, Reviews and Protocols have an abstract of up to 250 words."]
+    required_sections: [Introduction, Results, Discussion, Materials and Methods]
+    section_order: flexible
+    section_order_quote:
+      - "The abstract is typically followed by sections (in order) with headings: Introduction, Results, Discussion, and Materials and Methods, if applicable."
+      - "However, Results and Discussion may be combined, and the order of the sections can be modified if deemed necessary for clarity of presentation (e.g., Materials and Methods prior to Results)."
+    provenance:
+      limits: {source: "https://academic.oup.com/mbe/pages/author-guidelines", checked: 2026-11-15}
+      required_sections: {source: "https://academic.oup.com/mbe/pages/author-guidelines", checked: 2026-11-15}
+      section_order: {source: "https://academic.oup.com/mbe/pages/author-guidelines", checked: 2026-11-15}
     software_article: true
     fit_note: only the OUP authorship/AI clause; Resources articles describe software tools and databases, which must be
       available at publication

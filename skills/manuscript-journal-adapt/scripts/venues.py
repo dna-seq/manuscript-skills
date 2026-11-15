@@ -189,7 +189,14 @@ RECORD_DESIGNS = {"software-tool": "software", "database-resource": "software", 
 # When a quoted rule of the author guidelines applies (`submission_rules` in venues.yaml).
 WHEN_WORDS = {"submission": "Rules of the author guidelines for the first submission:",
               "after_review": "Not needed until after the first review:"}
-LIMIT_WORDS = {"abstract_words": "the abstract", "body_words": "the body", "over_limit_return": "overlength papers"}
+LIMIT_WORDS = {"abstract_words": "the abstract", "body_words": "the body", "over_limit_return": "overlength papers",
+               "abstract_words_counts": "what the abstract's limit counts",
+               "body_words_counts": "what the body's limit counts"}
+# What a limit's `<limit>_counts` says when the page was read and does not say what the limit counts.
+COUNTS_NOT_STATED = "not_stated"
+# Whether a venue lets the body's sections come in another order than it lists (`section_order`).
+ORDER_WORDS = {"fixed": "The body's sections come in the order listed.",
+               "flexible": "The body's sections may come in another order than the one listed."}
 ROUTE_WORDS = {"httpx": "a plain download", "chrome": "a headless browser", "browser": "a copy saved from a browser",
                "webfetch": "a web-fetch tool"}
 LEGACY_ROUTE_PREFIX = re.compile(r"\b(httpx|chrome|wayback): ")
@@ -1327,6 +1334,96 @@ def _body_section(text: Any) -> bool:
     return name in BODY_SECTIONS or (bool(parts) and all(part in BODY_SECTIONS for part in parts))
 
 
+def limit_scope(limits: dict[str, Any], key: str) -> Optional[str]:
+    """What a word limit counts, in the page's terms, for printing beside the number: `<key>_counts` (the page's
+    words, or `not_stated` when the page was read and does not say), else `<key>_excludes` (the sections effort.py
+    leaves out), else, for the body, that it is not recorded. An abstract's limit counts the abstract, so an
+    abstract's scope is printed only when recorded."""
+    said = limits.get(f"{key}_counts")
+    if said == COUNTS_NOT_STATED:
+        return "the page does not say what it counts"
+    if said:
+        return str(said).strip().rstrip(".")
+    if excluded := [str(x) for x in limits.get(f"{key}_excludes") or []]:
+        return "excluding the " + _and(excluded)
+    return "what it counts is not recorded" if key == "body_words" else None
+
+
+# Spellings of one heading: "Method" and "Materials and methods" are the same heading, "Conclusions" is "Conclusion".
+SECTION_SPELLINGS = {"method": "methods", "materials and methods": "methods", "material and methods": "methods",
+                     "methods and materials": "methods", "materials and method": "methods", "conclusions": "conclusion"}
+# Different headings for one part of the paper: a version can carry only one of them, so venues naming one part
+# differently disagree (Background or Introduction), while a part only one venue asks for (a Conclusion) is extra.
+SECTION_PARTS = {"background": "introduction", "implementation": "methods", "design and implementation": "methods",
+                 "availability and future directions": "future directions"}
+
+
+def _section_key(text: Any) -> str:
+    name = re.sub(r"\(.*", "", str(text)).strip().rstrip(".").lower()
+    name = re.sub(r"\s+", " ", re.sub(r"^complete\s+|\s+sections?$", "", name))
+    return SECTION_SPELLINGS.get(name, name)
+
+
+def _section_parts(key: str) -> set[str]:
+    if key in SECTION_PARTS:
+        return {SECTION_PARTS[key]}
+    pieces = [_section_key(p) for p in re.split(r",\s*|\s+and\s+", key) if p]
+    return {SECTION_PARTS.get(p, p) for p in pieces} or {key}
+
+
+def _topological(orders: list[list[str]], rank: dict[str, int]) -> Optional[list[str]]:
+    """One order of every section in `rank` that keeps each list in `orders` in its own order, the earliest-ranked
+    section first where they leave a choice; None when two lists put the same sections in opposite orders."""
+    after: dict[str, set[str]] = {k: set() for k in rank}
+    for order in orders:
+        for a, b in zip(order, order[1:]):
+            after[a].add(b)
+    before = {k: sum(k in later for later in after.values()) for k in rank}
+    ready = sorted((k for k, n in before.items() if not n), key=rank.__getitem__)
+    out: list[str] = []
+    while ready:
+        k = ready.pop(0)
+        out.append(k)
+        for b in after[k]:
+            before[b] -= 1
+            if not before[b]:
+                ready = sorted([*ready, b], key=rank.__getitem__)
+    return out if len(out) == len(rank) else None
+
+
+def shared_structure(structures: dict[str, list[str]], order_kind: dict[str, Optional[str]]) -> dict[str, Any]:
+    """The body structure that venues with a recorded one share: the sections every one of them needs, and an order
+    every one of them accepts. A venue whose order is `flexible` accepts another order; one whose order is fixed or
+    not recorded accepts only its own, so it constrains the order. Returns `conflict` ("names" when two venues give
+    one part of the paper different headings, "order" when no order keeps every constraining venue's), else `order`
+    (every section's key in the accepted order), `needed` (the keys every venue needs), `who` (key -> venues),
+    `text` (key -> the heading as most venues spell it) and `moved` (flexible venues whose own order differs)."""
+    keyed = {n: [_section_key(x) for x in body] for n, body in structures.items()}
+    spellings: dict[str, list[str]] = {}
+    who: dict[str, list[str]] = {}
+    for n, body in structures.items():
+        for text, key in zip(body, keyed[n]):
+            spellings.setdefault(key, []).append(str(text).strip().rstrip("."))
+            if n not in who.setdefault(key, []):
+                who[key].append(n)
+    text = {k: max(dict.fromkeys(s), key=s.count) for k, s in spellings.items()}
+    keys = list(who)
+    if any(_section_parts(a) & _section_parts(b) for i, a in enumerate(keys) for b in keys[i + 1:]):
+        return {"conflict": "names"}
+    constraining = [n for n in keyed if order_kind.get(n) != "flexible"]
+    # Where the constraints leave a choice, the order the constraining venues list comes first.
+    rank = {k: i for i, k in enumerate(dict.fromkeys(
+        [k for n in constraining for k in keyed[n]] + [k for n in keyed for k in keyed[n]]))}
+    order = _topological([keyed[n] for n in constraining], rank)
+    if order is None:
+        return {"conflict": "order", "constraining": constraining}
+    position = {k: i for i, k in enumerate(order)}
+    moved = [n for n in keyed if order_kind.get(n) == "flexible"
+             and keyed[n] != sorted(keyed[n], key=position.__getitem__)]
+    return {"conflict": None, "order": order, "needed": [k for k in order if len(who[k]) == len(structures)],
+            "who": who, "text": text, "moved": moved}
+
+
 def _who(names: list[str], total: int) -> str:
     return "every venue" if len(names) == total and total > 1 else _and(names)
 
@@ -1572,10 +1669,12 @@ def show(
 
     limits = v.get("limits") or {}
     recommended = " (recommended, not required)" if limits.get("abstract_words_kind") == "recommended" else ""
-    parts = [f"the abstract at most {limits['abstract_words']} words{recommended}" if limits.get("abstract_words")
-             else None,
-             f"the body about {limits['body_words']} words"
-             + (" (recommended, not required)" if limits.get("body_words_kind") == "recommended" else "")
+    abstract_scope = f" ({limit_scope(limits, 'abstract_words')})" if limit_scope(limits, "abstract_words") else ""
+    parts = [f"the abstract at most {limits['abstract_words']} words{recommended}{abstract_scope}"
+             if limits.get("abstract_words") else None,
+             f"the body about {limits['body_words']} words ("
+             + ("recommended, not required; " if limits.get("body_words_kind") == "recommended" else "")
+             + f"{limit_scope(limits, 'body_words')})"
              if limits.get("body_words") else None,
              f"papers more than {round(100 * (limits['over_limit_return'] - 1))}% over the limit are returned "
              "without review" if limits.get("over_limit_return") else None]
@@ -1662,6 +1761,9 @@ def show(
         *items("abstract_headings"),
         "- Required sections (add the headings now; their final contents may wait for the last stage):",
         *items("required_sections"),
+        *([f"  - {ORDER_WORDS[v['section_order']]}"
+           + (f" The page: {_quoted(v['section_order_quote'])}" if v.get("section_order_quote") else "")]
+          if v.get("section_order") in ORDER_WORDS else []),
         "- Other rules the editors check on arrival:",
         *items("other_desk_rules"),
         *rule_lines,
@@ -2142,22 +2244,33 @@ def common(
         known = [(v, n) for v, n in have if n]
         if not known:
             continue
-        listing = "; ".join(f"{_name(v)}, {n}" + (" (recommended)" if (v.get("limits") or {}).get(f"{key}_kind")
-                                                  == "recommended" else "") for v, n in known)
+        # Each limit with what it counts, in the page's words: two limits of one number that count different parts
+        # of the paper are not the same length.
+        def counted(v: dict[str, Any], n: Any) -> str:
+            limits = v.get("limits") or {}
+            notes = [x for x in ("recommended" if limits.get(f"{key}_kind") == "recommended" else None,
+                                 limit_scope(limits, key)) if x]
+            return f"{_name(v)}, {n} words" + (f" ({'; '.join(notes)})" if notes else "")
+
+        listing = "; ".join(counted(v, n) for v, n in known)
+        scopes = {limit_scope(v.get("limits") or {}, key) for v, _ in known}
+        caveat = (" They do not all count the same parts of the paper, so measure the text as each venue counts it."
+                  if len(known) > 1 and len(scopes) > 1 else "")
         none = f"; {_and([_name(v) for v in free])} {'sets' if len(free) == 1 else 'set'} none" if free else ""
         none += "".join(f"; {_name(v)}, at most {c} characters" for v, c in chars)
         free = free + [v for v, _ in chars]
         shortest = min(n for _, n in known)
         if len(known) + len(free) == total and len({n for _, n in known}) == 1:
             now.append(f"- [ ] Length of {label}: at most {shortest} words, the limit of every venue that states one "
-                       f"({listing}{none}).")
+                       f"({listing}{none}).{caveat}")
         elif len(known) + len(free) < total:
-            differ.append(f"- Length of {label}: recorded limits are {listing} words{none}; other venues' limits are unknown. "
-                          "Keep this as a venue-specific choice until those rules are checked; no shared cap is established.")
+            differ.append(f"- Length of {label}: recorded limits are {listing}{none}; other venues' limits are unknown. "
+                          "Keep this as a venue-specific choice until those rules are checked; no shared cap is "
+                          f"established.{caveat}")
         else:
-            differ.append(f"- Length of {label}: the limits differ ({listing} words{none}). Writing to the shortest, "
+            differ.append(f"- Length of {label}: the limits differ ({listing}{none}). Writing to the shortest, "
                           f"{shortest} words, fits all of them; whether that cut is worth making before the choice "
-                          "is your decision.")
+                          f"is your decision.{caveat}")
 
     headings = [(v, v.get("abstract_headings")) for v in vs]
     for v, h in headings:
@@ -2219,18 +2332,49 @@ def common(
         else:
             differ.append(f"- {_sentence(text)[:-1]}, asked by {_and(names)} only: it changes the abstract's form, so "
                           "it waits for the choice.")
-    forms = {tuple(_norm(x) for x in body) for body in structures.values()}
+    # The structure the venues share: the sections every venue with a recorded structure needs, in an order each of
+    # them accepts. A venue accepts its own order, and another only when its page says the order may change
+    # (`section_order: flexible`); a venue with no recorded structure stays unknown and is never counted as accepting.
     others = [_name(v) for v in vs if _name(v) not in structures]
-    if len(forms) == 1 and not others:
-        now.append(f"- [ ] Body sections: {', '.join(next(iter(structures.values())))} (every venue).")
-    elif len(forms) == 1:
-        differ.append(f"- Body sections: {', '.join(next(iter(structures.values())))}, set by "
-                      f"{_and(list(structures))}; {_and(others)} set none or are not researched for it. Keep this "
-                      "as a venue-specific choice until those rules are checked.")
-    elif forms:
+    order_kind = {_name(v): v.get("section_order") for v in vs}
+    order_quote = {_name(v): v.get("section_order_quote") for v in vs}
+    unknown_note = (f"; {_and(others)} set none or are not researched for it, so whether "
+                    f"{'it accepts' if len(others) == 1 else 'they accept'} this order is unknown. Keep this as a "
+                    "venue-specific choice until those rules are checked.") if others else ""
+    found = shared_structure(structures, order_kind) if structures else None
+    if found and not found["conflict"] and found["needed"]:
+        text, who, order = found["text"], found["who"], found["order"]
+        sections = ", ".join(text[k] for k in found["needed"])
+        moved = found["moved"]
+        accept = (f", in this order, which {'every venue accepts' if not others else 'all of them accept'}: "
+                  f"{_and(moved)} {'lists' if len(moved) == 1 else 'list'} another order but "
+                  f"{'allows' if len(moved) == 1 else 'allow'} this one ("
+                  + "; ".join(f"{n}: {_quoted(order_quote[n])}" if order_quote.get(n) else f"{n}: the quote is not "
+                              "recorded" for n in moved) + ")") if moved else ""
+        extras = []
+        for i, k in enumerate(order):
+            if k in found["needed"]:
+                continue
+            place = f"after {text[order[i - 1]]}" if i else f"before {text[order[1]]}" if len(order) > 1 else "alone"
+            extras.append(f"{text[k]}, {place}, needed by {_and(who[k])}"
+                          + (" alone" if len(who[k]) == 1 else " only"))
+        if not others:
+            now.append(f"- [ ] Body sections: {sections} (every venue){accept}.")
+            if extras:
+                differ.append(f"- Body sections only some venues need: {'; '.join(extras)}. Add each in that venue's "
+                              "version.")
+        else:
+            differ.append(f"- Body sections: {sections}, set by {_and(list(structures))}{accept}"
+                          + "".join(f"; {x}" for x in extras) + unknown_note)
+    elif structures:
+        flexible = [n for n in structures if order_kind.get(n) == "flexible"]
+        why = (" No one order suits them all: their orders differ, and a venue is counted as accepting another order "
+               "only when its page says so" + (f" ({_and(flexible)} {'does' if len(flexible) == 1 else 'do'})"
+                                               if flexible else "") + "."
+               if found and found["conflict"] == "order" else "")
         differ.append("- Body sections differ, and a heading names one part of the paper, so one version follows one "
                       "venue's structure: " + "; ".join(f"{n}: {', '.join(b)}" for n, b in structures.items()) + "."
-                      + (f" {_and(others)} set none or are not researched for it." if others else ""))
+                      + why + (f" {_and(others)} set none or are not researched for it." if others else ""))
     union("other_desk_rules", "Rules the editors check on arrival, to check against the draft", now,
           "the rules checked on arrival")
 

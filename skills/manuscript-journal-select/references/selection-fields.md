@@ -26,7 +26,8 @@ publisher entry it `inherits`, when there is one).
 The same field names serve every layer:
 
 - selection and guidelines: `review_speed`, `publication_costs`, `open_science`, `limits`,
-  `abstract_headings`, `required_sections`, `submission_rules` (an addition every other venue's version can
+  `abstract_headings`, `required_sections` with `section_order` (`fixed` or `flexible`, when the page lets the
+  body's sections come in another order) and `section_order_quote`, `submission_rules` (an addition every other venue's version can
   carry, such as alt text, gets `free_for_others: true`), `software`, `other_desk_rules`,
   `validation_requirements`, `excluded_study_designs`, `editorial_profile`, `article_types`, `jif` with
   `jif_year`;
@@ -35,7 +36,9 @@ The same field names serve every layer:
 - what the journal asks its referees (`reviewer_form`) and its rules for figures (`figure_rules`), described in
   the header of `venues.yaml`;
 - what `effort.py` compares the manuscript with: `limits` (`abstract_words`, `body_words`, `body_words_kind:
-  recommended` for advice, `body_words_excludes: [methods]` for a count that leaves the Methods out, `none_stated`
+  recommended` for advice, `body_words_excludes: [methods]` for a count that leaves the Methods out (and
+  `body_words_counts`, what the limit counts in the page's words, or `not_stated`, quoted in `limit_quotes`, which
+  `common` and `show` print beside the number), `none_stated`
   listing `abstract_words`, `body_words` or `display_items` when the page was read and sets none),
   `figure_rules.display_items` (a number for all figures and tables, `{figures, tables}`, or either by article type,
   `{article: 7, report: 4}`), `abstract_headings` (`[]` for one paragraph without headings) and `required_sections`;
