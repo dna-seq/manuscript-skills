@@ -960,11 +960,22 @@ export const register: Register = on => {
       const own = one.mark?.reason ? ownReason(one.mark.reason) : ''
       const chosen = (n: number) =>
         (mine?.choice === 'option' && mine.option === n) || (mine?.choice === 'go-ahead' && n === 1 && one.options.length === 1)
+      // answered here or marked in STEM.todo.json: its summary struck through, so the open ones stand out; dim alone
+      // read almost as the open ones' black on the desktop
+      const isDone = Boolean(mine || filed)
+      // an option not taken: another was chosen, the text is left as it is, or the To-do tab marked it redundant
+      const isPassed = (n: number) =>
+        mine
+          ? (mine.choice === 'option' || mine.choice === 'go-ahead' || mine.choice === 'leave') && !chosen(n)
+          : filed?.mark === 'redundant'
       const where = [one.stage, one.section].filter(Boolean).join(' · ')
       return (
         <Box key={`row-${key}`} flexDirection="column" marginBottom={isOpen ? 1 : 0}>
-          <Button key={`decision-${key}`} plain dimColor={Boolean(mine?.isSent || (!mine && filed))} onPress={unfold(key)}>
-            <Text dimColor>{`${isOpen ? '▾' : '▸'} ${one.id}`}</Text> {one.summary}
+          <Button key={`decision-${key}`} plain onPress={unfold(key)}>
+            <Text dimColor>{`${isOpen ? '▾' : '▸'} ${one.id}`}</Text>{' '}
+            <Text strikethrough={isDone} dimColor={isDone}>
+              {one.summary}
+            </Text>
             {said && (
               <Text color={said[1]}>
                 {` · ${said[0]}${mine!.isSent && isMarking(mine!) ? ', sent' : ''}`}
@@ -975,6 +986,12 @@ export const register: Register = on => {
           </Button>
           {isOpen && (
             <Box flexDirection="column" paddingLeft={2}>
+              {/* the row's button is one line on the desktop, cut where the pane ends: the summary whole */}
+              {one.summary.length > 60 && (
+                <Text weight="semibold" strikethrough={isDone} wrap="wrap">
+                  {one.summary}
+                </Text>
+              )}
               {where && (
                 <Text dimColor wrap="wrap">
                   {where}
@@ -994,18 +1011,38 @@ export const register: Register = on => {
               )}
               {one.options.length > 0 && (
                 <Box flexDirection="column" marginTop={1}>
-                  <Text bold>{one.options.length > 1 ? 'Pick one:' : 'Suggested:'}</Text>
+                  <Text bold>{one.options.length > 1 ? 'Pick one: press its number' : 'Suggested:'}</Text>
+                  {/* a short button beside the option's words, which wrap: a button's own label is one line on the
+                      desktop, cut where the pane ends */}
                   {one.options.map((text, i) => (
-                    <Button key={`option-${i + 1}-${key}`} plain onPress={answer(key, one, 'option', i + 1)}>
-                      <Text color={chosen(i + 1) ? 'success' : 'suggestion'}>
-                        {`${chosen(i + 1) ? '●' : '○'} ${one.options.length > 1 ? `${i + 1}. ` : ''}`}
-                      </Text>
-                      {text}
-                    </Button>
+                    <Box key={`option-row-${i + 1}-${key}`} flexDirection="row" columnGap={1} marginTop={i ? 1 : 0}>
+                      <Button
+                        key={`option-${i + 1}-${key}`}
+                        variant={chosen(i + 1) ? 'primary' : undefined}
+                        label={one.options.length > 1 ? `${i + 1}` : 'Do this'}
+                        onPress={answer(key, one, 'option', i + 1)}
+                      />
+                      <Box flexShrink={1} flexGrow={1}>
+                        <Text
+                          wrap="wrap"
+                          color={chosen(i + 1) ? 'success' : undefined}
+                          weight={chosen(i + 1) ? 'semibold' : undefined}
+                          strikethrough={isPassed(i + 1)}
+                          dimColor={isPassed(i + 1)}
+                        >
+                          {`${chosen(i + 1) ? '✓ ' : ''}${text}`}
+                        </Text>
+                      </Box>
+                    </Box>
                   ))}
                 </Box>
               )}
-              <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={1}>
+              {one.options.length > 0 && (
+                <Box marginTop={1}>
+                  <Text bold>Or:</Text>
+                </Box>
+              )}
+              <Box flexDirection="row" flexWrap="wrap" columnGap={1} marginTop={one.options.length > 0 ? 0 : 1}>
                 <Button key={`leave-${key}`} label="Leave the text as it is" onPress={answer(key, one, 'leave')} />
                 <Button
                   key={`write-${key}`}

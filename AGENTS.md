@@ -159,6 +159,14 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   adjudicated one that links it (ST-7 in D3), on each refresh. The status line is said again after every answer
   (`showStatus`), not at the next 15-second refresh, and `/manuscript-status` and the "waits" notification count the
   open decisions, not all of them.
+- **Options readable whole, and answered ones struck through (0.67.0).** On the desktop a Button's label is one
+  native line, cut where the pane ends, and a plain Button reads as text, so options drawn as buttons were cut off
+  and did not look pressable. Each option is now a row (`option-row-N-<key>`): a short Button, its number (`Do
+  this` for a lone suggestion; `variant: 'primary'` once chosen), beside a `Text wrap="wrap"` with the option's
+  words. The other answers sit under **Or:**. Dim alone read almost as black, so an answered or marked decision's
+  summary is `strikethrough` and dim on its row, an option not taken is struck through (another chosen, left as
+  it is, or marked redundant in the To-do tab), and an unfolded decision repeats a summary over 60 characters
+  wrapped, since the row's Button cuts it too.
 - **An answer given in conversation is marked (0.66.0).** A decision answered in a chat stayed open in the Decisions
   pane and the To-do tab, which read only `STEM.todo.json`: MitoAge 2 v0.3's D1 was asked through **Ask me in a new
   session**, answered and recorded in the project's own decisions file, and still waited. `todo.py mark RUN ID --mark

@@ -67,7 +67,9 @@ and **Leave the text as it is** mark a decision there too. A decision's options 
 `findings.json` when the stage or the adjudication listed them (0.61.0), else from its action's prose. Answers are
 kept by run, kind and ID, never by stage, so they survive the dashboard's inventory taking over the list, and one
 given to a stage's decision moves to the adjudicated decision that links it; the waiting count in the pane, the
-band, the status line and `/manuscript-status` drops with each answer at once. A run from before 0.30.0 keeps none of the progress
+band, the status line and `/manuscript-status` drops with each answer at once. From 0.67.0 each option is a short
+numbered button beside its words, which wrap (a desktop draws a button's label on one line and cuts it), and an
+answered decision's summary and the options not taken are struck through. A run from before 0.30.0 keeps none of the progress
 records below, so for it the view guesses the rest, as it did first; from 0.30.3 it reads the records
 wherever a run has them:
 

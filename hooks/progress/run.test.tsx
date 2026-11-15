@@ -463,7 +463,8 @@ test('the Decisions pane shows each decision whole and sends the answers to Clau
   // a lone suggestion is its own button, worded as the action, not a bare "Go ahead"
   expect(await pane.find({ type: 'Text', text: `→ ${whole.action}` })).toBeUndefined()
   expect(await pane.find({ type: 'Text', text: 'Suggested:' })).toBeDefined()
-  expect((await pane.find({ type: 'Button', key: `option-1-${key('IC-21')}` }))?.text).toContain(whole.action)
+  expect((await pane.find({ type: 'Button', key: `option-1-${key('IC-21')}` }))?.text).toBe('Do this')
+  expect(await pane.find({ type: 'Text', text: whole.action })).toBeDefined()
   expect(await pane.find({ type: 'Button', key: `option-2-${key('IC-21')}` })).toBeUndefined()
   expect(await pane.find({ type: 'Button', key: `session-${key('IC-21')}` })).toBeDefined()
   expect((await pane.find({ type: 'Button', key: `write-${key('IC-21')}` }))?.text).toBe('Write my own answer')
@@ -630,15 +631,29 @@ test('the Decisions pane shares the authors\' marks with the dashboard\'s To-do 
 
   // D1's summary names two options, each its own button worded as the decision words it
   await pane.press({ key: `decision-${key('D1')}` })
-  expect(await pane.find({ type: 'Text', text: 'Pick one:' })).toBeDefined()
-  expect((await pane.find({ type: 'Button', key: `option-1-${key('D1')}` }))?.text).toEndWith('1. Confirm it')
-  expect((await pane.find({ type: 'Button', key: `option-2-${key('D1')}` }))?.text).toEndWith('2. Narrow the consent sentence')
+  expect(await pane.find({ type: 'Text', text: 'Pick one: press its number' })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: 'Or:' })).toBeDefined()
+  // each option a short button, its number, beside its words, which wrap: a button's label is one line on the desktop
+  expect((await pane.find({ type: 'Button', key: `option-1-${key('D1')}` }))?.text).toBe('1')
+  expect((await pane.find({ type: 'Button', key: `option-2-${key('D1')}` }))?.text).toBe('2')
+  const optionText = async (words: string) => (await pane.find({ type: 'Box', key: `option-row-${words}-${key('D1')}` }))
+  expect((await optionText('1'))?.text).toBe('1Confirm it')
+  expect((await optionText('2'))?.text).toBe('2Narrow the consent sentence')
   // its action, a lone suggestion beside them, is kept as text for what the options share
   expect(await pane.find({ type: 'Text', text: '→ Confirm with her.' })).toBeDefined()
   // option 2, then option 1: the mark is made once, and says which option
   await pane.press({ key: `option-2-${key('D1')}` })
   expect(marks().at(-1)).toMatchObject({ id: 'D1', mark: 'approved', reason: 'Chose: Narrow the consent sentence' })
   expect(await row(pane, 'D1')).toEndWith('· chose 2: Narrow the consent sentence')
+  // the chosen one is marked and its button is the primary one; the option not taken is struck through, and so is
+  // the answered decision's summary on its row
+  expect((await optionText('2'))?.text).toBe('2✓ Narrow the consent sentence')
+  expect((await pane.find({ type: 'Button', key: `option-2-${key('D1')}` }))?.props.variant).toBe('primary')
+  expect((await pane.find({ type: 'Text', text: 'Confirm it' }))?.props).toMatchObject({ strikethrough: true, dimColor: true })
+  expect((await pane.find({ type: 'Text', text: '✓ Narrow the consent sentence' }))?.props.strikethrough).toBe(false)
+  expect((await pane.find({ type: 'Text', text: "Livia Zaharia's consent: confirm it, or narrow the consent sentence." }))?.props.strikethrough).toBe(true)
+  // an open decision's summary is not struck through
+  expect((await pane.find({ type: 'Text', text: 'Choose a licence for the curated data and the code.' }))?.props.strikethrough).toBe(false)
   // choosing option 1 marks D1 approved in the file, with what the decision said, as the To-do tab's markOf does;
   // every other mark stays, the oldest first
   await pane.press({ key: `option-1-${key('D1')}` })
