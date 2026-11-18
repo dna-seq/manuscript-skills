@@ -279,6 +279,13 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
 - A new skill also gets `agents/openai.yaml`, a row in the README's task table (and its skill counts), and
   usually an `evals/<skill>.yaml` case.
 
+## Seats
+
+The repository runs standing agent roles (seats) through the seats kit, agent-seat-blueprints: the table is
+`.blueprints.toml`, each seat's priming is under [docs/seats/](docs/seats/README.md), and the decisions about
+how the repository is worked are in [docs/DECISIONS.md](docs/DECISIONS.md). They are not part of the plugin.
+A session that holds no seat works from this file as before.
+
 ## Releasing
 
 - Run `uv run pytest` (the whole suite).
