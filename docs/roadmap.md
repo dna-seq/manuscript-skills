@@ -1,8 +1,13 @@
 # Roadmap
 
-Open work only. Each item says what it is, why it is not built yet, and the shape it would take.
+Open work only. Each item says what it is, why it is not built yet, and the shape it would take. An item is a
+heading `## RM<n> — <title>` with its state and its owner under it, which the lead keeps true
+([docs/seats/LEAD.md](seats/LEAD.md)); a built item leaves this file in the commit that lands it.
 
-## Read the paper as a scientist outside the field (not built)
+## RM1 — Read the paper as a scientist outside the field
+
+**State:** unattended
+**Owner:** lead
 
 Two co-authors' comments on Paper 1 v0.7 matched against the run that produced it
 ([docs/coauthor-gaps-2026-11.md](coauthor-gaps-2026-11.md)) show the largest gap: 27 comments by a senior co-author
@@ -16,7 +21,10 @@ same note orders the smaller misses by skill (limits stated without their cost, 
 scope, reasons for a method's constants, authorship criteria). `comments.py gaps` measures each round against the
 next co-authors' reading.
 
-## Letters to the editor in the run and on the dashboard (not built)
+## RM2 — Letters to the editor in the run and on the dashboard
+
+**State:** unattended
+**Owner:** lead
 
 `manuscript-journal-adapt/scripts/letter.py` drafts a cover letter or a presubmission inquiry and traces its claims
 (0.63.0), but only when asked: manuscript-improve does not draft the cover letter at its journal stage, the dashboard
@@ -27,7 +35,10 @@ venue once its declarations are final, `collect.py` reads `RUN/manuscript-journa
 `letters` section shown on the Journals tab, and each gap becomes a To-do item for the authors; `scope` is filled for
 the venues on the ladders as their pages are read.
 
-## Reply to co-authors inside the Google Doc (not built)
+## RM3 — Reply to co-authors inside the Google Doc
+
+**State:** unattended
+**Owner:** lead
 
 `manuscript-coauthors` records how each co-author comment was answered (the ledger's `why`, the changelog,
 the dashboard). An agent posts the reply in the Doc's own thread only when the authors ask, through the
