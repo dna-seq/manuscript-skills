@@ -121,6 +121,8 @@ export type ManuscriptRunView = {
   title: string | null
   // the manuscript file the run works on: its newest version, else the first input
   manuscript: string | null
+  // the folder that holds the manuscript (the project's, else the file's own), to open by hand
+  folder: string | null
   startedAt: number | null
   // time of the newest record in the run
   lastRecordAt: number | null

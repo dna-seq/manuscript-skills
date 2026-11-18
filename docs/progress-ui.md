@@ -21,7 +21,8 @@ failed to load (its skills still load); with it, 2.1.227 loads cleanly and ignor
 ## What the authors see
 
 - **Status line**: `Paper 1 v0.6 · 9 of 18 stages · deslop running · 86 edits applied · 48 held`.
-- **Pane "Manuscript Skills · run"**: one bar per phase (review; editing: revise, prose edit, deslop, story, journal
+- **Pane "Manuscript Skills · run: <paper>"**: under the paper's name and title, the manuscript's file, its
+  folder and the run folder, each whole (0.68.0); then one bar per phase (review; editing: revise, prose edit, deslop, story, journal
   adaptation; assembly: dashboard, corrected version, re-check, Word review, changes workbook, handover);
   each stage's state, elapsed time and counts (findings, proposals, applied edits, decisions held for the
   authors); a button to open each stage's report; the referees' recommendations as seats by journals once
@@ -43,7 +44,7 @@ failed to load (its skills still load); with it, 2.1.227 loads cleanly and ignor
 
 The pane, band, status line and toasts draw in the terminal and in the desktop app alike. Claude Code labels a
 pane or a notification by the title the module gives it, not by the plugin, so every title starts with the
-plugin's name (`Manuscript Skills · run`, `Manuscript Skills · decisions: <paper>`, notifications headed
+plugin's name (`Manuscript Skills · run: <paper>`, `Manuscript Skills · decisions: <paper>`, notifications headed
 `Manuscript Skills`); before 0.50.1 the pane was titled "Manuscript run" and read as a plugin of its own.
 
 ## Which run it shows

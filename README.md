@@ -287,7 +287,7 @@ paper/
 ## Watching a run in Claude Code
 
 In Claude Code 2.1.299 or newer, the plugin shows where a run stands while it works: a status line, a
-**Manuscript Skills · run** pane with each phase's progress, counts, the referees' recommendations, how many
+**Manuscript Skills · run: <paper>** pane with each phase's progress, counts, the referees' recommendations, how many
 decisions are held for you, the run's settings and buttons that open its outputs, a **Manuscript Skills ·
 decisions** pane (the Decisions pane below), a band
 above the prompt when the run waits for your answer or decisions wait for you, and a short notice as each
@@ -314,7 +314,7 @@ next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
 ("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
 folder where the file is just `manuscript`), then the version folder, never by what kind of paper it is. The
-panes show its whole title, so a session that watches another paper's run says which paper waits for you. The progress pane opens by itself in the session that runs the workflow;
+panes show its whole title, so a session that watches another paper's run says which paper waits for you; the progress pane is titled with the paper too and gives, whole, the manuscript's file, its folder and the run folder, to open by hand. The progress pane opens by itself in the session that runs the workflow;
 anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
 PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
 folder; the one file it writes is the marks file beside the manuscript. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so
@@ -708,7 +708,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.67.0},
+  version = {0.68.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

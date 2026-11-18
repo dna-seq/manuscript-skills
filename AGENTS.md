@@ -247,6 +247,13 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   and `revise.py --supplement-document` (`stage_check.input_named`); the run keeps the file name. Tests:
   `tests/test_figures.py`, `tests/test_peer_review_workspaces.py`, `tests/test_coauthors.py`,
   `tests/test_supplement_path_0_65.py`.
+- **The progress pane says which paper and where (0.68.0).** The pane opens in whatever session works on a run
+  (a `runs.py` call, `show_run`, `/manuscript-status PATH`), often one in another folder than the paper's, and was
+  titled "Manuscript Skills · run" for every paper. `paneTitle()` (`model.ts`) titles both panes with the run's
+  label ("Manuscript Skills · run: MitoAge 2 v0.3"); the view carries `folder` (the project's root, else the
+  file's own folder; null for a bare file name), and the pane's header and `/manuscript-status` give the
+  manuscript's file, its folder and the run folder whole, as wrapped text, to open by hand where no button can
+  (a session on a server). Tests: `hooks/progress/run.test.tsx`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery
