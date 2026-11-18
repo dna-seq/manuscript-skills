@@ -15,6 +15,11 @@ file, and the kit's role `classes/lead/LEAD.md`.
   order RM1, RM2, RM3 was put to the maintainer in `#manuscript-skills>decisions` with that order as the
   default; RM3 is never called done before their own try from the desktop.
 - **The channel:** `state` (a kept message, `watchdog.py keep lead state`), `decisions`, `daily` opened.
+- **Acting duties** (no pm or correspondence seat in the table): `milestones`, done as the kept `state`
+  message and a `milestones` post per landed release; `upstream-index`, nothing declared: the plugin builds
+  on no in-house library or framework from the package index (its scripts carry their own inline
+  dependencies), and what it does depend on (the plugin formats, the Google connectors) is not published
+  there. Declare the watcher if that changes.
 
 ## Open
 
