@@ -1,0 +1,28 @@
+# manuscript-skills' seats (the seats kit, agent-seat-blueprints). Committed: it declares the seats and holds
+# no key. The messenger accounts stay on each machine, in its pool.
+[repo]
+# Also the name of the repository's channel in the chat, and the id the desk registers it under.
+id = "manuscript-skills"
+
+# The lead (docs/seats/LEAD.md): owns docs/roadmap.md and builds it with the maintainer.
+[seat.lead]
+# The desk's secretary relays the maintainer's answers to the lead's questions: a wake, never an instruction.
+wake_from = "*/secretary"
+# The team's people are heard in the repository's own channel, mention or none.
+wake_people = "manuscript-skills"
+
+[seat.lead.zulip]
+pool = "~/.config/agent-seat-blueprints/zulip/pool"
+
+# The plan's items that need the lead: no state or owner, a date come, a blocked item with no desk
+# question, a desk question answered. Each said once.
+[seat.lead.watch.plan]
+cmd = "sh kit:bin/py.sh kit:classes/lead/plan-watch.py --plan docs/roadmap.md"
+
+# The desk's answers to this seat's questions, each said once.
+[seat.lead.watch.desk]
+cmd = "sh kit:bin/py.sh kit:classes/desk/watch-answers.py manuscript-skills lead"
+
+# The repository's issues: a fault a manuscript's run found is filed there. A pointer per event, never the text.
+[seat.lead.watch.issues]
+cmd = "sh kit:bin/py.sh kit:drivers/github/watch-issues.py --origin"
