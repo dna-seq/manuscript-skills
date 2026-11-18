@@ -82,8 +82,12 @@ comments to an outside model or service beyond what the run's own skills already
   public. A fixture is cut down and rewritten until nothing of the paper is left in it.
 - Commits a path under a user's home (`tests/test_portability.py`), a host name or an account.
 - Adjusts a test to make a change pass without saying which convention moved, and why, in the commit.
-- Calls a release done before the catalogue's pin workflow ran green after the maintainer's merge
-  (`gh run list --workflow pin-ibima.yml --limit 1`).
+- Calls a release done before the IBIMA catalogue pins it: `.claude-plugin/marketplace.json` in
+  `longevity-genie/ibima-marketplace` names the release's version and commit. The repository has no
+  `IBIMA_PIN_TOKEN` secret (2026-11-19), so `pin-ibima.yml` only warns; after each release push the seat starts
+  the catalogue's pin itself, `gh workflow run pin-manuscript-skills.yml -R longevity-genie/ibima-marketplace`,
+  and reads the pinned version back (the maintainer, 2026-11-19: "make sure that you push stuff and it will
+  also get pinned at IBIMA marketplace").
 
 ## Not this seat
 

@@ -31,4 +31,7 @@ file, and the kit's role `classes/lead/LEAD.md`.
 
 ## For the maintainer, by hand
 
+- Optional: add the `IBIMA_PIN_TOKEN` secret (a fine-grained token for longevity-genie/ibima-marketplace,
+  Actions read and write), so a release push pins itself; until then the lead starts the pin.
+
 - Say where panes and Doc postings are looked at.
