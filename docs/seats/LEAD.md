@@ -49,11 +49,11 @@ The role's steps, with this repository's facts:
 - **The whole suite before anything is offered**: `uv run pytest`, never a slice. The suite pins the
   conventions (portability, the six places a finding prefix lives, a `SKILL.md`'s limits, the versions
   agreeing), so a failure there is a convention broken, not a test to adjust.
-- **A release is prepared, not shipped.** `AGENTS.md`, "Releasing", is the procedure: the versions bumped
+- **A release is shipped by the seat.** `AGENTS.md`, "Releasing", is the procedure: the versions bumped
   in every place it names, the feature said in `AGENTS.md` and the README, the commit message `Release
-  X.Y.Z: ...` as the notes. The seat makes that commit on its branch and opens the pull request; the push
-  to `main`, which moves the organisation catalogue's pin and reaches every user, is the maintainer's
-  merge. At most one release a day unless a fix is urgent.
+  X.Y.Z: ...` as the notes. The seat pushes it to `main` once the whole suite passes, which moves the
+  organisation catalogue's pin and reaches every user, then reads the pin workflow's result. No pull
+  request waits for the maintainer (D2). At most one release a day unless a fix is urgent.
 - **Checked where it serves** (the role, step 7): a script is run on a real run folder where this machine
   has one, as well as on its fixtures; the dashboard is opened and looked at. The progress pane
   (`hooks/progress`) runs only in the desktop app: where the machine cannot show it, the commit and the
@@ -66,10 +66,12 @@ The role's steps, with this repository's facts:
 
 ## Grant
 
-Use without asking: commit; push its own `build/` and `fix/` branches to `origin` and open a pull request
-for each; delete such a branch with `git branch -d` once merged, and on the remote once `-d` succeeded;
-remove its own worktrees after the merge; comment on and close the repository's issues with the commit
-that settled each. Not covered, so the maintainer's: a push to `main` and the merge of a pull request, a
+Use without asking: commit; merge its own `build/` and `fix/` branches into `main` and push `main` to
+`origin` as a fast-forward, once the whole suite passes (the maintainer, 2026-11-19: "push to main instead of
+harassing me on merging your pr-s"; D2); delete such a branch with `git branch -d` once merged, and on the
+remote once `-d` succeeded; remove its own worktrees after the merge; comment on and close the repository's
+issues with the commit that settled each. A pull request only where the maintainer asks for one, or for
+another person's review. Not covered, so the maintainer's: merging another person's pull request, a
 tag, a force push or rewritten history, `git branch -D`, a push to any other remote, a change to
 `.github/workflows/` or to the catalogue's pin, the licence, and sending a manuscript or a co-author's
 comments to an outside model or service beyond what the run's own skills already do on the authors' word.

@@ -25,3 +25,11 @@ be on the server", and "make lead seat, it is enough so far".
 
 The second, third and fourth were the wizard's defaults, taken when the maintainer answered only the
 first; each is changed by one pull request.
+
+## D2 — The lead pushes to `main` itself (2026-11-19)
+
+Amends D1's grant. The maintainer, after two pull requests waited for their merge: "can you fucking push to main
+instead of harassing me on merging your pr-s?". The lead merges its own branches into `main` and pushes, releases
+included, once the whole suite passes, and reads the catalogue's pin workflow after a release. Rejected: a pull
+request per change, which put a merge on the maintainer for every item. A pull request is opened only when they
+ask for one or another person should review.

@@ -11,7 +11,7 @@ file, and the kit's role `classes/lead/LEAD.md`.
 - **What cannot be checked here:** no paper's run folder is on this machine, and the progress pane and the
   Google connectors run only in the desktop app. Changes under `hooks/progress`, and anything that posts
   to a Doc, are "tested, not viewed" until the maintainer names where they are looked at.
-- **The roadmap:** RM1 to RM3, all `unattended`, owner lead (pull request 4, waiting for the merge). The
+- **The roadmap:** RM1 to RM3, all `unattended`, owner lead (on `main` since 2026-11-19). The
   order RM1, RM2, RM3 was put to the maintainer in `#manuscript-skills>decisions` with that order as the
   default; RM3 is never called done before their own try from the desktop.
 - **The channel:** `state` (a kept message, `watchdog.py keep lead state`), `decisions`, `daily` opened.
@@ -31,5 +31,4 @@ file, and the kit's role `classes/lead/LEAD.md`.
 
 ## For the maintainer, by hand
 
-- Merge pull request 4.
 - Say where panes and Doc postings are looked at.
