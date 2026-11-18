@@ -25,6 +25,7 @@ import {
   duration,
   FINISHED,
   manuscriptTitle,
+  paneTitle,
   marksFile,
   optionReason,
   ownReason,
@@ -41,7 +42,6 @@ import type { AssemblyFiles, FindingsSummary, MarksFile, RunJson } from './model
 const PANE = 'manuscript-run'
 // Every pane and notification names the plugin, so none of them reads as a plugin of its own.
 const NAME = 'Manuscript Skills'
-const TITLE = `${NAME} · run`
 const DECISIONS = 'manuscript-decisions'
 const REFRESH_MS = 15_000
 const RUN_ID = /\d{8}T\d{6}Z-[0-9a-f]{8}/
@@ -439,15 +439,21 @@ async function show($: $, given: string): Promise<string> {
   }
   await choose($, found)
   await refresh($, true)
-  await $.ui.open({ id: PANE, title: TITLE })
   const v = await read($, view)
+  await $.ui.open({ id: PANE, title: paneTitle(NAME, 'run', v) })
 
   return v ? summary(v, tally(v, await read($, answers)).open) : ((await read($, problem)) ?? `Could not read ${found}/run.json.`)
 }
 
 // `open`: the decisions with neither an answer in the pane nor a mark in STEM.todo.json.
 function summary(v: ManuscriptRunView, open: number): string {
-  const lines = [statusLine(v, open), ...(v.title ? [`Manuscript: ${v.title}`] : []), `Run: ${v.runPath}`]
+  const lines = [
+    statusLine(v, open),
+    ...(v.title ? [`Manuscript: ${v.title}`] : []),
+    ...(v.manuscript ? [`File: ${v.manuscript}`] : []),
+    ...(v.folder ? [`Folder: ${v.folder}`] : []),
+    `Run: ${v.runPath}`,
+  ]
   for (const phase of v.phases) {
     const own = v.stages.filter(stage => stage.phase === phase.id)
     const parts = own.map(stage => `${stage.label} ${stage.state}${counts(stage) ? ` (${counts(stage)})` : ''}`)
@@ -515,7 +521,7 @@ const day = (iso: string) => {
 
 // The Decisions pane, titled with the manuscript so a session watching another paper's run says which.
 async function openDecisions($: $, v: ManuscriptRunView): Promise<void> {
-  await $.ui.open({ id: DECISIONS, title: `${NAME} · decisions: ${v.label}`, focus: true })
+  await $.ui.open({ id: DECISIONS, title: paneTitle(NAME, 'decisions', v), focus: true })
 }
 
 // One message with every answer not sent yet, as the person's own: it runs once the session is idle. Marked sent
@@ -630,7 +636,7 @@ export const register: Register = on => {
       await refresh($, true)
       if (found && found !== offered) {
         offered = found
-        await $.ui.open({ id: PANE, title: TITLE })
+        await $.ui.open({ id: PANE, title: paneTitle(NAME, 'run', await read($, view)) })
       }
     }
 
@@ -689,6 +695,10 @@ export const register: Register = on => {
       <Box flexDirection="column" marginBottom={1}>
         <Text bold>{v.label}</Text>
         {v.title && <Text wrap="wrap">{v.title}</Text>}
+        {/* where it is, whole, to open by hand: the pane also shows in a session of another folder */}
+        {v.manuscript && <Text key="where-file" dimColor wrap="wrap">{`File: ${v.manuscript}`}</Text>}
+        {v.folder && <Text key="where-folder" dimColor wrap="wrap">{`Folder: ${v.folder}`}</Text>}
+        <Text key="where-run" dimColor wrap="wrap">{`Run: ${v.runPath}`}</Text>
         <Text dimColor wrap="truncate-end">
           {v.startedAt ? `started ${duration(now - v.startedAt)} ago` : ''}
           {v.lastRecordAt ? ` · last record ${duration(now - v.lastRecordAt)} ago` : ''} · {v.runId}
@@ -901,6 +911,7 @@ export const register: Register = on => {
       <Box key="header" flexDirection="column" marginBottom={1}>
         <Text bold>{v.label}</Text>
         {v.title && <Text wrap="wrap">{v.title}</Text>}
+        {v.folder && <Text key="where-folder" dimColor wrap="wrap">{`Folder: ${v.folder}`}</Text>}
         <Text color={open > 0 ? 'warning' : 'success'}>
           {open > 0 ? `${open} of ${plural(v.decisions.length, 'decision')} wait for you` : `All ${plural(v.decisions.length, 'decision')} answered`}
         </Text>

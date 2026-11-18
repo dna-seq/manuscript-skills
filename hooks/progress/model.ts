@@ -818,6 +818,11 @@ export function sessionRequest(view: ManuscriptRunView, one: ManuscriptDecision)
   ].join('\n')
 }
 
+// A pane's title names the manuscript: the pane also opens in a session of another folder than the paper's (one that
+// ran runs.py on it, or was shown it), and "run" alone did not say whose run it was.
+export const paneTitle = (name: string, kind: 'run' | 'decisions', view: Pick<ManuscriptRunView, 'label'> | null): string =>
+  view?.label ? `${name} · ${kind}: ${view.label}` : `${name} · ${kind}`
+
 export function buildView(g: Gathered): ManuscriptRunView {
   const { data } = g
   const edits = data.context?.effective?.edits
@@ -869,13 +874,15 @@ export function buildView(g: Gathered): ManuscriptRunView {
       : stages.filter(stage => stage.id !== DASHBOARD).reduce((sum, stage) => sum + (stage.held ?? 0), 0)) +
     g.files.questions.length
   const times = Object.values(data.skills).flatMap(records)
+  const manuscript = data.versions?.at(-1)?.new ?? data.inputs?.[0]?.original ?? null
 
   return {
     runPath: g.runPath,
     runId: data.run_id,
     label: runLabel(data, g.title ?? null),
     title: g.title ?? null,
-    manuscript: data.versions?.at(-1)?.new ?? data.inputs?.[0]?.original ?? null,
+    manuscript,
+    folder: data.context?.project_root || (manuscript && /[\\/]/.test(manuscript) ? manuscript.replace(/[\\/][^\\/]*$/, '') || '/' : null),
     startedAt: time(data.started_at),
     lastRecordAt: times.length ? Math.max(...times) : null,
     stages,

@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { buildView, decisionOptions, manuscriptTitle, marksPath, optionReason, ownReason, runLabel, statusLine, summarizeFindings } from './model'
+import { buildView, decisionOptions, manuscriptTitle, marksPath, optionReason, ownReason, paneTitle, runLabel, statusLine, summarizeFindings } from './model'
 import type { MarksFile, RunJson } from './model'
 
 const PROJECT = '/work/paper/v0.6'
@@ -249,6 +249,8 @@ test('a finished run with decisions raises the band, which opens them', async ($
   on('ui.notify', () => ({ value: { isSent: false, reason: 'no-surface' } }))
 
   await $.command.run({ ...TYPED, args: RUN })
+  // the progress pane is titled with the manuscript too: it also opens in a session of another folder
+  expect(opened.at(-1)).toEqual({ id: 'manuscript-run', title: 'Manuscript Skills · run: Paper 1 just-dna-lite v0.6' })
   for (const surface of ['terminal', 'desktop'] as const) {
     const band = await $.ui.mount({ ...BAND, surface })
     expect((await band.find({ type: 'Text', text: /waits for you/ }))?.text).toBe('Paper 1 just-dna-lite v0.6: 1 decision waits for you')
@@ -261,6 +263,10 @@ test('a finished run with decisions raises the band, which opens them', async ($
   // the progress pane counts them and opens the same pane
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect((await pane.find({ type: 'Text', text: /Decisions for you/ }))?.text).toBe('Decisions for you: 1 of 1 open')
+  // and says where the paper, its folder and the run are, whole, to open by hand
+  expect((await pane.find({ type: 'Text', text: /^File: / }))?.text).toBe(`File: ${PROJECT}/paper1-just-dna-lite.md`)
+  expect((await pane.find({ type: 'Text', text: /^Folder: / }))?.text).toBe(`Folder: ${PROJECT}`)
+  expect((await pane.find({ type: 'Text', text: /^Run: / }))?.text).toBe(`Run: ${RUN}`)
   await pane.press({ key: 'open-decisions' })
   expect(opened.at(-1)?.id).toBe('manuscript-decisions')
 })
@@ -951,4 +957,15 @@ test('the waiting count drops with each answer and stays down when the dashboard
   expect(answer.text).toContain('3 decisions for the authors; 1 still open.')
   expect(answer.text).toContain('1 decision waits for you')
   await pane.unmount()
+})
+
+test('a pane is titled with the manuscript, and a run with no project folder gives its file\'s folder', () => {
+  expect(paneTitle('Manuscript Skills', 'run', { label: 'MitoAge 2 v0.3' })).toBe('Manuscript Skills · run: MitoAge 2 v0.3')
+  expect(paneTitle('Manuscript Skills', 'run', null)).toBe('Manuscript Skills · run')
+  const data = runJson()
+  const files = { dashboard: null, word: null, workbook: null, corrected: null, recheck: null, questions: [] }
+  const view = (json: RunJson) => buildView({ runPath: RUN, data: json, findings: {}, files, referees: null, now: Date.parse(at(50)) })
+  expect(view(data).folder).toBe(PROJECT)
+  expect(view({ ...data, context: { ...data.context, project_root: undefined } }).folder).toBe(PROJECT)
+  expect(view({ ...data, context: { ...data.context, project_root: undefined }, inputs: [{ original: 'paper.md', snapshot: 'inputs/01-paper.md' }] }).folder).toBeNull()
 })
