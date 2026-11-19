@@ -12,8 +12,15 @@ file, and the kit's role `classes/lead/LEAD.md`.
   Google connectors run only in the desktop app. Changes under `hooks/progress`, and anything that posts
   to a Doc, are "tested, not viewed" until the maintainer names where they are looked at.
 - **The roadmap:** RM1 to RM3, all `unattended`, owner lead (on `main` since 2026-11-19). The
-  order RM1, RM2, RM3 was put to the maintainer in `#manuscript-skills>decisions` with that order as the
-  default; RM3 is never called done before their own try from the desktop.
+  order question in `#manuscript-skills>decisions` was withdrawn the same night (an order alone is no real
+  fork): built RM1, RM2, RM3 in turn; RM3 is never called done before their own try from the desktop.
+
+## 2026-11-19 — RM1 built (0.69.0)
+
+- The reader from outside the field (`manuscript-story/scripts/comprehension.py`, the panel's fourth seat, and
+  improve's step 7 on the run's own passages). Tested on fixtures only: no run folder of a real paper is here, so
+  its first real reading is the next improve run; `comments.py gaps` on the round after it measures it.
+- The rest of the gap note's order is RM4 (one change per skill), `unattended`.
 - **The channel:** `state` (a kept message, `watchdog.py keep lead state`), `decisions`, `daily` opened.
 - **Acting duties** (no pm or correspondence seat in the table): `milestones`, done as the kept `state`
   message and a `milestones` post per landed release; `upstream-index`, nothing declared: the plugin builds

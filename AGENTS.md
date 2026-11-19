@@ -254,6 +254,20 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   file's own folder; null for a bare file name), and the pane's header and `/manuscript-status` give the
   manuscript's file, its folder and the run folder whole, as wrapped text, to open by hand where no button can
   (a session on a server). Tests: `hooks/progress/run.test.tsx`.
+- **A scientist from outside the field reads sentence by sentence (0.69.0, RM1).** On Paper 1 v0.7 a co-author
+  outside the sub-field left 27 comments on text they could not follow, three on passages the run wrote for its
+  own referees, and no stage had caught one: the panel reads for the story, the prose stage only what it edits,
+  the re-check for accuracy. `manuscript-story/scripts/comprehension.py`: `scan` (list-only, the whole body:
+  abbreviations used before they are spelled out or never, the Abstract apart; `reader_metrics.dense` sentences;
+  numbers that set a rule, `RULE`, with no reason, citation or explaining next sentence), `passages ORIGINAL
+  CORRECTED` (paragraphs with two or more new sentences), `prepare` (a fresh reader's folder: the Methods- and
+  Results-like sections or `--section N`, the passages with `--original`, `--passages-only`; `brief.md`,
+  `manifest.json` with the paper's digest) and `check` (refuses a skipped section or passage, a quote not in the
+  paper, a problem outside `PROBLEMS`, a changed paper; drafts each stop as a `Comprehension` finding, minor, no
+  decision, owned by manuscript-prose-edit, a major one for five in a section, and lists the stops on the run's
+  passages). The reader panel's fourth seat is now this reader (`outside-expert`), in every story stage, and
+  manuscript-improve's step 7 reads the corrected version's new passages with it once, fixing each stop as a
+  recorded routine edit. Tests: `tests/test_comprehension.py`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

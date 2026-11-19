@@ -95,7 +95,20 @@ and after text and offer to restore it or to record the new direction.
    stopped them and the paragraphs whose topic they could not have predicted from the one before ("why is
    this here"); a reader who left before what it came for cannot try or cite the work. Each reader is a fresh agent given only the manuscript, its figures as images and its seat
    ([independence is required](../manuscript-integrity-check/references/project-workflow.md#independent-readers-and-referees)).
-3. **The story tests** ([story-tests.md](references/story-tests.md)): the stake (and whether the paper
+3. **Sentence by sentence, from outside the field.** The panel's fourth seat, the scientist from outside the field,
+   reads the Methods- and Results-like sections every sentence and lists each one it could not restate (a term
+   before its definition, a sentence it cannot parse, a number without its reason), and `scripts/comprehension.py
+   scan PAPER` lists the same kinds over the whole text for the stage to read
+   ([reader-panel.md](references/reader-panel.md)). Each stop is a Comprehension finding the prose stage fixes:
+
+   ```bash
+   uv run --script scripts/comprehension.py scan PAPER.md --md RUN/manuscript-story/comprehension-scan.md
+   uv run --script scripts/comprehension.py prepare PAPER.md --into RUN/manuscript-story/comprehension
+   uv run --script scripts/comprehension.py check RUN/manuscript-story/comprehension/answer.json \
+       --out RUN/manuscript-story/comprehension.json --start 20
+   ```
+
+4. **The story tests** ([story-tests.md](references/story-tests.md)): the stake (and whether the paper
    says why the problem matters at all), the gap, the one idea, a headline per result, a worked example of
    real output, sentences and paragraphs that follow from the ones before, one idea per paragraph, where the
    caveats sit (and whether results come with a list of what they do not show), what the paper argues

@@ -77,8 +77,9 @@ the next attempt (`findings.2.json`), never in a registered file.
   Words other scripts and seats use map onto it: `optional` → `info`, `uncertain` and `not_assessed` →
   `unknown`, `serious` → `blocker`, `important` → `major`. Collect applies the same mapping.
 - `quote`: at least three words, as many as it takes to find the passage once in the manuscript.
-- **Comprehension.** A term used before the paper defines it, a sentence a reader could not parse, or two
-  sentences with no relation between them, in a section the recorded audience reads, is a finding of category
+- **Comprehension.** A term used before the paper defines it, a sentence a reader could not parse, a number that
+  sets a rule given without its reason, or two sentences with no relation between them, in a section the recorded
+  audience reads (manuscript-story's `comprehension.py` drafts them from the reader from outside the field), is a finding of category
   `Comprehension`: at least `minor`, never `info`, since a reader stops there; it needs no decision of the
   authors (`decision: false`, with the fix as `action`: the definition moved to the first use, the link, the
   split), so under `edits: apply` the stage that owns it applies the fix. Five or more in one section, or one that

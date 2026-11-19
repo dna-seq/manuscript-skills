@@ -56,14 +56,30 @@ and save the answer. Each seat reads the whole paper, so more than five or six c
    use its results). Reads the whole paper and notes every term, abbreviation or step that stopped them,
    and every paragraph whose topic they could not have predicted from the one before.
 
-A fourth seat, offered when the paper has co-authors outside its sub-field or the authors ask for it:
+A fourth seat reads sentence by sentence, beside the panel and in every manuscript-improve run:
 
-4. **The co-author who must vouch.** A senior scientist in the paper's broader field who is named on it and
-   must be able to defend every sentence to a referee. Reads the whole paper, slowly, and lists each sentence
-   they could not restate in their own words or would not defend, quoting it, with why (an undefined term, a
-   step they could not follow, a number whose meaning they could not tell, a claim they could not check).
-   Simulated readers read past what a person would stop at; asking for a restatement makes the stop visible.
-   Its list goes into the stumbles like any seat's, each sentence a finding of category Comprehension.
+4. **The scientist from outside the field** (`outside-expert`). A senior scientist in the paper's broader field,
+   outside its sub-field, named on it as a co-author, who must be able to defend every sentence to a referee. The
+   other seats read for the story and read past what a person would stop at; this one reads the Methods- and
+   Results-like sections (Sections 2 to 4 of most papers; the authors may name others) every sentence, in order,
+   and lists each sentence it could not restate in its own words, quoted, with the problem: a term before its
+   definition, a sentence it could not parse, a number that sets a rule with no reason given, a sentence with no
+   link to the one before, or anything else that stopped it, with why. On Paper 1 v0.7 one such co-author left 27
+   comments of these kinds that no stage had caught ([the gap report](../../../docs/coauthor-gaps-2026-11.md)).
+   `scripts/comprehension.py prepare PAPER --into RUN/manuscript-story/comprehension [--section 2 ...]` writes its
+   folder (the sections, its brief, nothing else) and `check .../answer.json --out RUN/manuscript-story/comprehension.json
+   --start N` refuses an answer that skipped a section or quotes words the paper lacks, and drafts each stop as a
+   finding of category Comprehension owned by manuscript-prose-edit (five in one section add a major finding on the
+   section). Start it as any seat, a fresh agent given only its folder, and register it with `runs.py add --role seat
+   --seat outside-expert`. manuscript-improve runs it again on the corrected version, on the passages the run itself
+   wrote (`prepare --original ORIGINAL --passages-only`), since passages written for referees are checked for
+   accuracy and never for whether a reader can follow them.
+
+   `comprehension.py scan PAPER` is the list-only pass over the whole text that goes with it: abbreviations used
+   before they are spelled out or never spelled out (the Abstract on its own), dense sentences and numbers that set
+   a rule with no reason, reference or citation beside them. Its list is for the stage to read, never handed to a
+   reader and never a finding by itself: a hit becomes one only once the stage has read the passage and agrees a
+   reader would stop there.
 
 A seat the authors name gets a brief in the same form: who the reader is, why they opened the paper, and
 the order they read in (a skim like the skimmer's, or the whole paper).

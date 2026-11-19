@@ -112,7 +112,10 @@ there:
   linked, and measures how much choosing each of the three recommended journals would change the manuscript:
   the words to cut, the abstract, the figures and tables, the structure, the validation still missing.
 - **Readers as well as referees.** [manuscript-story](skills/manuscript-story/SKILL.md) has simulated
-  readers say where they would stop reading, then repairs the text without dropping a caveat.
+  readers say where they would stop reading, then repairs the text without dropping a caveat. A scientist from
+  outside the field reads the Methods and Results, and every passage the run itself wrote, sentence by sentence,
+  and lists each term used before its definition, each sentence it cannot parse and each number given without
+  its reason, for the prose stage to fix.
 - **AI edits no person has reviewed.** For manuscripts that keep revision marks,
   [manuscript-revision-marks](skills/manuscript-revision-marks/SKILL.md) shows which passages an AI or
   agent rewrote that no co-author has checked since.
@@ -708,7 +711,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.68.0},
+  version = {0.69.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

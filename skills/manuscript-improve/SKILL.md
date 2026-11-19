@@ -285,6 +285,25 @@ inventory, so the end of a run goes in this order:
    `runs.py validate --final` refuses a handover whose newest re-check read another build than the corrected
    version unless that reason is recorded. The dashboard reads the newest `recheck*.json` beside the revision
    folder.
+
+   Within the same stage, the passages the run wrote are read from outside the field. The re-check asks whether an
+   edit is accurate, not whether a reader can follow it, and on Paper 1 v0.7 three passages written for the
+   simulated referees were accurate and could not be followed by a co-author outside the sub-field. A fresh agent,
+   the story stage's scientist from outside the field, reads each paragraph of the corrected version with two or
+   more new sentences (from this skill's folder):
+
+   ```bash
+   uv run --script ../manuscript-story/scripts/comprehension.py prepare RUN/manuscript-improve/revision/proposed<ext> \
+       --original ORIGINAL --passages-only --into RUN/manuscript-improve/comprehension
+   uv run --script ../manuscript-story/scripts/comprehension.py check RUN/manuscript-improve/comprehension/answer.json \
+       --out RUN/manuscript-improve/comprehension.json --prefix IM --start N
+   ```
+
+   registered with `runs.py add --role seat --seat outside-expert`. Fix each stop with a recorded routine edit (the
+   definition brought to the first use, the sentence split, the reason the paper or its sources give), rebuilt with
+   the re-check's fixes; a reason only the authors know goes to them as the edit's `--comment`, never invented. No
+   second reading follows; what stays unfixed is listed with the end-of-run items. When nothing in the corrected
+   version is new by two sentences, `prepare` exits 2 and the step is skipped, said in the stage's note.
 8. Render the dashboard and the Word file from the same attempts.
 9. Write the summary, run the smell check on it and register it; `finish` every stage, run
    `validate --final`, then `runs.py handover` (between `stage --name handover --status running` and
