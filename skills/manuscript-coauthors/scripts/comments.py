@@ -718,6 +718,18 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
     by_soft = {soft(item.get("by"), item.get("date"), item.get("comment")): item for item in data["items"]
                if item.get("by") and item.get("master") == own_master}  # within this Doc only
 
+    def loose(date: Any, comment: Any, anchor: Any) -> tuple[str, str]:
+        """The same comment pulled once by each route, from a ledger whose items carry no handle (pulled before
+        0.57.0, or with --no-people): the two routes spell the author differently, so it is known by the minute it
+        was written and its first words (a suggestion, which has none, by its anchor's)."""
+        words = " ".join(str(comment or "").split())[:40] or " ".join(str(anchor or "").split())[:40]
+        return (str(date or "")[:16], words.casefold())
+    by_loose: dict[tuple[str, str], list[dict]] = {}
+    for item in data["items"]:
+        if item.get("master") == own_master and item.get("date"):
+            by_loose.setdefault(loose(item.get("date"), item.get("comment"), item.get("anchor")), []).append(item)
+    claimed: set[int] = set()
+
     def key_of(f: Found) -> str:  # an item of another Doc of the round is known within that Doc
         return f"{own_master}|{f.key}" if own_master else f.key
     ids = used_ids(ledger_path, master) | {item["id"] for item in data["items"]}
@@ -727,6 +739,12 @@ def merge(ledger_path: Path, found: list[Found], master: Master | None, round_na
         item = by_gdoc.get(f.gdoc_id) if f.gdoc_id else None
         item = item or by_key.get(key_of(f)) or (by_soft.get(soft(handles.get(f.author), f.date, f.comment))
                                                   if handles and handles.get(f.author) else None)
+        if item is None:  # one unclaimed item of the same minute and words, unique, is the same comment
+            same = [i for i in by_loose.get(loose(f.date, f.comment, f.anchor), []) if id(i) not in claimed
+                    and i.get("kind") == f.kind]
+            item = same[0] if len(same) == 1 else None
+        if item is not None:
+            claimed.add(id(item))
         if item is None:
             letter = "C" if f.kind == "comment" else "S"
             item = {"id": f"{letter}{numbers[f.kind]}", "kind": f.kind, "author": f.author, "date": f.date,
@@ -906,8 +924,33 @@ class Masters:
         main = data.get("master")
         self.old = old or ((ledger.parent / main if not Path(main).is_absolute() else Path(main)) if main else None)
         self.new, self.ledger = new, ledger
+        self.round = str(data.get("round") or "")
         self.read: dict[Path, Master] = {}
         self.aligned: dict[tuple[int, int], list] = {}
+        self.released: dict[Path, Path | None] = {}
+
+    def as_circulated(self, path: Path) -> Path:
+        """A round worked in place (the old and the new round are one file, issue #7): the old side is the master as
+        the co-authors got it, at the round's last circulated commit, as `rounds.py sync` reads it; else the file."""
+        key = path.resolve()
+        if key not in self.released:
+            self.released[key] = None
+            text = circulated_text(path, self.round)
+            if text is not None:
+                import tempfile
+                folder = Path(tempfile.mkdtemp(prefix="coauthors-circulated-"))
+                copy = folder / path.name
+                copy.write_text(text, encoding="utf-8")
+                self.released[key] = copy
+            else:
+                print(f"{path}: the old and the new round are one file and no circulated commit was found "
+                      f"(rounds.py circulated {self.round or 'ROUND'} --commit SHA), so each comment is compared with "
+                      f"the file as it is now", file=sys.stderr)
+        return self.released[key] or path
+
+    def in_place(self, old: Path | None, new: Path | None) -> bool:
+        return old is not None and new is not None and old.is_file() and new.is_file() and \
+            old.resolve() == new.resolve()
 
     def get(self, path: Path | None) -> Master | None:
         if path is None or not path.is_file():
@@ -922,8 +965,12 @@ class Masters:
         if not own:
             if self.old is not None and not self.old.is_file():
                 raise Failure(f"{self.old}: cannot read the master.", 3)
-            return self.get(self.old), self.get(self.new)
-        return self.get(self.ledger.parent / own), self.get(self.new.parent / own) if self.new else None
+            old, new = self.old, self.new
+        else:
+            old, new = self.ledger.parent / own, (self.new.parent / own if self.new else None)
+        if self.in_place(old, new):
+            old = self.as_circulated(old)
+        return self.get(old), self.get(new)
 
     def ops(self, old: Master | None, new: Master | None) -> list | None:
         if old is None or new is None:
@@ -932,6 +979,33 @@ class Masters:
         if key not in self.aligned:
             self.aligned[key] = rev_marks().align(old.blocks, new.blocks)[2]
         return self.aligned[key]
+
+
+def circulated_text(path: Path, round_name: str) -> str | None:
+    """The file at the commit recorded when round *round_name* was circulated (the project's
+    `coauthors.rounds.<round>.circulated`, the last one), or None when there is no such record or git cannot show it."""
+    import subprocess
+    here = path.resolve().parent
+    config = next((d / ".manuscript-skills.yaml" for d in (here, *here.parents) if (d / ".manuscript-skills.yaml").is_file()),
+                  None)
+    if config is None or not round_name:
+        return None
+    try:
+        block = (yaml.safe_load(config.read_text(encoding="utf-8")) or {}).get("coauthors") or {}
+        circulated = ((block.get("rounds") or {}).get(round_name) or {}).get("circulated") or []
+        commit = str(circulated[-1]["commit"]) if circulated else ""
+    except (yaml.YAMLError, OSError, KeyError, TypeError, AttributeError):
+        return None
+    if not commit:
+        return None
+    top = subprocess.run(["git", "-C", str(here), "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+                         encoding="utf-8")
+    if top.returncode != 0:
+        return None
+    relative = path.resolve().relative_to(Path(top.stdout.strip()).resolve()).as_posix()
+    shown = subprocess.run(["git", "-C", top.stdout.strip(), "show", f"{commit}:{relative}"], capture_output=True,
+                           text=True, encoding="utf-8")
+    return shown.stdout if shown.returncode == 0 else None
 
 
 def first_line(text: str) -> str:

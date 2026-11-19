@@ -787,6 +787,25 @@ def sync_json(root: Path, *args: str) -> tuple[int, dict]:
     return done.returncode, json.loads(done.stdout)
 
 
+def test_status_of_a_round_worked_in_place_compares_with_what_was_circulated(released_round: Path, capsys) -> None:
+    """Issue #7: when the old and the new round are one file, a comment answered by an edit (carried from the Doc)
+    was said to read the same, since the file was compared with itself. The old side is the circulated commit."""
+    folder = released_round / "v0.5"
+    paper, ledger = folder / "paper.md", folder / "comments.yaml"
+    answer = "Personal genome analysis requires tools that keep the data local to a third-party server"
+    paper.write_text(paper.read_text(encoding="utf-8").replace(
+        "Personal genome analysis requires tools that keep the data local,", answer + ","), encoding="utf-8")
+    data = ledger_of(ledger)
+    s9 = next(i for i in data["items"] if i["id"] == "S9")
+    s9.update(status="addressed", now=answer, why="Bob's suggestion, taken as written.")
+    ledger.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    capsys.readouterr()
+    cli("status", ledger, "--new", paper)
+    out = capsys.readouterr().out
+    s9_lines = out.split("S9", 1)[1].split("\n")[1:3]
+    assert not any("reads the same" in line for line in s9_lines), out
+
+
 def test_sync_turns_what_was_changed_in_the_doc_into_edits_on_the_next_masters(released_round: Path) -> None:
     code, result = sync_json(released_round, "--out", released_round / "sync")
     assert code == 0 and result["commit"]
@@ -990,6 +1009,30 @@ def test_a_pull_by_the_other_route_knows_each_comment_again(rounds: Path, capsys
     budget = [i for i in ledger_of(ledger)["items"] if i.get("anchor") == "billions of dollars"]
     assert len(budget) == 1 and budget[0]["gdoc_id"] == "doco.c1" and budget[0]["by"] == "annlee"
     assert next(p for p in result["people"] if p["name"] == ANN)["rule"] in ("author", "initials", "alias")
+
+
+def test_a_ledger_pulled_without_handles_is_not_doubled_by_the_connector(rounds: Path, capsys) -> None:
+    """Issue #6: a ledger first pulled as .docx with no handles on its items (before 0.57.0, or --no-people) grew
+    from 132 items to 329 when pulled through the connector. Each comment is known again by its minute and words."""
+    folder = rounds / "v0.5"
+    ledger = folder / "comments.yaml"
+    doc = export(rounds / "doc.docx")
+    with zipfile.ZipFile(doc) as z:
+        files = {n: z.read(n).decode() for n in z.namelist()}
+    with zipfile.ZipFile(doc, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text.replace(f'w:author="{ANN}"', 'w:author="A Lee"'))
+    cli("import", doc, "--ledger", ledger, "--master", folder / "paper.md", "--no-people")
+    before = json.loads(capsys.readouterr().out)["items"]
+    assert not any(i.get("by") for i in ledger_of(ledger)["items"])
+    cli("import-gdoc", gdoc_json(rounds / "read.json"), "--ledger", ledger, "--master", folder / "paper.md",
+        "--no-people")
+    capsys.readouterr()
+    budget = [i for i in ledger_of(ledger)["items"] if i.get("anchor") == "billions of dollars"]
+    assert len(budget) == 1 and budget[0]["gdoc_id"] == "doco.c1"
+    again = {i["id"] for i in ledger_of(ledger)["items"]}
+    # the .docx pull known again; only the two the .docx has not (an [ai] comment, a format suggestion) are new
+    assert len(again) == before + 2
 
 
 def test_import_gdoc_refuses_a_read_without_comments(rounds: Path, capsys) -> None:
