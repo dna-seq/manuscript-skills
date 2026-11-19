@@ -28,6 +28,13 @@ file, and the kit's role `classes/lead/LEAD.md`.
   dependencies), and what it does depend on (the plugin formats, the Google connectors) is not published
   there. Declare the watcher if that changes.
 
+## Standing word from the maintainer
+
+- **No manuscript runs without asking** (Anton, 2026-11-19, relayed by the desk's secretary to every lead): no
+  seat starts a run of this plugin's skills (review panels, improve, dashboard, other-model runs) unless Anton asked
+  for that run in his own words or said yes when asked; "manuscript skills is super token consuming". The lead builds
+  and tests the plugin on fixtures; a run on a real paper to try a feature (RM1's reader) is asked for first.
+
 ## Open
 
 - **Picture:** this machine cannot draw; asked in `#agent-chat>avatars` for "a fountain pen leaning over a
