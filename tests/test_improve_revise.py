@@ -343,3 +343,18 @@ def test_a_note_that_fills_a_slot_in_a_sentence_holds_the_proposal_and_a_plain_a
     assert [x["id"] for x in record["not_placed"]] == ["JA-C8"]
     assert "The remaining authors declare" in document.current() and "used" not in document.current().split("It is fast.")[1]
     assert any("The authors used …" in c["question"] for c in record["comments"] if c["ids"] == ["JA-C8"])
+
+
+def test_a_deletion_of_a_sentence_an_earlier_edit_reworded_is_placed_from_that_edit() -> None:
+    """0.70.0: story deleted a sentence the prose edit had rewritten (story.C3); the deleted text is
+    not in the original, so its place comes from the words around it in the earlier edit's after-text."""
+    original = "# T\n\nGenomes are cheap. This tool plays a crucial role in annotation. We use it daily.\n"
+    reworded = original.replace("This tool plays a crucial role in annotation.", "The tool annotates variants.")
+    working = reworded.replace(" The tool annotates variants.", "")
+    raw = inventory()
+    raw["changes"] = [change("PE.C1", "applied", "Genomes are cheap. This tool plays a crucial role in annotation. We use it daily.",
+                             "Genomes are cheap. The tool annotates variants. We use it daily."),
+                      change("ST.C3", "applied", "The tool annotates variants.", None)]
+    document, record = revise.build(original, working, viz.Inventory.model_validate(raw), {})
+    assert document.previous() == original and document.current() == working
+    assert sorted(record["applied"]) == ["PE.C1", "ST.C3"] and not record["not_placed"]

@@ -1051,3 +1051,35 @@ export function statusLine(view: ManuscriptRunView, open = view.decisions.length
 
   return parts.join(' · ')
 }
+
+const RUN_ID_ALL = /\d{8}T\d{6}Z-[0-9a-f]{8}/g
+const PATH_START = /^(?:[A-Za-z]:[\\/]|[\\/]|~(?:[\\/]|$))/
+
+// The run folders a runs.py command, or what it printed, may name, the likeliest first. A folder's name may hold
+// spaces ("C:\Users\name\OneDrive\Brief Communication final revisions\reviews\<run id>"), so a path is not cut at
+// a space: for each run ID, every place on its line where an absolute path could start (the line's start, or after
+// a space, a quote or "=") gives one candidate ending at the ID, longest first, none crossing a quote. A relative
+// path (the word before the ID, "reviews/<run id>") comes last, joined to `cwd` when one is given. The caller keeps
+// the first that holds a run.json.
+export function runPathCandidates(said: string, cwd = ''): string[] {
+  const found: string[] = []
+  const add = (path: string) => {
+    if (path && !found.includes(path)) found.push(path)
+  }
+  for (const line of said.split(/\r?\n/)) {
+    for (const id of line.matchAll(RUN_ID_ALL)) {
+      const prefix = line.slice(0, (id.index ?? 0) + id[0].length)
+      const relative: string[] = []
+      for (let at = 0; at < prefix.length; at += 1) {
+        if (at > 0 && !/[\s'"=]/.test(prefix[at - 1] ?? '')) continue
+        const path = prefix.slice(at)
+        if (/['"]/.test(path)) continue
+        if (PATH_START.test(path)) add(path)
+        else if (!/\s/.test(path)) relative.push(path)
+      }
+      for (const path of relative) add(cwd ? `${cwd.replace(/[\\/]+$/, '')}/${path}` : path)
+    }
+  }
+
+  return found
+}

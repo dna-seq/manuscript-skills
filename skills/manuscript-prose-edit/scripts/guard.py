@@ -939,6 +939,10 @@ def _rung_names(markers: list[tuple[int, str, str]]) -> str:
 CITE_TEX = re.compile(r"\\[a-zA-Z]*cite[a-zA-Z]*\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}")
 CITE_PANDOC = re.compile(r"(?<![\w.])@([A-Za-z][\w:.#$%&+?<>~/-]*[\w])")
 CITE_NUMERIC = re.compile(r"\[(\d+(?:\s*[-–—,]\s*\d+)*)\]")
+# Superscript numbers as citations ("ageing<sup>2,3</sup>", "ageing.^4^", a Word export's style): after a word of
+# three letters or more, or punctuation or a space, never an exponent ("R<sup>2</sup>", "cm^2^", "10<sup>-9</sup>").
+CITE_SUPERSCRIPT = re.compile(r"(?:(?<=[^\W\d_]{3})|(?<=[.,;:)\]\s]))(?:<sup>\s*(\d+(?:\s*[-–—,]\s*\d+)*)\s*</sup>"
+                              r"|\^(\d+(?:[-–—,]\d+)*)\^)", re.IGNORECASE)
 CITE_PAREN = re.compile(r"\((?:[^()]*?\b(?:19|20)\d{2}[a-z]?\b[^()]*?)\)")
 SURNAME = r"(?:(?:van|von|de|del|der|den|la|le|du) )*[A-ZÀ-ÖØ-ÞĀ-Ž][^\W\d_]*(?:['’\-][^\W\d_]+)*"
 AUTHOR_YEAR = re.compile(rf"({SURNAME})(?:\s+(?:et al\.?|(?:and|&) {SURNAME}))?,?\s+((?:19|20)\d{{2}}[a-z]?)")
@@ -983,6 +987,9 @@ def sentence_tokens(text: str) -> dict[str, Counter[str]]:
         spans.append(m.span())
     for m in CITE_NUMERIC.finditer(text):
         cites.update(f"[{n}]" for n in _expand_numeric(m.group(1)))
+        spans.append(m.span())
+    for m in CITE_SUPERSCRIPT.finditer(text):
+        cites.update(f"[{n}]" for n in _expand_numeric(m.group(1) or m.group(2)))
         spans.append(m.span())
     for m in NARRATIVE.finditer(text):
         cites[f"{m.group(1)} {m.group(2)}"] += 1

@@ -120,6 +120,10 @@ registers them sequentially. The helper also locks the manifest: a concurrent wr
 changing evidence. Retry after the active operation ends. Interrupted command logs are retained and
 registered by the next attempt, with their unknown original exit status clearly stated.
 
+In Claude Code, when the plugin's `show_run` tool (`mcp__manuscript-skills__show_run`) is among your tools, call
+it once with RUN right after `start`: it opens the run's progress pane for the authors. The pane also finds the
+run from `runs.py` commands by itself; the call makes sure it opens wherever the run folder is.
+
 Write conclusions, checks and failed attempts under `RUN/SKILL/`, not in a disposable scratch folder.
 Each skill gets a generated `README.md` linking its evidence and showing its status. Save the actual
 author-facing report as `stage-report.md` (runs before 0.33 used `report.md`; read either). Only the

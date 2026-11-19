@@ -268,6 +268,22 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   passages). The reader panel's fourth seat is now this reader (`outside-expert`), in every story stage, and
   manuscript-improve's step 7 reads the corrected version's new passages with it once, fixing each stop as a
   recorded routine edit. Tests: `tests/test_comprehension.py`.
+- **A run on Windows, end to end (0.70.0).** From a run on Windows (plugin 0.69.1, a project under OneDrive in
+  "Brief Communication final revisions"), where the progress pane never opened and the agent wrote shims around
+  five scripts. The pane cut the runs.py command at spaces: `runPathCandidates()` (`model.ts`) gives, for each run
+  ID, every absolute path that could end there on its line (never across a quote, a relative one joined to the
+  session's folder last), and `namedRun` keeps the first holding a run.json; the hook also watches the PowerShell
+  tool, `~` falls back to USERPROFILE, and project-workflow.md says to call `show_run` after `start`.
+  `record_change` and the run READMEs write `newline=''` (text mode wrote CRLF on Windows);
+  `dashboard.verify_evidence` reads quotes with CRLF as LF (hashing the bytes) and keys `evidence_sha256` with "/";
+  `runs.py dashboard_shows` reads an older summary's "\\". `stage_check.current_file` follows run.json's `versions`
+  (chains too), so under versions: immutable `stage_check` and `collect.py` read the new version, not the authors'
+  original. `revise.py` undoes a deletion of text an earlier applied edit wrote from that edit's after-text. scan.py
+  reads a bold `**References**` label, one DOI repeated as a Markdown link's text as one entry, `doi.org:10.x`
+  links as their DOI (one minor finding for all of them) and never crashes on an unparseable URL; guard.py and scan.py
+  read superscript citations (`<sup>2,3</sup>`, `^4^`, never an exponent such as R<sup>2</sup>), so
+  `sample_claims.py` counts them. Tests: `tests/test_windows_run_0_70.py`, `hooks/progress/run.test.tsx`,
+  `tests/test_reference_check.py`, `tests/test_claim_sample.py`, `tests/test_improve_revise.py`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

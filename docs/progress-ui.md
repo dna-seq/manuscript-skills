@@ -51,8 +51,8 @@ plugin's name (`Manuscript Skills · run: <paper>`, `Manuscript Skills · decisi
 
 The newest run folder under the output folder of the nearest `.manuscript-skills.yaml` (its `output_dir`,
 `reviews` by default), from the session's folder upwards; or the run, project or output folder given to
-`/manuscript-status`; or the run a `runs.py` command names (a `tool.call` hook on Bash commands that run
-`runs.py`). The choice is remembered across sessions. It refreshes every 15 seconds and right after each
+`/manuscript-status`; or the run a `runs.py` command names (a `tool.call` hook on Bash and PowerShell commands
+that run `runs.py`; the path may hold spaces, and the first candidate that holds a `run.json` is taken). The choice is remembered across sessions. It refreshes every 15 seconds and right after each
 `runs.py` call, re-reading `run.json` only when its size or modification time changed.
 
 ## What it reads, and what it guesses in a run without records

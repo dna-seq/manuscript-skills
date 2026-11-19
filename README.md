@@ -317,7 +317,7 @@ next run reads the file either way. The band, the panes and the
 status line name the manuscript by its own name: the short name before the colon in its title
 ("Just-DNA-Lite: a Local-First Platform ..." reads "Just-DNA-Lite"), else its file's name (or its project's
 folder where the file is just `manuscript`), then the version folder, never by what kind of paper it is. The
-panes show its whole title, so a session that watches another paper's run says which paper waits for you; the progress pane is titled with the paper too and gives, whole, the manuscript's file, its folder and the run folder, to open by hand. The progress pane opens by itself in the session that runs the workflow;
+panes show its whole title, so a session that watches another paper's run says which paper waits for you; the progress pane is titled with the paper too and gives, whole, the manuscript's file, its folder and the run folder, to open by hand. The progress pane opens by itself in the session that runs the workflow, also when the run folder's path has spaces (a OneDrive folder on Windows) and when the session runs commands through PowerShell;
 anywhere else, `/manuscript-status` opens it for the newest run of the folder's project, `/manuscript-status
 PATH` for a run or project folder, and `/manuscript-status forget` stops watching. It only reads the run
 folder; the one file it writes is the marks file beside the manuscript. Older Claude Code releases load the skills as before, without the view. Codex has no equivalent, so
@@ -711,7 +711,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.69.1},
+  version = {0.70.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

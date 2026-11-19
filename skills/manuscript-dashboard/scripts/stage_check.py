@@ -149,6 +149,27 @@ def clean(raw: str, path: Path) -> str:
         return raw
 
 
+def _same_path(a: str, b: str) -> bool:
+    """One file named two ways: "/" or "\\", and on Windows any case."""
+    def norm(path: str) -> str:
+        path = path.replace("\\", "/").rstrip("/")
+        return path.casefold() if sys.platform == "win32" or re.match(r"[A-Za-z]:/", path) else path
+    return norm(a) == norm(b)
+
+
+def current_file(data: dict, original: str | Path) -> Path:
+    """The file a run's edits to ORIGINAL went into: under versions: immutable the new version `runs.py version`
+    made (run.json's `versions`, followed when a version was versioned again), else ORIGINAL itself."""
+    path = str(original)
+    for _ in range(len(data.get("versions") or []) + 1):
+        made = next((item["new"] for item in data.get("versions") or []
+                     if item.get("previous") and item.get("new") and _same_path(item["previous"], path)), None)
+        if made is None or _same_path(made, path):
+            break
+        path = made
+    return Path(path)
+
+
 def input_texts(run: Path, data: dict) -> list[dict]:
     """Each text input of the run: its file name, and its text as the run took it and as it is now, marked and
     clean. The manuscript comes first."""
@@ -157,9 +178,10 @@ def input_texts(run: Path, data: dict) -> list[dict]:
         copy, original = run / item["snapshot"], Path(item["original"])
         if not copy.is_file():
             continue
+        current = current_file(data, item["original"])  # the new version, under versions: immutable
         try:
             taken = copy.read_text(encoding="utf-8")
-            now = original.read_text(encoding="utf-8") if original.is_file() else taken
+            now = current.read_text(encoding="utf-8") if current.is_file() else taken
         except UnicodeDecodeError:  # a Word or PDF input has no text to quote here
             continue
         out.append({"name": original.name, "original": original.as_posix(), "copy": copy.name, "marked": [taken, now],

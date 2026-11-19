@@ -1192,3 +1192,48 @@ def test_digits_inside_an_identifier_are_no_year_or_pages() -> None:
                                                     "https://example.org/2015/12-14")
     ref._article_number = "3328"
     assert scan._record_conflicts(ref) == []
+
+
+# --------------------------------------------------------------------------------------------------
+# A Word export's reference list (0.70.0, from a run on Windows): a bold "References" label, numbered entries with no full
+# stop, each DOI link written "doi.org:" and repeated as the link's text, and superscript citations
+# --------------------------------------------------------------------------------------------------
+
+WORD_EXPORT = """Clocks are trained on arrays<sup>1,2</sup>, and R<sup>2</sup> was 0.04 (p = 10<sup>-9</sup>). A study shows it.^3^
+
+**References**
+
+1 Horvath, S. & Raj, K. DNA methylation-based biomarkers and the epigenetic clock theory of ageing. *Nat Rev Genet* **19**, 371-384 (2018). [https://doi.org:10.1038/s41576-018-0004-3](https://doi.org:10.1038/s41576-018-0004-3)
+
+2 Peters, T. J. *et al.* Characterisation and reproducibility of the HumanMethylationEPIC v2.0 BeadChip. *BMC Genomics* **25**, 251 (2024). [https://doi.org:10.1186/s12864-024-10027-5](https://doi.org:10.1186/s12864-024-10027-5)
+
+3 Dhingra, R. *et al.* Evaluating DNA methylation age on the Illumina MethylationEPIC Bead Chip. *PLoS One* **14**, e0207834 (2019). [https://doi.org/10.1371/journal.pone.0207834](https://doi.org/10.1371/journal.pone.0207834)
+"""
+
+
+def test_a_word_exports_reference_list_is_read_whole(tmp_path: Path) -> None:
+    paper = tmp_path / "paper.md"
+    paper.write_text(WORD_EXPORT, encoding="utf-8")
+    report = scan.scan(paper, online=False, search_unidentified=False)
+    assert [r.doi for r in report.references] == ["10.1038/s41576-018-0004-3", "10.1186/s12864-024-10027-5",
+                                                  "10.1371/journal.pone.0207834"]
+    assert not any(r.url for r in report.references)  # a doi.org: link is its DOI, never a URL to fetch
+    colon = [f for f in report.findings if "doi.org:" in f.message]
+    assert len(colon) == 1 and colon[0].message.startswith("2 DOI links") and colon[0].line == 5
+    # the superscripts cite 1, 2 and 3, so nothing is uncited and nothing points past the list
+    assert not [f for f in report.findings if f.check == "citations"]
+    assert not [f for f in report.findings if "No references heading" in f.message]
+
+
+def test_a_doi_link_with_a_colon_is_its_doi_and_an_unparseable_link_is_unanswered() -> None:
+    assert scan.classify_url("https://doi.org:10.1038/s41576-018-0004-3") == ("doi", "10.1038/s41576-018-0004-3")
+
+    class Refuses:
+        def get(self, *args, **kwargs):
+            raise httpx.InvalidURL("Invalid port: '10.1038'")
+
+        def head(self, *args, **kwargs):
+            raise httpx.InvalidURL("Invalid port: '10.1038'")
+
+    assert scan._get(Refuses(), "https://example.org:10.1038/x") is None
+    assert scan._head(Refuses(), "https://example.org:10.1038/y") is None

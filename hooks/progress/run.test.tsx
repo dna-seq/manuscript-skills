@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { buildView, decisionOptions, manuscriptTitle, marksPath, optionReason, ownReason, paneTitle, runLabel, statusLine, summarizeFindings } from './model'
+import { buildView, decisionOptions, manuscriptTitle, marksPath, optionReason, ownReason, paneTitle, runLabel, runPathCandidates, statusLine, summarizeFindings } from './model'
 import type { MarksFile, RunJson } from './model'
 
 const PROJECT = '/work/paper/v0.6'
@@ -99,15 +99,17 @@ test('the status line reads like the run', () => {
 
 // The run folder as the mod's `$.fs` calls see it; `version` moves run.json's modification time.
 function folder(on: On, files: Map<string, string>, version: { n: number }) {
-  const isDir = (path: string) => [...files.keys()].some(one => one.startsWith(`${path}/`))
-  on('fs.exists', (_, e) => ({ value: files.has(e.path) || isDir(e.path) }))
+  // Windows takes either separator; the map's keys use "/"
+  const norm = (path: string) => path.replaceAll('\\', '/')
+  const isDir = (path: string) => [...files.keys()].some(one => one.startsWith(`${norm(path)}/`))
+  on('fs.exists', (_, e) => ({ value: files.has(norm(e.path)) || isDir(e.path) }))
   on('fs.read', (_, e) => {
-    const text = files.get(e.path)
+    const text = files.get(norm(e.path))
     if (text === undefined) throw new Error(`ENOENT ${e.path}`)
     return { value: text }
   })
   on('fs.stat', (_, e) => {
-    const text = files.get(e.path)
+    const text = files.get(norm(e.path))
     if (text === undefined) throw new Error(`ENOENT ${e.path}`)
     return { value: { kind: 'file' as const, size: text.length, mtimeMs: version.n, isLink: false } }
   })
@@ -147,7 +149,7 @@ const DECISIONS = { ...PANE, requestId: 'manuscript-decisions', props: { ...PANE
 const BAND = {
   plugin: 'manuscript-skills',
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 6, bodyColumns: 80, scroll: { offset: 0, bodyRows: 6 }, view: {} },
 } as const
 
 test('the pane shows the live run on the terminal and the desktop, and a finished stage toasts', async ($, on) => {
@@ -230,6 +232,57 @@ test('the pane opens by itself only for the run this session works on', async ($
   expect(opened).toEqual(['manuscript-run'])
   // closed by the person, it stays closed for the rest of the run
   await $.tool.call({ tool: 'Bash', command })
+  expect(opened).toEqual(['manuscript-run'])
+})
+
+test('a run folder whose path has spaces is found from a runs.py command or its output', () => {
+  const ID = '20261119T101153Z-165d07f5'
+  const WIN = String.raw`C:\Users\user\OneDrive\Bureaublad\Brief Communication final revisions\reviews` + '\\' + ID
+  const started = String.raw`uv run --script "C:/Users/user/AppData/Roaming/Claude/rpm/x/scripts/runs.py" start "C:\Users\user\OneDrive\Bureaublad\Brief Communication final revisions\New submission\paper.md" --skill manuscript-improve`
+  // what runs.py start printed, whole on its own line
+  expect(runPathCandidates(`${started}\n${WIN}\n`)[0]).toBe(WIN)
+  // a quoted path in the command: the candidate starts after the quote and crosses none
+  const quoted = runPathCandidates(`uv run --script runs.py begin "C:/Users/user/My Paper/reviews/${ID}" --skill x`)
+  expect(quoted[0]).toBe(`C:/Users/user/My Paper/reviews/${ID}`)
+  expect(quoted.some(path => /["']/.test(path))).toBe(false)
+  // a path with no spaces, as before, and one under the home folder
+  expect(runPathCandidates(`runs.py add /work/paper/reviews/${ID}/x --skill y`)).toContain(`/work/paper/reviews/${ID}`)
+  expect(runPathCandidates(`runs.py add ~/paper/reviews/${ID} --skill y`)).toContain(`~/paper/reviews/${ID}`)
+  // a relative path is joined to the session's folder, after the absolute ones
+  expect(runPathCandidates(`runs.py begin reviews/${ID} --skill x`, '/work/paper/')).toEqual([`/work/paper/reviews/${ID}`])
+  expect(runPathCandidates('runs.py validate "$RUN"')).toEqual([])
+})
+
+test('the pane opens for a run in a folder whose name has spaces', async ($, on) => {
+  // as on Windows (OneDrive, "Brief Communication final revisions"); this engine's fs, on POSIX, reads "C:/" and
+  // "C:\\" as relative paths, so the Windows spellings are tested on the candidates above
+  const ROOT = '/Users/user/OneDrive/Bureaublad/Brief Communication final revisions'
+  const ID = '20261027T125139Z-488af17b'
+  const WIN_RUN = `${ROOT}/reviews/${ID}`
+  const data = { ...runJson(), context: { ...runJson().context, project_root: ROOT },
+    inputs: [{ original: `${ROOT}/New submission/paper.md`, snapshot: 'inputs/01-paper.md' }] }
+  const files = new Map<string, string>([[`${ROOT}/.manuscript-skills.yaml`, 'schema_version: 1\n']])
+  const opened: string[] = []
+  folder(on, files, { n: 1 })
+  mock.clock(on, { now: Date.parse(at(50)) })
+  mock.store(on)
+  mock.env(on, { USERPROFILE: 'C:/Users/user' })
+  on('command.register', () => ({ value: { command: 'manuscript-status' } }))
+  on('tool.register', () => ({ value: { tool: 'mcp__manuscript-skills__show_run' } }))
+  on('ui.open', (_, e) => (opened.push(e.id), { value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  // runs.py start makes the run and prints its folder
+  on('tool.call', { tool: 'Bash' }, () => {
+    files.set(`${WIN_RUN}/run.json`, JSON.stringify(data))
+    return { result: { stdout: `${WIN_RUN}\n`, stderr: '', interrupted: false }, text: `${WIN_RUN}\n` }
+  })
+
+  // no run yet when the session starts in the project folder
+  await $.session.start({ cwd: ROOT, surface: 'desktop', isInteractive: true })
+  expect(opened).toEqual([])
+  await $.tool.call({ tool: 'Bash', command: `uv run --script runs.py start "${ROOT}/New submission/paper.md" --skill manuscript-improve` })
   expect(opened).toEqual(['manuscript-run'])
 })
 

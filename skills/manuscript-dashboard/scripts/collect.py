@@ -837,7 +837,8 @@ def clean_texts(run: Path, data: dict, snapshot: Path, original: Path, current: 
         if copy.suffix.lower() not in TEXT_INPUTS or not copy.is_file():
             continue
         reviewed = copy.read_text(encoding="utf-8")
-        revised = source.read_text(encoding="utf-8") if source.is_file() else reviewed
+        edited = stage_check.current_file(data, item["original"])  # the new version, under versions: immutable
+        revised = edited.read_text(encoding="utf-8") if edited.is_file() else reviewed
         others.append((source.name, clean_copy(reviewed, copy), clean_copy(revised, source)))
     return (clean_copy(current, original), clean_copy(snapshot.read_text(encoding="utf-8"), snapshot), others,
             original.name)
@@ -994,7 +995,8 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
     elif data.get("inputs"):
         snapshot = run / data["inputs"][0]["snapshot"]
         original, sha256 = data["inputs"][0]["original"], data["inputs"][0]["sha256"]
-        current = Path(original).read_text(encoding="utf-8") if Path(original).is_file() else snapshot.read_text(encoding="utf-8")
+        edited = stage_check.current_file(data, original)  # the new version, under versions: immutable
+        current = edited.read_text(encoding="utf-8") if edited.is_file() else snapshot.read_text(encoding="utf-8")
     else:
         typer.echo("This run holds no local copy of the manuscript: its source is a connected document, so there is no "
                    "text to quote. Export a reading copy to a local file (Markdown, LaTeX or plain text), register it "

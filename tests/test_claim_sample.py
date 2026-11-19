@@ -132,3 +132,11 @@ def test_a_claims_file_without_a_sample_reports_none(tmp_path: Path) -> None:
                                                "reference": "1", "quote": "Study one measured an effect",
                                                "source": "s.txt", "outcome": "confirmed"}]}), encoding="utf-8")
     assert support.run(path, online=False, cache_dir=tmp_path / "c").sample is None
+
+
+def test_superscript_citations_are_cited_sentences_and_exponents_are_not() -> None:
+    """0.70.0: a Word export cites with <sup>; a run on Windows counted 0 cited sentences."""
+    text = ("# Paper\n\n## Introduction\n\nClocks are trained on arrays<sup>2,3</sup>. The fit had R<sup>2</sup> = 0.04 "
+            "and p = 6.6 × 10<sup>-9</sup>. Ages were matched.^4^\n\n## References\n\n1 A. Ref one (2020).\n")
+    cited = sampler.cited_sentences(text)
+    assert [c["markers"] for c in cited] == [["[2]", "[3]"], ["[4]"]]

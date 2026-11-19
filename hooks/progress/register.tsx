@@ -27,6 +27,7 @@ import {
   manuscriptTitle,
   paneTitle,
   marksFile,
+  runPathCandidates,
   optionReason,
   ownReason,
   parseMarks,
@@ -97,8 +98,13 @@ async function newestRun($: $, dir: string): Promise<string | null> {
 
 // A run from what the person names: a run folder or its run.json, a project folder or a file in it, or an
 // output folder; the newest run there.
+// The home folder for "~": HOME, else USERPROFILE (Windows sets only that).
+async function homeDir($: $): Promise<string> {
+  return (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || ''
+}
+
 async function locate($: $, given: string): Promise<string | null> {
-  const home = (await $.env.get('HOME')) ?? ''
+  const home = await homeDir($)
   const path = given.trim().replace(/^~(?=[\\/]|$)/, home).replace(/[\\/]+$/, '').replace(/[\\/]run\.json$/, '')
   const id = RUN_ID.exec(path)
   if (id) {
@@ -117,8 +123,22 @@ async function locate($: $, given: string): Promise<string | null> {
   return newestRun($, path)
 }
 
+// The run a runs.py command names or printed: the first candidate path that holds a run.json, so a folder whose
+// name has spaces (common on Windows: OneDrive, "Brief Communication final revisions") is found whole.
+async function namedRun($: $, said: string): Promise<string | null> {
+  const home = await homeDir($)
+  for (const candidate of runPathCandidates(said, sessionCwd)) {
+    const path = candidate.replace(/^~(?=[\\/]|$)/, home)
+    if (await $.fs.exists(join(path, 'run.json')).catch(() => false)) return path
+  }
+
+  return null
+}
+
 // Watching one run at a time; the module's own memory, rebuilt after a reload from $.store and run.json.
 let runPath: string | null = null
+// The session's folder, for a runs.py command that names its run by a relative path.
+let sessionCwd = ''
 let runStamp = ''
 let data: RunJson | null = null
 let findings: Record<string, FindingsSummary> = {}
@@ -576,6 +596,19 @@ async function writeAnswer($: $, draft: string): Promise<boolean> {
   return Boolean(filled?.isFilled)
 }
 
+// A runs.py call changed run.json: find the run it names (or `start` printed), refresh now, and open the pane
+// the first time this session works on that run. The command has run; this only delays its result by the reads.
+async function ranRunsPy($: $, command: string, text: string | undefined): Promise<void> {
+  if (!/\bruns\.py\b/.test(command)) return
+  const found = await namedRun($, `${command}\n${text ?? ''}`)
+  if (found) await choose($, found)
+  await refresh($, true)
+  if (found && found !== offered) {
+    offered = found
+    await $.ui.open({ id: PANE, title: paneTitle(NAME, 'run', await read($, view)) })
+  }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -598,6 +631,7 @@ export const register: Register = on => {
     })
     // This folder's project only: the run it last watched, else its newest. The status line shows it; the pane
     // opens when this session works on a run (runs.py) or the person asks, never for a run of another folder.
+    sessionCwd = e.cwd
     const local = await locate($, e.cwd)
     const kept = (await $.store.get('runPath')) as string | undefined
     const found = local && kept && parent(kept) === parent(local) && (await $.fs.exists(join(kept, 'run.json'))) ? kept : local
@@ -624,21 +658,16 @@ export const register: Register = on => {
     return { result: text, text }
   })
 
-  // A runs.py call changed run.json: find the run it names (or `start` printed), refresh now, and open the pane
-  // the first time this session works on that run. The command has run; this only delays its result by the reads.
+  // A runs.py call changed run.json (Bash, or PowerShell in a Windows session): see ranRunsPy.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const ran = await next(e)
-    if (/\bruns\.py\b/.test(e.command)) {
-      const said = `${e.command}\n${ran.text ?? ''}`
-      const token = said.split(/[\s'"=]+/).find(word => /^([\\/]|[A-Za-z]:|~)/.test(word) && RUN_ID.test(word))
-      const found = token ? await locate($, token) : null
-      if (found) await choose($, found)
-      await refresh($, true)
-      if (found && found !== offered) {
-        offered = found
-        await $.ui.open({ id: PANE, title: paneTitle(NAME, 'run', await read($, view)) })
-      }
-    }
+    await ranRunsPy($, e.command, ran.text)
+
+    return ran
+  }).catch(($, e, next) => next(e))
+  on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => {
+    const ran = await next(e)
+    await ranRunsPy($, e.command, ran.text)
 
     return ran
   }).catch(($, e, next) => next(e))

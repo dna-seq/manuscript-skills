@@ -203,11 +203,26 @@ class Document:
         start = text.index(after) + head
         self.mark(start, start + len(after) - head - tail, before[head:len(before) - tail], cid)
 
-    def undo_deletion(self, before: str, original: str, cid: str) -> None:
+    def undo_deletion(self, before: str, original: str, cid: str, earlier: tuple[str, ...] = ()) -> None:
         """Mark an applied deletion: the deleted text is found in the original, and its place in the text as it
-        stood before the later edits by the words around it (a space the deletion took with it allowed for)."""
+        stood before the later edits by the words around it (a space the deletion took with it allowed for).
+        A deletion of text an earlier applied edit wrote or reworded (a later stage deleting a sentence the prose
+        edit had rewritten) is not in the original: its words around it are then taken from that earlier edit's
+        after-text (`earlier`, each holding it once)."""
+        try:
+            return self.undo_deletion_in(before, original, cid, "the original")
+        except Unplaced as first:
+            for source in earlier:
+                if source.count(before) == 1:
+                    try:
+                        return self.undo_deletion_in(before, source, cid, "an earlier edit")
+                    except Unplaced:
+                        continue
+            raise first
+
+    def undo_deletion_in(self, before: str, original: str, cid: str, where: str) -> None:
         if (count := original.count(before)) != 1:
-            raise Unplaced("its deleted text is not in the original" if not count else f"its deleted text occurs {count} times in the original")
+            raise Unplaced(f"its deleted text is not in {where}" if not count else f"its deleted text occurs {count} times in {where}")
         text, at = self.previous(), original.index(before)
         for width in (80, 40, 20, 10):
             left, right = original[max(0, at - width):at], original[at + len(before):at + len(before) + width]
@@ -397,10 +412,12 @@ def build(original: str, working: str, data: viz.Inventory, choices: dict, docum
     document = Document(working)
     unplaced: dict[str, str] = {}
     applied = [c for c in data.changes if c.status == "applied"]
-    for change in reversed(applied):  # newest first, so an edit a later stage changed again is still found
+    for index in reversed(range(len(applied))):  # newest first, so an edit a later stage changed again is still found
+        change = applied[index]
         try:
             if change.after is None:
-                document.undo_deletion(change.before or "", original, change.id)
+                earlier = tuple(c.after for c in reversed(applied[:index]) if c.after)
+                document.undo_deletion(change.before or "", original, change.id, earlier)
             else:
                 document.undo(change.before or "", change.after, change.id)
         except Unplaced as reason:

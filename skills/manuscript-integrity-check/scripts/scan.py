@@ -521,7 +521,15 @@ NOT_AUTHORS = {"january", "february", "march", "april", "may", "june", "july", "
                "dec", "spring", "summer", "autumn", "fall", "winter"}
 PAREN_GROUP_RE = re.compile(r"\(([^()]*?(?:19|20)\d{2}[a-z]?[^()]*)\)")
 NUMERIC_CITE_RE = re.compile(r"\[(\d+(?:\s*[-–,]\s*\d+)*)\]")
-REF_HEADING = re.compile(r"^#{1,6}\s*\**\s*(?:\d+\.?\s*)?(references|bibliography|literature cited|works cited)\b",
+# Superscript numbers as citations, as guard.py reads them: "ageing<sup>2,3</sup>", "ageing.^4^"; never an exponent
+# ("R<sup>2</sup>", "cm^2^", "10<sup>-9</sup>"), which follows a short symbol or a digit.
+SUP_CITE_RE = re.compile(r"(?:(?<=[^\W\d_]{3})|(?<=[.,;:)\]\s]))(?:<sup>\s*(\d+(?:\s*[-–—,]\s*\d+)*)\s*</sup>"
+                         r"|\^(\d+(?:[-–—,]\d+)*)\^)", re.IGNORECASE)
+# A DOI link written "https://doi.org:10.1038/..." (a colon for the slash), which opens nothing.
+DOI_COLON_LINK = re.compile(r"https?://(?:dx\.|www\.)?doi\.org:(10\.\d{4,9}/[^\s\"<>)\],;]+)", re.IGNORECASE)
+REF_HEADING = re.compile(r"^#{1,6}\s*\**\s*(?:\d+\.?\s*)?(references|bibliography|literature cited|works cited)\b"
+                         # a bold label alone on its line, as a Word export writes the heading: "**References**"
+                         r"|^\*\*\s*(references|bibliography|literature cited|works cited)\s*:?\s*\*\*\s*:?$",
                          re.IGNORECASE)
 LATEX_REF_HEADING = re.compile(r"\\(?:section|chapter)\*?\{(references|bibliography)\}|\\begin\{thebibliography\}",
                                re.IGNORECASE)
@@ -764,7 +772,11 @@ def _numbered_parts(chunk: str) -> list[str]:
 
 
 def _split_after_dois(piece: str) -> list[str]:
-    dois = list(DOI_RE.finditer(piece))
+    # "[https://doi.org/10.x](https://doi.org/10.x)" gives one DOI twice in a row; it is one reference
+    dois: list[re.Match] = []
+    for m in DOI_RE.finditer(piece):
+        if not dois or m.group(1).rstrip(".").lower() != dois[-1].group(1).rstrip(".").lower():
+            dois.append(m)
     if len(dois) < 2:
         return [piece]
     cuts = [0] + [m.end() for m in dois]
@@ -964,6 +976,8 @@ def classify_url(url: str) -> tuple[str, str]:
     path = urllib.parse.unquote(u.path)
     if host in ("doi.org", "dx.doi.org", "www.doi.org") and path.startswith("/10."):
         return "doi", path[1:]
+    if colon := DOI_COLON_LINK.match(url):  # "doi.org:10.1038/...", a colon for the slash: still that DOI
+        return "doi", urllib.parse.unquote(colon.group(1))
     if host in ("arxiv.org", "www.arxiv.org"):
         m = re.fullmatch(r"/(?:abs|pdf)/(.+?)(?:v\d+)?(?:\.pdf)?/?", path)
         if m:
@@ -1243,8 +1257,8 @@ def _citation_consistency(body: list[tuple[int, str]], refs: list[Reference]) ->
     for i, line in body:
         for m in NARRATIVE_CITE_RE.finditer(line):
             narrative |= set(_name_words(m.group(1)))
-        for m in NUMERIC_CITE_RE.finditer(line):
-            for part in re.split(r"[,\s]+", m.group(1)):
+        for m in [*NUMERIC_CITE_RE.finditer(line), *SUP_CITE_RE.finditer(line)]:
+            for part in re.split(r"[,\s]+", m.group(1) or m.group(2)):
                 bounds = [int(x) for x in re.split(r"[-–]", part) if x.strip().isdigit()]
                 numeric_max = max([numeric_max, *bounds])
         groups = [(g.group(1), g.start(), g.end(), False) for g in PAREN_GROUP_RE.finditer(line)]
@@ -1556,7 +1570,7 @@ def _get(client: httpx.Client, url: str, accept: Optional[str] = None, follow: b
         try:
             r = client.get(url, params=params or None, headers={"Accept": accept} if accept else None,
                            follow_redirects=follow)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, httpx.InvalidURL, ValueError):  # an unparseable link is unanswered, never a crash
             r = None
             break
         if r.status_code == 429 or r.status_code >= 500:
@@ -1574,7 +1588,7 @@ def _head(client: httpx.Client, url: str, follow: bool = False) -> Optional[http
         _space(url)
         try:
             _ASKED[key] = client.head(url, follow_redirects=follow)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, httpx.InvalidURL, ValueError):
             _ASKED[key] = None
     return _ASKED[key]
 
@@ -3185,6 +3199,7 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
             findings += _cite_key_findings(lines, {k for k, _ in keyed})
     if not bibliography_only:
         lists = _reference_lists(lines, ref_start)
+        colon_links: list[tuple[int, re.Match]] = []
         in_lists: set[int] = set()
         for number, (begin, end, label, entries) in enumerate(lists):
             in_lists.update(range(begin, end + 1))  # 1-based: the label line and the list's lines
@@ -3215,12 +3230,24 @@ def check_references(path: Path, online: bool, search_unidentified: bool,
                 arxiv = ARXIV_RE.search(entry)
                 # A data or software citation often gives only a link (a repository, a Zenodo record page): it is
                 # checked by its status online, as a BibTeX url field is.
-                links = [classify_url(_trim_id(m.group(0))) for m in INLINE_URL_RE.finditer(entry)]
+                links = [classify_url(_trim_id(m.group(0).split("](", 1)[0])) for m in INLINE_URL_RE.finditer(entry)]
+                if colon := DOI_COLON_LINK.search(entry):
+                    colon_links.append((line_no, colon))
                 ref = Reference(line=line_no, text=entry, doi=doi.group(1).rstrip(".") if doi else None,
                                 pmid=pmid.group(1) if pmid else None, arxiv=_arxiv_id(arxiv),
                                 url=next((value for kind, value in links if kind == "url"), None))
                 ref._list = sections[begin - 1] if begin <= len(sections) else None
                 refs.append(ref)
+        if colon_links:  # one finding for the slip, however many entries repeat it
+            first_line, first = colon_links[0]
+            many = len(colon_links)
+            findings.append(Finding(
+                check="references", severity=Severity.minor, line=first_line, excerpt=first.group(0),
+                stage=Stage.writing.value,
+                message=(f"{many} DOI links are" if many > 1 else "A DOI link is") + " written “doi.org:” with a colon "
+                        "instead of “doi.org/”, so " + ("they open" if many > 1 else "it opens") + " nothing.",
+                why="Readers and the journal's reference checks follow the links.",
+                suggestion=f"Replace “doi.org:” with “doi.org/” in every link, for example https://doi.org/{first.group(1)}."))
         # Citations are read everywhere outside the lists: the body, and a supplement after the main list.
         cited_text = [(i, line) for i, line in enumerate(lines, start=1) if i not in in_lists]
         findings += _citation_consistency(cited_text, refs)

@@ -328,7 +328,7 @@ def save(run: Path, data: dict[str, Any]) -> None:
         for change in seat["changes"]:
             lines.extend(["", f"- Change: {link(name, change['path'], change['section'])}; "
                           f"shown in chat: {change['shown_in_chat']} (agent attestation)."])
-        (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        (folder / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="")
         counted = seat.get('counts')
         index.append(f"- [{name}]({name}/README.md): **{seat['status']}**; {len(seat['issues'])} recorded issue(s)."
                      + (f" {counted['findings']} finding(s), {counted['proposals']} proposal(s), {counted['decisions']} "
@@ -345,7 +345,7 @@ def save(run: Path, data: dict[str, Any]) -> None:
         index.extend(["", (f"The evidence ({len(packed)} files) is packed in [{ARCHIVE}]({ARCHIVE}), as the project's "
                            "`keep` setting asks; `runs.py unpack` restores it.")])
     index.extend(["", "[Run manifest](run.json) contains effective settings, source hashes and all recorded attempts."])
-    (run / "README.md").write_text("\n".join(index) + "\n", encoding="utf-8")
+    (run / "README.md").write_text("\n".join(index) + "\n", encoding="utf-8", newline="")
 
 
 def chosen(data: dict[str, Any], key: str) -> str | None:
@@ -564,7 +564,8 @@ def dashboard_shows(run: Path, data: dict[str, Any]) -> set[tuple[str, str]]:
         listed = None
     if not isinstance(listed, dict):
         return set()
-    return {(posixpath.normpath(f'manuscript-dashboard/{path}'), sha) for path, sha in listed.items()}
+    # a dashboard rendered on Windows before 0.70.0 wrote its paths with "\\"
+    return {(posixpath.normpath(f"manuscript-dashboard/{path.replace(chr(92), '/')}"), sha) for path, sha in listed.items()}
 
 
 def shown_in_dashboard(run: Path, data: dict[str, Any]) -> list[str]:
@@ -972,7 +973,7 @@ def record_change(run: Path, data: dict[str, Any], skill: str, section: str, rea
     text += before if before is not None else '(No previous block.)\n'
     text += '\n\n## After\n\n'
     text += after if after is not None else '(Block removed.)\n'
-    with path.open('x', encoding='utf-8') as output:
+    with path.open('x', encoding='utf-8', newline='') as output:  # "\n" as written, also on Windows
         output.write(text)
     entry['changes'].append({'section': section, 'path': relative, 'sha256': digest(path), 'shown_in_chat': shown_in_chat,
                              'recorded_at': now(),

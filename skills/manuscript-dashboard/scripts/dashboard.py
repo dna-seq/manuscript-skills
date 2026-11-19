@@ -844,8 +844,10 @@ def verify_evidence(data: Inventory, base: Path) -> dict[str, str]:
     def check(source: Evidence) -> None:
         if source.path not in contents:
             raw = (base / source.path).resolve().read_bytes()
-            contents[source.path] = raw.decode("utf-8")
-            hashes[source.path] = hashlib.sha256(raw).hexdigest()
+            # quotes are read as text, where CRLF is "\n" (a record written on Windows); the hash is of the bytes,
+            # under the path with "/", as runs.py validate names the run's records on every system
+            contents[source.path] = raw.decode("utf-8").replace("\r\n", "\n")
+            hashes[source.path.replace("\\", "/")] = hashlib.sha256(raw).hexdigest()
         if not source.quote.strip() or source.quote not in contents[source.path]:
             raise ValueError(f"Evidence quote absent from {source.path}: {source.quote[:80]!r}")
 
