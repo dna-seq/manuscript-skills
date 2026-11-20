@@ -50,6 +50,18 @@ or keep a reviewed use with `--keep ID@HEADING` (`--keep ID` keeps it everywhere
 run folder with `--record-keeps RUN/manuscript-prose-edit/kept-patterns.txt`, and explain the retained
 sentences to the authors. A sentence that works can stay.
 
+**Read what you do not edit, list only.** Before editing, read the whole text for sentences that do not parse,
+missing words and references a reader cannot resolve, starting from
+`uv run --script ../manuscript-story/scripts/comprehension.py scan PAPER --md RUN/manuscript-prose-edit/scan.md`.
+The scan covers the body and a note before the Abstract (a draft note, a statement of how companion papers divide
+the work): a co-author reads that note first, and on Paper 1 v0.7 one read it as the only statement of how the two
+papers divide the work, while the stage had left it aside as a working note. Each sentence outside the edit's remit
+is a finding of category Comprehension (`minor`; a sentence that does not parse, a missing word, a reference a reader
+cannot resolve), quoted, with the smallest repair as its proposal; never a rewrite the request did not cover. A note the authors mean to delete before submission is
+still read while co-authors read the draft. On Paper 1 v0.7 one sentence unchanged since the version before ("Model
+sites a variant-only VCF does not list are coded as homozygous reference, and sites whose alleles disagree with the
+model as missing.") stopped a co-author and a grammar checker alike.
+
 Use available author samples (`--sample`) when voice matching helps; do not require samples for an
 ordinary edit. Use this plugin's deslop workflow for these checks; other installed humanizers can have
 rules that conflict with scientific writing or the preservation contract.

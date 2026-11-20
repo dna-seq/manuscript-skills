@@ -120,6 +120,13 @@ for the supplement's items:
   the caption says what is shown, n, what error bars or bands show, the test, units and abbreviations;
   every number read off the figure agrees with the text and the tables that give it; it is cited in order,
   and each citing sentence claims what the figure shows.
+- **Each caption sentence against the figure, as a reader reads it**: look at the image while reading the
+  caption one sentence at a time and ask what a reader who has not seen the code takes from each. A sentence
+  that is true for the authors and opaque to a reader ("Only a dot's horizontal position is data", "height is the
+  curve") is a problem, Figures and tables, `minor`, quoting it, with a rewrite that names the axis or mark and what it
+  shows; so is a feature the eye goes to that no sentence explains (one model's points standing apart from the
+  rest). On Paper 1 v0.7 a co-author stopped at three caption sentences the stage had checked only for their
+  facts.
 - **The space it takes** ([checklist](references/figure-review.md#the-space-it-takes)): the empty share and
   the cut size the inventory measured; for a figure across the page, whether `column.png` reads in one
   column; legends and axis titles repeated across panels; figures of the same runs or samples on a shared
@@ -131,7 +138,11 @@ for the supplement's items:
   filters and the scale it states) and that the inputs it names exist. A Vega-Lite or other declarative spec
   is the figure's code and data: read its marks, encodings and data. Running the authors' code needs their
   permission or a project instruction that allows it; then run it through `runs.py exec`, writing only into
-  the run folder. A screenshot or drawing has no code: say so, and check it by looking.
+  the run folder. A screenshot or drawing has no code: say so, and check it by looking. A drawn figure
+  (a diagram, a schematic, a workflow; anything made in a drawing tool, not plotted from data) handed in as a
+  raster (PNG, JPEG) is a problem, `minor`, asking for the drawing exported as a vector (PDF, SVG or EPS from the
+  tool it was drawn in), which journals ask for and which stays sharp at any size; a plotted figure the same, when
+  its code can write a vector.
 
 - **Each table**: does it fit the printed page at the table font, or must it turn, split or wrap; does
   every column header name its quantity and unit; one precision per quantity; abbreviations defined in a

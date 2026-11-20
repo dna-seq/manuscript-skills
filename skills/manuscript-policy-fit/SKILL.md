@@ -42,7 +42,17 @@ the section on an author's **own biomedical or genetic data**. Distinguish:
 - a deliberate public self-release of an author's genome/records, a new self-experiment, and a study of
   other people. "Author-owned" here means data **about the author**, not merely data their lab generated;
 - access, analysis, redistribution, public identification and return of individual results. Permission
-  for one does not automatically establish the others.
+  for one does not automatically establish the others;
+- who the paper says will use what it presents, against the scope it claims. List every group the paper names
+  as a user or reader (a "who is it for" box, the Introduction's last paragraph, the Discussion's uses, captions
+  and screenshots, the README or site it cites), quoting each. A scope ("for research and education") settles a
+  clinical, consumer or device question only for the users it covers: when the paper also names a group outside it
+  (people reading their own genome from a sequencing provider, patients, clinicians), the question is open for that
+  group, never dismissed on the scope. Raise it as one problem, `major`, a decision quoting both passages, with two
+  options: name only the users the scope covers, or keep the wider group and answer the question for it (the
+  wording, the venue's rule, what the software does for them). On Paper 1 v0.7 the stage dismissed the
+  medical-device question on a research-and-education scope while the paper's first named users were lay people
+  with their own genome; the two co-authors then answered it in opposite directions.
 
 Use known facts without investigating the author. Ask only unanswered questions that materially change
 an edit or requirement, in a short batch; continue independent work. Neither an accession nor an author

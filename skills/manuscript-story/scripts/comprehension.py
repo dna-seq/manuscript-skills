@@ -10,7 +10,8 @@ co-author, three on passages the run itself wrote, none caught). The story panel
 stage reads only what it edits and the re-check asks whether an edit is accurate, not whether it reads. This script
 gives that reading its material and holds it to its contract:
 
-    uv run --script comprehension.py scan PAPER.md [--json scan.json] [--md scan.md] [--known GWAS]
+    uv run --script comprehension.py scan PAPER.md [--json scan.json] [--md scan.md] [--known GWAS] \\
+        [--before ORIGINAL.md] [--check]
     uv run --script comprehension.py passages ORIGINAL.md CORRECTED.md [--json passages.json]
     uv run --script comprehension.py prepare PAPER.md --into RUN/manuscript-story/comprehension \\
         [--section 2 --section 3 --section 4] [--original ORIGINAL.md] [--passages-only]
@@ -20,7 +21,12 @@ gives that reading its material and holds it to its contract:
 `scan` is a list-only parse pass over the whole body: abbreviations used before they are spelled out or never
 spelled out (the Abstract counted on its own, as journals count it), dense sentences (reader_metrics' `dense`) and
 numbers that set a rule (a threshold, a window, "at least nine") with no reason, reference or citation in their
-sentence or the next. Each is a place to read, never a finding by itself.
+sentence or the next. Each is a place to read, never a finding by itself. A note before the Abstract (a draft note,
+a statement of how two papers divide the work) is read as the body is, its abbreviations counted on their own: a
+co-author reads it first, and on Paper 1 v0.7 one read it as the paper's only statement of that division. Title,
+author lines and affiliations are not read. `--before ORIGINAL` marks each item the original also had
+(`in_original`); `--check` exits 1 while any abbreviation is listed, which manuscript-improve uses to finish the
+spelling-out a fix began (Paper 1 v0.7's fix spelled out VCF in the Abstract and stopped there).
 
 `passages` lists what a revision wrote that is longer than a sentence: each paragraph of the corrected version with
 two or more sentences the original lacks. Those are the passages a run writes for its own referees, which nobody
@@ -34,8 +40,8 @@ a word of their heading; by default every Methods- and Results-like section), `p
 not hold or names a problem outside the list, and writes the items as draft findings of category Comprehension
 (`minor`, no decision, owned by manuscript-prose-edit), with a `major` finding for a section with five or more.
 
-Exit codes: 0 done (`scan` and `passages` always, as they only list), 1 an answer that breaks the contract, 2 a usage
-error.
+Exit codes: 0 done (`scan` without `--check` and `passages` always, as they only list), 1 an answer that breaks the
+contract or, for `scan --check`, an abbreviation left, 2 a usage error.
 """
 
 from __future__ import annotations
@@ -125,7 +131,7 @@ def _latex(text: str) -> bool:
 
 
 def _heading(section) -> str:
-    return re.sub(r"[*_#`]", "", section.heading).strip()
+    return FRONT_NOTE if section.kind == "front" else re.sub(r"[*_#`]", "", section.heading).strip()
 
 
 def _plain(paragraph: str, latex: bool) -> str:
@@ -154,16 +160,37 @@ def _acronyms(sentence: str):
         yield base, defines
 
 
+FRONT_NOTE = "the note before the Abstract"
+
+
+def front_note(paragraph: str, latex: bool) -> bool:
+    """A paragraph of the front matter that is prose (a note), not a title, author line or affiliation."""
+    plain = rm._clean(paragraph, latex)
+    words = rm.WORD.findall(plain)
+    return len(words) >= 15 and re.search(r"[.!?][)\"'”’]?$", plain) is not None and plain.count(",") * 4 < len(words)
+
+
+def _scope_of(section) -> str | None:
+    if section.kind == "back":
+        return None
+    return {"front": "note", "abstract": "abstract"}.get(section.kind, "body")
+
+
+def _paragraphs(section, latex: bool) -> list[str]:
+    return [p for p in section.text if section.kind != "front" or front_note(p, latex)]
+
+
 def abbreviations(sections, latex: bool) -> list[dict]:
-    """Abbreviations first used before their definition, or never defined, in the Abstract and in the rest apart."""
+    """Abbreviations first used before their definition, or never defined: in the note before the Abstract, in the
+    Abstract and in the rest, each apart."""
     out = []
-    for scope in ("abstract", "body"):
+    for scope in ("note", "abstract", "body"):
         first: dict[str, tuple[str, str]] = {}
         defined: dict[str, str] = {}
         for s in sections:
-            if s.kind in ("front", "back") or (s.kind == "abstract") != (scope == "abstract"):
+            if _scope_of(s) != scope:
                 continue
-            for paragraph in s.text:
+            for paragraph in _paragraphs(s, latex):
                 for sentence in rm._sentences(rm._clean(paragraph, latex)):
                     for acr, defines in _acronyms(sentence):
                         if defines:
@@ -174,7 +201,8 @@ def abbreviations(sections, latex: bool) -> list[dict]:
             where = defined.get(acr)
             out.append({"kind": "abbreviation", "term": acr, "section": section, "quote": sentence,
                         "note": (f"used before it is spelled out (spelled out in {where})" if where
-                                 else "never spelled out" + (" in the Abstract" if scope == "abstract" else ""))})
+                                 else "never spelled out" + {"abstract": " in the Abstract",
+                                                             "note": " in the note"}.get(scope, ""))})
     return out
 
 
@@ -183,9 +211,9 @@ def scan_text(text: str, known: frozenset[str] = frozenset()) -> list[dict]:
     sections = rm.parse(text)
     items = [i for i in abbreviations(sections, latex) if i["term"] not in known]
     for s in sections:
-        if s.kind in ("front", "back"):
+        if s.kind == "back":
             continue
-        for paragraph in s.text:
+        for paragraph in _paragraphs(s, latex):
             plain = rm._sentences(_plain(paragraph, latex))
             for n, sentence in enumerate(plain):
                 bare = re.sub(r"\s+", " ", rm._drop_citations(sentence)).strip()
@@ -220,6 +248,16 @@ def passages_of(original: str, corrected: str) -> list[dict]:
     return out
 
 
+def _key(item: dict) -> tuple[str, str]:
+    return item["kind"], item.get("term") or fold(item["quote"])
+
+
+def mark_original(items: list[dict], original: list[dict]) -> list[dict]:
+    """Mark each item the original's scan also lists (the same abbreviation, or the same sentence)."""
+    before = {_key(i) for i in original}
+    return [{**i, "in_original": _key(i) in before} for i in items]
+
+
 def _markdown_scan(items: list[dict]) -> str:
     lines = ["# Comprehension scan (places to read, not findings)", ""]
     if not items:
@@ -230,17 +268,22 @@ def _markdown_scan(items: list[dict]) -> str:
         if group:
             lines += [f"## {title} ({len(group)})", ""]
             lines += [f"- {i['section']}: " + (f"**{i['term']}**, " if kind == "abbreviation" else "")
-                      + f"{i['note']}: \"{i['quote']}\"" for i in group]
+                      + f"{i['note']}"
+                      + {True: " (the original too)", False: " (new)"}.get(i.get("in_original"), "")
+                      + f": \"{i['quote']}\"" for i in group]
             lines.append("")
     return "\n".join(lines)
 
 
 @app.command()
 def scan(paper: Path, json_out: Path | None = typer.Option(None, "--json"), md: Path | None = typer.Option(None),
-         known: list[str] = typer.Option([], help="An abbreviation this paper's readers know without a definition.")
-         ) -> None:
-    """List-only parse pass over the whole body."""
+         known: list[str] = typer.Option([], help="An abbreviation this paper's readers know without a definition."),
+         before: Path | None = typer.Option(None, "--before", help="The original, to mark what it also had."),
+         check: bool = typer.Option(False, "--check", help="Exit 1 while any abbreviation is listed.")) -> None:
+    """List-only parse pass over the whole body and the note before the Abstract."""
     items = scan_text(_read(paper), frozenset(known))
+    if before:
+        items = mark_original(items, scan_text(_read(before), frozenset(known)))
     if json_out:
         json_out.write_text(json.dumps({"paper": paper.name, "items": items}, indent=2, ensure_ascii=False) + "\n",
                             encoding="utf-8")
@@ -249,6 +292,11 @@ def scan(paper: Path, json_out: Path | None = typer.Option(None, "--json"), md: 
         md.write_text(report, encoding="utf-8")
     if not (json_out or md):
         typer.echo(report)
+    left = [i["term"] for i in items if i["kind"] == "abbreviation"]
+    if check and left:
+        typer.echo(f"comprehension: {len(left)} abbreviation(s) not spelled out at first use: {', '.join(left)}",
+                   err=True)
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -34,6 +34,13 @@ file, and the kit's role `classes/lead/LEAD.md`.
   dependencies), and what it does depend on (the plugin formats, the Google connectors) is not published
   there. Declare the watcher if that changes.
 
+## 2026-11-20 — RM3 on the desk, RM4 built (0.73.0)
+
+- RM3's try from the desktop is desk #70 (default: untried, nothing posted to any Doc).
+- RM4, the gap note's smaller misses, one per skill. Only the scan's change (the note before the Abstract,
+  `--before`, `--check`) is code and tested; the other six are stage text, measured only by `comments.py gaps` on the
+  next co-authors' reading of a run that has them. The roadmap is empty of unattended items after it.
+
 ## Standing word from the maintainer
 
 - **No manuscript runs without asking** (Anton, 2026-11-19, relayed by the desk's secretary to every lead): no

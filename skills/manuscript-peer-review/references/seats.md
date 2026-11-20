@@ -113,6 +113,14 @@ Judges whether another group could repeat the work from what is written and rele
   every outcome of them reported in the results? A count of what passed a filter, or a classifier's accuracy,
   that appears only in the methods is a result a reader of the results will not find; a procedure explained only
   in the results cannot be repeated from the methods.
+- Why each constant the method sets has its value, not only what the value is: four of seven test genomes, the
+  outermost 1 %, a penalty of 0.9. Is the reason given (a source, a pilot, a sensitivity analysis, "chosen by hand"
+  said plainly), and would another value change the result? A value stated so the work can be repeated, with no
+  reason, still leaves a reader unable to judge it.
+- How complete is each curated resource the work builds or ships (a module, a panel, a gene or variant list, a
+  subset of a database), against the source it was drawn from, and does the text say how items were chosen and
+  what was left out? A module of 27 variants for a disease whose catalogue holds thousands needs its selection
+  stated, or a reader takes it for the whole.
 
 Leaves the formal availability statements to manuscript-reporting-check and
 manuscript-integrity-check. Never installs or runs the authors' code unless asked (see

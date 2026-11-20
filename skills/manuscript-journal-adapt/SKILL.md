@@ -106,7 +106,14 @@ for, drafted from `../manuscript-integrity-check/references/disclosure-templates
 say the tools did, never guessed; figure rules; required cover-letter points. Declarations (consent, ethics,
 competing interests, funding, author contributions) are drafted only from facts the authors or the project's
 own files supplied: one that needs a fact nobody gave is a held proposal with the question as its comment,
-never a plausible default, and an author's credit is never dropped or narrowed. Separate requirements for
+never a plausible default, and an author's credit is never dropped or narrowed. Read each listed contribution
+against the authorship criteria the venue follows (ICMJE, CRediT's roles, the publisher's own): a contribution
+that by itself does not meet them under most definitions (testing the software, providing one's own genome or
+samples, proofreading, funding acquisition alone) is raised as a decision, `major`, quoting it, with two options:
+name what else that person did that meets the criteria, or move them to the Acknowledgements. Which it is stays the
+authors'; the stage never removes an author or credits work nobody named. Asking for CRediT roles is not that
+check: on Paper 1 v0.7 the stage asked for the format, and a co-author asked whether testing the software and
+giving a genome make one an author. Separate requirements for
 initial submission from those for revision or acceptance; use free-format submission when allowed. When
 the venue's page does not say what counts toward a word limit (abstract headings, the Contact line,
 tables, figure legends), give the count both ways and say which one the page leaves open. This

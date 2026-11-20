@@ -304,6 +304,14 @@ inventory, so the end of a run goes in this order:
    the re-check's fixes; a reason only the authors know goes to them as the edit's `--comment`, never invented. No
    second reading follows; what stays unfixed is listed with the end-of-run items. When nothing in the corrected
    version is new by two sentences, `prepare` exits 2 and the step is skipped, said in the stage's note.
+
+   Then finish the spelling-out, which needs no one: `uv run --script ../manuscript-story/scripts/comprehension.py
+   scan RUN/manuscript-improve/revision/proposed<ext> --before ORIGINAL --check` lists each abbreviation the corrected
+   version still uses before it is spelled out (the note before the Abstract, the Abstract and the body each counted
+   on their own). Spell each out at its first use as a recorded routine edit, from the paper's own definition, and
+   rebuild, until it exits 0; an abbreviation every reader of the paper's field knows may be passed with `--known`,
+   named in the stage's note. On Paper 1 v0.7 the fix spelled out VCF in the Abstract and stopped there, and both
+   co-authors asked for the rest.
 8. Render the dashboard and the Word file from the same attempts.
 9. Write the summary, run the smell check on it and register it; `finish` every stage, run
    `validate --final`, then `runs.py handover` (between `stage --name handover --status running` and
@@ -312,8 +320,12 @@ inventory, so the end of a run goes in this order:
 Write `RUN/manuscript-improve/revision-choices.json`: for each group of competing proposals, the one you
 recommend (`prefer`); the proposals to hold back with the reason (`hold`: a held decision such as a
 statement for a journal not yet chosen, a proposal whose substance is a fact only the authors have, or a
-claim restored after the guard); and an anchor for an addition its stage left without one. Every key is
-optional; revise.py refuses any other key or shape and says what the file should hold:
+claim restored after the guard); and an anchor for an addition its stage left without one. A proposal held because
+it moves text (a paragraph swapped, a section reordered) that also brings a term's definition before its first use is
+split first: the definition at the first use is a routine edit of its own, applied and recorded, and only the move is
+held. Defining a term asks no decision, and on Paper 1 v0.7 two held moves carried the only definitions of the terms
+both co-authors then asked about. Every key is optional; revise.py refuses any other key or shape and says what the
+file should hold:
 
 ```json
 {

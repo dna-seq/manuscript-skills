@@ -334,9 +334,27 @@ better comprehension; the study measured a correlation in one sample"); its name
 (association to causation, surrogate to outcome, sample to population) may follow in parentheses. "First",
 "novel" and "only" follow
 [priority and absence claims](../manuscript-reference-check/references/claim-support.md#priority-and-absence-claims).
-Leave calibrated claims and stated non-claims alone. Limitations should name a risk and its consequence. Report
-stock phrases and vocabulary density only when they impair clarity or break the house style (CLAUDE.md /
-AGENTS.md).
+Leave calibrated claims and stated non-claims alone. Report stock phrases and vocabulary density only when they
+impair clarity or break the house style (CLAUDE.md / AGENTS.md).
+
+**Each stated limit with its cost.** A limitation names a risk and what it costs the reader who meets it. List every
+limit the paper states (in a Limitations section, a caveat, a "does not" or "is not" sentence about the method, a
+known case it mishandles) and, for each, ask what happens to a user or a result when it applies, and whether the
+text says so. One that names the case and not its consequence ("a GRCh37 file would be joined at GRCh38 coordinates
+without a warning"; "an indel written differently is not matched") is a problem, `minor`, asking for the
+consequence in one clause (wrong scores for every variant whose position moved; a missed variant counted as
+absent), from the paper's own results or code where they show it; a cost only the authors can size is the
+proposal's question, never a guess. On Paper 1 v0.7 a co-author asked "how bad is that?" and "is that a problem?" of
+two such sentences.
+
+**A claim you could not check is a problem, not only a line in the report.** A load-bearing claim (Step 2's) or a
+claim of what the software does or works with that no check of this run could confirm (a client list nobody tried,
+a feature the code does not show, "both engines compute the same score" with no pointer to where it is shown) is
+raised as a problem, `major` for a load-bearing claim, else `minor`, quoting it, saying what was tried and asking
+for one of: where the paper or its supplement shows it, a narrower wording (the clients tested, "designed to"), or
+removal. Listing it only under what could not be checked left it to reach the co-authors on Paper 1 v0.7 (the stage
+listed the claim about one client among its unrun checks and raised nothing). A check that could not run for want
+of access (a paywalled source, a server offline) stays in that list.
 
 **Each detail in its section.** A claim reads differently where it stands: a speed-up in the Introduction
 without the setup that makes it fair, or a classifier's accuracy that only Methods report, misleads a reader or

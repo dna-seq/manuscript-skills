@@ -302,6 +302,20 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   is never resolved, and each item says why it got none. After the batch and a fresh read, `--record` notes each
   reply found as `replied: {round, on}`. Tests: `tests/test_coauthors.py` (a model Doc that applies the batch);
   never posted to a real Doc from the server, which has no Docs connector.
+- **The smaller misses on Paper 1 v0.7, one per skill (0.73.0, RM4).** The rest of the gap note's order
+  ([docs/coauthor-gaps-2026-11.md](docs/coauthor-gaps-2026-11.md)). `comprehension.py scan` reads a note before the
+  Abstract (a front-matter paragraph of prose: `front_note`, at least 15 words ending a sentence, not an author line
+  or affiliation) as the body is read, its abbreviations counted on their own (`FRONT_NOTE`); `--before ORIGINAL`
+  marks `in_original`, `--check` exits 1 while an abbreviation is listed. manuscript-improve runs it on the
+  corrected version and spells each out as a routine edit, and splits a held move that carries a definition (the
+  definition applied, the move held). manuscript-prose-edit reads what it does not edit, the note included, list
+  only. manuscript-policy-fit lists who the paper says its users are against the scope it claims (a decision with
+  two options when they disagree). manuscript-integrity-check asks each stated limit's cost and raises a claim it
+  could not check as a problem, not only a line under what could not be checked. The reproducibility referee asks
+  why each constant has its value and how complete each curated resource is; manuscript-journal-adapt reads each
+  contribution against authorship criteria; manuscript-figures reads each caption sentence against the image and
+  asks for vector export of drawn figures. Tests: `tests/test_comprehension.py`; the rest is the stages' text,
+  measured by `comments.py gaps` on the next co-authors' reading.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

@@ -177,3 +177,53 @@ def test_scan_runs_on_the_seeded_outsider_fixture() -> None:
     items = cp.scan_text((FIXTURES / "outsider-seeded.md").read_text(encoding="utf-8"))
     assert {"ASV", "CLR"} <= {i.get("term") for i in items}
     assert any(i["kind"] == "number" and "at least 4 of 7" in i["quote"] for i in items)
+
+
+NOTED = """# A Tool for Reading Genomes
+
+Anna Smith^1^, Ben Jones^2^
+
+^1^ Institute of Biostatistics, University of Rostock, Germany
+
+> Draft note: this paper presents the GUI and the MCP server, while the companion paper presents the modules and
+> their evaluation, so that each can be reviewed on its own.
+
+## Abstract
+
+We score genomes on a laptop.
+
+## 1. Introduction
+
+The MCP server answers questions. A Model Context Protocol (MCP) server is a tool an assistant calls.
+"""
+
+
+def test_scan_reads_the_note_before_the_abstract_and_not_the_author_lines() -> None:
+    items = cp.scan_text(NOTED)
+    notes = [i for i in items if i["section"] == cp.FRONT_NOTE]
+    assert [(i["term"], i["note"]) for i in notes] == [("GUI", "never spelled out in the note"),
+                                                        ("MCP", "never spelled out in the note")]
+    # the body counts its own first use, not the note's
+    assert ("MCP", "used before it is spelled out (spelled out in 1. Introduction)") in {
+        (i["term"], i["note"]) for i in items if i["kind"] == "abbreviation" and i["section"] != cp.FRONT_NOTE}
+    assert not any("Rostock" in i["quote"] or "Smith" in i["quote"] for i in items)
+
+
+def test_scan_check_finishes_a_spelling_out_and_marks_what_the_original_had(tmp_path: Path) -> None:
+    original = tmp_path / "original.md"
+    original.write_text(PAPER, encoding="utf-8")
+    fixed = tmp_path / "fixed.md"
+    fixed.write_text(PAPER.replace("We score genomes with PGS", "We score genomes with polygenic scores (PGS)"),
+                     encoding="utf-8")
+    out = tmp_path / "scan.json"
+    result = runner.invoke(cp.app, ["scan", str(fixed), "--before", str(original), "--check", "--json", str(out)])
+    assert result.exit_code == 1, result.output
+    items = json.loads(out.read_text(encoding="utf-8"))["items"]
+    abbreviations = {i["term"]: i for i in items if i["kind"] == "abbreviation"}
+    assert "PGS" not in {t for t, i in abbreviations.items() if i["section"] == "Abstract"}
+    assert abbreviations["T2T"]["in_original"] is True
+    assert "T2T" in result.output
+    done = tmp_path / "done.md"
+    done.write_text("# T\n\n## Abstract\n\nA polygenic score (PGS) adds effects.\n\n## 1. Methods\n\n"
+                    "Each polygenic score (PGS) is summed.\n", encoding="utf-8")
+    assert runner.invoke(cp.app, ["scan", str(done), "--check"]).exit_code == 0
