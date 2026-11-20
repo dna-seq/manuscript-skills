@@ -6,7 +6,7 @@ heading `## RM<n> — <title>` with its state and its owner under it, which the 
 
 ## RM3 — Reply to co-authors inside the Google Doc
 
-**State:** blocked: the maintainer posts one round's replies from the desktop (no Docs connector on the server)
+**State:** blocked: desk #70 (the maintainer posts one round's replies from the desktop; no Docs connector on the server)
 **Owner:** lead
 
 Built in 0.72.0: `comments.py replies` plans the reply in each co-author's thread from the ledger's `why`, posts
