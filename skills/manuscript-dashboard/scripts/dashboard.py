@@ -504,6 +504,23 @@ class Venue(Record):
     adaptation: Adaptation | None = None  # journals the selection measured the manuscript against
 
 
+class Letter(Record):
+    """A cover letter or presubmission inquiry manuscript-journal-adapt's letter.py drafted for one venue
+    (RUN/manuscript-journal-adapt/cover-letter.VENUE.json and .md): the letter as written, with its gaps for the
+    authors (each `[TO FILL: ...]` left in it) and the problems its checks found before it can be sent."""
+    kind: Literal["cover", "inquiry"]
+    venue: Text
+    journal: Text
+    file: Text  # the letter's file name, beside the stage report
+    text: str = ""  # the letter itself, gaps marked
+    words: Annotated[int, Field(ge=0)] = 0
+    passed: bool = False  # every claim traced and no letter smell; gaps may remain
+    problems: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+    claims: str = ""  # the claims file's name: each claim beside the manuscript's sentences it rests on
+    written: str = ""
+
+
 class StoryTest(Record):
     """One story test (manuscript-story's story-tests.md): does the paper do this for its readers?"""
     test: Text
@@ -747,6 +764,7 @@ class Inventory(Record):
     panel: Panel | None = None
     reference: Reference | None = None
     venues: list[Venue] = Field(default_factory=list)
+    letters: list[Letter] = Field(default_factory=list)
     story: Story | None = None
     figures: Figures | None = None
     reference_list: list[ListedReference] = Field(default_factory=list)

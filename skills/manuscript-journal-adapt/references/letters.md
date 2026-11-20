@@ -135,7 +135,11 @@ Beside the stage report, `RUN/manuscript-journal-adapt/`:
 - `....claims.md`: not for sending. Each sentence about the paper with the manuscript's sentences it rests on (section
   and line), the journal's words with their page and date, each declaration with its source and the venue's rule
   for it, the points to check by hand, the gaps and the problems.
-- `....json`: the same as data (`passed`, `problems`, `gaps`, `traced`, `declarations`, `quoted`, `needs`).
+- `....json`: the same as data (`passed`, `problems`, `gaps`, `traced`, `declarations`, `quoted`, `needs`), and
+  `findings`: one draft finding per gap (`JA-L-VENUE-N`, category Submission package, `major`, `info` for an optional
+  gap, its evidence the gap's marker in the letter). Copy them into the stage's `findings.json`, so the dashboard's
+  To-do list, the Word review and the workbook ask the authors for each; the dashboard shows the letter itself on its
+  Journals tab (`collect.py` reads the `.json` and the letter).
 
 ## Example: MitoAge 2's inquiry to Nucleic Acids Research
 

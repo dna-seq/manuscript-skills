@@ -4,20 +4,6 @@ Open work only. Each item says what it is, why it is not built yet, and the shap
 heading `## RM<n> — <title>` with its state and its owner under it, which the lead keeps true
 ([docs/seats/LEAD.md](seats/LEAD.md)); a built item leaves this file in the commit that lands it.
 
-## RM2 — Letters to the editor in the run and on the dashboard
-
-**State:** unattended
-**Owner:** lead
-
-`manuscript-journal-adapt/scripts/letter.py` drafts a cover letter or a presubmission inquiry and traces its claims
-(0.63.0), but only when asked: manuscript-improve does not draft the cover letter at its journal stage, the dashboard
-does not show the letter or its claims file, and its gaps are not To-do items. No venue in the shipped catalogue
-records `scope` yet (the journal's words on its scope, its article types and presubmission inquiries), so each first
-letter to a venue reads its author guide. The shape: improve's journal stage drafts the cover letter for the chosen
-venue once its declarations are final, `collect.py` reads `RUN/manuscript-journal-adapt/*.json` letters into a
-`letters` section shown on the Journals tab, and each gap becomes a To-do item for the authors; `scope` is filled for
-the venues on the ladders as their pages are read.
-
 ## RM3 — Reply to co-authors inside the Google Doc
 
 **State:** unattended

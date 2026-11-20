@@ -21,6 +21,12 @@ file, and the kit's role `classes/lead/LEAD.md`.
   improve's step 7 on the run's own passages). Tested on fixtures only: no run folder of a real paper is here, so
   its first real reading is the next improve run; `comments.py gaps` on the round after it measures it.
 - The rest of the gap note's order is RM4 (one change per skill), `unattended`.
+
+## 2026-11-20 — RM2 built (0.71.0)
+
+- The cover letter in the improve run, its gaps as the stage's own findings (so To-do, Word and workbook carry them
+  with no new to-do kind), and the letters on the Journals tab. The tab's script is compiled with QuickJS (`uv run
+  --with quickjs`; no node here), never viewed: the maintainer sees it on the next run he asks for.
 - **The channel:** `state` (a kept message, `watchdog.py keep lead state`), `decisions`, `daily` opened.
 - **Acting duties** (no pm or correspondence seat in the table): `milestones`, done as the kept `state`
   message and a `milestones` post per landed release; `upstream-index`, nothing declared: the plugin builds

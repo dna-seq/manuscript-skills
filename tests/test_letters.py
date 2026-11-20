@@ -364,3 +364,55 @@ def test_write_command_exit_codes(catalogue: Path, tmp_path: Path) -> None:
     unknown.write_text(yaml.safe_dump(_cover(venue="nowhere")), encoding="utf-8")
     assert CliRunner().invoke(letter.app, ["write", str(unknown), "--paper", str(PAPER), "--out",
                                            str(tmp_path / "o")]).exit_code == 2
+
+
+def test_each_gap_is_drafted_as_a_finding_for_the_authors(catalogue: Path, tmp_path: Path) -> None:
+    """RM2: a gap only the authors can fill reaches the dashboard's To-do list as a major finding of the stage; an
+    optional one (a related paper) is info. The evidence is the gap's marker in the letter itself."""
+    record, text, out = _write(tmp_path, _cover(declarations={
+        "competing_interests": {"text": "The authors declare no competing interests."}}))
+    findings = record["findings"]
+    assert [f["id"] for f in findings] == [f"JA-L-shells-{n}" for n in range(1, len(record["gaps"]) + 1)]
+    by_gap = {f["evidence"][0]["quote"]: f for f in findings}
+    assert all(marker in text for marker in by_gap)  # each marker word for word in the letter
+    optional = [f for f in findings if f["severity"] == "info"]
+    assert [f["evidence"][0]["quote"] for f in optional] == [
+        "[TO FILL, optional: a recent paper in Journal of Shells close to this one, if the authors know one]"]
+    competing = next(f for f in findings if "competing interests" in f["detail"])
+    assert (competing["severity"], competing["stage"], competing["decision"], competing["quote"]) == \
+        ("major", "journal", False, None)
+    assert competing["looked_in"] == [record["letter"]] and competing["evidence"][0]["path"] == record["letter"]
+    assert json.loads((out / "cover-letter.shells.json").read_text(encoding="utf-8"))["findings"] == findings
+
+
+DASHBOARD_SCRIPTS = ROOT / "skills" / "manuscript-dashboard" / "scripts"
+
+
+def test_the_dashboard_collects_each_letter_with_its_text_and_gaps(catalogue: Path, tmp_path: Path) -> None:
+    """RM2: collect.py reads every letter letter.py wrote beside the stage report into the inventory's `letters`,
+    which the Journals tab shows."""
+    if str(DASHBOARD_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(DASHBOARD_SCRIPTS))
+    dashboard = sys.modules.get("dashboard") or _load("dashboard", DASHBOARD_SCRIPTS / "dashboard.py")
+    collect = _load("collect_letters", DASHBOARD_SCRIPTS / "collect.py")
+    record, text, out = _write(tmp_path, _cover())
+    (out / "notes.json").write_text("{}", encoding="utf-8")  # not a letter
+    (out / "presubmission-inquiry.broken.json").write_text("{", encoding="utf-8")  # does not parse: left out
+    found = collect.letters(tmp_path / "RUN")
+    assert len(found) == 1
+    letter_view = dashboard.Letter.model_validate(found[0])
+    assert (letter_view.kind, letter_view.venue, letter_view.journal) == ("cover", "shells", record["journal"])
+    assert letter_view.text == text and letter_view.gaps == record["gaps"]
+    assert letter_view.file == "cover-letter.shells.md" and letter_view.claims == "cover-letter.shells.claims.md"
+    assert letter_view.passed == record["passed"] and letter_view.words == record["words"]
+    assert collect.letters(tmp_path / "nowhere") == []
+
+
+def test_the_drafted_findings_pass_the_stage_check(catalogue: Path, tmp_path: Path) -> None:
+    """Copied as they are into the stage's findings.json, the drafts pass what `runs.py finish` holds a stage to."""
+    stage_check = _load("stage_check_letters", DASHBOARD_SCRIPTS / "stage_check.py")
+    record, _, out = _write(tmp_path, _cover())
+    doc = {"skill": "manuscript-journal-adapt", "findings": record["findings"], "changes": []}
+    assert record["findings"]
+    assert stage_check.fatal(doc) == []
+    assert stage_check.placement(doc, "manuscript-journal-adapt", out, []) == []

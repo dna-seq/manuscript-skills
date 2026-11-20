@@ -284,6 +284,16 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   read superscript citations (`<sup>2,3</sup>`, `^4^`, never an exponent such as R<sup>2</sup>), so
   `sample_claims.py` counts them. Tests: `tests/test_windows_run_0_70.py`, `hooks/progress/run.test.tsx`,
   `tests/test_reference_check.py`, `tests/test_claim_sample.py`, `tests/test_improve_revise.py`.
+- **The cover letter in the run and on the dashboard (0.71.0, RM2).** `letter.py` drafted a letter only when asked,
+  and nothing showed it. manuscript-improve's journal stage now writes the chosen journal's cover letter once its
+  declarations are drafted (reading the author guide into the catalogue's `scope` first when it has none). `letter.py
+  write` adds `findings` to its record, `gap_findings`: one draft per `[TO FILL: ...]` gap (`JA-L-VENUE-N`, Submission
+  package, `major`, `info` for an optional gap, evidence the gap's marker in the letter), which the stage copies into
+  its findings.json, so the gaps reach the To-do list, the Word review and the workbook through the existing finding
+  path, with no new to-do kind. `collect.py letters` reads each `cover-letter.*.json` / `presubmission-inquiry.*.json`
+  with its letter into the inventory's `letters` (`dashboard.Letter`), and the Journals tab (shown also when there is
+  no ladder) gives each letter with its gaps, its problems and the text folded. Tests: `tests/test_letters.py`; the
+  tab's script is compiled, not viewed (no browser on the server).
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

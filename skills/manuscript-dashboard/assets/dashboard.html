@@ -636,7 +636,8 @@ __REVISION_HTML__
   if (inv.reference) tabs.push(['reference', 'Compared with review', inv.reference.items.length]);
   // Co-authors' comments: what each co-author asked of the previous release, and how this one answers it.
   if (inv.coauthors && inv.coauthors.items.length) tabs.push(['coauthors', "Co-authors' comments", inv.coauthors.items.length]);
-  if (inv.venues.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length]);
+  const LETTERS = inv.letters || [];
+  if (inv.venues.length || LETTERS.length) tabs.push(['journals', 'Journals', inv.venues.filter(v => v.ladder === 'journals').length || LETTERS.length]);
   if (inv.changes.length) tabs.push(['edits', 'Edits', inv.changes.length]);
   if (inv.panel && (inv.panel.recommendations.length || (inv.panel.reviewers || []).length))
     tabs.push(['reviewers', 'Reviewers', (inv.panel.reviewers || []).reduce((n, r) => n + r.concerns.length, 0) || null]);
@@ -2022,6 +2023,25 @@ __REVISION_HTML__
     i.limit ? `The journal: ${i.limit}` : '', i.source ? `Read on ${i.source}${i.checked ? ` (${i.checked})` : ''}` : ''].filter(Boolean);
   if (panels.journals) (function journals() {
     const p = panels.journals;
+    // The letters manuscript-journal-adapt drafted (letter.py): each as written, its gaps for the authors and what its
+    // checks found; the claims file beside it says where each claim rests in the manuscript.
+    const letters = () => {
+      if (!LETTERS.length) return;
+      p.append(h('h2', {class: 'sec', style: 'margin-top: 16px'}, LETTERS.length === 1 ? 'The letter to the editor' : 'Letters to the editors'),
+        h('p', {class: 'note', style: 'margin-top: 0'}, 'Drafted by manuscript-journal-adapt from the manuscript and the journal\'s own pages. Every claim about the paper is traced to its sentences; what only you can give is left as [TO FILL: ...] and listed in your to-do.'));
+      for (const l of LETTERS) {
+        const what = l.kind === 'inquiry' ? 'Presubmission inquiry' : 'Cover letter';
+        const status = l.problems.length ? h('span', {class: 'flag red'}, `${l.problems.length} problem${l.problems.length === 1 ? '' : 's'} before sending`)
+          : h('span', {class: 'tag'}, l.gaps.length ? 'checks passed; gaps to fill' : 'checks passed');
+        p.append(h('section', {class: 'card', id: `letter-${l.venue}`, style: 'margin-top: 10px'},
+          h('h3', null, `${what} to ${l.journal}`),
+          h('p', {class: 'note'}, `${l.words} words · ${l.file}${l.claims ? ` · claims traced in ${l.claims}` : ''}${l.written ? ` · written ${l.written}` : ''} `, status),
+          l.gaps.length ? h('div', null, h('h4', {style: 'margin: 8px 0 4px'}, 'For you to give'), h('ul', null, l.gaps.map(g => h('li', null, g)))) : null,
+          l.problems.length ? h('div', null, h('h4', {style: 'margin: 8px 0 4px'}, 'To fix before sending'), h('ul', null, l.problems.map(x => h('li', null, x)))) : null,
+          h('details', {style: 'margin-top: 8px'}, h('summary', null, 'The letter'), h('pre', {class: 'letter', style: 'white-space: pre-wrap; font: inherit'}, l.text))));
+      }
+    };
+    if (!inv.venues.length) { letters(); return; }
     const ladder = inv.venues.filter(v => v.ladder === 'journals').sort((a, b) => a.rung - b.rung);
     const preprints = inv.venues.filter(v => v.ladder === 'preprints').sort((a, b) => a.rung - b.rung);
     const chosen = ladder.filter(v => v.chosen);
@@ -2111,6 +2131,7 @@ __REVISION_HTML__
         h('tbody', null, preprints.map(v => h('tr', null, h('td', {class: 'num'}, String(v.rung)), h('td', null, h('strong', null, v.name)), h('td', null, withTip(h('span', {tabindex: 0}, v.fits || '—'), [v.fits, v.fits_reason])),
           h('td', null, v.ai_points != null ? `${v.ai_points} · ${v.ai_tier}` : '—')))))));
     }
+    letters();
   })();
 
   // ---------- edits ----------

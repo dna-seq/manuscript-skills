@@ -693,6 +693,36 @@ def venues(run: Path, data: dict | None = None) -> list[dict]:
     return rows
 
 
+LETTER = re.compile(r"^(?P<kind>cover-letter|presubmission-inquiry)\.(?P<venue>[^/]+)\.json$")
+
+
+def letters(run: Path) -> list[dict]:
+    """The letters manuscript-journal-adapt's letter.py wrote beside its report: each venue's cover letter or
+    presubmission inquiry with its text, gaps and problems; one that does not parse is left out."""
+    folder = run / "manuscript-journal-adapt"
+    out = []
+    for path in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+        m = LETTER.match(path.name)
+        if not m or m["venue"].endswith(".claims"):
+            continue
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if not isinstance(doc, dict) or not doc.get("venue"):
+            continue
+        letter = folder / str(doc.get("letter") or f"{path.stem}.md")
+        claims = folder / f"{path.stem}.claims.md"
+        out.append({"kind": "inquiry" if doc.get("kind") == "inquiry" else "cover", "venue": str(doc["venue"]),
+                    "journal": str(doc.get("journal") or doc["venue"]), "file": letter.name,
+                    "text": letter.read_text(encoding="utf-8") if letter.is_file() else "",
+                    "words": int(doc.get("words") or 0), "passed": bool(doc.get("passed")),
+                    "problems": [str(p) for p in doc.get("problems") or []],
+                    "gaps": [str(g) for g in doc.get("gaps") or []],
+                    "claims": claims.name if claims.is_file() else "", "written": str(doc.get("written") or "")})
+    return out
+
+
 def ladder_gaps(run: Path, data: dict) -> list[dict]:
     """When journal selection ran but left no ladder the dashboard can find, say so rather than show nothing."""
     if "manuscript-journal-select" not in data.get("skills", {}):
@@ -1037,7 +1067,7 @@ def main(run: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
         "limitations": limitation or [], "manuscript": manuscript(snapshot, original, sha256, version, out_dir),
         "signals": signals(run), "dismissed": records["dismissed"],
         "not_checked": records["not_checked"] + ladder_gaps(run, data),
-        "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data),
+        "decisions": [], "panel": panel(run, data), "reference": None, "venues": venues(run, data), "letters": letters(run),
         "story": story(run), "figures": figures(run, out_dir), "reference_list": reference_list(run, data.get("inputs")),
         "coauthors": coauthors(run),
         "todo": carried_marks,

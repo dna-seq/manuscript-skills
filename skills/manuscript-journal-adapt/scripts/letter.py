@@ -797,12 +797,33 @@ def write_letter(spec: dict[str, Any], paper: Path, out_dir: Path, *, today: Opt
     record = {"kind": spec["kind"], "venue": spec["venue"], "journal": needs["name"], "paper": str(paper),
               "letter": f"{stem}.md", "words": words, "passed": not problems, "problems": problems, "gaps": gaps,
               "quoted": quoted, "needs": needs, "traced": traced, "declarations": declared, "related": related,
-              "smells": smells, "written": today.isoformat()}
+              "smells": smells, "written": today.isoformat(),
+              "findings": gap_findings(spec, needs["name"], f"{stem}.md", letter, gaps)}
     (out_dir / f"{stem}.md").write_text(letter, encoding="utf-8")
     (out_dir / f"{stem}.claims.md").write_text(claims_markdown(record), encoding="utf-8")
     (out_dir / f"{stem}.json").write_text(json.dumps(record, indent=2, ensure_ascii=False, default=str) + "\n",
                                           encoding="utf-8")
     return record
+
+
+def gap_findings(spec: dict[str, Any], journal: str, file: str, letter: str, gaps: list[str]) -> list[dict[str, Any]]:
+    """Each gap the letter leaves, as a draft finding for the stage's findings.json: what only the authors can give
+    (a name, a declaration's facts, the title) is `major`, so the dashboard's To-do list, the Word review and the
+    workbook carry it; an optional one (a related paper) is `info`. Their evidence is the gap's marker in the letter."""
+    what = "presubmission inquiry" if spec["kind"] == "inquiry" else "cover letter"
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", spec["venue"]).strip("-") or "venue"
+    out = []
+    for n, gap in enumerate(dict.fromkeys(gaps), 1):
+        optional = f"[TO FILL, optional: {gap}]" in letter
+        marker = f"[TO FILL{', optional' if optional else ''}: {gap}]"
+        out.append({"id": f"JA-L-{slug}-{n}", "category": "Submission package", "section": f"The {what} to {journal}",
+                    "quote": None, "looked_in": [file], "summary": f"The {what} to {journal} waits for something only "
+                    "you can give", "detail": f"The letter leaves a gap for {gap.rstrip('.')}.",
+                    "action": f"Give it, and the letter is written again with it (letter.py write); until then the "
+                              f"letter says {marker}.",
+                    "severity": "info" if optional else "major", "stage": "journal", "confidence": "confirmed",
+                    "decision": False, "evidence": [{"path": file, "quote": marker}]})
+    return out
 
 
 def claims_markdown(r: dict[str, Any]) -> str:
