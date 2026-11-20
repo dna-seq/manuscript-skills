@@ -6,17 +6,14 @@ heading `## RM<n> — <title>` with its state and its owner under it, which the 
 
 ## RM3 — Reply to co-authors inside the Google Doc
 
-**State:** unattended
+**State:** waits until the maintainer posts one round's replies from the desktop
 **Owner:** lead
 
-`manuscript-coauthors` records how each co-author comment was answered (the ledger's `why`, the changelog,
-the dashboard). An agent posts the reply in the Doc's own thread only when the authors ask, through the
-Google Docs connector's `addCommentReply` (Claude) or the same request through Codex's Google Drive app; the
-skill says how, by hand. Not built: a `comments.py` command that posts the ledger's `why` for each answered
-comment as a reply on its thread, once, with the round it was answered in, and records the reply's id in the
-ledger. A Google .docx export says nothing of resolved threads; the Docs connector's `status` fills the
-ledger's `resolved` when the comments are read through it.
-Such a command would follow `manuscript-dashboard/scripts/export_gdoc.py`: one batch per plan, guarded by the revision it was read at, each posted item found again by its ID so a repeat posts nothing twice, then a readback.
+Built in 0.72.0: `comments.py replies` plans the reply in each co-author's thread from the ledger's `why`, posts
+nothing twice, never reopens or resolves a thread, and `--record` notes each reply found in the ledger. Tested only
+on a model Doc: the server has no Google Docs connector, so it is not done until the maintainer runs it once on a
+real round from the desktop (plan, `update_doc`, read again, `--record`) and the replies read as they should in the
+Doc.
 
 ## RM4 — The smaller misses on Paper 1 v0.7, by skill
 

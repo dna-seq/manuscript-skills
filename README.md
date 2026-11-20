@@ -711,7 +711,7 @@ button, on the right of the repository page, gives the reference in APA and BibT
   author  = {Kulaga, Anton and {DNA Seq}},
   title   = {Manuscript Skills},
   year    = {2026},
-  version = {0.71.0},
+  version = {0.72.0},
   url     = {https://github.com/dna-seq/manuscript-skills},
   license = {MIT}
 }

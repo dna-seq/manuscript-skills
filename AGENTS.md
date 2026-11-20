@@ -294,6 +294,14 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   with its letter into the inventory's `letters` (`dashboard.Letter`), and the Journals tab (shown also when there is
   no ladder) gives each letter with its gaps, its problems and the text folded. Tests: `tests/test_letters.py`; the
   tab's script is compiled, not viewed (no browser on the server).
+- **Replies to co-authors in their own Doc threads (0.72.0, RM3).** `comments.py replies LEDGER --read READ.json
+  --answered-in NEXT [--agent claude] [--record]` (`reply_plan`, `reply_text`): for each comment the ledger answers
+  (addressed, partly, declined, not on point) with a `why` and whose thread the Doc holds, one `addCommentReply`
+  "[ai:claude] Answered in vNEXT: <why> (ID)", in one batch with `requiredRevisionId`; a reply already in the thread
+  (an agent's, ending with the ID) is not planned again, a resolved thread gets none (a reply reopens it), a thread
+  is never resolved, and each item says why it got none. After the batch and a fresh read, `--record` notes each
+  reply found as `replied: {round, on}`. Tests: `tests/test_coauthors.py` (a model Doc that applies the batch);
+  never posted to a real Doc from the server, which has no Docs connector.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

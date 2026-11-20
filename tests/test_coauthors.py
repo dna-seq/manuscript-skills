@@ -1284,3 +1284,77 @@ def test_a_code_span_the_doc_shows_without_its_markup_is_no_edit() -> None:
     [edit] = comments.doc_edits(released, doc)
     assert "Lines starting `> AUTHOR:` are questions for all authors," in edit.after
     assert edit.after.count("`") == edit.before.count("`")
+
+
+def _apply_replies(read: Path, plan: dict, when: str = "2026-11-21T09:00:00.000Z") -> None:
+    """The model Doc takes a batch as Google does: each addCommentReply adds a post to its thread."""
+    data = json.loads(read.read_text(encoding="utf-8"))
+    doc = data["content"]
+    by_id = {t["commentId"]: t for t in doc["comments"]}
+    for request in plan["requests"]:
+        reply = request["addCommentReply"]
+        by_id[reply["commentId"]].setdefault("replies", []).append(
+            {"author": {"displayName": "Claude"}, "createTime": when, "content": reply["post"]["content"]})
+    doc["revisionId"] = "rev-after"
+    read.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_replies_answer_each_comment_in_its_own_thread_once(rounds: Path, capsys) -> None:
+    """RM3: the ledger's why goes back to the co-author in their thread, as an [ai:claude] reply ending with the ID; a
+    repeat plan finds it and posts nothing twice, a resolved thread is never reopened, and --record notes it."""
+    folder = rounds / "v0.5"
+    ledger, read = folder / "comments.yaml", gdoc_json(rounds / "read.json")
+    data = json.loads(read.read_text(encoding="utf-8"))
+    data["content"]["comments"][0]["status"] = "OPEN"  # Ann's thread, still open
+    data["content"]["revisionId"] = "rev-1"
+    read.write_text(json.dumps(data), encoding="utf-8")
+    cli("import-gdoc", read, "--ledger", ledger, "--master", folder / "paper.md", "--no-people")
+    capsys.readouterr()
+    items = ledger_of(ledger)
+    ann = next(i for i in items["items"] if i.get("gdoc_id") == "doco.c1")
+    ann.update(status="addressed", why="The sentence now gives the cost in 2003 and today, with the source.")
+    ledger.write_text(yaml.safe_dump(items, allow_unicode=True), encoding="utf-8")
+
+    assert cli("replies", ledger, "--read", read, "--answered-in", "0.6") == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["writeControl"] == {"requiredRevisionId": "rev-1"}
+    text = (f"[ai:claude] Answered in v0.6: The sentence now gives the cost in 2003 and today, with the source. "
+            f"({ann['id']})")
+    assert plan["requests"] == [{"addCommentReply": {"commentId": "doco.c1", "post": {"content": text}}}]
+    assert not any("RESOLVE" in json.dumps(r) for r in plan["requests"])  # never resolves the co-author's thread
+    # the agent's own comment ([ai:claude]) is no co-author's: no reply to it
+    assert [i["thread"] for i in plan["items"]] == ["doco.c1"]
+
+    _apply_replies(read, plan)
+    assert cli("replies", ledger, "--read", read, "--answered-in", "0.6", "--record") == 0
+    again = json.loads(capsys.readouterr().out)
+    assert again["requests"] == [] and again["counts"] == {"posted": 1} and again["recorded"] == [ann["id"]]
+    noted = next(i for i in ledger_of(ledger)["items"] if i["id"] == ann["id"])
+    assert noted["replied"] == {"round": "0.6", "on": "2026-11-21"}
+
+    # once Ann resolves her thread, a later answer is not posted into it
+    data = json.loads(read.read_text(encoding="utf-8"))
+    thread = data["content"]["comments"][0]
+    thread["status"], thread["replies"] = "RESOLVED", [r for r in thread.get("replies", []) if "[ai:" not in r["content"]]
+    read.write_text(json.dumps(data), encoding="utf-8")
+    assert cli("replies", ledger, "--read", read, "--answered-in", "0.6") == 0
+    late = json.loads(capsys.readouterr().out)
+    assert late["requests"] == [] and late["items"][0]["status"].startswith("resolved by the co-author")
+
+
+def test_replies_say_why_a_comment_gets_none(rounds: Path, capsys) -> None:
+    folder = rounds / "v0.5"
+    ledger, read = folder / "comments.yaml", gdoc_json(rounds / "read.json")
+    cli("import-gdoc", read, "--ledger", ledger, "--master", folder / "paper.md", "--no-people")
+    capsys.readouterr()
+    items = ledger_of(ledger)
+    ann = next(i for i in items["items"] if i.get("gdoc_id") == "doco.c1")
+    ann.update(status="declined", why="")
+    gone = dict(ann, id="C99", gdoc_id="doco.gone", key="gone", why="Kept as it is.", status="declined")
+    items["items"].append(gone)
+    ledger.write_text(yaml.safe_dump(items, allow_unicode=True), encoding="utf-8")
+    assert cli("replies", ledger, "--read", read, "--answered-in", "0.6") == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["requests"] == []
+    assert {i["id"]: i["status"] for i in plan["items"]} == {
+        ann["id"]: "no why in the ledger: nothing to say", "C99": "its thread is not in this Doc"}

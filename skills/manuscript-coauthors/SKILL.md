@@ -402,9 +402,13 @@ uv run --script scripts/rounds.py circulated 0.7           # the round went to t
   thread (`addCommentReply`), once, naming the round that answered it. It appears under the name of the
   Google account the connector is signed in to, so the reply starts with `[ai:NAME]` (`[ai:claude]`), the
   marker that tells everyone, and the next pull, that an agent wrote it.
-  Never resolve a co-author's thread; that is theirs to do. Read the thread back afterwards to confirm the
-  reply landed ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the
-  connector, the authors post the replies by hand.
+  Never resolve a co-author's thread; that is theirs to do. `comments.py replies LEDGER --read READ.json
+  --answered-in NEXT` plans them from the ledger: one reply per comment answered with a `why` ("[ai:claude]
+  Answered in v0.8: <why> (C12)"), none where one is there already or the thread is resolved (a reply would reopen
+  it); send its `requests` with its `writeControl` through `update_doc`, one batch, read the Doc again and run it
+  with `--record`, which finds each reply in its thread and notes it in the ledger (`replied`)
+  ([references/google-docs-connectors.md](references/google-docs-connectors.md)). Without the connector, the
+  authors post the replies by hand.
 - A run's whole review can go into the round's Doc the same way when the authors ask: every edit of the corrected
   version as a suggested edit and the questions for the authors as `[ai:claude]` comments (manuscript-dashboard's
   `export_gdoc.py`, [the review in the Doc](../manuscript-dashboard/SKILL.md#the-review-in-the-authors-own-google-doc)).

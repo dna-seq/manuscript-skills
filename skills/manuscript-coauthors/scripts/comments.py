@@ -11,9 +11,17 @@ answers each one (manuscript-coauthors).
     uv run --script comments.py status v0.5/comments.yaml [--old v0.5/PAPER.md] [--new v0.6/PAPER.md] [--json] [--strict]
     uv run --script comments.py findings v0.5/comments.yaml --new v0.6/PAPER.md --out RUN/manuscript-coauthors/findings.json
     uv run --script comments.py signoffs v0.5/comments.yaml --new v0.6/PAPER.md [--go]
+    uv run --script comments.py replies v0.5/comments.yaml --read READ_DOC.json --answered-in 0.6 [--agent claude] [--record]
     uv run --script comments.py changelog --base OLD.md --new v0.6/PAPER.md [--seen SEEN.md] --ledger v0.5/comments.yaml [--out FILE]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory RUN/manuscript-dashboard/findings.json [--out SHEET.md]
     uv run --script comments.py gaps v0.5/comments.yaml --inventory v0.5/PAPER.dashboard.html --merge GAPS.yaml | --check
+
+`replies` plans the answer to each co-author in their own thread of the Doc: for every comment the ledger says how
+the next round answered (addressed, partly, declined, not on point) with its `why`, one `addCommentReply` reading
+"[ai:claude] Answered in v0.6: <why> (C12)", in one batch guarded by the read's revision, for the agent to send through
+the Google Docs connector (update_doc). A reply already in the thread (an agent's, ending with the ID) is not planned
+again, a resolved thread gets none (a reply reopens it) and no thread is resolved. Read the Doc again after the batch
+and run it with --record: each reply found is noted in the ledger as `replied` (the round and the day).
 
 `import` reads a Google Doc exported as .docx (rclone `--drive-export-formats docx`, a Drive connector's
 download with exportMimeType docx, or File > Download > Microsoft Word). Google writes each comment and each
@@ -1744,6 +1752,75 @@ def unsigned_line(path: Path, found: Any) -> str:
             f"accepted suggestion records theirs (comments.py signoffs).") if total else ""
 
 
+REPLY_OPENING = {"addressed": "Answered", "partly": "Partly answered", "declined": "Not changed",
+                 "not-on-point": "Noted"}
+
+
+def reply_text(item: dict[str, Any], agent: str, answered_in: str) -> str:
+    """The reply posted in a co-author's thread: the agent's mark, how the round answered it, the ledger's why, and the
+    item's ID last, by which a later plan finds it posted."""
+    why = " ".join(str(item.get("why") or "").split())
+    return f"[ai:{agent}] {REPLY_OPENING[item['status']]} in v{answered_in}: {why} ({item['id']})"
+
+
+def reply_plan(data: dict[str, Any], doc: dict[str, Any], agent: str, answered_in: str) -> dict[str, Any]:
+    """For each comment the ledger says how the next round answered (addressed, partly, declined, not on point, with
+    its why), and whose thread the Doc holds: a reply to post, unless one is there already (an agent's reply ending
+    with the item's ID, found by the read: a repeat plan posts nothing twice). A resolved thread gets none, since a
+    reply would reopen it, and no thread is ever resolved: that is the co-author's to do."""
+    threads = {str(t.get("commentId")): t for t in doc.get("comments") or [] if isinstance(t, dict) and t.get("commentId")}
+    requests, items = [], []
+    for item in data["items"]:
+        if item.get("kind") != "comment" or item.get("ai") or not item.get("gdoc_id"):
+            continue
+        status = item.get("status", "open")
+        entry = {"id": item["id"], "thread": item["gdoc_id"]}
+        thread = threads.get(str(item["gdoc_id"]))
+        if status not in REPLY_OPENING:
+            continue
+        if not " ".join(str(item.get("why") or "").split()):
+            items.append(entry | {"status": "no why in the ledger: nothing to say"})
+            continue
+        if thread is None:
+            items.append(entry | {"status": "its thread is not in this Doc"})
+            continue
+        posted = next((post for post in thread.get("replies") or [] if ai_of(post.get("content"))
+                       and str(post.get("content") or "").rstrip().endswith(f"({item['id']})")), None)
+        if posted is not None:
+            items.append(entry | {"status": "posted", "on": str(posted.get("createTime") or "")[:10],
+                                  "text": str(posted.get("content") or "")})
+            continue
+        if thread.get("status") == "RESOLVED":
+            items.append(entry | {"status": "resolved by the co-author: no reply, which would reopen it"})
+            continue
+        text = reply_text(item, agent, answered_in)
+        requests.append({"addCommentReply": {"commentId": item["gdoc_id"], "post": {"content": text}}})
+        items.append(entry | {"status": "to post", "text": text})
+    write_control = {"requiredRevisionId": doc["revisionId"]} if doc.get("revisionId") else {}
+    counts = Counter(i["status"] for i in items)
+    return {"doc": doc.get("documentId"), "answered_in": answered_in, "requests": requests,
+            "writeControl": write_control, "counts": dict(counts), "items": items}
+
+
+def replies(args: argparse.Namespace) -> int:
+    """Plan the replies in the co-authors' threads, or with --record, after the batch went and the Doc was read again,
+    note each reply found in the ledger (`replied`: the round and the day)."""
+    ledger = Path(args.ledger)
+    data = read_ledger(ledger)
+    if not data["items"]:
+        raise Failure(f"{ledger}: no ledger; pull the comments first (comments.py import-gdoc).", 3)
+    plan = reply_plan(data, gdoc_document(Path(args.read)), args.agent, str(args.answered_in))
+    if args.record:
+        found = {i["id"]: i for i in plan["items"] if i["status"] == "posted"}
+        for item in data["items"]:
+            if item["id"] in found:
+                item["replied"] = {"round": plan["answered_in"], "on": found[item["id"]]["on"]}
+        write_ledger(ledger, data)
+        plan["recorded"] = sorted(found)
+    print(json.dumps(plan, indent=2, ensure_ascii=False))
+    return 0
+
+
 def signoffs(args: argparse.Namespace) -> int:
     """A co-author who resolved a thread, or whose suggested edit was taken, has seen that passage: their handle
     goes into the `by=` of the segments that answer it, so the count of passages with no person's sign-off falls as
@@ -1810,6 +1887,8 @@ def signoffs(args: argparse.Namespace) -> int:
 def run(args: argparse.Namespace) -> int:
     if args.command == "changelog":
         return changelog(args)
+    if args.command == "replies":
+        return replies(args)
     if args.command == "signoffs":
         return signoffs(args)
     ledger = Path(args.ledger)
@@ -1924,6 +2003,13 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--next-round", help="the next round's name (default: from --new's folder)")
             s.add_argument("--untriaged", action="store_true",
                            help="accept open comments with no `next` yet (a pull shown before triage)")
+    s = sub.add_parser("replies", help="plan the replies in the co-authors' Doc threads from the ledger's why")
+    s.add_argument("ledger")
+    s.add_argument("--read", required=True, help="the Doc read through the Google Docs connector (read_doc, commentsIncluded)")
+    s.add_argument("--answered-in", required=True, help="the round that answers the comments, e.g. 0.8")
+    s.add_argument("--agent", default="claude", help="the name in the replies' [ai:NAME] mark (default: claude)")
+    s.add_argument("--record", action="store_true",
+                   help="after the batch, from a fresh read: note each reply found in the ledger")
     s = sub.add_parser("signoffs", help="record co-authors' resolved threads and taken suggestions as their sign-off")
     s.add_argument("ledger")
     s.add_argument("--new", required=True, help="the next round's marked master, whose segments get the names")
