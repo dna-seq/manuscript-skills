@@ -300,8 +300,10 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   "[ai:claude] Answered in vNEXT: <why> (ID)", in one batch with `requiredRevisionId`; a reply already in the thread
   (an agent's, ending with the ID) is not planned again, a resolved thread gets none (a reply reopens it), a thread
   is never resolved, and each item says why it got none. After the batch and a fresh read, `--record` notes each
-  reply found as `replied: {round, on}`. Tests: `tests/test_coauthors.py` (a model Doc that applies the batch);
-  never posted to a real Doc from the server, which has no Docs connector.
+  reply found as `replied: {round, on}`. Tests: `tests/test_coauthors.py` (a model Doc that applies the batch). Tried
+  on a real Doc on 2026-11-22 (desk #70; a private test Doc, one comment): pull, plan, `update_doc`, read again,
+  `--record`, and a second plan posted nothing. The connector posts as the account's owner, so the `[ai:claude]`
+  opening is what tells the reply from theirs.
 - **The smaller misses on Paper 1 v0.7, one per skill (0.73.0, RM4).** The rest of the gap note's order
   ([docs/coauthor-gaps-2026-11.md](docs/coauthor-gaps-2026-11.md)). `comprehension.py scan` reads a note before the
   Abstract (a front-matter paragraph of prose: `front_note`, at least 15 words ending a sentence, not an author line
@@ -316,6 +318,12 @@ shared machinery lives, and the conventions every change keeps. The user-facing 
   contribution against authorship criteria; manuscript-figures reads each caption sentence against the image and
   asks for vector export of drawn figures. Tests: `tests/test_comprehension.py`; the rest is the stages' text,
   measured by `comments.py gaps` on the next co-authors' reading.
+- **A pull reads rev-marks.toml and never writes it unasked (0.74.0, desk #64, dna-seq/manuscript-skills#6).** Since
+  0.57.0 `comments.py import`/`import-gdoc` wrote every commenter into the paper's `rev-marks.toml`; a reviser seat
+  reverted a run over four names written there unasked. `commenters(found, start, record)` now maps each name to a
+  handle and writes `by:` as before, but writes the file only with `--record-people` (also on `rounds.py port`);
+  otherwise the pull's output lists `unrecorded` (the names the file lacks, matched by no alias or handle) with
+  `record_with`. `--no-people` still maps nobody. Tests: `tests/test_coauthors.py`.
 - Open work is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Shared machinery

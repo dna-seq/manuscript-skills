@@ -879,7 +879,8 @@ def under(run: Path, path: str) -> Path:
     return found if found.is_absolute() else run / found
 
 
-def port_plan(project: Project, name: str, run: Path, gdocs_: list[Path], pull_: bool) -> list[dict[str, Any]]:
+def port_plan(project: Project, name: str, run: Path, gdocs_: list[Path], pull_: bool,
+              record_people: bool = False) -> list[dict[str, Any]]:
     """The steps of `port`, each a runs.py exec of one command under the skill that owns it."""
     run = run.resolve()
     folder = project.folder(name)
@@ -898,7 +899,7 @@ def port_plan(project: Project, name: str, run: Path, gdocs_: list[Path], pull_:
             own = masters.get(title) or master
             steps.append({"step": "pull", "skill": "manuscript-coauthors", "argv": [
                 *uv, str(COMMENTS), "import-gdoc", str(source), "--ledger", str(ledger),
-                *(["--master", str(own)] if own else []),
+                *(["--master", str(own)] if own else []), *(["--record-people"] if record_people else []),
                 *(["--doc", project.rounds().get(name, {}).get("docs", {}).get(title, "")]
                   if project.rounds().get(name, {}).get("docs", {}).get(title) else [])]})
     elif pull_:
@@ -958,13 +959,15 @@ def port(name: str, run: Annotated[Path, typer.Option("--run", help="The run who
          gdoc: Annotated[list[Path] | None, typer.Option("--gdoc", help="A Doc's read_doc answer (commentsIncluded), saved as JSON; repeat per Doc")] = None,
          no_pull: Annotated[bool, typer.Option("--no-pull", help="Rebuild from the ledger as it is (after triage)")] = False,
          go: Annotated[bool, typer.Option("--go", help="Run the steps; without it, only print them")] = False,
+         record_people: Annotated[bool, typer.Option("--record-people", help="Add the commenters rev-marks.toml "
+                                                     "does not list to it (the pull only reads it otherwise)")] = False,
          project_dir: ProjectOption = None) -> None:
     """Take the round's comments from Google Docs to the run's dashboard: pull, people, findings, collect, corrected
     version, dashboard (and the Word and workbook files when the run made them), each a runs.py exec."""
     project = Project(project_dir)
     if not (run / "run.json").is_file():
         raise Refused(f"{run}: no run.json; give the run the round's dashboard belongs to.", 2)
-    steps = port_plan(project, name, run, list(gdoc or []), not no_pull)
+    steps = port_plan(project, name, run, list(gdoc or []), not no_pull, record_people)
     # runs.py through uv, with its own dependencies: this script's environment does not have them.
     commands = [{"step": s["step"], "command": shlex.join(["uv", "run", "--script", str(RUNS), "exec", str(run),
                                                            "--skill", s["skill"], "--", *s["argv"]])} for s in steps]

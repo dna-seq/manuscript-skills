@@ -15,8 +15,8 @@ authors:
 repository-code: "https://github.com/dna-seq/manuscript-skills"
 url: "https://github.com/dna-seq/manuscript-skills"
 license: MIT
-version: 0.73.0
-date-released: "2026-11-20"
+version: 0.74.0
+date-released: "2026-11-23"
 keywords:
   - scientific writing
   - manuscript

@@ -37,10 +37,12 @@ large answer is saved to a file by the client; write a small one out). It gives 
 whether it was resolved and who resolved it, and each open suggestion's inserted and deleted text, and keeps
 the Doc's ids (gdoc_id), so a later pull, by either route, knows each item again.
 
-`import` and `import-gdoc` also record who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
-rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle), added
-to rev-marks.toml's humans with the name among its aliases, and written as `by:` on the item or reply
-(--no-people: none of it). A comment or reply that starts with [ai] or [ai:NAME] is an agent's: `ai:` instead of
+`import` and `import-gdoc` also say who commented: each commenter's name is mapped to a handle (manuscript-mark-people's
+rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle) and
+written as `by:` on the item or reply. rev-marks.toml is only read: the names it does not list yet are printed as
+`unrecorded`, and `--record-people` adds them to its humans with the name among the handle's aliases (0.74.0, from
+dna-seq/manuscript-skills#6: a pull wrote four names into a paper's file nobody asked it to touch, and the run was
+reverted). --no-people: none of it. A comment or reply that starts with [ai] or [ai:NAME] is an agent's: `ai:` instead of
 `by:`, and such a comment is kept as not-on-point. `add` records nobody.
 
 Ids: C<n> for comments and S<n> for suggested edits, numbered in paper order, continuing past every id
@@ -158,11 +160,12 @@ def ai_of(text: Any) -> str | None:
     return (m.group(1) or "ai").lower() if m else None
 
 
-def commenters(found: list[Found], start: Path) -> dict[str, Any]:
+def commenters(found: list[Found], start: Path, record: bool = False) -> dict[str, Any]:
     """Every person who commented, replied or suggested in the Doc, mapped to a handle (manuscript-mark-people's
-    rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle) and
-    recorded in rev-marks.toml as a person, their Doc name among the handle's aliases. A comment marked [ai:NAME]
-    is an agent's and names nobody. A Doc's commenters are people by default: they read the paper as one."""
+    rules: an alias, an author of the paper by full name or by initials and surname start, else a new handle). With
+    *record*, each is written into rev-marks.toml as a person, their Doc name among the handle's aliases; without,
+    the file is only read and the names it does not list are returned as `unrecorded`. A comment marked [ai:NAME]
+    is an agent's and names nobody."""
     pm = people_module()
     names: list[str] = []
     for f in found:
@@ -176,14 +179,17 @@ def commenters(found: list[Found], start: Path) -> dict[str, Any]:
         survey = pm.survey(start)
         people = pm.rm.load_people(start, survey.config)
         matches = [pm.resolve(n, people, survey.identities) for n in names]
-        pm.record_people(survey.target, matches)
+        unrecorded = [m for m in matches if m.rule not in ("alias", "handle")]
+        if record and unrecorded:
+            pm.record_people(survey.target, matches)
     except (pm.rm.ConfigError, ValueError) as exc:
         raise Failure(f"rev-marks.toml: {exc}") from None
     except (RuntimeError, OSError) as exc:
         raise Failure(f"the commenters could not be recorded as people: {exc}", 3) from None
     return {"handles": {m.name: m.handle for m in matches}, "config": survey.target.as_posix(),
             "people": [{"name": m.name, "handle": m.handle, "rule": m.rule, **({"via": m.via} if m.via else {})}
-                       for m in matches]}
+                       for m in matches],
+            "unrecorded": [] if record else [{"name": m.name, "handle": m.handle} for m in unrecorded]}
 
 
 # --- the Google Doc export ------------------------------------------------------------------------
@@ -1900,11 +1906,15 @@ def run(args: argparse.Namespace) -> int:
         master_path = Path(args.master) if args.master else (ledger.parent / data["master"] if data.get("master") else None)
         master = Master(master_path) if master_path else None
         # A Doc's commenters are people; items written by hand (add) may carry any author, a workbook among them.
-        people = commenters(found, master_path or ledger.parent) if args.command != "add" and args.people \
-            else {"handles": {}, "people": [], "config": None}
+        people = commenters(found, master_path or ledger.parent, args.record_people) \
+            if args.command != "add" and args.people else {"handles": {}, "people": [], "config": None}
         result = merge(ledger, found, master, args.round, args.doc, Path(args.source).name, people["handles"])
         if people["people"]:
             result["people"], result["rev_marks"] = people["people"], people["config"]
+        if people.get("unrecorded"):
+            result["unrecorded"] = people["unrecorded"]
+            result["record_with"] = (f"the same pull again with --record-people adds them to {people['config']} "
+                                     "(or the authors list them with manuscript-mark-people)")
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     data = read_ledger(ledger)
@@ -1978,7 +1988,9 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--tab", help="the Doc tab's id (default: the first tab)")
         if name != "add":
             s.add_argument("--no-people", dest="people", action="store_false",
-                           help="do not record the Doc's commenters as people in rev-marks.toml")
+                           help="do not map the Doc's commenters to people at all (no by:)")
+            s.add_argument("--record-people", action="store_true",
+                           help="add the commenters rev-marks.toml does not list to its humans and aliases")
     for name, about in (("status", "how the next round answers each comment"),
                         ("findings", "the stage's findings.json and comments.md for the dashboard"),
                         ("gaps", "whether the run that produced the round had caught each comment")):

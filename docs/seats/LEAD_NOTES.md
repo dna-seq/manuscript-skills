@@ -41,6 +41,14 @@ file, and the kit's role `classes/lead/LEAD.md`.
   `--before`, `--check`) is code and tested; the other six are stage text, measured only by `comments.py gaps` on the
   next co-authors' reading of a run that has them. The roadmap is empty of unattended items after it.
 
+## 2026-11-22 — desk #64 and #70 answered "yes, you can do them"
+
+- #64 built (0.74.0): a pull only reads `rev-marks.toml`; `--record-people` writes it.
+- #70: this session had the Google Docs connector after all (it came with the claude.ai connectors). RM3 tried on a
+  private Doc in the maintainer's Drive, "manuscript-skills reply trial (private test, safe to delete)"; it is
+  theirs to delete. RM3 done. "The server has no Docs connector" no longer holds for this session: check the tool
+  list before saying a Doc step is the maintainer's.
+
 ## Standing word from the maintainer
 
 - **No manuscript runs without asking** (Anton, 2026-11-19, relayed by the desk's secretary to every lead): no

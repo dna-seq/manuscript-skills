@@ -171,12 +171,15 @@ thread as answered without checking the text. Report how many comments and sugge
 and any anchor not found in the master (`not_located`): the Doc and the master have drifted there, and that
 comment is placed by hand.
 
-**Who commented.** The Doc's commenters are people: `import` maps each name to a handle in the project's
+**Who commented.** The Doc's commenters are people: `import` maps each name to a handle by the project's
 `rev-marks.toml` (an alias already listed, an author of the paper by full name, the one author whose
-initials and surname start fit a shortened name such as "T Exa", else a new handle), adds it to `humans` and
-the Doc's name to its `aliases`, and writes `by:` on each item and reply. Report the `people` list it prints,
-with the rule behind each mapping; a wrong one is fixed by editing `aliases`. `--no-people` leaves
-`rev-marks.toml` alone; `add` never touches it. A comment or reply that starts with `[ai]` or `[ai:NAME]` is an
+initials and surname start fit a shortened name such as "T Exa", else a new handle) and writes `by:` on each item
+and reply. It only reads `rev-marks.toml`: report the `people` list it prints, with the rule behind each mapping,
+and the `unrecorded` names the file does not list yet. Until they are listed they are not counted as people (a
+resolved thread of theirs signs nothing, and the gap report may count one co-author under two names), so tell the
+authors and, on their word, pull again with `--record-people`, which adds each to `humans` and its Doc name to the
+handle's `aliases` (or list them with manuscript-mark-people). A wrong mapping is fixed by editing `aliases`.
+`--no-people` maps nobody; `add` never touches the file. A comment or reply that starts with `[ai]` or `[ai:NAME]` is an
 agent's: it names nobody, and such a comment is kept as `not-on-point` with the agent in `ai:`.
 
 Comments are the co-authors' own words: quote them exactly, never summarise one into a different request, and

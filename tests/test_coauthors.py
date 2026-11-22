@@ -132,8 +132,9 @@ def test_import_reads_threads_copies_suggestions_and_where_each_sits(rounds: Pat
 
 
 def test_a_docs_commenters_become_people_and_an_ai_marked_comment_names_nobody(rounds: Path, capsys) -> None:
-    """Reviewers who only use the Doc are people by default: each gets a handle in rev-marks.toml, their Doc name
-    an alias of it. A comment or reply that starts with [ai:NAME] is an agent's, whoever's account posted it."""
+    """Reviewers who only use the Doc are people: each gets a handle, and with --record-people a place in
+    rev-marks.toml, their Doc name an alias of it. A comment or reply that starts with [ai:NAME] is an agent's,
+    whoever's account posted it."""
     doc = export(rounds / "doc.docx")
     with zipfile.ZipFile(doc) as z:
         files = {n: z.read(n).decode() for n in z.namelist()}
@@ -144,9 +145,10 @@ def test_a_docs_commenters_become_people_and_an_ai_marked_comment_names_nobody(r
         for name, text in files.items():
             z.writestr(name, text)
     ledger = rounds / "v0.5" / "comments.yaml"
-    assert cli("import", doc, "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md") == 0
+    assert cli("import", doc, "--ledger", ledger, "--master", rounds / "v0.5" / "paper.md", "--record-people") == 0
     result = json.loads(capsys.readouterr().out)
     assert [(p["name"], p["handle"], p["rule"]) for p in result["people"]] == [(ANN, "annlee", "new")]
+    assert "unrecorded" not in result
     config = tomllib.loads((rounds / "v0.5" / "rev-marks.toml").read_text(encoding="utf-8"))
     assert config["humans"] == ["annlee"] and config["aliases"] == {"annlee": [ANN]}  # Bob only wrote as an agent
     items = {i["id"]: i for i in ledger_of(ledger)["items"]}
@@ -156,6 +158,26 @@ def test_a_docs_commenters_become_people_and_an_ai_marked_comment_names_nobody(r
     assert cli("status", ledger, "--json") == 0
     rows = {r["id"]: r for r in json.loads(capsys.readouterr().out)["items"]}
     assert rows["C3"]["problems"] == [] and rows["C2"]["problems"]  # the agent's comment asks nothing; Ann's does
+
+
+def test_a_pull_reads_rev_marks_and_names_whom_it_does_not_list(rounds: Path, capsys) -> None:
+    """dna-seq/manuscript-skills#6: a pull wrote the commenters into the paper's rev-marks.toml unasked, and the run
+    was reverted. By default it only reads the file: by: on each item, and the names it lacks listed."""
+    folder = rounds / "v0.5"
+    config = folder / "rev-marks.toml"
+    config.write_text('humans = ["annlee"]\n', encoding="utf-8")
+    before = config.read_bytes()
+    ledger = folder / "comments.yaml"
+    assert cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", folder / "paper.md") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert config.read_bytes() == before
+    assert result["unrecorded"] == [{"name": BOB, "handle": "bobray"}] and "--record-people" in result["record_with"]
+    items = {i["id"]: i for i in ledger_of(ledger)["items"]}
+    assert items["C1"]["by"] == "annlee"
+    assert cli("import", export(rounds / "doc.docx"), "--ledger", ledger, "--master", folder / "paper.md",
+               "--record-people") == 0
+    assert "unrecorded" not in json.loads(capsys.readouterr().out)
+    assert tomllib.loads(config.read_text(encoding="utf-8"))["humans"] == ["annlee", "bobray"]
 
 
 def test_no_people_and_hand_written_items_leave_rev_marks_alone(rounds: Path, capsys) -> None:
@@ -1131,7 +1153,7 @@ def test_port_runs_pull_and_findings_through_the_run(rounds: Path, tmp_path: Pat
     import dashboard as viz  # the dashboard reads these items as they are
     viz.Coauthors.model_validate(found["coauthors"] | {"items": [
         {k: v for k, v in i.items() if k in viz.CoauthorComment.model_fields} for i in found["coauthors"]["items"]]})
-    assert (folder / "rev-marks.toml").is_file()
+    assert not (folder / "rev-marks.toml").exists()  # the pull reads it; --record-people writes it (#6)
     recorded = json.loads((run / "run.json").read_text())["skills"]["manuscript-coauthors"]["commands"]
     assert len(recorded) == 2 and all(c["exit_code"] == 0 for c in recorded)
 
